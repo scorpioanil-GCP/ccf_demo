@@ -1,8 +1,10 @@
 # CCF SDK v1.0.2 — Security Remediation Design: the remaining HIGH findings
 
 - **Date:** 2026-09-25
-- **Status:** DRAFT for Dave's review. **No plan and no code until this file is
-  accepted** (Dave, 2026-09-25). Acceptance is recorded as `D-IMPL-356` (§10).
+- **Status:** **ACCEPTED by Dave, 2026-09-25 18:06 MST, at `cb319661`**, recorded
+  as `D-IMPL-356`. The reviewed sub-rulings A1–G10 are **locked** (§0.1); the
+  wave-1 opening sheet is the next deliverable; no wave-2/3 implementation, no
+  release or tag work, no new reconnaissance until it is presented.
 - **Authority:** the security review of 2026-09-23
   (`/home/parkave/ccf_security_review_2026-09-23.md`, deliberately outside the
   repository); Dave's eight rulings and two locks of 2026-09-25 (§0);
@@ -38,6 +40,51 @@
 | 8 | Quorum | **(a)** single eligible approver, no self-approval, in 1.0.2. N-of-M is a claim-and-consume amendment; 1.0.3. |
 | L1 | Lock | The `SEC-029` version stamp is **wave 1**, or ships in the same release as the clock (wave 2). Not "later". |
 | L2 | Lock | The eight doors that `D-IMPL-353` left crashing at construction are **ledgered, not unfrozen**, in these waves. |
+
+### 0.1 Acceptance and the locked rulings (Dave, 2026-09-25 18:06 MST; `D-IMPL-356`)
+
+The architecture, the wave structure, the compatibility posture and the
+reviewed sub-rulings A1–A5, B1–B5, C1–C6 with C1a, D1–D13, E1–E8, F1–F7 and
+G1–G10 are accepted as each carries its recommendation below. **They are
+locked now and are not reopened at each wave**; a wave's entry records them,
+and one is reopened only when implementation produces evidence that directly
+contradicts the accepted design. Dave named these in particular: `SEC-008`'s
+write half is option (d) — the single writer refuses an envelope outside the
+tenant-declared temporal window using the same policy artifact and the
+injected fabric clock, never restamps evidence, and replay never ingests a
+refused envelope; a populated `served_at` participates in record identity
+while the absent sentinel preserves every pre-1.0.2 record unchanged; a
+child's remaining validity is judged at the trusted fabric instant; refusal
+identity must not depend on an unpinned wall-clock read; requester ≠ approver
+unconditionally; trusted HITL keys are pinned by subject through policy; a
+submission records the admitting policy version; a missing requester refuses;
+signature freshness is directional; single approver only, quorum stays 1.0.3;
+the subject floor is the 512-character ASCII allowlist as specified, both quote
+characters excluded; a blank identity refuses; the `D-IMPL-347` seam-class
+amendment is accepted as written; `SEC-029` version provenance ships in this
+release; `D-IMPL-159` remains the named two-leg residual; no SDK default
+temporal window; erasure is a decision and design entry with zero
+implementation; the panel is codex + cursor + gemini; the estate-gated
+examples run read-only at every wave close and at final qualification.
+
+**One acceptance condition — the adapter HIGHs** (§7.1, §8.2, §8.4):
+`TP-01`…`TP-05` stay a 1.0.3 implementation as designed, and the release
+carries this condition verbatim: *"A TP-01…TP-05 finding may be deferred to
+1.0.3, but an enabled path known to violate its security contract must not be
+represented as a supported-safe 1.0.2 path merely because remediation is
+deferred."* For each TP finding the 1.0.2 release record states exactly one of:
+**supported and not affected by the finding**; **restricted or disabled from
+the supported surface**; **known limitation explicitly outside the supported
+1.0.2 contract**. This authorizes no adapter implementation in 1.0.2 and
+creates no fourth code wave.
+
+**Compatibility, restated as accepted:** insecure behavior is not preserved for
+compatibility; historical replay bytes and addresses are never rewritten;
+workflow-schema versioning (the `2.0.0` lane, declarative — the generation
+boundary is `gate_routes`) and SDK release versioning are separate; `v1.0.2`
+remains the working release name under the standing "nothing has shipped"
+ruling, not to be reopened unless actual external distribution or dependency
+evidence appears.
 
 ---
 
@@ -90,7 +137,7 @@ Three build waves, one decision-only wave, one release:
 
 These are the project's rules, restated because each has already been paid for once.
 
-1. **Sequence per wave:** the wave's `D-IMPL` entry is ruled → build in worktrees → red-when-fixed tests rewritten (never deleted) → sabotage on the merged tree (a named severing per guard, each reddening a named test) → the estate-gated example run, read-only against `.76` (§8.3) → the cross-AI panel → every finding and every retraction verified against the tree → blocking findings fixed in-wave → STOP for Dave. A wave is closed by Dave's ruling and a `D-GATE` line, never by execution completing.
+1. **Sequence per wave:** the wave's `D-IMPL` entry records the locked rulings (§0.1; reopened only on contradicting implementation evidence) → build in worktrees → red-when-fixed tests rewritten (never deleted) → sabotage on the merged tree (a named severing per guard, each reddening a named test) → the estate-gated example run, read-only against `.76` (§8.3) → the cross-AI panel → every finding and every retraction verified against the tree → blocking findings fixed in-wave → STOP for Dave. A wave is closed by Dave's ruling and a `D-GATE` line, never by execution completing.
 2. **The panel is codex + cursor + gemini** (§0, #6), briefed with the known findings and told not to re-derive them, told the SDK is destined for a **bank**, with the source **inlined on stdin** in bundles of at most ~150 KB each (a single argv string caps at 131,072 bytes and all three CLIs then exit 0 having read nothing). Each wave's phase record names its bundles and their exclusions. Wave 1's named ranges measure 53,530 bytes and fit in one bundle; waves 2 and 3 do not and are split (§4.9, §5.3).
 3. **"Nothing has shipped" governs** (`D-IMPL-351`, `docs/DECISIONS.md:4661`, restated by Dave past v1.0.1 in §0 #4): a remedy argued down because a change would move a hash, break a fixture or alter a committed expectation is re-argued without that premise. Security defaults are generation boundaries (`HASH_TRANSPARENT_KEY: False`), not hash-transparent silence, **except** where a stated reason makes silence safe, and each such field names its reason at its site: `served_at` (Dave, §0 #4: pre-1.0.2 addresses rehydrate; a populated value is addressed), `pattern`/`subject_domain` (the floor governs silence, §3.3), `attestation` (an unsigned submission is refused wherever signing is required, §5.1), `hitl_policy_ref` (§5.1), `started_by`/`requested_by` (an absent requester is refused at resolution, §5.2). A field marked `True` by silence is a defect.
 4. **A guard whose applicability the caller supplies is not a guard** (`D-IMPL-350`, `docs/DECISIONS.md:4637`). Every comparand in this document is taken from what the fabric recorded or what an artifact declares, never from what the caller presents.
@@ -1469,6 +1516,17 @@ harness-portability probe walks (`tests/conformance/test_harness_portability.py:
 `:464`; 15 nodes). (g) `D-IMPL-25`'s "required iff the bound agent has a
 non-empty skill-set" must be re-read as "non-empty **exposable** skill-set".
 
+**The 1.0.2 release condition on these findings (Dave, `D-IMPL-356`).** *"A
+TP-01…TP-05 finding may be deferred to 1.0.3, but an enabled path known to
+violate its security contract must not be represented as a supported-safe
+1.0.2 path merely because remediation is deferred."* The 1.0.2 release record
+(§8.2) states, for each of the five, exactly one of: **supported and not
+affected**; **restricted or disabled from the supported surface**; **known
+limitation explicitly outside the supported 1.0.2 contract**. The
+determination is made at qualification against the shipped adapters, not
+assumed here; a finding whose enabled path still violates its contract cannot
+take the first status.
+
 **The 1.0.3 ruling sheet** (not ruled here): the `D-IMPL-25` reading of
 `effects: unsupported` (no dispatch and no write-back, recommended); the
 harness-exposable roster `{tool, mcp, local_callable}`; the env control
@@ -1579,6 +1637,11 @@ prerequisite); curated-estate watermarks before and after, zero movement.
 - **Per-wave panel dispositions** (three waves plus the erasure design
   review), each finding and each retraction verified against the tree, in
   `docs/V1.0.2-CLOSE-REVIEWS.md`.
+- **The adapter status table** (`D-IMPL-356`): one row per `TP-01`…`TP-05`
+  stating *supported and not affected* / *restricted or disabled from the
+  supported surface* / *known limitation outside the supported 1.0.2
+  contract*, with the evidence for the row; no enabled path known to violate
+  its security contract is represented as supported-safe.
 
 ### 8.3 The estate-gated example nodes
 
@@ -1618,7 +1681,10 @@ tag did not:
 - Closed before 1.0.2: `SEC-001`, `SEC-003` (`D-IMPL-350`); `SEC-002`,
   `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (`D-GATE-353`).
 - Entered, not built: `SEC-009` (`D-IMPL-360`); `TP-01`…`TP-05` rated HIGH
-  (`D-IMPL-361`).
+  (`D-IMPL-361`), each carrying its `D-IMPL-356` status — supported and not
+  affected / restricted or disabled / known limitation outside the supported
+  1.0.2 contract — and none represented as supported-safe while its enabled
+  path violates its contract.
 - Open: `SEC-013`, `SEC-014`, `SEC-015`, `SEC-017`, `SEC-020`–`SEC-028`
   (`SEC-027` being Dave's PyPI action); quorum, roles, the rows in §7.4; `EX-03`, `EX-04`,
   `EX-07`–`EX-10`; `SEC353-G-01`…`G-09`; the `D-IMPL-353` residuals.
@@ -1684,7 +1750,9 @@ tag did not:
     every red carries a ledger row by node id with its classification; the
     curated estate's watermarks unchanged.
 13. `D-IMPL-360` ruled on all ten axes; zero code under it in the tree.
-14. `D-IMPL-361` rates `TP-01`…`TP-05` HIGH and names the 1.0.3 ruling sheet.
+14. `D-IMPL-361` rates `TP-01`…`TP-05` HIGH and names the 1.0.3 ruling sheet;
+    the release record carries the adapter status table (§8.2) with one of the
+    three `D-IMPL-356` statuses per finding, evidenced at qualification.
 
 ---
 
@@ -1692,7 +1760,7 @@ tag did not:
 
 | Id | Entry |
 |---|---|
-| `D-IMPL-356` | The v1.0.2 charter: this document accepted; scope, waves, rules, the eight rulings and two locks of §0. |
+| `D-IMPL-356` | **Written 2026-09-25:** this document accepted at `cb319661`; the eight rulings and two locks of §0; A1–G10 locked; the adapter release condition; the compatibility restatement. |
 | `D-IMPL-357` | Wave 1: §A verdict→target (A1–A5), §B identity admissibility (B1–B5, amending `D-IMPL-347` B2 for SDK-raised seam classes), §C request-value shape (C1–C6 incl. C1a, amending `D-IMPL-264` D-03), §D version stamp and tag map. |
 | `D-IMPL-358` | Wave 2: the fabric clock (D1–D13), amending `D-IMPL-253` Q6, Q23 and Amendment 3(3) (`served_at` is addressed content), Q5's realization (D11), and the `D-IMPL-308` Gate-3-at-decision reading (D3) while keeping its fallback (D4); carrying `D-IMPL-159` as a bounded residual (D7); recording `SEC-011` Gate 2 NOT-A-GAP; the `SEC-019` rider; the `SEC-008` follow-on rows. |
 | `D-IMPL-359` | Wave 3: the HITL claim set (E1–E8), amending `D-IMPL-21` #2 and `D-IMPL-353` §1.2/§1.3; approver eligibility (F1–F7). |
