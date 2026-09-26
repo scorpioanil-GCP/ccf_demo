@@ -57,6 +57,10 @@ from ccf.agents.definitions import (
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
+from ccf.controlplane.audit import (
+    AuditEvent,
+    WorkflowVerdictIntegrityAuditEvent,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphView
 from ccf.hitl.approval_gate import (
@@ -898,7 +902,18 @@ def test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch(
     assert "does not agree with the route" in refused.reason
     assert "reject" not in refused.reason and "rejected" not in refused.reason
     resumed = [e for e in registry.audit_log.events() if e.action == "workflow_resumed"]
-    assert resumed[-1].resolved is False and resumed[-1].actor is None
+    assert resumed[-1].resolved is False
+    # STRENGTHENED, not relaxed (D-IMPL-357 A4). This row used to assert
+    # ``actor is None``, which was the defect the A4 review named: every
+    # resume refusal audited identically, so "a caller tried to route a
+    # recorded rejection down the approving branch" was byte-identical in
+    # the log to "a caller mistyped the decision". A refusal caused by a
+    # recorded human verdict now names the rule and the approver, and the
+    # event class itself distinguishes it.
+    assert isinstance(resumed[-1], WorkflowVerdictIntegrityAuditEvent)
+    assert resumed[-1].workflow_verdict_integrity == "route_disagreement"
+    assert resumed[-1].workflow_recorded_approver == "officer-2"
+    assert resumed[-1].actor == "officer-2"
     # The gate is still open, and the declared route for the verdict works.
     record = registry.state_store.get(
         WORKFLOW_STATE, f"{workflow.definition.tenant}/exec-1"
@@ -1811,3 +1826,93 @@ def test_a_verdict_bound_to_another_suspension_does_not_freeze_this_gate(
     )
     assert isinstance(outcome, WorkflowCompleted)
     assert outcome.terminal_state == "approved"
+
+
+def test_a_conflicting_verdict_refusal_is_a_distinct_audited_record(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """D-IMPL-357 A4. A verdict-integrity refusal is findable in the log.
+
+    Before this, every resume refusal audited identically — same
+    ``workflow_resumed`` action, ``resolved=False``, ``actor=None``, no
+    reason on the event — so the one refusal a bank's investigator would
+    search for was byte-identical to a caller's typo. The refusal PROSE
+    still names neither verdict nor target (SEC-001 remedy 3); the audit
+    plane is a different reader, and this is where the fact lands.
+
+    The negative half is the load-bearing half: a refusal the caller's own
+    request produced must NOT claim a verdict-integrity rule, or the
+    distinction the class exists to draw is gone again. Asserted here with
+    the undeclared-decision refusal on the same suspension.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="approve", subject_id="officer-1",
+    )
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="reject", subject_id="officer-2",
+    )
+    assert isinstance(
+        asyncio.run(
+            engine.resume(
+                resume_as(workflow), workflow, execution_id="exec-1",
+                decision="approved",
+            )
+        ),
+        WorkflowResumeRefused,
+    )
+    refusals = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed" and not event.resolved
+    ]
+    assert len(refusals) == 1
+    recorded = refusals[-1]
+    assert isinstance(recorded, WorkflowVerdictIntegrityAuditEvent)
+    assert recorded.workflow_verdict_integrity == "conflicting_verdicts"
+    # The approver at the head of the eligible verdicts — the actor the
+    # resumption would have been attributed to had it proceeded — rather
+    # than nothing. Not the only party: by construction another human
+    # recorded the contradicting verdict, which the member itself says.
+    assert recorded.workflow_recorded_approver == "officer-1"
+    assert recorded.actor == "officer-1"
+    # A refusal the CALLER produced claims no verdict-integrity rule. On a
+    # SECOND execution, because on exec-1 the conflict check is ordered
+    # ahead of the declared-target check and answers first — which is
+    # itself the ordering the sibling tests pin.
+    second = asyncio.run(
+        engine.execute(execute_as(workflow), workflow, execution_id="exec-2")
+    )
+    assert isinstance(second, WorkflowSuspended)
+    second_bound = next(
+        event
+        for event in transport.pending(tenant=tenant)
+        if event.event_key == second.event_key
+    ).product_content_hash
+    _submit_only(
+        transport, tenant=tenant, event_key=second.event_key,
+        product_content_hash=second_bound, action="approve",
+        subject_id="officer-1",
+    )
+    plain = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-2",
+            decision="no-such-transition",
+        )
+    )
+    assert isinstance(plain, WorkflowResumeRefused)
+    caller_refusal = [
+        event
+        for event in registry.audit_log.events()
+        if event.action == "workflow_resumed" and not event.resolved
+    ][-1]
+    assert not isinstance(
+        caller_refusal, WorkflowVerdictIntegrityAuditEvent
+    )
+    assert type(caller_refusal) is AuditEvent
+    assert caller_refusal.actor is None

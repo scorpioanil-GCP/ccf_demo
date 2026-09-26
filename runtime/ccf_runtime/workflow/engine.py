@@ -76,7 +76,12 @@ from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWr
 from ccf.authz.capability import Authorized, Execute, Resume, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
+from ccf.controlplane.audit import (
+    AuditAction,
+    AuditEvent,
+    AuditLog,
+    WorkflowVerdictIntegrityFailure,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import AuditedStateWriter, state_key
@@ -559,7 +564,9 @@ class WorkflowEngine:
                 # refuse on its own, and the record would then say a caller
                 # named the wrong transition rather than that two humans
                 # disagreed. Names NEITHER verdict and NEITHER target
-                # (SEC-001 remedy 3).
+                # (SEC-001 remedy 3); the audit event carries the rule and
+                # the approver selection reached, for the reader who is
+                # entitled to them.
                 return self._refuse(
                     authorized,
                     workflow,
@@ -571,6 +578,8 @@ class WorkflowEngine:
                         " path must be reconciled by a human before it"
                         " resumes (D-IMPL-357 A4; CLAUDE.md §8.2)"
                     ),
+                    verdict_integrity="conflicting_verdicts",
+                    recorded_approver=actor,
                 )
             targets = self._targets(workflow, record.current_state)
             if decision not in targets:
@@ -621,6 +630,8 @@ class WorkflowEngine:
                         f" {record.current_state!r}; routing is interpreted"
                         " from the artifact only (CINV-01; D-IMPL-357)"
                     ),
+                    verdict_integrity="route_disagreement",
+                    recorded_approver=actor,
                 )
             trace = record.trace + (
                 self._entry(
@@ -1456,6 +1467,8 @@ class WorkflowEngine:
         action: AuditAction,
         resolved: bool,
         actor: str | None,
+        verdict_integrity: WorkflowVerdictIntegrityFailure | None = None,
+        recorded_approver: str | None = None,
     ) -> None:
         """Audit one transition that changes no persisted state.
 
@@ -1464,6 +1477,15 @@ class WorkflowEngine:
         would let a gate resolution be audited with the approver silently
         omitted — the shape that let the pre-fix engine record
         ``resolved=True`` for an approval that never happened.
+
+        ``verdict_integrity`` and ``recorded_approver`` DO default, because
+        their absence is the ordinary case and the log's default event class
+        is the honest record of it (D-IMPL-357 A4). Supplying the member
+        makes the appended event a
+        :class:`~ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent`,
+        which is how a refusal caused by a recorded human verdict stops
+        being byte-identical to a caller's typo. They travel as a pair:
+        every site that names a rule also names the approver it reached.
         """
         self._audit.append(
             action=action,
@@ -1473,6 +1495,8 @@ class WorkflowEngine:
             occurred_at=self._clock(),
             actor=actor,
             artifact_class=WORKFLOW_DEFINITION.class_id,
+            workflow_verdict_integrity=verdict_integrity,
+            workflow_recorded_approver=recorded_approver,
         )
 
     def _refuse(
@@ -1482,15 +1506,35 @@ class WorkflowEngine:
         *,
         execution_id: str,
         reason: str,
+        verdict_integrity: WorkflowVerdictIntegrityFailure | None = None,
+        recorded_approver: str | None = None,
     ) -> WorkflowResumeRefused:
-        """Return a typed refusal, audited ``resolved=False``."""
+        """Return a typed refusal, audited ``resolved=False``.
+
+        A refusal the caller's own request produced — no execution, a
+        terminal one, a definition mismatch, no authority, an undeclared
+        decision — audits with no actor, because no human's recorded
+        verdict is what refused it.
+
+        The two verdict-integrity refusals are different in kind and now
+        different in the record (D-IMPL-357 A4): they refuse BECAUSE a
+        human's verdict was recorded, so they name the rule and the
+        approver, and the appended event is a
+        :class:`~ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent`.
+        ``actor`` carries the same approver: the refusal row is not an
+        attributed passage — ``resolved`` is ``False`` — but it IS about a
+        human action, and an investigator filtering the log by actor must
+        find it.
+        """
         tenant = authorized.tenant
         self._append(
             workflow,
             self._key(tenant, execution_id),
             action="workflow_resumed",
             resolved=False,
-            actor=None,
+            actor=recorded_approver,
+            verdict_integrity=verdict_integrity,
+            recorded_approver=recorded_approver,
         )
         return WorkflowResumeRefused(
             tenant=tenant, execution_id=execution_id, reason=reason
