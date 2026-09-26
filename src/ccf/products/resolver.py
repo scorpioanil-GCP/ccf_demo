@@ -196,6 +196,7 @@ from ccf.products.contract import (
     ComputedEmptyFinding,
     ContextProductContract,
     MaxTTL,
+    ProductClassRegistrationError,
     ProductLineage,
     RegisteredProductClass,
     register_product_class,
@@ -427,7 +428,9 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
 #:
 #: Consulted BEFORE a product class's declared map, so the SDK's meaning is the
 #: one minted for its own type: a class cannot restate "this record names no
-#: entity" as "you may not see it" and borrow the SDK's authority for it.
+#: entity" as "you may not see it" and borrow the SDK's authority for it — and a
+#: class that declares one of these types is refused at registration rather than
+#: quietly overridden (:func:`_refuse_sdk_owned_seam_refusal`).
 SDK_SEAM_REFUSALS: Final[Mapping[str, SeamRefusalBinding]] = MappingProxyType(
     {
         "ccf.assembly.worker.IdentityRefused": SeamRefusalBinding(
@@ -437,6 +440,61 @@ SDK_SEAM_REFUSALS: Final[Mapping[str, SeamRefusalBinding]] = MappingProxyType(
         ),
     }
 )
+
+
+def _refuse_sdk_owned_seam_refusal(declaration: ProductClassDeclaration) -> None:
+    """Raise unless the class leaves the SDK's own seam classes alone.
+
+    `D-IMPL-357` B3, round 3. A class may declare a binding for any exception
+    type it owns the meaning of; it may not declare one for a type in
+    :data:`SDK_SEAM_REFUSALS`, because the SDK consults its own map first and
+    the declaration would therefore do **nothing at all**.
+
+    **Why it is refused rather than ignored.** This project's own doctrine,
+    written one function away for the deployment-narrowing case: *an ignored
+    widening and an honored narrowing are the same green build, and the operator
+    who wrote the extra name would never learn it did nothing.* The class
+    declaration is the **control evidence** — reviewed, versioned,
+    content-hashed and shown to an examiner — so a class saying that an identity
+    failure means *"you may not see it"* while the fabric mints *"does not
+    exist"* is a deployed behavior that disagrees with its own approved control
+    document, with nothing in the record admitting it. A silently inert control
+    is worse than a rejected one.
+
+    **Why REGISTRATION and not the seam.** Refusing when the exception is
+    actually raised would turn a governance mistake into precisely the runtime
+    failure B3 exists to remove — an untyped error in front of a caller, at the
+    moment a question was being answered. Here, nobody has asked anything yet
+    and both documents are in hand, so the failure names the two things that
+    disagree and the author can still fix it. The check is NOT on
+    :class:`~ccf.controlplane.artifacts.ProductClassDeclaration` itself: that
+    module cannot import this one (the import direction this module's own
+    ``register_product_class`` neighbours already document as a cycle), and a
+    model validator is the wrong altitude for a question about a mapping that
+    lives here.
+
+    The SDK-first consult order stays as the runtime backstop for anything that
+    reaches a resolver by another route, and a control keeps proving it holds.
+    """
+    conflicting = [
+        binding
+        for binding in declaration.seam_refusals
+        if binding.exception in SDK_SEAM_REFUSALS
+    ]
+    if not conflicting:
+        return
+    named = conflicting[0]
+    owned = SDK_SEAM_REFUSALS[named.exception]
+    raise ProductClassRegistrationError(
+        f"product class {declaration.schema_name!r} declares a seam refusal for"
+        f" {named.exception!r}, which is an exception the SDK RAISES and whose"
+        f" meaning the SDK owns: it is bound to cause {owned.cause!r} / code"
+        f" {owned.error_code!r} and that binding is consulted first, so this"
+        f" declaration's cause {named.cause!r} / code {named.error_code!r} could"
+        " never be minted. Drop it from `seam_refusals`. A class declaration is"
+        " control evidence, and a control that silently does nothing is worse"
+        " than one that is refused (D-IMPL-357 B3)"
+    )
 
 
 #: What a resolver returns: a served product, or the refusal that stands
@@ -4345,7 +4403,11 @@ def build_governed_resolver(
         ProductClassRegistrationError: the product class declares a default for
             a parameter its request contract does not declare as an argument —
             an internally inconsistent declaration, refused at boot under
-            ``D-IMPL-258`` (5) rather than in front of a caller.
+            ``D-IMPL-258`` (5) rather than in front of a caller. Also raised
+            when the class declares a ``seam_refusals`` binding for an exception
+            in :data:`SDK_SEAM_REFUSALS`, whose meaning the SDK owns and
+            consults first, so the declaration could never be minted
+            (:func:`_refuse_sdk_owned_seam_refusal`).
         ValueError: a declared factor lies outside ``[0, 1]``. Raised by
             :class:`~ccf.products.debt_scorer.DeclaredFactor`, where the value
             was authored, rather than three frames later.
@@ -4422,6 +4484,13 @@ def build_governed_resolver(
         serve_obligations=boot_declaration.serve_obligations,
         declared=_request_contract_on(fabric, key=request_contract_key),
     )
+    # `D-IMPL-357` B3 round 3, in the same breath and for the same reason: a
+    # class declaring a seam refusal for one of the SDK's OWN seam exceptions
+    # has authored a control that can never fire, because the SDK's map is
+    # consulted first. Refused HERE — where both documents are in hand and
+    # nobody has asked a question — rather than at the seam, which would turn a
+    # governance mistake into the very runtime failure B3 removed.
+    _refuse_sdk_owned_seam_refusal(boot_declaration)
 
     # `24.11-04` / `D-IMPL-295`, immediately after and for the same reason: a
     # request-bound operator parameter naming an argument the contract does not

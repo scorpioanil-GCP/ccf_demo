@@ -520,17 +520,33 @@ def test_every_sdk_seam_map_entry_names_a_REAL_exception_the_SDK_ITSELF_defines(
         assert f"{resolved.__module__}.{resolved.__qualname__}" == name, name
 
 
-def test_the_sdk_map_wins_over_a_product_class_declaring_the_same_sdk_type(
+def test_a_class_declaring_an_SDK_OWNED_seam_type_is_REFUSED_at_registration(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Consulted BEFORE the class's map, so the SDK's meaning is the one minted.
+    """A control that can never fire is refused, not ignored.
 
-    The SDK owns the meaning of the exceptions it raises, so a class cannot
-    restate one of them as something else — here as ``unauthorized`` /
+    This is the same config the SDK-wins control below exercises below the door:
+    a class restating ``IdentityRefused`` as ``unauthorized`` /
     ``borrowed-authority``, which would turn "this record names no entity" into
-    "you may not see it". The refusal carries the SDK's cause and the SDK's
-    code, and the class's restatement appears nowhere in the record.
+    "you may not see it". The SDK consults its own map first, so the declaration
+    could never be minted — and this project's own doctrine, written one
+    function away for the deployment-narrowing case, is that *an ignored
+    widening and an honored narrowing are the same green build, and the operator
+    who wrote the extra name would never learn it did nothing*.
+
+    It matters because the class declaration is **control evidence**: reviewed,
+    versioned, content-hashed, shown to an examiner. A deployed behavior that
+    disagrees with its own approved control document, with nothing in the record
+    admitting it, is worse than a refusal.
+
+    **At registration, never at the seam.** The refusal arrives with no question
+    in flight and names both sides; refusing when the exception was actually
+    raised would turn a governance mistake into exactly the untyped
+    in-front-of-a-caller failure B3 exists to remove. The message names the
+    SDK-owned key, the SDK's binding, and the remedy.
     """
+    from ccf.products.contract import ProductClassRegistrationError
+
     config = _config()
     config["product_class"]["seam_refusals"] = [
         {
@@ -548,12 +564,91 @@ def test_the_sdk_map_wins_over_a_product_class_declaring_the_same_sdk_type(
         )
 
     with _open(root, scratch, project=_null_identity) as opened:
-        outcome = opened.answer(_question(opened))
-        assert isinstance(outcome, RefusalEnvelope), outcome
-        block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
-        assert "identity-refused" in block and "nonexistent" in block, block
-        assert "borrowed-authority" not in block, block
-        assert "unauthorized" not in block, block
+        with pytest.raises(ProductClassRegistrationError) as refused:
+            opened.answer(_question(opened))
+    message = str(refused.value)
+    for named in (
+        "ccf.assembly.worker.IdentityRefused",  # the SDK-owned key
+        "nonexistent",  # the SDK's binding …
+        "identity-refused",  # … both halves of it
+        "borrowed-authority",  # what the author wrote, so they can find it
+        "Drop it from `seam_refusals`",  # the remedy
+    ):
+        assert named in message, (named, message)
+
+
+def test_the_sdk_map_wins_over_a_product_class_declaring_the_same_sdk_type() -> None:
+    """THE RUNTIME BACKSTOP the registration refusal does not replace.
+
+    Consulted BEFORE the class's map, so the SDK's meaning is the one minted.
+    The registration refusal above closes the paved road to this declaration, so
+    this control necessarily sits BELOW that door — it drives the lookup
+    directly — and it is the reason the consult ORDER still has to hold: a
+    resolver reached by some other route, or a declaration that arrives after a
+    boot, must not be able to borrow the SDK's authority for a type the SDK owns.
+
+    Asserted on the binding the lookup RETURNS rather than on record text, which
+    is strictly more than the paved-road version could see: it pins the SDK's
+    cause and code and pins that the class's restatement is not the object
+    chosen.
+    """
+    from ccf.controlplane.artifacts import ProductClassDeclaration, SeamRefusalBinding
+    from ccf.products.resolver import SDK_SEAM_REFUSALS, GovernedResolver
+
+    restated = SeamRefusalBinding(
+        exception="ccf.assembly.worker.IdentityRefused",
+        cause="unauthorized",
+        error_code="borrowed-authority",
+    )
+    declaring = ProductClassDeclaration.model_construct(seam_refusals=(restated,))
+
+    # The SHIPPED method, called on an instance that supplies only what it
+    # reads. `GovernedResolver` is a frozen dataclass, so the declaration read is
+    # substituted through `object.__setattr__`; nothing else in the method is
+    # touched, so this exercises the real lookup rather than a copy of it.
+    resolver = object.__new__(GovernedResolver)
+
+    def _declaring() -> ProductClassDeclaration:
+        return declaring
+
+    object.__setattr__(resolver, "_declaration", _declaring)
+
+    chosen = GovernedResolver._declared_seam_refusal(
+        resolver,
+        IdentityRefused(
+            envelope_id="env-null",
+            entity_class="company",
+            key="lei",
+            field="lei",
+            reason="blank",
+        ),
+    )
+    assert chosen is SDK_SEAM_REFUSALS["ccf.assembly.worker.IdentityRefused"]
+    assert (chosen.cause, chosen.error_code) == ("nonexistent", "identity-refused")
+    assert chosen is not restated, "the class's restatement was chosen"
+
+    # And the class's OWN types still reach it — the SDK map is a first look,
+    # not a short circuit that drops the declared map.
+    declared_only = ProductClassDeclaration.model_construct(
+        seam_refusals=(
+            SeamRefusalBinding(
+                exception=f"{__name__}._ControlRoomUnreachable",
+                cause="unauthorized",
+                error_code="control-room-unreachable",
+            ),
+        )
+    )
+
+    def _declared_only() -> ProductClassDeclaration:
+        return declared_only
+
+    object.__setattr__(resolver, "_declaration", _declared_only)
+    assert (
+        GovernedResolver._declared_seam_refusal(
+            resolver, _ControlRoomUnreachable("still declared")
+        )
+        is declared_only.seam_refusals[0]
+    )
 
 
 def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
