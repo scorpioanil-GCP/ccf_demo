@@ -221,9 +221,23 @@ argument for the weaker shape.
 The residual was pinned by a test written to go RED the moment a
 verdict→target binding was declared and enforced. **That moment arrived:
 `D-IMPL-357` A1 declares `gate_routes` on the workflow definition and A3
-enforces it in `resume`, so the residual is CLOSED and the pin now asserts the
-closed behavior** —
+enforces it in `resume`, so the ROUTING residual is closed FOR A SINGLE
+RECORDED VERDICT, and the pin now asserts the closed behavior** —
 `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`.
+Stated with its limit rather than as a full close, because two measured paths
+still reach an approving terminal after a rejection was recorded, and both are
+verdict SELECTION rather than routing — they decide which recorded verdict
+becomes the authority, and A3's compare then faithfully agrees with whichever
+one was selected. **Two distinct verdicts on one suspension resolve to the
+OLDEST** (`_gate_authority` takes `next((...), None)` over an oldest-first
+submission list, and the submit-only action door consumes no pending event, so
+both stay eligible), and **a stamp race in the transport** lets a principal
+holding submit authority land an approve in the window between the officer's
+resolve removing the claim and submitting, so the officer's rejection is
+recorded unstamped and ignored. Both are `D-IMPL-357` **task A4**'s; neither is
+closed here. *(The rest of this section still reads in the pre-A1 present
+tense and contradicts itself in places — assigned to A5, which owns the
+published pages.)*
 
 ## Regression evidence
 
