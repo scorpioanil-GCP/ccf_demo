@@ -574,9 +574,12 @@ class WorkflowEngine:
                     reason=(
                         f"execution {key!r} carries conflicting human"
                         f" verdicts on gate {record.current_state!r}; a gate"
-                        " routes on one recorded verdict, and the authority"
-                        " path must be reconciled by a human before it"
-                        " resumes (D-IMPL-357 A4; CLAUDE.md §8.2)"
+                        " routes on one recorded verdict and the fabric will"
+                        " not choose between two, and it offers no primitive"
+                        " for reconciling a conflicted suspension, so this"
+                        " gate stays suspended until the disagreement is"
+                        " settled operationally, outside the fabric"
+                        " (D-IMPL-357 A4; CLAUDE.md §8.2)"
                     ),
                     verdict_integrity="conflicting_verdicts",
                     recorded_approver=actor,
