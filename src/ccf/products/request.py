@@ -307,8 +307,18 @@ class ProductRequest(CCFContract):
             ``{counterparty-id}`` slot of the worked address pattern. An
             opaque deployment identifier; the SDK matches it structurally and
             interprets none of it, and validates its **shape**: the
-            mechanism floor :data:`SUBJECT_FLOOR_V1` always, and a declared
+            mechanism floor :data:`SUBJECT_FLOOR_V1` **on the governed path**
+            (:meth:`~ccf.products.resolver.GovernedResolver.__call__`, which
+            calls :func:`refuse_floor` before the overridable seam), and a
+            declared
             ``subject_domain`` when the class declares one (``D-IMPL-357``).
+            **The qualifier replaces an earlier "always" and matters.** This
+            field's own docstring is the first thing a reader of the request
+            contract meets, and a reader who concludes the field is cleared
+            stops checking it — which was the whole of the earlier blocking
+            finding. :func:`refuse_request` does NOT carry the floor, so a
+            caller validating with that function alone gets no shape judgment
+            of this field at all and must call :func:`refuse_floor` itself.
             Whether this caller may receive a product about this subject is
             the door's entitlement check plus Π conditioning, both upstream
             of here.
@@ -1007,13 +1017,25 @@ class ProductRequestContract(VersionedArtifact):
 
     @model_validator(mode="after")
     def _the_subject_domain_is_a_grammar_or_a_set(self) -> "ProductRequestContract":
-        """Refuse a numeric domain over the subject: an identifier has no magnitude.
+        """Refuse a subject domain no subject could ever satisfy — two ways in.
 
-        ``D-IMPL-357`` C4. The sibling of the ``unmeasurable`` clause one
+        ``D-IMPL-357`` C4, second clause added at the C4 fix round. The sibling
+        of the ``unmeasurable`` clause one
         validator down, which refuses numeric bounds over a declared ``string``
         parameter for the same reason. Nothing here judges a VALUE — what a
         subject must look like is the declaration's, and this only refuses a
         declaration that could not judge a subject at all.
+
+        **Two shapes reach that same defect by different routes.** A NUMERIC
+        subject domain is refused because an identifier has no magnitude:
+        bounds over one bound nothing. A NON-STRING member set is refused
+        because :attr:`ProductRequest.subject` is typed ``str`` — such a
+        declaration constructs happily and then refuses *every* subject that
+        could ever be presented, which is the declaration-nothing-satisfies
+        shape the first clause exists to prevent, arriving under a key the
+        first clause does not read. Either end of the numeric shape is enough
+        on its own; a ``maximum`` with no ``minimum`` is refused exactly as a
+        ``minimum`` with no ``maximum`` is, and both are pinned.
         """
         if self.subject_domain is None:
             return self
@@ -1029,6 +1051,19 @@ class ProductRequestContract(VersionedArtifact):
                 "magnitude — bounds over an identifier bound nothing, the "
                 "sibling of the unmeasurable refusal over a declared string "
                 "(D-IMPL-357 C4, D-IMPL-259)"
+            )
+        if self.subject_domain.members is not None and not all(
+            isinstance(member, str) for member in self.subject_domain.members
+        ):
+            raise ValueError(
+                f"the request contract for {self.schema_name!r} at class lane "
+                f"{self.schema_version!r} declares a subject_domain whose "
+                "members are not text; ProductRequest.subject is typed str, so "
+                "no subject that could ever be presented is a member of this "
+                "set and the class would refuse every question it is asked — "
+                "the declaration-nothing-satisfies defect the numeric clause "
+                "above refuses, reached by a different key "
+                "(D-IMPL-357 C4, D-IMPL-264 D-06)"
             )
         return self
 
@@ -2603,7 +2638,11 @@ def refuse_floor(
     no discovery set; `request.freshness` (judged nowhere in this fabric);
     `request.policy_overrides`; any value the resolution stage supplies
     rather than the caller (a contract `defaults` string, a relative
-    default, a policy-narrowed value); any presented string at a position
+    default, a policy-narrowed value); **a string arriving under a parameter
+    key the contract never declared at all** — the eighth carrier, named
+    explicitly here because a reader does not recognize it inside the clause
+    that follows, and because it is the only one whose KEY rather than whose
+    type puts it out of reach; any other presented string at a position
     the declared contract does not type as `string`; and any string nested
     inside a declared member whose type is `object` — an opaque container
     this function does not open. Whether the covered surface should widen —

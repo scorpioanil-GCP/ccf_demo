@@ -2597,12 +2597,115 @@ def test_a_contract_with_no_subject_domain_judges_no_subject() -> None:
     )
 
 
-def test_a_subject_domain_cannot_be_numeric() -> None:
+@pytest.mark.parametrize(
+    "numeric",
+    (
+        {"minimum": Decimal(1)},
+        # Round-2 item 6: the upper-bound clause was unpinned — dropping
+        # `or self.subject_domain.maximum is not None` from the validator left
+        # every suite green, because only a lower bound was ever planted.
+        {"maximum": Decimal(100)},
+        {"minimum": Decimal(1), "maximum": Decimal(100)},
+    ),
+    ids=("minimum only", "maximum only", "both ends"),
+)
+def test_a_subject_domain_cannot_be_numeric(numeric: dict[str, Decimal]) -> None:
+    """Either end of the numeric shape is enough on its own to refuse.
+
+    A subject is an identifier and has no magnitude, so a ceiling over one
+    bounds exactly as little as a floor over one does. The `maximum`-only row
+    is the one that was missing.
+
+    **Measured, population named:** dropping
+    `or self.subject_domain.maximum is not None` from the validator reddens
+    the `maximum only` row and nothing else — `pytest tests/products -q`
+    collects 1598 and the severed run is 1 failed, 1597 passed, 0 errors, 0
+    skipped. Before this row existed that severing left every suite green."""
     from ccf.products.request import ArgumentDomain, ProductRequestContract
 
     assert "subject_domain" in ProductRequestContract.model_fields
     with pytest.raises(ValidationError, match="subject_domain"):
-        _contract(subject_domain=ArgumentDomain(minimum=Decimal(1)))
+        _contract(subject_domain=ArgumentDomain(**numeric))
+
+
+@pytest.mark.parametrize(
+    "members",
+    ((1, 2), (Decimal("1.5"),), (True, False)),
+    ids=("integers", "decimals", "booleans"),
+)
+def test_a_non_string_subject_member_set_is_refused_at_declaration(
+    members: tuple[Any, ...],
+) -> None:
+    """Round-2 item 6, and it is a code change rather than only a test.
+
+    `ProductRequest.subject` is typed `str`, so a member set of numbers or
+    booleans is satisfied by NO subject that could ever be presented: the
+    contract constructed happily and the class then refused every question it
+    was asked. That is the same declaration-nothing-satisfies defect the
+    numeric clause beside it exists to prevent, reached under a different key,
+    and it now fails where the author can still fix it.
+
+    **Measured, population named:** removing that clause from
+    `_the_subject_domain_is_a_grammar_or_a_set` reddens these three rows and
+    nothing else — `pytest tests/products -q` collects 1598 and the severed run
+    is 3 failed, 1595 passed, 0 errors, 0 skipped."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        _contract(subject_domain=ArgumentDomain(members=members))
+    assert "members are not text" in str(raised.value)
+
+
+def test_a_string_subject_member_set_still_constructs() -> None:
+    """The positive control for the refusal above, so it is measuring the member
+    CLASS and not the member shape."""
+    from ccf.products.request import ArgumentDomain
+
+    contract = _contract(subject_domain=ArgumentDomain(members=("alpha", "beta")))
+    assert contract.subject_domain == ArgumentDomain(members=("alpha", "beta"))
+
+
+def test_the_subject_step_precedes_the_tier_step() -> None:
+    """Round-2 item 6: the fixed step order was unpinned.
+
+    `refuse_request`'s docstring calls the order *"fixed and load-bearing"* and
+    puts the subject step second, immediately after the address step, because
+    the subject is an ADDRESS axis (§6.3) and none of the parameter steps has
+    anything to say about it. Measured: moving the subject step after the tier
+    step left every suite green, because no request ever violated both at once.
+
+    This one does — an out-of-domain subject AND a presented parameter the class
+    declares inert — and the verdict must be the subject's.
+
+    **Measured, population named:** swapping the two blocks inside
+    `refuse_request` reddens this row and nothing else — `pytest tests/products
+    -q` collects 1598 and the severed run is 1 failed, 1597 passed, 0 errors, 0
+    skipped."""
+    from ccf.products.request import ArgumentDomain
+
+    contract = _contract(
+        subject_domain=ArgumentDomain(pattern=SUBJECT_GRAMMAR),
+        unsupported_arguments={INERT_PARAMETER: INERT_REASON},
+    )
+    both_wrong = {"required_leaf": "value", INERT_PARAMETER: "2026-01-01"}
+    violation = refuse_request(
+        request=_request(subject="not-twenty-uppercase", parameters=both_wrong),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "subject", violation.detail
+    assert violation.reason == "not-in-domain"
+    # And the tier step really would have fired on its own, so this is
+    # measuring the ORDER and not an absent second violation.
+    tier_only = refuse_request(
+        request=_request(
+            subject=IN_GRAMMAR_PARAMETER_VALUE, parameters=both_wrong
+        ),
+        declared=contract,
+    )
+    assert tier_only is not None
+    assert tier_only.key == INERT_PARAMETER
+    assert tier_only.reason == "not-supported-at-tier"
 
 
 def test_the_subject_domain_is_silent_at_none_in_the_canonical_bytes() -> None:

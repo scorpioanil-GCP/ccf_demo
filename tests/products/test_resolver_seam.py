@@ -3009,14 +3009,29 @@ def test_a_conforming_declared_string_parameter_passes_the_floor_and_serves(
     all (`_refuse_floor_below` returns `None` immediately for a non-`string`
     spec).
 
-    **Measured, not asserted.** Dropping the `fullmatch` check inside
-    `_refuse_floor_below`'s plain-`string` branch — refusing every presented
-    `string`, conforming or not — reddens THIS test alone: the
-    malformed-parameter test above still passes (its out-of-grammar value is
-    still refused, coincidentally, by an unconditional refusal), the stock
-    well-formed control still passes (it presents no string parameter for the
-    broken branch to ever see), and the malformed-subject test is unaffected
-    (a different code path). Only a test presenting a CONFORMING declared
+    **Measured, not asserted — AND THE POPULATION IS PART OF THE CLAIM.**
+    Dropping the `fullmatch` check inside `_refuse_floor_below`'s
+    plain-`string` branch — refusing every presented `string`, conforming or
+    not — is the severing. An earlier revision of this docstring said it
+    *"reddens THIS test alone"*, which is true only of the four-test section
+    enumerated below; a later reader using this docstring as the oracle would
+    have read the other reds as a regression. Re-measured, each scope named:
+
+    * **Within this section's four tests — this test alone.** The
+      malformed-parameter test above still passes (its out-of-grammar value is
+      still refused, coincidentally, by an unconditional refusal), the stock
+      well-formed control still passes (it presents no string parameter for
+      the broken branch to ever see), and the malformed-subject test is
+      unaffected (a different code path).
+    * **Within `tests/products/test_resolver_seam.py` — 2 reds:** this test and
+      `test_the_ttl_and_the_record_run_from_the_declared_decision_instant`.
+    * **Across `tests/products` — 1598 collected, 12 failed, 1586 passed, 0
+      errors, 0 skipped.** The other ten are every test that serves a product
+      whose request presents a declared `string`: the cp-05 canonical path
+      (2), the paved road (1), and the floor's own measured-subject-forms and
+      path-traversal rows in `test_request_contract.py` (7).
+
+    Only a test presenting a CONFORMING declared
     string and expecting it to serve can catch a floor that refuses
     everything. That is the asymmetric-coverage trap the round-1 review
     named — a resolver-level section that tested refusal exhaustively and
