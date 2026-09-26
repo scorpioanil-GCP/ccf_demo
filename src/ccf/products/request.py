@@ -165,6 +165,9 @@ __all__ = [
     "ProductRequestViolation",
     "ProductRequestViolationReason",
     "RelativeDefault",
+    "SUBJECT_FLOOR_V1",
+    "SUBJECT_FLOOR_VERSION",
+    "refuse_floor",
     "refuse_intent",
     "decode_declared_request",
     "refuse_request",
@@ -227,8 +230,17 @@ __all__ = [
 #: whether the allowed set is exposed."*): a well-typed value that is not a
 #: member of the class's declared set. A wrong-typed value is still
 #: ``type-mismatch`` — the payload comparison runs first and this verdict
-#: never reaches it. Appended last, never inserted, so every older record's
-#: reason meets the same roster prefix.
+#: never reaches it. Appended after ``above-maximum`` and before
+#: ``malformed-value`` (``D-IMPL-357`` C1), never inserted, so every older
+#: record's reason meets the same roster prefix.
+#:
+#: The tenth, ``malformed-value``, judges TEXT rather than declared shape or
+#: membership: the subject and every declared ``string`` parameter must lie
+#: inside the mechanism floor :data:`SUBJECT_FLOOR_V1` (``D-IMPL-357``
+#: C1/C1a) — 512 ASCII characters from an allowlist grammar — judged by
+#: :func:`refuse_floor`, which runs in ``GovernedResolver.__call__`` before
+#: any of the other nine verdicts, so no request carrying a splice-shaped
+#: string ever reaches a declared comparison. Appended last, never inserted.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
@@ -239,6 +251,7 @@ ProductRequestViolationReason = Literal[
     "below-minimum",
     "above-maximum",
     "not-in-domain",
+    "malformed-value",  # D-IMPL-357 C1 — appended LAST, never inserted
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -281,9 +294,12 @@ class ProductRequest(CCFContract):
         subject: The entity anchor — *which entity*. The
             ``{counterparty-id}`` slot of the worked address pattern. An
             opaque deployment identifier; the SDK matches it structurally and
-            interprets none of it, and validates its **shape** only. Whether
-            this caller may receive a product about this subject is the door's
-            entitlement check plus Π conditioning, both upstream of here.
+            interprets none of it, and validates its **shape**: the
+            mechanism floor :data:`SUBJECT_FLOOR_V1` always, and a declared
+            ``subject_domain`` when the class declares one (``D-IMPL-357``).
+            Whether this caller may receive a product about this subject is
+            the door's entitlement check plus Π conditioning, both upstream
+            of here.
         intent: The decision the product is being assembled for — *for what
             decision*. A deployment-declared token, drawn from the same
             vocabulary :class:`~ccf.products.contract.ProductDiscovery`
@@ -1522,7 +1538,7 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the nine ways the request missed.
+        reason: Which of the ten ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
@@ -1836,6 +1852,20 @@ def _refuse_domain(
     return None
 
 
+#: The mechanism floor (D-IMPL-357 C1/C1a; SEC-002/EX-01/EX-02 root cause). What
+#: the fabric can place in a URL path segment (whitepaper §6.3's
+#: `{counterparty-id}` slot), a SPARQL IRI position and a quoted literal:
+#: 512 ASCII characters from an ALLOWLIST. Not a denylist — a denylist that
+#: admitted `'` would leave a single-quoted literal splice open. In the same
+#: register as CANONICAL_DECIMAL and MAX_REFERENCE_BYTES: a grammar the
+#: mechanism owns, not a domain value. Versioned by name; a change is a new
+#: name, and the name rides on every refusal it decides (`detail`).
+SUBJECT_FLOOR_V1: Final[re.Pattern[str]] = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}$"
+)
+SUBJECT_FLOOR_VERSION: Final[str] = "SUBJECT_FLOOR_V1"
+
+
 #: The canonical decimal lexical form a ``number`` argument crosses the wire as.
 #:
 #: `D-IMPL-302`. Deliberately NARROWER than :class:`decimal.Decimal`'s own
@@ -2073,6 +2103,49 @@ def refuse_intent(
             " serves none (D-IMPL-264 D-01, amendment 1 F-1 a; whitepaper §6.3)"
         ),
     )
+
+
+def refuse_floor(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Does the subject, and every declared string parameter, lie inside the floor?
+
+    Judged by `GovernedResolver.__call__` beside `refuse_intent` and BEFORE the
+    overridable constraint-resolver seam (D-IMPL-357 C2), so no
+    `PolicyConstraintResolver` override can remove it and no request reaches
+    the acquisition seam carrying text the seam might splice. Pure: no clock,
+    no registry, no I/O. Subject first, then declared `string` parameters in
+    sorted order, so the first verdict is the same verdict on every run.
+    A declared `subject_domain` / `pattern` (C4) is judged AFTER this, inside
+    `refuse_request`, and cannot widen past it by construction.
+    """
+
+    def _violation(key: str, presented: object) -> ProductRequestViolation:
+        return ProductRequestViolation(
+            reason="malformed-value",
+            key=key,
+            declared_type="string",
+            presented_type=type(presented).__name__,
+            declared_keys=frozenset(declared.arguments.properties),
+            presented_keys=frozenset(request.parameters),
+            detail=(
+                f"{key}: the presented text lies outside the fabric's identifier"
+                f" floor {SUBJECT_FLOOR_VERSION} ({SUBJECT_FLOOR_V1.pattern}) —"
+                " what can be placed in a URL segment, an IRI position and a"
+                " quoted literal; refused by name, never rewritten (D-IMPL-357 C1)"
+            ),
+        )
+
+    if not SUBJECT_FLOOR_V1.fullmatch(request.subject):
+        return _violation("subject", request.subject)
+    for name in sorted(declared.arguments.properties):
+        property_ = declared.arguments.properties[name]
+        if property_.type != "string" or name not in request.parameters:
+            continue
+        presented = request.parameters[name]
+        if isinstance(presented, str) and not SUBJECT_FLOOR_V1.fullmatch(presented):
+            return _violation(name, presented)
+    return None
 
 
 def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:

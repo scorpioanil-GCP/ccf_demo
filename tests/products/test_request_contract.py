@@ -998,22 +998,72 @@ def test_from_declared_refuses_a_malformed_unsupported_arguments(
     assert "unsupported_arguments" in str(raised.value)
 
 
-def test_the_reason_vocabulary_has_nine_members_tier_proportion_domain_then_membership() -> None:
+def test_the_reason_vocabulary_has_ten_members_and_malformed_value_is_last() -> None:
     """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling;
     ``24.5-WR-02``: the sixth, appended after it; ``D-IMPL-259``: the two
     domain verdicts, appended after that; ``D-IMPL-264`` D-05: the ninth,
-    ``not-in-domain``, appended LAST — appended, never inserted, so a reader
-    of an older record's reason meets the same roster prefix."""
+    ``not-in-domain``; ``D-IMPL-357`` C1: the tenth, ``malformed-value``,
+    appended LAST — appended, never inserted, so a reader of an older
+    record's reason meets the same roster prefix."""
     import typing
 
     from ccf.products.request import ProductRequestViolationReason
 
     members = typing.get_args(ProductRequestViolationReason)
-    assert len(members) == 9
-    assert members[-5] == "not-supported-at-tier"
-    assert members[-4] == "not-a-proportion"
-    assert members[-3:-1] == ("below-minimum", "above-maximum")
-    assert members[-1] == "not-in-domain"
+    assert len(members) == 10
+    assert members[-6] == "not-supported-at-tier"
+    assert members[-5] == "not-a-proportion"
+    assert members[-4:-2] == ("below-minimum", "above-maximum")
+    assert members[-2] == "not-in-domain"
+    assert members[-1] == "malformed-value"          # D-IMPL-357 C1, appended LAST
+
+
+# --- (g2) SUBJECT_FLOOR_V1: the mechanism floor for the subject and every ----
+# --- declared string parameter (D-IMPL-357 C1/C1a) ---------------------------
+
+
+@pytest.mark.parametrize(
+    "subject",
+    ['x"y', "o'brien", "a b", "a\tb", "50%", "a;b", "a#b", "<x>", "", "é", "x" * 513],
+)
+def test_a_subject_outside_the_floor_is_a_malformed_value(subject: str) -> None:
+    from ccf.products.request import SUBJECT_FLOOR_VERSION, refuse_floor
+
+    violation = refuse_floor(request=_request(subject=subject), declared=_contract())
+    assert violation is not None and violation.reason == "malformed-value"
+    assert violation.key == "subject" and SUBJECT_FLOOR_VERSION in violation.detail
+
+
+@pytest.mark.parametrize(
+    "subject",
+    ["5493001KJTIIGC8Y1R12", "urn:fixture:a/b", "http://example.org/fibo/GammaBank",
+     "ALT-999999", "fixture:subject/one", "x" * 512],
+)
+def test_every_measured_subject_form_passes_the_floor(subject: str) -> None:
+    from ccf.products.request import refuse_floor
+
+    assert refuse_floor(request=_request(subject=subject), declared=_contract()) is None
+
+
+def test_a_declared_string_parameter_is_held_to_the_floor_too() -> None:
+    """C3: the floor closes the PARAMETER splices (cp-04-canonical `lei`), not
+    only the subject."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "lei": SkillArgumentProperty(
+                    type="string", description="a declared string parameter"
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"lei": 'x" . ?s ?p ?o . "'}), declared=contract
+    )
+    assert violation is not None and violation.key == "lei" and violation.reason == "malformed-value"
 
 
 # --- (g) the tolerance interval: a request number that is not a proportion ---
