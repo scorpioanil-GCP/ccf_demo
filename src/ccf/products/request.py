@@ -97,8 +97,30 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-import importlib
 import re
+
+# The standard library's own regular-expression parser and opcode constants,
+# for the declaration-time grammar shape check (`D-IMPL-357` C4, round-3
+# ruling; see `_refuse_unsafe_grammar`). PRIVATE modules of the standard
+# library, imported deliberately and STATICALLY.
+#
+# Deliberately, because they are the only way to obtain the parse of a pattern
+# without writing a second regular-expression parser, and a second parser that
+# disagreed with `re` would be a validator judging a grammar the engine will
+# not run. A Python that moves or reshapes them fails at import and this module
+# does not load, which is the loud failure to prefer over a silently degraded
+# check.
+#
+# STATICALLY, because `T-15.4-03` requires exactly ONE dynamic
+# `importlib.import_module` site across `src/` and `runtime/` — it is the
+# compensating control for `cinv02-backend-import`, which cannot read a
+# dynamically-constructed module name. Two `import_module` calls here were
+# measured to break that invariant
+# (`tests/graph/test_backend_registry.py::test_exactly_one_dynamic_import_site_
+# exists_across_both_linted_trees`), so these are `import` statements the lint
+# can see, which is what the invariant is protecting.
+import re._constants as _sre_constants
+import re._parser as _sre_parse
 from decimal import Decimal
 from typing import Final, TYPE_CHECKING, Any, Literal
 
@@ -415,16 +437,6 @@ class ProductRequest(CCFContract):
 # for; anything else is refused as unclassifiable rather than admitted. That
 # asymmetry is the ruling: an adopter who is refused can simplify their
 # grammar, and an adopter who is admitted and then hangs cannot.
-
-#: The standard library's own regular-expression parser and opcode constants.
-#: Private modules of the standard library, used deliberately: they are the
-#: ONLY way to obtain the parse of a pattern without writing a second regular-
-#: expression parser, and a second parser that disagreed with `re` would be a
-#: validator that judges a grammar the engine will not run. A version of Python
-#: that moves or reshapes them raises at import and this module does not load,
-#: which is the loud failure to prefer over a silently degraded check.
-_sre_parse: Final = importlib.import_module("re._parser")
-_sre_constants: Final = importlib.import_module("re._constants")
 
 #: Opcodes that consume exactly one character and can never backtrack into
 #: themselves. The leaves of the vocabulary.
