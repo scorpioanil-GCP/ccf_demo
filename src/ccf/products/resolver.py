@@ -151,6 +151,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
@@ -354,6 +355,49 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
     "half_life_key",
     "declared_completeness",
     "declared_semantic_consistency",
+)
+
+
+#: The seam exceptions the SDK ITSELF raises, and therefore knows the meaning of.
+#:
+#: `D-IMPL-357` B3 — amends `D-IMPL-347` B2 for **SDK-raised** seam classes only.
+#: B2's reasoning was that the SDK cannot know whether a deployment's
+#: ``ControlRoomUnreachable`` means *the subject is unavailable* or *this
+#: deployment is broken*, so only the product may say, in a declared artifact.
+#: That reasoning does not reach the SDK's own exceptions: it knows what
+#: ``IdentityRefused`` means, because it is the thing that raises it — a source
+#: record whose identity value names no entity. Nothing declared a binding for
+#: it (B1 introduced the type; no product class mentions it), so the SDK's own
+#: refusal escaped the paved road as an untyped error carrying no record.
+#:
+#: **A deployment cannot widen this map, by three separate mechanisms.**
+#:
+#: 1. It is a :func:`~types.MappingProxyType`, so a write raises rather than
+#:    succeeding. A roster test alone would only catch an edit to this file; the
+#:    proxy also refuses a ``conftest`` or a deployment reaching in at import
+#:    time to add its own type and inherit the SDK's authority for it.
+#: 2. :func:`~ccf.deployment.binder.refuse_seam_refusal_widening` is untouched
+#:    and still holds a deployment to a SUBSET of its product CLASS's map. A
+#:    class declares none of these, so a deployment naming one is refused there
+#:    exactly as it was before.
+#: 3. Every entry names a type inside the ``ccf`` package, and a test resolves
+#:    each name to a real exception class to prove the string is not merely
+#:    plausible. The SDK still **matches, never imports** (B2): the name is
+#:    compared against the raised value's own ``module.QualName``, so nothing
+#:    here resolves a dotted path and a misspelling never matches rather than
+#:    executing something. The importing is the test's job, not this module's.
+#:
+#: Consulted BEFORE a product class's declared map, so the SDK's meaning is the
+#: one minted for its own type: a class cannot restate "this record names no
+#: entity" as "you may not see it" and borrow the SDK's authority for it.
+SDK_SEAM_REFUSALS: Final[Mapping[str, SeamRefusalBinding]] = MappingProxyType(
+    {
+        "ccf.assembly.worker.IdentityRefused": SeamRefusalBinding(
+            exception="ccf.assembly.worker.IdentityRefused",
+            cause="nonexistent",
+            error_code="identity-refused",
+        ),
+    }
 )
 
 
@@ -3197,19 +3241,31 @@ class GovernedResolver:
     def _declared_seam_refusal(
         self, error: BaseException
     ) -> SeamRefusalBinding | None:
-        """The class's binding for ``error``'s type, or ``None`` to re-raise.
+        """The binding for ``error``'s type, or ``None`` to re-raise.
 
-        `D-IMPL-347` B2. **Matched, never imported**: the raised value's own
-        ``module.QualName`` is compared against the declared string, so a
-        declaration cannot cause an import and a misspelled one never matches
-        rather than executing something.
+        `D-IMPL-347` B2, amended by `D-IMPL-357` B3. **Matched, never imported**:
+        the raised value's own ``module.QualName`` is compared against the
+        declared string, so a declaration cannot cause an import and a misspelled
+        one never matches rather than executing something.
 
         **Exact type, never a subclass walk.** A subclass of a declared type is
         a DIFFERENT failure the product has not spoken about, and silently
         inheriting a parent's cause is how a narrow declaration becomes a wide
         one without anybody widening it. The deployment declares what it means.
+        That holds for the mechanism map below too: it is consulted by exact
+        name, so a subclass of an SDK seam class is not converted either.
+
+        :data:`SDK_SEAM_REFUSALS` is consulted **first**, because the SDK owns
+        the meaning of the exceptions the SDK raises — that is the whole of B3's
+        amendment, and it is narrow by construction rather than by convention
+        (see that constant for the three mechanisms that keep it so). A class
+        that declares a binding for one of those types does not override it: the
+        SDK's cause and code are minted, and the class's restatement is not
+        reachable.
         """
         raised = f"{type(error).__module__}.{type(error).__qualname__}"
+        if (mechanism := SDK_SEAM_REFUSALS.get(raised)) is not None:
+            return mechanism
         for binding in self._declaration().seam_refusals:
             if binding.exception == raised:
                 return binding

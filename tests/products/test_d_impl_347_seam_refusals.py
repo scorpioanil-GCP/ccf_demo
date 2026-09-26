@@ -340,3 +340,176 @@ def test_a_deployment_may_narrow_the_class_map_but_never_widen_it() -> None:
             declared=declared,
             deployment_exceptions=frozenset({"pkg.Known", "pkg.Invented"}),
         )
+
+
+# --------------------------------------------------------------------------
+# `D-IMPL-357` B3 — the SDK's OWN seam class converts by mechanism.
+#
+# B2 above is the deployment half: a domain exception is a governed refusal
+# only where the product class declared what it MEANS, because the SDK cannot
+# know. That reasoning does not reach the SDK's own exceptions — it knows
+# exactly what `IdentityRefused` means, because it raises it — and before this
+# amendment nothing declared a binding for it, so the SDK's own refusal escaped
+# the paved road as an untyped error with no record.
+# --------------------------------------------------------------------------
+
+from ccf.assembly.worker import IdentityRefused
+
+
+def test_the_sdks_own_identity_refusal_is_a_governed_refusal_without_a_declaration(
+    tmp_path: pathlib.Path,
+) -> None:
+    """D-IMPL-357 B3 — amends D-IMPL-347 B2 for SDK-raised seam classes only:
+    the SDK knows what its own IdentityRefused means (a record naming no
+    entity), so the paved road converts it under cause `nonexistent` even
+    though no product class declares it. Before: an HTTP 500 with no record."""
+    root = _write_tree(tmp_path / "b3", config=_config())   # declares NO seam_refusals
+    scratch = tmp_path / "b3" / "scratch"
+
+    def _null_identity(**_: Any) -> Any:
+        raise IdentityRefused(
+            envelope_id="env-null", entity_class="company", key="lei", field="lei", reason="null"
+        )
+
+    with _open(root, scratch, project=_null_identity) as opened:
+        outcome = opened.answer(_question(opened))
+        assert isinstance(outcome, RefusalEnvelope), outcome
+        block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+        assert "identity-refused" in block and "nonexistent" in block
+
+
+def test_a_deployment_cannot_widen_the_sdk_seam_map_and_its_own_undeclared_types_still_propagate(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The control that keeps the amendment narrow: only the SDK's own class
+    converts by mechanism; `test_an_UNdeclared_domain_exception_still_propagates`
+    above keeps proving the deployment half."""
+    from ccf.products.resolver import SDK_SEAM_REFUSALS
+
+    assert set(SDK_SEAM_REFUSALS) == {"ccf.assembly.worker.IdentityRefused"}
+
+
+def test_the_sdk_seam_map_refuses_a_deployment_supplied_type_at_runtime() -> None:
+    """The narrowness is STRUCTURAL, not only pinned by the roster above.
+
+    A roster assertion reddens when somebody edits the source. It does not stop
+    a deployment — or a test helper, or a conftest — from reaching in at import
+    time and adding its own exception type to the SDK's map, which would convert
+    an undiagnosed deployment failure into a governed "no" with the SDK's
+    authority behind it. The mapping is a read-only proxy, so that write raises
+    instead of succeeding, and the map after the attempt is unchanged.
+    """
+    from ccf.controlplane.artifacts import SeamRefusalBinding
+    from ccf.products.resolver import SDK_SEAM_REFUSALS
+
+    before = dict(SDK_SEAM_REFUSALS)
+    with pytest.raises(TypeError):
+        SDK_SEAM_REFUSALS["deployment.pkg.ControlRoomUnreachable"] = (  # type: ignore[index]
+            SeamRefusalBinding(
+                exception="deployment.pkg.ControlRoomUnreachable",
+                cause="unauthorized",
+                error_code="smuggled-in",
+            )
+        )
+    with pytest.raises((TypeError, AttributeError)):
+        SDK_SEAM_REFUSALS.clear()  # type: ignore[attr-defined]
+    assert dict(SDK_SEAM_REFUSALS) == before
+
+
+def test_every_sdk_seam_map_entry_names_a_REAL_exception_the_SDK_ITSELF_defines() -> None:
+    """What makes the map the SDK's own, checked rather than asserted.
+
+    The SDK matches these types by name and never imports them (`D-IMPL-347`
+    B2), so a string here could name anything at all — including a type the SDK
+    does not define, which is exactly the widening this amendment must not
+    permit. The TEST may import, so the test resolves each key and proves three
+    things a name alone cannot: the module is inside the ``ccf`` package, the
+    attribute exists, and it is an exception class. Each binding's own
+    ``exception`` field must equal the key, because two spellings of one type is
+    how a map comes to have an entry nothing can ever match.
+    """
+    import importlib
+
+    from ccf.products.resolver import SDK_SEAM_REFUSALS
+
+    assert SDK_SEAM_REFUSALS, "an empty mechanism map would pass every other check here"
+    for name, binding in SDK_SEAM_REFUSALS.items():
+        assert binding.exception == name, (name, binding.exception)
+        module_name, _, qualname = name.rpartition(".")
+        assert module_name.split(".")[0] == "ccf", name
+        resolved = getattr(importlib.import_module(module_name), qualname)
+        assert isinstance(resolved, type) and issubclass(resolved, BaseException), name
+        assert f"{resolved.__module__}.{resolved.__qualname__}" == name, name
+
+
+def test_the_sdk_map_wins_over_a_product_class_declaring_the_same_sdk_type(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Consulted BEFORE the class's map, so the SDK's meaning is the one minted.
+
+    The SDK owns the meaning of the exceptions it raises, so a class cannot
+    restate one of them as something else — here as ``unauthorized`` /
+    ``borrowed-authority``, which would turn "this record names no entity" into
+    "you may not see it". The refusal carries the SDK's cause and the SDK's
+    code, and the class's restatement appears nowhere in the record.
+    """
+    config = _config()
+    config["product_class"]["seam_refusals"] = [
+        {
+            "exception": "ccf.assembly.worker.IdentityRefused",
+            "cause": "unauthorized",
+            "error_code": "borrowed-authority",
+        }
+    ]
+    root = _write_tree(tmp_path / "b3w", config=config)
+    scratch = tmp_path / "b3w" / "scratch"
+
+    def _null_identity(**_: Any) -> Any:
+        raise IdentityRefused(
+            envelope_id="env-null", entity_class="company", key="lei", field="lei", reason="blank"
+        )
+
+    with _open(root, scratch, project=_null_identity) as opened:
+        outcome = opened.answer(_question(opened))
+        assert isinstance(outcome, RefusalEnvelope), outcome
+        block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+        assert "identity-refused" in block and "nonexistent" in block, block
+        assert "borrowed-authority" not in block, block
+        assert "unauthorized" not in block, block
+
+
+def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The mechanism map is consulted by EXACT name, as B2's own map is.
+
+    Written because a severing campaign found the hole: replacing the exact
+    ``.get`` with a walk over the raised type's ``__mro__`` left every other test
+    in this module green. B2's exact-type rule was pinned for the declared map
+    (``test_a_subclass_of_a_declared_type_is_NOT_converted``) and the mechanism
+    map's docstring claimed the same rule without anything holding it.
+
+    It matters more here than there: a deployment that subclasses an SDK
+    exception to carry its own context would have that subclass silently
+    converted under the SDK's cause — a widening of the mechanism map achieved
+    without touching the mechanism map.
+    """
+
+    class _DeploymentsOwnIdentityProblem(IdentityRefused):
+        pass
+
+    root = _write_tree(tmp_path / "b3sub", config=_config())
+    scratch = tmp_path / "b3sub" / "scratch"
+
+    def _subclassed(**_: Any) -> Any:
+        raise _DeploymentsOwnIdentityProblem(
+            envelope_id="env-sub",
+            entity_class="company",
+            key="lei",
+            field="lei",
+            reason="null",
+        )
+
+    with _open(root, scratch, project=_subclassed) as opened:
+        with pytest.raises(_DeploymentsOwnIdentityProblem, match="env-sub"):
+            opened.answer(_question(opened))
