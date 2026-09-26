@@ -47,6 +47,25 @@ prevents.
 log through **the same parser that assembles it**. A second Markdown scraper
 would be a second definition of "what the log says", and the two would
 eventually disagree about which entries exist.
+
+A line the assembler cannot place is refused, not swallowed
+-----------------------------------------------------------
+
+``--check`` mode — and ``tools/docs_tests/test_surface_fragment_bullets.py``,
+which is the door a CI run actually opens — read the fragments with
+``strict=True``, which refuses any line inside a field block that is neither a
+field bullet nor an indented continuation. :func:`_collect_fields` carries the
+measurement that forced the branch: the assembler had been **dropping the first
+line of a bare bullet and joining the rest onto the previous field**, and the
+shipped ``docs/SURFACE-CHANGES.md`` carried eight such truncations. This
+document is the adopter-facing migration record, so a published instruction
+missing its first clause is the one failure mode it cannot absorb.
+
+**Consequently the assembled document must not be described as a complete
+security ledger, and is not described as one.** It emits field bullets only: a
+fragment's prose sections — rulings, residual ledgers, verification notes —
+reach a reader through the fragment and never through this document. Anything a
+residual ledger owes an adopter belongs in a field bullet.
 """
 
 from __future__ import annotations
@@ -203,7 +222,9 @@ def _split_sections(text: str) -> list[tuple[str, list[str]]]:
     return sections
 
 
-def _collect_fields(body: list[str]) -> tuple[dict[str, str], list[str]]:
+def _collect_fields(
+    body: list[str], where: str = "", *, strict: bool = False
+) -> tuple[dict[str, str], list[str]]:
     """Field name -> value, plus the verbatim bullet block.
 
     A field's value may continue onto indented lines; the continuation is
@@ -211,6 +232,35 @@ def _collect_fields(body: list[str]) -> tuple[dict[str, str], list[str]]:
     ``Why`` and ``Migration`` stay readable. The verbatim block is kept
     separately because the assembled document re-emits the author's own
     line breaks rather than reflowing their prose.
+
+    The swallowing this refuses, and why refusing is the whole remedy
+    ---------------------------------------------------------------
+
+    A line that is neither a field bullet nor an indented continuation nor
+    blank, arriving while a field block is open, used to reach **neither**
+    ``fields`` nor ``block`` — it was dropped with no diagnostic — and because
+    ``current`` stayed set, the indented lines beneath it were then joined onto
+    the *previous* field's value. The shape that hits it is a **bare bullet**,
+    because :data:`_FIELD_BULLET` requires ``[A-Z][A-Za-z ]*:`` and so does not
+    match ``- **Known limit, …:**`` (the bold markers), ``- Also, pre-merge
+    (R11): …`` (the comma and parentheses) or ``- Correction 2026-09-23: …``
+    (the digits). Every one of those is a bullet an author wrote on purpose.
+
+    **Measured, on the tree this branch was added to:** the assembler's own
+    walk over 1,747 entry-shaped sections in 175 fragments dropped exactly
+    **8** lines, in 5 fragments, and the published
+    ``docs/SURFACE-CHANGES.md`` carried the consequence — one entry's ``Why``
+    ended *"…`as_of` crosses the pipe twice"* and the next published line began
+    *"`as_of=None`, the client resolved the instant…"*, a migration note
+    shipped as a sentence fragment with its first clause missing. That document
+    is the **adopter-facing** migration record: a reader consults it to decide
+    whether a release needs work, so a silently truncated instruction there is
+    worse than a missing one, which at least announces itself.
+
+    So this is a refusal rather than a repair. Guessing the author's intent —
+    treating the bare bullet as a continuation, or as an eighth field — would
+    publish a shape nobody wrote. Naming the line and failing the build hands
+    it back to the only party who knows which it was.
     """
     fields: dict[str, str] = {}
     block: list[str] = []
@@ -230,6 +280,23 @@ def _collect_fields(body: list[str]) -> tuple[dict[str, str], list[str]]:
             # A blank line ends the bullet block; anything after it is prose
             # the entry carries as commentary, not another field.
             current = None
+            continue
+        if current is not None and line.strip():
+            # Unindented, non-blank, and not a field bullet, with a field block
+            # still open: the swallowed line this function's docstring names.
+            if strict:
+                raise FragmentError(
+                    f"{where}: the line below sits inside the `{current}` field"
+                    " block but is neither a field bullet nor an indented"
+                    " continuation, so the assembler DROPS it and glues any"
+                    " indented lines under it onto"
+                    f" `{current}`'s value — a published migration note missing"
+                    " its first clause, with no diagnostic. Indent it by two"
+                    " spaces to publish it as a nested bullet under"
+                    f" `{current}`, or give it one of the seven field names."
+                    f" grep for it:\n    {line}"
+                )
+            continue
     return fields, block
 
 
@@ -253,7 +320,7 @@ def _normalize_public_surface(raw: str, where: str) -> bool:
     )
 
 
-def parse_entries() -> list[dict[str, object]]:
+def parse_entries(*, strict: bool = False) -> list[dict[str, object]]:
     """Every entry in every fragment, validated, in plan-number order.
 
     Each dict carries the seven fields plus ``fragment`` (the source file
@@ -264,16 +331,23 @@ def parse_entries() -> list[dict[str, object]]:
     ``tests/test_surface_completeness.py`` reads the curated log through this
     function rather than scraping the assembled Markdown, so the log's meaning
     has exactly one definition.
+
+    ``strict`` additionally refuses a fragment line the assembler would
+    silently swallow — :func:`_collect_fields` carries the measurement and the
+    reason. It is off by default so the two importing suites keep reading the
+    log exactly as they did, and it is on in ``--check`` mode and in
+    ``tools/docs_tests/test_surface_fragment_bullets.py``, which is the door
+    that makes a silent truncation a red build rather than a latent one.
     """
     entries: list[dict[str, object]] = []
     for path in fragment_paths():
         text = path.read_text(encoding="utf-8")
         for title, body in _split_sections(text):
-            fields, block = _collect_fields(body)
+            where = f"{path.name} :: ## {title}"
+            fields, block = _collect_fields(body, where, strict=strict)
             present = [name for name in FIELDS if name in fields]
             if not present:
                 continue  # a prose section: a ruling, a verification note
-            where = f"{path.name} :: ## {title}"
             missing = [name for name in FIELDS if name not in fields]
             if missing:
                 raise FragmentError(
@@ -328,15 +402,20 @@ def _render_group(entries: list[dict[str, object]], heading: str) -> list[str]:
     return [f"### {heading}", ""] + lines
 
 
-def serialize(entries: list[dict[str, object]] | None = None) -> str:
+def serialize(
+    entries: list[dict[str, object]] | None = None, *, strict: bool = False
+) -> str:
     """The assembled document — the one rendering recipe.
 
     ``tests/test_surface_drift.py`` imports this rather than restating it, so
     the committed file and the drift assertion cannot disagree about what the
     log is.
+
+    ``strict`` is forwarded to :func:`parse_entries` and is ignored when
+    `entries` is supplied, because then the caller has already done the read.
     """
     if entries is None:
-        entries = parse_entries()
+        entries = parse_entries(strict=strict)
 
     public_count = sum(1 for entry in entries if entry["Public surface"])
     lines: list[str] = [
@@ -376,6 +455,19 @@ def serialize(entries: list[dict[str, object]] | None = None) -> str:
         "**Phase 16 consumes this document directly.** The documentation"
         " rewrite describes the surface that exists; this is the record of how"
         " it got there from the surface Phase 14 documented.",
+        "",
+        "**WHAT THIS DOCUMENT IS NOT: it is not a complete security ledger, and"
+        " it does not carry the residual ledgers.** It emits the seven field"
+        " bullets of every entry and nothing else, so a fragment's prose"
+        " sections — a stated bound on a security fix, its named residuals, its"
+        " sabotage evidence — reach a reader through the fragment under"
+        " `docs/surface-changes/` and never through this file. Measured on the"
+        " `SEC-001` fragment: seven distinctive phrases from its"
+        " limit-that-remains section appear once there and zero times here. So"
+        " read this as the migration record it is, and read a security"
+        " remediation's bound in `docs/DECISIONS.md` and in the owning"
+        " fragment. Anything a residual owes an adopter belongs in a `Migration`"
+        " bullet, where this document can carry it.",
         "",
         "## How to read an entry",
         "",
@@ -444,7 +536,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        emitted = serialize()
+        # Check mode reads strictly: a line the assembler would silently
+        # swallow is a red build, not a quietly truncated migration note.
+        # Write mode stays permissive so the regeneration path can still run
+        # while an author is mid-edit; the refusal is what the gate reads.
+        emitted = serialize(strict=args.check)
     except FragmentError as error:
         print(f"surface-change fragment refused: {error}", file=sys.stderr)
         return 1

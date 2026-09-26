@@ -137,7 +137,7 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - Change type: behavior
 - Before: `declarations` listed every tenant's agent keys; `declaration` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `declarations` lists the capability's tenant's keys; `declaration` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
-- Also, pre-merge (R11): `declaration` and `versions` resolve the CAPABILITY's resource and refuse a `key` parameter that differs from it before the first read (pre-merge check R11)
+  - Also, pre-merge (R11): `declaration` and `versions` resolve the CAPABILITY's resource and refuse a `key` parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-01/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 
@@ -148,7 +148,7 @@ reconciling them — nothing a lane claimed in `353-01` … `353-08`.
 - Change type: behavior
 - Before: `keys` listed every tenant's keys in a class; `resolution` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `keys` lists the capability's tenant's; `resolution` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
-- Also, pre-merge (R11): `keys`, `versions` and `resolution` resolve the CAPABILITY's resource and refuse a parameter that differs from it before the first read (pre-merge check R11)
+  - Also, pre-merge (R11): `keys`, `versions` and `resolution` resolve the CAPABILITY's resource and refuse a parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-03/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 

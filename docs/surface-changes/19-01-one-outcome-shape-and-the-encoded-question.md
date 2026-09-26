@@ -140,7 +140,7 @@ consumer did not produce. The decisions of record are `C-01`, `C-02`, `C-04`,
   question B, and have A echoed while B is answered. `C-18` extends that to the
   temporal axis because `C-15` keeps the clock client-side, so a **concrete**
   `as_of` crosses the pipe twice
-- **Known limit, stated rather than closed:** when the caller sent
+  - **Known limit, stated rather than closed:** when the caller sent
   `as_of=None`, the client resolved the instant and there is **no second copy**
   to compare, so a transport altering `asked_at` alone is **undetected**. No
   fallback, tolerance window or reconstruction is added — a reconstructed
