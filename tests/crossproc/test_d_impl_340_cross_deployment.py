@@ -533,12 +533,37 @@ def test_replay_names_the_producer_relationship_and_calls_no_producer(
 def test_question_arguments_cannot_move_the_endpoint(
     booted: _Booted, bridge: SyncMcpBridge, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A subject shaped like a URL reaches the producer as a subject string; the
-    only host this process contacted is the registered endpoint."""
+    """A URL-shaped subject cannot move the endpoint — and since `D-IMPL-357`
+    C1/C2 it cannot even be asked, because the mechanism floor refuses it
+    before the acquisition seam, so no host is contacted at all.
+
+    RED-WHEN-FIXED, migrated at the wave-1 join. Before the floor existed this
+    test SERVED the hostile subject and proved the endpoint had not moved by
+    inspecting the hosts the process had contacted. The floor is strictly
+    stronger: the question is refused, so there are no contacted hosts to
+    inspect. Rewritten, never weakened — the refusal is asserted by its own
+    reason AND key so a different guard cannot satisfy it, the no-contact
+    property is asserted on an empty recording rather than on the absence of
+    one string, and the original endpoint property is kept beside it on a
+    subject the floor admits, so that the floor is not what makes it true.
+    """
     hostile = "http://evil.invalid/steal?x=1"
     with producer(monkeypatch) as url:
         resolver, _r, recording = consumer(booted, url=url, bridge=bridge)
-        served = ask(resolver, subject=hostile)
+        refused = ask(resolver, subject=hostile)
+        contacted_after_hostile = list(recording.urls)
+        served = ask(resolver, subject="acct-1")
+
+    # The floor refused it, and WHICH check refused is pinned.
+    assert not isinstance(refused, ServedProduct), refused
+    assert refused.kind == "product-request-violation", refused
+    assert refused.reason == "malformed-value", refused
+    assert refused.key == "subject", refused
+    # Nothing was contacted at all — strictly stronger than the old assertion
+    # that only the registered host had been.
+    assert contacted_after_hostile == [], contacted_after_hostile
+
+    # The original property, on a subject the floor admits.
     assert isinstance(served, ServedProduct), getattr(served, "detail", served)
     assert recording.urls, "no request was recorded"
     assert all(u.startswith(url) for u in recording.urls), recording.urls
