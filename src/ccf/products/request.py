@@ -434,7 +434,8 @@ class ArgumentDomain(CCFContract):
     with nothing under it.
 
     **A declared grammar NARROWS; it can never widen past the mechanism
-    floor** (``D-IMPL-357`` C1/C2/C4). :data:`SUBJECT_FLOOR_V1` is the fabric's
+    floor — ON THE GOVERNED PATH** (``D-IMPL-357`` C1/C2/C4).
+    :data:`SUBJECT_FLOOR_V1` is the fabric's
     own character grammar for what can be placed safely in a SPARQL IRI
     position or a quoted literal, and
     :meth:`~ccf.products.resolver.GovernedResolver.__call__` judges it through
@@ -442,19 +443,46 @@ class ArgumentDomain(CCFContract):
     and therefore before any declaration-level judgment runs at all. An
     adopter who declares ``pattern=".*"`` — a grammar admitting an apostrophe,
     and so a single-quoted-literal splice — does not thereby make an
-    apostrophe-bearing subject servable: the floor is mechanism and is not
+    apostrophe-bearing subject servable *through that resolver*: the floor is
+    mechanism and is not
     negotiable by declaration, and this domain is a *further* constraint on
-    top of it with no reach underneath. Pinned twice, at the functions and at
+    top of it with no reach underneath. **The qualifier is load-bearing.** A
+    caller that validates a request with :func:`refuse_request` alone — the
+    standalone-validator path, which
+    :class:`~ccf.agents.assembler.DeterministicAssembler` is by ruling — gets
+    this narrowing and NOT the floor, so under that caller a permissive
+    declaration really is the only judgment there is; that caller's obligation
+    to call :func:`refuse_floor` itself is stated on
+    :func:`refuse_request`. Pinned twice, at the functions and at
     the resolver (``tests/products/test_request_contract.py``,
     ``tests/products/test_resolver_seam.py``).
 
     **A pattern is adopter-authored data evaluated against caller-supplied
     text**, so a pathological grammar is a denial-of-service surface the
-    Python ``re`` engine gives no timeout against. Two things bound it in
-    practice rather than by construction: the floor caps a subject at 512
-    characters before any pattern sees it, and a declaration is a governed
-    Control Plane artifact rather than caller input. Neither is a substitute
-    for a bounded matcher, and the residual is recorded rather than implied.
+    Python ``re`` engine gives no timeout against — **and the floor's
+    character cap is NOT a bound on it.** An earlier revision of this
+    docstring said two things bounded the surface in practice: that the floor
+    caps a subject at 512 characters before any pattern sees it, and that a
+    declaration is a governed Control Plane artifact rather than caller input.
+    The second stands. **The first was measured and does not hold:**
+    catastrophic backtracking reaches pathological cost far inside 512
+    characters. Measured on this project's interpreter with the classic
+    nested quantifier ``(a+)+$`` against a non-matching subject of ``a``\\ s:
+    28 characters took over six seconds and 30 took roughly twenty-five, each
+    further two characters multiplying the cost about fourfold. A cap of 512
+    therefore bounds nothing that matters, and the *first* sentence above was
+    true only of the governed path in any case — **the
+    standalone-validator path applies no cap at all**, because
+    :func:`refuse_request` does not call :func:`refuse_floor` and the subject
+    it judges is unbounded in length.
+
+    So a mis-authored adopter grammar makes a governed door a
+    caller-triggerable processor hang from a subject of about thirty
+    characters. **The residual is recorded, not mitigated here.** Whether to
+    refuse dangerous pattern shapes at declaration time, adopt a bounded
+    matcher, or accept the residual is the project owner's ruling under
+    ``D-IMPL-357``; this type does not pre-empt it and must not be given a
+    defense before that ruling.
 
     **Membership is exact typed equality** (``D-IMPL-264`` D-04, Dave,
     verbatim: *"Exact canonical match. No trimming, case folding, aliases, or
@@ -485,7 +513,11 @@ class ArgumentDomain(CCFContract):
             grammar existed canonicalizes byte-for-byte as it did. Compiled
             once at construction purely to refuse a pattern that does not
             compile — a declaration no value could ever satisfy, named where
-            the author can still fix it. The schema render derives the
+            the author can still fix it. **Compilation is the only shape check
+            there is:** a pattern that compiles and backtracks catastrophically
+            is accepted, and the cost residual that follows from it is the one
+            recorded above — held for the owner's ruling, not mitigated here.
+            The schema render derives the
             advertised JSON Schema ``pattern`` keyword from this field, on the
             same D-00 / P-1 terms the ``enum`` derivation follows.
         members: The closed set of legal values, or ``None`` when the domain
@@ -888,14 +920,19 @@ class ProductRequestContract(VersionedArtifact):
             address axes (§6.3) and is not a parameter, so it has no entry in
             ``argument_domains`` and needs a declaration of its own.
 
-            **A NARROWING, never a widening.** :data:`SUBJECT_FLOOR_V1` is the
+            **A NARROWING, never a widening — on the governed path.**
+            :data:`SUBJECT_FLOOR_V1` is the
             fabric's own mechanism floor and
             :meth:`~ccf.products.resolver.GovernedResolver.__call__` judges it
             through :func:`refuse_floor` before the overridable
             constraint-resolver seam — so before this declaration is consulted
             at all. A permissive grammar here cannot readmit what the floor
             refuses; it can only narrow what the floor already admitted. The
-            floor is mechanism and is not negotiable by declaration.
+            floor is mechanism and is not negotiable by declaration. A caller
+            validating with :func:`refuse_request` ALONE gets this narrowing
+            and no floor at all, and carries the obligation
+            :func:`refuse_request` states; see :class:`ArgumentDomain` for that
+            split and for the pattern-cost residual held for the owner.
 
             **A numeric shape is refused.** A subject is an identifier, not a
             magnitude, so bounds over one bound nothing — the sibling of the
