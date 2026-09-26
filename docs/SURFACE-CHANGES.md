@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1732 entries**, of which **1474** name a public Python surface.
+**1733 entries**, of which **1475** name a public Python surface.
 
 ## Added
 
@@ -15999,7 +15999,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-483 entries — 296 public Python surface, 187 not public Python API.
+484 entries — 297 public Python surface, 187 not public Python API.
 
 ### Public Python surface
 
@@ -16092,6 +16092,26 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. Existing callers ignore the return value and are unaffected
 
 *Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.workflow.WorkflowDefinition
+
+- Surface: ccf.workflow.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of the class below, unchanged in shape.
+- After: the same re-export of the same reshaped class — `gate_routes` reaches
+  a caller importing from `ccf.workflow` exactly as it reaches one importing
+  from `ccf.workflow.definitions`. Recorded as its own entry because
+  `tools/dump_surface.py` enumerates the re-export as a distinct manifest
+  name, so a fragment claiming only the defining module leaves the alias
+  unclaimed and `tests/test_surface_completeness.py::
+  test_every_diff_line_has_a_matching_public_log_entry` red. Added by A4 on
+  finding that red standing; the change itself is A1's and nothing about it
+  is A4's.
+- Why: as below.
+- Migration: none — the same as below.
+
+*Recorded by `357-A1-gate-routes.md`.*
 
 #### ccf.workflow.definitions.WorkflowDefinition
 

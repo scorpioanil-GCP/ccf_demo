@@ -23,6 +23,24 @@ goes where.
   the SDK supplies the verdict vocabulary (`GATE_ACTIONS`) and the
   validators; a deployment supplies its own routing values.
 
+## ccf.workflow.WorkflowDefinition
+
+- Surface: ccf.workflow.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of the class below, unchanged in shape.
+- After: the same re-export of the same reshaped class — `gate_routes` reaches
+  a caller importing from `ccf.workflow` exactly as it reaches one importing
+  from `ccf.workflow.definitions`. Recorded as its own entry because
+  `tools/dump_surface.py` enumerates the re-export as a distinct manifest
+  name, so a fragment claiming only the defining module leaves the alias
+  unclaimed and `tests/test_surface_completeness.py::
+  test_every_diff_line_has_a_matching_public_log_entry` red. Added by A4 on
+  finding that red standing; the change itself is A1's and nothing about it
+  is A4's.
+- Why: as below.
+- Migration: none — the same as below.
+
 ## ccf.workflow.definitions.WorkflowDefinition
 
 - Surface: ccf.workflow.definitions.WorkflowDefinition
