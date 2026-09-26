@@ -453,10 +453,18 @@ class SpecDrivenEntityResolution:
                 ResolvedEntity(
                     entity_uri=f"{rule.entity_class}://{content_hash(identity)}",
                     entity_class=rule.entity_class,
+                    # A null attribute is OMITTED, not stringified: bare
+                    # `str(None)` would store the literal text "None" on an
+                    # otherwise correctly identified node, and PolicyFilter
+                    # (and any other attribute-keyed consumer) reads a stored
+                    # string as an answered value, not as "unknown"
+                    # (D-IMPL-357 B4, measured population: zero committed
+                    # fixture rows carry a null under a declared
+                    # attribute_keys name — tools/measure_null_attributes.py).
                     attributes={
                         key: str(payload[key])
                         for key in rule.attribute_keys
-                        if key in payload
+                        if key in payload and payload[key] is not None
                     },
                     resolved_by=rule.match_key,
                 )

@@ -1024,3 +1024,24 @@ def test_two_null_identity_envelopes_mint_nothing_and_no_edge(
     view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
     assert len(view.entities) == 0
     assert len(view.relationships) == 0
+
+
+# --- D-IMPL-357 B4: a null attribute is absent, not the string "None" -----
+
+
+def test_a_null_attribute_is_absent_not_the_string_none() -> None:
+    """D-IMPL-357 B4: absent-not-null (cp-01's own posture); PolicyFilter keys
+    off attributes, and "None" is an answered value."""
+    strategy = SpecDrivenEntityResolution(
+        spec=EntityResolutionSpec(
+            semver="1.0.0",
+            entity_rules=(
+                EntityResolutionRule(
+                    match_key="lei", entity_class="company",
+                    identity_keys=("lei",), attribute_keys=("jurisdiction",),
+                ),
+            ),
+        )
+    )
+    (resolved,) = strategy.resolve(envelope=envelope(payload={"lei": "L1", "jurisdiction": None}))
+    assert "jurisdiction" not in resolved.attributes
