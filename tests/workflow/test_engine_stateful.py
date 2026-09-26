@@ -166,28 +166,30 @@ class WorkflowEngineMachine(RuleBasedStateMachine):
         )
 
     @precondition(lambda self: bool(self._keys_in("suspended")))
-    @rule(data=st.data(), decision=st.sampled_from(["approved", "rejected"]))
-    def resume_suspended(self, data: st.DataObject, decision: str) -> None:
-        """A declared decision drives a suspended execution to terminal.
+    @rule(data=st.data(), verdict=st.sampled_from(["approve", "reject"]))
+    def resume_suspended(self, data: st.DataObject, verdict: str) -> None:
+        """The recorded VERDICT drives a suspended execution to terminal.
 
         The human acts first: a gate opens on a recorded action returned
         through the HITL authority path, never on the decision string
-        alone (SEC-001).
+        alone (SEC-001). The machine now draws the verdict rather than the
+        decision, and reads the decision off the artifact's declared route
+        for it — so every generated resume carries the decision the
+        artifact says that verdict takes, which is the only decision the
+        engine accepts (D-IMPL-357 A3).
         """
         key = data.draw(st.sampled_from(self._keys_in("suspended")))
         tenant, shape = self._shapes[key]
         workflow = self.workflows[(tenant, shape)]
         _resolve_gate(
-            self.registry,
-            self.transport,
-            tenant=tenant,
-            event_key=f"{key}/credit-officer-approval",
+            self.registry, self.transport, tenant=tenant,
+            event_key=f"{key}/credit-officer-approval", action=verdict,
         )
+        decision = workflow.definition.gate_routes["credit-officer-approval"][verdict]
         outcome = asyncio.run(
             self.engine.resume(
                 resume_as(workflow), workflow,
-                execution_id=key.split("/", 1)[1],
-                decision=decision,
+                execution_id=key.split("/", 1)[1], decision=decision,
             )
         )
         assert isinstance(outcome, WorkflowCompleted)

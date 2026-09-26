@@ -551,6 +551,36 @@ class WorkflowEngine:
                         " CLAUDE.md §8.1)"
                     ),
                 )
+            route = workflow.definition.gate_routes.get(record.current_state, {}).get(
+                authority.action
+            )
+            if route is None or decision != route:
+                # D-IMPL-357 A3/A4: the artifact declares where the recorded
+                # verdict goes; the caller's decision is a double-entry that
+                # must agree. Names NEITHER the verdict nor the route (remedy 3:
+                # the refusal never answers the caller's question for them).
+                #
+                # ``.get(..., {}).get(...)`` and not an index, deliberately.
+                # A gate that is BOTH the start node and a declared terminal
+                # state is a shape the factory's completeness check does not
+                # reach — terminal states are subtracted from the routed
+                # population, so no route map is required and the A1
+                # validator forbids declaring one — and ``_advance``
+                # suspends on the step's kind before any terminal test, so
+                # such a gate can hold a resume. On that path an unguarded
+                # index would raise where a typed refusal is owed.
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"decision {decision!r} does not agree with the route"
+                        " the workflow definition declares for the verdict"
+                        " the HITL authority path recorded on"
+                        f" {record.current_state!r}; routing is interpreted"
+                        " from the artifact only (CINV-01; D-IMPL-357)"
+                    ),
+                )
             trace = record.trace + (
                 self._entry(
                     record.trace, record.current_state, decision, "resume"
@@ -1012,16 +1042,11 @@ class WorkflowEngine:
         ``runtime/ccf_runtime/http_api/routes/hitl.py``, not something this
         module may decide alone.
 
-        **Known residual (D-IMPL-350).** The verdict does not bind WHICH
-        declared target the resume may take, because no artifact declares
-        that mapping: a :class:`~ccf.workflow.definitions.WorkflowDefinition`
-        carries ``transitions`` (source→target) and nothing verdict-shaped.
-        Deriving one in code would put domain routing values in ``/src``
-        (No-Hardcoding, CLAUDE.md §6.4), so the mapping must be declared
-        before it can be enforced. Until then a recorded rejection can be
-        routed down the approving branch. Pinned by
-        ``tests/workflow/test_engine.py::
-        test_a_rejection_authorizes_resumption_but_does_not_bind_the_target``.
+        **The verdict→target binding.** Declared on the artifact as
+        ``gate_routes`` (D-IMPL-357 A1) and enforced in :meth:`resume`
+        after the declared-target check; the D-IMPL-350 residual is
+        closed, pinned by ``tests/workflow/test_engine.py::
+        test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch``.
 
         Note the direction of trust: the engine *reads* the authority path
         and never writes a verdict to it. Resolution stays the gate

@@ -853,46 +853,116 @@ def test_a_resolved_gate_resumes_and_audits_the_approver(
     assert resumed[0].actor == "officer-1"
 
 
-def test_a_rejection_authorizes_resumption_but_does_not_bind_the_target(
+def test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:
-    """SEC-001 residual, pinned (D-IMPL-350).
+    """SEC-001 residual, CLOSED (D-IMPL-357 A3). The artifact declares where
+    each verdict goes; the caller's decision must agree with it.
 
-    A recorded rejection IS a human action on the authority path, so it
-    satisfies the gate-authority check and the workflow leaves the gate —
-    that is how a rejection reaches its declared ``rejected`` terminal
-    (``test_slice.py::
-    test_a_rejected_approval_routes_as_a_recorded_transition``).
+    Replaces ``test_a_rejection_authorizes_resumption_but_does_not_bind_
+    the_target``, which asserted the DEFECT: a recorded rejection completing
+    the workflow down the ``approved`` branch. That test was written to go
+    red the moment a verdict→target binding was declared and enforced, and
+    this is that moment.
 
-    What no artifact declares is WHICH target each verdict may take, so a
-    rejection can still be routed down the approving branch. This test
-    records that residual as executable evidence and goes RED the moment a
-    verdict→target binding is declared and enforced — which is the point.
+    The positive assertion on the reason is deliberate. Four other guards in
+    ``resume`` also return a ``WorkflowResumeRefused`` whose reason contains
+    neither ``reject`` nor ``rejected`` — the definition content-hash
+    binding, the no-authority refusal and the declared-target check among
+    them — so the two negative assertions alone would pass with the route
+    compare never running. Naming the mechanism's own phrase does not
+    weaken the no-enumeration property that
+    ``test_a_refused_gate_resume_does_not_enumerate_the_declared_targets``
+    pins: the phrase names neither the recorded verdict nor the target the
+    artifact routes it to.
     """
     engine, transport, _ = _engine(registry, tmp_path)
     workflow = _covenant(registry)
     suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
     assert isinstance(suspended, WorkflowSuspended)
     _resolve_gate(
-        registry,
-        transport,
+        registry, transport,
         tenant=workflow.definition.tenant,
         event_key=suspended.event_key,
-        action="reject",
-        subject_id="officer-2",
+        action="reject", subject_id="officer-2",
     )
-    outcome = asyncio.run(
+    refused = asyncio.run(
         engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="approved")
     )
-    assert isinstance(outcome, WorkflowCompleted)  # the residual, visible
-    resumed = [
-        event
-        for event in registry.audit_log.events()
-        if event.action == "workflow_resumed"
-    ]
-    # The audit does name the human whose action opened the gate, so the
-    # divergence is at least answerable from the record.
-    assert resumed[0].actor == "officer-2"
+    assert isinstance(refused, WorkflowResumeRefused)
+    assert "does not agree with the route" in refused.reason
+    assert "reject" not in refused.reason and "rejected" not in refused.reason
+    resumed = [e for e in registry.audit_log.events() if e.action == "workflow_resumed"]
+    assert resumed[-1].resolved is False and resumed[-1].actor is None
+    # The gate is still open, and the declared route for the verdict works.
+    record = registry.state_store.get(
+        WORKFLOW_STATE, f"{workflow.definition.tenant}/exec-1"
+    )
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.status == "suspended"
+    assert record.current_state == "credit-officer-approval"
+    completed = asyncio.run(
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="rejected")
+    )
+    assert isinstance(completed, WorkflowCompleted)
+    assert completed.terminal_state == "rejected"
+
+
+def test_a_terminal_gate_with_no_route_map_refuses_rather_than_raising(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """A2's review found the one gate shape the boot-time completeness check
+    does not cover, and it can suspend today: a START node that is both a
+    declared terminal state and a ``hitl-gate`` step in the resolved task.
+    The factory's completeness population subtracts terminal states, so that
+    gate drops out and no route map is required; the A1 validator then
+    forbids declaring one; and ``execute`` hands the start node straight to
+    ``_advance``, which suspends on the step's kind before any terminal test.
+
+    So ``gate_routes`` can legitimately hold nothing for the node a resume
+    arrives on, and the route lookup is written ``.get(state, {}).get(
+    action)`` for exactly that reason — a direct index would raise
+    ``KeyError`` on a path where a typed refusal is required.
+
+    Stated honestly, because a test that claims more than it shows is the
+    defect this file has already paid for once: in THIS shape the refusal is
+    decided by the declared-target check, not by the route compare, because
+    a terminal state carries no outgoing transitions (``_terminals_are_
+    declared_and_terminal``) and so ``_targets`` is empty. What this pins is
+    that the shape resolves to a typed refusal instead of an exception, and
+    that no later edit of the resume path may reach an unguarded index on
+    it.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(
+        registry,
+        name="terminal-gate-workflow",
+        start="credit-officer-approval",
+        transitions=[],
+        terminal_states=["credit-officer-approval"],
+        exception_refs={},
+        gate_routes={},
+    )
+    # The shape really is the one described: a routed-nothing gate the
+    # factory accepted, with no route map at all.
+    assert workflow.definition.gate_routes == {}
+    suspended = asyncio.run(
+        engine.execute(execute_as(workflow), workflow, execution_id="exec-1")
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    assert suspended.gate == "credit-officer-approval"
+    _resolve_gate(
+        registry, transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+    )
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1", decision="approved"
+        )
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "names no declared transition" in outcome.reason
 
 
 def test_another_executions_approval_does_not_open_this_gate(

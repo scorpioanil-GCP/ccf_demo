@@ -218,9 +218,12 @@ so a deployment learns at boot rather than at the first approval.
 This remains Dave's ruling to make formally; what `D-IMPL-293` removes is the
 argument for the weaker shape.
 
-The residual is pinned by
-`tests/workflow/test_engine.py::test_a_rejection_authorizes_resumption_but_does_not_bind_the_target`,
-which goes RED the moment a verdict→target binding is declared and enforced.
+The residual was pinned by a test written to go RED the moment a
+verdict→target binding was declared and enforced. **That moment arrived:
+`D-IMPL-357` A1 declares `gate_routes` on the workflow definition and A3
+enforces it in `resume`, so the residual is CLOSED and the pin now asserts the
+closed behavior** —
+`tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`.
 
 ## Regression evidence
 
