@@ -442,7 +442,11 @@ SDK_SEAM_REFUSALS: Final[Mapping[str, SeamRefusalBinding]] = MappingProxyType(
 )
 
 
-def _refuse_sdk_owned_seam_refusal(declaration: ProductClassDeclaration) -> None:
+def _refuse_sdk_owned_seam_refusal(
+    declaration: ProductClassDeclaration,
+    *,
+    _sdk_seam_refusals: Mapping[str, SeamRefusalBinding] = SDK_SEAM_REFUSALS,
+) -> None:
     """Raise unless the class leaves the SDK's own seam classes alone.
 
     `D-IMPL-357` B3, round 3. A class may declare a binding for any exception
@@ -494,16 +498,27 @@ def _refuse_sdk_owned_seam_refusal(declaration: ProductClassDeclaration) -> None
 
     The SDK-first consult order stays as the runtime backstop for anything that
     reaches a resolver by another route, and a control keeps proving it holds.
+
+    **ONE MAP, TWO READERS, THE SAME OBJECT.** ``_sdk_seam_refusals`` is never
+    passed by a caller; its default binds the same mapping object
+    :meth:`GovernedResolver._declared_seam_refusal` binds, at definition time.
+    That is a coherence requirement rather than a hardening one: while this
+    function read the module-level NAME and dispatch read the bound OBJECT, a
+    rebind made the two disagree — measured — and the refusal then PERMITTED a
+    declaration that dispatch still converted under the SDK's cause. A permitted
+    declaration that does nothing is precisely the silently-inert control this
+    function exists to refuse, so the refusal reproducing it was the worst
+    possible place for the inconsistency to live.
     """
     conflicting = [
         binding
         for binding in declaration.seam_refusals
-        if binding.exception in SDK_SEAM_REFUSALS
+        if binding.exception in _sdk_seam_refusals
     ]
     if not conflicting:
         return
     named = conflicting[0]
-    owned = SDK_SEAM_REFUSALS[named.exception]
+    owned = _sdk_seam_refusals[named.exception]
     raise ProductClassRegistrationError(
         f"product class {declaration.schema_name!r} declares a seam refusal for"
         f" {named.exception!r}, which is an exception the SDK RAISES and whose"

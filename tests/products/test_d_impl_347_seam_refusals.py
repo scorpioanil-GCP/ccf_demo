@@ -593,6 +593,53 @@ def test_a_class_declaring_an_SDK_OWNED_seam_type_is_REFUSED_at_registration(
         assert named in message, (named, message)
 
 
+def test_the_refusal_and_the_dispatch_read_ONE_map_even_after_a_rebind(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two readers of one map must not be able to disagree.
+
+    Dispatch binds the mapping object at definition time (see
+    ``test_rebinding_the_module_attribute_does_NOT_change_dispatch``). While the
+    registration refusal still read the module-level NAME, a rebind made the two
+    readers disagree: the refusal PERMITTED a class declaring the SDK's own seam
+    type, and dispatch then converted it under the SDK's cause anyway — so the
+    permitted declaration was silently inert, which is the exact shape that
+    refusal exists to prevent. Measured before the fix; this pins its absence.
+
+    Not a security control. Rebinding is in-process and therefore inside the
+    trust boundary (the map's own comment says so). This is a COHERENCE control:
+    whatever one reader sees, the other sees.
+    """
+    import ccf.products.resolver as resolver_module
+    from ccf.products.contract import ProductClassRegistrationError
+
+    # The rebind that used to split the two readers: an EMPTY map, which a
+    # name-reading refusal would find nothing in.
+    monkeypatch.setattr(resolver_module, "SDK_SEAM_REFUSALS", {})
+    assert resolver_module.SDK_SEAM_REFUSALS == {}, "the rebind itself must land"
+
+    config = _config()
+    config["product_class"]["seam_refusals"] = [
+        {
+            "exception": "ccf.assembly.worker.IdentityRefused",
+            "cause": "unauthorized",
+            "error_code": "borrowed-authority",
+        }
+    ]
+    root = _write_tree(tmp_path / "b3coh", config=config)
+    scratch = tmp_path / "b3coh" / "scratch"
+
+    def _null_identity(**_: Any) -> Any:
+        raise IdentityRefused(
+            envelope_id="env-coh", entity_class="company", key="lei", field="lei", reason="null"
+        )
+
+    with _open(root, scratch, project=_null_identity) as opened:
+        with pytest.raises(ProductClassRegistrationError, match="IdentityRefused"):
+            opened.answer(_question(opened))
+
+
 def test_the_sdk_map_wins_over_a_product_class_declaring_the_same_sdk_type() -> None:
     """THE RUNTIME BACKSTOP the registration refusal does not replace.
 
