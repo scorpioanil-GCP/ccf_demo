@@ -652,6 +652,19 @@ _MARKED_IN_THE_TREE = frozenset(
         # arrival this set-equality test exists to report.
         "ccf.hitl.transport.HitlActionSubmission.answered_event_class",
         "ccf.hitl.transport.HitlActionSubmission.answered_workflow_state_ref",
+        # `D-IMPL-357` C4 — the THIRD exclusive domain shape (a grammar) and
+        # the ninth declaration key (the subject's own further constraint).
+        # Both ADDITIVE and both sentinel-silent at `None`, so every domain and
+        # every request contract written before them canonicalizes byte-for-byte
+        # as it did and the `ProductRequestContract` digest below still
+        # reproduces. The tick is correct rather than merely recorded because
+        # the sentinel is the RESTRICTIVE reading at every consumer: an absent
+        # `pattern` declares no grammar rather than a permissive one, and an
+        # absent `subject_domain` narrows nothing — the mechanism floor
+        # (`SUBJECT_FLOOR_V1`) judges the subject either way, and no declaration
+        # can reach under it.
+        "ccf.products.request.ArgumentDomain.pattern",
+        "ccf.products.request.ProductRequestContract.subject_domain",
     }
 )
 

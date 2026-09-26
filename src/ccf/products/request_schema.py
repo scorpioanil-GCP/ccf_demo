@@ -10,7 +10,7 @@ name, and what that interface accepts is part of what it declares.
 numeric domain, is declared in exactly one place —
 :attr:`ccf.products.request.ProductRequestContract.argument_domains`, as an
 :class:`~ccf.products.request.ArgumentDomain` — and this module DERIVES the
-advertised ``enum`` and ``minimum`` / ``maximum`` from it. P-1, Dave
+advertised ``enum``, ``minimum`` / ``maximum`` and ``pattern`` from it. P-1, Dave
 verbatim: *"The request contract is the authority for legal values; schemas
 and discovery advertise that authority but never independently define it."*
 That is why the render is a function over the contract and not a field on
@@ -57,10 +57,12 @@ def render_request_input_schema(contract: ProductRequestContract) -> dict[str, A
 
     Composes :meth:`ccf.skills.catalog.SkillArgumentSchema.to_input_schema`
     over ``contract.arguments`` and then, for each declared
-    :class:`~ccf.products.request.ArgumentDomain`, sets exactly one of two
+    :class:`~ccf.products.request.ArgumentDomain`, sets exactly one of three
     things on that parameter's property: ``enum`` (the enumerated shape,
-    members in declared order) or ``minimum`` and/or ``maximum`` (the
-    numeric shape, an absent end not emitted). Pure and total over the
+    members in declared order), ``minimum`` and/or ``maximum`` (the
+    numeric shape, an absent end not emitted), or ``pattern`` (the grammar
+    shape, ``D-IMPL-357`` C4 — the declared regular expression verbatim, which
+    is what JSON Schema's own ``pattern`` keyword means). Pure and total over the
     contract; nothing is authored. A contract with no domains renders
     byte-identically to ``to_input_schema()`` alone.
 
@@ -70,8 +72,9 @@ def render_request_input_schema(contract: ProductRequestContract) -> dict[str, A
     reads ``bool`` first — :func:`ccf.products.request._member_class`).
 
     Raises:
-        ValueError: the base render already carries ``enum``, ``minimum`` or
-            ``maximum`` on any property. That is a second declaration of
+        ValueError: the base render already carries ``enum``, ``minimum``,
+            ``maximum`` or ``pattern`` on any property. That is a second
+            declaration of
             legal values outside the one declaration of record (D-00, P-1),
             and it is refused by name — on a domained property because it
             would compete with the declaration, on any other because it
@@ -88,7 +91,11 @@ def render_request_input_schema(contract: ProductRequestContract) -> dict[str, A
 def _refuse_a_second_declaration(properties: dict[str, Any]) -> None:
     """The base render is not a declaration surface for legal values."""
     for name, spec in properties.items():
-        planted = [key for key in ("enum", "minimum", "maximum") if key in spec]
+        planted = [
+            key
+            for key in ("enum", "minimum", "maximum", "pattern")
+            if key in spec
+        ]
         if planted:
             raise ValueError(
                 f"the argument schema's own render carries {planted} on "
@@ -101,7 +108,15 @@ def _refuse_a_second_declaration(properties: dict[str, Any]) -> None:
 
 
 def _derived_keys(domain: ArgumentDomain) -> dict[str, Any]:
-    """What one domain contributes to its parameter's rendered property."""
+    """What one domain contributes to its parameter's rendered property.
+
+    Exactly one of three shapes, on the declaration's own exclusivity
+    (``D-IMPL-264`` D-03 as amended by ``D-IMPL-357`` C4): the grammar branch
+    first, because a pattern is the one shape carried verbatim — a regular
+    expression is text, so there is no value translation for it to need.
+    """
+    if domain.pattern is not None:
+        return {"pattern": domain.pattern}
     if domain.members is not None:
         return {"enum": [_render_value(member) for member in domain.members]}
     derived: dict[str, Any] = {}

@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1736 entries**, of which **1478** name a public Python surface.
+**1741 entries**, of which **1482** name a public Python surface.
 
 ## Added
 
@@ -16035,7 +16035,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-484 entries — 297 public Python surface, 187 not public Python API.
+487 entries — 299 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -16152,6 +16152,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none
 
 *Recorded by `357-C1-subject-floor.md`.*
+
+#### ccf.products.request.ArgumentDomain
+
+- Surface: ccf.products.request.ArgumentDomain
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `minimum: Decimal | None`, `maximum: Decimal | None`, `members: tuple[str | int | bool | Decimal, ...] | None`; exactly one of two shapes (numeric bounds OR an enumerated set), enforced by pairwise comparison
+- After: a fourth field, `pattern: str | None = None` (hash-transparent `True`), and exactly one of THREE shapes, enforced by a shape COUNT rather than a pairwise chain. A pattern is judged by `re.fullmatch` (never `re.search` — a value that merely contains the grammar satisfies a wider domain than the one declared) and is compiled once at construction so a non-compiling grammar is refused by name where the author can still fix it. `refuses(value)` returns `"not-in-domain"` for a non-string, or for a string the grammar does not match in full.
+- Why: `D-IMPL-357` C4 — an identifier whose legal form is a RULE (an LEI, an internal account format, a jurisdiction code) cannot be declared as a roster, and the alternative an adopter reaches for is validation in deployment code, which is a second authority over one bound (`D-IMPL-315`). Sentinel-silent at `None` (`D-IMPL-243`), so every domain written before the grammar existed canonicalizes byte-for-byte as it did and no committed request contract's content address moves.
+- Migration: none for any existing declaration. An author who reads the refusal message should note it now names a shape COUNT ("declares 2") rather than "both"; the word "neither" is retained for the no-shape case.
+
+*Recorded by `357-C4-subject-domain.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: no declaration surface for the subject; a class could constrain any declared parameter and nothing about the address axis the question is actually about
+- After: `subject_domain: ArgumentDomain | None = None` (hash-transparent `True`), plus a validator refusing a NUMERIC subject domain by name — a subject is an identifier, not a magnitude, so bounds over one bound nothing (the sibling of the existing `unmeasurable` refusal over a declared `string`). `from_declared` reads it as the optional NINTH declaration key, so the field is reachable from an artifact and not only from Python. The declaration-time domain validator additionally refuses a `pattern` declared over a parameter whose type is not `string` (a grammar judges text; over any other type no value could satisfy it), named in the same exhaustive message as the five defects it already reports.
+- Why: `D-IMPL-357` C4. An adopter who knows their subjects are LEIs should be able to say so in the governed declaration rather than nowhere. Sentinel-silent at `None`, so every request contract written before the field keeps its content address; a declared domain renders and therefore MOVES the hash, deliberately — two classes holding their subjects to different grammars must not share one contract identity.
+- Migration: none. A contract declaring no `subject_domain` holds its subject to exactly what it did: the mechanism floor, judged by `refuse_floor`, which no declaration can reach under.
+
+*Recorded by `357-C4-subject-domain.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -21497,6 +21521,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 ### Not public Python API
 
+#### docs/schemas/ccf.product-request-contract.json
+
+- Surface: docs/schemas/ccf.product-request-contract.json
+- Public surface: false
+- Change type: reshaped
+- Before: `ArgumentDomain` advertised three properties; the contract advertised nine
+- After: `ArgumentDomain` advertises `pattern` and the contract advertises `subject_domain`, both carrying `"ccf_hash_transparent": true` and `"default": null`
+- Why: the committed schema tree is the authoring baseline an adopter reads in their editor (ERGO-12); a declaration key that exists in the type and not in the schema is a key nobody can discover
+- Migration: none — both keys are optional and default to absent
+
+*Recorded by `357-C4-subject-domain.md`.*
+
 #### tools/lints/__main__.py
 
 - Surface: tools/lints/__main__.py
@@ -24342,7 +24378,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-220 entries — 192 public Python surface, 28 not public Python API.
+222 entries — 194 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -24648,6 +24684,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   it on both halves
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: five ordered steps — address, tier, the payload comparison, the tolerance interval, the declared parameter domains
+- After: SIX ordered steps, with the subject's declared domain inserted SECOND, immediately after the address check and before the tier step: the subject is an address axis, so its verdict belongs beside the other address verdicts and none of the parameter steps has anything to say about it. The returned violation carries `reason` (`"not-in-domain"`), `key="subject"`, `declared_type="string"`, and the declared grammar or member set in `detail` — never the presented subject, on `refuse_floor`'s own discipline that `detail` states the RULE and never echoes untrusted caller text.
+- Why: `D-IMPL-357` C4. One comparison, so a registration-time capability check and a live request are judged by one reading of "well-formed". The step is a NARROWING and is explicitly NOT the mechanism floor: the paragraph `357-C2` added — that this function deliberately does not carry the floor, and that a caller validating a request outside `GovernedResolver` must call `refuse_floor` itself — remains true and is now stated alongside the narrowing step so the two cannot be confused.
+- Migration: none for a contract declaring no `subject_domain` (the step returns `None` immediately). A caller that declares one gets a `not-in-domain` violation keyed `"subject"`, which is an existing reason and an existing violation class — the door still maps by CLASS (`ProductRequestViolation` -> 400), never by reason token.
+
+*Recorded by `357-C4-subject-domain.md`.*
+
+#### ccf.products.request_schema.render_request_input_schema
+
+- Surface: ccf.products.request_schema.render_request_input_schema
+- Public surface: true
+- Change type: behavior
+- Before: derived exactly one of two things onto a domained property — `enum`, or `minimum` / `maximum` — and refused a base render that already carried any of those three keys
+- After: derives one of THREE — `pattern` verbatim for the grammar shape (a regular expression is text, so there is no value translation for it to need) — and refuses a planted `pattern` on the same D-00 / P-1 terms: the base render is not a declaration surface for legal values at all
+- Why: `D-IMPL-357` C4 on P-1's terms — the request contract is the authority for legal values and this module ADVERTISES that authority; a declared grammar reaching a caller as JSON Schema's own `pattern` keyword is the derivation, and a `pattern` written on the base render would be a second declaration that could disagree
+- Migration: none. This module still publishes nothing — no MCP tool, no HTTP route, no CLI verb serves the render (carry row `24.7-C-01`).
+
+*Recorded by `357-C4-subject-domain.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 

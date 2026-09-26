@@ -79,7 +79,7 @@ from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
-from ccf.products.request import ProductRequest, request_seeds
+from ccf.products.request import SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds
 from ccf.replay.record import (
     NO_FABRIC_READ,
     ContentGenerationPath,
@@ -3044,4 +3044,146 @@ def test_a_well_formed_request_is_unaffected_by_the_floor(booted: _Booted) -> No
     """The control. A conforming subject and a conforming parameter still
     serve — the floor is a refusal path, not a tax on every question."""
     outcome = _ask(_resolver(booted), _request())
+    assert isinstance(outcome, ServedProduct), outcome
+
+
+# --- D-IMPL-357 C4: a declared subject domain NARROWS, and cannot widen ------
+#
+# C4 adds `ProductRequestContract.subject_domain` — an adopter's further
+# constraint on the subject, judged by `_refuse_subject` inside
+# `refuse_request`. `refuse_request` runs deep inside the constraint
+# resolution (`ccf.products.constraints`, step 5 over the EFFECTIVE values),
+# which `GovernedResolver.__call__` reaches only AFTER `refuse_floor`. So the
+# ordering that makes the narrowing claim true is a property of the resolver,
+# not of either function, and it is measured here.
+
+#: The fixture's own permissive grammar (CINV-01): it admits every character,
+#: including both quote characters `SUBJECT_FLOOR_V1` refuses.
+PERMISSIVE_SUBJECT_GRAMMAR = r".*"
+
+#: The fixture's own narrow grammar: 20 uppercase-or-digit characters. The
+#: stock subject (`"acct-1"`) does not satisfy it; the value below does.
+NARROW_SUBJECT_GRAMMAR = r"[0-9A-Z]{20}"
+CONFORMING_SUBJECT = "5493001KJTIIGC8Y1R12"
+
+
+@pytest.fixture
+def booted_with_permissive_subject_domain(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """The same deployment, its request contract declaring a subject grammar
+    that admits everything. Authored in a test-side document (CINV-01)."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["subject_domain"] = {
+        "pattern": PERMISSIVE_SUBJECT_GRAMMAR
+    }
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+@pytest.fixture
+def booted_with_narrow_subject_domain(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, its request contract declaring a narrow subject
+    grammar the stock subject fails."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["subject_domain"] = {
+        "pattern": NARROW_SUBJECT_GRAMMAR
+    }
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_a_permissive_subject_domain_cannot_widen_past_the_mechanism_floor(
+    booted_with_permissive_subject_domain: _Booted,
+) -> None:
+    """**THE C4 property, at the resolver.**
+
+    The declaration admits an apostrophe. The floor does not, and the floor is
+    judged first — before the overridable `constraint_resolver` seam and
+    before the acquisition seam — so the splice-shaped subject is refused
+    `malformed-value` and neither the override nor the acquisition runs.
+
+    **Measured twice, not asserted.** (1) Deleting the `refuse_floor` call
+    site in `GovernedResolver.__call__` (`floor = None`) reddens this test:
+    the override's `resolve` raises, because the permissive declaration would
+    have let the subject through the narrowing step it reaches instead. (2)
+    Making the floor itself negotiable by declaration — skipping its subject
+    check whenever `declared.subject_domain` is set — reddens this test and its
+    pure-function twin in `tests/products/test_request_contract.py`, and
+    nothing else. That second severing is the precise widening C4 must not
+    allow, and it has a test that sees it.
+    """
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:  # a stub that skips every judgment
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    resolver = _resolver(
+        booted_with_permissive_subject_domain,
+        acquisition=_seam,
+        constraint_resolver=_Override(),
+    )
+    outcome = _ask(resolver, _request(subject=SPLICE_SHAPED_VALUE))
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    address = booted_with_permissive_subject_domain.store.resolve_uri(
+        uri=outcome.replay_reference
+    )
+    record = DecisionReplayRecord.model_validate_json(
+        booted_with_permissive_subject_domain.store.get(content_address=address)
+    )
+    refusal = str(record.content_generation_path.assembly_refusal)
+    # WHICH check refused: the floor, by its version marker — not the C4
+    # narrowing step, whose ruling text is absent from a floor refusal.
+    assert "malformed-value" in refusal
+    assert SUBJECT_FLOOR_VERSION in refusal
+    assert "D-IMPL-357 C4" not in refusal
+
+
+def test_a_permissive_subject_domain_still_serves_a_conforming_subject(
+    booted_with_permissive_subject_domain: _Booted,
+) -> None:
+    """The positive control for the test above: with a floor-conforming
+    subject the permissive declaration refuses nothing and the product serves.
+    Without this, a `subject_domain` that refused EVERY subject would leave
+    the refusal test green."""
+    outcome = _ask(
+        _resolver(booted_with_permissive_subject_domain), _request(subject="acct-1")
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+
+def test_a_narrow_subject_domain_is_read_from_the_artifact_and_refuses(
+    booted_with_narrow_subject_domain: _Booted,
+) -> None:
+    """The declaration is load-bearing on the governed path, not merely
+    parseable: the stock subject passes the floor and then fails the adopter's
+    own grammar, and the recorded refusal names C4 rather than the floor."""
+    outcome = _ask(_resolver(booted_with_narrow_subject_domain), _request())
+    assert isinstance(outcome, RefusalEnvelope)
+    address = booted_with_narrow_subject_domain.store.resolve_uri(
+        uri=outcome.replay_reference
+    )
+    record = DecisionReplayRecord.model_validate_json(
+        booted_with_narrow_subject_domain.store.get(content_address=address)
+    )
+    refusal = str(record.content_generation_path.assembly_refusal)
+    assert "not-in-domain" in refusal
+    assert "D-IMPL-357 C4" in refusal
+    assert SUBJECT_FLOOR_VERSION not in refusal
+
+
+def test_a_narrow_subject_domain_admits_the_subject_it_declares(
+    booted_with_narrow_subject_domain: _Booted,
+) -> None:
+    """The positive control: the same deployment serves the subject its own
+    grammar admits, so the refusal above measures the subject and not the
+    presence of the declaration."""
+    outcome = _ask(
+        _resolver(booted_with_narrow_subject_domain),
+        _request(subject=CONFORMING_SUBJECT),
+    )
     assert isinstance(outcome, ServedProduct), outcome

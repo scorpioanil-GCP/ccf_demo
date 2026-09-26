@@ -233,6 +233,49 @@ def test_two_domains_render_side_by_side() -> None:
     assert rendered["properties"][OPTIONAL_LEAF]["minimum"] == 1
 
 
+# --- (2b) a grammar domain renders its pattern as `pattern` (D-IMPL-357 C4) --
+
+
+#: The fixture's grammar, never the SDK's (CINV-01).
+GRAMMAR = r"[0-9A-Z]{20}"
+
+
+def test_the_render_advertises_pattern_and_refuses_a_planted_one() -> None:
+    """The third shape's derivation. `D-IMPL-357` C4 on P-1's terms: the
+    contract is the authority and this module ADVERTISES it, so a declared
+    grammar reaches a caller as JSON Schema's own `pattern` keyword rather
+    than as a second declaration written here. The planted half is the
+    parametrized refusal in section (4), extended with `"pattern"`.
+    """
+    from ccf.products.request_schema import render_request_input_schema
+
+    contract = _contract(
+        argument_domains={REQUIRED_LEAF: ArgumentDomain(pattern=GRAMMAR)}
+    )
+    rendered = render_request_input_schema(contract)
+    assert rendered["properties"][REQUIRED_LEAF]["pattern"] == GRAMMAR
+    # Exactly one shape is derived: a grammar contributes no enum and no bounds.
+    assert "enum" not in rendered["properties"][REQUIRED_LEAF]
+    assert "minimum" not in rendered["properties"][REQUIRED_LEAF]
+    assert "maximum" not in rendered["properties"][REQUIRED_LEAF]
+
+
+def test_a_grammar_domain_leaves_every_other_property_untouched() -> None:
+    """The render is derivation, not authorship: only the domained property
+    gains a key."""
+    from ccf.products.request_schema import render_request_input_schema
+
+    contract = _contract(
+        argument_domains={REQUIRED_LEAF: ArgumentDomain(pattern=GRAMMAR)}
+    )
+    rendered = render_request_input_schema(contract)
+    base = _contract().arguments.to_input_schema()
+    for name, spec in rendered["properties"].items():
+        if name == REQUIRED_LEAF:
+            continue
+        assert spec == base["properties"][name], name
+
+
 # --- (4) the render reads ArgumentDomain ONLY (P-1) --------------------------
 
 
@@ -249,7 +292,8 @@ def _planting(key: str, value: Any, *, on: str) -> Any:
 
 
 @pytest.mark.parametrize(
-    ("key", "value"), [("enum", ["planted"]), ("minimum", 0), ("maximum", 9)]
+    ("key", "value"),
+    [("enum", ["planted"]), ("minimum", 0), ("maximum", 9), ("pattern", "planted")],
 )
 @pytest.mark.parametrize(
     "on", [REQUIRED_LEAF, OPTIONAL_LEAF], ids=["domained", "not-domained"]
@@ -288,7 +332,7 @@ def test_the_control_plants_nothing_when_not_asked() -> None:
     the three derived keys, so the refusal above is measuring the plant."""
     base = _contract().arguments.to_input_schema()
     for name, spec in base["properties"].items():
-        for key in ("enum", "minimum", "maximum"):
+        for key in ("enum", "minimum", "maximum", "pattern"):
             assert key not in spec, (name, key)
 
 
