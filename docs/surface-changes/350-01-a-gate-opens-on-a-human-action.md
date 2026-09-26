@@ -169,11 +169,24 @@ gate. `HITLTransportProtocol` offers `enqueue`, `dequeue`, `pending`, `remove`,
 submission; the served doors are `GET /hitl/queue` and `POST /hitl/actions`; the
 CLI verbs are `ccf hitl list` and `ccf hitl submit`. `D-IMPL-357` added no
 reconciliation primitive and claims none. **So a conflicted gate stays suspended
-until someone intervenes outside the fabric** — a fresh execution, or an
-operator reaching into the HITL store directly. That intervention is unaudited
-because it happens where the fabric is not, and it is the honest price of
-refusing rather than routing. The stamp race named at the end of this section is
-what can put a gate into this state without two officers ever disagreeing.
+until someone intervenes outside the fabric**, and the two interventions
+available are not equally blind:
+
+- **An operator reaching into the HITL store directly** is unaudited, because it
+  happens where the fabric is not — no `AuditEvent` describes a submission that
+  was deleted or rewritten underneath the transport.
+- **Abandoning the execution and starting a fresh one is AUDITED**, like any
+  other execution: measured on the covenant fixture, a replacement run to its
+  gate writes two `workflow_transition` rows and a `workflow_suspended` row, and
+  its resumption writes a `workflow_resumed` row naming the approver. What it
+  does not do is settle anything about the conflicted run. `AuditAction` has no
+  *abandoned* member and no surface retires a suspended execution, so **that
+  execution stays `suspended` forever** and no recorded fact links the
+  replacement to it.
+
+Either way the price of refusing rather than routing is honest but real. The
+stamp race named at the end of this section is what can put a gate into this
+state without two officers ever disagreeing.
 
 The verdict→target residual, by contrast, is closed **to a stated bound**. It was
 pinned by a test written to go RED the moment a verdict→target binding was
