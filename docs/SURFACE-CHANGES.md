@@ -16200,7 +16200,9 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   engine-side compare against the recorded decision, `A4` refusal of
   conflicting verdicts on one suspension) consume it by name and shape —
   neither is renamed nor reshaped here.
-  It follows from the validators rather than being declared separately: every
+  **A routed gate declares at least TWO distinct outgoing transition
+  targets.** It follows from the validators rather than being declared
+  separately: every
   route target must be a declared transition target from that gate, two
   verdicts from one gate must not share a target, and `A2`'s factory check
   requires a target for every `GATE_ACTIONS` verdict. A gate with a single
@@ -16212,7 +16214,9 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   missing is that an author met it as two refusals from two modules with the
   rule stated nowhere. It is now one clause on the `gate_routes` field
   docstring (`src/ccf/workflow/definitions.py`).
-  refuses any step whose kind in the resolved TaskDefinition is `hitl-gate`
+  **A `hitl-gate`-kind step is never a declared terminal state.** `A2`'s
+  factory refuses any step whose kind in the resolved TaskDefinition is
+  `hitl-gate`
   and whose name appears in `effective_terminal_states`. Review measured both
   shapes this closes: named in `terminal_states` and reached as a transition
   target, the execution COMPLETES at the gate's name with no suspension and no
@@ -16223,12 +16227,29 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   condition. A deployment whose workflow declares such a step is refused at
   construction, which is a behavior change to `WorkflowFactory.construct` on a
   shape that could not have worked as its author intended.
-- Migration: none required for an existing deployment — the field defaults
-  to `{}` and every `WorkflowDefinition` document written before this
-  change validates unchanged. A workflow author who wants the new refusal
-  coverage on a routed gate declares its `gate_routes` entry; `A2`'s
-  factory-level check is what will require a complete map once a step is
-  `hitl-gate`-kind.
+- Migration: **for THIS task alone — the contract change, before any factory
+  check — none:** the field defaults to `{}`, so a `WorkflowDefinition`
+  document written before it still validates. That is the extent of the
+  no-migration claim, and it is scoped to A1 deliberately, because **the lane
+  as a whole does require migration** and an adopter reading only this bullet
+  would decide a release needs no work. In one clause: **every workflow
+  document whose wrapped task declares a `hitl-gate` step the wrapper can
+  reach must declare a complete `gate_routes` entry for that gate — a target
+  for each of the two `GATE_ACTIONS` verdicts, hence at least two distinct
+  outgoing transition targets — and must not name that gate in
+  `terminal_states`.** A document that does not is refused at
+  `WorkflowFactory.construct` (`A2`), and the terminal-gate refusal rejects
+  shapes that previously constructed, which is the behavior change the two
+  clauses above describe. **Content hashes move, by design and for every
+  `WorkflowDefinition` document — not only gate-bearing ones** — because the
+  field is a declared generation boundary
+  (`{HASH_TRANSPARENT_KEY: False}`) rather than a silent default, so it
+  renders at its default too; measured on a definition with no gate at all,
+  `5f09ffe6…` → `2f507135…`, and a stored document lacking the field is named
+  by `generation_mismatch` rather than run. The three in-tree gate-bearing
+  documents took one line each; the archived example transcluded by
+  `public/reference/artifacts/workflow-definitions.md` declares no routes and
+  would now be refused, which that page says on its face.
 
 *Recorded by `357-A1-gate-routes.md`.*
 
