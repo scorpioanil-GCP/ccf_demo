@@ -17,6 +17,8 @@ It is assembled from the per-plan fragments under `docs/surface-changes/`, which
 
 **Phase 16 consumes this document directly.** The documentation rewrite describes the surface that exists; this is the record of how it got there from the surface Phase 14 documented.
 
+**WHAT THIS DOCUMENT IS NOT: it is not a complete security ledger, and it does not carry the residual ledgers.** It emits the seven field bullets of every entry and nothing else, so a fragment's prose sections — a stated bound on a security fix, its named residuals, its sabotage evidence — reach a reader through the fragment under `docs/surface-changes/` and never through this file. Measured on the `SEC-001` fragment: seven distinctive phrases from its limit-that-remains section appear once there and zero times here. So read this as the migration record it is, and read a security remediation's bound in `docs/DECISIONS.md` and in the owning fragment. Anything a residual owes an adopter belongs in a `Migration` bullet, where this document can carry it.
+
 ## How to read an entry
 
 Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `Before`, `After`, `Why`, and `Migration`. The assembler refuses to build this document from an entry missing any of them.
@@ -24007,6 +24009,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: a defaulted `refusal_seam` keyword, on the `child_resolutions` precedent
 - Why: the seam has to reach the replay writer through the one minting seam, not around it
 - Migration: none — defaulted, so every existing implementation and call site is unchanged
+  - Correction 2026-09-23: `Public surface` was `true`, and the manifest tracks the OWNING name rather than the member — so the entry claimed a diff line the instrument cannot show and `test_every_public_log_entry_has_a_matching_diff_line` went red. `false` is the convention this fragment already uses for `ContentGenerationPath.refusal_seam`. The change itself is unaffected and still described above.
 
 *Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
 
@@ -26348,6 +26351,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   question B, and have A echoed while B is answered. `C-18` extends that to the
   temporal axis because `C-15` keeps the clock client-side, so a **concrete**
   `as_of` crosses the pipe twice
+  - **Known limit, stated rather than closed:** when the caller sent
   `as_of=None`, the client resolved the instant and there is **no second copy**
   to compare, so a transport altering `asked_at` alone is **undetected**. No
   fallback, tolerance window or reconstruction is added — a reconstructed
@@ -26428,6 +26432,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   envelope would be the second rendering of the vessel that `ccf.client.wire`
   rejects by ruling; encoding text this adapter never inspects is a
   pass-through, not a transcoding
+  - **Diagnostic narrowing, accepted rather than papered over:** `_decode`
   raised a `TransportError` naming the scheme and the program for malformed
   bytes. `decode_outcome` raises the same diagnosis in the same words without
   that context, and the generic message is taken. A thin adapter-level
@@ -26460,6 +26465,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   the echo cross-check an object compared with itself, which is `B0` surviving
   in-process while being closed over the wire. The door half takes **text and
   never a `WireRequest`**, for the reason `door_question` already states
+  - **The cost, ruled and not benchmarked:** two extra serializations per `ask`,
   accepted with no benchmark owed (`C-14`). `D-13` already accepted *"a
   microsecond of serialization"* on the answer half, and the question is far
   smaller than the answer
@@ -26561,6 +26567,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   in `tests/mcp/test_egress_parameters.py` contains no float case, so the
   divergence was real and invisible. This is the narrowing direction
   `D-IMPL-151` finding `B2` already chose for this pair of doors
+  - **The naive-`asked_at` refusal makes a shipped claim true.**
   `ccf.products.door.WireRequest`'s temporal guard states that *"both product
   doors refuse a naive `asked_at` by name"*. Measured before this change: this
   one did not
@@ -26568,6 +26575,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   sending a `float` renders it with `format(value, 'f')`; a caller sending a
   bare local instant attaches an explicit offset. Both spellings are named in
   the refusal message rather than left to be guessed
+  - **Deferred, and named rather than papered over:** a naive `asked_at` would
   read better under a dedicated `product-asked-at-naive` error code.
   `runtime/ccf_runtime/http_api/errors.py` is outside this plan's declared
   file set, so the existing constant whose recorded meaning covers *an axis
@@ -28335,6 +28343,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Change type: behavior
 - Before: `declarations` listed every tenant's agent keys; `declaration` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `declarations` lists the capability's tenant's keys; `declaration` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+  - Also, pre-merge (R11): `declaration` and `versions` resolve the CAPABILITY's resource and refuse a `key` parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-01/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 
@@ -28347,6 +28356,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Change type: behavior
 - Before: `keys` listed every tenant's keys in a class; `resolution` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `keys` lists the capability's tenant's; `resolution` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+  - Also, pre-merge (R11): `keys`, `versions` and `resolution` resolve the CAPABILITY's resource and refuse a parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-03/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 
