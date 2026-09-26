@@ -36,9 +36,16 @@ population is not a measurement. Four consequences, all structural here:
    was live and the declared keys genuinely have no nulls.
 3. **The run carries its own positive control.** ``positive_control()`` drives
    the same matchers over synthetic rows whose answer is known, and the report
-   prints whether each fired. A glob that matches no files, an empty declared
-   set, an unparsable row, or a failed control makes the tool exit **non-zero**
-   — the zero-exit silence that made the first run unreadable is gone.
+   prints whether each fired. A glob that matches no files — **every glob,
+   including the example-builder glob** — an empty declared set, an empty or
+   drifted per-tree declaration map, an unparsable row, or a failed control
+   makes the tool exit **non-zero**; the zero-exit silence that made the first
+   run unreadable is gone. The builder glob was the one leg added without that
+   wiring, so its scoped figure could read ``0`` at exit ``0`` while this
+   paragraph told a reader it could not. One control now drives the tree-scoping
+   question through the **real** declaration map rather than an injected
+   substitute, because a control over a substitute stays green while the map the
+   report scopes against goes empty.
 4. **The scanned population is the one the ruling conditions on**, not the
    subset that was convenient to read — see the next section.
 
@@ -105,6 +112,15 @@ controls, and the unscoped figure is still printed — labeled as a loose upper
 bound, for the denominator. **The honest number is smaller than the loose one,
 and that is the point:** a measurement that shrinks under scoping and stays
 true is worth more than a large one that does not.
+
+**Scoping buys precision and buys a second way to read zero**, so section 2c
+prints the denominators of the scoping itself: the matched builder-file count,
+the size of the per-tree declaration map with its per-tree name counts, and how
+many scanned builder files have a tree key that is actually *in* that map. Any
+of the three at zero fails the run. The third is the drift detector rather than
+an emptiness detector — a map can be full and still share no key with the files
+being scoped, which zeroes the scoped figure exactly as emptiness would — and it
+is the one wrong-subset condition this glob-driven instrument *can* see.
 
 The builder scan also carries the same UNREADABLE bucket the declarations
 reader carries. It silently skipped dict keys it could not resolve to a
@@ -1201,16 +1217,39 @@ def _builder_sites_in_module(
     )
 
 
-def example_builder_sites(
-    declared: set[str],
-) -> tuple[list[BuilderSite], int, UnreadableKeys]:
+class BuilderScan(NamedTuple):
+    """The builder leg's answer AND its denominators, carried out together.
+
+    ``sites`` alone was the leg's whole return value, and that is what made its
+    headline figure indistinguishable from an empty scan: with no matched file
+    and with an empty declaration map the scoped count is ``0`` either way, and
+    nothing downstream could tell which. The other three fields are the
+    discriminators, and :func:`main` wires each of them to the exit code — the
+    same treatment the other two legs' globs already got.
+
+    ``files`` is the matched-file count; ``per_tree`` is the declaration map the
+    tree-scoping condition is decided against; ``trees_in_map`` counts the
+    builder files whose derived ``examples/<tree>/`` key is present in that map.
+    The last one is the drift detector: a map can be non-empty and still share
+    no key with the files being scoped, which zeroes the scoped figure exactly
+    as emptiness would.
+    """
+
+    sites: list[BuilderSite]
+    files: int
+    unreadable: UnreadableKeys
+    per_tree: dict[str, set[str]]
+    trees_in_map: int
+
+
+def example_builder_sites(declared: set[str]) -> BuilderScan:
     """Dict-literal sites in examples that feed a declared attribute key.
 
-    Returns ``(sites, files_scanned, unreadable)``. A key spelled as a
-    module-level constant (``ATTR_NAME = "obligor_legal_name"``) is resolved
-    through that constant, because the No-Hardcoding posture means example
-    builders name their keys that way and a literal-only scan would see almost
-    none of them.
+    Returns a :class:`BuilderScan` — the sites AND the denominators that say
+    whether the sites mean anything. A key spelled as a module-level constant
+    (``ATTR_NAME = "obligor_legal_name"``) is resolved through that constant,
+    because the No-Hardcoding posture means example builders name their keys that
+    way and a literal-only scan would see almost none of them.
 
     ``uncoerced`` is an honest *don't-know*: the value is an expression whose
     runtime type this scan cannot decide. It is reported as its own bucket
@@ -1225,6 +1264,7 @@ def example_builder_sites(
     unreadable_shapes: collections.Counter[str] = collections.Counter()
     subscript_assigned: list[tuple[str, int, str, str]] = []
     files = 0
+    trees_in_map = 0
     for path in sorted(REPO_ROOT.glob(EXAMPLE_BUILDER_GLOB)):
         files += 1
         try:
@@ -1234,6 +1274,8 @@ def example_builder_sites(
             continue
         relative = path.relative_to(REPO_ROOT)
         example_tree = relative.parts[1] if len(relative.parts) > 1 else ""
+        if example_tree in per_tree:
+            trees_in_map += 1
         scan = _builder_sites_in_module(
             module,
             declared=declared,
@@ -1244,13 +1286,15 @@ def example_builder_sites(
         sites.extend(scan.sites)
         unreadable_shapes.update(scan.unreadable)
         subscript_assigned.extend(scan.subscript_assigned)
-    return (
-        sites,
-        files,
-        UnreadableKeys(
+    return BuilderScan(
+        sites=sites,
+        files=files,
+        unreadable=UnreadableKeys(
             by_shape=dict(unreadable_shapes),
             subscript_assigned=sorted(subscript_assigned),
         ),
+        per_tree=per_tree,
+        trees_in_map=trees_in_map,
     )
 
 
@@ -1563,6 +1607,47 @@ def positive_control() -> list[tuple[str, bool, str]]:
         )
     )
 
+    # THE SAME SCOPING QUESTION, DRIVEN THROUGH THE REAL DECLARATION MAP.
+    # Both controls above inject their own `own_keys`, so both keep firing while
+    # the map the REPORT scopes against goes empty or drifts — the scoped figure
+    # would read 0 with every control green. This one reads the real map, picks
+    # the tree that declares the most names (deterministically, largest first
+    # then by name) and one of ITS declared keys, and asserts a payload site on
+    # that key in that tree is reachable. If the real map is empty there is no
+    # tree to pick and this control FAILS, which is the whole point of it.
+    real_map = example_tree_declarations()
+    real_named = sorted(
+        ((tree, keys) for tree, keys in real_map.items() if keys),
+        key=lambda item: (-len(item[1]), item[0]),
+    )
+    if real_named:
+        real_tree, real_keys = real_named[0]
+        real_key = sorted(real_keys)[0]
+        through_real = _builder_scan_from_text(
+            f'resolve(raw_payload={{{real_key!r}: None}})\n'
+            f'resolve(raw_payload={{"__declared_by_no_tree__": None}})\n',
+            declared={real_key, "__declared_by_no_tree__"},
+            own_keys=real_map[real_tree],
+        )
+        observed = [(s.key, s.own_tree_declares, s.reachable) for s in through_real.sites]
+        fired = observed == [
+            (real_key, True, True),
+            ("__declared_by_no_tree__", False, False),
+        ]
+    else:
+        observed = []
+        fired = False
+    controls.append(
+        (
+            "tree scoping driven through the REAL declaration map"
+            f" ({len(real_map)} tree(s);"
+            f" {'largest is ' + real_named[0][0] if real_named else 'MAP IS EMPTY'})"
+            " — an injected `own_keys` cannot see the real map going empty",
+            fired,
+            f"{len(real_map)} tree(s) in the real map, sites {observed}",
+        )
+    )
+
     unreadable_control = _builder_scan_from_text(
         'other = {"jurisdiction": 1}\n'
         'a = {obj.attr: None}\n'
@@ -1863,9 +1948,54 @@ def main() -> int:
 
     print()
     print("--- 2c. Example payload builders feeding a declared attribute key ---")
-    builder_sites, builder_files, unreadable_keys = example_builder_sites(declarations.names)
+    builder = example_builder_sites(declarations.names)
+    builder_sites, builder_files, unreadable_keys = (
+        builder.sites,
+        builder.files,
+        builder.unreadable,
+    )
     reachable = [site for site in builder_sites if site.reachable]
     print(f"  scanned: {EXAMPLE_BUILDER_GLOB} — {builder_files} file(s)")
+    # THE SAME NO-FILES LINE THE OTHER TWO LEGS PRINT, and the same effect on the
+    # exit code. Without it this leg's headline figure read 0 at exit 0 when the
+    # glob matched nothing, while the module docstring promised the opposite.
+    if not builder_files:
+        print(
+            f"  ! GLOB MATCHED NO FILES: {EXAMPLE_BUILDER_GLOB} — every figure"
+            " in this section is empty by construction, not by measurement"
+        )
+        exit_code = 1
+    # The declaration map is the OTHER way this section's scoped figure goes to
+    # zero at exit 0, and it is the harder one to see: the tree-scoping condition
+    # is decided against this map, so an empty map — or one whose keys have
+    # drifted away from the trees being scanned — makes every site unreachable
+    # while both scoping controls still report themselves as having fired.
+    # Printed the way section 1 prints its declaring-source count, and read.
+    print(
+        f"  tree declaration map: {len(builder.per_tree)} example tree(s),"
+        f" {sum(len(keys) for keys in builder.per_tree.values())} declared"
+        " name(s) in total (globs:"
+        f" {', '.join(EXAMPLE_YAML_GLOBS)})"
+    )
+    for declaring_tree, tree_names in sorted(builder.per_tree.items()):
+        print(f"    {declaring_tree}: {len(tree_names)} name(s)")
+    print(
+        f"  builder files whose own tree appears in that map: {builder.trees_in_map}"
+        f" of {builder_files}"
+    )
+    if not builder.per_tree:
+        print(
+            "  ! THE TREE DECLARATION MAP IS EMPTY: the scoped figure below is 0"
+            " by construction. Nothing could be reachable."
+        )
+        exit_code = 1
+    elif not builder.trees_in_map:
+        print(
+            "  ! NO SCANNED BUILDER FILE'S TREE APPEARS IN THE DECLARATION MAP:"
+            " the map is non-empty but its keys have drifted away from the trees"
+            " being scanned, so the scoped figure below is 0 by construction."
+        )
+        exit_code = 1
     print()
     print("  (i) SCOPED — the population the B4 change can actually reach.")
     print(
@@ -2013,6 +2143,16 @@ def main() -> int:
     print(f"    of those, uncoerced (don't-know)          : {sum(1 for s in reachable if s.shape == 'uncoerced')}")
     print(f"  builder sites UNSCOPED (an upper bound)    : {len(builder_sites)}")
     print(f"  builder dict keys UNREADABLE               : {unreadable_keys.total}")
+    # The one figure section 2c refreshed that the headline table never carried.
+    # Not unreadable: UNREACHED — a readable declared key in a shape a
+    # dict-literal walk never visits, so it is a LOWER-bound correction to both
+    # builder figures above and belongs beside them.
+    print(
+        f"  builder declared keys by SUBSCRIPT (unreached): "
+        f"{len(unreadable_keys.subscript_assigned)}"
+    )
+    print(f"  builder files scanned / trees in the map    : {builder_files} / {builder.trees_in_map}")
+    print(f"  example trees declaring any attribute key  : {len(builder.per_tree)}")
     print(f"  residual `or \"\"` sites upstream            : {site_count} ({file_count} files, {tree_count} trees)")
     print(f"  exit code                                  : {exit_code}")
     return exit_code
