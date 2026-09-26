@@ -95,7 +95,9 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+import importlib
 import re
 from decimal import Decimal
 from typing import Final, TYPE_CHECKING, Any, Literal
@@ -383,6 +385,419 @@ class ProductRequest(CCFContract):
     )
 
 
+# --- the grammar shape check (D-IMPL-357 C4, round-3 ruling) -----------------
+#
+# **The ruling.** Refuse dangerous pattern shapes AT ARTIFACT REGISTRATION,
+# never at serve. No timeout library, no thread, no subprocess, no new
+# dependency, and no reliance on the mechanism floor's 512-character cap as a
+# mitigation. **And fail closed on unclassifiable:** if registration cannot
+# establish that a shape is safe, refuse the document. The owner's closing
+# words were *"do not leave an unbounded match on a caller string."*
+#
+# **What forced it, measured.** A declared pattern is adopter-authored text
+# matched against caller-supplied text by an engine that gives no timeout. On
+# this project's interpreter, `re.compile(r"(a+)+$")` against a non-matching
+# subject of `a`s took 6.242 seconds at 28 characters and 24.990 at 30 —
+# roughly quadrupling every two characters. A 512-character cap therefore
+# bounds nothing that matters, and the standalone-validator path
+# (`refuse_request` called without `refuse_floor`) applies no cap at all.
+#
+# **Why HERE.** `ArgumentDomain` is the one type a declared grammar can arrive
+# in, from Python or from a document, so this is the earliest point an
+# adopter's grammar enters the system and the only one that cannot be bypassed
+# by a path that parses an artifact — `from_declared` builds this same type.
+# Nothing about this check runs at request time: a pattern that reached the
+# graph of registered artifacts has already been judged.
+#
+# **The analysis is STRUCTURAL and conservative.** It parses the pattern with
+# the standard library's own regular-expression parser — no dependency — and
+# walks the parse. Every opcode it meets must be in a vocabulary it has a rule
+# for; anything else is refused as unclassifiable rather than admitted. That
+# asymmetry is the ruling: an adopter who is refused can simplify their
+# grammar, and an adopter who is admitted and then hangs cannot.
+
+#: The standard library's own regular-expression parser and opcode constants.
+#: Private modules of the standard library, used deliberately: they are the
+#: ONLY way to obtain the parse of a pattern without writing a second regular-
+#: expression parser, and a second parser that disagreed with `re` would be a
+#: validator that judges a grammar the engine will not run. A version of Python
+#: that moves or reshapes them raises at import and this module does not load,
+#: which is the loud failure to prefer over a silently degraded check.
+_sre_parse: Final = importlib.import_module("re._parser")
+_sre_constants: Final = importlib.import_module("re._constants")
+
+#: Opcodes that consume exactly one character and can never backtrack into
+#: themselves. The leaves of the vocabulary.
+_GRAMMAR_ATOMS: Final[frozenset[object]] = frozenset(
+    {
+        _sre_constants.LITERAL,
+        _sre_constants.NOT_LITERAL,
+        _sre_constants.IN,
+        _sre_constants.ANY,
+    }
+)
+
+#: Repeat opcodes. All three are treated alike: a possessive repeat cannot give
+#: text back to what follows it, but a greedy repeat NESTED INSIDE one still
+#: explores every partition of the text before the enclosing repeat fails, so
+#: possessiveness is not a defense against the shape this check refuses.
+_GRAMMAR_REPEATS: Final[frozenset[object]] = frozenset(
+    {
+        _sre_constants.MAX_REPEAT,
+        _sre_constants.MIN_REPEAT,
+        _sre_constants.POSSESSIVE_REPEAT,
+    }
+)
+
+#: The ASCII code-point intervals of each character category this check can
+#: reason about, and whether the category also matches code points above ASCII.
+#: Mechanism vocabulary — the regular-expression language's own categories, not
+#: a domain value. A category absent from this mapping is UNCLASSIFIABLE.
+_GRAMMAR_CATEGORIES: Final[dict[object, tuple[tuple[tuple[int, int], ...], bool]]] = {
+    _sre_constants.CATEGORY_DIGIT: (((48, 57),), True),
+    _sre_constants.CATEGORY_WORD: (((48, 57), (65, 90), (95, 95), (97, 122)), True),
+    _sre_constants.CATEGORY_SPACE: (((9, 13), (32, 32)), True),
+    _sre_constants.CATEGORY_LINEBREAK: (((10, 10),), False),
+}
+
+#: The code-point ceiling the interval arithmetic below closes over.
+_GRAMMAR_CODE_POINT_CEILING: Final[int] = 0x10FFFF
+
+
+@dataclass(frozen=True)
+class _FirstSet:
+    """Which code points a sub-pattern can begin with, and whether it may be empty.
+
+    ``intervals`` are closed, ASCII-and-beyond code-point ranges. ``universal``
+    marks a first set this check could not narrow — a negated character class,
+    ``.``, or a category whose complement is in play — and a universal set
+    intersects everything, which makes the comparison that uses it refuse.
+    ``matches_empty`` is what makes an alternation branch dangerous under a
+    repeat all by itself.
+    """
+
+    intervals: tuple[tuple[int, int], ...]
+    universal: bool
+    matches_empty: bool
+
+    def intersects(self, other: "_FirstSet") -> bool:
+        """Might these two sub-patterns begin with the same character?
+
+        Conservative by construction: two universal sets, or a universal set
+        beside anything non-empty, are reported as intersecting. A ``False``
+        here is a PROOF of disjointness, which is what the callers need — they
+        refuse unless they have that proof.
+        """
+        if self.universal or other.universal:
+            return True
+        return any(
+            low <= other_high and other_low <= high
+            for low, high in self.intervals
+            for other_low, other_high in other.intervals
+        )
+
+
+#: A first set this check could not compute at all — distinct from a universal
+#: one, because it means *the vocabulary does not cover this shape* rather than
+#: *this shape can start with anything*.
+_UNKNOWN_FIRST_SET: Final[None] = None
+
+
+def _grammar_charset_first(items: object) -> _FirstSet | None:
+    """The first set of one ``IN`` node's item list, or ``None`` if unclassifiable."""
+    intervals: list[tuple[int, int]] = []
+    universal = False
+    for entry in items:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode is _sre_constants.NEGATE:
+            # The complement of a set is not narrowed by this check.
+            universal = True
+        elif opcode is _sre_constants.LITERAL:
+            intervals.append((int(argument), int(argument)))
+        elif opcode is _sre_constants.RANGE:
+            low, high = argument
+            intervals.append((int(low), int(high)))
+        elif opcode is _sre_constants.CATEGORY:
+            known = _GRAMMAR_CATEGORIES.get(argument)
+            if known is None:
+                return _UNKNOWN_FIRST_SET
+            ascii_intervals, beyond = known
+            intervals.extend(ascii_intervals)
+            if beyond:
+                intervals.append((0x80, _GRAMMAR_CODE_POINT_CEILING))
+        else:
+            return _UNKNOWN_FIRST_SET
+    return _FirstSet(
+        intervals=tuple(intervals), universal=universal, matches_empty=False
+    )
+
+
+def _grammar_first_set(sequence: object) -> _FirstSet | None:
+    """The first set of a parsed sequence, or ``None`` when out of vocabulary.
+
+    Walks the sequence only as far as it must: an item that cannot match empty
+    ends the walk, because nothing after it can be first. An item that CAN match
+    empty contributes its own first set and the walk continues past it, which is
+    how ``(?:a?b|c)`` is read as beginning with ``a``, ``b`` or ``c``.
+    """
+    intervals: list[tuple[int, int]] = []
+    universal = False
+    for entry in sequence:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode is _sre_constants.AT:
+            continue  # an anchor consumes nothing and constrains no character
+        if opcode in _GRAMMAR_ATOMS:
+            if opcode is _sre_constants.ANY or opcode is _sre_constants.NOT_LITERAL:
+                universal = True
+            elif opcode is _sre_constants.LITERAL:
+                intervals.append((int(argument), int(argument)))
+            else:
+                inner = _grammar_charset_first(argument)
+                if inner is None:
+                    return _UNKNOWN_FIRST_SET
+                intervals.extend(inner.intervals)
+                universal = universal or inner.universal
+            return _FirstSet(
+                intervals=tuple(intervals), universal=universal, matches_empty=False
+            )
+        if opcode in _GRAMMAR_REPEATS:
+            minimum, _maximum, body = argument
+            inner = _grammar_first_set(body)
+            if inner is None:
+                return _UNKNOWN_FIRST_SET
+            intervals.extend(inner.intervals)
+            universal = universal or inner.universal
+            if minimum > 0 and not inner.matches_empty:
+                return _FirstSet(
+                    intervals=tuple(intervals), universal=universal, matches_empty=False
+                )
+            continue  # the repeat may consume nothing; look past it
+        if opcode is _sre_constants.SUBPATTERN:
+            inner = _grammar_first_set(argument[3])
+        elif opcode is _sre_constants.ATOMIC_GROUP:
+            inner = _grammar_first_set(argument)
+        elif opcode is _sre_constants.BRANCH:
+            inner = _grammar_branch_first_set(argument[1])
+        else:
+            return _UNKNOWN_FIRST_SET
+        if inner is None:
+            return _UNKNOWN_FIRST_SET
+        intervals.extend(inner.intervals)
+        universal = universal or inner.universal
+        if not inner.matches_empty:
+            return _FirstSet(
+                intervals=tuple(intervals), universal=universal, matches_empty=False
+            )
+    return _FirstSet(intervals=tuple(intervals), universal=universal, matches_empty=True)
+
+
+def _grammar_branch_first_set(branches: object) -> _FirstSet | None:
+    """The union of the branches' first sets; empty-matching if any branch is."""
+    intervals: list[tuple[int, int]] = []
+    universal = False
+    matches_empty = False
+    for branch in branches:  # type: ignore[union-attr]
+        inner = _grammar_first_set(branch)
+        if inner is None:
+            return _UNKNOWN_FIRST_SET
+        intervals.extend(inner.intervals)
+        universal = universal or inner.universal
+        matches_empty = matches_empty or inner.matches_empty
+    return _FirstSet(
+        intervals=tuple(intervals), universal=universal, matches_empty=matches_empty
+    )
+
+
+def _grammar_holds_a_repeat(sequence: object) -> bool:
+    """Is there a repeat anywhere under this sequence, at any depth?
+
+    Used for one decision only: a look-around assertion carrying a repeat is
+    refused as unclassifiable. The walk deliberately does not try to reason
+    about the repeat; finding one is the whole answer.
+    """
+    for entry in sequence:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode in _GRAMMAR_REPEATS:
+            return True
+        if opcode is _sre_constants.SUBPATTERN:
+            if _grammar_holds_a_repeat(argument[3]):
+                return True
+        elif opcode is _sre_constants.ATOMIC_GROUP:
+            if _grammar_holds_a_repeat(argument):
+                return True
+        elif opcode is _sre_constants.BRANCH:
+            if any(_grammar_holds_a_repeat(branch) for branch in argument[1]):
+                return True
+        elif opcode is _sre_constants.ASSERT or opcode is _sre_constants.ASSERT_NOT:
+            if _grammar_holds_a_repeat(argument[1]):
+                return True
+    return False
+
+
+def _refuse_grammar_sequence(sequence: object, *, inside_repeat: bool) -> str | None:
+    """Walk one parsed sequence; return the reason it is refused, or ``None``.
+
+    ``inside_repeat`` is the whole of the state this walk carries. Everything
+    the check refuses is a statement about a sub-pattern's position relative to
+    an enclosing repeat, so one boolean is the entire context.
+    """
+    pending: _FirstSet | None = None  # an expansive repeat still able to collide
+    for entry in sequence:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode is _sre_constants.AT or opcode in _GRAMMAR_ATOMS:
+            if opcode is not _sre_constants.AT:
+                pending = None  # a consumed character separates two repeats
+            continue
+        if opcode in _GRAMMAR_REPEATS:
+            minimum, maximum, body = argument
+            fixed = minimum == maximum and maximum is not _sre_constants.MAXREPEAT
+            if inside_repeat and not fixed:
+                return (
+                    "a NESTED QUANTIFIER — a repeat whose body carries another "
+                    "repeat that is not of fixed length. Each iteration of the "
+                    "outer repeat can divide the same text between itself and "
+                    "the inner one, and the engine tries every division before "
+                    "it reports no match"
+                )
+            body_first = _grammar_first_set(body)
+            if body_first is None:
+                return _grammar_unclassifiable("a repeat whose body it cannot read")
+            if not fixed and body_first.matches_empty:
+                return (
+                    "a REPEAT OVER A SUB-PATTERN THAT CAN MATCH NOTHING, which "
+                    "gives the engine unboundedly many ways to satisfy the same "
+                    "text with the same number of characters consumed"
+                )
+            if not fixed:
+                if pending is not None and pending.intersects(body_first):
+                    return (
+                        "two unbounded repeats SIDE BY SIDE over characters "
+                        "that overlap. Where one ends and the next begins is a "
+                        "free choice at every position of the input, and the "
+                        "engine makes it exhaustively"
+                    )
+                pending = body_first
+            else:
+                pending = None
+            below = _refuse_grammar_sequence(body, inside_repeat=True)
+            if below is not None:
+                return below
+            continue
+        if opcode is _sre_constants.SUBPATTERN:
+            inner_sequence: object = argument[3]
+        elif opcode is _sre_constants.ATOMIC_GROUP:
+            inner_sequence = argument
+        elif opcode is _sre_constants.BRANCH:
+            refusal = _refuse_grammar_branch(argument[1], inside_repeat=inside_repeat)
+            if refusal is not None:
+                return refusal
+            branch_first = _grammar_branch_first_set(argument[1])
+            if branch_first is None:
+                return _grammar_unclassifiable("an alternation it cannot read")
+            pending = None if not branch_first.matches_empty else pending
+            continue
+        elif opcode is _sre_constants.ASSERT or opcode is _sre_constants.ASSERT_NOT:
+            # A look-around is admitted only when it carries NO repeat at all.
+            # A repeat inside one is a real backtracking vector and this check
+            # does not model how the assertion's retries compose with the
+            # enclosing pattern's, so it says exactly that rather than
+            # borrowing the nested-quantifier wording, which would name an
+            # enclosing repeat that may not exist.
+            if _grammar_holds_a_repeat(argument[1]):
+                return _grammar_unclassifiable(
+                    "a repeat inside a look-around assertion"
+                )
+            refusal = _refuse_grammar_sequence(argument[1], inside_repeat=inside_repeat)
+            if refusal is not None:
+                return refusal
+            continue
+        else:
+            return _grammar_unclassifiable(
+                f"the construct {getattr(opcode, 'name', opcode)!s}"
+            )
+        refusal = _refuse_grammar_sequence(inner_sequence, inside_repeat=inside_repeat)
+        if refusal is not None:
+            return refusal
+        group_first = _grammar_first_set(inner_sequence)
+        if group_first is None:
+            return _grammar_unclassifiable("a group it cannot read")
+        if not group_first.matches_empty:
+            pending = None
+    return None
+
+
+def _refuse_grammar_branch(branches: object, *, inside_repeat: bool) -> str | None:
+    """Refuse an alternation whose branches can match the same input, under a repeat.
+
+    Ambiguity matters only under a repeat. ``(a|ab)`` on its own costs one
+    retry; ``(a|ab)+`` costs one retry *per iteration*, compounding, which is
+    the second shape the ruling names. Two branches are dangerous when their
+    first sets are not PROVABLY disjoint, or when either can match nothing.
+    """
+    if inside_repeat:
+        first_sets: list[_FirstSet] = []
+        for branch in branches:  # type: ignore[union-attr]
+            first = _grammar_first_set(branch)
+            if first is None:
+                return _grammar_unclassifiable("an alternation branch it cannot read")
+            if first.matches_empty:
+                return (
+                    "an ALTERNATION under a repeat with a branch that can match "
+                    "nothing, so every iteration has a way to consume no input "
+                    "and the engine must try it at every position"
+                )
+            first_sets.append(first)
+        for index, first in enumerate(first_sets):
+            for other in first_sets[index + 1 :]:
+                if first.intersects(other):
+                    return (
+                        "an ALTERNATION under a repeat whose branches can match "
+                        "the same input. Each iteration then has more than one "
+                        "way to consume the same text, and the engine explores "
+                        "every combination of those choices across iterations"
+                    )
+    for branch in branches:  # type: ignore[union-attr]
+        refusal = _refuse_grammar_sequence(branch, inside_repeat=inside_repeat)
+        if refusal is not None:
+            return refusal
+    return None
+
+
+def _grammar_unclassifiable(what: str) -> str:
+    """The fail-closed reason, in one voice wherever the vocabulary runs out."""
+    return (
+        f"a shape this check CANNOT ESTABLISH AS SAFE: it met {what}. Fail "
+        "closed is the ruling — a grammar that cannot be judged structurally "
+        "is refused rather than admitted, because an author who is refused can "
+        "simplify the grammar and a caller who triggers a hang cannot"
+    )
+
+
+def _refuse_unsafe_grammar(pattern: str) -> str | None:
+    """Why this declared grammar is refused at registration, or ``None``.
+
+    ``D-IMPL-357`` C4, the round-3 ruling. The entry point the
+    :class:`ArgumentDomain` validator calls, and therefore the one point every
+    declared grammar passes through — from Python and from a document alike.
+
+    Returns the reason as prose naming the SHAPE, never a bare refusal: the
+    author is the only person who can fix a dangerous grammar, and they can
+    only do it if the message says what is wrong with it.
+
+    Pure over its argument: no clock, no registry, no I/O, and it never runs
+    the pattern against any text. The analysis is over the parse alone, so the
+    check itself cannot be made slow by the pattern it is judging.
+    """
+    try:
+        parsed = _sre_parse.parse(pattern)
+    except Exception:  # noqa: BLE001 - any parse failure is a fail-closed refusal
+        # `re.compile` has already been tried by the caller, so reaching here
+        # means the two disagree — which is itself something this check cannot
+        # reason about.
+        return _grammar_unclassifiable("a pattern its own parser could not read")
+    return _refuse_grammar_sequence(parsed, inside_repeat=False)
+
+
 class ArgumentDomain(CCFContract):
     """The valid domain of one declared parameter — the seventh key.
 
@@ -486,13 +901,28 @@ class ArgumentDomain(CCFContract):
     :func:`refuse_request` does not call :func:`refuse_floor` and the subject
     it judges is unbounded in length.
 
-    So a mis-authored adopter grammar makes a governed door a
-    caller-triggerable processor hang from a subject of about thirty
-    characters. **The residual is recorded, not mitigated here.** Whether to
-    refuse dangerous pattern shapes at declaration time, adopt a bounded
-    matcher, or accept the residual is the project owner's ruling under
-    ``D-IMPL-357``; this type does not pre-empt it and must not be given a
-    defense before that ruling.
+    **RULED, and closed HERE rather than at serve** (``D-IMPL-357`` C4, the
+    round-3 ruling). The project owner's decision: refuse dangerous pattern
+    shapes **at artifact registration, never at serve** — no timeout library,
+    no thread, no subprocess, no new dependency, and no reliance on the
+    512-character cap as a mitigation — **and fail closed on unclassifiable:**
+    a shape registration cannot establish as safe is refused rather than
+    admitted. His closing words: *"do not leave an unbounded match on a caller
+    string."* :func:`_refuse_unsafe_grammar` is that check and this validator
+    calls it, so the refusal fires on every path a grammar can arrive by,
+    including :meth:`ProductRequestContract.from_declared`. Three shapes are
+    named and refused — a nested quantifier, an ambiguous alternation under a
+    repeat, and two unbounded repeats side by side over overlapping characters
+    — plus a repeat whose body can match nothing, and anything the check's
+    vocabulary does not cover.
+
+    **The residual that remains is CONSERVATISM, not exposure.** The analysis
+    is structural and refuses shapes that are in fact safe but that it cannot
+    prove safe: a backreference, a repeat inside a look-around, a conditional
+    group, a character category outside its table. An author who meets one of
+    those is refused by name and can simplify the grammar; that is the
+    asymmetry the ruling chose, because an author who is refused has a way
+    forward and a caller who triggers a hang does not.
 
     **Membership is exact typed equality** (``D-IMPL-264`` D-04, Dave,
     verbatim: *"Exact canonical match. No trimming, case folding, aliases, or
@@ -523,11 +953,13 @@ class ArgumentDomain(CCFContract):
             grammar existed canonicalizes byte-for-byte as it did. Compiled
             once at construction purely to refuse a pattern that does not
             compile — a declaration no value could ever satisfy, named where
-            the author can still fix it. **Compilation is the only shape check
-            there is:** a pattern that compiles and backtracks catastrophically
-            is accepted, and the cost residual that follows from it is the one
-            recorded above — held for the owner's ruling, not mitigated here.
-            The schema render derives the
+            the author can still fix it. **Compilation is not the only shape
+            check:** :func:`_refuse_unsafe_grammar` additionally refuses a
+            pattern whose SHAPE can make the engine backtrack
+            catastrophically, and refuses any shape it cannot establish as safe
+            (``D-IMPL-357`` C4, round-3 ruling — see this class's own
+            docstring). Both refusals happen at declaration and neither happens
+            at serve. The schema render derives the
             advertised JSON Schema ``pattern`` keyword from this field, on the
             same D-00 / P-1 terms the ``enum`` derivation follows.
         members: The closed set of legal values, or ``None`` when the domain
@@ -596,6 +1028,24 @@ class ArgumentDomain(CCFContract):
                     "is refused where the author can still fix it, never in "
                     "front of a caller (D-IMPL-357 C4)"
                 ) from error
+            # D-IMPL-357 C4, the round-3 ruling: a grammar whose SHAPE can make
+            # the engine backtrack catastrophically is refused HERE, at
+            # registration, and never at serve. This is the earliest point an
+            # adopter's grammar enters the system, and `from_declared` reaches
+            # it too, so there is no path that parses an artifact and skips it.
+            unsafe = _refuse_unsafe_grammar(self.pattern)
+            if unsafe is not None:
+                raise ValueError(
+                    f"an argument domain's pattern {self.pattern!r} declares "
+                    f"{unsafe}. A declared pattern is adopter text matched "
+                    "against CALLER text by an engine with no timeout: measured, "
+                    "(a+)+$ against a non-matching 28-character subject took "
+                    "6.2 seconds and 30 characters took 25, so the mechanism "
+                    "floor's 512-character cap bounds nothing that matters and "
+                    "the standalone-validator path applies no cap at all. "
+                    "Refused at declaration, where the author can still fix it "
+                    "(D-IMPL-357 C4)"
+                )
             return self
         if self.members is not None:
             _refuse_a_malformed_member_set(self.members)

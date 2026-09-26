@@ -2379,6 +2379,237 @@ def test_the_grammar_shape_is_silent_at_none_in_the_canonical_bytes() -> None:
     assert b"pattern" in canonical_bytes(ArgumentDomain(pattern=SUBJECT_GRAMMAR))
 
 
+# ---------------------------------------------------------------------------
+# A declared grammar is refused AT REGISTRATION when its SHAPE can make the
+# regular-expression engine backtrack catastrophically (`D-IMPL-357` C4, the
+# round-3 ruling).
+# ---------------------------------------------------------------------------
+# **The ruling, and why it is at declaration rather than at serve.** Round 2
+# measured that a mis-authored adopter grammar makes a governed door a
+# caller-triggerable processor hang: on this project's interpreter,
+# `re.compile(r"(a+)+$")` against a non-matching subject of `a`s took 6.242
+# seconds at 28 characters and 24.990 at 30, roughly quadrupling every two
+# characters. The mechanism floor's 512-character cap therefore bounds nothing
+# that matters, and the standalone-validator path applies no cap at all.
+#
+# The owner's ruling: refuse dangerous pattern shapes at ARTIFACT REGISTRATION,
+# never at serve. No timeout, no thread, no subprocess, no new dependency. And
+# **fail closed on unclassifiable**: if registration cannot establish that a
+# shape is safe, refuse the document. *"Do not leave an unbounded match on a
+# caller string."*
+#
+# That places the check where `ArgumentDomain` is constructed and validated,
+# which is the earliest point an adopter's grammar enters the system and fires
+# on every path that parses an artifact — the loader included. The tests below
+# pin the refusal, the positive control (a validator that refuses everything is
+# worse than none), the unclassifiable case, and the loader path.
+
+#: Grammars whose SHAPE is a nested quantifier — a repeat whose body carries a
+#: repeat that is not of fixed length. The first is the one the round-2
+#: measurement used. Fixture data (CINV-01), never the SDK's.
+NESTED_QUANTIFIER_GRAMMARS = (
+    r"(a+)+$",
+    r"(a+)*",
+    r"([a-z]+)*",
+    r"(\d+)+",
+    r"(a+){3}",  # a FIXED outer repeat is no defense: the inner one is free
+)
+
+#: Grammars whose alternation sits under a repeat and whose branches can match
+#: the same input — the second shape the ruling names. **Both diagnoses below
+#: are correct and the row pins which one fires**, because the standard
+#: library's parser factors a common prefix out of an alternation and leaves an
+#: EMPTY branch behind: `(a|ab)` parses as `a` followed by `(?:|b)`, so the
+#: branch that can match nothing is what the check actually meets.
+AMBIGUOUS_ALTERNATION_GRAMMARS = (
+    (r"(a|a)+", "ALTERNATION under a repeat with a branch that can match nothing"),
+    (r"(a|ab)+", "ALTERNATION under a repeat with a branch that can match nothing"),
+    (r"(a|ab|ac)+", "ALTERNATION under a repeat with a branch that can match nothing"),
+    (r"(a+|b+|a)*", "ALTERNATION under a repeat whose branches can match the same"),
+    (r"([a-z]+|[abc])+", "ALTERNATION under a repeat whose branches can match the same"),
+    (r"(?:xy|x[a-z]z)+", "ALTERNATION under a repeat whose branches can match the same"),
+)
+
+#: Grammars whose repeat body can match nothing — the third way the engine gets
+#: unboundedly many ways to satisfy the same text. `(a*)*` reaches this before
+#: the nested-quantifier rule because the OUTER repeat's body is already
+#: empty-matchable; both readings are true and this is the one that fires.
+EMPTY_BODY_REPEAT_GRAMMARS = (
+    r"(a*)*",
+    r"(?:a|)+",
+    r"(a?)+",
+)
+
+#: Grammars with two unbounded repeats side by side over characters that
+#: overlap — the polynomial sibling of the shapes above.
+ADJACENT_REPEAT_GRAMMARS = (
+    r"\d+\d+",
+    r"a+a*",
+    r".*.*",
+    r"[a-z]+[a-c]+",
+)
+
+#: Grammars this validator cannot classify as safe, each for its own reason, and
+#: each **refused** rather than admitted. A backreference: no structural
+#: reasoning is possible about what `\1` will match, because that is decided at
+#: match time. A repeat inside a look-around: a real backtracking vector whose
+#: composition with the enclosing pattern this check does not model. A
+#: conditional group: outside its vocabulary entirely.
+UNCLASSIFIABLE_GRAMMARS = (
+    (r"(a)\1", "GROUPREF"),
+    (r"(?=a+)b", "a repeat inside a look-around assertion"),
+    (r"(a)(?(1)b|c)", "GROUPREF_EXISTS"),
+)
+
+#: Grammars that MUST still be admitted. Without this control a validator that
+#: refuses everything would look identical to one that works, and a refusal
+#: nobody can get past is a worse outcome than the hang it prevents.
+SAFE_GRAMMARS = (
+    r"[0-9A-Z]{20}",                     # an LEI's shape — the fixture grammar
+    r"[A-Z]{2}[0-9]{4}",                 # two fixed repeats in sequence
+    r".*",                               # one unbounded repeat: linear
+    r"(a|b)+",                           # disjoint branches under a repeat
+    r"([A-Z]{2})+",                      # a FIXED-length repeat inside a repeat
+    r"\d{4}-\d{2}-\d{2}",                # a date shape
+    r"FAC-[0-9A-F]{6}",                  # a facility identifier shape
+    r"(?=[A-Z])[A-Z0-9]{5}",             # a lookahead with no repeat in it
+    r"[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}",  # the mechanism floor's own body
+    # Reads as an ambiguous alternation and is NOT one: the standard library's
+    # parser folds an alternation of single characters into one character class,
+    # so `(\d|[0-9])` is `[0-9\d]` by the time this check sees it and a
+    # character-class match involves no choice for the engine to explore. The
+    # row is here because it is the case most likely to be mistaken for a
+    # missed refusal by a later reader.
+    r"(\d|[0-9])+",
+    # Disjoint FIRST characters make an alternation under a repeat
+    # deterministic: at every position exactly one branch can start, so the
+    # engine has no choice to explore. `(abc|abd)+` is admitted for the related
+    # reason — the parser factors `ab` out and folds the tail into one class.
+    r"(ab|ba)+",
+    r"(abc|abd)+",
+)
+
+
+@pytest.mark.parametrize("grammar", NESTED_QUANTIFIER_GRAMMARS)
+def test_a_nested_quantifier_grammar_is_refused_at_declaration(grammar: str) -> None:
+    """**THE round-3 control.** A nested quantifier is refused where the author
+    can still fix it, and never at serve.
+
+    `(a+)+$` is the shape the round-2 measurement used, and the refusal names
+    the shape rather than merely saying no, so an adopter can simplify the
+    grammar instead of guessing."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "NESTED QUANTIFIER" in str(raised.value)
+
+
+@pytest.mark.parametrize(("grammar", "diagnosis"), AMBIGUOUS_ALTERNATION_GRAMMARS)
+def test_an_ambiguous_alternation_under_a_repeat_is_refused(
+    grammar: str, diagnosis: str
+) -> None:
+    """The second named shape: branches that can match the same input, under a
+    repeat. Each iteration then has more than one way to consume the same text,
+    which is the partitioning freedom the engine explores exhaustively.
+
+    Each row pins WHICH diagnosis fires rather than matching the word
+    "alternation" loosely, because the two readings have different causes and a
+    loose assertion would not notice if the wrong one started firing."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert diagnosis in str(raised.value)
+
+
+@pytest.mark.parametrize("grammar", EMPTY_BODY_REPEAT_GRAMMARS)
+def test_a_repeat_whose_body_can_match_nothing_is_refused(grammar: str) -> None:
+    """A repeat over something that can consume no input has unboundedly many
+    ways to satisfy the same text with the same characters consumed, which is
+    the same exhaustive search under a different name."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "CAN MATCH NOTHING" in str(raised.value)
+
+
+@pytest.mark.parametrize("grammar", ADJACENT_REPEAT_GRAMMARS)
+def test_two_adjacent_repeats_over_overlapping_characters_are_refused(
+    grammar: str,
+) -> None:
+    """`\\d+\\d+` gives the engine a free choice of where to split the digits,
+    once per character of input. Polynomial rather than exponential, and still
+    an unbounded match on a caller string."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "SIDE BY SIDE" in str(raised.value)
+
+
+@pytest.mark.parametrize(("grammar", "met"), UNCLASSIFIABLE_GRAMMARS)
+def test_a_grammar_this_validator_cannot_classify_is_refused(
+    grammar: str, met: str
+) -> None:
+    """**Fail closed on unclassifiable — the owner's own addition to the rule.**
+
+    Each row asserts both halves: that the refusal says it could not establish
+    safety, and WHAT it met that it could not read. A fail-closed refusal with
+    no named cause is one an author cannot act on, and this check exists so that
+    an author who is refused can simplify the grammar — a caller who triggers a
+    hang cannot."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "CANNOT ESTABLISH AS SAFE" in str(raised.value)
+    assert met in str(raised.value)
+
+
+@pytest.mark.parametrize("grammar", SAFE_GRAMMARS)
+def test_a_safe_grammar_is_still_admitted(grammar: str) -> None:
+    """**The positive control, and it is not optional.**
+
+    Every test above expects a refusal, so a validator that refused every
+    grammar would leave all of them green while making the third domain shape
+    unusable. Only a row expecting admission can see that. These nine are the
+    shapes an adopter actually writes — identifier formats, date formats, a
+    fixed-length repeat inside a repeat, a lookahead with no repeat in it, and
+    the mechanism floor's own body."""
+    from ccf.products.request import ArgumentDomain
+
+    assert ArgumentDomain(pattern=grammar).pattern == grammar
+
+
+def test_the_subject_domain_is_held_to_the_same_shape_rule() -> None:
+    """One validator, both declaration sites. `subject_domain` and
+    `argument_domains` are both `ArgumentDomain`, so the check cannot be present
+    on one and absent on the other."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError, match="NESTED QUANTIFIER"):
+        _contract(subject_domain=ArgumentDomain(pattern=r"(a+)+$"))
+    with pytest.raises(ValidationError, match="NESTED QUANTIFIER"):
+        _contract(argument_domains={"required_leaf": ArgumentDomain(pattern=r"(a+)+$")})
+
+
+def test_the_artifact_loader_refuses_a_dangerous_grammar_too() -> None:
+    """**The path that matters most: an adopter's DOCUMENT.**
+
+    The ruling places the check at the earliest point a grammar enters the
+    system, which must include the loader — a grammar reaching the fabric from
+    a YAML artifact has had no Python constructor applied to it by the adopter.
+    `from_declared` builds `ArgumentDomain` through the same type, so the
+    refusal fires there without a second implementation to keep in step."""
+    declaration = dict(_declared().declaration)
+    declaration["subject_domain"] = {"pattern": r"(a+)+$"}
+    with pytest.raises(ValidationError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert "NESTED QUANTIFIER" in str(raised.value)
+
+
 def test_a_pattern_is_anchored_by_fullmatch_not_by_search() -> None:
     """A `re.search` reading would admit a value that merely CONTAINS the
     grammar, which is a wider domain than the one declared — and the wider
