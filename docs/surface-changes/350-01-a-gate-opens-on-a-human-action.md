@@ -157,73 +157,30 @@ imported package and published their targets into the Control Plane.
   on where the link happens to point
 - Migration: a package that genuinely wants a file's contents ships the file
 
-## THE LIMIT, STATED SO `SEC-001` IS NOT READ AS FULLY CLOSED
+## THE LIMIT THAT REMAINS, STATED SO `SEC-001` IS NOT READ AS FULLY CLOSED
 
-**The verdict does not bind which declared target the resume may take.** A
-`WorkflowDefinition` carries `transitions` (source→target) and nothing
-verdict-shaped, so nothing in the artifact says that `reject` may route to
-`rejected` but not to `released`. Deriving that in code would put domain
-routing values in `/src` (No-Hardcoding, CLAUDE.md §6.4), so the mapping has
-to be *declared* before it can be enforced — an artifact-schema change, and
-Dave's ruling.
+**A conflicted suspension refuses, and nothing in the fabric reconciles one.**
+Two distinct verdicts recorded against one suspension make `resume` refuse ahead
+of the route compare rather than pick a winner, which is the right answer —
+choosing between two humans is not a state machine's act. But no surface then
+withdraws a recorded verdict, marks one of them authoritative, or re-opens the
+gate. `HITLTransportProtocol` offers `enqueue`, `dequeue`, `pending`, `remove`,
+`view` and `submit`, and `remove` consumes a *pending event*, never a recorded
+submission; the served doors are `GET /hitl/queue` and `POST /hitl/actions`; the
+CLI verbs are `ccf hitl list` and `ccf hitl submit`. `D-IMPL-357` added no
+reconciliation primitive and claims none. **So a conflicted gate stays suspended
+until someone intervenes outside the fabric** — a fresh execution, or an
+operator reaching into the HITL store directly. That intervention is unaudited
+because it happens where the fabric is not, and it is the honest price of
+refusing rather than routing. The stamp race named at the end of this section is
+what can put a gate into this state without two officers ever disagreeing.
 
-Until then a recorded rejection can still be routed down the approving
-branch. What changed is that some human must have acted on this exact
-suspension, and the audit names them.
-
-**What closing it would cost, measured 2026-09-24 so it is not re-derived.**
-Three gate-bearing workflow documents would need one line each —
-`tests/fixtures/banking/workflows/covenant_review_workflow.yaml`,
-`.../payment_release_workflow.yaml` and `perf/synth/artifacts/workflow.yaml`.
-The two archived ones are out of scope under `D-IMPL-351`. No live example is
-affected: `examples/cp-15` is the only HITL example and it composes
-`ccf.hitl` directly, never `WorkflowEngine`. **`WorkflowDefinition` is
-constructed nowhere in Python** — the only match for `WorkflowDefinition(` in
-the tree is its own class statement — so this is a data migration with no code
-to port.
-
-Every gate in the tree has exactly two exits, and each pair uses a different
-domain vocabulary: `approved`/`rejected`, `released`/`rejected`,
-`accepted`/`declined`, and (archived) `disbursed`/`declined`,
-`authorized`/`withheld`. **That is the argument for declaration rather than
-derivation**: five vocabularies for two verdicts, none of them guessable from
-the verdict name.
-
-**Hash churn is avoidable and was measured both ways.** An unmarked
-sentinel-defaulted field renders into `canonical_bytes` and moves the content
-hash of every existing definition (`0c3a7bf9…` → `a4578fd0…`). The same field
-marked `json_schema_extra={HASH_TRANSPARENT_KEY: True}` leaves it
-byte-identical at its sentinel (`0c3a7bf9…` → `0c3a7bf9…`) and moves it only
-once routes are actually declared — which is `D-IMPL-243`'s *"silence equals
-yesterday"* applied exactly as ruled.
-
-**`D-IMPL-293` decides which of those to take, and it is not the cheap one.**
-Hash-transparency exists to buy compatibility with records written before a
-field existed. There are none: the SDK has no adopters, and Dave restated the
-rule while reviewing this work — *"the SDK has not been used by anyone yet. We
-have the liberty of making the correct changes instead of patching something."*
-Marking the field `True` would make an unset value mean *unconstrained*, which
-is precisely the vulnerable state, bought with compatibility nobody needs.
-
-**So the recommended shape is the honest one: a gate that declares no verdict
-routes is refused, and the field is marked `{HASH_TRANSPARENT_KEY: False}` — a
-generation boundary.** That mark is `D-IMPL-243`'s own third state and it says
-exactly what is true here: a workflow definition written without verdict routes
-belongs to an earlier generation of the contract, and the replay engine names
-it (`canonical_generation_mismatch`) rather than running it. Hashes move, which
-is correct — the artifact really did change — and the three in-tree documents
-take one line each. The refusal belongs at factory construction, not at resume,
-so a deployment learns at boot rather than at the first approval.
-
-This remains Dave's ruling to make formally; what `D-IMPL-293` removes is the
-argument for the weaker shape.
-
-The residual was pinned by a test written to go RED the moment a
-verdict→target binding was declared and enforced. **That moment arrived, and
-the residual is now CLOSED — unconditionally, not for a single recorded
-verdict.** `D-IMPL-357` A1 declares `gate_routes` on the workflow definition,
-A3 enforces it in `resume`, and A4 closes verdict SELECTION: a recorded
-rejection cannot reach the approving terminal.
+The verdict→target residual, by contrast, is closed. It was pinned by a test
+written to go RED the moment a verdict→target binding was declared and enforced.
+**That moment arrived, and the residual is now CLOSED — unconditionally, not for
+a single recorded verdict.** `D-IMPL-357` A1 declares `gate_routes` on the
+workflow definition, A3 enforces it in `resume`, and A4 closes verdict
+SELECTION: a recorded rejection cannot reach the approving terminal.
 
 Two questions had to be separated to get there, and conflating them is what
 left the first fix incomplete. **Which verdict routes** keeps the eligibility
@@ -247,20 +204,75 @@ and `::test_a_verdict_bound_to_another_suspension_does_not_freeze_this_gate`
 (the refusal is not blanket, and it does not freeze a gate), plus three through
 the served doors in `tests/http_api/test_routes.py`.
 
-**What is NOT closed, stated because a governance record that overclaims is
+**How the declared shape was chosen — measured 2026-09-24 and kept here so it
+is not re-derived.** Before the field existed, `WorkflowDefinition` carried
+`transitions` (source→target) and nothing verdict-shaped, so nothing in the
+artifact said that `reject` may route to `rejected` but not to `released`.
+Deriving that in code would have put domain routing values in `/src`
+(No-Hardcoding, CLAUDE.md §6.4), so the mapping had to be *declared* before it
+could be enforced — an artifact-schema change, and Dave's ruling.
+
+The cost was measured rather than assumed. Three gate-bearing workflow
+documents needed one line each —
+`tests/fixtures/banking/workflows/covenant_review_workflow.yaml`,
+`.../payment_release_workflow.yaml` and `perf/synth/artifacts/workflow.yaml`.
+The two archived ones were out of scope under `D-IMPL-351`. No live example was
+affected: `examples/cp-15` is the only HITL example and it composes `ccf.hitl`
+directly, never `WorkflowEngine`. **`WorkflowDefinition` was constructed nowhere
+in Python** — the only match for `WorkflowDefinition(` in the tree was its own
+class statement — so this was a data migration with no code to port. All three
+documents now declare routes.
+
+Every gate in the tree had exactly two exits, and each pair used a different
+domain vocabulary: `approved`/`rejected`, `released`/`rejected`,
+`accepted`/`declined`, and (archived) `disbursed`/`declined`,
+`authorized`/`withheld`. **That was the argument for declaration rather than
+derivation**: five vocabularies for two verdicts, none of them guessable from
+the verdict name.
+
+**Hash churn was avoidable and was measured both ways.** An unmarked
+sentinel-defaulted field rendered into `canonical_bytes` and moved the content
+hash of every existing definition (`0c3a7bf9…` → `a4578fd0…`). The same field
+marked `json_schema_extra={HASH_TRANSPARENT_KEY: True}` left it byte-identical
+at its sentinel (`0c3a7bf9…` → `0c3a7bf9…`) and moved it only once routes were
+actually declared — which is `D-IMPL-243`'s *"silence equals yesterday"* applied
+exactly as ruled.
+
+**`D-IMPL-293` decided which of those to take, and it was not the cheap one.**
+Hash-transparency exists to buy compatibility with records written before a
+field existed. There were none: the SDK has no adopters, and Dave restated the
+rule while reviewing this work — *"the SDK has not been used by anyone yet. We
+have the liberty of making the correct changes instead of patching something."*
+Marking the field `True` would have made an unset value mean *unconstrained*,
+which is precisely the vulnerable state, bought with compatibility nobody needs.
+
+**So the shape that shipped is the honest one: a routed gate that declares no
+verdict routes is refused, and the field is marked
+`{HASH_TRANSPARENT_KEY: False}` — a generation boundary.** That mark is
+`D-IMPL-243`'s own third state and it says exactly what is true here: a workflow
+definition written without verdict routes belongs to an earlier generation of
+the contract, and the replay engine names it
+(`canonical_generation_mismatch`) rather than running it. Hashes moved, which is
+correct — the artifact really did change — and the three in-tree documents took
+one line each. The refusal sits at factory construction rather than at resume
+(`ccf.workflow.factory`, raising `WorkflowConstructionError`), so a deployment
+learns at boot rather than at the first approval. The ruling is `D-IMPL-356`,
+which locked A1–A5 and named `gate_routes` the generation boundary; `D-IMPL-357`
+is the wave that implemented it.
+
+**What else is NOT closed, stated because a governance record that overclaims is
 worse than one that is stale.** Neither item can route a rejection down an
 approving branch. **The stamp race itself remains in the transport** — the
 claim is address-keyed, so an attacker with submit authority can still cause
 an officer's verdict to be recorded unstamped; what changed is that the pair
-now refuses and demands reconciliation instead of routing, which makes the
-race an availability problem rather than an integrity one, and closing it is a
-`HITLTransportProtocol` signature change belonging with the `D-IMPL-62` door
-ruling. And **two concurrent resumes of one suspension** both pass the
-authority read and the conflict check and execute the downstream node twice
-from one human action — measured, pre-existing, carried as a named residual.
-*(The rest of this section still reads in the pre-A1 present tense and
-contradicts itself in places — assigned to A5, which owns the published
-pages.)*
+now refuses instead of routing, which makes the race an availability problem
+rather than an integrity one, and closing it is a `HITLTransportProtocol`
+signature change belonging with the `D-IMPL-62` door ruling. Because there is no
+reconciliation primitive, the availability half is the standing limit above: the
+parked gate needs an intervention the fabric does not offer. And **two
+concurrent resumes of one suspension** both pass the authority read and the
+conflict check and execute the downstream node twice from one human action —
+measured, pre-existing, carried as a named residual.
 
 ## Regression evidence
 
