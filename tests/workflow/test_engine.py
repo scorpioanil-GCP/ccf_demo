@@ -1759,3 +1759,55 @@ def test_a_stamped_approval_and_an_unstamped_rejection_refuse_the_resumption(
     )
     assert isinstance(outcome, WorkflowResumeRefused)
     assert "carries conflicting human verdicts" in outcome.reason
+
+
+def test_a_verdict_bound_to_another_suspension_does_not_freeze_this_gate(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The suspension hash is load-bearing in the conflict predicate too.
+
+    Both populations A4 reads keep ``principal.product_content_hash ==
+    content_hash(record)``. Dropping it from the conflict population would
+    over-refuse — and not harmlessly: any principal holding submit
+    authority for the event could then park a contradicting verdict bound
+    to some other content and FREEZE the gate permanently, because nothing
+    the legitimate approver does can remove a recorded submission. A
+    denial-of-service on approvals is the mirror image of the vulnerability
+    this task closes, so the term is pinned rather than assumed.
+
+    The foreign binding here is a real suspension hash — another
+    execution's — reached through the same event key, which is what makes
+    it the honest analogue of a stale verdict from an earlier suspension of
+    this same gate.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    other = asyncio.run(
+        engine.execute(execute_as(workflow), workflow, execution_id="exec-2")
+    )
+    assert isinstance(other, WorkflowSuspended)
+    foreign = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-2")
+    assert isinstance(foreign, WorkflowStateRecord)
+    foreign_hash = content_hash(foreign)
+    assert foreign_hash != bound  # a suspension's identity is its own
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="approve", subject_id="officer-1",
+    )
+    # exec-1's event key, exec-2's suspension: bound to no suspension of
+    # this gate, so it is neither eligible nor a conflict.
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=foreign_hash, action="reject",
+        subject_id="officer-2",
+    )
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1",
+            decision="approved",
+        )
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    assert outcome.terminal_state == "approved"
