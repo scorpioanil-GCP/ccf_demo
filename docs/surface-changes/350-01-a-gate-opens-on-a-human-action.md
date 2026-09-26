@@ -200,7 +200,7 @@ and A4 closes verdict SELECTION over that population.
 unconditionally.** A verdict recorded *concurrently with* a resumption — after
 the conflict read and before the attributed commit — is not in the population the
 check saw, and the execution then completes at the approving terminal with both
-verdicts standing in the record. That is the third residual at the end of this
+verdicts standing in the record. That is residual 2(b) at the end of this
 section.
 
 Two questions had to be separated to get there, and conflating them is what
@@ -234,7 +234,9 @@ Deriving that in code would have put domain routing values in `/src`
 could be enforced — an artifact-schema change, and Dave's ruling.
 
 The cost was measured rather than assumed. Three gate-bearing workflow
-documents needed one line each —
+documents needed **one routing entry each — not one line**: a `schema_version`
+bump to `2.0.0` plus a four-line `gate_routes` block, measuring 10, 8 and 7
+changed lines respectively for
 `tests/fixtures/banking/workflows/covenant_review_workflow.yaml`,
 `.../payment_release_workflow.yaml` and `perf/synth/artifacts/workflow.yaml`.
 The two archived ones were out of scope under `D-IMPL-351`. No live example was
@@ -275,7 +277,8 @@ definition written without verdict routes belongs to an earlier generation of
 the contract, and the replay engine names it
 (`canonical_generation_mismatch`) rather than running it. Hashes moved, which is
 correct — the artifact really did change — and the three in-tree documents took
-one line each. The refusal sits at factory construction rather than at resume
+one routing entry each (10, 8 and 7 changed lines, measured above). The refusal
+sits at factory construction rather than at resume
 (`ccf.workflow.factory`, raising `WorkflowConstructionError`), so a deployment
 learns at boot rather than at the first approval. The ruling is `D-IMPL-356`,
 which locked A1–A5 and named `gate_routes` the generation boundary; `D-IMPL-357`
@@ -306,11 +309,20 @@ resumption rows; and **(b)** a verdict recorded *inside that window* is not seen
 at all — a rejection submitted after the conflict read and before the attributed
 commit leaves both verdicts standing while the execution completes at the
 approving terminal, the outcome the check refuses when the same rejection lands
-first. **These are one defect with one fix: one per-execution lock, or one
-compare-and-set on the state record, closes both.** A second read before the
-commit is deliberately *not* that fix — it narrows the window and invites a
+first. **These are one defect, and closing both takes a fix that reaches both:
+one per-execution lock taken by both the resumption and the submission path for
+that execution's event, or a compare-and-set that covers the conflict population
+as well as the state record, closes both; a lock or compare-and-set on the state
+record ALONE closes only (a).** The reason is structural rather than incidental,
+and it is spelled out because this is the sentence a maintainer would implement
+from: submissions live in the transport's own list, and `ccf.hitl.transport`
+names `state_store`, `WORKFLOW_STATE` and `WorkflowStateRecord` **zero** times
+(measured), so a late rejection never touches the state record at all and a
+compare-and-set on that record succeeds while **(b)** stands. A second read
+before the commit is not the fix either: it narrows the window and invites a
 reader to think the class is handled. **Nothing in this record may be read as
-closing the concurrency class**; closing it needs the serialization ruling.
+closing the concurrency class**, and **no state-record guarantee may be read as
+settling (b)**; closing it needs the serialization ruling.
 
 *The probe shape, carried so it is not re-derived.* No engine logic is altered: a
 pure helper on the resumption's read path is wrapped with a tenth-of-a-second

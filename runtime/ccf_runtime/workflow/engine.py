@@ -1125,7 +1125,7 @@ class WorkflowEngine:
         A3 + A4). **That bound is the claim, and it is deliberately not
         unconditional:** a verdict recorded *concurrently with* a
         resumption, after the read and before the attributed commit, is
-        not in the population this check saw, which is the third residual
+        not in the population this check saw, which is residual 2(b)
         below. Routing is the compare above; selection integrity is the
         conflict refusal in :meth:`resume` over
         :meth:`_recorded_gate_verdicts`. Both of the paths A3's review
@@ -1151,7 +1151,8 @@ class WorkflowEngine:
         reassurance is exactly what stops a maintainer looking for the
         shape.
 
-        * **The stamp race itself is still there, in the transport.** A
+        * **(1) The stamp race itself is still there, in the transport.**
+          A
           claim is keyed ``(tenant, event_key)`` and consumed by whichever
           submission for that pair arrives first, so an attacker holding
           submit authority can still cause an officer's verdict to be
@@ -1164,7 +1165,8 @@ class WorkflowEngine:
           ``remove`` minting an opaque claim token that ``submit``
           requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
           signature change that belongs with the D-IMPL-62 door ruling.
-        * **NOTHING MAKES THIS RESUMPTION'S READ-DECIDE-COMMIT ATOMIC**,
+        * **(2) NOTHING MAKES THIS RESUMPTION'S READ-DECIDE-COMMIT
+          ATOMIC**,
           and two shapes fall out of that one absence. :meth:`resume`
           takes no per-execution lock and performs no compare-and-set: it
           reads the state record, reads the authority and conflict
@@ -1178,12 +1180,25 @@ class WorkflowEngine:
           commit leaves BOTH verdicts standing in the record while the
           execution completes at the approving terminal — the outcome the
           check above refuses when the same rejection lands first.
-          **These are one defect with one fix: one per-execution lock, or
-          one compare-and-set on the state record, closes both.** A second
-          read before the commit is NOT that fix — it narrows the window
-          and invites a reader to think the class is handled — and
-          **nothing in this docstring may be read as closing the
-          concurrency class.** Closing it needs the serialization ruling.
+          **These are one defect, and closing both takes a fix that
+          reaches both: one per-execution lock taken by both the resumption
+          and the submission path for that execution's event, or a
+          compare-and-set that covers the conflict population as well as
+          the state record, closes both; a lock or compare-and-set on the
+          state record ALONE closes only (a).** The reason is structural
+          rather than incidental, and it is stated because this is the
+          sentence a maintainer would implement from: submissions live in
+          the transport's own list, and
+          :mod:`ccf.hitl.transport` names ``state_store``,
+          ``WORKFLOW_STATE`` and :class:`WorkflowStateRecord` zero times —
+          a late rejection never touches the state record at all, so a
+          compare-and-set on the state record SUCCEEDS and (b) stands. A
+          second read before the commit is not the fix
+          either: it narrows the window and invites a reader to think the
+          class is handled. **Nothing in this docstring may be read as
+          closing the concurrency class**, and no state-record guarantee
+          may be read as settling (b). Closing it needs the serialization
+          ruling.
 
           **The probe shape, carried so it is not re-derived.** No engine
           logic is altered: a pure helper on this read path is wrapped

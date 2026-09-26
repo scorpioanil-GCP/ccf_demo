@@ -16247,7 +16247,13 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   renders at its default too; measured on a definition with no gate at all,
   `5f09ffe6…` → `2f507135…`, and a stored document lacking the field is named
   by `generation_mismatch` rather than run. The three in-tree gate-bearing
-  documents took one line each; the archived example transcluded by
+  documents took **one routing entry each — not one line**: each needed a
+  `schema_version` bump to `2.0.0` plus a four-line `gate_routes` block, which
+  measures **10, 8 and 7 changed lines** (`git diff --numstat 00fde747..HEAD`)
+  for the covenant fixture, the payment-release fixture and
+  `perf/synth/artifacts/workflow.yaml`. An adopter sizes work from this figure,
+  so it states the entry count and the line count separately. The archived
+  example transcluded by
   `public/reference/artifacts/workflow-definitions.md` declares no routes and
   would now be refused, which that page says on its face.
 
