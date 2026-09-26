@@ -214,8 +214,8 @@ def main() -> int:
     declared = declared_attribute_keys()
     if not declared:
         print("  (none declared under tests/fixtures/**/*.yaml)")
-    for key, files in sorted(declared.items()):
-        print(f"  {key!r}: {', '.join(files)}")
+    for key, spec_files in sorted(declared.items()):
+        print(f"  {key!r}: {', '.join(spec_files)}")
     print(f"  total distinct attribute-key names declared: {len(declared)}")
 
     print()
@@ -234,14 +234,14 @@ def main() -> int:
     print()
     print("--- 3. `or \"\"` coercion sites under examples/**/*.py ---")
     print(f"  grep: {' '.join(OR_EMPTY_GREP)}")
-    sites, files, trees, raw = or_empty_sites()
+    site_count, file_count, tree_count, raw = or_empty_sites()
     print(raw, end="" if raw.endswith("\n") or not raw else "\n")
-    print(f"  sites: {sites}, files: {files}, trees: {trees}")
+    print(f"  sites: {site_count}, files: {file_count}, trees: {tree_count}")
     print(
         "  recon expectation (security-remediation design, B4 row): "
         "95 sites, 32 files, 21 trees"
     )
-    if (sites, files, trees) == (95, 32, 21):
+    if (site_count, file_count, tree_count) == (95, 32, 21):
         print("  MATCHES the recon expectation exactly.")
     else:
         print(
@@ -254,7 +254,7 @@ def main() -> int:
     print("Summary")
     print("=" * 78)
     print(f"  fixture nulls on declared attribute keys : {len(hits)}")
-    print(f"  pre-existing `or \"\"` workaround sites    : {sites} ({files} files, {trees} trees)")
+    print(f"  pre-existing `or \"\"` workaround sites    : {site_count} ({file_count} files, {tree_count} trees)")
     print(
         "  implication: the measured fixture population is"
         f" {'EMPTY' if not hits else 'NONEMPTY'} — omitting a null attribute"
