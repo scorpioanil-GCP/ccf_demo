@@ -451,5 +451,18 @@ def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
     definition = WorkflowDefinition.model_validate(
         {**document, "gate_routes": {"credit-officer-approval": {"approve": "approved"}}}
     )
-    with pytest.raises(WorkflowConstructionError, match="does not route verdict"):
+    with pytest.raises(WorkflowConstructionError) as refusal:
         _construct(registry, definition)   # tests/workflow/test_factory.py:138 — registers, then constructs
+    message = str(refusal.value)
+    # Both directions, because only one of them was held. The refusal names
+    # the GAP...
+    assert "does not route verdict" in message
+    assert "reject" in message
+    # ...and does NOT echo back what the caller declared. A refusal that
+    # answers the caller's own question for them is the shape this project
+    # forbids everywhere (cf. tests/workflow/test_engine.py::test_a_refused_
+    # gate_resume_does_not_enumerate_the_declared_targets). The behavior was
+    # already right; nothing held it there, so an edit that dumped the whole
+    # map into the message would have reddened no test.
+    assert "approved" not in message
+    assert "'approve'" not in message
