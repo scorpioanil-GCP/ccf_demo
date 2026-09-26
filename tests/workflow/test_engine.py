@@ -1000,8 +1000,13 @@ def test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node(
         "covenant-review-substitute@9.9.9"
     )
     workflow_document["gate_policies"] = {}
+    # The substitute task calls this step "skill", not "hitl-gate"; a
+    # gate_routes entry surviving the copy would trip the D-IMPL-357 A2
+    # kind check the substitution is not testing (SEC-001 is resume-time
+    # authority, not gate-routing completeness).
+    workflow_document["gate_routes"] = {}
     substitute = parse_artifact(workflow_document, WORKFLOW_DEFINITION)
-    version = register_versioned_at_composition(registry, 
+    version = register_versioned_at_composition(registry,
         "attacker/covenant-review", substitute, WORKFLOW_DEFINITION
     )
     handle = WorkflowFactory(control_plane=registry).construct(

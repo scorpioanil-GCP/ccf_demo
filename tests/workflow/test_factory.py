@@ -203,6 +203,7 @@ def test_a_node_absent_from_the_resolved_task_is_refused(
     ]
     document["exception_refs"] = {}
     document["gate_policies"] = {}
+    document["gate_routes"] = {}
     definition = parse_artifact(document, WORKFLOW_DEFINITION)
     assert isinstance(definition, WorkflowDefinition)
     with pytest.raises(WorkflowConstructionError, match="D-12"):
@@ -404,3 +405,34 @@ def test_the_handle_refuses_an_empty_definition_key(
             identity=workflow.identity,
             definition_key="",
         )
+
+
+# --- gate routing completeness (D-IMPL-357 A2) --------------------------------
+
+
+def test_a_gate_route_on_a_non_hitl_gate_step_is_refused(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """Symmetric to ``test_a_gate_policy_on_a_non_hitl_gate_step_is_refused``
+    above: A1's review noted that nothing refused a ``gate_routes`` key
+    naming a step that is not a ``hitl-gate`` (D-IMPL-357 A2 — the same
+    place, the same style, as the ``gate_policies`` check)."""
+    definition = _workflow_definition(
+        artifact_version="1.0.6",
+        gate_routes={"analyze-covenants": {"approve": "credit-officer-approval"}},
+    )
+    with pytest.raises(WorkflowConstructionError, match="hitl-gate"):
+        _construct(registry, definition)
+
+
+def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
+    registry, tmp_path
+) -> None:
+    """D-IMPL-357 A2: silence must not mean unconstrained. A gate the wrapper
+    routes to must say where each verdict goes, or the workflow is not built."""
+    document = _workflow_fixture()["workflow_definition"]      # the module's own loader
+    definition = WorkflowDefinition.model_validate(
+        {**document, "gate_routes": {"credit-officer-approval": {"approve": "approved"}}}
+    )
+    with pytest.raises(WorkflowConstructionError, match="does not route verdict"):
+        _construct(registry, definition)   # tests/workflow/test_factory.py:138 — registers, then constructs
