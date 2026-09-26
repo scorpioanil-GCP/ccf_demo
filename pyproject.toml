@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ccf"
-version = "0.1.0"
+dynamic = ["version"]          # was: version = "0.1.0"  (SEC-029; D-IMPL-357 §D)
 description = "Cognitive Context Fabric SDK — governed, typed, replay-ready context for AI agents"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
@@ -132,6 +132,13 @@ dev = [
   # existing CI job's `pip install -e ".[dev]"` step changes to gain `make docs`.
   "ccf[docs]",
 ]
+
+[tool.setuptools_scm]
+# The tag is the single source: `v1.0.2` → "1.0.2"; a commit past a tag renders
+# `1.0.2.devN+gSHA`, which is the honest stamp for a record produced by
+# unreleased code. A checkout with no git history builds as the fallback and
+# says so, rather than as a plausible release number. (SEC-029; D-IMPL-357 §D)
+fallback_version = "0.0.0+no-git-metadata"
 
 # Single distribution for v0 shipping two packages: the `ccf` library (src layout,
 # CLAUDE.md §10 L1–L6) and the `ccf_runtime` host package (CLAUDE.md §14) — D-05.

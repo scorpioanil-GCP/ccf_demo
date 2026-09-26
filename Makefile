@@ -51,6 +51,7 @@ NO_SUBSTRATE := not postgres and not chroma and not neo4j and not mongo and not 
 .DEFAULT_GOAL := help
 
 .PHONY: help venv install lint typecheck test ci-core ci examples gate-tools \
+	check-version-stamp \
 	conformance \
 	ci-quick-suite ci-harness-conformance ci-coverage \
 	example-s1-01 example-s1-00 example-cp-00 example-cp-01 example-cp-02 \
@@ -218,6 +219,16 @@ gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `mak
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/lints/tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/product_gates_tests -q
+
+# SEC-029 / D-IMPL-357 §D: the belt half of the version-stamp control. A no-op
+# off a tag (HEAD is not an exact `v*` tag — the ordinary state of every branch
+# and PR run); on a release tag it fails when the installed distribution
+# metadata (`setuptools_scm`, derived from the tag at build/install time) does
+# not equal the tag. The qualification recipe (spec §8.2 "the version gate")
+# runs this target in the qualification venv before TAG GO; `.github/workflows/
+# release-stamp.yml` runs the same check on the `v*` push itself.
+check-version-stamp: ## Fail if HEAD is an exact release tag and the installed version stamp disagrees
+	$(ENV) $(PYTHON) tools/check_version_stamp.py
 
 # The runner is `runner/drive.py`, and BOTH halves of that path are load-bearing.
 # The subdirectory keeps the one `ccf`-importing file structurally outside
