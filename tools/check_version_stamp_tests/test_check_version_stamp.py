@@ -59,6 +59,25 @@ def _git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _git_may_fail(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """`_git` without `check`, for asserting a fixture's git failure is real.
+
+    The two git-failure postures below (fix round 4, finding 2) are only
+    about the branch they name for as long as git actually fails the way they
+    arrange. This runs the same command the gate will run and hands back the
+    result so each test can assert that precondition explicitly, instead of
+    failing obscurely later if a future git tolerates the damage.
+    """
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env={**os.environ, **_GIT_IDENTITY_ENV},
+    )
+
+
 def _make_repo(root: Path) -> Path:
     """A fresh git repo with one commit, no tags."""
     repo = root / "repo"
@@ -215,6 +234,122 @@ def test_no_release_tags_anywhere_is_refused_not_passed(tmp_path: Path) -> None:
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "no 'v[0-9]*' tags are visible" in result.stdout
+
+
+def test_a_tag_listing_failure_is_refused_with_its_own_message(tmp_path: Path) -> None:
+    """`git tag -l` FAILING is its own DON'T-KNOW, never an absence of tags.
+
+    Fix round 4, finding 2 (IMPORTANT): the re-reviewer deleted each of the
+    gate's fourteen `print`s in turn and found exactly two branches that no
+    test observed — this one and the `--points-at` one below. Both are
+    git-failure refusals inside a security gate, and fix round 1's requirement
+    was that every git-failure path exit non-zero with a DISTINCT message.
+    Until now that requirement was met by inspection only: deleting either
+    `print` left all twelve tests green.
+
+    The posture makes `git tag` itself fail for this invocation while leaving
+    `git rev-parse --verify HEAD` working, so the gate genuinely gets past the
+    "cannot read git" branch and refuses at the tag listing: an unsupported
+    `tag.sort` in the repository's own config, which is a real
+    misconfiguration rather than a contrivance (a `[tag] sort = ...` inherited
+    from a CI image's global config, or a key valid in a newer git than the
+    one installed). MEASURED on git 2.43.0: `rev-parse --verify HEAD` exits 0
+    while `git tag -l 'v[0-9]*'` exits 128 with `fatal: unknown field name`.
+    The tag is created BEFORE the config is set, because creation would
+    otherwise fail too.
+
+    The needle has to be precise here, and for finding 1's exact reason:
+    `"cannot list tags"` is a PREFIX of `"cannot list tags at HEAD"`, so a
+    substring match would be satisfied by the OTHER branch's message and the
+    two tests could not tell each other's refusals apart. Anchored on the full
+    prefix including its colon, with the `at HEAD` spelling excluded outright.
+    """
+    repo = _make_repo(tmp_path)
+    _git(repo, "tag", "v1.0.0")  # created first: `git tag -a` would fail below
+    _git(repo, "config", "tag.sort", "bogus-key")
+    _write_distribution(repo, "1.0.0", kind="dist-info")
+
+    readable_head = _git_may_fail(repo, "rev-parse", "--verify", "HEAD")
+    assert readable_head.returncode == 0, (
+        "fixture must leave HEAD readable, or the gate refuses at the EARLIER "
+        f"'cannot read git' branch instead: {readable_head.stderr}"
+    )
+    listing = _git_may_fail(repo, "tag", "-l", "v[0-9]*")
+    assert listing.returncode != 0, (
+        "fixture no longer reproduces a tag-listing failure, so this test no "
+        f"longer reaches the branch it names: rc={listing.returncode} "
+        f"stdout={listing.stdout!r}"
+    )
+
+    result = _run_gate(repo)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.stdout.startswith(
+        "check_version_stamp: cannot list tags: "
+    ), result.stdout
+    assert "at HEAD" not in result.stdout, result.stdout
+    # git's own diagnosis is carried through the refusal, not swallowed — the
+    # branch interpolates `stderr`, so an operator can see WHY listing failed.
+    assert "bogus-key" in result.stdout, result.stdout
+
+
+def test_a_points_at_failure_is_refused_with_its_own_message(tmp_path: Path) -> None:
+    """`git tag --points-at HEAD` failing is a DIFFERENT DON'T-KNOW from the plain listing's.
+
+    The second of fix round 4, finding 2's two unobserved branches. Reaching
+    it requires a posture that distinguishes the gate's two `git tag`
+    invocations, and the only difference between them is that `--points-at`
+    must PEEL every matching tag to a commit while a plain `-l` merely lists
+    ref names. So: a genuinely annotated tag whose tag OBJECT is then removed
+    from the object store — a real partial-corruption shape (a truncated
+    transfer, a lost object, an interrupted `gc`), not a mock.
+
+    MEASURED on git 2.43.0, and this exact ordering is what the test needs:
+    `rev-parse --verify HEAD` exits 0 (the commit is intact), `git tag -l
+    'v[0-9]*'` exits 0 and still lists `v1.0.0` from its ref file alone (so
+    the gate passes the "no tags visible" branch too), and only `git tag
+    --points-at HEAD -l 'v[0-9]*'` exits 128 — `fatal: malformed object at
+    'refs/tags/v1.0.0'` — because it is the only one that has to read the
+    object that is gone.
+
+    The detail assertion deliberately requires git's stderr to be non-empty
+    rather than pinning its wording: the message text is git's to change
+    between versions, but a refusal that carried NO diagnosis would leave an
+    operator with nothing, which is the thing worth asserting.
+    """
+    repo = _make_repo(tmp_path)
+    _git(repo, "tag", "-a", "v1.0.0", "-m", "annotated release tag")
+    tag_object = _git(repo, "rev-parse", "v1.0.0").stdout.strip()
+    assert (
+        _git(repo, "cat-file", "-t", "v1.0.0").stdout.strip() == "tag"
+    ), "fixture is not actually annotated, so nothing needs peeling"
+    loose = repo / ".git" / "objects" / tag_object[:2] / tag_object[2:]
+    assert loose.is_file(), f"tag object is not a loose object at {loose}"
+    loose.unlink()  # the ref survives; the object it names does not
+    _write_distribution(repo, "1.0.0", kind="dist-info")
+
+    readable_head = _git_may_fail(repo, "rev-parse", "--verify", "HEAD")
+    assert readable_head.returncode == 0, readable_head.stderr
+    listing = _git_may_fail(repo, "tag", "-l", "v[0-9]*")
+    assert listing.returncode == 0 and listing.stdout.strip() == "v1.0.0", (
+        "fixture must let the PLAIN listing succeed and see the tag, or the "
+        f"gate refuses at an earlier branch: {listing}"
+    )
+    peeled = _git_may_fail(repo, "tag", "--points-at", "HEAD", "-l", "v[0-9]*")
+    assert peeled.returncode != 0, (
+        "fixture no longer reproduces a --points-at failure, so this test no "
+        f"longer reaches the branch it names: rc={peeled.returncode} "
+        f"stdout={peeled.stdout!r}"
+    )
+
+    result = _run_gate(repo)
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert result.stdout.startswith(
+        "check_version_stamp: cannot list tags at HEAD: "
+    ), result.stdout
+    detail = result.stdout.split("cannot list tags at HEAD: ", 1)[1].strip()
+    assert detail, "the refusal carried none of git's own diagnosis"
 
 
 @pytest.mark.parametrize("marker", ["no-git-metadata", "no.git.metadata"])
