@@ -23,7 +23,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1731 entries**, of which **1473** name a public Python surface.
+**1732 entries**, of which **1474** name a public Python surface.
 
 ## Added
 
@@ -15999,7 +15999,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-482 entries — 295 public Python surface, 187 not public Python API.
+483 entries — 296 public Python surface, 187 not public Python API.
 
 ### Public Python surface
 
@@ -16092,6 +16092,47 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. Existing callers ignore the return value and are unaffected
 
 *Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.workflow.definitions.WorkflowDefinition
+
+- Surface: ccf.workflow.definitions.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: no field declared which verdict at a gate leads to which
+  transition target. A `WorkflowDefinition` could route a `hitl-gate`-kind
+  step's approving and rejecting branches from nothing more than whatever
+  decision string an engine happened to read at resume time.
+- After: a new field, `gate_routes: Mapping[str, Mapping[str, str]]` (gate
+  step name → verdict → declared target), default `{}`. A
+  `model_validator(mode="after")` refuses: a route key naming no
+  non-terminal node in the wrapper's declared transition graph; a verdict
+  outside `GATE_ACTIONS` (`ccf.hitl.approval_gate`,
+  `frozenset({"approve", "reject"})`); a route target that is not a
+  declared outgoing transition target from that gate; and two verdicts from
+  one gate naming the same target (a map that would let a recorded
+  rejection resolve identically to an approval). The field is marked
+  `ccf_hash_transparent: False` (`ccf.contracts.canonical.HASH_TRANSPARENT_KEY`)
+  — a declared generation boundary (`D-IMPL-243` amendment 1), not a silent
+  default: a stored `WorkflowDefinition` document that predates this field
+  is of an earlier generation, named by `generation_mismatch` (by field
+  name, before re-execution), never silently treated as compatible. Whether
+  a declared key names a `hitl-gate`-kind step is, like `gate_policies`,
+  the `WorkflowFactory`'s semantic check, not this contract's.
+- Why: `SEC-001` — nothing in the artifact declared which verdict goes
+  where, so a recorded rejection had no declared route distinct from an
+  approval's. `gate_routes` is that declared map; later tasks in this lane
+  (`A2` factory-level completeness check on `hitl-gate`-kind steps, `A3`
+  engine-side compare against the recorded decision, `A4` refusal of
+  conflicting verdicts on one suspension) consume it by name and shape —
+  neither is renamed nor reshaped here.
+- Migration: none required for an existing deployment — the field defaults
+  to `{}` and every `WorkflowDefinition` document written before this
+  change validates unchanged. A workflow author who wants the new refusal
+  coverage on a routed gate declares its `gate_routes` entry; `A2`'s
+  factory-level check is what will require a complete map once a step is
+  `hitl-gate`-kind.
+
+*Recorded by `357-A1-gate-routes.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 

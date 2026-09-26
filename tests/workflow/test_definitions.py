@@ -280,9 +280,42 @@ def test_a_verdict_outside_GATE_ACTIONS_is_refused() -> None:
 
 
 def test_a_route_keyed_by_an_undeclared_node_is_refused() -> None:
-    with pytest.raises(ValidationError, match="appear nowhere"):
+    with pytest.raises(ValidationError, match="name no non-terminal node"):
         WorkflowDefinition.model_validate(
             _base(gate_routes={"phantom": {"approve": "approved"}})
+        )
+
+
+def test_a_route_keyed_by_a_terminal_state_is_refused_even_with_an_empty_map() -> None:
+    """A terminal state has no outgoing route (finding 2, fix round 1).
+
+    Before the fix, ``{"approved": {}}`` validated silently: the stray-key
+    check ran against every *declared* node (terminals included), and an
+    empty inner map never reached the per-verdict target check either. A
+    terminal-keyed route is refused as a stray key regardless of whether its
+    map is empty, mirroring how ``exception_refs`` is restricted to the
+    non-terminal ``routable`` population.
+    """
+    with pytest.raises(ValidationError, match="name no non-terminal node"):
+        WorkflowDefinition.model_validate(_base(gate_routes={"approved": {}}))
+
+
+def test_two_verdicts_from_one_gate_may_not_name_the_same_target() -> None:
+    """Finding 1 (fix round 1) — the headline SEC-001 gap this closes.
+
+    Before the fix, ``{"approve": "approved", "reject": "approved"}``
+    validated: both verdicts named a declared target from the gate, so
+    nothing checked that the two targets differed. That map defeats the
+    entire artifact end to end — an officer records ``reject``, the caller
+    resumes with ``decision="approved"``, A2's coverage check passes (both
+    verdicts are present), A3's compare (``decision != gate_routes[gate][action]``)
+    computes ``"approved" == "approved"`` and passes, and the workflow
+    completes on the approving branch: SEC-001's exact signature, surviving
+    the artifact built to stop it.
+    """
+    with pytest.raises(ValidationError, match="more than one verdict"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"gate": {"approve": "approved", "reject": "approved"}})
         )
 
 
@@ -291,3 +324,19 @@ def test_gate_routes_is_a_generation_boundary_not_a_transparent_default() -> Non
 
     field = WorkflowDefinition.model_fields["gate_routes"]
     assert (field.json_schema_extra or {}).get(HASH_TRANSPARENT_KEY) is False
+
+
+def test_a_stored_workflow_without_gate_routes_is_named_a_generation_mismatch() -> None:
+    """The consequence, not just the declaration (finding 4, fix round 1).
+
+    The prior version of this test re-read the field's own
+    ``json_schema_extra`` — it would still pass if ``generation_mismatch``
+    stopped honoring ``False`` marks entirely. This asserts the behavior the
+    mark exists to produce: a stored document that predates ``gate_routes``
+    is named, by field name, as a generation boundary.
+    """
+    from ccf.contracts.canonical import generation_mismatch
+
+    stored = _base()
+    del stored["gate_routes"]
+    assert generation_mismatch(WorkflowDefinition, stored) == ("gate_routes",)

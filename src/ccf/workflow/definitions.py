@@ -141,6 +141,10 @@ class WorkflowDefinition(_TwoLaneVersioned):
     #: document lacking it is of an earlier generation, and the factory
     #: refuses a routed gate that declares no complete map. Routing values,
     #: never code (CINV-01): the SDK supplies only the verdict vocabulary.
+    #: Whether a declared key names a ``hitl-gate``-kind step is, like
+    #: ``gate_policies``, the ``WorkflowFactory``'s semantic check against
+    #: the resolved TaskDefinition — not this contract's, which cannot see
+    #: step kinds at all.
     gate_routes: Mapping[str, Mapping[str, str]] = Field(
         default={}, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
@@ -297,14 +301,17 @@ class WorkflowDefinition(_TwoLaneVersioned):
     @model_validator(mode="after")
     def _routes_map_verdicts_onto_declared_targets(self) -> "WorkflowDefinition":
         declared = self._declared_nodes()
+        routable = declared - self.effective_terminal_states
         outgoing: dict[str, set[str]] = {}
         for transition in self.transitions:
             outgoing.setdefault(transition.source, set()).add(transition.target)
-        stray = sorted(set(self.gate_routes) - declared)
+        stray = sorted(set(self.gate_routes) - routable)
         if stray:
             raise ValueError(
-                f"gate route key(s) {stray!r} appear nowhere in the wrapper's"
-                " declared transition graph (D-IMPL-357 A1; CLAUDE.md §8.1)"
+                f"gate route key(s) {stray!r} name no non-terminal node in"
+                " the wrapper's declared transition graph; a route is keyed"
+                " by a gate, and a terminal state declares no outgoing route"
+                " (D-IMPL-357 A1; CLAUDE.md §8.1)"
             )
         for gate, routes in sorted(self.gate_routes.items()):
             unknown = sorted(set(routes) - GATE_ACTIONS)
@@ -322,6 +329,17 @@ class WorkflowDefinition(_TwoLaneVersioned):
                         f" target from {gate!r}; a route names one of the"
                         " gate's own declared targets (D-IMPL-357 A1)"
                     )
+            targets = list(routes.values())
+            if len(set(targets)) != len(targets):
+                duplicated = sorted(
+                    {target for target in targets if targets.count(target) > 1}
+                )
+                raise ValueError(
+                    f"gate {gate!r} routes more than one verdict to target(s)"
+                    f" {duplicated!r}; two verdicts from one gate must not"
+                    " lead to the same target, or a recorded rejection could"
+                    " resolve identically to an approval (D-IMPL-357 A1)"
+                )
         return self
 
 

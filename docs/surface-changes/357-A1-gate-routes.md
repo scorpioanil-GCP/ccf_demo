@@ -1,0 +1,63 @@
+# 357-A1 — gate_routes on WorkflowDefinition
+
+`D-IMPL-357` A1 (accepted design,
+`docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md`
+§3.1; ruling locked). Wave 1 Lane A (verdict→target), closing part of the
+`SEC-001` residual: a recorded human rejection at a HITL gate could be
+routed down the approving branch because no artifact declared which verdict
+goes where.
+
+## What did NOT change, stated first
+
+- **No existing field, validator, or export on `WorkflowDefinition` changed
+  shape or behavior.** `exception_refs`, `gate_policies`, `transitions`,
+  `terminal_states`, and every pre-existing validator are unchanged.
+- **The engine does not yet route on this map.** This task adds the
+  declared map only; the engine-side compare against it is `D-IMPL-357` A3,
+  a later task in this lane. `cursor` and `codex` both flagged "A1 does not
+  close the vulnerability at runtime" in review — correct, and it is the
+  sheet's sequencing, not a gap in this fragment's claim.
+- **No `TaskDefinition` (agent/task definition) contract changed.** The
+  wrapped task the workflow references is untouched (D-12).
+- **No skill, policy, or half-life value changed.** This is mechanism only:
+  the SDK supplies the verdict vocabulary (`GATE_ACTIONS`) and the
+  validators; a deployment supplies its own routing values.
+
+## ccf.workflow.definitions.WorkflowDefinition
+
+- Surface: ccf.workflow.definitions.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: no field declared which verdict at a gate leads to which
+  transition target. A `WorkflowDefinition` could route a `hitl-gate`-kind
+  step's approving and rejecting branches from nothing more than whatever
+  decision string an engine happened to read at resume time.
+- After: a new field, `gate_routes: Mapping[str, Mapping[str, str]]` (gate
+  step name → verdict → declared target), default `{}`. A
+  `model_validator(mode="after")` refuses: a route key naming no
+  non-terminal node in the wrapper's declared transition graph; a verdict
+  outside `GATE_ACTIONS` (`ccf.hitl.approval_gate`,
+  `frozenset({"approve", "reject"})`); a route target that is not a
+  declared outgoing transition target from that gate; and two verdicts from
+  one gate naming the same target (a map that would let a recorded
+  rejection resolve identically to an approval). The field is marked
+  `ccf_hash_transparent: False` (`ccf.contracts.canonical.HASH_TRANSPARENT_KEY`)
+  — a declared generation boundary (`D-IMPL-243` amendment 1), not a silent
+  default: a stored `WorkflowDefinition` document that predates this field
+  is of an earlier generation, named by `generation_mismatch` (by field
+  name, before re-execution), never silently treated as compatible. Whether
+  a declared key names a `hitl-gate`-kind step is, like `gate_policies`,
+  the `WorkflowFactory`'s semantic check, not this contract's.
+- Why: `SEC-001` — nothing in the artifact declared which verdict goes
+  where, so a recorded rejection had no declared route distinct from an
+  approval's. `gate_routes` is that declared map; later tasks in this lane
+  (`A2` factory-level completeness check on `hitl-gate`-kind steps, `A3`
+  engine-side compare against the recorded decision, `A4` refusal of
+  conflicting verdicts on one suspension) consume it by name and shape —
+  neither is renamed nor reshaped here.
+- Migration: none required for an existing deployment — the field defaults
+  to `{}` and every `WorkflowDefinition` document written before this
+  change validates unchanged. A workflow author who wants the new refusal
+  coverage on a routed gate declares its `gate_routes` entry; `A2`'s
+  factory-level check is what will require a complete map once a step is
+  `hitl-gate`-kind.
