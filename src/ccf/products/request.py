@@ -94,9 +94,34 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 import re
+
+# The standard library's own regular-expression parser and opcode constants,
+# for the declaration-time grammar shape check (`D-IMPL-357` C4, round-3
+# ruling; see `_refuse_unsafe_grammar`). PRIVATE modules of the standard
+# library, imported deliberately and STATICALLY.
+#
+# Deliberately, because they are the only way to obtain the parse of a pattern
+# without writing a second regular-expression parser, and a second parser that
+# disagreed with `re` would be a validator judging a grammar the engine will
+# not run. A Python that moves or reshapes them fails at import and this module
+# does not load, which is the loud failure to prefer over a silently degraded
+# check.
+#
+# STATICALLY, because `T-15.4-03` requires exactly ONE dynamic
+# `importlib.import_module` site across `src/` and `runtime/` — it is the
+# compensating control for `cinv02-backend-import`, which cannot read a
+# dynamically-constructed module name. Two `import_module` calls here were
+# measured to break that invariant: the one-dynamic-import-site control in
+# `tests/graph/test_backend_registry.py` reported
+# `{'src/ccf/graph/registry.py': 1, 'src/ccf/products/request.py': 2}` against
+# the required single entry. So these are `import` statements the lint can see,
+# which is what the invariant is protecting.
+import re._constants as _sre_constants
+import re._parser as _sre_parse
 from decimal import Decimal
 from typing import Final, TYPE_CHECKING, Any, Literal
 
@@ -153,6 +178,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only, and deliberately so
     # is a *value*, so :func:`refuse_request` imports it at call time instead.
     from ccf.products.payload import PayloadSchemaViolation
 
+    # Typing-only for :func:`_refuse_floor_below`'s parameter annotation
+    # (D-IMPL-357 C1). Same cycle avoidance as :data:`SkillArgumentSchema`'s
+    # own deferred import at the tail of this module — the annotation is a
+    # string under `from __future__ import annotations` and never resolves
+    # at runtime.
+    from ccf.skills.catalog import SkillArgumentProperty
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
@@ -165,6 +197,9 @@ __all__ = [
     "ProductRequestViolation",
     "ProductRequestViolationReason",
     "RelativeDefault",
+    "SUBJECT_FLOOR_V1",
+    "SUBJECT_FLOOR_VERSION",
+    "refuse_floor",
     "refuse_intent",
     "decode_declared_request",
     "refuse_request",
@@ -194,9 +229,12 @@ __all__ = [
 #: The same token, at ``key="intent"``, is the verdict of :func:`refuse_intent`
 #: (``D-IMPL-264`` D-01): §6.3 makes intent an addressing token, and a class
 #: not registered to serve the intent is addressed to the wrong class in the
-#: same family as a lane mismatch. No tenth token was added for it — the
-#: vocabulary is fixed at nine (criterion 7) and ``key`` already reads *the
-#: field that disagreed* for this reason.
+#: same family as a lane mismatch. No new token was added for intent's
+#: sake — at the time, criterion 7 fixed the vocabulary at nine for this
+#: reason, and ``key`` already reads *the field that disagreed*.
+#: ``malformed-value`` (``D-IMPL-357`` C1) later widened the roster to ten
+#: for an unrelated reason — a presented VALUE's shape, not an addressing
+#: mismatch.
 #:
 #: The fifth, ``not-supported-at-tier``, is the Context Product Specification
 #: Standard's ``400 not_supported_at_tier`` (``references/Context_Product_Specification_Standard_v0-3.md``
@@ -227,8 +265,19 @@ __all__ = [
 #: whether the allowed set is exposed."*): a well-typed value that is not a
 #: member of the class's declared set. A wrong-typed value is still
 #: ``type-mismatch`` — the payload comparison runs first and this verdict
-#: never reaches it. Appended last, never inserted, so every older record's
-#: reason meets the same roster prefix.
+#: never reaches it. Appended after ``above-maximum`` and before
+#: ``malformed-value`` (``D-IMPL-357`` C1), never inserted, so every older
+#: record's reason meets the same roster prefix.
+#:
+#: The tenth, ``malformed-value``, judges TEXT rather than declared shape or
+#: membership: the subject and every declared ``string`` (at every declared
+#: depth) must lie inside the mechanism floor :data:`SUBJECT_FLOOR_V1`
+#: (``D-IMPL-357`` C1/C1a) — 512 ASCII characters from an allowlist grammar
+#: — judged by :func:`refuse_floor`, which ``GovernedResolver.__call__``
+#: runs AFTER the addressing verdicts (lane, intent) and BEFORE the
+#: overridable constraint-resolver seam (``D-IMPL-357`` C2; this task does
+#: not add that call site). A direct validator holding no declaration (see
+#: ``AssemblerAgent``) does not judge it. Appended last, never inserted.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
@@ -239,6 +288,7 @@ ProductRequestViolationReason = Literal[
     "below-minimum",
     "above-maximum",
     "not-in-domain",
+    "malformed-value",  # D-IMPL-357 C1 — appended LAST, never inserted
 ]
 
 #: How :func:`~ccf.products.payload.refuse_payload`'s reasons read on the
@@ -281,9 +331,22 @@ class ProductRequest(CCFContract):
         subject: The entity anchor — *which entity*. The
             ``{counterparty-id}`` slot of the worked address pattern. An
             opaque deployment identifier; the SDK matches it structurally and
-            interprets none of it, and validates its **shape** only. Whether
-            this caller may receive a product about this subject is the door's
-            entitlement check plus Π conditioning, both upstream of here.
+            interprets none of it, and validates its **shape**: the
+            mechanism floor :data:`SUBJECT_FLOOR_V1` **on the governed path**
+            (:meth:`~ccf.products.resolver.GovernedResolver.__call__`, which
+            calls :func:`refuse_floor` before the overridable seam), and a
+            declared
+            ``subject_domain`` when the class declares one (``D-IMPL-357``).
+            **The qualifier replaces an earlier "always" and matters.** This
+            field's own docstring is the first thing a reader of the request
+            contract meets, and a reader who concludes the field is cleared
+            stops checking it — which was the whole of the earlier blocking
+            finding. :func:`refuse_request` does NOT carry the floor, so a
+            caller validating with that function alone gets no shape judgment
+            of this field at all and must call :func:`refuse_floor` itself.
+            Whether this caller may receive a product about this subject is
+            the door's entitlement check plus Π conditioning, both upstream
+            of here.
         intent: The decision the product is being assembled for — *for what
             decision*. A deployment-declared token, drawn from the same
             vocabulary :class:`~ccf.products.contract.ProductDiscovery`
@@ -345,6 +408,409 @@ class ProductRequest(CCFContract):
     )
 
 
+# --- the grammar shape check (D-IMPL-357 C4, round-3 ruling) -----------------
+#
+# **The ruling.** Refuse dangerous pattern shapes AT ARTIFACT REGISTRATION,
+# never at serve. No timeout library, no thread, no subprocess, no new
+# dependency, and no reliance on the mechanism floor's 512-character cap as a
+# mitigation. **And fail closed on unclassifiable:** if registration cannot
+# establish that a shape is safe, refuse the document. The owner's closing
+# words were *"do not leave an unbounded match on a caller string."*
+#
+# **What forced it, measured.** A declared pattern is adopter-authored text
+# matched against caller-supplied text by an engine that gives no timeout. On
+# this project's interpreter, `re.compile(r"(a+)+$")` against a non-matching
+# subject of `a`s took 6.242 seconds at 28 characters and 24.990 at 30 —
+# roughly quadrupling every two characters. A 512-character cap therefore
+# bounds nothing that matters, and the standalone-validator path
+# (`refuse_request` called without `refuse_floor`) applies no cap at all.
+#
+# **Why HERE.** `ArgumentDomain` is the one type a declared grammar can arrive
+# in, from Python or from a document, so this is the earliest point an
+# adopter's grammar enters the system and the only one that cannot be bypassed
+# by a path that parses an artifact — `from_declared` builds this same type.
+# Nothing about this check runs at request time: a pattern that reached the
+# graph of registered artifacts has already been judged.
+#
+# **The analysis is STRUCTURAL and conservative.** It parses the pattern with
+# the standard library's own regular-expression parser — no dependency — and
+# walks the parse. Every opcode it meets must be in a vocabulary it has a rule
+# for; anything else is refused as unclassifiable rather than admitted. That
+# asymmetry is the ruling: an adopter who is refused can simplify their
+# grammar, and an adopter who is admitted and then hangs cannot.
+
+#: Opcodes that consume exactly one character and can never backtrack into
+#: themselves. The leaves of the vocabulary.
+_GRAMMAR_ATOMS: Final[frozenset[object]] = frozenset(
+    {
+        _sre_constants.LITERAL,
+        _sre_constants.NOT_LITERAL,
+        _sre_constants.IN,
+        _sre_constants.ANY,
+    }
+)
+
+#: Repeat opcodes. All three are treated alike: a possessive repeat cannot give
+#: text back to what follows it, but a greedy repeat NESTED INSIDE one still
+#: explores every partition of the text before the enclosing repeat fails, so
+#: possessiveness is not a defense against the shape this check refuses.
+_GRAMMAR_REPEATS: Final[frozenset[object]] = frozenset(
+    {
+        _sre_constants.MAX_REPEAT,
+        _sre_constants.MIN_REPEAT,
+        _sre_constants.POSSESSIVE_REPEAT,
+    }
+)
+
+#: The ASCII code-point intervals of each character category this check can
+#: reason about, and whether the category also matches code points above ASCII.
+#: Mechanism vocabulary — the regular-expression language's own categories, not
+#: a domain value. A category absent from this mapping is UNCLASSIFIABLE.
+_GRAMMAR_CATEGORIES: Final[dict[object, tuple[tuple[tuple[int, int], ...], bool]]] = {
+    _sre_constants.CATEGORY_DIGIT: (((48, 57),), True),
+    _sre_constants.CATEGORY_WORD: (((48, 57), (65, 90), (95, 95), (97, 122)), True),
+    _sre_constants.CATEGORY_SPACE: (((9, 13), (32, 32)), True),
+    _sre_constants.CATEGORY_LINEBREAK: (((10, 10),), False),
+}
+
+#: The code-point ceiling the interval arithmetic below closes over.
+_GRAMMAR_CODE_POINT_CEILING: Final[int] = 0x10FFFF
+
+
+@dataclass(frozen=True)
+class _FirstSet:
+    """Which code points a sub-pattern can begin with, and whether it may be empty.
+
+    ``intervals`` are closed, ASCII-and-beyond code-point ranges. ``universal``
+    marks a first set this check could not narrow — a negated character class,
+    ``.``, or a category whose complement is in play — and a universal set
+    intersects everything, which makes the comparison that uses it refuse.
+    ``matches_empty`` is what makes an alternation branch dangerous under a
+    repeat all by itself.
+    """
+
+    intervals: tuple[tuple[int, int], ...]
+    universal: bool
+    matches_empty: bool
+
+    def intersects(self, other: "_FirstSet") -> bool:
+        """Might these two sub-patterns begin with the same character?
+
+        Conservative by construction: two universal sets, or a universal set
+        beside anything non-empty, are reported as intersecting. A ``False``
+        here is a PROOF of disjointness, which is what the callers need — they
+        refuse unless they have that proof.
+        """
+        if self.universal or other.universal:
+            return True
+        return any(
+            low <= other_high and other_low <= high
+            for low, high in self.intervals
+            for other_low, other_high in other.intervals
+        )
+
+
+#: A first set this check could not compute at all — distinct from a universal
+#: one, because it means *the vocabulary does not cover this shape* rather than
+#: *this shape can start with anything*.
+_UNKNOWN_FIRST_SET: Final[None] = None
+
+
+def _grammar_charset_first(items: object) -> _FirstSet | None:
+    """The first set of one ``IN`` node's item list, or ``None`` if unclassifiable."""
+    intervals: list[tuple[int, int]] = []
+    universal = False
+    for entry in items:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode is _sre_constants.NEGATE:
+            # The complement of a set is not narrowed by this check.
+            universal = True
+        elif opcode is _sre_constants.LITERAL:
+            intervals.append((int(argument), int(argument)))
+        elif opcode is _sre_constants.RANGE:
+            low, high = argument
+            intervals.append((int(low), int(high)))
+        elif opcode is _sre_constants.CATEGORY:
+            known = _GRAMMAR_CATEGORIES.get(argument)
+            if known is None:
+                return _UNKNOWN_FIRST_SET
+            ascii_intervals, beyond = known
+            intervals.extend(ascii_intervals)
+            if beyond:
+                intervals.append((0x80, _GRAMMAR_CODE_POINT_CEILING))
+        else:
+            return _UNKNOWN_FIRST_SET
+    return _FirstSet(
+        intervals=tuple(intervals), universal=universal, matches_empty=False
+    )
+
+
+def _grammar_first_set(sequence: object) -> _FirstSet | None:
+    """The first set of a parsed sequence, or ``None`` when out of vocabulary.
+
+    Walks the sequence only as far as it must: an item that cannot match empty
+    ends the walk, because nothing after it can be first. An item that CAN match
+    empty contributes its own first set and the walk continues past it, which is
+    how ``(?:a?b|c)`` is read as beginning with ``a``, ``b`` or ``c``.
+    """
+    intervals: list[tuple[int, int]] = []
+    universal = False
+    for entry in sequence:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode is _sre_constants.AT:
+            continue  # an anchor consumes nothing and constrains no character
+        if opcode in _GRAMMAR_ATOMS:
+            if opcode is _sre_constants.ANY or opcode is _sre_constants.NOT_LITERAL:
+                universal = True
+            elif opcode is _sre_constants.LITERAL:
+                intervals.append((int(argument), int(argument)))
+            else:
+                inner = _grammar_charset_first(argument)
+                if inner is None:
+                    return _UNKNOWN_FIRST_SET
+                intervals.extend(inner.intervals)
+                universal = universal or inner.universal
+            return _FirstSet(
+                intervals=tuple(intervals), universal=universal, matches_empty=False
+            )
+        if opcode in _GRAMMAR_REPEATS:
+            minimum, _maximum, body = argument
+            inner = _grammar_first_set(body)
+            if inner is None:
+                return _UNKNOWN_FIRST_SET
+            intervals.extend(inner.intervals)
+            universal = universal or inner.universal
+            if minimum > 0 and not inner.matches_empty:
+                return _FirstSet(
+                    intervals=tuple(intervals), universal=universal, matches_empty=False
+                )
+            continue  # the repeat may consume nothing; look past it
+        if opcode is _sre_constants.SUBPATTERN:
+            inner = _grammar_first_set(argument[3])
+        elif opcode is _sre_constants.ATOMIC_GROUP:
+            inner = _grammar_first_set(argument)
+        elif opcode is _sre_constants.BRANCH:
+            inner = _grammar_branch_first_set(argument[1])
+        else:
+            return _UNKNOWN_FIRST_SET
+        if inner is None:
+            return _UNKNOWN_FIRST_SET
+        intervals.extend(inner.intervals)
+        universal = universal or inner.universal
+        if not inner.matches_empty:
+            return _FirstSet(
+                intervals=tuple(intervals), universal=universal, matches_empty=False
+            )
+    return _FirstSet(intervals=tuple(intervals), universal=universal, matches_empty=True)
+
+
+def _grammar_branch_first_set(branches: object) -> _FirstSet | None:
+    """The union of the branches' first sets; empty-matching if any branch is."""
+    intervals: list[tuple[int, int]] = []
+    universal = False
+    matches_empty = False
+    for branch in branches:  # type: ignore[union-attr]
+        inner = _grammar_first_set(branch)
+        if inner is None:
+            return _UNKNOWN_FIRST_SET
+        intervals.extend(inner.intervals)
+        universal = universal or inner.universal
+        matches_empty = matches_empty or inner.matches_empty
+    return _FirstSet(
+        intervals=tuple(intervals), universal=universal, matches_empty=matches_empty
+    )
+
+
+def _grammar_holds_a_repeat(sequence: object) -> bool:
+    """Is there a repeat anywhere under this sequence, at any depth?
+
+    Used for one decision only: a look-around assertion carrying a repeat is
+    refused as unclassifiable. The walk deliberately does not try to reason
+    about the repeat; finding one is the whole answer.
+    """
+    for entry in sequence:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode in _GRAMMAR_REPEATS:
+            return True
+        if opcode is _sre_constants.SUBPATTERN:
+            if _grammar_holds_a_repeat(argument[3]):
+                return True
+        elif opcode is _sre_constants.ATOMIC_GROUP:
+            if _grammar_holds_a_repeat(argument):
+                return True
+        elif opcode is _sre_constants.BRANCH:
+            if any(_grammar_holds_a_repeat(branch) for branch in argument[1]):
+                return True
+        elif opcode is _sre_constants.ASSERT or opcode is _sre_constants.ASSERT_NOT:
+            if _grammar_holds_a_repeat(argument[1]):
+                return True
+    return False
+
+
+def _refuse_grammar_sequence(sequence: object, *, inside_repeat: bool) -> str | None:
+    """Walk one parsed sequence; return the reason it is refused, or ``None``.
+
+    ``inside_repeat`` is the whole of the state this walk carries. Everything
+    the check refuses is a statement about a sub-pattern's position relative to
+    an enclosing repeat, so one boolean is the entire context.
+    """
+    pending: _FirstSet | None = None  # an expansive repeat still able to collide
+    for entry in sequence:  # type: ignore[union-attr]
+        opcode, argument = entry
+        if opcode is _sre_constants.AT or opcode in _GRAMMAR_ATOMS:
+            if opcode is not _sre_constants.AT:
+                pending = None  # a consumed character separates two repeats
+            continue
+        if opcode in _GRAMMAR_REPEATS:
+            minimum, maximum, body = argument
+            fixed = minimum == maximum and maximum is not _sre_constants.MAXREPEAT
+            if inside_repeat and not fixed:
+                return (
+                    "a NESTED QUANTIFIER — a repeat whose body carries another "
+                    "repeat that is not of fixed length. Each iteration of the "
+                    "outer repeat can divide the same text between itself and "
+                    "the inner one, and the engine tries every division before "
+                    "it reports no match"
+                )
+            body_first = _grammar_first_set(body)
+            if body_first is None:
+                return _grammar_unclassifiable("a repeat whose body it cannot read")
+            if not fixed and body_first.matches_empty:
+                return (
+                    "a REPEAT OVER A SUB-PATTERN THAT CAN MATCH NOTHING, which "
+                    "gives the engine unboundedly many ways to satisfy the same "
+                    "text with the same number of characters consumed"
+                )
+            if not fixed:
+                if pending is not None and pending.intersects(body_first):
+                    return (
+                        "two unbounded repeats SIDE BY SIDE over characters "
+                        "that overlap. Where one ends and the next begins is a "
+                        "free choice at every position of the input, and the "
+                        "engine makes it exhaustively"
+                    )
+                pending = body_first
+            else:
+                pending = None
+            below = _refuse_grammar_sequence(body, inside_repeat=True)
+            if below is not None:
+                return below
+            continue
+        if opcode is _sre_constants.SUBPATTERN:
+            inner_sequence: object = argument[3]
+        elif opcode is _sre_constants.ATOMIC_GROUP:
+            inner_sequence = argument
+        elif opcode is _sre_constants.BRANCH:
+            refusal = _refuse_grammar_branch(argument[1], inside_repeat=inside_repeat)
+            if refusal is not None:
+                return refusal
+            branch_first = _grammar_branch_first_set(argument[1])
+            if branch_first is None:
+                return _grammar_unclassifiable("an alternation it cannot read")
+            pending = None if not branch_first.matches_empty else pending
+            continue
+        elif opcode is _sre_constants.ASSERT or opcode is _sre_constants.ASSERT_NOT:
+            # A look-around is admitted only when it carries NO repeat at all.
+            # A repeat inside one is a real backtracking vector and this check
+            # does not model how the assertion's retries compose with the
+            # enclosing pattern's, so it says exactly that rather than
+            # borrowing the nested-quantifier wording, which would name an
+            # enclosing repeat that may not exist.
+            if _grammar_holds_a_repeat(argument[1]):
+                return _grammar_unclassifiable(
+                    "a repeat inside a look-around assertion"
+                )
+            refusal = _refuse_grammar_sequence(argument[1], inside_repeat=inside_repeat)
+            if refusal is not None:
+                return refusal
+            continue
+        else:
+            return _grammar_unclassifiable(
+                f"the construct {getattr(opcode, 'name', opcode)!s}"
+            )
+        refusal = _refuse_grammar_sequence(inner_sequence, inside_repeat=inside_repeat)
+        if refusal is not None:
+            return refusal
+        group_first = _grammar_first_set(inner_sequence)
+        if group_first is None:
+            return _grammar_unclassifiable("a group it cannot read")
+        if not group_first.matches_empty:
+            pending = None
+    return None
+
+
+def _refuse_grammar_branch(branches: object, *, inside_repeat: bool) -> str | None:
+    """Refuse an alternation whose branches can match the same input, under a repeat.
+
+    Ambiguity matters only under a repeat. ``(a|ab)`` on its own costs one
+    retry; ``(a|ab)+`` costs one retry *per iteration*, compounding, which is
+    the second shape the ruling names. Two branches are dangerous when their
+    first sets are not PROVABLY disjoint, or when either can match nothing.
+    """
+    if inside_repeat:
+        first_sets: list[_FirstSet] = []
+        for branch in branches:  # type: ignore[union-attr]
+            first = _grammar_first_set(branch)
+            if first is None:
+                return _grammar_unclassifiable("an alternation branch it cannot read")
+            if first.matches_empty:
+                return (
+                    "an ALTERNATION under a repeat with a branch that can match "
+                    "nothing, so every iteration has a way to consume no input "
+                    "and the engine must try it at every position"
+                )
+            first_sets.append(first)
+        for index, first in enumerate(first_sets):
+            for other in first_sets[index + 1 :]:
+                if first.intersects(other):
+                    return (
+                        "an ALTERNATION under a repeat whose branches can match "
+                        "the same input. Each iteration then has more than one "
+                        "way to consume the same text, and the engine explores "
+                        "every combination of those choices across iterations"
+                    )
+    for branch in branches:  # type: ignore[union-attr]
+        refusal = _refuse_grammar_sequence(branch, inside_repeat=inside_repeat)
+        if refusal is not None:
+            return refusal
+    return None
+
+
+def _grammar_unclassifiable(what: str) -> str:
+    """The fail-closed reason, in one voice wherever the vocabulary runs out."""
+    return (
+        f"a shape this check CANNOT ESTABLISH AS SAFE: it met {what}. Fail "
+        "closed is the ruling — a grammar that cannot be judged structurally "
+        "is refused rather than admitted, because an author who is refused can "
+        "simplify the grammar and a caller who triggers a hang cannot"
+    )
+
+
+def _refuse_unsafe_grammar(pattern: str) -> str | None:
+    """Why this declared grammar is refused at registration, or ``None``.
+
+    ``D-IMPL-357`` C4, the round-3 ruling. The entry point the
+    :class:`ArgumentDomain` validator calls, and therefore the one point every
+    declared grammar passes through — from Python and from a document alike.
+
+    Returns the reason as prose naming the SHAPE, never a bare refusal: the
+    author is the only person who can fix a dangerous grammar, and they can
+    only do it if the message says what is wrong with it.
+
+    Pure over its argument: no clock, no registry, no I/O, and it never runs
+    the pattern against any text. The analysis is over the parse alone, so the
+    check itself cannot be made slow by the pattern it is judging.
+    """
+    try:
+        parsed = _sre_parse.parse(pattern)
+    except Exception:  # noqa: BLE001 - any parse failure is a fail-closed refusal
+        # `re.compile` has already been tried by the caller, so reaching here
+        # means the two disagree — which is itself something this check cannot
+        # reason about.
+        return _grammar_unclassifiable("a pattern its own parser could not read")
+    return _refuse_grammar_sequence(parsed, inside_repeat=False)
+
+
 class ArgumentDomain(CCFContract):
     """The valid domain of one declared parameter — the seventh key.
 
@@ -373,10 +839,10 @@ class ArgumentDomain(CCFContract):
     :class:`ProductRequestViolation` — ``below-minimum``, ``above-maximum``
     or ``not-in-domain`` — returned as data, never a substituted value.
 
-    **Two shapes, exactly one of them** (``D-IMPL-264`` D-03, Dave: *"Exactly
+    **Three shapes, exactly one of them** (``D-IMPL-264`` D-03, Dave: *"Exactly
     one domain shape: numeric bounds or enumerated values. Non-empty,
     duplicate-free … Neither shape is also invalid if ``ArgumentDomain`` is
-    present."*):
+    present."*, **as amended by ``D-IMPL-357`` C4**, which adds the third):
 
     * **Numeric bounds** — ``minimum`` and/or ``maximum``, inclusive on both
       ends, because a boundary a caller may ask for and a boundary a caller
@@ -391,11 +857,85 @@ class ArgumentDomain(CCFContract):
       (``int`` and :class:`~decimal.Decimal` together), boolean — and
       ``bool`` is its own class, never a number, on :func:`_as_decimal`'s
       reading.
+    * **A grammar** — ``pattern``, a regular expression the value must satisfy
+      in full (``D-IMPL-357`` C4). The shape an identifier wants when its legal
+      form is a *rule* rather than a roster: an LEI, an internal account
+      format, a jurisdiction code. Judged by :func:`re.fullmatch` and never by
+      :func:`re.search`, because a value that merely *contains* the grammar
+      satisfies a wider domain than the one declared — and the wider reading is
+      exactly how a narrowing declaration stops narrowing.
 
-    A domain declaring both shapes, neither shape, an empty set, a duplicated
-    member or a heterogeneous set is refused at construction, naming the
-    defect: a domain that admits everything, or that no value could satisfy,
-    is not a declaration but a key with nothing under it.
+    A domain declaring more than one shape, no shape at all, an empty set, a
+    duplicated member, a heterogeneous set or a pattern that does not compile
+    is refused at construction, naming the defect: a domain that admits
+    everything, or that no value could satisfy, is not a declaration but a key
+    with nothing under it.
+
+    **A declared grammar NARROWS; it can never widen past the mechanism
+    floor — ON THE GOVERNED PATH** (``D-IMPL-357`` C1/C2/C4).
+    :data:`SUBJECT_FLOOR_V1` is the fabric's
+    own character grammar for what can be placed safely in a SPARQL IRI
+    position or a quoted literal, and
+    :meth:`~ccf.products.resolver.GovernedResolver.__call__` judges it through
+    :func:`refuse_floor` **before** the overridable constraint-resolver seam
+    and therefore before any declaration-level judgment runs at all. An
+    adopter who declares ``pattern=".*"`` — a grammar admitting an apostrophe,
+    and so a single-quoted-literal splice — does not thereby make an
+    apostrophe-bearing subject servable *through that resolver*: the floor is
+    mechanism and is not
+    negotiable by declaration, and this domain is a *further* constraint on
+    top of it with no reach underneath. **The qualifier is load-bearing.** A
+    caller that validates a request with :func:`refuse_request` alone — the
+    standalone-validator path, which
+    :class:`~ccf.agents.assembler.DeterministicAssembler` is by ruling — gets
+    this narrowing and NOT the floor, so under that caller a permissive
+    declaration really is the only judgment there is; that caller's obligation
+    to call :func:`refuse_floor` itself is stated on
+    :func:`refuse_request`. Pinned twice, at the functions and at
+    the resolver (``tests/products/test_request_contract.py``,
+    ``tests/products/test_resolver_seam.py``).
+
+    **A pattern is adopter-authored data evaluated against caller-supplied
+    text**, so a pathological grammar is a denial-of-service surface the
+    Python ``re`` engine gives no timeout against — **and the floor's
+    character cap is NOT a bound on it.** An earlier revision of this
+    docstring said two things bounded the surface in practice: that the floor
+    caps a subject at 512 characters before any pattern sees it, and that a
+    declaration is a governed Control Plane artifact rather than caller input.
+    The second stands. **The first was measured and does not hold:**
+    catastrophic backtracking reaches pathological cost far inside 512
+    characters. Measured on this project's interpreter with the classic
+    nested quantifier ``(a+)+$`` against a non-matching subject of ``a``\\ s:
+    28 characters took over six seconds and 30 took roughly twenty-five, each
+    further two characters multiplying the cost about fourfold. A cap of 512
+    therefore bounds nothing that matters, and the *first* sentence above was
+    true only of the governed path in any case — **the
+    standalone-validator path applies no cap at all**, because
+    :func:`refuse_request` does not call :func:`refuse_floor` and the subject
+    it judges is unbounded in length.
+
+    **RULED, and closed HERE rather than at serve** (``D-IMPL-357`` C4, the
+    round-3 ruling). The project owner's decision: refuse dangerous pattern
+    shapes **at artifact registration, never at serve** — no timeout library,
+    no thread, no subprocess, no new dependency, and no reliance on the
+    512-character cap as a mitigation — **and fail closed on unclassifiable:**
+    a shape registration cannot establish as safe is refused rather than
+    admitted. His closing words: *"do not leave an unbounded match on a caller
+    string."* :func:`_refuse_unsafe_grammar` is that check and this validator
+    calls it, so the refusal fires on every path a grammar can arrive by,
+    including :meth:`ProductRequestContract.from_declared`. Three shapes are
+    named and refused — a nested quantifier, an ambiguous alternation under a
+    repeat, and two unbounded repeats side by side over overlapping characters
+    — plus a repeat whose body can match nothing, and anything the check's
+    vocabulary does not cover.
+
+    **The residual that remains is CONSERVATISM, not exposure.** The analysis
+    is structural and refuses shapes that are in fact safe but that it cannot
+    prove safe: a backreference, a repeat inside a look-around, a conditional
+    group, a character category outside its table. An author who meets one of
+    those is refused by name and can simplify the grammar; that is the
+    asymmetry the ruling chose, because an author who is refused has a way
+    forward and a caller who triggers a hang does not.
 
     **Membership is exact typed equality** (``D-IMPL-264`` D-04, Dave,
     verbatim: *"Exact canonical match. No trimming, case folding, aliases, or
@@ -420,6 +960,21 @@ class ArgumentDomain(CCFContract):
             (``D-IMPL-253`` Q21) — but the type is symmetric so a genuine
             domain ceiling (*"a percentage"*, *"a calendar month"*) has a
             place to be declared rather than a policy to be faked.
+        pattern: The grammar a string value must satisfy in full, or ``None``
+            when the domain is numeric or enumerated. Hash-transparent at
+            ``None`` (``D-IMPL-243``), so every domain written before the
+            grammar existed canonicalizes byte-for-byte as it did. Compiled
+            once at construction purely to refuse a pattern that does not
+            compile — a declaration no value could ever satisfy, named where
+            the author can still fix it. **Compilation is not the only shape
+            check:** :func:`_refuse_unsafe_grammar` additionally refuses a
+            pattern whose SHAPE can make the engine backtrack
+            catastrophically, and refuses any shape it cannot establish as safe
+            (``D-IMPL-357`` C4, round-3 ruling — see this class's own
+            docstring). Both refusals happen at declaration and neither happens
+            at serve. The schema render derives the
+            advertised JSON Schema ``pattern`` keyword from this field, on the
+            same D-00 / P-1 terms the ``enum`` derivation follows.
         members: The closed set of legal values, or ``None`` when the domain
             is numeric. Hash-transparent at ``None`` (``D-IMPL-243``): every
             numeric domain written before the member set existed
@@ -441,32 +996,70 @@ class ArgumentDomain(CCFContract):
     members: tuple[str | int | bool | Decimal, ...] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    pattern: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="after")
     def _at_least_one_end_and_in_order(self) -> "ArgumentDomain":
         """Refuse a domain that is not exactly one well-formed shape, by name.
 
-        The name predates the second shape and is kept: the numeric half is
-        still *at least one end, in order*; the enumerated half is *a
-        non-empty, duplicate-free, homogeneous set*; and the shapes are
-        exclusive (``D-IMPL-264`` D-03/D-06 beside ``D-IMPL-259``).
+        The name predates the second and third shapes and is kept: the
+        numeric half is still *at least one end, in order*; the enumerated half
+        is *a non-empty, duplicate-free, homogeneous set*; the grammar half is
+        *a pattern that compiles*; and the shapes are exclusive (``D-IMPL-264``
+        D-03 as amended by ``D-IMPL-357`` C4, and D-06, beside ``D-IMPL-259``).
+
+        **One count, not a ladder of pairwise comparisons.** The three shapes
+        are counted and the count must be exactly one, so a fourth shape added
+        later cannot be admitted alongside another by an author who forgets to
+        write one more ``and`` — the failure mode a chain of pairwise checks
+        has and a count does not.
         """
         numeric = self.minimum is not None or self.maximum is not None
-        if numeric and self.members is not None:
+        shapes = (
+            int(numeric) + int(self.members is not None) + int(self.pattern is not None)
+        )
+        if shapes != 1:
             raise ValueError(
                 "an argument domain declares exactly one shape — numeric "
-                "bounds (minimum and/or maximum) OR an enumerated member set "
-                "(members) — and this one declares both; a value cannot be "
-                "held to a magnitude and to a closed set at once "
-                "(D-IMPL-264 D-03, D-IMPL-259)"
+                "bounds (minimum and/or maximum), OR an enumerated member set "
+                "(members), OR a grammar (pattern) — and this one declares "
+                f"{shapes}; a value cannot be held to a magnitude, a closed "
+                "set and a grammar at once, and a domain declaring none of the "
+                "three — neither bounds, nor a member set, nor a grammar — "
+                "admits every value and is a key with nothing under it "
+                "(D-IMPL-264 D-03 as amended by D-IMPL-357 C4, D-IMPL-259)"
             )
-        if not numeric and self.members is None:
-            raise ValueError(
-                "an argument domain declares a minimum, a maximum or both, or "
-                "an enumerated member set; a domain with neither shape admits "
-                "every value and is a key with nothing under it "
-                "(D-IMPL-264 D-03, D-IMPL-259)"
-            )
+        if self.pattern is not None:
+            try:
+                re.compile(self.pattern)
+            except re.error as error:
+                raise ValueError(
+                    f"an argument domain's pattern {self.pattern!r} does not "
+                    f"compile: {error}; a grammar no value could ever satisfy "
+                    "is refused where the author can still fix it, never in "
+                    "front of a caller (D-IMPL-357 C4)"
+                ) from error
+            # D-IMPL-357 C4, the round-3 ruling: a grammar whose SHAPE can make
+            # the engine backtrack catastrophically is refused HERE, at
+            # registration, and never at serve. This is the earliest point an
+            # adopter's grammar enters the system, and `from_declared` reaches
+            # it too, so there is no path that parses an artifact and skips it.
+            unsafe = _refuse_unsafe_grammar(self.pattern)
+            if unsafe is not None:
+                raise ValueError(
+                    f"an argument domain's pattern {self.pattern!r} declares "
+                    f"{unsafe}. A declared pattern is adopter text matched "
+                    "against CALLER text by an engine with no timeout: measured, "
+                    "(a+)+$ against a non-matching 28-character subject took "
+                    "6.2 seconds and 30 characters took 25, so the mechanism "
+                    "floor's 512-character cap bounds nothing that matters and "
+                    "the standalone-validator path applies no cap at all. "
+                    "Refused at declaration, where the author can still fix it "
+                    "(D-IMPL-357 C4)"
+                )
+            return self
         if self.members is not None:
             _refuse_a_malformed_member_set(self.members)
             return self
@@ -499,8 +1092,17 @@ class ArgumentDomain(CCFContract):
         the rule :func:`_is_member` states — the presented value's class must
         be the set's class and the value must equal a member under that
         class's own equality. *"No trimming, case folding, aliases, or silent
-        substitution"* (``D-IMPL-264`` D-04).
+        substitution"* (``D-IMPL-264`` D-04). Grammar shape: :func:`re.fullmatch`
+        against the declared pattern (``not-in-domain``) — a value that is not
+        a string has no text to judge and misses a grammar for the same reason
+        a string misses a member set, so it is refused rather than passed
+        through (``D-IMPL-357`` C4). Judged AFTER
+        :data:`SUBJECT_FLOOR_V1`, which a declaration cannot reach under.
         """
+        if self.pattern is not None:
+            if isinstance(value, str) and re.fullmatch(self.pattern, value):
+                return None
+            return "not-in-domain"
         if self.members is not None:
             if any(_is_member(value, member) for member in self.members):
                 return None
@@ -785,6 +1387,35 @@ class ProductRequestContract(VersionedArtifact):
             is bounded by a capability, and it is hash-transparent at that
             value (``D-IMPL-243``), which is what every contract written before
             this field said and still says.
+        subject_domain: The further constraint this class holds its SUBJECT to —
+            a grammar or a closed set — or ``None`` when the class declares
+            none (``D-IMPL-357`` C4). The subject is the first of the four
+            address axes (§6.3) and is not a parameter, so it has no entry in
+            ``argument_domains`` and needs a declaration of its own.
+
+            **A NARROWING, never a widening — on the governed path.**
+            :data:`SUBJECT_FLOOR_V1` is the
+            fabric's own mechanism floor and
+            :meth:`~ccf.products.resolver.GovernedResolver.__call__` judges it
+            through :func:`refuse_floor` before the overridable
+            constraint-resolver seam — so before this declaration is consulted
+            at all. A permissive grammar here cannot readmit what the floor
+            refuses; it can only narrow what the floor already admitted. The
+            floor is mechanism and is not negotiable by declaration. A caller
+            validating with :func:`refuse_request` ALONE gets this narrowing
+            and no floor at all, and carries the obligation
+            :func:`refuse_request` states; see :class:`ArgumentDomain` for that
+            split and for the pattern-cost residual held for the owner.
+
+            **A numeric shape is refused.** A subject is an identifier, not a
+            magnitude, so bounds over one bound nothing — the sibling of the
+            ``unmeasurable`` refusal one validator down.
+
+            Hash-transparent at ``None`` (``D-IMPL-243``), so every request
+            contract written before this field keeps its content address; a
+            declared domain renders and therefore MOVES the hash, because two
+            classes holding their subjects to different grammars must not share
+            one contract identity.
     """
 
     schema_name: str
@@ -804,6 +1435,9 @@ class ProductRequestContract(VersionedArtifact):
     )
     argument_domains: Mapping[str, ArgumentDomain] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    subject_domain: ArgumentDomain | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     @model_validator(mode="after")
@@ -841,6 +1475,58 @@ class ProductRequestContract(VersionedArtifact):
                 "request field ProductRequest.intent; what a class serves is "
                 "declared once, on ProductDiscovery.intents, and judged there "
                 "— remove the argument (D-IMPL-264 D-01, amendment 1 F-2)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_subject_domain_is_a_grammar_or_a_set(self) -> "ProductRequestContract":
+        """Refuse a subject domain no subject could ever satisfy — two ways in.
+
+        ``D-IMPL-357`` C4, second clause added at the C4 fix round. The sibling
+        of the ``unmeasurable`` clause one
+        validator down, which refuses numeric bounds over a declared ``string``
+        parameter for the same reason. Nothing here judges a VALUE — what a
+        subject must look like is the declaration's, and this only refuses a
+        declaration that could not judge a subject at all.
+
+        **Two shapes reach that same defect by different routes.** A NUMERIC
+        subject domain is refused because an identifier has no magnitude:
+        bounds over one bound nothing. A NON-STRING member set is refused
+        because :attr:`ProductRequest.subject` is typed ``str`` — such a
+        declaration constructs happily and then refuses *every* subject that
+        could ever be presented, which is the declaration-nothing-satisfies
+        shape the first clause exists to prevent, arriving under a key the
+        first clause does not read. Either end of the numeric shape is enough
+        on its own; a ``maximum`` with no ``minimum`` is refused exactly as a
+        ``minimum`` with no ``maximum`` is, and both are pinned.
+        """
+        if self.subject_domain is None:
+            return self
+        if (
+            self.subject_domain.minimum is not None
+            or self.subject_domain.maximum is not None
+        ):
+            raise ValueError(
+                f"the request contract for {self.schema_name!r} at class lane "
+                f"{self.schema_version!r} declares a subject_domain with a "
+                "numeric shape; a subject is an identifier and is held to a "
+                "grammar (pattern) or a closed set (members), never to a "
+                "magnitude — bounds over an identifier bound nothing, the "
+                "sibling of the unmeasurable refusal over a declared string "
+                "(D-IMPL-357 C4, D-IMPL-259)"
+            )
+        if self.subject_domain.members is not None and not all(
+            isinstance(member, str) for member in self.subject_domain.members
+        ):
+            raise ValueError(
+                f"the request contract for {self.schema_name!r} at class lane "
+                f"{self.schema_version!r} declares a subject_domain whose "
+                "members are not text; ProductRequest.subject is typed str, so "
+                "no subject that could ever be presented is a member of this "
+                "set and the class would refuse every question it is asked — "
+                "the declaration-nothing-satisfies defect the numeric clause "
+                "above refuses, reached by a different key "
+                "(D-IMPL-357 C4, D-IMPL-264 D-06)"
             )
         return self
 
@@ -884,7 +1570,16 @@ class ProductRequestContract(VersionedArtifact):
             for name, domain in self.argument_domains.items()
             if name in self.arguments.properties
             and domain.members is None
+            and domain.pattern is None
             and not _has_magnitude(self.arguments.properties[name].type)
+        )
+        ungrammatical = sorted(
+            f"{name} declares {self.arguments.properties[name].type} but is "
+            "held to a grammar"
+            for name, domain in self.argument_domains.items()
+            if name in self.arguments.properties
+            and domain.pattern is not None
+            and not _is_text(self.arguments.properties[name].type)
         )
         mistyped = sorted(
             f"{name} declares {self.arguments.properties[name].type} but "
@@ -904,7 +1599,14 @@ class ProductRequestContract(VersionedArtifact):
             and name not in unmeasurable
             and domain.refuses(self.defaults[name]) is not None
         )
-        if not (undeclared or inert or unmeasurable or mistyped or contradicted):
+        if not (
+            undeclared
+            or inert
+            or unmeasurable
+            or mistyped
+            or ungrammatical
+            or contradicted
+        ):
             return self
         raise ValueError(
             f"the request contract for {self.schema_name!r} at class lane "
@@ -913,13 +1615,16 @@ class ProductRequestContract(VersionedArtifact):
             f"{unmeasurable} are bounded numerically but declared with a type "
             "that has no magnitude (numeric bounds hold integer and number "
             f"only), {mistyped} are enumerated with members typed against the "
-            f"declared property (mistyped), {inert} are declared and always "
+            f"declared property (mistyped), {ungrammatical} are held to a "
+            "grammar but declared with a type that is not text (a pattern "
+            "judges text, so over any other type no value could satisfy it), "
+            f"{inert} are declared and always "
             f"refused, and {contradicted} carry a declared default outside "
             "their own domain (the parameter and the offending default, "
             "criterion 2) — a class that would refuse the value it fills "
             "in for an omission contradicts itself, and that fails at "
             "declaration rather than in front of a caller "
-            "(D-IMPL-259, D-IMPL-264 D-03/D-06, D-IMPL-258 (5))"
+            "(D-IMPL-259, D-IMPL-264 D-03/D-06, D-IMPL-258 (5), D-IMPL-357 C4)"
         )
 
     @model_validator(mode="after")
@@ -1170,6 +1875,12 @@ class ProductRequestContract(VersionedArtifact):
         no parameter of this class is bounded by a technical capability, which
         is what every declaration written before the key said.
 
+        **The optional ninth key** (``D-IMPL-357`` C4). ``subject_domain`` is
+        read on the same terms once more: absent means this class holds its
+        subject to nothing beyond the fabric's own mechanism floor, which is
+        what every declaration written before the key said. Present, it is a
+        NARROWING of that floor and never a widening of it.
+
         Raises:
             ValueError: the declaration is missing one or more of the three
                 required keys, **named together in one message**. An adopter
@@ -1264,6 +1975,17 @@ class ProductRequestContract(VersionedArtifact):
                 "the request contract and neither a policy constraint nor a "
                 "technical capability (D-IMPL-259)"
             )
+        subject = declaration.get(_KEY_SUBJECT_DOMAIN)
+        if subject is not None and not isinstance(subject, Mapping):
+            raise ValueError(
+                f"the declared artifact {artifact.class_id!r} at lane "
+                f"{artifact.semver!r} carries {_KEY_SUBJECT_DOMAIN!r} as "
+                f"{type(subject).__name__}, and it must be a mapping carrying "
+                "`pattern` or `members` — the further constraint this class "
+                "holds its SUBJECT to, which narrows the fabric's own "
+                "mechanism floor and can never widen past it "
+                "(D-IMPL-357 C4)"
+            )
         return cls(
             semver=artifact.semver,
             schema_name=declaration[_KEY_SCHEMA_NAME],
@@ -1282,6 +2004,9 @@ class ProductRequestContract(VersionedArtifact):
                 name: ArgumentDomain.model_validate(dict(domain))
                 for name, domain in domains.items()
             },
+            subject_domain=(
+                None if subject is None else ArgumentDomain.model_validate(dict(subject))
+            ),
         )
 
 
@@ -1328,6 +2053,16 @@ _KEY_CAPABILITY_BINDINGS = "capability_bindings"
 #: :meth:`ProductRequestContract.from_declared` and nowhere else.
 _KEY_ARGUMENT_DOMAINS = "argument_domains"
 
+#: The optional NINTH declaration key (``D-IMPL-357`` C4). A key NAME again,
+#: and the value under it is the SUBJECT's own further constraint — a grammar
+#: or a closed set. Nothing in this module carries a grammar or a member
+#: (CINV-01): what a class's subject must look like is read from the artifact
+#: at :meth:`ProductRequestContract.from_declared` and nowhere else. The
+#: mechanism floor :data:`SUBJECT_FLOOR_V1` is the SDK's own and is a different
+#: thing entirely — it is not negotiable by any declaration, and a domain read
+#: from here narrows it rather than replacing it.
+_KEY_SUBJECT_DOMAIN = "subject_domain"
+
 def _has_magnitude(type_name: str) -> bool:
     """Is ``type_name`` one of the two declared JSON Schema types with a magnitude?
 
@@ -1342,6 +2077,20 @@ def _has_magnitude(type_name: str) -> bool:
     where the guard can tell the difference.
     """
     return type_name in {"integer", "number"}
+
+
+def _is_text(type_name: str) -> bool:
+    """Is ``type_name`` the one declared JSON Schema type a grammar can judge?
+
+    ``string``, and nothing else (``D-IMPL-357`` C4). Spelled inside a function
+    rather than as a module-level collection for exactly the reason
+    :func:`_has_magnitude` gives: this module's own guard
+    (``tests/products/test_request_contract.py::_string_collection_constants``)
+    reads a module-level set of string literals as a spine-held parameter set,
+    which is the CINV-01 shape it exists to refuse. This is JSON Schema's own
+    name and the SDK's own vocabulary, not a domain value.
+    """
+    return type_name == "string"
 
 
 def _as_decimal(value: object) -> Decimal | None:
@@ -1522,7 +2271,7 @@ class ProductRequestViolation(CCFContract):
     re-derives either to learn what the gap was.
 
     Attributes:
-        reason: Which of the nine ways the request missed.
+        reason: Which of the ten ways the request missed.
         key: Where. A parameter reads by name, a nested member reads
             ``parent.member`` and an element of a declared list reads
             ``parent[].member``; a class mismatch reads the field that
@@ -1684,6 +2433,61 @@ def _refuse_address(
     return None
 
 
+def _refuse_subject(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Does the subject lie inside the further constraint this class declared?
+
+    The subject step (``D-IMPL-357`` C4). Runs immediately after
+    :func:`_refuse_address` and before the tier step, because the subject is an
+    ADDRESS axis (§6.3) rather than a parameter: a verdict about it belongs with
+    the other address verdicts, and the parameter steps that follow have nothing
+    to say about it. A class declaring no ``subject_domain`` is judged here and
+    passes, which is what every contract written before the field did.
+
+    **A NARROWING, and the ordering is what makes that true.** This is not the
+    mechanism floor and does not carry it. :data:`SUBJECT_FLOOR_V1` is judged by
+    :func:`refuse_floor`, which
+    :meth:`~ccf.products.resolver.GovernedResolver.__call__` calls BEFORE the
+    overridable constraint-resolver seam — and this function is reached only
+    from :func:`refuse_request`, which that seam reaches later. So a permissive
+    declared grammar cannot readmit a subject the floor refused: by the time
+    this step could admit it, the floor has already refused the request. A
+    declaration narrows the floor; it never reaches under it.
+
+    The refusal names the declared grammar or set in ``detail`` and **never the
+    presented subject**, on :func:`refuse_floor`'s own discipline: ``detail``
+    is a machine-readable statement about the RULE, not an echo of untrusted
+    caller text.
+    """
+    if declared.subject_domain is None:
+        return None
+    reason = declared.subject_domain.refuses(request.subject)
+    if reason is None:
+        return None
+    grammar = declared.subject_domain.pattern
+    stated = (
+        f"pattern {grammar}"
+        if grammar is not None
+        else "declared set ["
+        + ", ".join(repr(member) for member in sorted(declared.subject_domain.members or ()))
+        + "]"
+    )
+    return ProductRequestViolation(
+        reason=reason,
+        key="subject",
+        declared_type="string",
+        presented_type=type(request.subject).__name__,
+        declared_keys=frozenset(declared.arguments.properties),
+        presented_keys=frozenset(request.parameters),
+        detail=(
+            f"subject: the presented identifier is not in this class's {stated}"
+            " — a further constraint on top of the fabric's own mechanism"
+            " floor, refused by name rather than substituted (D-IMPL-357 C4)"
+        ),
+    )
+
+
 def _refuse_tier(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
@@ -1770,26 +2574,40 @@ def _refuse_domain(
 ) -> ProductRequestViolation | None:
     """Does every presented value lie inside its declared domain?
 
-    The domain step (``D-IMPL-259``, ``D-IMPL-264`` D-04/D-05). Runs LAST,
+    The domain step (``D-IMPL-259``, ``D-IMPL-264`` D-03/D-04/D-05, as amended
+    by ``D-IMPL-357`` C4). Runs LAST,
     after the payload comparison has said each parameter is declared, honored
     and well-typed and after the interval step has judged the tolerance, so
     this function only ever judges a well-typed value against the class's
-    own declaration of what values are meaningful: a number's magnitude
-    against a numeric domain, or a value's exact typed membership in an
-    enumerated one. Names are read in sorted order so the first verdict is
+    own declaration of what values are meaningful. **All THREE declared
+    shapes, and each gets its own ``detail``:** a number's magnitude against
+    numeric bounds, a value's exact typed membership in an enumerated set, or
+    a string's conformance IN FULL to a declared grammar. Names are read in
+    sorted order so the first verdict is
     the same verdict on every run — the replay property every comparison in
     this package carries.
 
-    The one membership judgment is :meth:`ArgumentDomain.refuses`, which the
+    The one judgment is :meth:`ArgumentDomain.refuses`, which the
     contract validator also calls over a declared default, so a caller's
     value and a default are judged by one rule. A presented value with no
     magnitude under a numeric domain is not judged here (the payload
     comparison named it first); an enumerated domain receives the presented
-    value as it is — untrimmed, unfolded, unaliased (D-04).
+    value as it is — untrimmed, unfolded, unaliased (D-04); a grammar is
+    judged by :func:`re.fullmatch` and never by :func:`re.search`.
+
+    **The grammar branch does not echo the presented value**, matching
+    :func:`_refuse_subject`'s discipline: the ``detail`` a grammar refusal
+    writes into the replay record names the declared pattern and the fact
+    that it was judged in full, and nothing of the caller's text. The member
+    and numeric branches echo, as they always have — a roster verdict and a
+    magnitude verdict are unreadable without the value they are about, and
+    both predate the grammar shape.
 
     Nothing here clamps and nothing here reads a policy or a capability: a
-    value below the floor is refused with the floor named, a value outside
-    the set is refused with the set named, exactly as a caller's value above
+    value below the declared minimum is refused with that bound named, a
+    value outside the set is refused with the set named, a value outside a
+    declared grammar is refused with the grammar named, exactly as a caller's
+    value above
     a technical capability is refused by :mod:`ccf.products.constraints`
     with the capability named — two boundaries, two vocabularies, one
     posture (*"never clamped"*).
@@ -1803,7 +2621,25 @@ def _refuse_domain(
         if reason is None:
             continue
         property_ = declared.arguments.properties.get(key)
-        if reason == "not-in-domain":
+        if reason == "not-in-domain" and domain.pattern is not None:
+            # The GRAMMAR shape, built the way `_refuse_subject` builds its
+            # own. Before `D-IMPL-357` C4's fix round this branch did not
+            # exist, so a grammar refusal fell through to the member wording
+            # below and the record said the value *"is not a member of this
+            # class's declared domain []"* — an empty set, the wrong rule, the
+            # wrong ruling cited, and the presented value echoed. `detail` is
+            # a machine-readable statement about the RULE and lands in the
+            # replay record; the rule here is a grammar rather than a roster,
+            # and the caller's text is not part of it.
+            detail = (
+                f"{key}: the presented value is not in this class's declared "
+                f"pattern {domain.pattern} — the parameter's legal FORM, "
+                "declared beside its type and judged IN FULL by re.fullmatch "
+                "rather than by exact typed equality, refused by name rather "
+                "than substituted and never echoed back (D-IMPL-264 D-03 as "
+                "amended by D-IMPL-357 C4)"
+            )
+        elif reason == "not-in-domain":
             members = ", ".join(repr(member) for member in sorted(domain.members or ()))
             detail = (
                 f"{key}: {presented!r} is not a member of this class's "
@@ -1834,6 +2670,32 @@ def _refuse_domain(
             detail=detail,
         )
     return None
+
+
+#: The mechanism floor (D-IMPL-357 C1/C1a; SEC-002/EX-01/EX-02 root cause).
+#: What the fabric makes SAFE: a SPARQL IRI `<…>` position (whitepaper
+#: §6.3's `{counterparty-id}` slot) and a single- or double-quoted literal.
+#: 512 ASCII characters from an ALLOWLIST. Not a denylist — a denylist that
+#: admitted `'` would leave a single-quoted literal splice open.
+#:
+#: **NOT a URL-path-segment guarantee.** The grammar admits `/`, `.` and
+#: `..` because a measured subject IS a URI
+#: (`http://example.org/fibo/GammaBank`) — refusing `/` would refuse every
+#: URI-shaped subject this fabric serves. A value that PASSES this floor
+#: may still carry a path-traversal segment
+#: (`5493001KJTIIGC8Y1R12/../../admin/export` passes); an adopter placing a
+#: floor-admitted value into a URL path or query MUST percent-encode it
+#: first (`urllib.parse.quote(value, safe="")`) — this floor closes the
+#: SPARQL/SQL splice the ruling targets, not every downstream sink.
+#:
+#: In the same register as CANONICAL_DECIMAL and MAX_REFERENCE_BYTES: a
+#: grammar the mechanism owns, not a domain value. Versioned by name; a
+#: change is a new name, and the name rides on every refusal it decides
+#: (`detail`).
+SUBJECT_FLOOR_V1: Final[re.Pattern[str]] = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}$"
+)
+SUBJECT_FLOOR_VERSION: Final[str] = "SUBJECT_FLOOR_V1"
 
 
 #: The canonical decimal lexical form a ``number`` argument crosses the wire as.
@@ -1920,11 +2782,14 @@ def decode_declared_request(
 def refuse_request(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """The one request-conformity comparison — address, then tier, then parameters, then the tolerance interval, then the declared domains.
+    """The one request-conformity comparison — address, then the subject's declared domain, then tier, then parameters, then the tolerance interval, then the declared domains.
 
-    **The order is fixed and load-bearing** (``24.5-L-13``): address first,
-    the tier step second, the payload comparison third, the interval step
-    last. A declared-and-inert
+    **The order is fixed and load-bearing** (``24.5-L-13``; ``D-IMPL-357`` C4
+    for the subject step): address first, the subject's own declared domain
+    second — it is an ADDRESS axis (§6.3), so its verdict belongs beside the
+    other address verdicts and none of the parameter steps has anything to say
+    about it — the tier step third, the payload comparison fourth, the interval
+    step last. A declared-and-inert
     parameter is refused whatever its type, and it is typically *not* in
     ``arguments.properties`` — so the payload comparison, run first, would
     call it ``undeclared-parameter`` and hide the reason the declaration
@@ -1958,6 +2823,36 @@ def refuse_request(
     reason this one delegates its parameter comparison to
     :func:`~ccf.products.payload.refuse_payload` rather than restating it.
 
+    **Deliberately does NOT carry the mechanism floor** (`D-IMPL-357` C1/C2,
+    sharpened at the C2 round-1 review). `GovernedResolver.__call__` judges
+    :func:`refuse_floor` — `request.subject` and every DECLARED `string`
+    parameter against `SUBJECT_FLOOR_V1` — as a separate call, before this
+    comparison even runs (C2); this function does not call `refuse_floor` and
+    never has, so a conforming request under this function's own rules may
+    still fail the floor, and this function alone cannot tell a caller which.
+    A caller that validates a request with *only* this function, outside
+    `GovernedResolver` — :class:`~ccf.agents.assembler.DeterministicAssembler`
+    (informally "AssemblerAgent") is exactly this shape, and stays this shape
+    by ruling — gets no floor judgment from doing so, and MUST call
+    :func:`refuse_floor` itself before treating the request as safe to acquire
+    against. The two validators are deliberately two calls rather than one:
+    folding the floor in here would force every caller of this function to
+    want both, and some legitimately do not (a registration-time capability
+    check judges shape, not a live request's text at all).
+
+    **The subject step is a NARROWING and is not the floor** (``D-IMPL-357``
+    C4). :func:`_refuse_subject` judges
+    :attr:`ProductRequestContract.subject_domain` — an adopter's *further*
+    constraint on the subject, a grammar or a closed set — and that does not
+    make the paragraph above false: a class declaring the most permissive
+    grammar expressible still has its subject judged by
+    :data:`SUBJECT_FLOOR_V1` first, inside `GovernedResolver.__call__`, before
+    this function is reached at all. A declaration narrows what the floor
+    already admitted; it can never reach under it. A caller validating a
+    request with only this function therefore gets the declaration's narrowing
+    and NOT the floor, which is why the obligation stated above stands
+    unchanged.
+
     Pure over its arguments: no clock, no registry lookup, no I/O. A verdict
     that moved with the time of day or with what was registered elsewhere would
     not be reproducible at replay, which is the property every comparison in
@@ -1965,13 +2860,17 @@ def refuse_request(
     request* precisely so that this stays true (see the module docstring).
 
     Returns:
-        ``None`` when the request is addressed to this contract, presents no
+        ``None`` when the request is addressed to this contract, presents a
+        subject inside whatever further domain the contract declares for it,
+        presents no
         parameter the contract declares inert, matches its declared
         parameters at every level, presents no tolerance outside the unit
         interval, and presents no number outside its declared domain;
         otherwise the
         :class:`ProductRequestViolation` naming the first failure — address
-        first, then the tier step over sorted presented names, then the fixed
+        first, then the subject's declared domain
+        (:func:`_refuse_subject`, ``D-IMPL-357`` C4), then the tier step over
+        sorted presented names, then the fixed
         undeclared-then-missing-then-mistyped order
         :func:`~ccf.products.payload.refuse_payload` imposes over sorted names,
         then the interval step, then the domain step (:func:`_refuse_domain`,
@@ -1992,6 +2891,9 @@ def refuse_request(
     address = _refuse_address(request=request, declared=declared)
     if address is not None:
         return address
+    subject = _refuse_subject(request=request, declared=declared)
+    if subject is not None:
+        return subject
     tier = _refuse_tier(request=request, declared=declared)
     if tier is not None:
         return tier
@@ -2073,6 +2975,209 @@ def refuse_intent(
             " serves none (D-IMPL-264 D-01, amendment 1 F-1 a; whitepaper §6.3)"
         ),
     )
+
+
+def _refuse_floor_below(
+    *,
+    spec: "SkillArgumentProperty",
+    presented: object,
+    path: str,
+    declared_keys: frozenset[str],
+    presented_keys: frozenset[str],
+) -> tuple[str, str, frozenset[str], frozenset[str]] | None:
+    """One declared property, at every depth it may declare a string.
+
+    Mirrors :func:`~ccf.products.payload._refuse_below`'s traversal and key
+    spelling exactly — ``parent.member`` for an object member, ``parent[]``
+    for an array element, ``parent[].member`` for an object member inside an
+    array — rather than inventing a second one (D-IMPL-357 C1, controller
+    ruling). The three shapes are handled in one pass rather than by
+    recursing into a shared helper, because the D-IMPL-103 ceiling makes
+    them structurally final: :class:`~ccf.skills.catalog.SkillArgumentMember`
+    (an object's members) declares no further nesting, and
+    :class:`~ccf.skills.catalog.SkillArgumentElement` (an array's element
+    spec) declares members but no ``items`` of its own — so there is no
+    fourth shape this function would ever need to descend into again.
+
+    ``declared_keys``/``presented_keys`` are the ROOT level's sets, carried
+    in only for the plain string-property branch — which IS the root level,
+    so it returns them unchanged. The object and array branches compute and
+    return their OWN level's sets instead of forwarding the root's, exactly
+    as :func:`~ccf.products.payload.refuse_payload`'s
+    :class:`~ccf.products.payload.PayloadSchemaViolation` does: a nested
+    verdict's ``declared_keys``/``presented_keys`` name what the CONTRACT
+    declares and the request PRESENTS *at the level the violation
+    occurred* (:class:`ProductRequestViolation`'s own documented promise) —
+    the object's declared member names and the nested dict's own keys for
+    an object member, the empty set for a scalar array element (a list has
+    no keyed shape of its own, the same convention
+    :func:`~ccf.products.payload._refuse_below` uses for a scalar
+    type-mismatch), and the element's declared member names and that one
+    element's own keys for an object member inside an array.
+
+    Returns the ``(key, presented text, declared_keys, presented_keys)`` of
+    the first declared string that lies outside :data:`SUBJECT_FLOOR_V1`, in
+    sorted-member-name order at each level (array elements themselves keep
+    their list order, since that order is already deterministic), or
+    ``None`` when every declared string presented conforms. A presented
+    value at a string-declared position that is not itself a ``str`` is
+    skipped — the payload comparison names that ``type-mismatch`` and runs
+    its own verdict first.
+    """
+    if spec.type == "string":
+        if isinstance(presented, str) and not SUBJECT_FLOOR_V1.fullmatch(presented):
+            return path, presented, declared_keys, presented_keys
+        return None
+    if spec.type == "object":
+        if spec.properties is None or not isinstance(presented, Mapping):
+            return None
+        member_names = frozenset(spec.properties)
+        presented_member_keys = frozenset(presented)
+        for member_name in sorted(spec.properties):
+            if spec.properties[member_name].type != "string":
+                continue
+            if member_name not in presented:
+                continue
+            value = presented[member_name]
+            if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
+                return (
+                    f"{path}.{member_name}",
+                    value,
+                    member_names,
+                    presented_member_keys,
+                )
+        return None
+    if spec.type != "array" or spec.items is None:
+        return None
+    if isinstance(presented, (str, bytes, bytearray)) or not isinstance(
+        presented, Sequence
+    ):
+        return None
+    items = spec.items
+    for element in presented:
+        if items.type == "string":
+            if isinstance(element, str) and not SUBJECT_FLOOR_V1.fullmatch(element):
+                return f"{path}[]", element, frozenset(), frozenset()
+            continue
+        if items.type != "object" or items.properties is None:
+            continue
+        if not isinstance(element, Mapping):
+            continue
+        element_member_names = frozenset(items.properties)
+        presented_element_keys = frozenset(element)
+        for member_name in sorted(items.properties):
+            if items.properties[member_name].type != "string":
+                continue
+            if member_name not in element:
+                continue
+            value = element[member_name]
+            if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
+                return (
+                    f"{path}[].{member_name}",
+                    value,
+                    element_member_names,
+                    presented_element_keys,
+                )
+    return None
+
+
+def refuse_floor(
+    *, request: ProductRequest, declared: ProductRequestContract
+) -> ProductRequestViolation | None:
+    """Does the subject, and every declared string, lie inside the floor?
+
+    Beside `refuse_intent`, `GovernedResolver.__call__` runs this AFTER the
+    addressing verdicts (lane, intent) and BEFORE the overridable
+    constraint-resolver seam (D-IMPL-357 C2) — C2 adds that call site, not
+    this task — so that no `PolicyConstraintResolver` override can remove
+    its judgment of `request.subject` and every DECLARED `string` parameter
+    at every DECLARED depth, which is the whole of what this function
+    judges.
+
+    **Narrower than the acquisition seam's full attack surface, and this is
+    measured, not implied** (`D-IMPL-357` C2 round-1 review). Out-of-grammar
+    text at any of the following reaches the acquisition seam even when this
+    call runs and returns `None`: `request.intent` when the class declares
+    no discovery set; `request.freshness` (judged nowhere in this fabric);
+    `request.policy_overrides`; any value the resolution stage supplies
+    rather than the caller (a contract `defaults` string, a relative
+    default, a policy-narrowed value); **a string arriving under a parameter
+    key the contract never declared at all** — the eighth carrier, named
+    explicitly here because a reader does not recognize it inside the clause
+    that follows, and because it is the only one whose KEY rather than whose
+    type puts it out of reach; any other presented string at a position
+    the declared contract does not type as `string`; and any string nested
+    inside a declared member whose type is `object` — an opaque container
+    this function does not open. Whether the covered surface should widen —
+    judge the presented shape rather than only the declared shape, re-judge
+    over the effective request, or extend to `intent`/`freshness`/
+    `policy_overrides` — is `D-IMPL-357`'s open coverage question, held for
+    the project owner's ruling; this function does not decide it and must
+    not be widened to pre-empt it.
+
+    A direct validator holding no declaration (`AssemblerAgent`,
+    `src/ccf/agents/assembler.py`) calls `refuse_request` on its own path and
+    does not judge this separately — see `refuse_request`'s own docstring
+    for that split.
+
+    Pure: no clock, no registry, no I/O. Subject first, then every declared
+    `string` AT EVERY DECLARED DEPTH — the root, an object member
+    (`parent.member`), an array element (`parent[]`), and an object member
+    inside an array (`parent[].member`) — keyed exactly as `refuse_payload`
+    keys them (`_refuse_floor_below` mirrors its traversal), in sorted-name
+    order at each level, so the first verdict is the same verdict on every
+    run. `declared_keys`/`presented_keys` on the returned violation name the
+    LEVEL the violation occurred at, not always the root — the same promise
+    `ProductRequestViolation`'s own docstring makes and `refuse_payload`
+    already keeps. A declared `subject_domain` / `pattern` (C4) is judged
+    AFTER this, inside `refuse_request`, and cannot widen past it by
+    construction.
+    """
+
+    def _violation(
+        key: str,
+        presented: object,
+        declared_keys: frozenset[str],
+        presented_keys: frozenset[str],
+    ) -> ProductRequestViolation:
+        return ProductRequestViolation(
+            reason="malformed-value",
+            key=key,
+            declared_type="string",
+            presented_type=type(presented).__name__,
+            declared_keys=declared_keys,
+            presented_keys=presented_keys,
+            detail=(
+                f"{key}: the presented text lies outside the fabric's identifier"
+                f" floor {SUBJECT_FLOOR_VERSION} ({SUBJECT_FLOOR_V1.pattern}) —"
+                " safe in a SPARQL IRI position and a quoted literal. NOT a"
+                " URL-path-segment guarantee: a passing value may contain '/'"
+                " or '..' and must be percent-encoded"
+                " (urllib.parse.quote(value, safe='')) before use in a URL"
+                " path or query. Refused by name, never rewritten"
+                " (D-IMPL-357 C1)"
+            ),
+        )
+
+    root_declared_keys = frozenset(declared.arguments.properties)
+    root_presented_keys = frozenset(request.parameters)
+    if not SUBJECT_FLOOR_V1.fullmatch(request.subject):
+        return _violation(
+            "subject", request.subject, root_declared_keys, root_presented_keys
+        )
+    for name in sorted(declared.arguments.properties):
+        if name not in request.parameters:
+            continue
+        found = _refuse_floor_below(
+            spec=declared.arguments.properties[name],
+            presented=request.parameters[name],
+            path=name,
+            declared_keys=root_declared_keys,
+            presented_keys=root_presented_keys,
+        )
+        if found is not None:
+            return _violation(*found)
+    return None
 
 
 def request_seeds(request: ProductRequest | None) -> frozenset[str] | None:

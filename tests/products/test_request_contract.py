@@ -49,6 +49,7 @@ from typing import Any
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
@@ -998,22 +999,327 @@ def test_from_declared_refuses_a_malformed_unsupported_arguments(
     assert "unsupported_arguments" in str(raised.value)
 
 
-def test_the_reason_vocabulary_has_nine_members_tier_proportion_domain_then_membership() -> None:
+def test_the_reason_vocabulary_has_ten_members_and_malformed_value_is_last() -> None:
     """``24.5-L-12``: the fifth member, in the vocabulary's hyphenated spelling;
     ``24.5-WR-02``: the sixth, appended after it; ``D-IMPL-259``: the two
     domain verdicts, appended after that; ``D-IMPL-264`` D-05: the ninth,
-    ``not-in-domain``, appended LAST — appended, never inserted, so a reader
-    of an older record's reason meets the same roster prefix."""
+    ``not-in-domain``; ``D-IMPL-357`` C1: the tenth, ``malformed-value``,
+    appended LAST — appended, never inserted, so a reader of an older
+    record's reason meets the same roster prefix."""
     import typing
 
     from ccf.products.request import ProductRequestViolationReason
 
     members = typing.get_args(ProductRequestViolationReason)
-    assert len(members) == 9
-    assert members[-5] == "not-supported-at-tier"
-    assert members[-4] == "not-a-proportion"
-    assert members[-3:-1] == ("below-minimum", "above-maximum")
-    assert members[-1] == "not-in-domain"
+    assert len(members) == 10
+    assert members[-6] == "not-supported-at-tier"
+    assert members[-5] == "not-a-proportion"
+    assert members[-4:-2] == ("below-minimum", "above-maximum")
+    assert members[-2] == "not-in-domain"
+    assert members[-1] == "malformed-value"          # D-IMPL-357 C1, appended LAST
+
+
+# --- (g2) SUBJECT_FLOOR_V1: the mechanism floor for the subject and every ----
+# --- declared string parameter (D-IMPL-357 C1/C1a) ---------------------------
+
+
+@pytest.mark.parametrize(
+    "subject",
+    [
+        'x"y', "o'brien", "a b", "a\tb", "50%", "a;b", "a#b", "<x>", "", "é",
+        "x" * 513,
+        "abc\n",  # findings-C1-round2 item 1: refused under EITHER pattern
+        "abc\r",  # reading (kept `$` or Dave's possible `\Z`) — the refusal
+        # comes from `fullmatch`, not the anchor, so this pins a safety that
+        # is unpinned today and takes no position on the open ruling.
+    ],
+)
+def test_a_subject_outside_the_floor_is_a_malformed_value(subject: str) -> None:
+    from ccf.products.request import SUBJECT_FLOOR_VERSION, refuse_floor
+
+    violation = refuse_floor(request=_request(subject=subject), declared=_contract())
+    assert violation is not None and violation.reason == "malformed-value"
+    assert violation.key == "subject" and SUBJECT_FLOOR_VERSION in violation.detail
+
+
+@pytest.mark.parametrize(
+    "subject",
+    ["5493001KJTIIGC8Y1R12", "urn:fixture:a/b", "http://example.org/fibo/GammaBank",
+     "ALT-999999", "fixture:subject/one", "x" * 512],
+)
+def test_every_measured_subject_form_passes_the_floor(subject: str) -> None:
+    from ccf.products.request import refuse_floor
+
+    assert refuse_floor(request=_request(subject=subject), declared=_contract()) is None
+
+
+def test_a_declared_string_parameter_is_held_to_the_floor_too() -> None:
+    """C3: the floor closes the PARAMETER splices (cp-04-canonical `lei`), not
+    only the subject."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "lei": SkillArgumentProperty(
+                    type="string", description="a declared string parameter"
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"lei": 'x" . ?s ?p ?o . "'}), declared=contract
+    )
+    assert violation is not None and violation.key == "lei" and violation.reason == "malformed-value"
+
+
+# --- (g3) the floor walks every declared depth, keyed as refuse_payload -----
+# --- keys them (findings-C1 item 1: three sources, IMPORTANT) --------------
+
+
+def test_an_object_members_string_is_held_to_the_floor_keyed_parent_dot_member() -> None:
+    """`owner: object{name: string}` (Fable's probe shape) — a string one
+    level down inside an object was never examined before this fix."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "owner": SkillArgumentProperty(
+                    type="object",
+                    description="a nested object",
+                    properties={
+                        "name": SkillArgumentMember(
+                            type="string", description="a nested string member"
+                        )
+                    },
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"owner": {"name": 'x" . ?s ?p ?o . "'}}),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "owner.name"
+    assert violation.reason == "malformed-value"
+    # findings-C1-round2 item 2: the LEVEL's key sets ("owner"'s own member
+    # names and the presented "owner" dict's own keys), never the root's
+    # ({"owner"}) — matching what refuse_payload's own nested verdict reports.
+    assert violation.declared_keys == frozenset({"name"})
+    assert violation.presented_keys == frozenset({"name"})
+
+
+def test_an_array_elements_string_is_held_to_the_floor_keyed_parent_brackets() -> None:
+    """`ids: array[string]` (Fable's probe shape; ships at
+    `examples/cp-20-syndicated-lending-co-lender/ccf_config.yaml:148-150`) —
+    an array of declared strings was never examined before this fix."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "ids": SkillArgumentProperty(
+                    type="array",
+                    description="a declared array of strings",
+                    items=SkillArgumentElement(
+                        type="string", description="one id"
+                    ),
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"ids": ["ok-id", "' OR 1=1 --"]}),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "ids[]"
+    assert violation.reason == "malformed-value"
+    # findings-C1-round2 item 2: a scalar array element has no keyed shape of
+    # its own — empty, the same convention refuse_payload's _refuse_below
+    # uses for a scalar type-mismatch — never the root's ({"ids"}).
+    assert violation.declared_keys == frozenset()
+    assert violation.presented_keys == frozenset()
+
+
+def test_an_object_members_string_inside_an_array_is_held_to_the_floor() -> None:
+    """`listed[].member` — a beneficial-owner-list shape: an array of objects,
+    each carrying a declared string member."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "owners": SkillArgumentProperty(
+                    type="array",
+                    description="a list of owner objects",
+                    items=SkillArgumentElement(
+                        type="object",
+                        description="one owner",
+                        properties={
+                            "name": SkillArgumentMember(
+                                type="string", description="the owner's name"
+                            )
+                        },
+                    ),
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(
+            parameters={"owners": [{"name": "ok"}, {"name": 'x" . ?s ?p ?o . "'}]}
+        ),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "owners[].name"
+    assert violation.reason == "malformed-value"
+    # findings-C1-round2 item 2: the offending ELEMENT's own declared member
+    # names and its own presented keys, never the root's ({"owners"}).
+    assert violation.declared_keys == frozenset({"name"})
+    assert violation.presented_keys == frozenset({"name"})
+
+
+def test_a_trailing_newline_in_a_declared_array_element_is_refused_too() -> None:
+    """findings-C1-round2 item 1's nested case: a trailing newline is
+    refused by `fullmatch` at a declared array element exactly as it is at
+    the subject — invariant under either reading of the open `$`/`\\Z`
+    ruling (item 6, held for Dave); this takes no position on it."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "ids": SkillArgumentProperty(
+                    type="array",
+                    description="a declared array of strings",
+                    items=SkillArgumentElement(type="string", description="one id"),
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"ids": ["ok-id", "abc\n"]}), declared=contract
+    )
+    assert violation is not None
+    assert violation.key == "ids[]"
+    assert violation.reason == "malformed-value"
+
+
+def test_a_non_string_value_under_a_string_declaration_is_skipped_by_the_floor() -> None:
+    """The payload comparison names a wrong-typed value `type-mismatch` and
+    runs before the floor is ever wired in (C2); the floor itself must not
+    also flag it as `malformed-value` — it is silent on shape it cannot
+    parse as text."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "count": SkillArgumentProperty(
+                    type="string", description="declared string, presented int"
+                )
+            },
+            required=(),
+        )
+    )
+    assert (
+        refuse_floor(request=_request(parameters={"count": 7}), declared=contract)
+        is None
+    )
+
+
+# --- (g4) the floor's own claim, corrected (findings-C1 item 2: Fable) ------
+
+
+def test_a_path_traversal_shaped_subject_is_admitted_the_floor_is_not_a_url_guarantee() -> None:
+    """The grammar necessarily admits `/` and `.` because measured subjects
+    are URIs; a passing value is NOT thereby safe in a URL path segment
+    (that claim was the defect — see the corrected docstring and `detail`).
+    This test pins the admission itself so a future tightening of the
+    grammar is a deliberate, reviewed choice rather than a silent one."""
+    from ccf.products.request import refuse_floor
+
+    assert (
+        refuse_floor(
+            request=_request(subject="5493001KJTIIGC8Y1R12/../../admin/export"),
+            declared=_contract(),
+        )
+        is None
+    )
+
+
+# --- (g5) the function's own contract, not just the grammar (findings-C1 ---
+# --- item 4: Fable, MINOR) --------------------------------------------------
+
+
+def test_subject_is_judged_before_any_parameter_when_both_are_malformed() -> None:
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "required_leaf": SkillArgumentProperty(
+                    type="string", description="a required top-level parameter"
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(subject='bad"subject', parameters={"required_leaf": "bad;too"}),
+        declared=contract,
+    )
+    assert violation is not None and violation.key == "subject"
+
+
+def test_sorted_name_order_decides_the_first_parameter_verdict() -> None:
+    """A loop over dict-insertion order rather than `sorted()` would still
+    pass every other test here while losing the determinism the docstring
+    promises; this test would catch that regression."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "zeta": SkillArgumentProperty(
+                    type="string", description="sorts after alpha"
+                ),
+                "alpha": SkillArgumentProperty(
+                    type="string", description="sorts before zeta"
+                ),
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"zeta": 'bad"z', "alpha": 'bad"a'}),
+        declared=contract,
+    )
+    assert violation is not None and violation.key == "alpha"
+
+
+def test_the_presented_text_is_not_reflected_into_detail() -> None:
+    """A refusal names the floor by version and pattern, never the value
+    that failed it — `detail` is a machine-readable statement about the
+    RULE, not an echo of untrusted text."""
+    from ccf.products.request import refuse_floor
+
+    secret_shaped = 'x" . ?s ?p ?o . " -- SECRET_MARKER_1357'
+    violation = refuse_floor(
+        request=_request(subject=secret_shaped), declared=_contract()
+    )
+    assert violation is not None
+    assert secret_shaped not in violation.detail
+    assert "SECRET_MARKER_1357" not in violation.detail
 
 
 # --- (g) the tolerance interval: a request number that is not a proportion ---
@@ -2020,6 +2326,689 @@ def test_the_ninth_reason_names_no_runtime_module() -> None:
     ]
     assert hits == []
 
+
+
+# ---------------------------------------------------------------------------
+# The grammar shape — a THIRD exclusive domain shape, and a declared subject
+# domain (`D-IMPL-357` C4, amending `D-IMPL-264` D-03).
+# ---------------------------------------------------------------------------
+# **A declared pattern NARROWS and never widens.** `SUBJECT_FLOOR_V1` (section
+# (g2) above) is MECHANISM: the fabric's own grammar for what can be placed
+# safely in a SPARQL IRI position or a quoted literal, judged by `refuse_floor`
+# inside `GovernedResolver.__call__` BEFORE the overridable constraint-resolver
+# seam and before any acquisition (`D-IMPL-357` C1/C2). The subject domain is a
+# FURTHER constraint on top of that floor and has no reach under it: an adopter
+# who declares a grammar admitting an apostrophe still cannot get an
+# apostrophe-bearing subject served. That property is pinned twice — here on
+# the pure functions, and at the resolver in
+# `tests/products/test_resolver_seam.py`, where the ORDERING is the thing under
+# test. The grammars below are the fixture's, never the SDK's (CINV-01).
+
+#: A narrow fixture grammar: 20 uppercase-or-digit characters (an LEI's shape).
+SUBJECT_GRAMMAR = r"[0-9A-Z]{20}"
+
+#: A deliberately PERMISSIVE fixture grammar — it admits every character,
+#: including both quote characters the mechanism floor refuses. It exists to
+#: prove the floor is not negotiable by declaration.
+PERMISSIVE_GRAMMAR = r".*"
+
+#: A subject the permissive grammar admits and the floor refuses: an
+#: apostrophe-bearing single-quoted-literal splice.
+SPLICE_SHAPED_SUBJECT = "o'brien' OR '1'='1"
+
+
+def test_pattern_is_a_third_exclusive_shape_and_amends_D03() -> None:
+    from ccf.products.request import ArgumentDomain
+
+    domain = ArgumentDomain(pattern=r"[A-Z]{2}[0-9]{4}")
+    assert domain.refuses("GB1234") is None
+    assert domain.refuses("gb1234") == "not-in-domain"
+    with pytest.raises(ValidationError, match="exactly one shape"):
+        ArgumentDomain(pattern=r"x", members=("x",))
+    with pytest.raises(ValidationError, match="does not compile"):
+        ArgumentDomain(pattern=r"(")
+
+
+def test_the_grammar_shape_is_silent_at_none_in_the_canonical_bytes() -> None:
+    """`D-IMPL-243`: every domain written before the grammar existed
+    canonicalizes byte-for-byte as it did, so no committed request contract's
+    content address moves."""
+    from ccf.contracts.canonical import canonical_bytes
+
+    assert b"pattern" not in canonical_bytes(ArgumentDomain(minimum=DOMAIN_FLOOR))
+    assert b"pattern" in canonical_bytes(ArgumentDomain(pattern=SUBJECT_GRAMMAR))
+
+
+# ---------------------------------------------------------------------------
+# A declared grammar is refused AT REGISTRATION when its SHAPE can make the
+# regular-expression engine backtrack catastrophically (`D-IMPL-357` C4, the
+# round-3 ruling).
+# ---------------------------------------------------------------------------
+# **The ruling, and why it is at declaration rather than at serve.** Round 2
+# measured that a mis-authored adopter grammar makes a governed door a
+# caller-triggerable processor hang: on this project's interpreter,
+# `re.compile(r"(a+)+$")` against a non-matching subject of `a`s took 6.242
+# seconds at 28 characters and 24.990 at 30, roughly quadrupling every two
+# characters. The mechanism floor's 512-character cap therefore bounds nothing
+# that matters, and the standalone-validator path applies no cap at all.
+#
+# The owner's ruling: refuse dangerous pattern shapes at ARTIFACT REGISTRATION,
+# never at serve. No timeout, no thread, no subprocess, no new dependency. And
+# **fail closed on unclassifiable**: if registration cannot establish that a
+# shape is safe, refuse the document. *"Do not leave an unbounded match on a
+# caller string."*
+#
+# That places the check where `ArgumentDomain` is constructed and validated,
+# which is the earliest point an adopter's grammar enters the system and fires
+# on every path that parses an artifact — the loader included. The tests below
+# pin the refusal, the positive control (a validator that refuses everything is
+# worse than none), the unclassifiable case, and the loader path.
+
+#: Grammars whose SHAPE is a nested quantifier — a repeat whose body carries a
+#: repeat that is not of fixed length. The first is the one the round-2
+#: measurement used. Fixture data (CINV-01), never the SDK's.
+NESTED_QUANTIFIER_GRAMMARS = (
+    r"(a+)+$",
+    r"(a+)*",
+    r"([a-z]+)*",
+    r"(\d+)+",
+    r"(a+){3}",  # a FIXED outer repeat is no defense: the inner one is free
+)
+
+#: Grammars whose alternation sits under a repeat and whose branches can match
+#: the same input — the second shape the ruling names. **Both diagnoses below
+#: are correct and the row pins which one fires**, because the standard
+#: library's parser factors a common prefix out of an alternation and leaves an
+#: EMPTY branch behind: `(a|ab)` parses as `a` followed by `(?:|b)`, so the
+#: branch that can match nothing is what the check actually meets.
+AMBIGUOUS_ALTERNATION_GRAMMARS = (
+    (r"(a|a)+", "ALTERNATION under a repeat with a branch that can match nothing"),
+    (r"(a|ab)+", "ALTERNATION under a repeat with a branch that can match nothing"),
+    (r"(a|ab|ac)+", "ALTERNATION under a repeat with a branch that can match nothing"),
+    (r"(a+|b+|a)*", "ALTERNATION under a repeat whose branches can match the same"),
+    (r"([a-z]+|[abc])+", "ALTERNATION under a repeat whose branches can match the same"),
+    (r"(?:xy|x[a-z]z)+", "ALTERNATION under a repeat whose branches can match the same"),
+)
+
+#: Grammars whose repeat body can match nothing — the third way the engine gets
+#: unboundedly many ways to satisfy the same text. `(a*)*` reaches this before
+#: the nested-quantifier rule because the OUTER repeat's body is already
+#: empty-matchable; both readings are true and this is the one that fires.
+EMPTY_BODY_REPEAT_GRAMMARS = (
+    r"(a*)*",
+    r"(?:a|)+",
+    r"(a?)+",
+)
+
+#: Grammars with two unbounded repeats side by side over characters that
+#: overlap — the polynomial sibling of the shapes above.
+ADJACENT_REPEAT_GRAMMARS = (
+    r"\d+\d+",
+    r"a+a*",
+    r".*.*",
+    r"[a-z]+[a-c]+",
+)
+
+#: Grammars this validator cannot classify as safe, each for its own reason, and
+#: each **refused** rather than admitted. A backreference: no structural
+#: reasoning is possible about what `\1` will match, because that is decided at
+#: match time. A repeat inside a look-around: a real backtracking vector whose
+#: composition with the enclosing pattern this check does not model. A
+#: conditional group: outside its vocabulary entirely.
+UNCLASSIFIABLE_GRAMMARS = (
+    (r"(a)\1", "GROUPREF"),
+    (r"(?=a+)b", "a repeat inside a look-around assertion"),
+    (r"(a)(?(1)b|c)", "GROUPREF_EXISTS"),
+)
+
+#: Grammars that MUST still be admitted. Without this control a validator that
+#: refuses everything would look identical to one that works, and a refusal
+#: nobody can get past is a worse outcome than the hang it prevents.
+SAFE_GRAMMARS = (
+    r"[0-9A-Z]{20}",                     # an LEI's shape — the fixture grammar
+    r"[A-Z]{2}[0-9]{4}",                 # two fixed repeats in sequence
+    r".*",                               # one unbounded repeat: linear
+    r"(a|b)+",                           # disjoint branches under a repeat
+    r"([A-Z]{2})+",                      # a FIXED-length repeat inside a repeat
+    r"\d{4}-\d{2}-\d{2}",                # a date shape
+    r"FAC-[0-9A-F]{6}",                  # a facility identifier shape
+    r"(?=[A-Z])[A-Z0-9]{5}",             # a lookahead with no repeat in it
+    r"[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}",  # the mechanism floor's own body
+    # Reads as an ambiguous alternation and is NOT one: the standard library's
+    # parser folds an alternation of single characters into one character class,
+    # so `(\d|[0-9])` is `[0-9\d]` by the time this check sees it and a
+    # character-class match involves no choice for the engine to explore. The
+    # row is here because it is the case most likely to be mistaken for a
+    # missed refusal by a later reader.
+    r"(\d|[0-9])+",
+    # Disjoint FIRST characters make an alternation under a repeat
+    # deterministic: at every position exactly one branch can start, so the
+    # engine has no choice to explore. `(abc|abd)+` is admitted for the related
+    # reason — the parser factors `ab` out and folds the tail into one class.
+    r"(ab|ba)+",
+    r"(abc|abd)+",
+)
+
+
+@pytest.mark.parametrize("grammar", NESTED_QUANTIFIER_GRAMMARS)
+def test_a_nested_quantifier_grammar_is_refused_at_declaration(grammar: str) -> None:
+    """**THE round-3 control.** A nested quantifier is refused where the author
+    can still fix it, and never at serve.
+
+    `(a+)+$` is the shape the round-2 measurement used, and the refusal names
+    the shape rather than merely saying no, so an adopter can simplify the
+    grammar instead of guessing."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "NESTED QUANTIFIER" in str(raised.value)
+
+
+@pytest.mark.parametrize(("grammar", "diagnosis"), AMBIGUOUS_ALTERNATION_GRAMMARS)
+def test_an_ambiguous_alternation_under_a_repeat_is_refused(
+    grammar: str, diagnosis: str
+) -> None:
+    """The second named shape: branches that can match the same input, under a
+    repeat. Each iteration then has more than one way to consume the same text,
+    which is the partitioning freedom the engine explores exhaustively.
+
+    Each row pins WHICH diagnosis fires rather than matching the word
+    "alternation" loosely, because the two readings have different causes and a
+    loose assertion would not notice if the wrong one started firing."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert diagnosis in str(raised.value)
+
+
+@pytest.mark.parametrize("grammar", EMPTY_BODY_REPEAT_GRAMMARS)
+def test_a_repeat_whose_body_can_match_nothing_is_refused(grammar: str) -> None:
+    """A repeat over something that can consume no input has unboundedly many
+    ways to satisfy the same text with the same characters consumed, which is
+    the same exhaustive search under a different name."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "CAN MATCH NOTHING" in str(raised.value)
+
+
+@pytest.mark.parametrize("grammar", ADJACENT_REPEAT_GRAMMARS)
+def test_two_adjacent_repeats_over_overlapping_characters_are_refused(
+    grammar: str,
+) -> None:
+    """`\\d+\\d+` gives the engine a free choice of where to split the digits,
+    once per character of input. Polynomial rather than exponential, and still
+    an unbounded match on a caller string."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "SIDE BY SIDE" in str(raised.value)
+
+
+@pytest.mark.parametrize(("grammar", "met"), UNCLASSIFIABLE_GRAMMARS)
+def test_a_grammar_this_validator_cannot_classify_is_refused(
+    grammar: str, met: str
+) -> None:
+    """**Fail closed on unclassifiable — the owner's own addition to the rule.**
+
+    Each row asserts both halves: that the refusal says it could not establish
+    safety, and WHAT it met that it could not read. A fail-closed refusal with
+    no named cause is one an author cannot act on, and this check exists so that
+    an author who is refused can simplify the grammar — a caller who triggers a
+    hang cannot."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        ArgumentDomain(pattern=grammar)
+    assert "CANNOT ESTABLISH AS SAFE" in str(raised.value)
+    assert met in str(raised.value)
+
+
+@pytest.mark.parametrize("grammar", SAFE_GRAMMARS)
+def test_a_safe_grammar_is_still_admitted(grammar: str) -> None:
+    """**The positive control, and it is not optional.**
+
+    Every test above expects a refusal, so a validator that refused every
+    grammar would leave all of them green while making the third domain shape
+    unusable. Only a row expecting admission can see that. These nine are the
+    shapes an adopter actually writes — identifier formats, date formats, a
+    fixed-length repeat inside a repeat, a lookahead with no repeat in it, and
+    the mechanism floor's own body."""
+    from ccf.products.request import ArgumentDomain
+
+    assert ArgumentDomain(pattern=grammar).pattern == grammar
+
+
+def test_the_subject_domain_is_held_to_the_same_shape_rule() -> None:
+    """One validator, both declaration sites. `subject_domain` and
+    `argument_domains` are both `ArgumentDomain`, so the check cannot be present
+    on one and absent on the other."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError, match="NESTED QUANTIFIER"):
+        _contract(subject_domain=ArgumentDomain(pattern=r"(a+)+$"))
+    with pytest.raises(ValidationError, match="NESTED QUANTIFIER"):
+        _contract(argument_domains={"required_leaf": ArgumentDomain(pattern=r"(a+)+$")})
+
+
+def test_the_artifact_loader_refuses_a_dangerous_grammar_too() -> None:
+    """**The path that matters most: an adopter's DOCUMENT.**
+
+    The ruling places the check at the earliest point a grammar enters the
+    system, which must include the loader — a grammar reaching the fabric from
+    a YAML artifact has had no Python constructor applied to it by the adopter.
+    `from_declared` builds `ArgumentDomain` through the same type, so the
+    refusal fires there without a second implementation to keep in step."""
+    declaration = dict(_declared().declaration)
+    declaration["subject_domain"] = {"pattern": r"(a+)+$"}
+    with pytest.raises(ValidationError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert "NESTED QUANTIFIER" in str(raised.value)
+
+
+def test_a_pattern_is_anchored_by_fullmatch_not_by_search() -> None:
+    """A `re.search` reading would admit a value that merely CONTAINS the
+    grammar, which is a wider domain than the one declared — and the wider
+    reading is exactly how a narrowing declaration stops narrowing."""
+    domain = ArgumentDomain(pattern=r"[A-Z]{2}[0-9]{4}")
+    assert domain.refuses("xxGB1234xx") == "not-in-domain"
+    assert domain.refuses("GB1234x") == "not-in-domain"
+
+
+def test_a_pattern_over_a_parameter_that_is_not_a_string_is_refused() -> None:
+    """A grammar judges text. Over an `integer` parameter no value could ever
+    satisfy it, which is the defect the neither-shape and inverted-bounds
+    refusals already name one clause over (`D-IMPL-259`)."""
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            argument_domains={"optional_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+        )
+    assert "optional_leaf declares integer but is held to a grammar" in str(raised.value)
+
+
+def test_a_pattern_over_a_declared_string_parameter_is_admitted() -> None:
+    """The positive control for the refusal above: the same grammar over a
+    `string` parameter constructs, so that refusal is measuring the TYPE and
+    not the shape."""
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    assert contract.argument_domains["required_leaf"].pattern == SUBJECT_GRAMMAR
+
+
+def test_a_default_outside_its_declared_grammar_is_refused_at_declaration() -> None:
+    """The same self-contradiction rule the numeric and enumerated shapes are
+    held to: a class that would refuse the value it fills in for an omission
+    fails where the author can still fix it (`D-IMPL-258` (5))."""
+    with pytest.raises(ValueError) as raised:
+        _contract(
+            defaults={"required_leaf": "not-twenty-uppercase"},
+            argument_domains={
+                "required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)
+            },
+        )
+    assert "carry a declared default outside their own domain" in str(raised.value)
+
+
+#: A value the parameter grammar `SUBJECT_GRAMMAR` refuses, and one it admits.
+#: Both are the fixture's, never the SDK's (CINV-01). The refused one carries
+#: characters that would read as a splice if they were ever echoed back.
+OUT_OF_GRAMMAR_PARAMETER_VALUE = "not-twenty-uppercase' OR '1'='1"
+IN_GRAMMAR_PARAMETER_VALUE = "5493001KJTIIGC8Y1R12"
+
+
+def test_a_grammar_over_a_parameter_refuses_a_live_request_naming_the_pattern() -> None:
+    """**A grammar declared over a PARAMETER is enforced, and says so.**
+
+    The test the C4 round-1 review found missing. `ArgumentDomain.pattern` was
+    declarable over a `string` parameter, the rendered schema advertised it,
+    and `_refuse_domain` — the step that builds the refusal a caller and the
+    replay record read — had never been taught the shape. A grammar refusal
+    fell through to the member wording and the record said the value *"is not
+    a member of this class's declared domain []"*: an empty set, the wrong
+    rule, the wrong ruling cited, and the presented value echoed where
+    `_refuse_subject` deliberately never echoes.
+
+    **Measured, not asserted.** Making `_refuse_domain` skip grammar domains
+    outright (`if domain.pattern is not None: continue` at the head of its
+    loop) reddens THIS test and
+    `test_the_grammar_branch_of_the_domain_step_never_echoes_the_value` and,
+    over the whole `tests/products` tree, **nothing else**. The population is
+    stated because a red count without one is unreadable: `pytest
+    tests/products -q` collects **1591** tests, and under that severing the
+    run is 2 failed, 1589 passed, 0 errors, 0 skipped. Before these tests
+    existed the same severing left every suite green, which is how a
+    declarable, advertised, unenforced shape shipped unseen.
+
+    Four assertions, one per way the old sentence was wrong: the declared
+    pattern IS named; the word *member* is absent; the ruling cited is the one
+    that amended D-03; and the verdict is `not-in-domain` at the parameter's
+    own key.
+    """
+    from ccf.products.request import ArgumentDomain, refuse_request
+
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    violation = refuse_request(
+        request=_request(
+            parameters={"required_leaf": OUT_OF_GRAMMAR_PARAMETER_VALUE}
+        ),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.reason == "not-in-domain"
+    assert violation.key == "required_leaf"
+    assert SUBJECT_GRAMMAR in violation.detail
+    assert "member" not in violation.detail
+    assert "D-IMPL-357 C4" in violation.detail
+
+
+def test_the_grammar_branch_of_the_domain_step_never_echoes_the_value() -> None:
+    """The presented text is not reflected into `detail`, on the same
+    discipline `_refuse_subject` and `refuse_floor` already keep: `detail` is
+    a statement about the RULE, it lands verbatim in the replay record, and an
+    operator reads it out of a log. A refusal that quotes the caller's splice
+    back has put untrusted text into the audit surface for no verdict-bearing
+    reason."""
+    from ccf.products.request import ArgumentDomain, refuse_request
+
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    violation = refuse_request(
+        request=_request(
+            parameters={"required_leaf": OUT_OF_GRAMMAR_PARAMETER_VALUE}
+        ),
+        declared=contract,
+    )
+    assert violation is not None
+    assert OUT_OF_GRAMMAR_PARAMETER_VALUE not in violation.detail
+    assert "OR '1'='1" not in violation.detail
+    # The member branch keeps its echo — a roster verdict is unreadable
+    # without the value it is about, and that half predates the grammar shape.
+    member_violation = refuse_request(
+        request=_request(parameters={"required_leaf": "gamma"}),
+        declared=_contract(
+            argument_domains={"required_leaf": ArgumentDomain(members=("alpha",))}
+        ),
+    )
+    assert member_violation is not None
+    assert "'gamma'" in member_violation.detail
+    assert "is not a member" in member_violation.detail
+
+
+def test_a_conforming_value_under_a_parameter_grammar_is_admitted() -> None:
+    """The positive control beside the refusal above, and it is not optional.
+
+    A `_refuse_domain` whose grammar branch refused every string would leave
+    the two tests above green — both present an out-of-grammar value and both
+    expect a refusal. Only a test presenting a CONFORMING value and expecting
+    `None` can see a grammar branch that refuses everything. That is the
+    asymmetric-coverage trap this lane has now been bitten by twice."""
+    from ccf.products.request import ArgumentDomain, refuse_request
+
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    assert (
+        refuse_request(
+            request=_request(
+                parameters={"required_leaf": IN_GRAMMAR_PARAMETER_VALUE}
+            ),
+            declared=contract,
+        )
+        is None
+    )
+
+
+def test_a_declared_subject_domain_is_judged_after_the_address_step() -> None:
+    from ccf.products.request import (
+        SUBJECT_FLOOR_VERSION,
+        ArgumentDomain,
+        refuse_request,
+    )
+
+    contract = _contract(subject_domain=ArgumentDomain(pattern=r"[0-9A-Z]{20}"))
+    violation = refuse_request(request=_request(subject="short"), declared=contract)
+    assert violation is not None
+    assert violation.reason == "not-in-domain" and violation.key == "subject"
+    assert "[0-9A-Z]{20}" in violation.detail and violation.declared_type == "string"
+    # WHICH check refused: the narrowing subject-domain step, named by its own
+    # ruling — never the mechanism floor, whose version marker is absent here.
+    assert "D-IMPL-357 C4" in violation.detail
+    assert SUBJECT_FLOOR_VERSION not in violation.detail
+
+
+def test_the_address_step_still_wins_over_the_subject_domain() -> None:
+    """The ordering claim in the name above, from the other side: a request
+    addressed to another class never reaches this class's subject grammar, so a
+    subject verdict is always about the declaration that judged it."""
+    contract = _contract(subject_domain=ArgumentDomain(pattern=SUBJECT_GRAMMAR))
+    violation = refuse_request(
+        request=_request(schema_version="9.9.9", subject="short"), declared=contract
+    )
+    assert violation is not None and violation.reason == "class-mismatch"
+
+
+def test_a_subject_domain_refuses_by_its_member_set_when_it_declares_one() -> None:
+    """The other admissible subject shape: a closed set rather than a grammar.
+    The refusal names the set, so the member branch is exercised rather than
+    only the pattern branch."""
+    contract = _contract(subject_domain=ArgumentDomain(members=("alpha", "beta")))
+    violation = refuse_request(request=_request(subject="gamma"), declared=contract)
+    assert violation is not None
+    assert violation.reason == "not-in-domain" and violation.key == "subject"
+    assert "declared set" in violation.detail and "'alpha'" in violation.detail
+
+
+def test_a_subject_inside_its_declared_domain_is_admitted() -> None:
+    """The positive control: with the grammar satisfied the step contributes
+    nothing, so the refusals above are measuring the subject and not the mere
+    presence of the field."""
+    contract = _contract(subject_domain=ArgumentDomain(pattern=SUBJECT_GRAMMAR))
+    assert (
+        refuse_request(
+            request=_request(subject="5493001KJTIIGC8Y1R12"), declared=contract
+        )
+        is None
+    )
+
+
+def test_a_contract_with_no_subject_domain_judges_no_subject() -> None:
+    """Silence is the default: a contract written before the field existed
+    admits every subject the floor admits, exactly as it did."""
+    assert _contract().subject_domain is None
+    assert (
+        refuse_request(request=_request(subject="short"), declared=_contract()) is None
+    )
+
+
+@pytest.mark.parametrize(
+    "numeric",
+    (
+        {"minimum": Decimal(1)},
+        # Round-2 item 6: the upper-bound clause was unpinned — dropping
+        # `or self.subject_domain.maximum is not None` from the validator left
+        # every suite green, because only a lower bound was ever planted.
+        {"maximum": Decimal(100)},
+        {"minimum": Decimal(1), "maximum": Decimal(100)},
+    ),
+    ids=("minimum only", "maximum only", "both ends"),
+)
+def test_a_subject_domain_cannot_be_numeric(numeric: dict[str, Decimal]) -> None:
+    """Either end of the numeric shape is enough on its own to refuse.
+
+    A subject is an identifier and has no magnitude, so a ceiling over one
+    bounds exactly as little as a floor over one does. The `maximum`-only row
+    is the one that was missing.
+
+    **Measured, population named:** dropping
+    `or self.subject_domain.maximum is not None` from the validator reddens
+    the `maximum only` row and nothing else — `pytest tests/products -q`
+    collects 1598 and the severed run is 1 failed, 1597 passed, 0 errors, 0
+    skipped. Before this row existed that severing left every suite green."""
+    from ccf.products.request import ArgumentDomain, ProductRequestContract
+
+    assert "subject_domain" in ProductRequestContract.model_fields
+    with pytest.raises(ValidationError, match="subject_domain"):
+        _contract(subject_domain=ArgumentDomain(**numeric))
+
+
+@pytest.mark.parametrize(
+    "members",
+    ((1, 2), (Decimal("1.5"),), (True, False)),
+    ids=("integers", "decimals", "booleans"),
+)
+def test_a_non_string_subject_member_set_is_refused_at_declaration(
+    members: tuple[Any, ...],
+) -> None:
+    """Round-2 item 6, and it is a code change rather than only a test.
+
+    `ProductRequest.subject` is typed `str`, so a member set of numbers or
+    booleans is satisfied by NO subject that could ever be presented: the
+    contract constructed happily and the class then refused every question it
+    was asked. That is the same declaration-nothing-satisfies defect the
+    numeric clause beside it exists to prevent, reached under a different key,
+    and it now fails where the author can still fix it.
+
+    **Measured, population named:** removing that clause from
+    `_the_subject_domain_is_a_grammar_or_a_set` reddens these three rows and
+    nothing else — `pytest tests/products -q` collects 1598 and the severed run
+    is 3 failed, 1595 passed, 0 errors, 0 skipped."""
+    from ccf.products.request import ArgumentDomain
+
+    with pytest.raises(ValidationError) as raised:
+        _contract(subject_domain=ArgumentDomain(members=members))
+    assert "members are not text" in str(raised.value)
+
+
+def test_a_string_subject_member_set_still_constructs() -> None:
+    """The positive control for the refusal above, so it is measuring the member
+    CLASS and not the member shape."""
+    from ccf.products.request import ArgumentDomain
+
+    contract = _contract(subject_domain=ArgumentDomain(members=("alpha", "beta")))
+    assert contract.subject_domain == ArgumentDomain(members=("alpha", "beta"))
+
+
+def test_the_subject_step_precedes_the_tier_step() -> None:
+    """Round-2 item 6: the fixed step order was unpinned.
+
+    `refuse_request`'s docstring calls the order *"fixed and load-bearing"* and
+    puts the subject step second, immediately after the address step, because
+    the subject is an ADDRESS axis (§6.3) and none of the parameter steps has
+    anything to say about it. Measured: moving the subject step after the tier
+    step left every suite green, because no request ever violated both at once.
+
+    This one does — an out-of-domain subject AND a presented parameter the class
+    declares inert — and the verdict must be the subject's.
+
+    **Measured, population named:** swapping the two blocks inside
+    `refuse_request` reddens this row and nothing else — `pytest tests/products
+    -q` collects 1598 and the severed run is 1 failed, 1597 passed, 0 errors, 0
+    skipped."""
+    from ccf.products.request import ArgumentDomain
+
+    contract = _contract(
+        subject_domain=ArgumentDomain(pattern=SUBJECT_GRAMMAR),
+        unsupported_arguments={INERT_PARAMETER: INERT_REASON},
+    )
+    both_wrong = {"required_leaf": "value", INERT_PARAMETER: "2026-01-01"}
+    violation = refuse_request(
+        request=_request(subject="not-twenty-uppercase", parameters=both_wrong),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "subject", violation.detail
+    assert violation.reason == "not-in-domain"
+    # And the tier step really would have fired on its own, so this is
+    # measuring the ORDER and not an absent second violation.
+    tier_only = refuse_request(
+        request=_request(
+            subject=IN_GRAMMAR_PARAMETER_VALUE, parameters=both_wrong
+        ),
+        declared=contract,
+    )
+    assert tier_only is not None
+    assert tier_only.key == INERT_PARAMETER
+    assert tier_only.reason == "not-supported-at-tier"
+
+
+def test_the_subject_domain_is_silent_at_none_in_the_canonical_bytes() -> None:
+    """`D-IMPL-243`: every request contract written before this field existed
+    canonicalizes byte-for-byte as it did, so no committed contract's content
+    address moves — and a populated one is LOUD, because two classes holding
+    their subjects to different grammars must not share one identity."""
+    from ccf.contracts.canonical import canonical_bytes
+
+    assert b"subject_domain" not in canonical_bytes(_contract())
+    assert b"subject_domain" in canonical_bytes(
+        _contract(subject_domain=ArgumentDomain(pattern=SUBJECT_GRAMMAR))
+    )
+
+
+def test_from_declared_reads_a_subject_domain() -> None:
+    """The field is reachable from an ARTIFACT and not only from Python. A
+    typed slot no declaration can fill is a slot no adopter can use."""
+    declaration = dict(_declared().declaration)
+    declaration["subject_domain"] = {"pattern": SUBJECT_GRAMMAR}
+    contract = ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert contract.subject_domain == ArgumentDomain(pattern=SUBJECT_GRAMMAR)
+
+
+def test_from_declared_refuses_a_malformed_subject_domain() -> None:
+    """The shape check the other optional keys already carry: a scalar where a
+    mapping belongs is named at the boundary rather than surfacing as a
+    pydantic error about a field the adopter never wrote."""
+    declaration = dict(_declared().declaration)
+    declaration["subject_domain"] = "a-bare-string"
+    with pytest.raises(ValueError) as raised:
+        ProductRequestContract.from_declared(_declared(declaration=declaration))
+    assert "subject_domain" in str(raised.value)
+
+
+def test_a_permissive_declared_pattern_cannot_widen_past_the_mechanism_floor() -> None:
+    """**THE property this task exists to deliver.**
+
+    An adopter declaring `.*` — a grammar that admits an apostrophe, and
+    therefore a single-quoted-literal splice — does not thereby make an
+    apostrophe-bearing subject servable. The floor is mechanism and is not
+    negotiable by declaration; the domain is a further constraint on top of it.
+    Both halves are asserted: the declaration really is permissive (so nothing
+    here passes because the narrowing check happened to refuse), and the floor
+    refuses anyway, naming ITSELF rather than the domain.
+    """
+    from ccf.products.request import (
+        SUBJECT_FLOOR_VERSION,
+        ArgumentDomain,
+        refuse_floor,
+        refuse_request,
+    )
+
+    contract = _contract(subject_domain=ArgumentDomain(pattern=PERMISSIVE_GRAMMAR))
+    assert contract.subject_domain is not None
+    assert contract.subject_domain.refuses(SPLICE_SHAPED_SUBJECT) is None
+    assert (
+        refuse_request(
+            request=_request(subject=SPLICE_SHAPED_SUBJECT), declared=contract
+        )
+        is None
+    )
+
+    floor = refuse_floor(
+        request=_request(subject=SPLICE_SHAPED_SUBJECT), declared=contract
+    )
+    assert floor is not None
+    assert floor.reason == "malformed-value" and floor.key == "subject"
+    # WHICH check refused: the floor, by its version marker — and NOT the
+    # narrowing step, whose ruling text is absent.
+    assert SUBJECT_FLOOR_VERSION in floor.detail
+    assert "D-IMPL-357 C4" not in floor.detail
 
 # --- (h) intent is a top-level request concept, never an argument (24.7-07) --
 #
