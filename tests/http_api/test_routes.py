@@ -1145,3 +1145,107 @@ def test_backends_refuses_503_when_the_sdks_own_adapter_package_is_unreadable(
     assert "force-reinstall" in detail["message"]
     assert "not readable" in detail["message"]
     assert "backends" not in response.json()
+
+
+# --- D-IMPL-357 A4 at the door: conflicting verdicts refuse -----------------
+#
+# The lane's gating verification, run through the served interfaces rather
+# than only in process: `POST /hitl/actions` twice with opposite verdicts on
+# one pending gate event, then `POST /workflow/resumptions` claiming the
+# approving decision. Before the guard the third call answered `200` with the
+# approving terminal state and the rejection standing.
+
+
+def _verdict_over_http(
+    app: Any, fabric: Fabric, body: dict[str, Any], action: str
+) -> None:
+    """One verdict through the submit-only action door (D-IMPL-62).
+
+    The subject is the door's, minted from the capability rather than
+    described by the body (D-IMPL-353 §2 P6), so both verdicts here come
+    from one principal. That is still two recorded verdicts in
+    disagreement on one suspension, which is what the guard is about: the
+    fabric cannot route on both, and it does not get to pick.
+    """
+    pending = next(
+        event
+        for event in fabric.hitl.pending(tenant=body["tenant"])
+        if event.event_key == body["event_key"]
+    )
+    submission = _bound_submission(body["event_key"])
+    submission["product_content_hash"] = pending.product_content_hash
+    submission["action"] = action
+    assert call(app, "POST", "/hitl/actions", json=submission).status_code == 200
+
+
+def _resume_over_http(
+    app: Any, fabric: Fabric, execution_id: str, decision: str
+) -> Any:
+    key, version = fabric.covenant
+    return call(
+        app,
+        "POST",
+        "/workflow/resumptions",
+        json={
+            "definition_key": key,
+            "definition_version": version,
+            "execution_id": execution_id,
+            "decision": decision,
+        },
+    )
+
+
+def test_conflicting_verdicts_through_the_action_door_refuse_the_resumption(
+    app: Any, fabric: Fabric
+) -> None:
+    """The measured attack, at the door. Approve, then reject, then claim
+    the approving decision: `409`, and the execution stays suspended."""
+    body = _suspend_over_http(app, fabric, "http-covenant-conflict")
+    _verdict_over_http(app, fabric, body, "approve")
+    _verdict_over_http(app, fabric, body, "reject")
+    response = _resume_over_http(
+        app, fabric, "http-covenant-conflict", "approved"
+    )
+    assert response.status_code == 409
+    assert "carries conflicting human verdicts" in response.json()["reason"]
+    status = call(
+        app,
+        "GET",
+        "/workflow/execution",
+        params={
+            "tenant": body["tenant"],
+            "execution_id": "http-covenant-conflict",
+        },
+    )
+    assert status.json()["status"] == "suspended"
+
+
+def test_conflicting_verdicts_at_the_door_refuse_in_the_reversed_order_too(
+    app: Any, fabric: Fabric
+) -> None:
+    """Reject first, then approve. This must refuse for the CONFLICT rather
+    than falling back to A3's routing refusal, which would record two
+    disagreeing humans as a caller naming the wrong transition."""
+    body = _suspend_over_http(app, fabric, "http-covenant-conflict-rev")
+    _verdict_over_http(app, fabric, body, "reject")
+    _verdict_over_http(app, fabric, body, "approve")
+    response = _resume_over_http(
+        app, fabric, "http-covenant-conflict-rev", "approved"
+    )
+    assert response.status_code == 409
+    reason = response.json()["reason"]
+    assert "carries conflicting human verdicts" in reason
+    assert "does not agree with the route" not in reason
+
+
+def test_agreeing_verdicts_at_the_door_still_resume_the_execution(
+    app: Any, fabric: Fabric
+) -> None:
+    """The control at the door: the refusal is not blanket. Two submissions
+    that agree carry one distinct verdict and the resumption completes."""
+    body = _suspend_over_http(app, fabric, "http-covenant-agree")
+    _verdict_over_http(app, fabric, body, "approve")
+    _verdict_over_http(app, fabric, body, "approve")
+    response = _resume_over_http(app, fabric, "http-covenant-agree", "approved")
+    assert response.status_code == 200
+    assert response.json()["terminal_state"] == "approved"

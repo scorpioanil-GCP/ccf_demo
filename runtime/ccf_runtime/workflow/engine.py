@@ -517,13 +517,13 @@ class WorkflowEngine:
             # ``resolved=True, actor=None`` in the audit — the exact
             # signature SEC-001 named. Never ask the caller what kind of
             # node the fabric is waiting on.
-            authority = self._gate_authority(
+            qualifying = self._gate_authority(
                 tenant=tenant,
                 key=key,
                 gate=record.current_state,
                 record=record,
             )
-            if authority is None:
+            if not qualifying:
                 return self._refuse(
                     authorized,
                     workflow,
@@ -537,7 +537,41 @@ class WorkflowEngine:
                         " (CLAUDE.md §8.2; D-IMPL-20)"
                     ),
                 )
+            # Selection is UNCHANGED (D-IMPL-357 A4): the head of the
+            # eligible tuple is the submission the single-submission form
+            # returned, because ``submissions`` is oldest-first. What changed
+            # is that selection no longer runs alone — the verdicts recorded
+            # against this suspension must not disagree before one of them is
+            # allowed to route.
+            authority = qualifying[0]
             actor: str | None = authority.principal.approver.subject_id
+            recorded = self._recorded_gate_verdicts(
+                tenant=tenant,
+                key=key,
+                gate=record.current_state,
+                record=record,
+            )
+            if len({submission.action for submission in recorded}) > 1:
+                # D-IMPL-357 A4: two distinct human verdicts on ONE
+                # suspension. Ordered ahead of the declared-target and route
+                # compares deliberately — with the contradicting verdict at
+                # the head of the eligible tuple the route compare would
+                # refuse on its own, and the record would then say a caller
+                # named the wrong transition rather than that two humans
+                # disagreed. Names NEITHER verdict and NEITHER target
+                # (SEC-001 remedy 3).
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} carries conflicting human"
+                        f" verdicts on gate {record.current_state!r}; a gate"
+                        " routes on one recorded verdict, and the authority"
+                        " path must be reconciled by a human before it"
+                        " resumes (D-IMPL-357 A4; CLAUDE.md §8.2)"
+                    ),
+                )
             targets = self._targets(workflow, record.current_state)
             if decision not in targets:
                 return self._refuse(
@@ -972,12 +1006,25 @@ class WorkflowEngine:
         key: str,
         gate: str,
         record: WorkflowStateRecord,
-    ) -> HitlActionSubmission | None:
-        """The recorded human approval authorizing passage past ``gate``.
+    ) -> tuple[HitlActionSubmission, ...]:
+        """Every recorded human verdict ELIGIBLE to authorize passage past ``gate``.
 
         SEC-001. Reads the HITL transport's authority path — the only
         surface a human action returns through (D-IMPL-20) — and returns
-        the submission that authorizes THIS suspension, or ``None``.
+        the submissions that may authorize THIS suspension, oldest first, or
+        an empty tuple.
+
+        **Eligibility only; it decides nothing about agreement**
+        (D-IMPL-357 A4). The caller selects the authority from the head of
+        this tuple, exactly as the single-submission form selected it, and
+        asks :meth:`_recorded_gate_verdicts` — a deliberately BROADER
+        population — whether the verdicts recorded against this suspension
+        disagree. The two questions cannot share one predicate: the rules
+        below are what make a verdict *routable*, and a verdict that is not
+        routable can still be a recorded human decision that contradicts
+        the one that is. Reading agreement off this tuple would leave the
+        transport's stamp race wide open, because the racing officer's
+        rejection is recorded unstamped and fails the unstamped leg.
 
         Three conditions, all necessary:
 
@@ -1101,23 +1148,90 @@ class WorkflowEngine:
             and event.event_class == GATE_EVENT_CLASS
             for event in self._hitl_transport.pending(tenant=tenant)
         )
-        return next(
-            (
-                submission
-                for submission in self._hitl_transport.submissions(
-                    tenant=tenant
-                )
-                if submission.event_key == event_key
-                and submission.principal.product_content_hash == suspension
-                and submission.action in GATE_ACTIONS
-                and (
-                    submission.answered_event_class == GATE_EVENT_CLASS
-                    and submission.answered_workflow_state_ref == key
-                    if submission.answered_event_class is not None
-                    else gate_still_pending
-                )
-            ),
-            None,
+        return tuple(
+            submission
+            for submission in self._hitl_transport.submissions(tenant=tenant)
+            if submission.event_key == event_key
+            and submission.principal.product_content_hash == suspension
+            and submission.action in GATE_ACTIONS
+            and (
+                submission.answered_event_class == GATE_EVENT_CLASS
+                and submission.answered_workflow_state_ref == key
+                if submission.answered_event_class is not None
+                else gate_still_pending
+            )
+        )
+
+    def _recorded_gate_verdicts(
+        self,
+        *,
+        tenant: str,
+        key: str,
+        gate: str,
+        record: WorkflowStateRecord,
+    ) -> tuple[HitlActionSubmission, ...]:
+        """Every gate verdict RECORDED against this suspension, oldest first.
+
+        D-IMPL-357 A4, and the population is broader than
+        :meth:`_gate_authority`'s on purpose: every submission naming this
+        gate's pending event, bound to this suspension's own content hash,
+        carrying a :data:`~ccf.hitl.approval_gate.GATE_ACTIONS` verdict —
+        **stamped or not, eligible to be the authority or not.** The caller
+        refuses the resumption when the distinct verdicts here number more
+        than one.
+
+        **Why eligibility is deliberately not applied.** Round 1 of A4's
+        review measured the sequence that walks straight through a
+        predicate that does apply it. A credit officer resolves the gate
+        ``reject``, which REMOVES the pending claim and then submits; an
+        attacker holding submit authority for the same event lands
+        ``approve`` in that window; the transport stamps whichever submit
+        arrives first (documented at
+        :meth:`~ccf.hitl.transport.HITLTransportProtocol.submit`), so the
+        attacker's verdict takes the stamp and the officer's is recorded
+        UNSTAMPED. The gate is no longer pending, so the officer's
+        rejection fails the unstamped leg and is not eligible at all — and
+        an eligibility-filtered verdict set then has exactly one member,
+        detects no conflict, and the routing compare faithfully agrees with
+        the attacker. Raced for real: **823 of 3000 executions succeeded
+        with four attacker threads.** Filtering nothing here is what closes
+        it, without weakening what selection requires of an authority.
+
+        **The suspension hash stays in the predicate**, and it is what
+        keeps this from over-refusing: a verdict recorded against an
+        EARLIER suspension of the same gate — a loop, an exception route
+        and a re-suspension — carries that suspension's content hash and is
+        correctly invisible here. Dropping it would let a resolved
+        disagreement poison every later suspension of the same node
+        forever.
+
+        **What it costs, stated rather than assumed.** Agreeing submissions
+        carry one distinct verdict, so nothing that previously proceeded on
+        agreement now refuses — a second approver recording the same
+        verdict (D-23 quorum) is unaffected. The one real behavior change
+        is the intended one: where a verdict was recorded that never became
+        the authority and the opposite verdict was then recorded, the
+        resumption previously proceeded on whichever one selection reached
+        and now refuses. A bank's answer to *two humans recorded opposite
+        verdicts on one decision* is to stop and require reconciliation,
+        not to resolve silently in favor of whichever one won a race.
+
+        A verdict recorded against a DIFFERENT primitive's event that
+        happens to name this event key and this suspension hash — the
+        escalation composition :meth:`_gate_authority` describes — counts
+        here even though it can never be the authority. That is the same
+        ruling applied consistently: it is a recorded human decision about
+        this suspension, and if it contradicts the routable one the fabric
+        does not get to pick.
+        """
+        event_key = self._event_key(key, gate)
+        suspension = content_hash(record)
+        return tuple(
+            submission
+            for submission in self._hitl_transport.submissions(tenant=tenant)
+            if submission.event_key == event_key
+            and submission.principal.product_content_hash == suspension
+            and submission.action in GATE_ACTIONS
         )
 
     def _escalation_pending(self, *, tenant: str, key: str) -> bool:

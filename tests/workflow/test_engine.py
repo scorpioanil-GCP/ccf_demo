@@ -61,6 +61,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphView
 from ccf.hitl.approval_gate import (
     GATE_ACTIONS,
+    GATE_EVENT_CLASS,
     ApprovalGate,
     GateResolution,
 )
@@ -1516,3 +1517,245 @@ def test_a_bare_submission_needs_this_gate_to_still_be_pending(
         engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="approved")
     )
     assert isinstance(outcome, WorkflowResumeRefused)
+
+
+# --- D-IMPL-357 A4: which recorded verdict is authoritative -------------------
+#
+# A3 closed the ROUTING compare: the caller's decision must agree with the
+# target the artifact declares for the verdict the authority path recorded.
+# Round 1 of review then measured two paths that still reach an approving
+# terminal after a rejection was recorded, and neither is a routing defect —
+# both attack verdict SELECTION, so the compare faithfully agrees with
+# whichever verdict was selected. These tests pin the selection-integrity
+# guard: two recorded human verdicts in disagreement on ONE suspension refuse
+# the resumption outright, whichever of them selection would have followed.
+
+
+def _submit_only(
+    transport: InMemoryHitlTransport,
+    *,
+    tenant: str,
+    event_key: str,
+    product_content_hash: str,
+    action: str,
+    subject_id: str,
+) -> HitlActionSubmission:
+    """One verdict through the submit-only action door (D-IMPL-62).
+
+    The door claims nothing through ``remove``, so the transport stamps the
+    recorded submission with no answered class — and the gate stays pending,
+    which is what keeps such a submission eligible at all.
+    """
+    return transport.submit(
+        submit_capability(
+            tenant=tenant, principal=subject_id, event_key=event_key
+        ),
+        submission=HitlActionSubmission(
+            event_key=event_key,
+            action=action,
+            principal=_binding(product_content_hash, subject_id=subject_id),
+        ),
+    )
+
+
+def _suspended_covenant(
+    registry: ControlPlaneRegistry, tmp_path: Path, *, execution_id: str
+) -> tuple[WorkflowEngine, InMemoryHitlTransport, Workflow, str, str]:
+    """A covenant workflow suspended on its gate, with the bound hash."""
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(
+        engine.execute(
+            execute_as(workflow), workflow, execution_id=execution_id
+        )
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    tenant = workflow.definition.tenant
+    pending = next(
+        event
+        for event in transport.pending(tenant=tenant)
+        if event.event_key == suspended.event_key
+    )
+    return (
+        engine,
+        transport,
+        workflow,
+        suspended.event_key,
+        pending.product_content_hash,
+    )
+
+
+def test_a_later_rejection_is_not_discarded_when_an_approval_came_first(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """D-IMPL-357 A4, the measured attack. Selection took the OLDEST
+    qualifying submission, so a rejection recorded *after* an approval was
+    silently discarded and the approving decision then agreed with the
+    approval's declared route. Measured over the served door before this
+    guard: HTTP 200, terminal state ``approved``, with the rejection
+    standing.
+
+    The order is the load-bearing half of this test: with the approval
+    first, A3's routing compare is SATISFIED — the authority is the
+    approval, its declared route is the decision the caller named — so no
+    earlier guard can produce this refusal, and only the conflict check can.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="approve", subject_id="officer-1",
+    )
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="reject", subject_id="officer-2",
+    )
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1",
+            decision="approved",
+        )
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    # A distinctive PHRASE from this guard's own refusal, not one common
+    # word: four tests in this wave were found able to pass without their
+    # subject running, one because the asserted word came from a temp path.
+    assert "carries conflicting human verdicts" in outcome.reason
+    # Still no enumeration: neither the verdicts nor the targets (remedy 3).
+    assert "approve" not in outcome.reason and "reject" not in outcome.reason
+    # The gate is untouched: a refusal spends nothing.
+    record = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-1")
+    assert isinstance(record, WorkflowStateRecord)
+    assert record.status == "suspended"
+    assert record.current_state == "credit-officer-approval"
+
+
+def test_two_officers_conflicting_verdicts_on_one_suspension_refuse_to_route(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The rejection-first order refuses for the CONFLICT, not by falling back.
+
+    The sibling above records the approval first; this one records the
+    rejection first, so between them both arrival orders are pinned. The
+    name is the one D-IMPL-357 A4's plan cites.
+
+    With the rejection first, selection would make it the authority and
+    A3's routing compare would refuse on its own — so a conflict check
+    ordered *after* the compare would leave this shape reported as a
+    routing disagreement, which tells the investigator that a caller named
+    the wrong transition rather than that two humans disagreed. The
+    positive assertion on this guard's own phrase is what pins the
+    ordering; the negative assertion is what pins that the routing compare
+    did not answer instead.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="reject", subject_id="officer-2",
+    )
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="approve", subject_id="officer-1",
+    )
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1",
+            decision="approved",
+        )
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "carries conflicting human verdicts" in outcome.reason
+    assert "does not agree with the route" not in outcome.reason
+
+
+def test_agreeing_verdicts_on_one_suspension_still_route(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The control: the refusal is not blanket.
+
+    Two submissions that AGREE carry one distinct verdict, so the conflict
+    set has one member and the resumption proceeds exactly as it did
+    before. Without this test the guard above could be satisfied by an
+    engine that refused every gate resume with more than one submission on
+    it — which would break the shipped behavior of a second approver
+    (D-23 quorum) recording the same verdict.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    for subject in ("officer-1", "officer-2"):
+        _submit_only(
+            transport, tenant=tenant, event_key=event_key,
+            product_content_hash=bound, action="approve", subject_id=subject,
+        )
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1",
+            decision="approved",
+        )
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    assert outcome.terminal_state == "approved"
+
+
+def test_a_stamped_approval_and_an_unstamped_rejection_refuse_the_resumption(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The stamp race's recorded end state, reproduced deterministically.
+
+    The transport's claim is keyed ``(tenant, event_key)`` and consumed by
+    whichever submission for that pair arrives first, so a principal
+    holding submit authority can land a verdict in the window an
+    ``ApprovalGate`` opens between its ``remove`` and its ``submit``. A
+    reviewer raced it for real: **823 of 3000 executions succeeded with
+    four attacker threads.** What the race leaves recorded is exactly this
+    pair — one STAMPED verdict and one UNSTAMPED opposite verdict bound to
+    the same suspension — and that end state is reachable without threads,
+    which is why this test has no concurrency in it: resolving through the
+    real primitive stamps the approval and consumes the pending event, and
+    the rejection submitted afterwards is recorded unstamped.
+
+    **This is the shape the authority predicate cannot see.** The
+    unstamped rejection fails the unstamped leg (the gate is no longer
+    pending) and so does not qualify at all, leaving a one-member verdict
+    set. That is why conflict detection reads a BROADER population than
+    authority selection: every gate-action submission bound to this
+    suspension, stamped or not, eligible or not.
+
+    No served door can produce a stamped submission — ``POST
+    /hitl/actions`` is submit-only by D-IMPL-62 and claims nothing — so the
+    stamped leg necessarily comes from the primitive, in process.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    _resolve_gate(
+        registry, transport, tenant=tenant, event_key=event_key,
+        action="approve", subject_id="officer-1",
+    )
+    recorded = transport.submissions(tenant=tenant)
+    assert [s.answered_event_class for s in recorded] == [GATE_EVENT_CLASS]
+    assert transport.pending(tenant=tenant) == ()  # the claim is consumed
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="reject", subject_id="officer-2",
+    )
+    # The rejection really is the shape the authority predicate drops.
+    unstamped = transport.submissions(tenant=tenant)[-1]
+    assert unstamped.action == "reject"
+    assert unstamped.answered_event_class is None
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1",
+            decision="approved",
+        )
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "carries conflicting human verdicts" in outcome.reason
