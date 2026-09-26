@@ -94,7 +94,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 import re
 from decimal import Decimal
@@ -153,6 +153,13 @@ if TYPE_CHECKING:  # pragma: no cover - typing-only, and deliberately so
     # is a *value*, so :func:`refuse_request` imports it at call time instead.
     from ccf.products.payload import PayloadSchemaViolation
 
+    # Typing-only for :func:`_refuse_floor_below`'s parameter annotation
+    # (D-IMPL-357 C1). Same cycle avoidance as :data:`SkillArgumentSchema`'s
+    # own deferred import at the tail of this module — the annotation is a
+    # string under `from __future__ import annotations` and never resolves
+    # at runtime.
+    from ccf.skills.catalog import SkillArgumentProperty
+
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
@@ -197,9 +204,12 @@ __all__ = [
 #: The same token, at ``key="intent"``, is the verdict of :func:`refuse_intent`
 #: (``D-IMPL-264`` D-01): §6.3 makes intent an addressing token, and a class
 #: not registered to serve the intent is addressed to the wrong class in the
-#: same family as a lane mismatch. No tenth token was added for it — the
-#: vocabulary is fixed at nine (criterion 7) and ``key`` already reads *the
-#: field that disagreed* for this reason.
+#: same family as a lane mismatch. No new token was added for intent's
+#: sake — at the time, criterion 7 fixed the vocabulary at nine for this
+#: reason, and ``key`` already reads *the field that disagreed*.
+#: ``malformed-value`` (``D-IMPL-357`` C1) later widened the roster to ten
+#: for an unrelated reason — a presented VALUE's shape, not an addressing
+#: mismatch.
 #:
 #: The fifth, ``not-supported-at-tier``, is the Context Product Specification
 #: Standard's ``400 not_supported_at_tier`` (``references/Context_Product_Specification_Standard_v0-3.md``
@@ -235,12 +245,14 @@ __all__ = [
 #: record's reason meets the same roster prefix.
 #:
 #: The tenth, ``malformed-value``, judges TEXT rather than declared shape or
-#: membership: the subject and every declared ``string`` parameter must lie
-#: inside the mechanism floor :data:`SUBJECT_FLOOR_V1` (``D-IMPL-357``
-#: C1/C1a) — 512 ASCII characters from an allowlist grammar — judged by
-#: :func:`refuse_floor`, which runs in ``GovernedResolver.__call__`` before
-#: any of the other nine verdicts, so no request carrying a splice-shaped
-#: string ever reaches a declared comparison. Appended last, never inserted.
+#: membership: the subject and every declared ``string`` (at every declared
+#: depth) must lie inside the mechanism floor :data:`SUBJECT_FLOOR_V1`
+#: (``D-IMPL-357`` C1/C1a) — 512 ASCII characters from an allowlist grammar
+#: — judged by :func:`refuse_floor`, which ``GovernedResolver.__call__``
+#: runs AFTER the addressing verdicts (lane, intent) and BEFORE the
+#: overridable constraint-resolver seam (``D-IMPL-357`` C2; this task does
+#: not add that call site). A direct validator holding no declaration (see
+#: ``AssemblerAgent``) does not judge it. Appended last, never inserted.
 ProductRequestViolationReason = Literal[
     "undeclared-parameter",
     "missing-required-parameter",
@@ -1852,14 +1864,26 @@ def _refuse_domain(
     return None
 
 
-#: The mechanism floor (D-IMPL-357 C1/C1a; SEC-002/EX-01/EX-02 root cause). What
-#: the fabric can place in a URL path segment (whitepaper §6.3's
-#: `{counterparty-id}` slot), a SPARQL IRI position and a quoted literal:
+#: The mechanism floor (D-IMPL-357 C1/C1a; SEC-002/EX-01/EX-02 root cause).
+#: What the fabric makes SAFE: a SPARQL IRI `<…>` position (whitepaper
+#: §6.3's `{counterparty-id}` slot) and a single- or double-quoted literal.
 #: 512 ASCII characters from an ALLOWLIST. Not a denylist — a denylist that
-#: admitted `'` would leave a single-quoted literal splice open. In the same
-#: register as CANONICAL_DECIMAL and MAX_REFERENCE_BYTES: a grammar the
-#: mechanism owns, not a domain value. Versioned by name; a change is a new
-#: name, and the name rides on every refusal it decides (`detail`).
+#: admitted `'` would leave a single-quoted literal splice open.
+#:
+#: **NOT a URL-path-segment guarantee.** The grammar admits `/`, `.` and
+#: `..` because a measured subject IS a URI
+#: (`http://example.org/fibo/GammaBank`) — refusing `/` would refuse every
+#: URI-shaped subject this fabric serves. A value that PASSES this floor
+#: may still carry a path-traversal segment
+#: (`5493001KJTIIGC8Y1R12/../../admin/export` passes); an adopter placing a
+#: floor-admitted value into a URL path or query MUST percent-encode it
+#: first (`urllib.parse.quote(value, safe="")`) — this floor closes the
+#: SPARQL/SQL splice the ruling targets, not every downstream sink.
+#:
+#: In the same register as CANONICAL_DECIMAL and MAX_REFERENCE_BYTES: a
+#: grammar the mechanism owns, not a domain value. Versioned by name; a
+#: change is a new name, and the name rides on every refusal it decides
+#: (`detail`).
 SUBJECT_FLOOR_V1: Final[re.Pattern[str]] = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}$"
 )
@@ -2105,19 +2129,96 @@ def refuse_intent(
     )
 
 
+def _refuse_floor_below(
+    *, spec: "SkillArgumentProperty", presented: object, path: str
+) -> tuple[str, str] | None:
+    """One declared property, at every depth it may declare a string.
+
+    Mirrors :func:`~ccf.products.payload._refuse_below`'s traversal and key
+    spelling exactly — ``parent.member`` for an object member, ``parent[]``
+    for an array element, ``parent[].member`` for an object member inside an
+    array — rather than inventing a second one (D-IMPL-357 C1, controller
+    ruling). The three shapes are handled in one pass rather than by
+    recursing into a shared helper, because the D-IMPL-103 ceiling makes
+    them structurally final: :class:`~ccf.skills.catalog.SkillArgumentMember`
+    (an object's members) declares no further nesting, and
+    :class:`~ccf.skills.catalog.SkillArgumentElement` (an array's element
+    spec) declares members but no ``items`` of its own — so there is no
+    fourth shape this function would ever need to descend into again.
+
+    Returns the ``(key, presented text)`` of the first declared string that
+    lies outside :data:`SUBJECT_FLOOR_V1`, in sorted-member-name order at
+    each level (array elements themselves keep their list order, since that
+    order is already deterministic), or ``None`` when every declared string
+    presented conforms. A presented value at a string-declared position that
+    is not itself a ``str`` is skipped — the payload comparison names that
+    ``type-mismatch`` and runs its own verdict first.
+    """
+    if spec.type == "string":
+        if isinstance(presented, str) and not SUBJECT_FLOOR_V1.fullmatch(presented):
+            return path, presented
+        return None
+    if spec.type == "object":
+        if spec.properties is None or not isinstance(presented, Mapping):
+            return None
+        for member_name in sorted(spec.properties):
+            if spec.properties[member_name].type != "string":
+                continue
+            if member_name not in presented:
+                continue
+            value = presented[member_name]
+            if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
+                return f"{path}.{member_name}", value
+        return None
+    if spec.type != "array" or spec.items is None:
+        return None
+    if isinstance(presented, (str, bytes, bytearray)) or not isinstance(
+        presented, Sequence
+    ):
+        return None
+    items = spec.items
+    for element in presented:
+        if items.type == "string":
+            if isinstance(element, str) and not SUBJECT_FLOOR_V1.fullmatch(element):
+                return f"{path}[]", element
+            continue
+        if items.type != "object" or items.properties is None:
+            continue
+        if not isinstance(element, Mapping):
+            continue
+        for member_name in sorted(items.properties):
+            if items.properties[member_name].type != "string":
+                continue
+            if member_name not in element:
+                continue
+            value = element[member_name]
+            if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
+                return f"{path}[].{member_name}", value
+    return None
+
+
 def refuse_floor(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """Does the subject, and every declared string parameter, lie inside the floor?
+    """Does the subject, and every declared string, lie inside the floor?
 
-    Judged by `GovernedResolver.__call__` beside `refuse_intent` and BEFORE the
-    overridable constraint-resolver seam (D-IMPL-357 C2), so no
-    `PolicyConstraintResolver` override can remove it and no request reaches
-    the acquisition seam carrying text the seam might splice. Pure: no clock,
-    no registry, no I/O. Subject first, then declared `string` parameters in
-    sorted order, so the first verdict is the same verdict on every run.
-    A declared `subject_domain` / `pattern` (C4) is judged AFTER this, inside
-    `refuse_request`, and cannot widen past it by construction.
+    Beside `refuse_intent`, `GovernedResolver.__call__` runs this AFTER the
+    addressing verdicts (lane, intent) and BEFORE the overridable
+    constraint-resolver seam (D-IMPL-357 C2) — C2 adds that call site, not
+    this task — so that no `PolicyConstraintResolver` override can remove it
+    and no request reaches the acquisition seam carrying text the seam might
+    splice. A direct validator holding no declaration (`AssemblerAgent`,
+    `src/ccf/agents/assembler.py`) calls `refuse_request` on its own path and
+    does not judge this separately.
+
+    Pure: no clock, no registry, no I/O. Subject first, then every declared
+    `string` AT EVERY DECLARED DEPTH — the root, an object member
+    (`parent.member`), an array element (`parent[]`), and an object member
+    inside an array (`parent[].member`) — keyed exactly as `refuse_payload`
+    keys them (`_refuse_floor_below` mirrors its traversal), in sorted-name
+    order at each level, so the first verdict is the same verdict on every
+    run. A declared `subject_domain` / `pattern` (C4) is judged AFTER this,
+    inside `refuse_request`, and cannot widen past it by construction.
     """
 
     def _violation(key: str, presented: object) -> ProductRequestViolation:
@@ -2131,20 +2232,27 @@ def refuse_floor(
             detail=(
                 f"{key}: the presented text lies outside the fabric's identifier"
                 f" floor {SUBJECT_FLOOR_VERSION} ({SUBJECT_FLOOR_V1.pattern}) —"
-                " what can be placed in a URL segment, an IRI position and a"
-                " quoted literal; refused by name, never rewritten (D-IMPL-357 C1)"
+                " safe in a SPARQL IRI position and a quoted literal. NOT a"
+                " URL-path-segment guarantee: a passing value may contain '/'"
+                " or '..' and must be percent-encoded"
+                " (urllib.parse.quote(value, safe='')) before use in a URL"
+                " path or query. Refused by name, never rewritten"
+                " (D-IMPL-357 C1)"
             ),
         )
 
     if not SUBJECT_FLOOR_V1.fullmatch(request.subject):
         return _violation("subject", request.subject)
     for name in sorted(declared.arguments.properties):
-        property_ = declared.arguments.properties[name]
-        if property_.type != "string" or name not in request.parameters:
+        if name not in request.parameters:
             continue
-        presented = request.parameters[name]
-        if isinstance(presented, str) and not SUBJECT_FLOOR_V1.fullmatch(presented):
-            return _violation(name, presented)
+        found = _refuse_floor_below(
+            spec=declared.arguments.properties[name],
+            presented=request.parameters[name],
+            path=name,
+        )
+        if found is not None:
+            return _violation(*found)
     return None
 
 

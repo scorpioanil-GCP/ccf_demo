@@ -1066,6 +1066,213 @@ def test_a_declared_string_parameter_is_held_to_the_floor_too() -> None:
     assert violation is not None and violation.key == "lei" and violation.reason == "malformed-value"
 
 
+# --- (g3) the floor walks every declared depth, keyed as refuse_payload -----
+# --- keys them (findings-C1 item 1: three sources, IMPORTANT) --------------
+
+
+def test_an_object_members_string_is_held_to_the_floor_keyed_parent_dot_member() -> None:
+    """`owner: object{name: string}` (Fable's probe shape) — a string one
+    level down inside an object was never examined before this fix."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "owner": SkillArgumentProperty(
+                    type="object",
+                    description="a nested object",
+                    properties={
+                        "name": SkillArgumentMember(
+                            type="string", description="a nested string member"
+                        )
+                    },
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"owner": {"name": 'x" . ?s ?p ?o . "'}}),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "owner.name"
+    assert violation.reason == "malformed-value"
+
+
+def test_an_array_elements_string_is_held_to_the_floor_keyed_parent_brackets() -> None:
+    """`ids: array[string]` (Fable's probe shape; ships at
+    `examples/cp-20-syndicated-lending-co-lender/ccf_config.yaml:148-150`) —
+    an array of declared strings was never examined before this fix."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "ids": SkillArgumentProperty(
+                    type="array",
+                    description="a declared array of strings",
+                    items=SkillArgumentElement(
+                        type="string", description="one id"
+                    ),
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"ids": ["ok-id", "' OR 1=1 --"]}),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "ids[]"
+    assert violation.reason == "malformed-value"
+
+
+def test_an_object_members_string_inside_an_array_is_held_to_the_floor() -> None:
+    """`listed[].member` — a beneficial-owner-list shape: an array of objects,
+    each carrying a declared string member."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "owners": SkillArgumentProperty(
+                    type="array",
+                    description="a list of owner objects",
+                    items=SkillArgumentElement(
+                        type="object",
+                        description="one owner",
+                        properties={
+                            "name": SkillArgumentMember(
+                                type="string", description="the owner's name"
+                            )
+                        },
+                    ),
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(
+            parameters={"owners": [{"name": "ok"}, {"name": 'x" . ?s ?p ?o . "'}]}
+        ),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.key == "owners[].name"
+    assert violation.reason == "malformed-value"
+
+
+def test_a_non_string_value_under_a_string_declaration_is_skipped_by_the_floor() -> None:
+    """The payload comparison names a wrong-typed value `type-mismatch` and
+    runs before the floor is ever wired in (C2); the floor itself must not
+    also flag it as `malformed-value` — it is silent on shape it cannot
+    parse as text."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "count": SkillArgumentProperty(
+                    type="string", description="declared string, presented int"
+                )
+            },
+            required=(),
+        )
+    )
+    assert (
+        refuse_floor(request=_request(parameters={"count": 7}), declared=contract)
+        is None
+    )
+
+
+# --- (g4) the floor's own claim, corrected (findings-C1 item 2: Fable) ------
+
+
+def test_a_path_traversal_shaped_subject_is_admitted_the_floor_is_not_a_url_guarantee() -> None:
+    """The grammar necessarily admits `/` and `.` because measured subjects
+    are URIs; a passing value is NOT thereby safe in a URL path segment
+    (that claim was the defect — see the corrected docstring and `detail`).
+    This test pins the admission itself so a future tightening of the
+    grammar is a deliberate, reviewed choice rather than a silent one."""
+    from ccf.products.request import refuse_floor
+
+    assert (
+        refuse_floor(
+            request=_request(subject="5493001KJTIIGC8Y1R12/../../admin/export"),
+            declared=_contract(),
+        )
+        is None
+    )
+
+
+# --- (g5) the function's own contract, not just the grammar (findings-C1 ---
+# --- item 4: Fable, MINOR) --------------------------------------------------
+
+
+def test_subject_is_judged_before_any_parameter_when_both_are_malformed() -> None:
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "required_leaf": SkillArgumentProperty(
+                    type="string", description="a required top-level parameter"
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(subject='bad"subject', parameters={"required_leaf": "bad;too"}),
+        declared=contract,
+    )
+    assert violation is not None and violation.key == "subject"
+
+
+def test_sorted_name_order_decides_the_first_parameter_verdict() -> None:
+    """A loop over dict-insertion order rather than `sorted()` would still
+    pass every other test here while losing the determinism the docstring
+    promises; this test would catch that regression."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "zeta": SkillArgumentProperty(
+                    type="string", description="sorts after alpha"
+                ),
+                "alpha": SkillArgumentProperty(
+                    type="string", description="sorts before zeta"
+                ),
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"zeta": 'bad"z', "alpha": 'bad"a'}),
+        declared=contract,
+    )
+    assert violation is not None and violation.key == "alpha"
+
+
+def test_the_presented_text_is_not_reflected_into_detail() -> None:
+    """A refusal names the floor by version and pattern, never the value
+    that failed it — `detail` is a machine-readable statement about the
+    RULE, not an echo of untrusted text."""
+    from ccf.products.request import refuse_floor
+
+    secret_shaped = 'x" . ?s ?p ?o . " -- SECRET_MARKER_1357'
+    violation = refuse_floor(
+        request=_request(subject=secret_shaped), declared=_contract()
+    )
+    assert violation is not None
+    assert secret_shaped not in violation.detail
+    assert "SECRET_MARKER_1357" not in violation.detail
+
+
 # --- (g) the tolerance interval: a request number that is not a proportion ---
 #
 # ``24.5-REVIEW.md`` WR-02, ruled by Dave 2026-09-02: a negative
