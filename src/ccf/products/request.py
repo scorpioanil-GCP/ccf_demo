@@ -2039,26 +2039,40 @@ def _refuse_domain(
 ) -> ProductRequestViolation | None:
     """Does every presented value lie inside its declared domain?
 
-    The domain step (``D-IMPL-259``, ``D-IMPL-264`` D-04/D-05). Runs LAST,
+    The domain step (``D-IMPL-259``, ``D-IMPL-264`` D-03/D-04/D-05, as amended
+    by ``D-IMPL-357`` C4). Runs LAST,
     after the payload comparison has said each parameter is declared, honored
     and well-typed and after the interval step has judged the tolerance, so
     this function only ever judges a well-typed value against the class's
-    own declaration of what values are meaningful: a number's magnitude
-    against a numeric domain, or a value's exact typed membership in an
-    enumerated one. Names are read in sorted order so the first verdict is
+    own declaration of what values are meaningful. **All THREE declared
+    shapes, and each gets its own ``detail``:** a number's magnitude against
+    numeric bounds, a value's exact typed membership in an enumerated set, or
+    a string's conformance IN FULL to a declared grammar. Names are read in
+    sorted order so the first verdict is
     the same verdict on every run — the replay property every comparison in
     this package carries.
 
-    The one membership judgment is :meth:`ArgumentDomain.refuses`, which the
+    The one judgment is :meth:`ArgumentDomain.refuses`, which the
     contract validator also calls over a declared default, so a caller's
     value and a default are judged by one rule. A presented value with no
     magnitude under a numeric domain is not judged here (the payload
     comparison named it first); an enumerated domain receives the presented
-    value as it is — untrimmed, unfolded, unaliased (D-04).
+    value as it is — untrimmed, unfolded, unaliased (D-04); a grammar is
+    judged by :func:`re.fullmatch` and never by :func:`re.search`.
+
+    **The grammar branch does not echo the presented value**, matching
+    :func:`_refuse_subject`'s discipline: the ``detail`` a grammar refusal
+    writes into the replay record names the declared pattern and the fact
+    that it was judged in full, and nothing of the caller's text. The member
+    and numeric branches echo, as they always have — a roster verdict and a
+    magnitude verdict are unreadable without the value they are about, and
+    both predate the grammar shape.
 
     Nothing here clamps and nothing here reads a policy or a capability: a
-    value below the floor is refused with the floor named, a value outside
-    the set is refused with the set named, exactly as a caller's value above
+    value below the declared minimum is refused with that bound named, a
+    value outside the set is refused with the set named, a value outside a
+    declared grammar is refused with the grammar named, exactly as a caller's
+    value above
     a technical capability is refused by :mod:`ccf.products.constraints`
     with the capability named — two boundaries, two vocabularies, one
     posture (*"never clamped"*).
@@ -2072,7 +2086,25 @@ def _refuse_domain(
         if reason is None:
             continue
         property_ = declared.arguments.properties.get(key)
-        if reason == "not-in-domain":
+        if reason == "not-in-domain" and domain.pattern is not None:
+            # The GRAMMAR shape, built the way `_refuse_subject` builds its
+            # own. Before `D-IMPL-357` C4's fix round this branch did not
+            # exist, so a grammar refusal fell through to the member wording
+            # below and the record said the value *"is not a member of this
+            # class's declared domain []"* — an empty set, the wrong rule, the
+            # wrong ruling cited, and the presented value echoed. `detail` is
+            # a machine-readable statement about the RULE and lands in the
+            # replay record; the rule here is a grammar rather than a roster,
+            # and the caller's text is not part of it.
+            detail = (
+                f"{key}: the presented value is not in this class's declared "
+                f"pattern {domain.pattern} — the parameter's legal FORM, "
+                "declared beside its type and judged IN FULL by re.fullmatch "
+                "rather than by exact typed equality, refused by name rather "
+                "than substituted and never echoed back (D-IMPL-264 D-03 as "
+                "amended by D-IMPL-357 C4)"
+            )
+        elif reason == "not-in-domain":
             members = ", ".join(repr(member) for member in sorted(domain.members or ()))
             detail = (
                 f"{key}: {presented!r} is not a member of this class's "

@@ -2423,6 +2423,118 @@ def test_a_default_outside_its_declared_grammar_is_refused_at_declaration() -> N
     assert "carry a declared default outside their own domain" in str(raised.value)
 
 
+#: A value the parameter grammar `SUBJECT_GRAMMAR` refuses, and one it admits.
+#: Both are the fixture's, never the SDK's (CINV-01). The refused one carries
+#: characters that would read as a splice if they were ever echoed back.
+OUT_OF_GRAMMAR_PARAMETER_VALUE = "not-twenty-uppercase' OR '1'='1"
+IN_GRAMMAR_PARAMETER_VALUE = "5493001KJTIIGC8Y1R12"
+
+
+def test_a_grammar_over_a_parameter_refuses_a_live_request_naming_the_pattern() -> None:
+    """**A grammar declared over a PARAMETER is enforced, and says so.**
+
+    The test the C4 round-1 review found missing. `ArgumentDomain.pattern` was
+    declarable over a `string` parameter, the rendered schema advertised it,
+    and `_refuse_domain` — the step that builds the refusal a caller and the
+    replay record read — had never been taught the shape. A grammar refusal
+    fell through to the member wording and the record said the value *"is not
+    a member of this class's declared domain []"*: an empty set, the wrong
+    rule, the wrong ruling cited, and the presented value echoed where
+    `_refuse_subject` deliberately never echoes.
+
+    **Measured, not asserted.** Making `_refuse_domain` skip grammar domains
+    outright (`if domain.pattern is not None: continue` at the head of its
+    loop) reddens THIS test and
+    `test_the_grammar_branch_of_the_domain_step_never_echoes_the_value` and,
+    over the whole `tests/products` tree, **nothing else**. The population is
+    stated because a red count without one is unreadable: `pytest
+    tests/products -q` collects **1591** tests, and under that severing the
+    run is 2 failed, 1589 passed, 0 errors, 0 skipped. Before these tests
+    existed the same severing left every suite green, which is how a
+    declarable, advertised, unenforced shape shipped unseen.
+
+    Four assertions, one per way the old sentence was wrong: the declared
+    pattern IS named; the word *member* is absent; the ruling cited is the one
+    that amended D-03; and the verdict is `not-in-domain` at the parameter's
+    own key.
+    """
+    from ccf.products.request import ArgumentDomain, refuse_request
+
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    violation = refuse_request(
+        request=_request(
+            parameters={"required_leaf": OUT_OF_GRAMMAR_PARAMETER_VALUE}
+        ),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.reason == "not-in-domain"
+    assert violation.key == "required_leaf"
+    assert SUBJECT_GRAMMAR in violation.detail
+    assert "member" not in violation.detail
+    assert "D-IMPL-357 C4" in violation.detail
+
+
+def test_the_grammar_branch_of_the_domain_step_never_echoes_the_value() -> None:
+    """The presented text is not reflected into `detail`, on the same
+    discipline `_refuse_subject` and `refuse_floor` already keep: `detail` is
+    a statement about the RULE, it lands verbatim in the replay record, and an
+    operator reads it out of a log. A refusal that quotes the caller's splice
+    back has put untrusted text into the audit surface for no verdict-bearing
+    reason."""
+    from ccf.products.request import ArgumentDomain, refuse_request
+
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    violation = refuse_request(
+        request=_request(
+            parameters={"required_leaf": OUT_OF_GRAMMAR_PARAMETER_VALUE}
+        ),
+        declared=contract,
+    )
+    assert violation is not None
+    assert OUT_OF_GRAMMAR_PARAMETER_VALUE not in violation.detail
+    assert "OR '1'='1" not in violation.detail
+    # The member branch keeps its echo — a roster verdict is unreadable
+    # without the value it is about, and that half predates the grammar shape.
+    member_violation = refuse_request(
+        request=_request(parameters={"required_leaf": "gamma"}),
+        declared=_contract(
+            argument_domains={"required_leaf": ArgumentDomain(members=("alpha",))}
+        ),
+    )
+    assert member_violation is not None
+    assert "'gamma'" in member_violation.detail
+    assert "is not a member" in member_violation.detail
+
+
+def test_a_conforming_value_under_a_parameter_grammar_is_admitted() -> None:
+    """The positive control beside the refusal above, and it is not optional.
+
+    A `_refuse_domain` whose grammar branch refused every string would leave
+    the two tests above green — both present an out-of-grammar value and both
+    expect a refusal. Only a test presenting a CONFORMING value and expecting
+    `None` can see a grammar branch that refuses everything. That is the
+    asymmetric-coverage trap this lane has now been bitten by twice."""
+    from ccf.products.request import ArgumentDomain, refuse_request
+
+    contract = _contract(
+        argument_domains={"required_leaf": ArgumentDomain(pattern=SUBJECT_GRAMMAR)}
+    )
+    assert (
+        refuse_request(
+            request=_request(
+                parameters={"required_leaf": IN_GRAMMAR_PARAMETER_VALUE}
+            ),
+            declared=contract,
+        )
+        is None
+    )
+
+
 def test_a_declared_subject_domain_is_judged_after_the_address_step() -> None:
     from ccf.products.request import (
         SUBJECT_FLOOR_VERSION,
