@@ -1819,7 +1819,7 @@ class ProductRequestContract(VersionedArtifact):
         ``D-IMPL-84`` draws the SDK's ownership line at exactly one prefix,
         ``ccf.``, and :mod:`ccf.deployment.classes`'s module docstring records
         that the earlier wider reading *"was too wide"*. It is a silent
-        behavioural break with no version lane: a committed manifest naming
+        behavioral break with no version lane: a committed manifest naming
         ``acme.request-contract`` resolves to a ``DeclaredArtifact`` today and
         would resolve to this class tomorrow, changing what registers, what
         pins, and what enters replay dimension 2. And
@@ -1886,7 +1886,7 @@ class ProductRequestContract(VersionedArtifact):
                 required keys, **named together in one message**. An adopter
                 fixing a declaration one ``KeyError`` at a time is the papercut
                 this method exists to close, so the exhaustive message is the
-                behaviour and not a nicety. Also raised, in the same one-error
+                behavior and not a nicety. Also raised, in the same one-error
                     shape, when ``unsupported_arguments`` is present but is not a
                 mapping of parameter name to reason prose, and when
                 ``defaults`` is present but is not a mapping keyed by parameter

@@ -12,7 +12,7 @@ nowhere to live but a YAML file.
 declares a **typed request contract as a Control Plane artifact**, in the
 :class:`~ccf.skills.catalog.SkillArgumentSchema` shape, and subject and instant
 become *arguments the caller supplies*. This module holds that surface's
-behaviour.
+behavior.
 
 **Two absences are asserted here rather than described, because each is a
 security property.**
@@ -794,7 +794,7 @@ def test_from_declared_names_every_missing_key_in_one_message() -> None:
 
     An adopter fixing a declaration one ``KeyError`` at a time is the papercut
     `D-IMPL-126` item (1) exists to close, so the exhaustive message is the
-    behaviour and not a nicety.
+    behavior and not a nicety.
     """
     with pytest.raises(ValueError) as raised:
         ProductRequestContract.from_declared(_declared(declaration={}))

@@ -64,7 +64,7 @@ artifact's statement (`signed_binding_required`, D-16 — default false),
 never a code constant. The typed decision values and the door surfaces are
 documented on the [HITL Protocols](../reference/protocols/hitl.md) page;
 [compose a workflow with HITL](compose-a-workflow-with-hitl.md) shows the
-setting being flipped and the behaviour changing with no code edit.
+setting being flipped and the behavior changing with no code edit.
 
 ### 1.3 Graph adapter credentials (`D-IMPL-93`)
 
