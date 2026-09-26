@@ -1101,41 +1101,60 @@ class WorkflowEngine:
         enforced in :meth:`resume` after the declared-target check, pinned
         by ``tests/workflow/test_engine.py::
         test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch``.
-        It closes the D-IMPL-350 **routing** residual **for a single
-        recorded verdict**: given one recorded human action, the caller's
-        decision must agree with the target the artifact declares for the
-        verdict that action carries, so a recorded rejection cannot be
-        routed down the approving branch.
+        Given one recorded human action, the caller's decision must agree
+        with the target the artifact declares for the verdict that action
+        carries.
+
+        **A RECORDED REJECTION CANNOT REACH THE APPROVING TERMINAL. The
+        D-IMPL-350 residual is CLOSED — unconditionally, not for a single
+        recorded verdict** (D-IMPL-357 A3 + A4). Routing is the compare
+        above; selection integrity is the conflict refusal in
+        :meth:`resume` over :meth:`_recorded_gate_verdicts`. Both of the
+        paths A3's review measured are shut, and each was measured again
+        going red:
+
+        * **Two distinct verdicts on one suspension** no longer resolve to
+          the oldest and route on it. They refuse, in either arrival order,
+          and the refusal is ordered ahead of the route compare so the
+          record says two humans disagreed rather than that a caller named
+          the wrong transition. Pinned in process and through the served
+          doors.
+        * **The transport's stamp race** no longer decides a verdict. Its
+          recorded end state — one stamped verdict and one unstamped
+          opposite verdict on the same suspension — is precisely what
+          :meth:`_recorded_gate_verdicts` refuses, which is why that
+          population is deliberately unfiltered by eligibility.
 
         **What remains OPEN, stated here because this docstring is the
         residual ledger a close panel, an adopter and the next maintainer
-        read.** Two measured paths still reach an approving terminal after a
-        rejection was recorded. Neither is a routing defect: both are
-        verdict SELECTION — they decide which recorded verdict becomes the
-        authority, and the compare above then faithfully agrees with
-        whichever one was selected.
+        read.** Neither item below can route a rejection down an approving
+        branch; both are real and neither may be read as closed.
 
-        * **Two distinct verdicts on one suspension resolve to the OLDEST.**
-          :meth:`_gate_authority` returns ``next((...), None)`` over an
-          oldest-first submission list, so a later rejection is silently
-          discarded. Measured over the served door: submit approve, then
-          reject on the same pending event, then resume with the approving
-          decision, and the execution completes approved with the rejection
-          standing. Both submissions stay eligible because the submit-only
-          action door consumes no pending event (D-IMPL-62).
-        * **A stamp race in the transport.** A principal holding submit
-          authority for the event can land an approve in the window between
-          the officer's resolve removing the claim and submitting; the
-          transport stamps whichever submit arrives first, so that approve
-          becomes the authority and the officer's rejection is recorded
-          unstamped and ignored. Pre-existing, and already documented in the
-          transport.
+        * **The stamp race itself is still there, in the transport.** A
+          claim is keyed ``(tenant, event_key)`` and consumed by whichever
+          submission for that pair arrives first, so an attacker holding
+          submit authority can still cause an officer's verdict to be
+          recorded unstamped. What changed is the consequence: the pair now
+          REFUSES and demands human reconciliation instead of routing on
+          the attacker's verdict. So the race has become an availability
+          problem — anyone with submit authority for the event can park a
+          contradicting verdict and hold the gate until a human
+          reconciles — rather than an integrity one. Closing it means
+          ``remove`` minting an opaque claim token that ``submit``
+          requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
+          signature change that belongs with the D-IMPL-62 door ruling.
+        * **Two concurrent resumes of one suspension both pass** the
+          authority read and the conflict check, execute the downstream
+          node twice from one human action, and write two attributed
+          resumption rows. Measured, pre-existing, and carried as a named
+          residual: one human decision became two passages. Not a
+          wrong-target path — the target is the declared one both times.
 
-        Both are D-IMPL-357 **task A4**'s, and nothing above may be read as
-        closing them. This project has already paid once for the opposite
-        wording: an earlier fix on this same vulnerability was reported
-        complete, and the close panel on the follow-on work reproduced the
-        CRITICAL finding with that fix in place.
+        The wording above is deliberate about which half is unconditional,
+        because this project has already paid once for getting it wrong: an
+        earlier fix on this same vulnerability was reported complete, and
+        the close panel on the follow-on work reproduced the CRITICAL
+        finding with that fix in place.
 
         Note the direction of trust: the engine *reads* the authority path
         and never writes a verdict to it. Resolution stays the gate

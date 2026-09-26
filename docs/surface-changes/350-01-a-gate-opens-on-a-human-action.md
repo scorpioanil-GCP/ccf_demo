@@ -219,25 +219,48 @@ This remains Dave's ruling to make formally; what `D-IMPL-293` removes is the
 argument for the weaker shape.
 
 The residual was pinned by a test written to go RED the moment a
-verdict→target binding was declared and enforced. **That moment arrived:
-`D-IMPL-357` A1 declares `gate_routes` on the workflow definition and A3
-enforces it in `resume`, so the ROUTING residual is closed FOR A SINGLE
-RECORDED VERDICT, and the pin now asserts the closed behavior** —
-`tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`.
-Stated with its limit rather than as a full close, because two measured paths
-still reach an approving terminal after a rejection was recorded, and both are
-verdict SELECTION rather than routing — they decide which recorded verdict
-becomes the authority, and A3's compare then faithfully agrees with whichever
-one was selected. **Two distinct verdicts on one suspension resolve to the
-OLDEST** (`_gate_authority` takes `next((...), None)` over an oldest-first
-submission list, and the submit-only action door consumes no pending event, so
-both stay eligible), and **a stamp race in the transport** lets a principal
-holding submit authority land an approve in the window between the officer's
-resolve removing the claim and submitting, so the officer's rejection is
-recorded unstamped and ignored. Both are `D-IMPL-357` **task A4**'s; neither is
-closed here. *(The rest of this section still reads in the pre-A1 present
-tense and contradicts itself in places — assigned to A5, which owns the
-published pages.)*
+verdict→target binding was declared and enforced. **That moment arrived, and
+the residual is now CLOSED — unconditionally, not for a single recorded
+verdict.** `D-IMPL-357` A1 declares `gate_routes` on the workflow definition,
+A3 enforces it in `resume`, and A4 closes verdict SELECTION: a recorded
+rejection cannot reach the approving terminal.
+
+Two questions had to be separated to get there, and conflating them is what
+left the first fix incomplete. **Which verdict routes** keeps the eligibility
+rules — the stamp must name this gate and this execution, or, unstamped, the
+gate must still be pending. **Whether the recorded verdicts disagree** reads a
+deliberately BROADER population: every gate-action submission naming this
+gate's pending event and bound to this suspension's own content hash, *stamped
+or not, eligible or not*. More than one distinct verdict there refuses the
+resumption, ahead of the route compare, so the record says two humans
+disagreed rather than that a caller named the wrong transition. The broader
+population is what catches the transport's stamp race, whose recorded end
+state is one stamped verdict beside one unstamped opposite verdict — a shape
+an eligibility-filtered set sees as a single verdict and waves through.
+
+The pins: `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`
+(routing), `::test_a_later_rejection_is_not_discarded_when_an_approval_came_first`
+and `::test_two_officers_conflicting_verdicts_on_one_suspension_refuse_to_route`
+(both arrival orders), `::test_a_stamped_approval_and_an_unstamped_rejection_refuse_the_resumption`
+(the race's recorded end state), `::test_agreeing_verdicts_on_one_suspension_still_route`
+and `::test_a_verdict_bound_to_another_suspension_does_not_freeze_this_gate`
+(the refusal is not blanket, and it does not freeze a gate), plus three through
+the served doors in `tests/http_api/test_routes.py`.
+
+**What is NOT closed, stated because a governance record that overclaims is
+worse than one that is stale.** Neither item can route a rejection down an
+approving branch. **The stamp race itself remains in the transport** — the
+claim is address-keyed, so an attacker with submit authority can still cause
+an officer's verdict to be recorded unstamped; what changed is that the pair
+now refuses and demands reconciliation instead of routing, which makes the
+race an availability problem rather than an integrity one, and closing it is a
+`HITLTransportProtocol` signature change belonging with the `D-IMPL-62` door
+ruling. And **two concurrent resumes of one suspension** both pass the
+authority read and the conflict check and execute the downstream node twice
+from one human action — measured, pre-existing, carried as a named residual.
+*(The rest of this section still reads in the pre-A1 present tense and
+contradicts itself in places — assigned to A5, which owns the published
+pages.)*
 
 ## Regression evidence
 
