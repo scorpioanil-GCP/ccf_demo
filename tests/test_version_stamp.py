@@ -160,6 +160,12 @@ def test_the_configured_git_describe_command_scopes_to_release_tags(tmp_path: Pa
     ]["git_describe_command"]
     args = shlex.split(command)
     assert args[:2] == ["git", "describe"], args
+    # Round 3, finding 2: nothing protected round 2's `--abbrev=40` fix —
+    # deleting it left this whole suite green, because the shape assertion
+    # below (`[0-9a-f]+`, any length) accepts a short node just as happily
+    # as a long one. Structural check first (the exact flag is still
+    # configured)...
+    assert "--abbrev=40" in args, args
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -177,7 +183,22 @@ def test_the_configured_git_describe_command_scopes_to_release_tags(tmp_path: Pa
         args, cwd=repo, capture_output=True, text=True, timeout=_GIT_TIMEOUT_SECONDS
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert re.match(r"^v1\.0\.0-1-g[0-9a-f]+$", result.stdout.strip()), result.stdout
+    match = re.match(r"^v1\.0\.0-1-g([0-9a-f]+)$", result.stdout.strip())
+    assert match, result.stdout
+    # ...and a behavioral check second: this test runs the RAW configured
+    # `git describe` command directly (never through `setuptools_scm`'s own
+    # Python-level truncation to 9 hex — that slicing is a DIFFERENT layer,
+    # exercised by `test_the_installed_version_is_not_the_stale_literal_
+    # and_is_git_derived` above), so `--abbrev=40` being honored here means
+    # the node is the FULL 40-character sha, not merely "some hex digits".
+    # A two-commit throwaway repo's default auto-abbreviation is far shorter
+    # than 40 (measured: 7 chars) — removing the flag drops this well below
+    # 40 and this assertion catches it even if the flag-presence check above
+    # were somehow satisfied by a differently-spelled equivalent.
+    assert len(match.group(1)) == 40, (
+        f"node is {len(match.group(1))} hex chars, not the full 40 that "
+        f"--abbrev=40 requests: {result.stdout!r}"
+    )
 
     # Negative control (the re-reviewer's own addition): swap the scoped
     # pattern for setuptools_scm's OLD default and confirm the SAME repo now

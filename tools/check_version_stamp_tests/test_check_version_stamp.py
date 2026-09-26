@@ -276,7 +276,17 @@ def test_ambiguous_metadata_on_sys_path_is_refused(tmp_path: Path) -> None:
     result = _run_gate(repo)
 
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "ambiguous" in result.stdout
+    # `.startswith`, not `"ambiguous" in result.stdout` (fix round 3, finding
+    # 1, MEASURED): pytest names `tmp_path` after the test function, so this
+    # scenario's own directory is `.../test_ambiguous_metadata_on_sys0/...`
+    # — the word is present in the PATH regardless of whether the gate ever
+    # prints its refusal. Deleting the gate's header `print(...)` left this
+    # assertion passing. Anchoring on the START of stdout is immune: nothing
+    # this gate ever prints as its first line can be a fixture path, because
+    # every code path's first `print` begins with `"check_version_stamp: "`.
+    assert result.stdout.startswith(
+        "check_version_stamp: ambiguous 'ccf' metadata"
+    ), result.stdout
     assert "2.0.0" in result.stdout
     assert "0.1.0" in result.stdout
 
@@ -303,7 +313,18 @@ def test_unreadable_metadata_is_a_named_refusal_not_a_traceback(tmp_path: Path) 
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "Traceback" not in result.stderr, result.stderr
-    assert "unreadable" in result.stdout
+    # `.startswith`, not `"unreadable" in result.stdout` (fix round 3,
+    # finding 1, MEASURED): pytest names `tmp_path` after the test function,
+    # so this scenario's own directory is
+    # `.../test_unreadable_metadata_is_a_0/repo/ccf-2.0.0.dist-info` — the
+    # word is present in the PATH the gate prints on its SECOND line,
+    # regardless of whether the header refusal line ever runs. Deleting the
+    # gate's four-line header `print(...)` (leaving only the path line) left
+    # this assertion passing; so did rewording the header to "not readable".
+    # Anchoring on the START of stdout is immune to both.
+    assert result.stdout.startswith(
+        "check_version_stamp: 'ccf' metadata is present but unreadable"
+    ), result.stdout
     assert "ccf-2.0.0.dist-info" in result.stdout
 
 
