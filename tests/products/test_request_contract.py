@@ -1024,7 +1024,14 @@ def test_the_reason_vocabulary_has_ten_members_and_malformed_value_is_last() -> 
 
 @pytest.mark.parametrize(
     "subject",
-    ['x"y', "o'brien", "a b", "a\tb", "50%", "a;b", "a#b", "<x>", "", "é", "x" * 513],
+    [
+        'x"y', "o'brien", "a b", "a\tb", "50%", "a;b", "a#b", "<x>", "", "é",
+        "x" * 513,
+        "abc\n",  # findings-C1-round2 item 1: refused under EITHER pattern
+        "abc\r",  # reading (kept `$` or Dave's possible `\Z`) — the refusal
+        # comes from `fullmatch`, not the anchor, so this pins a safety that
+        # is unpinned today and takes no position on the open ruling.
+    ],
 )
 def test_a_subject_outside_the_floor_is_a_malformed_value(subject: str) -> None:
     from ccf.products.request import SUBJECT_FLOOR_VERSION, refuse_floor
@@ -1098,6 +1105,11 @@ def test_an_object_members_string_is_held_to_the_floor_keyed_parent_dot_member()
     assert violation is not None
     assert violation.key == "owner.name"
     assert violation.reason == "malformed-value"
+    # findings-C1-round2 item 2: the LEVEL's key sets ("owner"'s own member
+    # names and the presented "owner" dict's own keys), never the root's
+    # ({"owner"}) — matching what refuse_payload's own nested verdict reports.
+    assert violation.declared_keys == frozenset({"name"})
+    assert violation.presented_keys == frozenset({"name"})
 
 
 def test_an_array_elements_string_is_held_to_the_floor_keyed_parent_brackets() -> None:
@@ -1127,6 +1139,11 @@ def test_an_array_elements_string_is_held_to_the_floor_keyed_parent_brackets() -
     assert violation is not None
     assert violation.key == "ids[]"
     assert violation.reason == "malformed-value"
+    # findings-C1-round2 item 2: a scalar array element has no keyed shape of
+    # its own — empty, the same convention refuse_payload's _refuse_below
+    # uses for a scalar type-mismatch — never the root's ({"ids"}).
+    assert violation.declared_keys == frozenset()
+    assert violation.presented_keys == frozenset()
 
 
 def test_an_object_members_string_inside_an_array_is_held_to_the_floor() -> None:
@@ -1162,6 +1179,37 @@ def test_an_object_members_string_inside_an_array_is_held_to_the_floor() -> None
     )
     assert violation is not None
     assert violation.key == "owners[].name"
+    assert violation.reason == "malformed-value"
+    # findings-C1-round2 item 2: the offending ELEMENT's own declared member
+    # names and its own presented keys, never the root's ({"owners"}).
+    assert violation.declared_keys == frozenset({"name"})
+    assert violation.presented_keys == frozenset({"name"})
+
+
+def test_a_trailing_newline_in_a_declared_array_element_is_refused_too() -> None:
+    """findings-C1-round2 item 1's nested case: a trailing newline is
+    refused by `fullmatch` at a declared array element exactly as it is at
+    the subject — invariant under either reading of the open `$`/`\\Z`
+    ruling (item 6, held for Dave); this takes no position on it."""
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "ids": SkillArgumentProperty(
+                    type="array",
+                    description="a declared array of strings",
+                    items=SkillArgumentElement(type="string", description="one id"),
+                )
+            },
+            required=(),
+        )
+    )
+    violation = refuse_floor(
+        request=_request(parameters={"ids": ["ok-id", "abc\n"]}), declared=contract
+    )
+    assert violation is not None
+    assert violation.key == "ids[]"
     assert violation.reason == "malformed-value"
 
 

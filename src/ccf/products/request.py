@@ -2130,8 +2130,13 @@ def refuse_intent(
 
 
 def _refuse_floor_below(
-    *, spec: "SkillArgumentProperty", presented: object, path: str
-) -> tuple[str, str] | None:
+    *,
+    spec: "SkillArgumentProperty",
+    presented: object,
+    path: str,
+    declared_keys: frozenset[str],
+    presented_keys: frozenset[str],
+) -> tuple[str, str, frozenset[str], frozenset[str]] | None:
     """One declared property, at every depth it may declare a string.
 
     Mirrors :func:`~ccf.products.payload._refuse_below`'s traversal and key
@@ -2146,21 +2151,40 @@ def _refuse_floor_below(
     spec) declares members but no ``items`` of its own — so there is no
     fourth shape this function would ever need to descend into again.
 
-    Returns the ``(key, presented text)`` of the first declared string that
-    lies outside :data:`SUBJECT_FLOOR_V1`, in sorted-member-name order at
-    each level (array elements themselves keep their list order, since that
-    order is already deterministic), or ``None`` when every declared string
-    presented conforms. A presented value at a string-declared position that
-    is not itself a ``str`` is skipped — the payload comparison names that
-    ``type-mismatch`` and runs its own verdict first.
+    ``declared_keys``/``presented_keys`` are the ROOT level's sets, carried
+    in only for the plain string-property branch — which IS the root level,
+    so it returns them unchanged. The object and array branches compute and
+    return their OWN level's sets instead of forwarding the root's, exactly
+    as :func:`~ccf.products.payload.refuse_payload`'s
+    :class:`~ccf.products.payload.PayloadSchemaViolation` does: a nested
+    verdict's ``declared_keys``/``presented_keys`` name what the CONTRACT
+    declares and the request PRESENTS *at the level the violation
+    occurred* (:class:`ProductRequestViolation`'s own documented promise) —
+    the object's declared member names and the nested dict's own keys for
+    an object member, the empty set for a scalar array element (a list has
+    no keyed shape of its own, the same convention
+    :func:`~ccf.products.payload._refuse_below` uses for a scalar
+    type-mismatch), and the element's declared member names and that one
+    element's own keys for an object member inside an array.
+
+    Returns the ``(key, presented text, declared_keys, presented_keys)`` of
+    the first declared string that lies outside :data:`SUBJECT_FLOOR_V1`, in
+    sorted-member-name order at each level (array elements themselves keep
+    their list order, since that order is already deterministic), or
+    ``None`` when every declared string presented conforms. A presented
+    value at a string-declared position that is not itself a ``str`` is
+    skipped — the payload comparison names that ``type-mismatch`` and runs
+    its own verdict first.
     """
     if spec.type == "string":
         if isinstance(presented, str) and not SUBJECT_FLOOR_V1.fullmatch(presented):
-            return path, presented
+            return path, presented, declared_keys, presented_keys
         return None
     if spec.type == "object":
         if spec.properties is None or not isinstance(presented, Mapping):
             return None
+        member_names = frozenset(spec.properties)
+        presented_member_keys = frozenset(presented)
         for member_name in sorted(spec.properties):
             if spec.properties[member_name].type != "string":
                 continue
@@ -2168,7 +2192,12 @@ def _refuse_floor_below(
                 continue
             value = presented[member_name]
             if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
-                return f"{path}.{member_name}", value
+                return (
+                    f"{path}.{member_name}",
+                    value,
+                    member_names,
+                    presented_member_keys,
+                )
         return None
     if spec.type != "array" or spec.items is None:
         return None
@@ -2180,12 +2209,14 @@ def _refuse_floor_below(
     for element in presented:
         if items.type == "string":
             if isinstance(element, str) and not SUBJECT_FLOOR_V1.fullmatch(element):
-                return f"{path}[]", element
+                return f"{path}[]", element, frozenset(), frozenset()
             continue
         if items.type != "object" or items.properties is None:
             continue
         if not isinstance(element, Mapping):
             continue
+        element_member_names = frozenset(items.properties)
+        presented_element_keys = frozenset(element)
         for member_name in sorted(items.properties):
             if items.properties[member_name].type != "string":
                 continue
@@ -2193,7 +2224,12 @@ def _refuse_floor_below(
                 continue
             value = element[member_name]
             if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
-                return f"{path}[].{member_name}", value
+                return (
+                    f"{path}[].{member_name}",
+                    value,
+                    element_member_names,
+                    presented_element_keys,
+                )
     return None
 
 
@@ -2217,18 +2253,27 @@ def refuse_floor(
     inside an array (`parent[].member`) — keyed exactly as `refuse_payload`
     keys them (`_refuse_floor_below` mirrors its traversal), in sorted-name
     order at each level, so the first verdict is the same verdict on every
-    run. A declared `subject_domain` / `pattern` (C4) is judged AFTER this,
-    inside `refuse_request`, and cannot widen past it by construction.
+    run. `declared_keys`/`presented_keys` on the returned violation name the
+    LEVEL the violation occurred at, not always the root — the same promise
+    `ProductRequestViolation`'s own docstring makes and `refuse_payload`
+    already keeps. A declared `subject_domain` / `pattern` (C4) is judged
+    AFTER this, inside `refuse_request`, and cannot widen past it by
+    construction.
     """
 
-    def _violation(key: str, presented: object) -> ProductRequestViolation:
+    def _violation(
+        key: str,
+        presented: object,
+        declared_keys: frozenset[str],
+        presented_keys: frozenset[str],
+    ) -> ProductRequestViolation:
         return ProductRequestViolation(
             reason="malformed-value",
             key=key,
             declared_type="string",
             presented_type=type(presented).__name__,
-            declared_keys=frozenset(declared.arguments.properties),
-            presented_keys=frozenset(request.parameters),
+            declared_keys=declared_keys,
+            presented_keys=presented_keys,
             detail=(
                 f"{key}: the presented text lies outside the fabric's identifier"
                 f" floor {SUBJECT_FLOOR_VERSION} ({SUBJECT_FLOOR_V1.pattern}) —"
@@ -2241,8 +2286,12 @@ def refuse_floor(
             ),
         )
 
+    root_declared_keys = frozenset(declared.arguments.properties)
+    root_presented_keys = frozenset(request.parameters)
     if not SUBJECT_FLOOR_V1.fullmatch(request.subject):
-        return _violation("subject", request.subject)
+        return _violation(
+            "subject", request.subject, root_declared_keys, root_presented_keys
+        )
     for name in sorted(declared.arguments.properties):
         if name not in request.parameters:
             continue
@@ -2250,6 +2299,8 @@ def refuse_floor(
             spec=declared.arguments.properties[name],
             presented=request.parameters[name],
             path=name,
+            declared_keys=root_declared_keys,
+            presented_keys=root_presented_keys,
         )
         if found is not None:
             return _violation(*found)
