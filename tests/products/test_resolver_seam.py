@@ -2879,3 +2879,127 @@ def test_o3_a_non_composite_never_reads_the_admission_clock(
     )
     assert isinstance(outcome, ServedProduct), outcome
     assert reads == []
+
+
+# --- D-IMPL-357 C2: the mechanism floor, judged before the overridable seam --
+#
+# `refuse_floor` itself (the predicate: subject, then every declared string at
+# every declared depth) is unit-tested exhaustively in
+# `tests/products/test_request_contract.py` against no fixture at all. What is
+# untested until this section is the WIRING: does `GovernedResolver.__call__`
+# actually call it, at a point no override and no acquisition call can precede.
+# A revert of the call site would not redden the pure-function tests — there is
+# no integration assertion there — which is the exact gap five reviewers of C1
+# named.
+
+
+#: A fixture-owned (CINV-01) parameter name, declared `string` so the floor has
+#: something besides the subject to judge at the resolver level. The stock
+#: fixture contract declares only `revenue_threshold: number` (`refuse_floor`
+#: skips a non-string declaration entirely), so proving the floor is wired for
+#: a declared PARAMETER — not only the subject — needs a contract that
+#: declares one.
+REFERENCE_PARAMETER = "reference_code"
+
+#: A splice-shaped value repeated across both controls below: a SPARQL/SQL
+#: escape-and-reopen sequence — the exact shape `SUBJECT_FLOOR_V1` exists to
+#: refuse (`D-IMPL-357` C1).
+SPLICE_SHAPED_VALUE = 'x" . ?s ?p ?o . "'
+
+
+@pytest.fixture
+def booted_with_string_parameter(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, with the request contract declaring one more
+    parameter — :data:`REFERENCE_PARAMETER` — as `string`.
+
+    Mirrors ``booted_with_ceiling``'s shape exactly (add one property to a
+    copy of the stock document): the number is authored HERE, in a test-side
+    document, never in ``src/`` (CINV-01).
+    """
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][
+        REFERENCE_PARAMETER
+    ] = {"type": "string", "description": "Fixture parameter; not required."}
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_a_malformed_subject_is_refused_before_the_acquisition_seam_and_before_the_constraint_resolver(
+    booted: _Booted,
+) -> None:
+    """D-IMPL-357 C2. The seam must be invoked ZERO times, and a
+    PolicyConstraintResolver override must not be able to remove the floor.
+
+    This is the acceptance test the controller named: revert the call site in
+    `GovernedResolver.__call__` and this test reddens — either the seam call
+    count assertion fails (the stub `_seam` is reached), or the override's
+    `resolve` raises its own `AssertionError` first. Either way, a revert of
+    the integration is no longer silent.
+    """
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:  # a stub that skips every judgment
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    resolver = _resolver(booted, acquisition=_seam, constraint_resolver=_Override())
+    outcome = _ask(resolver, _request(subject=SPLICE_SHAPED_VALUE))
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    address = booted.store.resolve_uri(uri=outcome.replay_reference)
+    record = DecisionReplayRecord.model_validate_json(booted.store.get(content_address=address))
+    assert "malformed-value" in str(record.content_generation_path.assembly_refusal)
+
+
+def test_a_malformed_declared_string_parameter_is_refused_the_same_way(
+    booted_with_string_parameter: _Booted,
+) -> None:
+    """The subject is not the only thing the floor is judged over.
+
+    Same three controls as the subject test — zero seam calls, the override
+    never runs, a recorded `malformed-value` — but the splice is carried in a
+    declared `string` PARAMETER instead of the subject, which is the shape
+    :func:`~ccf.products.request.refuse_floor` walks that the subject-only
+    test cannot exercise: the resolver must pass the DECLARED contract
+    (`declared = self._request_contract(declaration)`) through to the floor,
+    not just the bare request.
+    """
+    booted = booted_with_string_parameter
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    resolver = _resolver(booted, acquisition=_seam, constraint_resolver=_Override())
+    outcome = _ask(
+        resolver,
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                REFERENCE_PARAMETER: SPLICE_SHAPED_VALUE,
+            }
+        ),
+    )
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    address = booted.store.resolve_uri(uri=outcome.replay_reference)
+    record = DecisionReplayRecord.model_validate_json(booted.store.get(content_address=address))
+    assert "malformed-value" in str(record.content_generation_path.assembly_refusal)
+    assert REFERENCE_PARAMETER in str(record.content_generation_path.assembly_refusal)
+
+
+def test_a_well_formed_request_is_unaffected_by_the_floor(booted: _Booted) -> None:
+    """The control. A conforming subject and a conforming parameter still
+    serve — the floor is a refusal path, not a tax on every question."""
+    outcome = _ask(_resolver(booted), _request())
+    assert isinstance(outcome, ServedProduct), outcome

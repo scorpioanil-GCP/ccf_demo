@@ -375,9 +375,13 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
     the one `child_rows` binding, or, for the pre-projection refusal
     `D-IMPL-339` added (reached after acquisition and before the binding
     exists), `composed.resolutions` directly — and every one before it passes
-    no `child_resolutions` at all. Eight exits: two before, six after (the
-    sixth `D-IMPL-341`'s TTL-anchor refusal). A ninth added after acquisition
-    without the rows, or a row invented before
+    no `child_resolutions` at all. Nine exits: three before, six after (the
+    sixth `D-IMPL-341`'s TTL-anchor refusal; the third before-exit is
+    `D-IMPL-357` C2's mechanism-floor refusal — judged ahead of the
+    overridable constraint-resolver seam and therefore ahead of acquisition
+    too, so it carries no child evidence for the same reason the other two
+    before-exits carry none). A tenth exit added after acquisition without
+    the rows, or a row invented before
     it, turns this red without anyone having to remember the ruling.
     """
     source = inspect.getsource(GovernedResolver.__call__)
@@ -386,9 +390,10 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
         m.start()
         for m in re.finditer(r"^\s+return self\._record_refusal\(", source, flags=re.M)
     ]
-    # Eight since `D-IMPL-341`: the TTL-anchor refusal, reached after
-    # acquisition, passes the composed rows like every exit after it.
-    assert len(calls) == 8, f"the exit census moved: {len(calls)} exits"
+    # Nine since `D-IMPL-357` C2: the mechanism-floor refusal, reached before
+    # the constraint resolver and therefore before acquisition, joined the
+    # two existing before-exits.
+    assert len(calls) == 9, f"the exit census moved: {len(calls)} exits"
 
     def call_text(start: int) -> str:
         """The full text of the call beginning at ``start``, parens balanced."""
@@ -403,8 +408,8 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
 
     before = [c for c in calls if c < acquisition]
     after = [c for c in calls if c > acquisition]
-    # `D-IMPL-341`: six after — the TTL-anchor refusal joined the five.
-    assert len(before) == 2 and len(after) == 6, (len(before), len(after))
+    # `D-IMPL-357` C2: three before — the mechanism floor joined the two.
+    assert len(before) == 3 and len(after) == 6, (len(before), len(after))
     for start in before:
         assert "child_resolutions" not in call_text(start), "a row invented before acquisition"
     for start in after:

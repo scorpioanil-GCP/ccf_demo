@@ -258,6 +258,7 @@ from ccf.products.refusal import (
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
+    refuse_floor,
     refuse_intent,
     refuse_undeclared_class_default,
     request_seeds,
@@ -2232,6 +2233,33 @@ class GovernedResolver:
         # the registered class it compares against (`D-IMPL-121`) — and, as of
         # `24.6-03`, the Control Plane read no door could make either.
         declared = self._request_contract(declaration)
+
+        # D-IMPL-357 C2: the mechanism floor (`SUBJECT_FLOOR_V1`), judged HERE
+        # — after the addressing verdicts (lane, intent) and BEFORE the
+        # overridable `constraint_resolver` seam and before any acquisition —
+        # so that no `PolicyConstraintResolver` override can remove it and no
+        # request carrying out-of-grammar text reaches the acquisition seam.
+        # The declaration is already in hand (`declared`, above); the floor
+        # walks it and the effective request has not been derived yet, so this
+        # judges the CALLER's own subject and parameters, never a value the
+        # resolution stage could have substituted.
+        floor = refuse_floor(request=request, declared=declared)
+        if floor is not None:
+            # D-IMPL-357 C2: a mechanism floor, judged before the overridable
+            # seam and before any acquisition; the deciding declaration is the
+            # class (pinned as for intent) and the floor's version rides in
+            # `detail`, which is what pins the floor on the record.
+            return self._record_refusal(
+                envelope=envelope_for(floor, request=identity),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                policy_bindings=(
+                    PolicyBinding(key=self.product_class_key, version=content_hash(declaration)),
+                ),
+                resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+            )
+
         outcome = self.constraint_resolver.resolve(
             product_class=product_class,
             request=request,
