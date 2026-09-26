@@ -1828,6 +1828,65 @@ def test_a_verdict_bound_to_another_suspension_does_not_freeze_this_gate(
     assert outcome.terminal_state == "approved"
 
 
+def test_an_annotation_and_an_override_beside_an_approval_still_route(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """The verdict-VOCABULARY term in the conflict predicate is load-bearing.
+
+    ``HITL_ACTIONS`` is ``{approve, reject, override, annotate}`` and only
+    the first two are ``GATE_ACTIONS``. Dropping ``action in GATE_ACTIONS``
+    from :meth:`_recorded_gate_verdicts` left every test in
+    ``tests/workflow`` and ``tests/http_api/test_routes.py`` green, so
+    nothing pinned it — measured by review, and this is the control that
+    closes that hole.
+
+    The failure direction is why it went unnoticed: without the term an
+    annotation or an override bound to this suspension counts as a distinct
+    verdict, so the gate REFUSES rather than routing wrongly. That is
+    over-refusal, not bypass — and it is still a denial of service on
+    approvals, which is the mirror image of the vulnerability A4 closes, and
+    the same argument the suspension-hash control rests on.
+
+    Three submissions on one suspension and only one of them a verdict, so
+    the conflict set has exactly one member and the resumption proceeds.
+    """
+    engine, transport, workflow, event_key, bound = _suspended_covenant(
+        registry, tmp_path, execution_id="exec-1"
+    )
+    tenant = workflow.definition.tenant
+    _submit_only(
+        transport, tenant=tenant, event_key=event_key,
+        product_content_hash=bound, action="approve", subject_id="officer-1",
+    )
+    for action in ("annotate", "override"):
+        _submit_only(
+            transport, tenant=tenant, event_key=event_key,
+            product_content_hash=bound, action=action,
+            subject_id="reviewer-1",
+        )
+    # All three really are recorded against this suspension: the predicate
+    # has to discriminate on the ACTION, not on anything else being absent.
+    recorded = [
+        submission
+        for submission in transport.submissions(tenant=tenant)
+        if submission.event_key == event_key
+        and submission.principal.product_content_hash == bound
+    ]
+    assert [submission.action for submission in recorded] == [
+        "approve",
+        "annotate",
+        "override",
+    ]
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1",
+            decision="approved",
+        )
+    )
+    assert isinstance(outcome, WorkflowCompleted)
+    assert outcome.terminal_state == "approved"
+
+
 def test_a_conflicting_verdict_refusal_is_a_distinct_audited_record(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:

@@ -1277,6 +1277,27 @@ class WorkflowEngine:
         disagreement poison every later suspension of the same node
         forever.
 
+        **The event-key term is a BACKSTOP, not the load-bearing check** —
+        the same disclosure :meth:`_gate_authority` carries for its own copy
+        of this term, restated here so this predicate's reader does not have
+        to infer it. Two suspensions differ in at least ``execution_id`` or
+        ``current_state``, so the suspension hash above already separates
+        them, and dropping this line reddens nothing across
+        ``tests/workflow`` and ``tests/http_api/test_routes.py``. Measured,
+        not assumed. Kept because it is what a reader expects to see, and
+        stated so nobody mistakes it for the guard doing the work.
+
+        **The verdict-vocabulary term, by contrast, IS load-bearing and is
+        pinned** — by ``tests/workflow/test_engine.py::
+        test_an_annotation_and_an_override_beside_an_approval_still_route``.
+        :data:`~ccf.hitl.transport.HITL_ACTIONS` carries ``override`` and
+        ``annotate`` alongside the two gate verdicts, so without ``action in
+        GATE_ACTIONS`` either of those bound to this suspension would count
+        as a distinct verdict and wedge the gate. That failure direction is
+        over-refusal rather than bypass, which is exactly why it could sit
+        here unpinned — and it is still a denial of service on approvals,
+        the mirror image of the vulnerability this task closes.
+
         **What it costs, stated rather than assumed.** Agreeing submissions
         carry one distinct verdict, so nothing that previously proceeded on
         agreement now refuses — a second approver recording the same
