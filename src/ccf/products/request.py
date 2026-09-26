@@ -94,7 +94,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import re
@@ -120,8 +120,8 @@ import re
 # `{'src/ccf/graph/registry.py': 1, 'src/ccf/products/request.py': 2}` against
 # the required single entry. So these are `import` statements the lint can see,
 # which is what the invariant is protecting.
-import re._constants as _sre_constants
-import re._parser as _sre_parse
+import re._constants as _sre_constants  # type: ignore[import-not-found]
+import re._parser as _sre_parse  # type: ignore[import-not-found]
 from decimal import Decimal
 from typing import Final, TYPE_CHECKING, Any, Literal
 
@@ -516,11 +516,11 @@ class _FirstSet:
 _UNKNOWN_FIRST_SET: Final[None] = None
 
 
-def _grammar_charset_first(items: object) -> _FirstSet | None:
+def _grammar_charset_first(items: Iterable[Any]) -> _FirstSet | None:
     """The first set of one ``IN`` node's item list, or ``None`` if unclassifiable."""
     intervals: list[tuple[int, int]] = []
     universal = False
-    for entry in items:  # type: ignore[union-attr]
+    for entry in items:
         opcode, argument = entry
         if opcode is _sre_constants.NEGATE:
             # The complement of a set is not narrowed by this check.
@@ -545,7 +545,7 @@ def _grammar_charset_first(items: object) -> _FirstSet | None:
     )
 
 
-def _grammar_first_set(sequence: object) -> _FirstSet | None:
+def _grammar_first_set(sequence: Iterable[Any]) -> _FirstSet | None:
     """The first set of a parsed sequence, or ``None`` when out of vocabulary.
 
     Walks the sequence only as far as it must: an item that cannot match empty
@@ -555,7 +555,7 @@ def _grammar_first_set(sequence: object) -> _FirstSet | None:
     """
     intervals: list[tuple[int, int]] = []
     universal = False
-    for entry in sequence:  # type: ignore[union-attr]
+    for entry in sequence:
         opcode, argument = entry
         if opcode is _sre_constants.AT:
             continue  # an anchor consumes nothing and constrains no character
@@ -604,12 +604,12 @@ def _grammar_first_set(sequence: object) -> _FirstSet | None:
     return _FirstSet(intervals=tuple(intervals), universal=universal, matches_empty=True)
 
 
-def _grammar_branch_first_set(branches: object) -> _FirstSet | None:
+def _grammar_branch_first_set(branches: Iterable[Any]) -> _FirstSet | None:
     """The union of the branches' first sets; empty-matching if any branch is."""
     intervals: list[tuple[int, int]] = []
     universal = False
     matches_empty = False
-    for branch in branches:  # type: ignore[union-attr]
+    for branch in branches:
         inner = _grammar_first_set(branch)
         if inner is None:
             return _UNKNOWN_FIRST_SET
@@ -621,14 +621,14 @@ def _grammar_branch_first_set(branches: object) -> _FirstSet | None:
     )
 
 
-def _grammar_holds_a_repeat(sequence: object) -> bool:
+def _grammar_holds_a_repeat(sequence: Iterable[Any]) -> bool:
     """Is there a repeat anywhere under this sequence, at any depth?
 
     Used for one decision only: a look-around assertion carrying a repeat is
     refused as unclassifiable. The walk deliberately does not try to reason
     about the repeat; finding one is the whole answer.
     """
-    for entry in sequence:  # type: ignore[union-attr]
+    for entry in sequence:
         opcode, argument = entry
         if opcode in _GRAMMAR_REPEATS:
             return True
@@ -647,7 +647,7 @@ def _grammar_holds_a_repeat(sequence: object) -> bool:
     return False
 
 
-def _refuse_grammar_sequence(sequence: object, *, inside_repeat: bool) -> str | None:
+def _refuse_grammar_sequence(sequence: Iterable[Any], *, inside_repeat: bool) -> str | None:
     """Walk one parsed sequence; return the reason it is refused, or ``None``.
 
     ``inside_repeat`` is the whole of the state this walk carries. Everything
@@ -655,7 +655,7 @@ def _refuse_grammar_sequence(sequence: object, *, inside_repeat: bool) -> str | 
     an enclosing repeat, so one boolean is the entire context.
     """
     pending: _FirstSet | None = None  # an expansive repeat still able to collide
-    for entry in sequence:  # type: ignore[union-attr]
+    for entry in sequence:
         opcode, argument = entry
         if opcode is _sre_constants.AT or opcode in _GRAMMAR_ATOMS:
             if opcode is not _sre_constants.AT:
@@ -697,7 +697,7 @@ def _refuse_grammar_sequence(sequence: object, *, inside_repeat: bool) -> str | 
                 return below
             continue
         if opcode is _sre_constants.SUBPATTERN:
-            inner_sequence: object = argument[3]
+            inner_sequence: Iterable[Any] = argument[3]
         elif opcode is _sre_constants.ATOMIC_GROUP:
             inner_sequence = argument
         elif opcode is _sre_constants.BRANCH:
@@ -739,7 +739,7 @@ def _refuse_grammar_sequence(sequence: object, *, inside_repeat: bool) -> str | 
     return None
 
 
-def _refuse_grammar_branch(branches: object, *, inside_repeat: bool) -> str | None:
+def _refuse_grammar_branch(branches: Iterable[Any], *, inside_repeat: bool) -> str | None:
     """Refuse an alternation whose branches can match the same input, under a repeat.
 
     Ambiguity matters only under a repeat. ``(a|ab)`` on its own costs one
@@ -749,7 +749,7 @@ def _refuse_grammar_branch(branches: object, *, inside_repeat: bool) -> str | No
     """
     if inside_repeat:
         first_sets: list[_FirstSet] = []
-        for branch in branches:  # type: ignore[union-attr]
+        for branch in branches:
             first = _grammar_first_set(branch)
             if first is None:
                 return _grammar_unclassifiable("an alternation branch it cannot read")
@@ -769,7 +769,7 @@ def _refuse_grammar_branch(branches: object, *, inside_repeat: bool) -> str | No
                         "way to consume the same text, and the engine explores "
                         "every combination of those choices across iterations"
                     )
-    for branch in branches:  # type: ignore[union-attr]
+    for branch in branches:
         refusal = _refuse_grammar_sequence(branch, inside_repeat=inside_repeat)
         if refusal is not None:
             return refusal
