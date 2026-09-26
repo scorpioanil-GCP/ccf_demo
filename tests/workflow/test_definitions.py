@@ -235,3 +235,59 @@ def test_the_module_names_its_factory_deferred_checks() -> None:
 
     assert module.__doc__ is not None
     assert "WorkflowFactory" in module.__doc__
+
+
+# --- gate_routes: verdict -> declared target (D-IMPL-357 A1) ------------------
+
+
+def _base(**overrides: Any) -> dict[str, Any]:
+    document = {
+        "schema_version": "2.0.0",
+        "artifact_version": "1.0.0",
+        "name": "w",
+        "tenant": "acme-bank",
+        "task_definition_ref": "ccf-artifact://acme-bank/ccf.task-definition/t@1.0.0",
+        "start": "fetch",
+        "transitions": [
+            {"source": "fetch", "target": "gate"},
+            {"source": "gate", "target": "approved"},
+            {"source": "gate", "target": "rejected"},
+        ],
+        "terminal_states": ["approved", "rejected"],
+        "gate_routes": {"gate": {"approve": "approved", "reject": "rejected"}},
+    }
+    document.update(overrides)
+    return document
+
+
+def test_gate_routes_maps_each_verdict_to_a_declared_target_from_that_gate() -> None:
+    definition = WorkflowDefinition.model_validate(_base())
+    assert definition.gate_routes["gate"]["reject"] == "rejected"
+
+
+def test_a_route_to_a_target_not_declared_from_that_gate_is_refused() -> None:
+    with pytest.raises(ValidationError, match="not a declared transition target from"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"gate": {"approve": "approved", "reject": "fetch"}})
+        )
+
+
+def test_a_verdict_outside_GATE_ACTIONS_is_refused() -> None:
+    with pytest.raises(ValidationError, match="GATE_ACTIONS"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"gate": {"approve": "approved", "escalate": "rejected"}})
+        )
+
+
+def test_a_route_keyed_by_an_undeclared_node_is_refused() -> None:
+    with pytest.raises(ValidationError, match="appear nowhere"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"phantom": {"approve": "approved"}})
+        )
+
+
+def test_gate_routes_is_a_generation_boundary_not_a_transparent_default() -> None:
+    from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+
+    field = WorkflowDefinition.model_fields["gate_routes"]
+    assert (field.json_schema_extra or {}).get(HASH_TRANSPARENT_KEY) is False

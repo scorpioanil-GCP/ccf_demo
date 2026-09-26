@@ -40,11 +40,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
+from ccf.hitl.approval_gate import GATE_ACTIONS
 
 __ccf_mode__ = "algorithmic"
 
@@ -133,6 +135,15 @@ class WorkflowDefinition(_TwoLaneVersioned):
     terminal_states: tuple[str, ...]
     exception_refs: Mapping[str, str] = {}
     gate_policies: Mapping[str, str] = {}
+    #: Per-gate verdict→target routing (D-IMPL-357 A1): which declared
+    #: transition target each GATE_ACTIONS verdict may take from that gate.
+    #: A GENERATION BOUNDARY (D-IMPL-351(a); D-IMPL-243 amendment 1): a
+    #: document lacking it is of an earlier generation, and the factory
+    #: refuses a routed gate that declares no complete map. Routing values,
+    #: never code (CINV-01): the SDK supplies only the verdict vocabulary.
+    gate_routes: Mapping[str, Mapping[str, str]] = Field(
+        default={}, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
 
     @field_validator("task_definition_ref")
     @classmethod
@@ -281,6 +292,36 @@ class WorkflowDefinition(_TwoLaneVersioned):
                 " the WorkflowFactory's semantic check against the resolved"
                 " TaskDefinition"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _routes_map_verdicts_onto_declared_targets(self) -> "WorkflowDefinition":
+        declared = self._declared_nodes()
+        outgoing: dict[str, set[str]] = {}
+        for transition in self.transitions:
+            outgoing.setdefault(transition.source, set()).add(transition.target)
+        stray = sorted(set(self.gate_routes) - declared)
+        if stray:
+            raise ValueError(
+                f"gate route key(s) {stray!r} appear nowhere in the wrapper's"
+                " declared transition graph (D-IMPL-357 A1; CLAUDE.md §8.1)"
+            )
+        for gate, routes in sorted(self.gate_routes.items()):
+            unknown = sorted(set(routes) - GATE_ACTIONS)
+            if unknown:
+                raise ValueError(
+                    f"gate {gate!r} routes verdict(s) {unknown!r}, which are"
+                    f" not in GATE_ACTIONS {sorted(GATE_ACTIONS)}; a route is"
+                    " keyed by the gate's own verdict vocabulary (D-IMPL-357 A1)"
+                )
+            for verdict, target in sorted(routes.items()):
+                if target not in outgoing.get(gate, set()):
+                    raise ValueError(
+                        f"gate {gate!r} routes verdict {verdict!r} to"
+                        f" {target!r}, which is not a declared transition"
+                        f" target from {gate!r}; a route names one of the"
+                        " gate's own declared targets (D-IMPL-357 A1)"
+                    )
         return self
 
 
