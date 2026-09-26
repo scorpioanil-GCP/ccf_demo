@@ -219,15 +219,24 @@ gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `mak
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/lints/tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/product_gates_tests -q
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/check_version_stamp_tests -q
 
 # SEC-029 / D-IMPL-357 §D: the belt half of the version-stamp control. A no-op
 # off a tag (HEAD is not an exact `v*` tag — the ordinary state of every branch
 # and PR run); on a release tag it fails when the installed distribution
 # metadata (`setuptools_scm`, derived from the tag at build/install time) does
-# not equal the tag. The qualification recipe (spec §8.2 "the version gate")
-# runs this target in the qualification venv before TAG GO; `.github/workflows/
-# release-stamp.yml` runs the same check on the `v*` push itself.
-check-version-stamp: ## Fail if HEAD is an exact release tag and the installed version stamp disagrees
+# not equal the tag, or when that metadata is ambiguous or bears an
+# underived-fallback marker (fix round 1, findings 1–2). The qualification
+# recipe (spec §8.2 "the version gate") runs THIS TARGET in the qualification
+# venv before TAG GO — `$(PYTHON)` there is not this checkout's venv, so that
+# step overrides it explicitly: `make check-version-stamp
+# PYTHON=<qualification-venv>/bin/python`. `.github/workflows/release-stamp.yml`
+# runs the same script directly on the `v*` push itself. The script's own
+# behavior — every posture in the three-item list above — is unit-tested in
+# `tools/check_version_stamp_tests/` (wired into `gate-tools` above, fix round
+# 1 finding 6), so a regression in the gate's LOGIC is caught by ordinary CI;
+# this target is the thing that actually runs at a real release.
+check-version-stamp: ## Fail if HEAD is an exact release tag and the installed version stamp disagrees or is ambiguous
 	$(ENV) $(PYTHON) tools/check_version_stamp.py
 
 # The runner is `runner/drive.py`, and BOTH halves of that path are load-bearing.

@@ -139,6 +139,17 @@ dev = [
 # unreleased code. A checkout with no git history builds as the fallback and
 # says so, rather than as a plausible release number. (SEC-029; D-IMPL-357 §D)
 fallback_version = "0.0.0+no-git-metadata"
+# Scoped to release tags ONLY (D-IMPL-357 fix round 1, finding 4, MEASURED):
+# the default `git describe --match '*[0-9]*'` also matches this project's own
+# non-release tag convention (`phase-N-base`, `phase-N.M-base`, one cut per
+# phase per CLAUDE.md §3.1). Left unscoped, `setuptools_scm` raises
+# `ValueError: Can't parse version from tag 'phase-26-base'` the moment such a
+# tag is nearer than the last `v*` release — which fails `pip install -e .`
+# outright for every clone until the next release tag. `--match 'v[0-9]*'`
+# makes only release tags feed the version; a phase-base tag nearer HEAD is
+# invisible to this command and the derivation falls through to the last
+# `v*` tag plus distance, exactly as before this fix.
+git_describe_command = "git describe --dirty --tags --long --match 'v[0-9]*'"
 
 # Single distribution for v0 shipping two packages: the `ccf` library (src layout,
 # CLAUDE.md §10 L1–L6) and the `ccf_runtime` host package (CLAUDE.md §14) — D-05.
