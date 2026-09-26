@@ -27,6 +27,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 GATE = Path(__file__).resolve().parent.parent / "check_version_stamp.py"
 
 #: Minimal, deterministic environment for the git-repo-building helpers
@@ -215,23 +217,76 @@ def test_no_release_tags_anywhere_is_refused_not_passed(tmp_path: Path) -> None:
     assert "no 'v[0-9]*' tags are visible" in result.stdout
 
 
-def test_underived_fallback_stamp_is_refused_unconditionally(tmp_path: Path) -> None:
-    """The `no-git-metadata` marker refuses even when HEAD IS an exact matching tag.
+@pytest.mark.parametrize("marker", ["no-git-metadata", "no.git.metadata"])
+def test_underived_fallback_stamp_is_refused_unconditionally(
+    tmp_path: Path, marker: str
+) -> None:
+    """The fallback marker refuses in the very state the gate otherwise calls a benign PASS.
 
     Fix round 1 finding 2's other half: the marker announces the version was
     NOT derived from git, so its presence is never a state in which the tag
-    comparison should even run — asserted here by making the tag comparison
-    a value that would otherwise PASS (the version number matches the tag
-    text) and confirming the marker still wins.
+    comparison should even run.
+
+    Fix round 4, finding 1 (BLOCKING), MEASURED: this test could not fail for
+    the reason its own name claims, and it failed on BOTH halves at once.
+
+    * **Its needle was its own stamp value.** It asserted
+      `"no-git-metadata" in result.stdout`, and the tag-comparison refusal
+      echoes the stamp back verbatim — measured output with the check removed
+      was `check_version_stamp: tag v0.0.0 but installed ccf is
+      0.0.0+no-git-metadata`. Deleting the ENTIRE marker check (the loop, not
+      merely its `print`) left this test green: the gate fell through and
+      refused for an unrelated reason, and `"==" not in result.stdout` held on
+      that line too. So the test could not tell the marker refusal from the
+      mismatch refusal, which is the whole of what it is named for. It is now
+      anchored on the marker refusal's own opening text AND on the phrase
+      stating the reason — neither of which any other path in the gate prints.
+    * **Its fixture could not discriminate by return code.** The tag sat ON
+      HEAD, where the comparison refuses anyway (`0.0.0+<marker>` never equals
+      `0.0.0`), so exit 1 was guaranteed with or without the check — which
+      also makes the old docstring's premise, that the value "would otherwise
+      PASS (the version number matches the tag text)", simply false. The
+      release tag now sits one commit BEHIND HEAD: the ordinary off-tag state
+      the gate deliberately calls a benign `nothing to hold` **exit 0**. With
+      the marker check removed this posture PASSES, so the return code is
+      load-bearing alongside the message, and "unconditionally" is what that
+      demonstrates rather than asserts.
+
+    The off-tag shape is also the realistic one. A wheel built from a source
+    tarball with no `.git` carries `fallback_version`; it is then installed
+    into a venv and run inside an ordinary, correctly-tagged checkout whose
+    HEAD simply is not a release — a state the gate is otherwise happy with.
+
+    Both declared `_UNDERIVED_MARKERS` are exercised, because **the dotted one
+    is the form a real build actually produces**: PEP 440 normalizes local
+    version labels, so `pyproject.toml`'s literal `0.0.0+no-git-metadata` is
+    recorded in `*.dist-info` as `0.0.0+no.git.metadata` (measured:
+    `packaging.version.Version("0.0.0+no-git-metadata")` renders
+    `0.0.0+no.git.metadata`). Covering only the hyphenated literal left the
+    marker that actually reaches installed metadata with no test at all.
     """
     repo = _make_repo(tmp_path)
     _git(repo, "tag", "v0.0.0")
-    _write_distribution(repo, "0.0.0+no-git-metadata", kind="dist-info")
+    (repo / "second.txt").write_text("x\n")
+    _git(repo, "add", "second.txt")
+    _git(repo, "commit", "-q", "-m", "second")  # the release tag is now BEHIND HEAD
+    stamp = f"0.0.0+{marker}"
+    _write_distribution(repo, stamp, kind="dist-info")
 
     result = _run_gate(repo)
 
+    # Without the marker check this posture is the gate's benign off-tag
+    # PASS (exit 0), so the return code alone catches the check's removal.
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "no-git-metadata" in result.stdout
+    # ...and the message catches it independently: this is the marker
+    # refusal's OWN opening text, not a value the fall-through echoes back.
+    assert result.stdout.startswith(
+        f"check_version_stamp: installed ccf is {stamp!r} — "
+    ), result.stdout
+    assert (
+        f"the {marker!r} marker means the version was NOT derived from git"
+        in result.stdout
+    ), result.stdout
     assert "==" not in result.stdout
 
 
