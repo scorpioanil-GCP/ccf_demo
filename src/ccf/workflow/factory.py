@@ -17,11 +17,21 @@ CINV-01c factory-bypass lint (D-12: lint is the mechanism of record).
 syntactic validators (:mod:`ccf.workflow.definitions`) checked what the
 wrapper can see; this module checks what only the resolved artifacts can
 answer: every declared non-terminal node names a step in the resolved
-TaskDefinition (D-12); every ``gate_policies`` key names a
-``hitl-gate``-kind step; every exception ref and gate-policy ref resolves
-in the registry at its pinned version (D-13; D-IMPL-26). The D-IMPL-61
-propagate-to-terminal semantics need nothing resolved — absence is defined
-locally — so nothing about them is re-checked here.
+TaskDefinition (D-12); every ``gate_policies`` **and** ``gate_routes`` key
+names a ``hitl-gate``-kind step; every ``hitl-gate``-kind step reachable in
+the wrapper's graph routes every ``GATE_ACTIONS`` verdict to a target
+(D-IMPL-357 A2 — the wrapper's local validators can restrict a route's key
+to a declared node and its target to a declared edge, but only the resolved
+task tells this module which nodes are gates at all, and whether the map is
+complete); **no ``hitl-gate``-kind step is a declared terminal state** (A2
+review round 1, item 7 — a gate named terminal escapes the completeness
+population, which subtracts terminal states, and becomes a silent completion
+in one position and an unresumable suspension in the other; a gate is a place
+a human acts, never a terminal condition); every exception ref and
+gate-policy ref resolves in the registry
+at its pinned version (D-13; D-IMPL-26). The D-IMPL-61 propagate-to-terminal
+semantics need nothing resolved — absence is defined locally — so nothing
+about them is re-checked here.
 
 The audit scope is D-22's: refusals here are typed construction errors
 (broken definitions, the I.1 refusal-vs-exception line as the agent seam
@@ -52,6 +62,7 @@ from ccf.artifacts.protocol import artifact_uri, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.hitl.approval_gate import GATE_ACTIONS
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.authz.capability import (
     ActionKind,
@@ -345,6 +356,37 @@ class WorkflowFactory:
                 " (D-12; CLAUDE.md §8.1)"
             )
 
+        # D-IMPL-357 A2 (review round 1, item 7) — A GATE IS A PLACE A HUMAN
+        # ACTS; IT IS NEVER A TERMINAL CONDITION. A `hitl-gate`-kind step the
+        # wrapper also declares terminal is silently two different no-ops
+        # depending on how it is reached, and the completeness check below
+        # reaches neither, because `routable` subtracts the terminal states:
+        #   * named in `terminal_states` AND reached as a transition target —
+        #     the execution completes at the gate's name with no suspension,
+        #     no human action and no route map required; the gate is reduced
+        #     to a label;
+        #   * the same step as the START node — `_advance` suspends on the
+        #     step's kind before any terminal test, so the execution suspends
+        #     and can never resume, since a terminal state carries no
+        #     outgoing transitions.
+        # Only the resolved task says which names are gates, so the check
+        # lives here, and it refuses both shapes at construction rather than
+        # leaving one consumer to paper over them.
+        gate_terminals = sorted(
+            name
+            for name in definition.effective_terminal_states
+            if step_kinds.get(name) == "hitl-gate"
+        )
+        if gate_terminals:
+            raise WorkflowConstructionError(
+                f"step(s) {gate_terminals!r} are declared terminal states and"
+                " their kind in the resolved task definition is 'hitl-gate';"
+                " a gate is a place a human acts and is never a terminal"
+                " condition, so a gate named as one is either a silent"
+                " completion with no human action or a suspension that can"
+                " never resume (D-IMPL-357 A2; CLAUDE.md §8.1/§8.2)"
+            )
+
         # Gate bindings target hitl-gate-kind steps — the kind lives in the
         # resolved task, so the check lives here.
         for gate_name, policy_ref in sorted(definition.gate_policies.items()):
@@ -357,6 +399,36 @@ class WorkflowFactory:
                     " CLAUDE.md §8.1/§8.2)"
                 )
             self._resolve_bound_ref(policy_ref, ruling="D-12")
+
+        # Route bindings target hitl-gate-kind steps too — the same check,
+        # symmetric to gate_policies above. Noted at A1's review: the wrapper
+        # cannot see step kinds, so nothing previously refused a gate_routes
+        # key naming a step that is not a gate (D-IMPL-357 A2).
+        for gate_name in sorted(definition.gate_routes):
+            kind = step_kinds.get(gate_name)
+            if kind != "hitl-gate":
+                raise WorkflowConstructionError(
+                    f"gate route on step {gate_name!r}, whose kind in the"
+                    f" resolved task definition is {kind!r}, not 'hitl-gate';"
+                    " verdict routes bind to gates exclusively (D-IMPL-357 A2;"
+                    " CLAUDE.md §8.1/§8.2)"
+                )
+
+        # D-IMPL-357 A2 — every ROUTED hitl-gate step declares where each
+        # verdict goes. Scoped to the nodes the wrapper routes to
+        # (`routable`), the same population the phantom check above walks.
+        for gate_name in routable:
+            if step_kinds.get(gate_name) != "hitl-gate":
+                continue
+            missing = sorted(GATE_ACTIONS - set(definition.gate_routes.get(gate_name, {})))
+            if missing:
+                raise WorkflowConstructionError(
+                    f"hitl-gate step {gate_name!r} does not route verdict(s)"
+                    f" {missing!r}; a routed gate declares a target for every"
+                    " GATE_ACTIONS verdict, because an undeclared route is"
+                    " the route the engine must refuse, not guess"
+                    " (D-IMPL-357 A2; D-IMPL-351(a); CLAUDE.md §6.4)"
+                )
 
         # Exception refs resolve at their pinned versions (D-13).
         for _node, exception_ref in sorted(definition.exception_refs.items()):

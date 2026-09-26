@@ -23,13 +23,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1731 entries**, of which **1473** name a public Python surface.
+**1736 entries**, of which **1478** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-991 entries — 948 public Python surface, 43 not public Python API.
+993 entries — 950 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -286,6 +286,61 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   absence on surfaces that could not ask for one
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+
+- Surface: ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+- Public surface: true
+- Change type: added
+- Before: absent. A `workflow_resumed` refusal caused by a recorded human
+  verdict was an `AuditEvent` indistinguishable from any other refusal of
+  the same execution — same action, same `resolved=False`, same `actor=None`.
+- After: a derived event class carrying two fields —
+  `workflow_verdict_integrity` (which rule refused) and
+  `workflow_recorded_approver` (the approver whose recorded verdict the
+  engine's selection rule reached). `AuditLog.append` returns one of these
+  whenever `workflow_verdict_integrity` is supplied, and the workflow engine
+  supplies it at exactly two sites: the route-disagreement refusal (A3) and
+  the conflicting-verdicts refusal (A4). Both fields are hash-transparent at
+  their sentinel (`ccf.contracts.canonical.HASH_TRANSPARENT_KEY`;
+  `D-IMPL-243`, *"silence equals yesterday"*), so an event appended with
+  either unset renders byte-identically to one appended before the class
+  existed. The refusal row also carries the approver in the base `actor`
+  field, so an investigator filtering the log by actor finds it — `resolved`
+  is still `False`, because a refusal is not an attributed passage.
+- Why: `SEC-001`. The remedy this vulnerability's own fix introduced is that
+  a gate opens only on a recorded human action; the log then has to be able
+  to say when a resumption was refused *because* of one. Recording nothing
+  about the human made the log say less than the engine knew — the approver
+  is a local in scope at both refusal sites.
+- Migration: none. Existing readers of `AuditLog.events()` receive
+  `AuditEvent` instances and these are `AuditEvent` subclasses; existing
+  canonical hashes do not move. A reader that wants the new facts narrows on
+  the class or reads the two fields.
+
+*Recorded by `357-A4-verdict-integrity-audit-event.md`.*
+
+#### ccf.controlplane.audit.WorkflowVerdictIntegrityFailure
+
+- Surface: ccf.controlplane.audit.WorkflowVerdictIntegrityFailure
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a closed `Literal` with two members — `"route_disagreement"` (the
+  caller's decision does not name the target the artifact declares for the
+  recorded verdict) and `"conflicting_verdicts"` (more than one distinct
+  verdict is recorded against one suspension, so no single recorded verdict
+  can be routed on at all). Closed rather than free-form prose because an
+  investigator queries a vocabulary, and `None` is the honest third state: a
+  refusal no verdict-integrity rule produced must never claim one.
+- Why: the same reason `AuthzFailingAxis` is closed — *"a deny says what it
+  denied"* — applied to the gate. It also keeps the two rules distinguishable
+  from each other, which matters because they mean different things about who
+  is at fault: a route disagreement is about the caller, a verdict conflict
+  is about two humans.
+- Migration: none; a new exported type.
+
+*Recorded by `357-A4-verdict-integrity-audit-event.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -15999,7 +16054,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-482 entries — 295 public Python surface, 187 not public Python API.
+484 entries — 297 public Python surface, 187 not public Python API.
 
 ### Public Python surface
 
@@ -16092,6 +16147,117 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. Existing callers ignore the return value and are unaffected
 
 *Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.workflow.WorkflowDefinition
+
+- Surface: ccf.workflow.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of the class below, unchanged in shape.
+- After: the same re-export of the same reshaped class — `gate_routes` reaches
+  a caller importing from `ccf.workflow` exactly as it reaches one importing
+  from `ccf.workflow.definitions`. Recorded as its own entry because
+  `tools/dump_surface.py` enumerates the re-export as a distinct manifest
+  name, so a fragment claiming only the defining module leaves the alias
+  unclaimed and `tests/test_surface_completeness.py::
+  test_every_diff_line_has_a_matching_public_log_entry` red. Added by A4 on
+  finding that red standing; the change itself is A1's and nothing about it
+  is A4's.
+- Why: as below.
+- Migration: none — the same as below.
+
+*Recorded by `357-A1-gate-routes.md`.*
+
+#### ccf.workflow.definitions.WorkflowDefinition
+
+- Surface: ccf.workflow.definitions.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: no field declared which verdict at a gate leads to which
+  transition target. A `WorkflowDefinition` could route a `hitl-gate`-kind
+  step's approving and rejecting branches from nothing more than whatever
+  decision string an engine happened to read at resume time.
+- After: a new field, `gate_routes: Mapping[str, Mapping[str, str]]` (gate
+  step name → verdict → declared target), default `{}`. A
+  `model_validator(mode="after")` refuses: a route key naming no
+  non-terminal node in the wrapper's declared transition graph; a verdict
+  outside `GATE_ACTIONS` (`ccf.hitl.approval_gate`,
+  `frozenset({"approve", "reject"})`); a route target that is not a
+  declared outgoing transition target from that gate; and two verdicts from
+  one gate naming the same target (a map that would let a recorded
+  rejection resolve identically to an approval). The field is marked
+  `ccf_hash_transparent: False` (`ccf.contracts.canonical.HASH_TRANSPARENT_KEY`)
+  — a declared generation boundary (`D-IMPL-243` amendment 1), not a silent
+  default: a stored `WorkflowDefinition` document that predates this field
+  is of an earlier generation, named by `generation_mismatch` (by field
+  name, before re-execution), never silently treated as compatible. Whether
+  a declared key names a `hitl-gate`-kind step is, like `gate_policies`,
+  the `WorkflowFactory`'s semantic check, not this contract's.
+- Why: `SEC-001` — nothing in the artifact declared which verdict goes
+  where, so a recorded rejection had no declared route distinct from an
+  approval's. `gate_routes` is that declared map; later tasks in this lane
+  (`A2` factory-level completeness check on `hitl-gate`-kind steps, `A3`
+  engine-side compare against the recorded decision, `A4` refusal of
+  conflicting verdicts on one suspension) consume it by name and shape —
+  neither is renamed nor reshaped here.
+  **A routed gate declares at least TWO distinct outgoing transition
+  targets.** It follows from the validators rather than being declared
+  separately: every
+  route target must be a declared transition target from that gate, two
+  verdicts from one gate must not share a target, and `A2`'s factory check
+  requires a target for every `GATE_ACTIONS` verdict. A gate with a single
+  outgoing edge satisfies no pair of those, so a workflow that relied on
+  `D-IMPL-61` propagate-to-terminal for its rejecting branch — as the
+  covenant fixture's own comment does for exception refs
+  (`tests/fixtures/banking/workflows/covenant_review_workflow.yaml`) — now
+  declares an explicit reject edge. That is the lane's intent; what was
+  missing is that an author met it as two refusals from two modules with the
+  rule stated nowhere. It is now one clause on the `gate_routes` field
+  docstring (`src/ccf/workflow/definitions.py`).
+  **A `hitl-gate`-kind step is never a declared terminal state.** `A2`'s
+  factory refuses any step whose kind in the resolved TaskDefinition is
+  `hitl-gate`
+  and whose name appears in `effective_terminal_states`. Review measured both
+  shapes this closes: named in `terminal_states` and reached as a transition
+  target, the execution COMPLETES at the gate's name with no suspension and no
+  human action; as the START node, it suspends and can never resume. Neither
+  was reached by the completeness check, because `routable` subtracts the
+  terminal states — so "gate" silently meant two different no-ops depending on
+  how it was reached. A gate is a place a human acts, never a terminal
+  condition. A deployment whose workflow declares such a step is refused at
+  construction, which is a behavior change to `WorkflowFactory.construct` on a
+  shape that could not have worked as its author intended.
+- Migration: **for THIS task alone — the contract change, before any factory
+  check — none:** the field defaults to `{}`, so a `WorkflowDefinition`
+  document written before it still validates. That is the extent of the
+  no-migration claim, and it is scoped to A1 deliberately, because **the lane
+  as a whole does require migration** and an adopter reading only this bullet
+  would decide a release needs no work. In one clause: **every workflow
+  document whose wrapped task declares a `hitl-gate` step the wrapper can
+  reach must declare a complete `gate_routes` entry for that gate — a target
+  for each of the two `GATE_ACTIONS` verdicts, hence at least two distinct
+  outgoing transition targets — and must not name that gate in
+  `terminal_states`.** A document that does not is refused at
+  `WorkflowFactory.construct` (`A2`), and the terminal-gate refusal rejects
+  shapes that previously constructed, which is the behavior change the two
+  clauses above describe. **Content hashes move, by design and for every
+  `WorkflowDefinition` document — not only gate-bearing ones** — because the
+  field is a declared generation boundary
+  (`{HASH_TRANSPARENT_KEY: False}`) rather than a silent default, so it
+  renders at its default too; measured on a definition with no gate at all,
+  `5f09ffe6…` → `2f507135…`, and a stored document lacking the field is named
+  by `generation_mismatch` rather than run. The three in-tree gate-bearing
+  documents took **one routing entry each — not one line**: each needed a
+  `schema_version` bump to `2.0.0` plus a four-line `gate_routes` block, which
+  measures **10, 8 and 7 changed lines** (`git diff --numstat 00fde747..HEAD`)
+  for the covenant fixture, the payment-release fixture and
+  `perf/synth/artifacts/workflow.yaml`. An adopter sizes work from this figure,
+  so it states the entry count and the line count separately. The archived
+  example transcluded by
+  `public/reference/artifacts/workflow-definitions.md` declares no routes and
+  would now be refused, which that page says on its face.
+
+*Recorded by `357-A1-gate-routes.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -24282,7 +24448,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-220 entries — 192 public Python surface, 28 not public Python API.
+221 entries — 193 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -24588,6 +24754,38 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   it on both halves
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### Behavior claim — conflicting verdicts refuse the resumption
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine.resume
+- Public surface: true
+- Change type: behavior
+- Before: `resume` selected the OLDEST qualifying submission and routed on
+  it, so a rejection recorded after an approval was silently discarded.
+  Measured through the served doors: submit approve, then reject on the same
+  pending event, then resume claiming the approving decision, and the
+  execution completed `approved` with the rejection standing (HTTP 200). The
+  transport's stamp race reached the same terminal by a second route.
+- After: `resume` refuses when more than one distinct `GATE_ACTIONS` verdict
+  is recorded against this suspension, in either arrival order, ahead of the
+  declared-target and route compares. The verdicts it counts are a
+  deliberately BROADER population than the ones eligible to be the
+  authority — every gate-action submission naming this gate's pending event
+  and bound to this suspension's content hash, **stamped or not, eligible or
+  not** — because the stamp race's recorded end state is one stamped verdict
+  beside one unstamped opposite verdict, which an eligibility-filtered set
+  sees as a single verdict and waves through.
+- Why: `SEC-001`. A bank's answer to *two humans recorded opposite verdicts
+  on one decision* is to stop and require reconciliation, not to resolve
+  silently in favor of whichever verdict won a race.
+- Migration: agreeing submissions carry one distinct verdict, so nothing that
+  previously proceeded on agreement now refuses — a second approver recording
+  the same verdict (D-23 quorum) is unaffected. A deployment that relied on a
+  later verdict superseding an earlier one on the same suspension must now
+  reconcile explicitly: there is no supersession rule, deliberately, because
+  choosing one would be the fabric deciding which human to believe.
+
+*Recorded by `357-A4-verdict-integrity-audit-event.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
