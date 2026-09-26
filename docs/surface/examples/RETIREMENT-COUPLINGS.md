@@ -78,9 +78,9 @@ Rows by coupling shape:
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 67 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 89 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 148 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 160 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 90 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 149 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 161 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 159 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 163 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 221 | `examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
