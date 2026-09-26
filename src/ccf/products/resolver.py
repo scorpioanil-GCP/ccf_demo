@@ -2252,7 +2252,8 @@ class GovernedResolver:
         # nowhere in this fabric); `request.policy_overrides`; any value the
         # resolution stage supplies rather than the caller (a contract
         # `defaults` string, a relative default, a policy-narrowed value);
-        # any presented string at a position the declaration does not type as
+        # a string under an UNDECLARED parameter key; any other presented
+        # string at a position the declaration does not type as
         # `string`; and any string nested inside a declared member whose type
         # is `object` (an opaque container the floor does not open). Whether
         # the covered surface should widen is `D-IMPL-357`'s open coverage
