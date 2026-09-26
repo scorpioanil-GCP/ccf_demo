@@ -390,14 +390,21 @@ def test_a_deployment_cannot_widen_the_sdk_seam_map_and_its_own_undeclared_types
 
 
 def test_the_sdk_seam_map_refuses_a_deployment_supplied_type_at_runtime() -> None:
-    """The narrowness is STRUCTURAL, not only pinned by the roster above.
+    """THE TYPED WRITE, and nothing wider than that.
 
-    A roster assertion reddens when somebody edits the source. It does not stop
-    a deployment — or a test helper, or a conftest — from reaching in at import
-    time and adding its own exception type to the SDK's map, which would convert
-    an undiagnosed deployment failure into a governed "no" with the SDK's
-    authority behind it. The mapping is a read-only proxy, so that write raises
-    instead of succeeding, and the map after the attempt is unchanged.
+    What this proves, exactly: ``SDK_SEAM_REFUSALS[...] = ...`` raises and
+    ``.clear()`` does not exist, so accidental and typed mutation cannot happen
+    and the roster assertion above is a statement about the shipped map rather
+    than about whatever the last importer left behind.
+
+    What it does NOT prove — and what an earlier version of this docstring
+    wrongly claimed it did — is that a deployment cannot reach in and widen the
+    map. It can, two ways: rebinding the module attribute, and writing through
+    the dictionary this proxy wraps. No in-process mechanism can stop either,
+    because in-process code is already inside the trust boundary and the seam
+    callable can obtain the same conversion by importing ``IdentityRefused`` and
+    raising it. The constant's own comment says so plainly. This is a hygiene
+    control, not a boundary proof.
     """
     from ccf.controlplane.artifacts import SeamRefusalBinding
     from ccf.products.resolver import SDK_SEAM_REFUSALS
@@ -414,6 +421,77 @@ def test_the_sdk_seam_map_refuses_a_deployment_supplied_type_at_runtime() -> Non
     with pytest.raises((TypeError, AttributeError)):
         SDK_SEAM_REFUSALS.clear()  # type: ignore[attr-defined]
     assert dict(SDK_SEAM_REFUSALS) == before
+
+
+def test_an_sdk_seam_binding_cannot_be_RETARGETED_IN_PLACE() -> None:
+    """The mechanism the map's docstring did not claim, and the one that holds.
+
+    The proxy stops a typed write and nothing stops an in-process referent
+    write, so what is left is whether an entry that IS in the map can be
+    quietly made to mean something else. It cannot: a
+    :class:`~ccf.controlplane.artifacts.SeamRefusalBinding` is a frozen
+    ``CCFContract``, so assigning to ``cause`` or ``error_code`` raises. Code
+    that reaches the referent has to REPLACE a whole entry rather than retarget
+    an existing SDK-owned name, which is a louder edit and a different shape in
+    a diff.
+
+    Pinned because an unclaimed real defense is worth more than three claimed
+    ones, and because nothing else in this module would redden if the contract
+    base were unfrozen.
+    """
+    from pydantic import ValidationError
+
+    from ccf.products.resolver import SDK_SEAM_REFUSALS
+
+    binding = SDK_SEAM_REFUSALS["ccf.assembly.worker.IdentityRefused"]
+    for field, value in (("cause", "unauthorized"), ("error_code", "borrowed")):
+        with pytest.raises(ValidationError):
+            setattr(binding, field, value)
+    assert (binding.cause, binding.error_code) == ("nonexistent", "identity-refused")
+
+
+def test_rebinding_the_module_attribute_does_NOT_change_dispatch(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The lookup binds the map at DEFINITION time, so a rebind is inert.
+
+    The one widening route a module global has, closed because it was free:
+    ``_declared_seam_refusal`` captures the mapping in a private default
+    argument instead of reading ``resolver.SDK_SEAM_REFUSALS`` each call.
+
+    The control substitutes a WIDER map — the SDK's entry plus a deployment's
+    own exception — and raises that deployment exception at a seam under a class
+    that declares no ``seam_refusals``. Before the binding change this converted
+    into a governed refusal carrying the smuggled cause; now it propagates as
+    the defect it is. The assertion is on DISPATCH, never on the attribute: a
+    test that only read the rebound global back would pass under both versions.
+    """
+    import ccf.products.resolver as resolver_module
+    from ccf.controlplane.artifacts import SeamRefusalBinding
+
+    smuggled = f"{__name__}._ControlRoomUnreachable"
+    monkeypatch.setattr(
+        resolver_module,
+        "SDK_SEAM_REFUSALS",
+        dict(resolver_module.SDK_SEAM_REFUSALS)
+        | {
+            smuggled: SeamRefusalBinding(
+                exception=smuggled, cause="unauthorized", error_code="smuggled-in"
+            )
+        },
+    )
+    assert smuggled in resolver_module.SDK_SEAM_REFUSALS, "the rebind itself must land"
+
+    root = _write_tree(tmp_path / "b3rebind", config=_config())  # declares NO seam_refusals
+    scratch = tmp_path / "b3rebind" / "scratch"
+
+    def _unreachable(**_: Any) -> Any:
+        raise _ControlRoomUnreachable("a rebind must not buy this a governed 'no'")
+
+    with _open(root, scratch, project=_unreachable) as opened:
+        with pytest.raises(_ControlRoomUnreachable, match="must not buy this"):
+            opened.answer(_question(opened))
 
 
 def test_every_sdk_seam_map_entry_names_a_REAL_exception_the_SDK_ITSELF_defines() -> None:

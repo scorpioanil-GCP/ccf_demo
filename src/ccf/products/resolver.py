@@ -370,9 +370,52 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
 #: it (B1 introduced the type; no product class mentions it), so the SDK's own
 #: refusal escaped the paved road as an untyped error carrying no record.
 #:
-#: **A deployment cannot widen this map, by two separate mechanisms.**
+#: **WHAT THIS MAP IS NOT: A TRUST BOUNDARY.** An earlier revision of this
+#: comment claimed a deployment "cannot widen this map, by three separate
+#: mechanisms". That was false twice over, and the false half mattered more than
+#: the true half, because a guarantee documented wider than it is implemented
+#: removes the reader's reason to check. Measured, one line each:
 #:
-#: A third was claimed here and is STRUCK, because nothing calls it.
+#: * **A module-attribute rebind widens it.** ``ccf.products.resolver`` is an
+#:   ordinary module and :data:`Final` is a type-checker annotation with no
+#:   runtime force, so ``resolver.SDK_SEAM_REFUSALS = dict(...) | {...}`` simply
+#:   rebinds the name.
+#: * **A write through the wrapped dictionary widens it.** A
+#:   :func:`~types.MappingProxyType` is a view: the garbage collector hands back
+#:   its one referent, an in-place insert succeeds, and the proxy then reports
+#:   the smuggled key itself.
+#:
+#: **No in-process mechanism can close either route, and none is attempted.**
+#: Both require code already executing in this process, which is inside the
+#: trust boundary; the seam callable is deployment code and can obtain the same
+#: conversion by importing :class:`~ccf.assembly.worker.IdentityRefused` and
+#: raising it. **The match authenticates nothing** — it compares the raised
+#: value's own self-reported ``module.QualName``, which any object may spell as
+#: it likes — and the authority it grants is exactly the authority of raising
+#: the SDK's class directly, which every seam callable already has. Nothing here
+#: defends the SDK against its own deployment, and nothing here needs to.
+#:
+#: **What the three real mechanisms do, stated at their true width:**
+#:
+#: 1. The :func:`~types.MappingProxyType` refuses **accidental and typed**
+#:    mutation — ``SDK_SEAM_REFUSALS[...] = ...`` raises, ``.clear()`` does not
+#:    exist — which is what makes the roster assertion in the tests meaningful
+#:    rather than a snapshot of whatever the last importer left behind. It is a
+#:    hygiene barrier, not a boundary.
+#: 2. The bindings **inside** the map are :class:`~ccf.contracts.base.CCFContract`
+#:    instances and therefore frozen, so no entry can be retargeted in place:
+#:    assigning to ``binding.cause`` raises. Even code that reaches the referent
+#:    has to replace a whole entry rather than quietly change what an existing
+#:    SDK-owned name means. This is the one mechanism the earlier revision did
+#:    not claim, and it is the one that survives the routes above.
+#: 3. Every entry names a type inside the ``ccf`` package, and a test resolves
+#:    each name to a real exception class to prove the string is not merely
+#:    plausible. The SDK still **matches, never imports** (B2): the name is
+#:    compared against the raised value's own ``module.QualName``, so nothing
+#:    here resolves a dotted path and a misspelling never matches rather than
+#:    executing something. The importing is the test's job, not this module's.
+#:
+#: A fourth mechanism was claimed and is STRUCK, because nothing calls it.
 #: ``refuse_seam_refusal_widening`` holds a deployment to a subset of its
 #: product class's map, and a whole-tree read finds its definition, its
 #: re-export and one unit test — no door in ``src/`` or ``runtime/`` invokes it,
@@ -381,17 +424,6 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
 #: narrower than it is: *declaration is not a door* (``D-IMPL-324``). Whether
 #: that helper gets a door is a surface question for the project owner, not a
 #: claim this constant may rest on.
-#:
-#: 1. It is a :func:`~types.MappingProxyType`, so a write raises rather than
-#:    succeeding. A roster test alone would only catch an edit to this file; the
-#:    proxy also refuses a ``conftest`` or a deployment reaching in at import
-#:    time to add its own type and inherit the SDK's authority for it.
-#: 2. Every entry names a type inside the ``ccf`` package, and a test resolves
-#:    each name to a real exception class to prove the string is not merely
-#:    plausible. The SDK still **matches, never imports** (B2): the name is
-#:    compared against the raised value's own ``module.QualName``, so nothing
-#:    here resolves a dotted path and a misspelling never matches rather than
-#:    executing something. The importing is the test's job, not this module's.
 #:
 #: Consulted BEFORE a product class's declared map, so the SDK's meaning is the
 #: one minted for its own type: a class cannot restate "this record names no
@@ -3245,7 +3277,10 @@ class GovernedResolver:
     # --- the one minting seam ----------------------------------------------
 
     def _declared_seam_refusal(
-        self, error: BaseException
+        self,
+        error: BaseException,
+        *,
+        _sdk_seam_refusals: Mapping[str, SeamRefusalBinding] = SDK_SEAM_REFUSALS,
     ) -> SeamRefusalBinding | None:
         """The binding for ``error``'s type, or ``None`` to re-raise.
 
@@ -3263,14 +3298,25 @@ class GovernedResolver:
 
         :data:`SDK_SEAM_REFUSALS` is consulted **first**, because the SDK owns
         the meaning of the exceptions the SDK raises — that is the whole of B3's
-        amendment, and it is narrow by construction rather than by convention
-        (see that constant for the three mechanisms that keep it so). A class
-        that declares a binding for one of those types does not override it: the
-        SDK's cause and code are minted, and the class's restatement is not
-        reachable.
+        amendment. Read that constant for what its narrowness is and is not: it
+        is not a trust boundary, and the honest statement of its three real
+        mechanisms is there. A class that declares a binding for one of those
+        types does not override it: the SDK's cause and code are minted, and the
+        class's restatement is not reachable.
+
+        **The map is bound at DEFINITION time, not read at call time.** The
+        private ``_sdk_seam_refusals`` parameter is never passed by any caller;
+        its default captures the mapping object once, when this method is
+        defined, so rebinding ``ccf.products.resolver.SDK_SEAM_REFUSALS`` after
+        import cannot change what this dispatch consults. That closes the one
+        widening route a module global has and costs nothing — the matching
+        semantics are unchanged, and it is deliberately NOT presented as a trust
+        boundary: code inside this process can still reach the bound object
+        itself, and the constant's own comment says so. A control pins the
+        rebind.
         """
         raised = f"{type(error).__module__}.{type(error).__qualname__}"
-        if (mechanism := SDK_SEAM_REFUSALS.get(raised)) is not None:
+        if (mechanism := _sdk_seam_refusals.get(raised)) is not None:
             return mechanism
         for binding in self._declaration().seam_refusals:
             if binding.exception == raised:
