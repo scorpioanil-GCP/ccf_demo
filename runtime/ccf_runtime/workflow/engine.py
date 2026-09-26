@@ -1279,13 +1279,28 @@ class WorkflowEngine:
         unaffected — pinned by ``test_an_exception_routed_resume_without_
         escalation_is_unaffected``.
 
-        **The same residual the gate carries (D-IMPL-350).** Either
+        **The escalation leg's OWN remaining gap — no longer the gate's**
+        (D-IMPL-357 A4). The gate's verdict→target residual is closed:
+        ``gate_routes`` declares where each verdict goes (A1), the route
+        compare enforces it (A3), and conflicting verdicts on one
+        suspension refuse (A4). None of that reaches here, because
+        ``gate_routes`` is keyed by the two
+        :data:`~ccf.hitl.approval_gate.GATE_ACTIONS` verdicts on a gate
+        NODE, and an escalation is a hold on an exception-routed state
+        rather than a gate. So for this leg it remains true that either
         :data:`~ccf.hitl.escalation.ESCALATION_ACTIONS` verdict releases
-        the hold, because a declined hand-off is still a recorded human
-        decision about this state and nothing in a
-        :class:`~ccf.workflow.definitions.WorkflowDefinition` maps a
-        verdict to a route. What changed is that some human must have
-        acted on this routing, and the audit names them.
+        the hold: a declined hand-off is still a recorded human decision
+        about this state, and nothing a
+        :class:`~ccf.workflow.definitions.WorkflowDefinition` carries maps
+        an escalation verdict to a route. What the SEC-001 work did change
+        here is that some human must have acted on this routing at all, and
+        the audit names them.
+
+        This is stated rather than deleted because it is a distinct open
+        question with a distinct answer: declaring escalation routes would
+        be a new generation of the workflow contract (the shape A1 took for
+        gates), and whether a declined hand-off should route somewhere
+        other than a retry of the same node is a ruling nobody has made.
         """
         return any(
             event.event_class == ESCALATION_EVENT_CLASS
