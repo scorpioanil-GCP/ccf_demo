@@ -2012,6 +2012,23 @@ def refuse_request(
     reason this one delegates its parameter comparison to
     :func:`~ccf.products.payload.refuse_payload` rather than restating it.
 
+    **Deliberately does NOT carry the mechanism floor** (`D-IMPL-357` C1/C2,
+    sharpened at the C2 round-1 review). `GovernedResolver.__call__` judges
+    :func:`refuse_floor` — `request.subject` and every DECLARED `string`
+    parameter against `SUBJECT_FLOOR_V1` — as a separate call, before this
+    comparison even runs (C2); this function does not call `refuse_floor` and
+    never has, so a conforming request under this function's own rules may
+    still fail the floor, and this function alone cannot tell a caller which.
+    A caller that validates a request with *only* this function, outside
+    `GovernedResolver` — :class:`~ccf.agents.assembler.DeterministicAssembler`
+    (informally "AssemblerAgent") is exactly this shape, and stays this shape
+    by ruling — gets no floor judgment from doing so, and MUST call
+    :func:`refuse_floor` itself before treating the request as safe to acquire
+    against. The two validators are deliberately two calls rather than one:
+    folding the floor in here would force every caller of this function to
+    want both, and some legitimately do not (a registration-time capability
+    check judges shape, not a live request's text at all).
+
     Pure over its arguments: no clock, no registry lookup, no I/O. A verdict
     that moved with the time of day or with what was registered elsewhere would
     not be reproducible at replay, which is the property every comparison in
@@ -2241,11 +2258,32 @@ def refuse_floor(
     Beside `refuse_intent`, `GovernedResolver.__call__` runs this AFTER the
     addressing verdicts (lane, intent) and BEFORE the overridable
     constraint-resolver seam (D-IMPL-357 C2) — C2 adds that call site, not
-    this task — so that no `PolicyConstraintResolver` override can remove it
-    and no request reaches the acquisition seam carrying text the seam might
-    splice. A direct validator holding no declaration (`AssemblerAgent`,
+    this task — so that no `PolicyConstraintResolver` override can remove
+    its judgment of `request.subject` and every DECLARED `string` parameter
+    at every DECLARED depth, which is the whole of what this function
+    judges.
+
+    **Narrower than the acquisition seam's full attack surface, and this is
+    measured, not implied** (`D-IMPL-357` C2 round-1 review). Out-of-grammar
+    text at any of the following reaches the acquisition seam even when this
+    call runs and returns `None`: `request.intent` when the class declares
+    no discovery set; `request.freshness` (judged nowhere in this fabric);
+    `request.policy_overrides`; any value the resolution stage supplies
+    rather than the caller (a contract `defaults` string, a relative
+    default, a policy-narrowed value); any presented string at a position
+    the declared contract does not type as `string`; and any string nested
+    inside a declared member whose type is `object` — an opaque container
+    this function does not open. Whether the covered surface should widen —
+    judge the presented shape rather than only the declared shape, re-judge
+    over the effective request, or extend to `intent`/`freshness`/
+    `policy_overrides` — is `D-IMPL-357`'s open coverage question, held for
+    the project owner's ruling; this function does not decide it and must
+    not be widened to pre-empt it.
+
+    A direct validator holding no declaration (`AssemblerAgent`,
     `src/ccf/agents/assembler.py`) calls `refuse_request` on its own path and
-    does not judge this separately.
+    does not judge this separately — see `refuse_request`'s own docstring
+    for that split.
 
     Pure: no clock, no registry, no I/O. Subject first, then every declared
     `string` AT EVERY DECLARED DEPTH — the root, an object member

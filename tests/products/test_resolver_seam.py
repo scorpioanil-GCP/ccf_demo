@@ -2998,6 +2998,48 @@ def test_a_malformed_declared_string_parameter_is_refused_the_same_way(
     assert REFERENCE_PARAMETER in str(record.content_generation_path.assembly_refusal)
 
 
+def test_a_conforming_declared_string_parameter_passes_the_floor_and_serves(
+    booted_with_string_parameter: _Booted,
+) -> None:
+    """The positive control the parameter-floor test above needs beside it.
+
+    `test_a_well_formed_request_is_unaffected_by_the_floor`, below, uses the
+    STOCK fixture — whose contract declares only `revenue_threshold: number`
+    — so `refuse_floor`'s parameter loop never examines a `string` there at
+    all (`_refuse_floor_below` returns `None` immediately for a non-`string`
+    spec).
+
+    **Measured, not asserted.** Dropping the `fullmatch` check inside
+    `_refuse_floor_below`'s plain-`string` branch — refusing every presented
+    `string`, conforming or not — reddens THIS test alone: the
+    malformed-parameter test above still passes (its out-of-grammar value is
+    still refused, coincidentally, by an unconditional refusal), the stock
+    well-formed control still passes (it presents no string parameter for the
+    broken branch to ever see), and the malformed-subject test is unaffected
+    (a different code path). Only a test presenting a CONFORMING declared
+    string and expecting it to serve can catch a floor that refuses
+    everything. That is the asymmetric-coverage trap the round-1 review
+    named — a resolver-level section that tested refusal exhaustively and
+    never once proved a conforming declared string is admitted.
+
+    This test closes it: :data:`REFERENCE_PARAMETER` carries a value that
+    matches :data:`~ccf.products.request.SUBJECT_FLOOR_V1`
+    (`"ref-001"` — alphanumeric and a hyphen, well inside the grammar), and
+    the outcome must be a served product, not a refusal of any kind.
+    """
+    resolver = _resolver(booted_with_string_parameter)
+    outcome = _ask(
+        resolver,
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                REFERENCE_PARAMETER: "ref-001",
+            }
+        ),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+
 def test_a_well_formed_request_is_unaffected_by_the_floor(booted: _Booted) -> None:
     """The control. A conforming subject and a conforming parameter still
     serve — the floor is a refusal path, not a tax on every question."""
