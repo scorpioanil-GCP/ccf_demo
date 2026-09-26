@@ -16125,6 +16125,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   engine-side compare against the recorded decision, `A4` refusal of
   conflicting verdicts on one suspension) consume it by name and shape —
   neither is renamed nor reshaped here.
+  It follows from the validators rather than being declared separately: every
+  route target must be a declared transition target from that gate, two
+  verdicts from one gate must not share a target, and `A2`'s factory check
+  requires a target for every `GATE_ACTIONS` verdict. A gate with a single
+  outgoing edge satisfies no pair of those, so a workflow that relied on
+  `D-IMPL-61` propagate-to-terminal for its rejecting branch — as the
+  covenant fixture's own comment does for exception refs
+  (`tests/fixtures/banking/workflows/covenant_review_workflow.yaml`) — now
+  declares an explicit reject edge. That is the lane's intent; what was
+  missing is that an author met it as two refusals from two modules with the
+  rule stated nowhere. It is now one clause on the `gate_routes` field
+  docstring (`src/ccf/workflow/definitions.py`).
 - Migration: none required for an existing deployment — the field defaults
   to `{}` and every `WorkflowDefinition` document written before this
   change validates unchanged. A workflow author who wants the new refusal

@@ -145,6 +145,18 @@ class WorkflowDefinition(_TwoLaneVersioned):
     #: ``gate_policies``, the ``WorkflowFactory``'s semantic check against
     #: the resolved TaskDefinition — not this contract's, which cannot see
     #: step kinds at all.
+    #:
+    #: **A routed gate therefore declares at least TWO distinct outgoing
+    #: transition targets**, because each verdict takes a different declared
+    #: target: the validators below require every route target to be a
+    #: declared transition target from that gate and forbid two verdicts
+    #: sharing one, while the factory requires a target for every
+    #: ``GATE_ACTIONS`` verdict. A gate with a single outgoing edge cannot
+    #: satisfy both, so a workflow that relied on D-IMPL-61
+    #: propagate-to-terminal for its rejecting branch declares that branch
+    #: explicitly once the step is a gate. Stated here because an author
+    #: otherwise meets the rule as two refusals from two modules and has to
+    #: infer it (D-IMPL-357 A2 review, round 1, item 5).
     gate_routes: Mapping[str, Mapping[str, str]] = Field(
         default={}, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
