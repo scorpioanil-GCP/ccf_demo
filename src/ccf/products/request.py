@@ -191,6 +191,9 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ArgumentDomain",
     "NO_REQUEST_CONTRACT",
+    "PARAMETER_VALUE_FLOOR_EXCLUSIONS",
+    "PARAMETER_VALUE_FLOOR_V1",
+    "PARAMETER_VALUE_FLOOR_VERSION",
     "PRODUCT_REQUEST_CONTRACT",
     "AnchorAmbiguityRefusal",
     "ProductRequest",
@@ -2752,6 +2755,23 @@ SUBJECT_FLOOR_VERSION: Final[str] = "SUBJECT_FLOOR_V1"
 #: quote character — and each is a named residual for a later ruling, not an
 #: oversight.
 #:
+#: **This pattern is DELIBERATELY not registrable as a declared narrowing, and
+#: that is correct twice over** (R1 fix round 1, adversarial seat). The pattern
+#: text rides in every refusal `detail` this floor decides, which invites an
+#: adopter to paste it into an `ArgumentDomain(pattern=...)`. That registration
+#: is REFUSED by the SDK's own shape guard (`_refuse_unsafe_grammar`, C4's
+#: round-3 ruling): the guard met a repeat inside a look-around and fails
+#: closed on what it cannot PROVE safe. Every equivalent formulation tried
+#: trips the same guard — a lookahead-free form trips "two unbounded repeats
+#: side by side" instead. The refusal is right on both counts: (1) this floor
+#: already runs on every governed request, so re-declaring it as a narrowing
+#: narrows nothing; (2) the guard refuses shapes it cannot establish as safe,
+#: not shapes that are slow — this one was measured flat at <=0.0154 ms out to
+#: 1,000,000 characters, so the conservatism is about provability, not cost.
+#: `SUBJECT_FLOOR_V1` by contrast IS accepted by the guard. The property is
+#: pinned by a control so an adopter's registration failure is a documented
+#: property rather than a discovery.
+#:
 #: Versioned by name, like the subject floor; a change is a new name, and the
 #: name rides on every refusal it decides (`detail`).
 PARAMETER_VALUE_FLOOR_V1: Final[re.Pattern[str]] = re.compile(
@@ -3242,7 +3262,12 @@ def refuse_floor(
     text at any of the following reaches the acquisition seam even when this
     call runs and returns `None`: `request.intent` when the class declares
     no discovery set; `request.freshness` (judged nowhere in this fabric);
-    `request.policy_overrides`; any value the resolution stage supplies
+    every member of `request.policy_overrides` — a flat `tuple[str, ...]` of
+    policy identifiers, which is the exact extent of that carrier: the field
+    cannot hold a mapping or any nested shape at all (`ProductRequest` refuses
+    the construction), so its exposure is one tuple of unjudged strings and
+    not the open-ended structure a bare field name suggests (R1 fix round 1,
+    adversarial seat — measured); any value the resolution stage supplies
     rather than the caller (a contract `defaults` string, a relative
     default, a policy-narrowed value); **a string arriving under a parameter
     key the contract never declared at all** — the eighth carrier, named

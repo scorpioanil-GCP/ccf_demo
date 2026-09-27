@@ -410,14 +410,38 @@ def _identity_text(value: object) -> tuple[str | None, str]:
     1, Dave's ruling of 2026-09-27, amending B1 for IDENTITY VALUES ONLY) —
     not the original ``str.strip`` check it replaces, which only catches
     Python's whitespace set and missed U+200B (zero-width space), U+FEFF
-    (BOM) and NUL. It is called on ``str(value)`` rather than on ``value``
-    directly, for the same reason the original called ``str.strip`` on the
-    type rather than ``value.strip()`` on the instance: a ``str`` subclass
-    overriding either method cannot pass a blank-or-invisible value through
-    by shadowing it. **The reason stays ``"empty"``**: the value IS empty
+    (BOM) and NUL.
+
+    **It is called on ``str.__str__(value)``, and that spelling is the whole
+    of the hardening** (R1 fix round 1, both review seats). The original
+    called ``str.strip`` on the TYPE rather than ``value.strip()`` on the
+    instance precisely because a type-bound call cannot be shadowed; a
+    ``str`` subclass overriding ``strip`` could not pass a blank value
+    through it. Plain ``str(value)`` does NOT carry that property across:
+    it is instance-dispatched and invokes ``type(value).__str__``, so a
+    ``str`` subclass returning a visible string from ``__str__`` was
+    measured minting a node for an EMPTY identity — three distinct classes
+    collapsing onto one URI — while the empty ``str`` itself was correctly
+    refused. The carrier is ordinary code, not an attack: a ``str``-mixin
+    ``Enum`` whose "unknown" member is the empty string renders as
+    ``"Tag.UNKNOWN"`` under ``str()`` and as ``""`` under
+    ``str.__str__``. ``str.__str__`` is the type-bound analogue of the
+    ``str.strip`` idiom and resists ``__str__``, ``__iter__`` and both
+    together.
+
+    **The text RETURNED is that same plain-``str`` reading, never the
+    subclass instance**, so no later rendering can re-dispatch ``__str__``
+    on a value this function already judged, and the declared ``str | None``
+    return type is honored at runtime for a ``str``-mixin ``Enum`` member
+    (which is not a plain ``str``). This is byte-identical for the hash —
+    ``content_hash`` canonicalizes a ``str`` subclass by its content already,
+    measured equal for every subclass shape tried — so D-IMPL-316/B2's
+    minted-URI identity is untouched.
+
+    **The reason stays ``"empty"``**: the value IS empty
     once invisible-only characters are discounted, and Dave's item-3 ruling
     is not to change the reason vocabulary. An identity carrying an invisible
-    character BESIDE a visible one (``"a​b"``) is still a real identity —
+    character BESIDE a visible one (``"a\u200bb"``) is still a real identity —
     refusing that would be a widening into ordinary attribute semantics that
     Dave's ruling excludes.
     """
@@ -430,11 +454,11 @@ def _identity_text(value: object) -> tuple[str | None, str]:
     if isinstance(value, float):
         return None, "float"
     if isinstance(value, str):
-        return (
-            (None, "empty")
-            if _is_invisible_identity(str(value))
-            else (value, "")
-        )
+        # `str.__str__`, never `str(value)`: type-bound, so a subclass's own
+        # `__str__` cannot decide this. Both the CHECK and the RETURNED text
+        # read the content (R1 fix round 1).
+        text = str.__str__(value)
+        return (None, "empty") if _is_invisible_identity(text) else (text, "")
     if isinstance(value, Decimal):
         return (str(value), "") if value.is_finite() else (None, "non-finite")
     return None, "non-scalar"
@@ -450,15 +474,6 @@ class SpecDrivenEntityResolution:
     other — and the URI survives a source migration, because it was never
     derived from where the record lived (INV-CH8-01).
     """
-
-    #: Class-level alias onto the module-level admissibility check
-    #: (D-IMPL-357 item 1). The real function is :func:`_identity_text`,
-    #: named for what it returns (text or a refusal reason); this alias
-    #: gives the seam controls a class-qualified name to call directly
-    #: (``SpecDrivenEntityResolution._identity_of(value)``) without a live
-    #: :class:`EntityResolutionSpec` or an envelope, and without renaming the
-    #: function :meth:`resolve` already calls below.
-    _identity_of = staticmethod(_identity_text)
 
     def __init__(self, *, spec: EntityResolutionSpec) -> None:
         self._spec = spec

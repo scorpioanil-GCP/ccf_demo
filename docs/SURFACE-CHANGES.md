@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1747 entries**, of which **1488** name a public Python surface.
+**1750 entries**, of which **1491** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-997 entries — 954 public Python surface, 43 not public Python API.
+1000 entries — 957 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -15416,6 +15416,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `353-09-the-join.md`.*
+
+#### ccf.products.request.PARAMETER_VALUE_FLOOR_V1
+
+- Surface: ccf.products.request.PARAMETER_VALUE_FLOOR_V1
+- Public surface: true
+- Change type: added
+- Before: absent — a declared `string` parameter was judged by `SUBJECT_FLOOR_V1`, the ADDRESS grammar, which forbids a space
+- After: `Final[re.Pattern[str]]` — `re.compile(r"^(?=.{1,512}\Z)[A-Za-z0-9][A-Za-z0-9:/._~@+=-]*(?: [A-Za-z0-9:/._~@+=-]+)*\Z")`, the SDK-owned parameter-VALUE floor: ASCII letters and digits, plus `:` `/` `.` `_` `~` `@` `+` `=` `-` after the first character, plus **one ordinary INTERIOR space**, to a cap of **512 code points**. The first character must be alphanumeric. **Leading, trailing and doubled space are refused**, because a value differing from another only by invisible padding reads as equal to a human while hashing differently — a governance and replay hazard rather than an injection one. Anchored with `\Z`, like the subject floor, so an adopter copying the printed grammar and applying it with `re.match` cannot admit a value carrying an injected trailing newline.
+- Why: `SUBJECT_FLOOR_V1` is an ADDRESS grammar and stays one — its documented safe position is a SPARQL IRI `<…>`, and SPARQL 1.1's `IRIREF` production excludes `#x20` while admitting `:` and `=`, which is why a space may never enter a subject and why "a space is no worse than the `:` already admitted" is wrong on the grammar. A declared `string` PARAMETER is a value, not an address: `Term Loan` is an ordinary one. Two roles need two grammars, and the second is an ALLOWLIST so a character nobody considered is refused by default rather than admitted by omission.
+- Migration: none for a subject — the subject floor is **unchanged**, still forbids a space, and still decides `request.subject`. A declared `string` PARAMETER is now judged by this grammar instead of the address grammar, which is strictly WIDER for parameters (every character the subject floor admits, this floor admits — asserted over the class, not over samples), so no request that was admitted before is refused now. **Do not paste this pattern into an `ArgumentDomain(pattern=…)`**: that registration is refused by the SDK's own grammar shape guard, which fails closed on a repeat inside a look-around, and the refusal is correct — this floor already runs on every governed request, so re-declaring it narrows nothing. Declare a narrowing that expresses your own identifier rule instead; a declared `pattern` may narrow and can never widen past this floor, because the floor is judged first.
+
+*Recorded by `357-02-parameter-value-floor.md`.*
+
+#### ccf.products.request.PARAMETER_VALUE_FLOOR_VERSION
+
+- Surface: ccf.products.request.PARAMETER_VALUE_FLOOR_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "PARAMETER_VALUE_FLOOR_V1"`
+- Why: the grammar is versioned by name, like the subject floor; a future tightening or widening is a NEW name, never an edit to this pattern, and the name rides in every refusal this floor decides (`detail`) so a record says which grammar judged it
+- Migration: none; new name. A consumer that classifies refusals by the deciding grammar reads this marker out of `ProductRequestViolation.detail` rather than re-deriving it from the key.
+
+*Recorded by `357-02-parameter-value-floor.md`.*
+
+#### ccf.products.request.PARAMETER_VALUE_FLOOR_EXCLUSIONS
+
+- Surface: ccf.products.request.PARAMETER_VALUE_FLOOR_EXCLUSIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, str]]` — a read-only mapping of 38 named exclusions to a sample that exercises each: the quote and escape characters (`'`, `"`, `\`, `` ` ``), the tokens that are structural in SQL, SPARQL or both (`;` `,` `(` `)` `|` `^` `{` `}` `[` `]`), the tokens that are structural in an IRI or URI (`<` `>` `%` `#` `?` `&`), the control and format characters (LF, CR, TAB, NUL, DEL, a C1 control, U+200B, U+FEFF, U+00A0, U+2028), the padding shapes (leading, trailing and doubled space, space-only, empty), and the out-of-bounds cases (over the 512 cap, non-ASCII, an em dash)
+- Why: the ruling was to name the exact lexical exclusions rather than leave structural IRI/SPARQL tokens as prose, so a control can certify each one by name. The roster is a module constant and not a list retyped in a test, so the control cannot drift from the class that implements it.
+- Migration: none; new name. The roster is a floor on what the grammar refuses, not a complete denylist — the grammar is an allowlist and refuses everything outside it, whether or not the roster names it.
+
+*Recorded by `357-02-parameter-value-floor.md`.*
 
 ### Not public Python API
 

@@ -3282,16 +3282,37 @@ def test_every_enumerated_exclusion_is_actually_refused_by_the_parameter_floor()
     assert admitted == {}, f"enumerated exclusions the floor admits: {admitted}"
 
 
-def test_the_parameter_floor_is_a_superset_of_the_subject_floor() -> None:
-    """A declared pattern may narrow and may never widen past the mechanism floor.
+def test_every_character_the_subject_floor_admits_the_value_floor_admits() -> None:
+    """The superset property, over the CLASS rather than over six samples.
 
-    The structural half of that promise is the ORDER — `refuse_floor` runs before
-    the declared `pattern` — and the lexical half is this: nothing the subject
-    floor admits is refused by the value floor, so a subject-shaped parameter
-    value never refuses for being subject-shaped.
+    A declared pattern may narrow and may never widen past the mechanism
+    floor; the structural half of that promise is the ORDER (`refuse_floor`
+    runs before the declared `pattern`) and this is the lexical half: nothing
+    the subject floor admits is refused by the value floor, so a
+    subject-shaped parameter value never refuses for being subject-shaped.
+
+    Dropping any one of ``~ _ @ + =`` from the value floor was measured to break
+    this property while every sampled control stayed green. Deriving the
+    population from the subject floor's own admitted characters is what makes
+    the control see that edit.
     """
     from ccf.products.request import PARAMETER_VALUE_FLOOR_V1, SUBJECT_FLOOR_V1
 
+    admitted = [
+        chr(code)
+        for code in range(0x20, 0x7F)
+        if SUBJECT_FLOOR_V1.fullmatch("a" + chr(code)) is not None
+    ]
+    assert len(admitted) >= 70, f"the subject class collapsed to {admitted!r}"
+    refused = [
+        character
+        for character in admitted
+        if PARAMETER_VALUE_FLOOR_V1.fullmatch("a" + character) is None
+    ]
+    assert refused == [], f"value floor refuses subject-admissible characters: {refused}"
+
+    # The samples the six-string control used, kept as a floor under the
+    # derivation: a real LEI, a lane name, a URI-shaped subject, the exact cap.
     for sample in (
         "B3BS7ACMDUWISF18KY76",
         "credit-risk.spread",
@@ -3304,31 +3325,197 @@ def test_the_parameter_floor_is_a_superset_of_the_subject_floor() -> None:
         assert PARAMETER_VALUE_FLOOR_V1.fullmatch(sample) is not None, sample
 
 
-def test_a_declared_pattern_cannot_widen_past_the_parameter_floor() -> None:
-    """The floor runs FIRST, so an over-permissive declared grammar cannot admit.
+def test_the_value_floor_refuses_every_character_in_the_invisible_CATEGORIES() -> None:
+    """Category sweep, because a 38-sample roster cannot certify itself.
 
-    `.*` admits anything as a grammar; the request still refuses, because the
-    mechanism floor is judged before the declared narrowing. This is the control
-    for Dave's "may never widen past the mechanism floor".
+    Seven single-character widenings were measured keeping every sampled control
+    green — VT, FF, SO, ESC, U+0080-0084, U+2000-200A, U+2029 and the surrogate
+    block. Iterating the CATEGORY rather than a sample is what closes that: a
+    character added to the class reddens this whether anyone thought to sample
+    it or not. The sweep covers **every code point, U+0000 to U+10FFFF**
+    (measured at 0.13 s, so it is not narrowed), in categories
+    ``Cc Cf Zs Zl Zp Cs``.
 
-    **Deviation from the task brief, recorded here rather than silently
-    corrected**: the brief's own text called ``refuse_request`` and passed
-    ``arguments`` as a bare ``dict``. Neither survives contact with the
-    fixture: ``refuse_request`` deliberately does NOT invoke ``refuse_floor``
-    (see that function's own docstring, ``D-IMPL-357`` C1/C2 — the floor is a
-    SEPARATE call ``GovernedResolver.__call__`` makes BEFORE
-    ``refuse_request`` runs, and this task's edit list never names
-    ``refuse_request``), so calling it here would return ``None`` regardless
-    of the value presented — verified empirically before writing this
-    control. What this test's own docstring describes — "the floor runs
-    FIRST" — is a property of ``refuse_floor``, not of ``refuse_request``,
-    so ``refuse_floor`` is the function actually under test. The bare
-    ``dict`` also fails Pydantic validation (``description`` and ``required``
-    are mandatory), so the fixture is built the way the rest of this module
-    builds one, through :class:`~ccf.skills.catalog.SkillArgumentSchema` and
-    :class:`~ccf.skills.catalog.SkillArgumentProperty`.
+    **U+0020 is the one deliberate member of that population and is asserted
+    by name in the admitting direction**, not excluded from the sweep: it is
+    the single character the value floor admits that the subject floor does
+    not, and the whole of item 7 (a). Asserting the leak set EQUALS
+    ``{"U+0020"}`` means both a widening (a new character admitted) and a
+    narrowing (the interior space lost) redden this control.
     """
-    from ccf.products.request import ArgumentDomain, refuse_floor
+    import unicodedata
+
+    from ccf.products.request import PARAMETER_VALUE_FLOOR_V1, SUBJECT_FLOOR_V1
+
+    invisible = {"Cc", "Cf", "Zs", "Zl", "Zp", "Cs"}
+    value_admits: list[str] = []
+    subject_admits: list[str] = []
+    for code in range(0x110000):
+        character = chr(code)
+        if unicodedata.category(character) not in invisible:
+            continue
+        if PARAMETER_VALUE_FLOOR_V1.fullmatch("a" + character + "b") is not None:
+            value_admits.append(f"U+{code:04X}")
+        if SUBJECT_FLOOR_V1.fullmatch("a" + character + "b") is not None:
+            subject_admits.append(f"U+{code:04X}")
+
+    assert value_admits == ["U+0020"], (
+        "the value floor's admitted invisible characters must be exactly the"
+        f" ordinary interior space; measured {value_admits}"
+    )
+    assert subject_admits == [], (
+        f"the subject floor admits invisible characters: {subject_admits}"
+    )
+    # ... and that one space is admitted INTERIOR only. Padding shapes are
+    # equal to a human and distinct to a hash, which is a governance and
+    # replay hazard rather than an injection one.
+    assert PARAMETER_VALUE_FLOOR_V1.fullmatch("a b") is not None
+    assert PARAMETER_VALUE_FLOOR_V1.fullmatch(" ab") is None
+    assert PARAMETER_VALUE_FLOOR_V1.fullmatch("ab ") is None
+    assert PARAMETER_VALUE_FLOOR_V1.fullmatch("a  b") is None
+
+
+def test_each_floors_admitted_ASCII_set_is_exactly_the_documented_class() -> None:
+    """The visible half of the class, pinned per POSITION for both floors.
+
+    The category sweep above closes an invisible widening; this closes a
+    VISIBLE one. Adding ``* $ !`` to the value floor's class was measured
+    keeping every control in this area green — none of them asks what the
+    class admits, only whether named samples are refused. A denylist of
+    samples cannot see a character nobody sampled; an exact set can.
+
+    The expected sets are DERIVED from the class the two docstrings declare
+    (letters and digits, plus ``: / . _ ~ @ + = -`` after the first
+    character, plus an ordinary INTERIOR space for the value floor and
+    nothing more), so a reader checks the control against the documented
+    grammar rather than against a retyped literal.
+    """
+    import string
+
+    from ccf.products.request import PARAMETER_VALUE_FLOOR_V1, SUBJECT_FLOOR_V1
+
+    alphanumeric = set(string.ascii_letters + string.digits)
+    punctuation = set(":/._~@+=-")
+
+    def admitted(pattern: object, shape: object) -> set[str]:
+        return {
+            chr(code)
+            for code in range(0x20, 0x7F)
+            if pattern.fullmatch(shape(chr(code))) is not None  # type: ignore[attr-defined]
+        }
+
+    for name, pattern, extra in (
+        ("SUBJECT_FLOOR_V1", SUBJECT_FLOOR_V1, set()),
+        ("PARAMETER_VALUE_FLOOR_V1", PARAMETER_VALUE_FLOOR_V1, {" "}),
+    ):
+        assert admitted(pattern, lambda c: c + "ab") == alphanumeric, (
+            f"{name}: the FIRST character must be alphanumeric and nothing else"
+        )
+        assert admitted(pattern, lambda c: "a" + c + "b") == (
+            alphanumeric | punctuation | extra
+        ), f"{name}: the INTERIOR class drifted from the documented grammar"
+        assert admitted(pattern, lambda c: "ab" + c) == (
+            alphanumeric | punctuation
+        ), f"{name}: the LAST character class drifted (a trailing space is padding)"
+
+
+def test_the_exclusion_roster_keeps_the_members_it_is_required_to_keep() -> None:
+    """Verify the ROSTER, not its count — this project's own rule.
+
+    Two coupled edits in one file were measured shipping a quote splice with
+    every gate green: add ``'`` to the value floor's class **and** delete the
+    ``single-quote`` row from the roster. The sibling control certifies that
+    every member PRESENT is refused, which a deletion silently satisfies; only
+    pinning the required NAMES sees a member leave. A right count with a wrong
+    member audits clean forever.
+
+    The required names are the structural SQL/SPARQL/IRI tokens, the quote and
+    escape characters, the control and format characters, and the padding
+    shapes — the ones the item-7 ruling names as refused deliberately,
+    including the residuals (``( ) & % ' ,``) the owner ruled stay refused
+    rather than widen this sitting.
+    """
+    from ccf.products.request import PARAMETER_VALUE_FLOOR_EXCLUSIONS
+
+    required = frozenset(
+        {
+            "single-quote",
+            "double-quote",
+            "backslash",
+            "backtick",
+            "semicolon",
+            "comma",
+            "open-paren",
+            "close-paren",
+            "pipe",
+            "caret",
+            "brace-open",
+            "brace-close",
+            "bracket-open",
+            "bracket-close",
+            "angle-open",
+            "angle-close",
+            "percent",
+            "hash",
+            "question-mark",
+            "ampersand",
+            "newline",
+            "carriage-return",
+            "tab",
+            "nul",
+            "delete",
+            "c1-control",
+            "zero-width-space",
+            "byte-order-mark",
+            "non-breaking-space",
+            "line-separator",
+            "leading-space",
+            "trailing-space",
+            "double-space",
+            "space-only",
+            "empty",
+            "over-the-cap",
+            "non-ascii",
+            "em-dash",
+        }
+    )
+    missing = sorted(required - set(PARAMETER_VALUE_FLOOR_EXCLUSIONS))
+    assert missing == [], f"exclusions that left the roster: {missing}"
+
+
+def test_a_declared_pattern_cannot_widen_past_the_parameter_floor() -> None:
+    """The PURE-FUNCTION half of the ordering property. Both halves, in one control.
+
+    **Why the previous form was vacant.** It asserted only that `refuse_floor`
+    refuses `a;b` under a declared `pattern=r".*"` — and was measured passing
+    at the pre-repair base, because the subject floor refuses `a;b` too and
+    because `refuse_floor` never reads `argument_domains` at all, which makes
+    the permissive declaration in its fixture inert. A control for "a declared
+    pattern may narrow and may never widen past the mechanism floor" has to
+    show the two halves DISAGREEING; showing one half cannot.
+
+    So both are asserted here, measured:
+
+    * `refuse_request` under `pattern=r".*"` **ADMITS** `a;b` — the declared
+      narrowing offers no protection whatever, because the declared domain is
+      the only thing it judges and `.*` admits everything;
+    * `refuse_floor` on the same contract and the same request **REFUSES** it,
+      naming `PARAMETER_VALUE_FLOOR_V1` in the detail and not naming C4.
+
+    **This is the pure-function half only.** Neither function decides the
+    ORDER; the order is a property of `GovernedResolver.__call__`, which calls
+    `refuse_floor` before the overridable `constraint_resolver` seam and before
+    acquisition. Deleting that call site leaves this control green, which is
+    exactly why the resolver twin
+    (`tests/products/test_resolver_seam.py::test_a_permissive_parameter_pattern_cannot_widen_past_the_value_floor`)
+    exists and is what actually pins the wiring.
+    """
+    from ccf.products.request import (
+        ArgumentDomain,
+        PARAMETER_VALUE_FLOOR_VERSION,
+        refuse_floor,
+        refuse_request,
+    )
 
     contract = _contract(
         argument_domains={"facility_type": ArgumentDomain(pattern=r".*")},
@@ -3341,13 +3528,198 @@ def test_a_declared_pattern_cannot_widen_past_the_parameter_floor() -> None:
             required=(),
         ),
     )
-    violation = refuse_floor(
-        request=_request(subject="acct-1", parameters={"facility_type": "a;b"}),
-        declared=contract,
-    )
+    request = _request(subject="acct-1", parameters={"facility_type": "a;b"})
+
+    # Half one: the declared narrowing admits it. `.*` is not protection.
+    assert refuse_request(request=request, declared=contract) is None
+
+    # Half two: the mechanism floor refuses it, by name.
+    violation = refuse_floor(request=request, declared=contract)
     assert violation is not None
     assert violation.reason == "malformed-value"
     assert violation.key == "facility_type"
+    assert PARAMETER_VALUE_FLOOR_VERSION in violation.detail
+    assert "D-IMPL-357 C4" not in violation.detail
+
+
+#: The one input the two mechanism floors DISAGREE on: an ordinary banking
+#: label as a parameter value, an inadmissible address as a subject. Every
+#: other value the controls in this area present is refused by BOTH floors,
+#: which is why reverting the four parameter call sites to the subject floor
+#: was measured leaving the whole suite byte-identically green.
+FLOOR_DISAGREEING_VALUE = "Term Loan"
+
+
+def _floor_disagreeing_case(depth: str) -> tuple[ProductRequestContract, dict[str, object]]:
+    """``(contract, parameters)`` presenting :data:`FLOOR_DISAGREEING_VALUE` at one declared depth.
+
+    One builder for the four depths, because the four are the four SEPARATE
+    call sites in ``_refuse_floor_below`` and the point of the parametrized
+    control below is that each is individually severable. Shapes are built the
+    way the neighbouring depth controls in this module build them
+    (``SkillArgumentSchema`` / ``SkillArgumentProperty`` /
+    ``SkillArgumentMember`` / ``SkillArgumentElement``), never as bare dicts.
+    """
+    if depth == "root":
+        return (
+            _contract(
+                arguments=SkillArgumentSchema(
+                    properties={
+                        "facility_type": SkillArgumentProperty(
+                            type="string", description="d"
+                        )
+                    },
+                    required=(),
+                )
+            ),
+            {"facility_type": FLOOR_DISAGREEING_VALUE},
+        )
+    if depth == "parent.member":
+        return (
+            _contract(
+                arguments=SkillArgumentSchema(
+                    properties={
+                        "proposal": SkillArgumentProperty(
+                            type="object",
+                            description="d",
+                            properties={
+                                "facility_type": SkillArgumentMember(
+                                    type="string", description="d"
+                                )
+                            },
+                        )
+                    },
+                    required=(),
+                )
+            ),
+            {"proposal": {"facility_type": FLOOR_DISAGREEING_VALUE}},
+        )
+    if depth == "parent[]":
+        return (
+            _contract(
+                arguments=SkillArgumentSchema(
+                    properties={
+                        "kinds": SkillArgumentProperty(
+                            type="array",
+                            description="d",
+                            items=SkillArgumentElement(type="string", description="d"),
+                        )
+                    },
+                    required=(),
+                )
+            ),
+            {"kinds": [FLOOR_DISAGREEING_VALUE]},
+        )
+    assert depth == "parent[].member", depth
+    return (
+        _contract(
+            arguments=SkillArgumentSchema(
+                properties={
+                    "rows": SkillArgumentProperty(
+                        type="array",
+                        description="d",
+                        items=SkillArgumentElement(
+                            type="object",
+                            description="d",
+                            properties={
+                                "facility_type": SkillArgumentMember(
+                                    type="string", description="d"
+                                )
+                            },
+                        ),
+                    )
+                },
+                required=(),
+            )
+        ),
+        {"rows": [{"facility_type": FLOOR_DISAGREEING_VALUE}]},
+    )
+
+
+def test_a_floor_disagreeing_value_proves_WHICH_floor_judges_each_position() -> None:
+    """D-IMPL-357 item 7 (a), the swap detector.
+
+    Every other control in this area presents text BOTH floors refuse, so all of
+    them stay green if the four parameter call sites are reverted to the subject
+    floor — measured: the whole suite reported byte-identical numbers with the
+    repair's central step deleted. Only a value the two floors DISAGREE on can
+    see the difference, and ``Term Loan`` is that value: ordinary as a parameter,
+    inadmissible as an address.
+
+    All four declared depths, because the walk implements each one separately.
+    The four shapes are built by :func:`_floor_disagreeing_case` rather than
+    inline, so the parametrized control below can sever them ONE AT A TIME —
+    this control fails at the first reverted call site and therefore cannot say
+    which one moved.
+    """
+    from ccf.products.request import refuse_floor
+
+    # As a PARAMETER, at each declared depth: admitted.
+    for depth in ("root", "parent.member", "parent[]", "parent[].member"):
+        contract, parameters = _floor_disagreeing_case(depth)
+        assert (
+            refuse_floor(request=_request(parameters=parameters), declared=contract)
+            is None
+        ), depth
+
+    # As the SUBJECT, the same text is an address and is refused.
+    subject = refuse_floor(
+        request=_request(subject=FLOOR_DISAGREEING_VALUE), declared=_contract()
+    )
+    assert subject is not None
+    assert subject.key == "subject"
+    assert subject.reason == "malformed-value"
+
+
+@pytest.mark.parametrize(
+    "depth", ["root", "parent.member", "parent[]", "parent[].member"]
+)
+def test_one_parameter_floor_call_site_at_a_time_judges_by_the_value_floor(
+    depth: str,
+) -> None:
+    """The swap detector again, one node per CALL SITE, so a severing is located.
+
+    ``_refuse_floor_below`` applies the floor at four separate call sites, one
+    per declared depth. The single-node control above fails at the first one
+    and cannot distinguish "all four reverted" from "the array-element one
+    reverted", which is precisely what a sabotage campaign severs. Four nodes
+    make each site individually severable and name itself in the failure.
+    """
+    from ccf.products.request import refuse_floor
+
+    contract, parameters = _floor_disagreeing_case(depth)
+    assert (
+        refuse_floor(request=_request(parameters=parameters), declared=contract) is None
+    ), (
+        f"{depth}: {FLOOR_DISAGREEING_VALUE!r} is an ordinary parameter value and"
+        " must be admitted by PARAMETER_VALUE_FLOOR_V1 — a refusal here means"
+        " this call site is judging a VALUE by the ADDRESS floor"
+    )
+
+
+def test_the_mechanism_floor_is_deliberately_not_registrable_as_a_declared_narrowing() -> None:
+    """Pinned so an adopter's registration failure is a documented property.
+
+    The floor's pattern is printed in every refusal it decides, which invites an
+    adopter to copy it into a declared `pattern`. That registration is refused by
+    the SDK's own shape guard, and the refusal is CORRECT twice over: the floor
+    already runs on every governed request, so re-declaring it narrows nothing;
+    and the guard refuses shapes it cannot PROVE safe rather than shapes that are
+    slow (this one is flat to a million characters).
+    """
+    from ccf.products.request import (
+        PARAMETER_VALUE_FLOOR_V1,
+        SUBJECT_FLOOR_V1,
+        _refuse_unsafe_grammar,
+    )
+
+    refusal = _refuse_unsafe_grammar(PARAMETER_VALUE_FLOOR_V1.pattern)
+    assert refusal is not None
+    # Fail-closed on unclassifiable, not a claim that the shape is slow.
+    assert "CANNOT ESTABLISH AS SAFE" in refusal
+    # The ASYMMETRY is the finding: the subject floor IS registrable, so this
+    # is a property of the value floor's shape and not of the guard generally.
+    assert _refuse_unsafe_grammar(SUBJECT_FLOOR_V1.pattern) is None
 
 
 def test_the_refusal_states_lexical_admissibility_and_denies_sink_safety() -> None:
@@ -3396,9 +3768,23 @@ def test_the_printed_subject_grammar_ends_at_a_hard_anchor() -> None:
     """
     import re
 
-    from ccf.products.request import SUBJECT_FLOOR_V1, SUBJECT_FLOOR_VERSION
+    from ccf.products.request import (
+        PARAMETER_VALUE_FLOOR_V1,
+        PARAMETER_VALUE_FLOOR_VERSION,
+        SUBJECT_FLOOR_V1,
+        SUBJECT_FLOOR_VERSION,
+    )
 
     assert SUBJECT_FLOOR_V1.pattern.endswith("\\Z")
     assert "$" not in SUBJECT_FLOOR_V1.pattern
     assert SUBJECT_FLOOR_VERSION == "SUBJECT_FLOOR_V1"
     assert re.match(SUBJECT_FLOOR_V1.pattern, "GammaBank\n") is None
+
+    # TWO published grammars now, not one: the parameter floor's text rides in
+    # every parameter refusal `detail` and is therefore exactly as copy-able,
+    # so it carries the same obligation. Reverting BOTH of its `\Z` anchors to
+    # `$` was measured leaving every other control in this area green.
+    assert PARAMETER_VALUE_FLOOR_V1.pattern.endswith("\\Z")
+    assert "$" not in PARAMETER_VALUE_FLOOR_V1.pattern
+    assert PARAMETER_VALUE_FLOOR_VERSION == "PARAMETER_VALUE_FLOOR_V1"
+    assert re.match(PARAMETER_VALUE_FLOOR_V1.pattern, "Term Loan\n") is None

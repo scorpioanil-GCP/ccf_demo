@@ -79,7 +79,7 @@ from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
-from ccf.products.request import SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds
+from ccf.products.request import PARAMETER_VALUE_FLOOR_VERSION, SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds  # noqa: E501 - one line on purpose: wrapping it shifts every line below, which the citation gate reads
 from ccf.replay.record import (
     NO_FABRIC_READ,
     ContentGenerationPath,
@@ -3156,6 +3156,108 @@ def test_a_permissive_subject_domain_cannot_widen_past_the_mechanism_floor(
     assert "malformed-value" in refusal
     assert SUBJECT_FLOOR_VERSION in refusal
     assert "D-IMPL-357 C4" not in refusal
+
+
+#: The fixture's own permissive PARAMETER grammar (CINV-01): `.*` admits
+#: everything, including the semicolon both mechanism floors refuse.
+PERMISSIVE_PARAMETER_GRAMMAR = r".*"
+
+#: A value the parameter floor refuses and a declared `.*` admits. Short on
+#: purpose: the point is WHICH check decides, not how baroque the input is.
+SEMICOLON_VALUE = "a;b"
+
+
+@pytest.fixture
+def booted_with_permissive_parameter_pattern(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """The same deployment, declaring REFERENCE_PARAMETER as `string` AND an
+    argument domain whose grammar admits everything. Authored test-side
+    (CINV-01)."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][REFERENCE_PARAMETER] = {
+        "type": "string",
+        "description": "Fixture parameter; not required.",
+    }
+    request_contract["declaration"]["argument_domains"] = {
+        REFERENCE_PARAMETER: {"pattern": PERMISSIVE_PARAMETER_GRAMMAR}
+    }
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_a_permissive_parameter_pattern_cannot_widen_past_the_value_floor(
+    booted_with_permissive_parameter_pattern: _Booted,
+) -> None:
+    """**The item 7 (a) ordering property, at the resolver.**
+
+    The declaration admits everything, so `refuse_request` ADMITS `a;b` —
+    measured. The only thing that refuses it is the value floor running inside
+    `GovernedResolver.__call__` BEFORE the overridable `constraint_resolver`
+    seam and before acquisition. The pure-function twin cannot show this: it
+    calls `refuse_floor` directly, so it stays green even with that call site
+    deleted, which is why the project owner called it vacant.
+
+    Asserts WHICH check refused, by its version marker, rather than merely that
+    something did.
+
+    The stock `_request` carries the REQUIRED `THRESHOLD_PARAMETER`, so it is
+    passed the way the sibling parameter-floor control at
+    `test_a_malformed_declared_string_parameter_is_refused_the_same_way` passes
+    it — a request missing a required argument would be refused for a different
+    reason and would prove nothing about the floor.
+    """
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    booted = booted_with_permissive_parameter_pattern
+    resolver = _resolver(booted, acquisition=_seam, constraint_resolver=_Override())
+    outcome = _ask(
+        resolver,
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                REFERENCE_PARAMETER: SEMICOLON_VALUE,
+            }
+        ),
+    )
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    address = booted.store.resolve_uri(uri=outcome.replay_reference)
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(content_address=address)
+    )
+    refusal = str(record.content_generation_path.assembly_refusal)
+    assert "malformed-value" in refusal
+    assert PARAMETER_VALUE_FLOOR_VERSION in refusal
+    assert "D-IMPL-357 C4" not in refusal
+
+
+def test_a_permissive_parameter_pattern_still_serves_a_conforming_value(
+    booted_with_permissive_parameter_pattern: _Booted,
+) -> None:
+    """The positive control the test above needs beside it.
+
+    Without it, a fixture whose boot refused every request — or whose declared
+    `.*` domain somehow refused everything — would leave the refusal test
+    green. The value here is `Term Loan`: the one the two mechanism floors
+    DISAGREE on, so this also pins at the resolver that a declared `string`
+    PARAMETER is judged by the VALUE floor and not by the ADDRESS floor.
+    Reverting the parameter call sites to `SUBJECT_FLOOR_V1` reddens this.
+    """
+    outcome = _ask(
+        _resolver(booted_with_permissive_parameter_pattern),
+        _request(
+            parameters={THRESHOLD_PARAMETER: 1000, REFERENCE_PARAMETER: "Term Loan"}
+        ),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
 
 
 def test_a_permissive_subject_domain_still_serves_a_conforming_subject(

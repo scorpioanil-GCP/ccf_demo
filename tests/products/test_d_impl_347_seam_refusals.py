@@ -951,19 +951,18 @@ def test_an_identity_of_only_invisible_characters_refuses_rather_than_minting(
     The reason stays `empty`: the value IS empty once invisibles are discounted,
     and keeping the reason vocabulary fixed is Dave's item-3 ruling.
 
-    Calls :meth:`~ccf.assembly.worker.SpecDrivenEntityResolution._identity_of`
-    directly, per the task brief. That name is a class-level alias this repair
-    adds onto the module-level :func:`~ccf.assembly.worker._identity_text` —
-    the function the brief actually describes editing (its quoted "current"
-    branch text matches `_identity_text` verbatim, not any function literally
-    named `_identity_of` in the tree at this HEAD) — so the real production
-    path (`SpecDrivenEntityResolution.resolve`, which calls `_identity_text`
-    directly) is unchanged and this control exercises the same amended logic
-    through the class-qualified name the brief calls for.
+    Calls :func:`~ccf.assembly.worker._identity_text` — **the function
+    :meth:`~ccf.assembly.worker.SpecDrivenEntityResolution.resolve` itself
+    calls**. Round 1 added a class-level `_identity_of` alias so this control
+    could use a class-qualified name; the project owner removed it ("no
+    production alias for a test"), and the alias was a hazard beyond dead
+    code: a control calling the alias stays green if a later edit gives the
+    class its own `_identity_of` or stops `resolve` calling `_identity_text`,
+    so the control would certify a path production had left.
     """
-    from ccf.assembly.worker import SpecDrivenEntityResolution
+    from ccf.assembly.worker import _identity_text
 
-    resolved, reason = SpecDrivenEntityResolution._identity_of(invisible)
+    resolved, reason = _identity_text(invisible)
     assert resolved is None
     assert reason == "empty"
 
@@ -977,6 +976,57 @@ def test_the_identity_amendment_does_not_touch_ordinary_attribute_semantics() ->
     closes, and pinning the first here is what stops a later edit from widening
     the amendment into ordinary attribute semantics.
     """
-    from ccf.assembly.worker import SpecDrivenEntityResolution
+    from ccf.assembly.worker import _identity_text
 
-    assert SpecDrivenEntityResolution._identity_of("a\u200bb")[0] == "a\u200bb"
+    assert _identity_text("a\u200bb")[0] == "a\u200bb"
+
+
+def test_a_str_subclass_cannot_shadow_the_identity_blank_check() -> None:
+    """D-IMPL-357 item 1. The check reads CONTENT, never ``__str__``'s answer.
+
+    ``str(value)`` invokes ``__str__`` and a subclass overrides it; the
+    ``str.strip(value)`` this amendment replaced called the unbound method and
+    could not be shadowed. Getting that backwards made the repair weaker than
+    the code it repaired, so the regression is pinned here by the two carriers
+    it was measured on — an explicit override, and a ``str``-mixin ``Enum``
+    whose member value is the empty string, which is ordinary code rather than
+    an attack.
+
+    Three distinct subclasses of an EMPTY identity were measured collapsing
+    onto one node URI through the real
+    :meth:`~ccf.assembly.worker.SpecDrivenEntityResolution.resolve` path, which
+    is verbatim the harm this amendment's own docstring cites as its reason.
+    """
+    import enum
+
+    from ccf.assembly.worker import _identity_text
+
+    class Shadow(str):
+        def __str__(self) -> str:
+            return "visible"
+
+    class Tag(str, enum.Enum):
+        UNKNOWN = ""
+
+    assert _identity_text(Shadow(""))[0] is None
+    assert _identity_text(Shadow(""))[1] == "empty"
+    assert _identity_text(Tag.UNKNOWN)[0] is None
+    # A subclass whose CONTENT is real still mints, shadowing or not.
+    assert _identity_text(Shadow("acct-1"))[0] is not None
+    # And the text returned is the plain-`str` CONTENT, not the subclass
+    # instance, so no later rendering can re-dispatch `__str__` on a value
+    # this function already judged (the adversarial seat's second half).
+    minted = _identity_text(Shadow("acct-1"))[0]
+    assert type(minted) is str, type(minted)
+    assert minted == "acct-1"
+
+    # The REVERSE asymmetry, same root cause: a subclass whose ``__str__``
+    # answers the empty string while its CONTENT is a real identifier was
+    # measured REFUSED as `empty` under ``str(value)`` — an availability
+    # regression against the pre-repair tree, which minted it. Reading the
+    # content closes both directions with one spelling.
+    class Erase(str):
+        def __str__(self) -> str:
+            return ""
+
+    assert _identity_text(Erase("REAL-LEI-549300XYZ"))[0] == "REAL-LEI-549300XYZ"

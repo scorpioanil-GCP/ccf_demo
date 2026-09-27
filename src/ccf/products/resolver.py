@@ -2408,31 +2408,51 @@ class GovernedResolver:
         # `24.6-03`, the Control Plane read no door could make either.
         declared = self._request_contract(declaration)
 
-        # D-IMPL-357 C2: the mechanism floor (`SUBJECT_FLOOR_V1`), judged HERE
-        # — after the addressing verdicts (lane, intent) and BEFORE the
-        # overridable `constraint_resolver` seam and before any acquisition —
-        # so that no `PolicyConstraintResolver` override can remove its
-        # judgment of what it DOES judge. The declaration is already in hand
-        # (`declared`, above); the floor walks it and the effective request
-        # has not been derived yet, so this judges the CALLER's own
-        # `request.subject` and every DECLARED `string` parameter at every
-        # DECLARED depth, never a value the resolution stage could have
-        # substituted for them.
+        # D-IMPL-357 C2: the mechanism floor, judged HERE — after the
+        # addressing verdicts (lane, intent) and BEFORE the overridable
+        # `constraint_resolver` seam and before any acquisition — so that no
+        # `PolicyConstraintResolver` override can remove its judgment of what
+        # it DOES judge. The declaration is already in hand (`declared`,
+        # above); the floor walks it and the effective request has not been
+        # derived yet, so this judges the CALLER's own `request.subject` and
+        # every DECLARED `string` parameter at every DECLARED depth, never a
+        # value the resolution stage could have substituted for them.
+        #
+        # TWO floors, TWO roles, one call (item 7, ruled 2026-09-27, option
+        # (a)): `request.subject` is an ADDRESS and is judged by
+        # `SUBJECT_FLOOR_V1`, which forbids a space because its documented
+        # safe position is a SPARQL IRI `<...>`. Every DECLARED `string`
+        # PARAMETER is a VALUE and is judged by `PARAMETER_VALUE_FLOOR_V1`,
+        # the same class PLUS an ordinary INTERIOR space (leading, trailing
+        # and doubled space are refused), so an ordinary banking label such
+        # as `Term Loan` is admissible as a parameter and still inadmissible
+        # as an address. Whichever floor decides, its version name rides in
+        # the refusal `detail`, which is what pins the deciding grammar on
+        # the record.
         #
         # NOT covered — out-of-grammar text at any of these CAN still reach
         # the acquisition seam through this call site alone (`refuse_floor`'s
         # own docstring carries the same list): `request.intent` when the
         # class declares no discovery set; `request.freshness` (judged
-        # nowhere in this fabric); `request.policy_overrides`; any value the
-        # resolution stage supplies rather than the caller (a contract
-        # `defaults` string, a relative default, a policy-narrowed value);
-        # a string under an UNDECLARED parameter key; any other presented
-        # string at a position the declaration does not type as
-        # `string`; and any string nested inside a declared member whose type
-        # is `object` (an opaque container the floor does not open). Whether
-        # the covered surface should widen is `D-IMPL-357`'s open coverage
-        # question, held for the project owner's ruling — this call site does
-        # not decide it.
+        # nowhere in this fabric); every member of
+        # `request.policy_overrides` (a flat `tuple[str, ...]` — that tuple
+        # is the whole extent of the carrier, since the field cannot hold a
+        # mapping or any nested shape); any value the resolution stage
+        # supplies rather than the caller (a contract `defaults` string, a
+        # relative default, a policy-narrowed value); a string under an
+        # UNDECLARED parameter key; any other presented string at a position
+        # the declaration does not type as `string`; and any string nested
+        # inside a declared member whose type is `object` (an opaque
+        # container the floor does not open).
+        #
+        # **The coverage question is RULED, not open** (item 4, ruled
+        # 2026-09-27, correcting this comment's earlier wording): the floor
+        # stays on DECLARED positions only. `request.intent`,
+        # `request.freshness`, `request.policy_overrides` and any
+        # presented-but-undeclared position are deliberately NOT judged here
+        # and are ledgered residuals rather than folded in by widening this
+        # call. Registration-time validation of a contract's own `defaults`
+        # string is 1.0.3.
         floor = refuse_floor(request=request, declared=declared)
         if floor is not None:
             # D-IMPL-357 C2: a mechanism floor, judged before the overridable
