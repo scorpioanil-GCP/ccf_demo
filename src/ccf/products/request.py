@@ -1118,11 +1118,20 @@ class ArgumentDomain(CCFContract):
         against the declared pattern (``not-in-domain``) — a value that is not
         a string has no text to judge and misses a grammar for the same reason
         a string misses a member set, so it is refused rather than passed
-        through (``D-IMPL-357`` C4). Judged AFTER the mechanism floor that
-        governs the position — :data:`PARAMETER_VALUE_FLOOR_V1` for a declared
-        ``string`` parameter, :data:`SUBJECT_FLOOR_V1` for the subject
-        (``D-IMPL-357`` item 7) — and neither is reachable from under by a
-        declaration.
+        through (``D-IMPL-357`` C4).
+
+        **THIS METHOD RUNS NO MECHANISM FLOOR.** It evaluates the declared
+        domain and nothing else. The floor is a separate call,
+        :func:`refuse_floor`, made by
+        :meth:`~ccf.products.resolver.GovernedResolver.__call__` **before**
+        :func:`refuse_request` — so on the governed path a declaration is
+        reached only after the floor has already judged the text, and cannot
+        readmit what the floor refused. **A caller that invokes this method, or
+        :func:`refuse_request`, WITHOUT the resolver gets the declared narrowing
+        and no floor at all**, and carries the obligation
+        :func:`refuse_request` states. Do not read an ordering guarantee into
+        this method: it has no way to enforce one
+        (``D-IMPL-357``, the close panel of 2026-09-27, finding B-2).
         """
         if self.pattern is not None:
             if isinstance(value, str) and re.fullmatch(self.pattern, value):

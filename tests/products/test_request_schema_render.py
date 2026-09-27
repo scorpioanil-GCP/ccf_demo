@@ -253,11 +253,65 @@ def test_the_render_advertises_pattern_and_refuses_a_planted_one() -> None:
         argument_domains={REQUIRED_LEAF: ArgumentDomain(pattern=GRAMMAR)}
     )
     rendered = render_request_input_schema(contract)
-    assert rendered["properties"][REQUIRED_LEAF]["pattern"] == GRAMMAR
+    # ANCHORED on the way out (D-IMPL-357, close panel finding B-1). The
+    # declared grammar is judged by `re.fullmatch`; JSON Schema `pattern` is a
+    # PARTIAL match, so the verbatim spelling this line used to assert
+    # advertised a wider domain than the SDK enforces.
+    assert rendered["properties"][REQUIRED_LEAF]["pattern"] == f"^(?:{GRAMMAR})$"
     # Exactly one shape is derived: a grammar contributes no enum and no bounds.
     assert "enum" not in rendered["properties"][REQUIRED_LEAF]
     assert "minimum" not in rendered["properties"][REQUIRED_LEAF]
     assert "maximum" not in rendered["properties"][REQUIRED_LEAF]
+
+
+def test_the_advertised_grammar_admits_exactly_what_the_SDK_admits() -> None:
+    """D-IMPL-357, the close panel of 2026-09-27, finding B-1.
+
+    The contract is the authority for legal values and this module ADVERTISES
+    that authority; it may never independently define a wider one
+    (``D-IMPL-264`` D-00, P-1). `ArgumentDomain.refuses` judges with
+    :func:`re.fullmatch`, and JSON Schema ``pattern`` is a PARTIAL match — so
+    an unanchored render admitted any value that merely CONTAINED a match.
+
+    Measured before the fix: a declared ``[A-Z]{3}`` had the SDK answer
+    ``not-in-domain`` for ``xxUSDxx`` while the advertised schema admitted it,
+    so a generated client, a gateway validator or an examiner reading discovery
+    accepted what the governed SDK then refused.
+
+    Judged the way a JSON Schema consumer judges — a PARTIAL search against the
+    advertised text — rather than by re-running ``fullmatch``, because
+    re-anchoring here would test this test instead of the render.
+    """
+    import re
+
+    from ccf.products.request_schema import render_request_input_schema
+
+    three_letters = r"[A-Z]{3}"
+    contract = _contract(
+        argument_domains={REQUIRED_LEAF: ArgumentDomain(pattern=three_letters)}
+    )
+    advertised = render_request_input_schema(contract)["properties"][REQUIRED_LEAF][
+        "pattern"
+    ]
+    domain = ArgumentDomain(pattern=three_letters)
+
+    for value, admitted_by_the_sdk in (("USD", True), ("xxUSDxx", False)):
+        assert (domain.refuses(value) is None) is admitted_by_the_sdk, value
+        assert (re.search(advertised, value) is not None) is admitted_by_the_sdk, (
+            f"the advertised schema disagrees with the SDK on {value!r}"
+        )
+
+    # The non-capturing group is load-bearing, not tidiness: a top-level
+    # alternation wrapped as `^a|b$` would mean "starts with a, or ends with b"
+    # and be wider than the declaration, which is the defect in a new costume.
+    alternation = _contract(
+        argument_domains={REQUIRED_LEAF: ArgumentDomain(pattern=r"AAA|BBB")}
+    )
+    wrapped = render_request_input_schema(alternation)["properties"][REQUIRED_LEAF][
+        "pattern"
+    ]
+    assert re.search(wrapped, "xAAAx") is None, wrapped
+    assert re.search(wrapped, "AAA") is not None, wrapped
 
 
 def test_a_grammar_domain_leaves_every_other_property_untouched() -> None:

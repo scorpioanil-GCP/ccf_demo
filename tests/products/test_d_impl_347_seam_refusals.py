@@ -855,10 +855,20 @@ _ACQUIRED_AT = datetime(2026, 2, 1, tzinfo=UTC)
         (None, "null"),
         ("", "empty"),
         ("   ", "empty"),
+        # D-IMPL-357, the close panel of 2026-09-27, finding B-3. Every OTHER
+        # control for the invisible-character amendment calls `_identity_text`
+        # DIRECTLY, so replacing the production call site in `resolve` while
+        # leaving the helper alone kept all of them green while invisible-only
+        # identities minted again — three collapsing onto one URI. This row is
+        # the amendment's only pin at the production call site: it drives
+        # `SpecDrivenEntityResolution.resolve` through an opened product and a
+        # real replay record, so a `resolve` that stops consulting the helper
+        # reddens HERE and nowhere else.
+        ("\u200b", "empty"),
         (True, "bool"),
         (1.5, "float"),
     ],
-    ids=["null", "empty", "whitespace", "bool", "float"],
+    ids=["null", "empty", "whitespace", "zero-width-space", "bool", "float"],
 )
 def test_the_REAL_route_converts_at_the_acquisition_seam_with_the_workers_own_reason(
     tmp_path: pathlib.Path,

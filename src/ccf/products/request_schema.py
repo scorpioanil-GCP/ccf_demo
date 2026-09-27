@@ -111,12 +111,42 @@ def _derived_keys(domain: ArgumentDomain) -> dict[str, Any]:
     """What one domain contributes to its parameter's rendered property.
 
     Exactly one of three shapes, on the declaration's own exclusivity
-    (``D-IMPL-264`` D-03 as amended by ``D-IMPL-357`` C4): the grammar branch
-    first, because a pattern is the one shape carried verbatim — a regular
-    expression is text, so there is no value translation for it to need.
+    (``D-IMPL-264`` D-03 as amended by ``D-IMPL-357`` C4).
+
+    **The grammar branch is ANCHORED on the way out, and that is a correctness
+    fix rather than cosmetics** (`D-IMPL-357`, the close panel of 2026-09-27,
+    finding B-1). :meth:`ArgumentDomain.refuses` judges a declared grammar with
+    :func:`re.fullmatch` — the whole value must match. JSON Schema ``pattern``
+    is a *partial* match: an unanchored regex admits any value that merely
+    CONTAINS a match. Emitting the declared pattern verbatim therefore
+    advertised a WIDER domain than the SDK enforces, which is exactly the
+    inversion ``D-IMPL-264`` D-00 / P-1 forbids — *"the request contract is the
+    authority for legal values; schemas and discovery advertise that authority
+    but never independently define it."* Measured: a declared ``[A-Z]{3}`` made
+    ``refuses("xxUSDxx")`` answer ``not-in-domain`` while the advertised schema
+    admitted it, so a generated client, a gateway validator or an examiner
+    reading discovery accepted what the governed SDK then refused.
+
+    So the render emits ``^(?:<declared>)$``. The non-capturing group is
+    load-bearing, not tidiness: a top-level alternation such as ``a|b`` wrapped
+    as ``^a|b$`` would mean *"starts with a, or ends with b"* and be wider still.
+    ``$`` rather than ``\\Z`` because the advertised dialect is ECMA-262, which
+    has no ``\\Z`` — and in ECMA-262 without the ``m`` flag ``$`` matches only at
+    the end of input, so there is no trailing-newline gap of the kind that made
+    the Python-side anchor ``\\Z`` (item 2).
+
+    **The live :class:`ArgumentDomain` object is unchanged.** Only what is
+    ADVERTISED moves, toward what has always been enforced.
+
+    **Named residual, not fixed here:** a declared pattern using a Python-only
+    construct (a named group ``(?P<x>…)``, ``\\Z``, a possessive quantifier) is
+    still emitted as ECMA-262 that may not compile for the consumer. Anchoring
+    closes the width gap; it does not make the two dialects the same language,
+    and this docstring no longer claims a regular expression needs no
+    translation.
     """
     if domain.pattern is not None:
-        return {"pattern": domain.pattern}
+        return {"pattern": f"^(?:{domain.pattern})$"}
     if domain.members is not None:
         return {"enum": [_render_value(member) for member in domain.members]}
     derived: dict[str, Any] = {}
