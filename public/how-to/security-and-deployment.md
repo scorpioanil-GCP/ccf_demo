@@ -64,7 +64,7 @@ artifact's statement (`signed_binding_required`, D-16 — default false),
 never a code constant. The typed decision values and the door surfaces are
 documented on the [HITL Protocols](../reference/protocols/hitl.md) page;
 [compose a workflow with HITL](compose-a-workflow-with-hitl.md) shows the
-setting being flipped and the behaviour changing with no code edit.
+setting being flipped and the behavior changing with no code edit.
 
 ### 1.3 Graph adapter credentials (`D-IMPL-93`)
 
@@ -129,12 +129,14 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
 
-## 4. Deployment posture: what to decide before the HTTP surface is up
+## 4. Deployment posture: what to decide before a surface is up
 
-Three decisions have to be made explicitly. None of them has a safe default
+Four decisions have to be made explicitly. None of them has a safe default
 the SDK could pick for you, which is why each of them is a construction-time
-argument rather than a setting buried in configuration. The endpoint-by-
-endpoint contract is on the [HTTP API page](../reference/http-api.md).
+argument rather than a setting buried in configuration. The first three
+concern the HTTP surface, whose endpoint-by-endpoint contract is on the
+[HTTP API page](../reference/http-api.md); the fourth concerns which transport
+the MCP product door serves on.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -197,3 +199,39 @@ under is a Control Plane statement you author and version — see
 use, and the
 [Control Plane artifacts reference](../reference/artifacts/control-plane-artifacts.md)
 for how it is versioned.
+
+### 4.4 Decide which transport the product door serves on
+
+The standard MCP product door serves on either of two transports, and they
+differ in who the caller is taken to be. On the loopback transport bearer
+authentication is real — the middleware sits on the HTTP application — so a
+caller presenting no recognized credential is refused at the door rather than
+admitted, and a caller is whoever its own credential says it is. Telling two
+callers apart there means opening the door with your own identity provider's
+verifier, the second of the door's two constructors; opened on the paved road
+instead, the door recognizes one boot credential and nothing else.
+
+Stdio has no HTTP application and therefore no authentication channel to
+carry a credential. Its security boundary is process ownership: the server is
+a child the deployment's own client spawned, under the same user, on the same
+host. The door states the one identity that boundary warrants rather than
+admitting an unverified caller, and the consequence is worth stating plainly
+because a deployment has to design around it:
+
+> `ProductDoor.serve_stdio` serves one pre-set identity for every caller of
+> the process (`ambient_stdio_identity`); a multi-principal deployment uses
+> `serve_loopback` or composes its own transport. The composition control is
+> designed with the harness adapters in 1.0.3 (`D-IMPL-361`).
+
+Two bounds hold on that stated identity, and both are mechanism rather than
+convention. It is scoped to exactly the one tenant the door was opened to
+serve, and it is marked *ambient*, which makes every surface the egress
+registers as mutating refuse it before the authorizer is even asked. Process
+ownership is a defensible warrant for reading what the child process exists
+to serve; it is not a warrant for writing on an authority nobody presented.
+
+So a single-principal child process spawned by its own client is what stdio
+is for, and it is a legitimate posture. Anything that has to tell two callers
+apart — different entitlements, different perspectives, an audit trail that
+distinguishes them — belongs on `serve_loopback` or on a transport you
+compose yourself.

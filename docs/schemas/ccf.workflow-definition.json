@@ -44,6 +44,18 @@
       "title": "Gate Policies",
       "type": "object"
     },
+    "gate_routes": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "type": "object"
+      },
+      "ccf_hash_transparent": false,
+      "default": {},
+      "title": "Gate Routes",
+      "type": "object"
+    },
     "name": {
       "title": "Name",
       "type": "string"

@@ -21,7 +21,7 @@ referenced_artifacts:
       quorum: "1"
 
 workflow_definition:
-  schema_version: "1.0.0"
+  schema_version: "2.0.0"      # was "1.0.0" — the gate_routes generation (D-IMPL-357)
   artifact_version: "1.0.0"
   name: payment-release-workflow
   tenant: acme-bank
@@ -40,3 +40,9 @@ workflow_definition:
 
   gate_policies:
     treasury-approval: "ccf-artifact://acme-bank/approval-policy/treasury-officer@1.0.0"
+
+  # Per-gate verdict→target routing (D-IMPL-357 A1/A2).
+  gate_routes:
+    treasury-approval:
+      approve: released
+      reject: rejected

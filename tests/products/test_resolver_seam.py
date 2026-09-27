@@ -79,7 +79,7 @@ from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
-from ccf.products.request import ProductRequest, request_seeds
+from ccf.products.request import PARAMETER_VALUE_FLOOR_VERSION, SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds  # noqa: E501 - one line on purpose: wrapping it shifts every line below, which the citation gate reads
 from ccf.replay.record import (
     NO_FABRIC_READ,
     ContentGenerationPath,
@@ -2879,3 +2879,428 @@ def test_o3_a_non_composite_never_reads_the_admission_clock(
     )
     assert isinstance(outcome, ServedProduct), outcome
     assert reads == []
+
+
+# --- D-IMPL-357 C2: the mechanism floor, judged before the overridable seam --
+#
+# `refuse_floor` itself (the predicate: subject, then every declared string at
+# every declared depth) is unit-tested exhaustively in
+# `tests/products/test_request_contract.py` against no fixture at all. What is
+# untested until this section is the WIRING: does `GovernedResolver.__call__`
+# actually call it, at a point no override and no acquisition call can precede.
+# A revert of the call site would not redden the pure-function tests — there is
+# no integration assertion there — which is the exact gap five reviewers of C1
+# named.
+
+
+#: A fixture-owned (CINV-01) parameter name, declared `string` so the floor has
+#: something besides the subject to judge at the resolver level. The stock
+#: fixture contract declares only `revenue_threshold: number` (`refuse_floor`
+#: skips a non-string declaration entirely), so proving the floor is wired for
+#: a declared PARAMETER — not only the subject — needs a contract that
+#: declares one.
+REFERENCE_PARAMETER = "reference_code"
+
+#: A splice-shaped value repeated across both controls below: a SPARQL/SQL
+#: escape-and-reopen sequence — the exact shape `SUBJECT_FLOOR_V1` exists to
+#: refuse (`D-IMPL-357` C1).
+SPLICE_SHAPED_VALUE = 'x" . ?s ?p ?o . "'
+
+
+@pytest.fixture
+def booted_with_string_parameter(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, with the request contract declaring one more
+    parameter — :data:`REFERENCE_PARAMETER` — as `string`.
+
+    Mirrors ``booted_with_ceiling``'s shape exactly (add one property to a
+    copy of the stock document): the number is authored HERE, in a test-side
+    document, never in ``src/`` (CINV-01).
+    """
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][
+        REFERENCE_PARAMETER
+    ] = {"type": "string", "description": "Fixture parameter; not required."}
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_a_malformed_subject_is_refused_before_the_acquisition_seam_and_before_the_constraint_resolver(
+    booted: _Booted,
+) -> None:
+    """D-IMPL-357 C2. The seam must be invoked ZERO times, and a
+    PolicyConstraintResolver override must not be able to remove the floor.
+
+    This is the acceptance test the controller named: revert the call site in
+    `GovernedResolver.__call__` and this test reddens — either the seam call
+    count assertion fails (the stub `_seam` is reached), or the override's
+    `resolve` raises its own `AssertionError` first. Either way, a revert of
+    the integration is no longer silent.
+    """
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:  # a stub that skips every judgment
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    resolver = _resolver(booted, acquisition=_seam, constraint_resolver=_Override())
+    outcome = _ask(resolver, _request(subject=SPLICE_SHAPED_VALUE))
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    address = booted.store.resolve_uri(uri=outcome.replay_reference)
+    record = DecisionReplayRecord.model_validate_json(booted.store.get(content_address=address))
+    assert "malformed-value" in str(record.content_generation_path.assembly_refusal)
+
+
+def test_a_malformed_declared_string_parameter_is_refused_the_same_way(
+    booted_with_string_parameter: _Booted,
+) -> None:
+    """The subject is not the only thing the floor is judged over.
+
+    Same three controls as the subject test — zero seam calls, the override
+    never runs, a recorded `malformed-value` — but the splice is carried in a
+    declared `string` PARAMETER instead of the subject, which is the shape
+    :func:`~ccf.products.request.refuse_floor` walks that the subject-only
+    test cannot exercise: the resolver must pass the DECLARED contract
+    (`declared = self._request_contract(declaration)`) through to the floor,
+    not just the bare request.
+    """
+    booted = booted_with_string_parameter
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    resolver = _resolver(booted, acquisition=_seam, constraint_resolver=_Override())
+    outcome = _ask(
+        resolver,
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                REFERENCE_PARAMETER: SPLICE_SHAPED_VALUE,
+            }
+        ),
+    )
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    assert outcome.replay_reference != NO_REPLAY_REFERENCE
+    address = booted.store.resolve_uri(uri=outcome.replay_reference)
+    record = DecisionReplayRecord.model_validate_json(booted.store.get(content_address=address))
+    assert "malformed-value" in str(record.content_generation_path.assembly_refusal)
+    assert REFERENCE_PARAMETER in str(record.content_generation_path.assembly_refusal)
+
+
+def test_a_conforming_declared_string_parameter_passes_the_floor_and_serves(
+    booted_with_string_parameter: _Booted,
+) -> None:
+    """The positive control the parameter-floor test above needs beside it.
+
+    `test_a_well_formed_request_is_unaffected_by_the_floor`, below, uses the
+    STOCK fixture — whose contract declares only `revenue_threshold: number`
+    — so `refuse_floor`'s parameter loop never examines a `string` there at
+    all (`_refuse_floor_below` returns `None` immediately for a non-`string`
+    spec).
+
+    **Measured, not asserted — AND THE POPULATION IS PART OF THE CLAIM.**
+    Dropping the `fullmatch` check inside `_refuse_floor_below`'s
+    plain-`string` branch — refusing every presented `string`, conforming or
+    not — is the severing. An earlier revision of this docstring said it
+    *"reddens THIS test alone"*, which is true only of the four-test section
+    enumerated below; a later reader using this docstring as the oracle would
+    have read the other reds as a regression. Re-measured, each scope named:
+
+    * **Within this section's four tests — this test alone.** The
+      malformed-parameter test above still passes (its out-of-grammar value is
+      still refused, coincidentally, by an unconditional refusal), the stock
+      well-formed control still passes (it presents no string parameter for
+      the broken branch to ever see), and the malformed-subject test is
+      unaffected (a different code path).
+    * **Within `tests/products/test_resolver_seam.py` — 2 reds:** this test and
+      `test_the_ttl_and_the_record_run_from_the_declared_decision_instant`.
+    * **Across `tests/products` — 1598 collected, 12 failed, 1586 passed, 0
+      errors, 0 skipped.** The other ten are every test that serves a product
+      whose request presents a declared `string`: the cp-05 canonical path
+      (2), the paved road (1), and the floor's own measured-subject-forms and
+      path-traversal rows in `test_request_contract.py` (7).
+
+    Only a test presenting a CONFORMING declared
+    string and expecting it to serve can catch a floor that refuses
+    everything. That is the asymmetric-coverage trap the round-1 review
+    named — a resolver-level section that tested refusal exhaustively and
+    never once proved a conforming declared string is admitted.
+
+    This test closes it: :data:`REFERENCE_PARAMETER` carries a value that
+    matches :data:`~ccf.products.request.SUBJECT_FLOOR_V1`
+    (`"ref-001"` — alphanumeric and a hyphen, well inside the grammar), and
+    the outcome must be a served product, not a refusal of any kind.
+    """
+    resolver = _resolver(booted_with_string_parameter)
+    outcome = _ask(
+        resolver,
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                REFERENCE_PARAMETER: "ref-001",
+            }
+        ),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+
+def test_a_well_formed_request_is_unaffected_by_the_floor(booted: _Booted) -> None:
+    """The control. A conforming subject and a conforming parameter still
+    serve — the floor is a refusal path, not a tax on every question."""
+    outcome = _ask(_resolver(booted), _request())
+    assert isinstance(outcome, ServedProduct), outcome
+
+
+# --- D-IMPL-357 C4: a declared subject domain NARROWS, and cannot widen ------
+#
+# C4 adds `ProductRequestContract.subject_domain` — an adopter's further
+# constraint on the subject, judged by `_refuse_subject` inside
+# `refuse_request`. `refuse_request` runs deep inside the constraint
+# resolution (`ccf.products.constraints`, step 5 over the EFFECTIVE values),
+# which `GovernedResolver.__call__` reaches only AFTER `refuse_floor`. So the
+# ordering that makes the narrowing claim true is a property of the resolver,
+# not of either function, and it is measured here.
+
+#: The fixture's own permissive grammar (CINV-01): it admits every character,
+#: including both quote characters `SUBJECT_FLOOR_V1` refuses.
+PERMISSIVE_SUBJECT_GRAMMAR = r".*"
+
+#: The fixture's own narrow grammar: 20 uppercase-or-digit characters. The
+#: stock subject (`"acct-1"`) does not satisfy it; the value below does.
+NARROW_SUBJECT_GRAMMAR = r"[0-9A-Z]{20}"
+CONFORMING_SUBJECT = "5493001KJTIIGC8Y1R12"
+
+
+@pytest.fixture
+def booted_with_permissive_subject_domain(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """The same deployment, its request contract declaring a subject grammar
+    that admits everything. Authored in a test-side document (CINV-01)."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["subject_domain"] = {
+        "pattern": PERMISSIVE_SUBJECT_GRAMMAR
+    }
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+@pytest.fixture
+def booted_with_narrow_subject_domain(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """The same deployment, its request contract declaring a narrow subject
+    grammar the stock subject fails."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["subject_domain"] = {
+        "pattern": NARROW_SUBJECT_GRAMMAR
+    }
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_a_permissive_subject_domain_cannot_widen_past_the_mechanism_floor(
+    booted_with_permissive_subject_domain: _Booted,
+) -> None:
+    """**THE C4 property, at the resolver.**
+
+    The declaration admits an apostrophe. The floor does not, and the floor is
+    judged first — before the overridable `constraint_resolver` seam and
+    before the acquisition seam — so the splice-shaped subject is refused
+    `malformed-value` and neither the override nor the acquisition runs.
+
+    **Measured twice, not asserted.** (1) Deleting the `refuse_floor` call
+    site in `GovernedResolver.__call__` (`floor = None`) reddens this test:
+    the override's `resolve` raises, because the permissive declaration would
+    have let the subject through the narrowing step it reaches instead. (2)
+    Making the floor itself negotiable by declaration — skipping its subject
+    check whenever `declared.subject_domain` is set — reddens this test and its
+    pure-function twin in `tests/products/test_request_contract.py`, and
+    nothing else. That second severing is the precise widening C4 must not
+    allow, and it has a test that sees it.
+    """
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:  # a stub that skips every judgment
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    resolver = _resolver(
+        booted_with_permissive_subject_domain,
+        acquisition=_seam,
+        constraint_resolver=_Override(),
+    )
+    outcome = _ask(resolver, _request(subject=SPLICE_SHAPED_VALUE))
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    address = booted_with_permissive_subject_domain.store.resolve_uri(
+        uri=outcome.replay_reference
+    )
+    record = DecisionReplayRecord.model_validate_json(
+        booted_with_permissive_subject_domain.store.get(content_address=address)
+    )
+    refusal = str(record.content_generation_path.assembly_refusal)
+    # WHICH check refused: the floor, by its version marker — not the C4
+    # narrowing step, whose ruling text is absent from a floor refusal.
+    assert "malformed-value" in refusal
+    assert SUBJECT_FLOOR_VERSION in refusal
+    assert "D-IMPL-357 C4" not in refusal
+
+
+#: The fixture's own permissive PARAMETER grammar (CINV-01): `.*` admits
+#: everything, including the semicolon both mechanism floors refuse.
+PERMISSIVE_PARAMETER_GRAMMAR = r".*"
+
+#: A value the parameter floor refuses and a declared `.*` admits. Short on
+#: purpose: the point is WHICH check decides, not how baroque the input is.
+SEMICOLON_VALUE = "a;b"
+
+
+@pytest.fixture
+def booted_with_permissive_parameter_pattern(
+    tmp_path: pathlib.Path,
+) -> Iterator[_Booted]:
+    """The same deployment, declaring REFERENCE_PARAMETER as `string` AND an
+    argument domain whose grammar admits everything. Authored test-side
+    (CINV-01)."""
+    request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
+    request_contract["declaration"]["arguments"]["properties"][REFERENCE_PARAMETER] = {
+        "type": "string",
+        "description": "Fixture parameter; not required.",
+    }
+    request_contract["declaration"]["argument_domains"] = {
+        REFERENCE_PARAMETER: {"pattern": PERMISSIVE_PARAMETER_GRAMMAR}
+    }
+    yield from _boot(tmp_path, request_contract=request_contract)
+
+
+def test_a_permissive_parameter_pattern_cannot_widen_past_the_value_floor(
+    booted_with_permissive_parameter_pattern: _Booted,
+) -> None:
+    """**The item 7 (a) ordering property, at the resolver.**
+
+    The declaration admits everything, so `refuse_request` ADMITS `a;b` —
+    measured. The only thing that refuses it is the value floor running inside
+    `GovernedResolver.__call__` BEFORE the overridable `constraint_resolver`
+    seam and before acquisition. The pure-function twin cannot show this: it
+    calls `refuse_floor` directly, so it stays green even with that call site
+    deleted, which is why the project owner called it vacant.
+
+    Asserts WHICH check refused, by its version marker, rather than merely that
+    something did.
+
+    The stock `_request` carries the REQUIRED `THRESHOLD_PARAMETER`, so it is
+    passed the way the sibling parameter-floor control at
+    `test_a_malformed_declared_string_parameter_is_refused_the_same_way` passes
+    it — a request missing a required argument would be refused for a different
+    reason and would prove nothing about the floor.
+    """
+    seam_calls: list[object] = []
+
+    def _seam(*, request: Any, perspective: Any) -> tuple[Any, ...]:
+        seam_calls.append(request)
+        return ()
+
+    class _Override:
+        def resolve(self, **kwargs: Any) -> Any:
+            raise AssertionError("the overridable seam ran before the floor")
+
+    booted = booted_with_permissive_parameter_pattern
+    resolver = _resolver(booted, acquisition=_seam, constraint_resolver=_Override())
+    outcome = _ask(
+        resolver,
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                REFERENCE_PARAMETER: SEMICOLON_VALUE,
+            }
+        ),
+    )
+    assert isinstance(outcome, RefusalEnvelope)
+    assert seam_calls == []
+    address = booted.store.resolve_uri(uri=outcome.replay_reference)
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(content_address=address)
+    )
+    refusal = str(record.content_generation_path.assembly_refusal)
+    assert "malformed-value" in refusal
+    assert PARAMETER_VALUE_FLOOR_VERSION in refusal
+    assert "D-IMPL-357 C4" not in refusal
+
+
+def test_a_permissive_parameter_pattern_still_serves_a_conforming_value(
+    booted_with_permissive_parameter_pattern: _Booted,
+) -> None:
+    """The positive control the test above needs beside it.
+
+    Without it, a fixture whose boot refused every request — or whose declared
+    `.*` domain somehow refused everything — would leave the refusal test
+    green. The value here is `Term Loan`: the one the two mechanism floors
+    DISAGREE on, so this also pins at the resolver that a declared `string`
+    PARAMETER is judged by the VALUE floor and not by the ADDRESS floor.
+    Reverting the parameter call sites to `SUBJECT_FLOOR_V1` reddens this.
+    """
+    outcome = _ask(
+        _resolver(booted_with_permissive_parameter_pattern),
+        _request(
+            parameters={THRESHOLD_PARAMETER: 1000, REFERENCE_PARAMETER: "Term Loan"}
+        ),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+
+def test_a_permissive_subject_domain_still_serves_a_conforming_subject(
+    booted_with_permissive_subject_domain: _Booted,
+) -> None:
+    """The positive control for the test above: with a floor-conforming
+    subject the permissive declaration refuses nothing and the product serves.
+    Without this, a `subject_domain` that refused EVERY subject would leave
+    the refusal test green."""
+    outcome = _ask(
+        _resolver(booted_with_permissive_subject_domain), _request(subject="acct-1")
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+
+
+def test_a_narrow_subject_domain_is_read_from_the_artifact_and_refuses(
+    booted_with_narrow_subject_domain: _Booted,
+) -> None:
+    """The declaration is load-bearing on the governed path, not merely
+    parseable: the stock subject passes the floor and then fails the adopter's
+    own grammar, and the recorded refusal names C4 rather than the floor."""
+    outcome = _ask(_resolver(booted_with_narrow_subject_domain), _request())
+    assert isinstance(outcome, RefusalEnvelope)
+    address = booted_with_narrow_subject_domain.store.resolve_uri(
+        uri=outcome.replay_reference
+    )
+    record = DecisionReplayRecord.model_validate_json(
+        booted_with_narrow_subject_domain.store.get(content_address=address)
+    )
+    refusal = str(record.content_generation_path.assembly_refusal)
+    assert "not-in-domain" in refusal
+    assert "D-IMPL-357 C4" in refusal
+    assert SUBJECT_FLOOR_VERSION not in refusal
+
+
+def test_a_narrow_subject_domain_admits_the_subject_it_declares(
+    booted_with_narrow_subject_domain: _Booted,
+) -> None:
+    """The positive control: the same deployment serves the subject its own
+    grammar admits, so the refusal above measures the subject and not the
+    presence of the declaration."""
+    outcome = _ask(
+        _resolver(booted_with_narrow_subject_domain),
+        _request(subject=CONFORMING_SUBJECT),
+    )
+    assert isinstance(outcome, ServedProduct), outcome

@@ -8,8 +8,10 @@ E and R under a stated temporal rule, with policy bound on the way in.
 
 from __future__ import annotations
 
+import numbers
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -20,10 +22,12 @@ from ccf.assembly.worker import (
     NO_RESOLVING_RULE,
     EntityResolutionRule,
     EntityResolutionSpec,
+    IdentityRefused,
     RelationshipResolutionRule,
     ResolvedEntity,
     SpecDrivenEntityResolution,
 )
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from tests.composition import register_at_composition
@@ -913,3 +917,173 @@ def test_a_source_field_cannot_supply_an_undeclared_identity_key() -> None:
             identity_keys=("entity_lei",),
             identity_sources={"typo_lei": "parent_lei"},
         )
+
+
+# --- SEC-007 / D-IMPL-357 B1 / B2: identity admissibility at the mint site --
+
+
+def _lei_rule() -> EntityResolutionSpec:
+    return EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(match_key="lei", entity_class="company", identity_keys=("lei",)),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        (None, "null"),
+        ("", "empty"),
+        ("   ", "empty"),
+        (True, "bool"),
+        (1.5, "float"),
+        (Decimal("NaN"), "non-finite"),
+        ({"lei": "x"}, "non-scalar"),
+        (["x"], "non-scalar"),
+        (b"x", "non-scalar"),
+    ],
+)
+def test_an_inadmissible_identity_value_is_refused_by_name(value: object, reason: str) -> None:
+    """D-IMPL-357 B1 (SEC-007): presence is not admissibility.
+
+    A non-finite ``Decimal`` (NaN here) carries its own reason,
+    ``non-finite``, rather than ``non-scalar`` — Fable fix round 1, finding 2:
+    it IS a scalar, just not one that names an entity.
+    """
+    strategy = SpecDrivenEntityResolution(spec=_lei_rule())
+    with pytest.raises(IdentityRefused) as caught:
+        strategy.resolve(envelope=envelope(payload={"lei": value}))
+    assert caught.value.reason == reason
+    assert caught.value.key == "lei" and caught.value.entity_class == "company"
+
+
+class _FakeNumpyInt:
+    """A stand-in for ``numpy.int64`` — registers as ``Integral`` without
+    subclassing ``int`` (Fable fix round 1, finding 2). No numpy dependency:
+    a stdlib ``int`` subclass would already pass the old check, and
+    ``fractions.Fraction`` registers as ``Rational``, not ``Integral``
+    (measured), so neither stands in for the actual gap.
+    """
+
+    def __init__(self, value: int) -> None:
+        self._value = value
+
+    def __int__(self) -> int:
+        return self._value
+
+
+numbers.Integral.register(_FakeNumpyInt)
+
+
+def test_int_and_decimal_identities_keep_their_positional_string_uris() -> None:
+    """D-IMPL-357 B2 / D-IMPL-316: the coercion is what bare str() did, so no
+    existing URI moves.
+
+    ``_FakeNumpyInt`` proves a pandas/numpy-backed ``Integral`` that is not an
+    ``int`` subclass still mints (Fable fix round 1, finding 2).
+    ``Decimal('1E+2')`` proves the exponent form is not repositioned — it is
+    byte-identity with bare ``str()``, not literal "positional-ness" (finding
+    4a).
+    """
+    strategy = SpecDrivenEntityResolution(spec=_lei_rule())
+    for value, text in (
+        (7, "7"),
+        (Decimal("1.50"), "1.50"),
+        (_FakeNumpyInt(7), "7"),
+        (Decimal("1E+2"), "1E+2"),
+    ):
+        (resolved,) = strategy.resolve(envelope=envelope(payload={"lei": value}))
+        assert resolved.entity_uri == f"company://{content_hash({'lei': text})}"
+
+
+def test_two_null_identity_envelopes_mint_nothing_and_no_edge(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """THE NEGATIVE CONTROL (SEC-007). Before B1, both envelopes minted ONE
+    phantom node (`company://<hash of {"lei": "None"}>`) and the owns rule
+    minted a real edge onto it.
+
+    The count assertions below are the discriminator, not the refusal
+    (Fable fix round 1, finding 4b): each ingest is wrapped in
+    ``try/except IdentityRefused: pass`` so that a sabotaged mint site which
+    stops refusing nulls does not abort the test at ``pytest.raises`` before
+    the counts — and the false edge — are ever checked. Re-enable bare
+    ``str()`` and this reddens on the entity count.
+    """
+    handle = spec_fabric(_positional_spec(remap=True, rules=(_OWNS,)))
+    for envelope_id, payload in (
+        ("e1", {"parent_lei": None, "lei": LEI}),
+        ("e2", {"parent_lei": None, "lei": PARENT_LEI}),
+    ):
+        try:
+            handle.worker.ingest(envelope(envelope_id=envelope_id, payload=payload))
+        except IdentityRefused:
+            pass
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    assert len(view.entities) == 0
+    assert len(view.relationships) == 0
+
+
+# --- D-IMPL-357 B4: a null attribute is absent, not the string "None" -----
+
+
+def _two_attribute_strategy() -> SpecDrivenEntityResolution:
+    """One rule declaring TWO attribute keys.
+
+    Two, not one, is the whole point (Fable fix round 1, finding 4): with
+    ``jurisdiction`` as the rule's only declared key, ``"jurisdiction" not in
+    resolved.attributes`` passes just as happily when the comprehension is
+    ``attributes={}`` — and ``PolicyFilter`` keys off attributes, so silently
+    emptying them changes who is admitted. The second key is what lets the
+    assertions below tell *this key was omitted* from *every key was dropped*.
+    """
+    return SpecDrivenEntityResolution(
+        spec=EntityResolutionSpec(
+            semver="1.0.0",
+            entity_rules=(
+                EntityResolutionRule(
+                    match_key="lei",
+                    entity_class="company",
+                    identity_keys=("lei",),
+                    attribute_keys=("jurisdiction", "name"),
+                ),
+            ),
+        )
+    )
+
+
+def test_a_null_attribute_is_absent_and_the_other_attributes_survive() -> None:
+    """D-IMPL-357 B4: absent-not-null (cp-01's own posture); PolicyFilter keys
+    off attributes, and the string "None" is an answered value.
+
+    The assertion is the EXACT mapping, not a membership test. Three mutations
+    redden it, and each is a repair someone could plausibly reach for:
+    restoring bare ``str()`` (``jurisdiction`` comes back as ``"None"``),
+    dropping the attributes wholesale (``name`` disappears with it), and
+    filtering on the rendered text instead of on identity — which the next test
+    is what forbids.
+    """
+    strategy = _two_attribute_strategy()
+    (resolved,) = strategy.resolve(
+        envelope=envelope(payload={"lei": "L1", "jurisdiction": None, "name": "x"})
+    )
+    assert resolved.attributes == {"name": "x"}
+
+
+def test_the_genuine_string_none_is_stored_because_omission_is_by_identity() -> None:
+    """The omission is by IDENTITY, not by rendered text (D-IMPL-357 B4).
+
+    A source that answers the literal four characters ``None`` has answered. A
+    "fix" spelled ``str(payload[key]) != "None"`` would pass the test above
+    while dropping this real value, and any free-text field whose content
+    happens to be ``None`` would lose data silently. This test is what forbids
+    that spelling, so it is deliberately the mirror of the null case: same
+    rule, same two keys, same shape — only the value's *type* differs.
+    """
+    strategy = _two_attribute_strategy()
+    (resolved,) = strategy.resolve(
+        envelope=envelope(payload={"lei": "L1", "jurisdiction": "None", "name": "x"})
+    )
+    assert resolved.attributes == {"jurisdiction": "None", "name": "x"}

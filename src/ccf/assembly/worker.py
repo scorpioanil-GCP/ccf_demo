@@ -39,9 +39,12 @@ with the Pattern 5 pipeline and will live in their own, untagged modules.
 
 from __future__ import annotations
 
+import numbers
+import unicodedata
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from decimal import Decimal
+from typing import Final, Protocol, runtime_checkable
 
 from pydantic import Field, model_validator
 
@@ -62,6 +65,7 @@ __all__ = [
     "EntityResolutionSpec",
     "EntityResolutionStrategy",
     "FederatedIngestSpec",
+    "IdentityRefused",
     "IngestResult",
     "NO_RESOLVING_RULE",
     "RelationshipResolutionRule",
@@ -111,6 +115,10 @@ class EntityResolutionRule(CCFContract):
             Hash-transparent when empty (``D-IMPL-243``): every rule written
             before this field keeps the canonical form and the URIs it
             already had.
+
+    A ``*_ref: True`` presence-flag ``match_key`` (the SDK's own acquisition
+    idiom) cannot also be an identity key: a boolean identity value is refused
+    at the mint (D-IMPL-357 B1).
     """
 
     match_key: str
@@ -314,6 +322,148 @@ class EntityResolutionStrategy(Protocol):
         ...
 
 
+class IdentityRefused(ValueError):
+    """An identity component's value cannot name an entity (D-IMPL-357 B1; SEC-007).
+
+    Raised, never swallowed, at the ONE mint site: a null, blank, boolean,
+    float or non-scalar value would render through ``str()`` into a string
+    every such record shares, minting one phantom node and, through the
+    relationship rules, false edges onto it. The reason is named so an
+    operator can tell which it was. Presence is checked before this
+    (partial identity), admissibility here.
+    """
+
+    def __init__(self, *, envelope_id: str, entity_class: str, key: str, field: str, reason: str) -> None:
+        self.envelope_id, self.entity_class, self.key, self.field, self.reason = (
+            envelope_id, entity_class, key, field, reason
+        )
+        super().__init__(
+            f"envelope {envelope_id!r} presents an inadmissible identity value"
+            f" ({reason}) for {entity_class!r} key {key!r} read from payload"
+            f" field {field!r}; the fabric refuses to mint a URI from a value"
+            " that names no entity (D-IMPL-357 B1)"
+        )
+
+
+#: Unicode general categories that carry no visible identity (D-IMPL-357 item 1,
+#: Dave's ruling of 2026-09-27, amending B1 for IDENTITY VALUES ONLY).
+#:
+#: ``str.strip`` removes Python's whitespace set, which does NOT contain U+200B
+#: (zero-width space), U+FEFF (BOM) or NUL. An identity holding only those
+#: passed the blank check and minted a node; three distinct entities carrying
+#: three different invisible-only identities were measured collapsing onto
+#: shared nodes with two real relationships between them.
+#:
+#: ``Cc`` control, ``Cf`` format, ``Zs``/``Zl``/``Zp`` separators. Deliberately
+#: NOT ``Cn`` (unassigned) or ``Co`` (private use): an unassigned or
+#: private-use codepoint is an identity a deployment may legitimately mint,
+#: and refusing it would be a widening Dave did not rule.
+_INVISIBLE_IDENTITY_CATEGORIES: Final[frozenset[str]] = frozenset(
+    {"Cc", "Cf", "Zs", "Zl", "Zp"}
+)
+
+
+def _is_invisible_identity(value: str) -> bool:
+    """Is every character of ``value`` one that carries no visible identity?
+
+    Answers True for the empty string, for Python-whitespace-only values (the
+    B1 set this amends), and for values built only from format, control or
+    Unicode separator characters. Answers False as soon as one visible
+    character is present, so ``"a\u200bb"`` is a real identity that happens to
+    carry an invisible character — refusing THAT would be a widening into
+    ordinary attribute semantics, which Dave's ruling excludes.
+    """
+    return all(
+        unicodedata.category(character) in _INVISIBLE_IDENTITY_CATEGORIES
+        for character in value
+    )
+
+
+def _identity_text(value: object) -> tuple[str | None, str]:
+    """The text bare ``str()`` produced for an admissible identity value, or the refusal reason.
+
+    ``numbers.Integral`` and a finite ``Decimal`` render exactly as ``str()``
+    rendered them before D-IMPL-357, so every URI minted from a numeric
+    identifier is byte-identical (D-IMPL-316: the global hashing model is
+    untouched); a ``str`` is taken as is — untrimmed, unfolded. This is
+    byte-identity with the historic coercion, not literally "positional": a
+    ``Decimal``'s exponent form is not repositioned, e.g. ``Decimal('1E+2')``
+    still renders ``'1E+2'`` and ``Decimal('0.0000001')`` still renders
+    ``'1E-7'`` — what B2 requires is that the rendering does not move, not
+    that it takes one particular shape.
+
+    ``bool`` is checked before ``numbers.Integral`` because ``bool`` is
+    registered under it. ``numbers.Integral`` — not the narrower ``int`` — is
+    the check: a pandas-backed L1 adapter (``DataFrame.itertuples``) yields
+    ``numpy.int64``, which is ``Integral`` without subclassing ``int``, and
+    ruling B2 exists so a numeric identity keeps minting the URI it always
+    minted, not so it stops minting because a numeric library boxed it
+    differently. The value is coerced through ``int()`` rather than rendered
+    by its own ``__str__``, so the canonical decimal form is what is hashed
+    regardless of the ``Integral`` subtype's own string form. ``float`` is
+    refused here because ``str()`` ran before the canonical form's own float
+    refusal and would have minted ``"1.5"``. A non-finite ``Decimal`` (NaN,
+    ±Infinity) gets its own reason, ``non-finite``, rather than being folded
+    into ``non-scalar`` — it IS a scalar, just not one that names an entity.
+
+    The ``str`` blank check is :func:`_is_invisible_identity` (D-IMPL-357 item
+    1, Dave's ruling of 2026-09-27, amending B1 for IDENTITY VALUES ONLY) —
+    not the original ``str.strip`` check it replaces, which only catches
+    Python's whitespace set and missed U+200B (zero-width space), U+FEFF
+    (BOM) and NUL.
+
+    **It is called on ``str.__str__(value)``, and that spelling is the whole
+    of the hardening** (R1 fix round 1, both review seats). The original
+    called ``str.strip`` on the TYPE rather than ``value.strip()`` on the
+    instance precisely because a type-bound call cannot be shadowed; a
+    ``str`` subclass overriding ``strip`` could not pass a blank value
+    through it. Plain ``str(value)`` does NOT carry that property across:
+    it is instance-dispatched and invokes ``type(value).__str__``, so a
+    ``str`` subclass returning a visible string from ``__str__`` was
+    measured minting a node for an EMPTY identity — three distinct classes
+    collapsing onto one URI — while the empty ``str`` itself was correctly
+    refused. The carrier is ordinary code, not an attack: a ``str``-mixin
+    ``Enum`` whose "unknown" member is the empty string renders as
+    ``"Tag.UNKNOWN"`` under ``str()`` and as ``""`` under
+    ``str.__str__``. ``str.__str__`` is the type-bound analogue of the
+    ``str.strip`` idiom and resists ``__str__``, ``__iter__`` and both
+    together.
+
+    **The text RETURNED is that same plain-``str`` reading, never the
+    subclass instance**, so no later rendering can re-dispatch ``__str__``
+    on a value this function already judged, and the declared ``str | None``
+    return type is honored at runtime for a ``str``-mixin ``Enum`` member
+    (which is not a plain ``str``). This is byte-identical for the hash —
+    ``content_hash`` canonicalizes a ``str`` subclass by its content already,
+    measured equal for every subclass shape tried — so D-IMPL-316/B2's
+    minted-URI identity is untouched.
+
+    **The reason stays ``"empty"``**: the value IS empty
+    once invisible-only characters are discounted, and Dave's item-3 ruling
+    is not to change the reason vocabulary. An identity carrying an invisible
+    character BESIDE a visible one (``"a\u200bb"``) is still a real identity —
+    refusing that would be a widening into ordinary attribute semantics that
+    Dave's ruling excludes.
+    """
+    if value is None:
+        return None, "null"
+    if isinstance(value, bool):
+        return None, "bool"
+    if isinstance(value, numbers.Integral):
+        return str(int(value)), ""
+    if isinstance(value, float):
+        return None, "float"
+    if isinstance(value, str):
+        # `str.__str__`, never `str(value)`: type-bound, so a subclass's own
+        # `__str__` cannot decide this. Both the CHECK and the RETURNED text
+        # read the content (R1 fix round 1).
+        text = str.__str__(value)
+        return (None, "empty") if _is_invisible_identity(text) else (text, "")
+    if isinstance(value, Decimal):
+        return (str(value), "") if value.is_finite() else (None, "non-finite")
+    return None, "non-scalar"
+
+
 class SpecDrivenEntityResolution:
     """Deterministic attribute-correlation strategy over a declared spec.
 
@@ -358,17 +508,46 @@ class SpecDrivenEntityResolution:
             # field supplied. The payload field's name never enters the
             # identity, so one entity named `parent_uri` here and `child_uri`
             # there is ONE entity (`CP04C-F-01`).
-            identity = {
-                key: str(payload[field]) for key, field in source_of.items()
-            }
+            #
+            # Presence was checked above; admissibility is checked here
+            # (D-IMPL-357 B1, SEC-007) — a null, blank, boolean, float or
+            # non-scalar value would otherwise render through bare `str()`
+            # into a string every such record shares, minting one phantom
+            # node and, through the relationship rules, false edges onto it.
+            identity: dict[str, str] = {}
+            for key, field in source_of.items():
+                text, reason = _identity_text(payload[field])
+                if text is None:
+                    raise IdentityRefused(
+                        envelope_id=envelope.envelope_id, entity_class=rule.entity_class,
+                        key=key, field=field, reason=reason,
+                    )
+                identity[key] = text
             resolved.append(
                 ResolvedEntity(
                     entity_uri=f"{rule.entity_class}://{content_hash(identity)}",
                     entity_class=rule.entity_class,
+                    # A null attribute is OMITTED, not stringified: bare
+                    # `str(None)` would store the literal text "None" on an
+                    # otherwise correctly identified node, and PolicyFilter
+                    # (and any other attribute-keyed consumer) reads a stored
+                    # string as an answered value, not as "unknown"
+                    # (D-IMPL-357 B4).
+                    #
+                    # NO COUNT LIVES HERE. B4 conditioned this change on a
+                    # measurement of the population it moves, and that
+                    # population belongs where it can go stale visibly:
+                    # tools/measure_null_attributes.py prints it with its
+                    # per-source denominators, and the decision entry dates the
+                    # run. An earlier revision of this comment asserted a
+                    # tree-wide count in this spot; no gate checked it, and it
+                    # was wrong on the day it was written — committed SQL seed
+                    # rows carry nulls under declared attribute keys, in a
+                    # fixture format that count's scan never opened.
                     attributes={
                         key: str(payload[key])
                         for key in rule.attribute_keys
-                        if key in payload
+                        if key in payload and payload[key] is not None
                     },
                     resolved_by=rule.match_key,
                 )

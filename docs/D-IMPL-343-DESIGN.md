@@ -318,8 +318,8 @@ machinery.
   `:147-165` `_wrong_address` (a hand-built `ProductRequestViolation` with the
   current seven fields), `:211-219` a rebuilt `ProductRequest`, `:225` the principal
   mapping, the `refused` closure.
-- **SDK API:** `ProductRequestViolation` (`request.py:1503-1568`; reasons
-  `:232-242`), `envelope_for`/`RequestIdentity`, the egress handler passing
+- **SDK API:** `ProductRequestViolation` (`request.py::ProductRequestViolation`; reasons
+  `request.py::ProductRequestViolationReason`), `envelope_for`/`RequestIdentity`, the egress handler passing
   parameters verbatim (`egress.py::_answer_question`), `WireRequest` decode
   (`D-IMPL-302`, `DECODED_DECLARED_TYPE = "number"`).
 - **Duplicated authority:** the door re-types what the SDK decodes and adds

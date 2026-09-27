@@ -371,6 +371,13 @@ NAMED_SINCE_THE_SWEEP: tuple[str, ...] = (
     # address moves — and LOUD when populated, deliberately: two products with
     # different relative-window rules must not share one contract identity.
     "ccf.products.request.ProductRequestContract.relative_defaults",
+    # `D-IMPL-357` C4 — the THIRD exclusive domain shape (a grammar) and the
+    # ninth declaration key (the subject's own further constraint). Silent at
+    # `None`, so no committed request contract's address moves; and an absent
+    # value is the restrictive reading at every consumer, because the mechanism
+    # floor judges the subject whether or not a domain is declared.
+    "ccf.products.request.ArgumentDomain.pattern",
+    "ccf.products.request.ProductRequestContract.subject_domain",
 )
 
 

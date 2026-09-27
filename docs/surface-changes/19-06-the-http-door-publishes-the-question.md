@@ -119,7 +119,7 @@ actually has. The decision of record is `C-09` in
   in `tests/mcp/test_egress_parameters.py` contains no float case, so the
   divergence was real and invisible. This is the narrowing direction
   `D-IMPL-151` finding `B2` already chose for this pair of doors
-- **The naive-`asked_at` refusal makes a shipped claim true.**
+  - **The naive-`asked_at` refusal makes a shipped claim true.**
   `ccf.products.door.WireRequest`'s temporal guard states that *"both product
   doors refuse a naive `asked_at` by name"*. Measured before this change: this
   one did not
@@ -127,7 +127,7 @@ actually has. The decision of record is `C-09` in
   sending a `float` renders it with `format(value, 'f')`; a caller sending a
   bare local instant attaches an explicit offset. Both spellings are named in
   the refusal message rather than left to be guessed
-- **Deferred, and named rather than papered over:** a naive `asked_at` would
+  - **Deferred, and named rather than papered over:** a naive `asked_at` would
   read better under a dedicated `product-asked-at-naive` error code.
   `runtime/ccf_runtime/http_api/errors.py` is outside this plan's declared
   file set, so the existing constant whose recorded meaning covers *an axis

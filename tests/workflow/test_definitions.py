@@ -235,3 +235,108 @@ def test_the_module_names_its_factory_deferred_checks() -> None:
 
     assert module.__doc__ is not None
     assert "WorkflowFactory" in module.__doc__
+
+
+# --- gate_routes: verdict -> declared target (D-IMPL-357 A1) ------------------
+
+
+def _base(**overrides: Any) -> dict[str, Any]:
+    document = {
+        "schema_version": "2.0.0",
+        "artifact_version": "1.0.0",
+        "name": "w",
+        "tenant": "acme-bank",
+        "task_definition_ref": "ccf-artifact://acme-bank/ccf.task-definition/t@1.0.0",
+        "start": "fetch",
+        "transitions": [
+            {"source": "fetch", "target": "gate"},
+            {"source": "gate", "target": "approved"},
+            {"source": "gate", "target": "rejected"},
+        ],
+        "terminal_states": ["approved", "rejected"],
+        "gate_routes": {"gate": {"approve": "approved", "reject": "rejected"}},
+    }
+    document.update(overrides)
+    return document
+
+
+def test_gate_routes_maps_each_verdict_to_a_declared_target_from_that_gate() -> None:
+    definition = WorkflowDefinition.model_validate(_base())
+    assert definition.gate_routes["gate"]["reject"] == "rejected"
+
+
+def test_a_route_to_a_target_not_declared_from_that_gate_is_refused() -> None:
+    with pytest.raises(ValidationError, match="not a declared transition target from"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"gate": {"approve": "approved", "reject": "fetch"}})
+        )
+
+
+def test_a_verdict_outside_GATE_ACTIONS_is_refused() -> None:
+    with pytest.raises(ValidationError, match="GATE_ACTIONS"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"gate": {"approve": "approved", "escalate": "rejected"}})
+        )
+
+
+def test_a_route_keyed_by_an_undeclared_node_is_refused() -> None:
+    with pytest.raises(ValidationError, match="name no non-terminal node"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"phantom": {"approve": "approved"}})
+        )
+
+
+def test_a_route_keyed_by_a_terminal_state_is_refused_even_with_an_empty_map() -> None:
+    """A terminal state has no outgoing route (finding 2, fix round 1).
+
+    Before the fix, ``{"approved": {}}`` validated silently: the stray-key
+    check ran against every *declared* node (terminals included), and an
+    empty inner map never reached the per-verdict target check either. A
+    terminal-keyed route is refused as a stray key regardless of whether its
+    map is empty, mirroring how ``exception_refs`` is restricted to the
+    non-terminal ``routable`` population.
+    """
+    with pytest.raises(ValidationError, match="name no non-terminal node"):
+        WorkflowDefinition.model_validate(_base(gate_routes={"approved": {}}))
+
+
+def test_two_verdicts_from_one_gate_may_not_name_the_same_target() -> None:
+    """Finding 1 (fix round 1) — the headline SEC-001 gap this closes.
+
+    Before the fix, ``{"approve": "approved", "reject": "approved"}``
+    validated: both verdicts named a declared target from the gate, so
+    nothing checked that the two targets differed. That map defeats the
+    entire artifact end to end — an officer records ``reject``, the caller
+    resumes with ``decision="approved"``, A2's coverage check passes (both
+    verdicts are present), A3's compare (``decision != gate_routes[gate][action]``)
+    computes ``"approved" == "approved"`` and passes, and the workflow
+    completes on the approving branch: SEC-001's exact signature, surviving
+    the artifact built to stop it.
+    """
+    with pytest.raises(ValidationError, match="more than one verdict"):
+        WorkflowDefinition.model_validate(
+            _base(gate_routes={"gate": {"approve": "approved", "reject": "approved"}})
+        )
+
+
+def test_gate_routes_is_a_generation_boundary_not_a_transparent_default() -> None:
+    from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
+
+    field = WorkflowDefinition.model_fields["gate_routes"]
+    assert (field.json_schema_extra or {}).get(HASH_TRANSPARENT_KEY) is False
+
+
+def test_a_stored_workflow_without_gate_routes_is_named_a_generation_mismatch() -> None:
+    """The consequence, not just the declaration (finding 4, fix round 1).
+
+    The prior version of this test re-read the field's own
+    ``json_schema_extra`` — it would still pass if ``generation_mismatch``
+    stopped honoring ``False`` marks entirely. This asserts the behavior the
+    mark exists to produce: a stored document that predates ``gate_routes``
+    is named, by field name, as a generation boundary.
+    """
+    from ccf.contracts.canonical import generation_mismatch
+
+    stored = _base()
+    del stored["gate_routes"]
+    assert generation_mismatch(WorkflowDefinition, stored) == ("gate_routes",)

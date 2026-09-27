@@ -76,7 +76,12 @@ from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWr
 from ccf.authz.capability import Authorized, Execute, Resume, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
-from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
+from ccf.controlplane.audit import (
+    AuditAction,
+    AuditEvent,
+    AuditLog,
+    WorkflowVerdictIntegrityFailure,
+)
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import AuditedStateWriter, state_key
@@ -517,13 +522,13 @@ class WorkflowEngine:
             # ``resolved=True, actor=None`` in the audit — the exact
             # signature SEC-001 named. Never ask the caller what kind of
             # node the fabric is waiting on.
-            authority = self._gate_authority(
+            qualifying = self._gate_authority(
                 tenant=tenant,
                 key=key,
                 gate=record.current_state,
                 record=record,
             )
-            if authority is None:
+            if not qualifying:
                 return self._refuse(
                     authorized,
                     workflow,
@@ -537,7 +542,48 @@ class WorkflowEngine:
                         " (CLAUDE.md §8.2; D-IMPL-20)"
                     ),
                 )
+            # Selection is UNCHANGED (D-IMPL-357 A4): the head of the
+            # eligible tuple is the submission the single-submission form
+            # returned, because ``submissions`` is oldest-first. What changed
+            # is that selection no longer runs alone — the verdicts recorded
+            # against this suspension must not disagree before one of them is
+            # allowed to route.
+            authority = qualifying[0]
             actor: str | None = authority.principal.approver.subject_id
+            recorded = self._recorded_gate_verdicts(
+                tenant=tenant,
+                key=key,
+                gate=record.current_state,
+                record=record,
+            )
+            if len({submission.action for submission in recorded}) > 1:
+                # D-IMPL-357 A4: two distinct human verdicts on ONE
+                # suspension. Ordered ahead of the declared-target and route
+                # compares deliberately — with the contradicting verdict at
+                # the head of the eligible tuple the route compare would
+                # refuse on its own, and the record would then say a caller
+                # named the wrong transition rather than that two humans
+                # disagreed. Names NEITHER verdict and NEITHER target
+                # (SEC-001 remedy 3); the audit event carries the rule and
+                # the approver selection reached, for the reader who is
+                # entitled to them.
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} carries conflicting human"
+                        f" verdicts on gate {record.current_state!r}; a gate"
+                        " routes on one recorded verdict and the fabric will"
+                        " not choose between two, and it offers no primitive"
+                        " for reconciling a conflicted suspension, so this"
+                        " gate stays suspended until the disagreement is"
+                        " settled operationally, outside the fabric"
+                        " (D-IMPL-357 A4; CLAUDE.md §8.2)"
+                    ),
+                    verdict_integrity="conflicting_verdicts",
+                    recorded_approver=actor,
+                )
             targets = self._targets(workflow, record.current_state)
             if decision not in targets:
                 return self._refuse(
@@ -550,6 +596,45 @@ class WorkflowEngine:
                         " interpreted from the artifact only (CINV-01;"
                         " CLAUDE.md §8.1)"
                     ),
+                )
+            route = workflow.definition.gate_routes.get(record.current_state, {}).get(
+                authority.action
+            )
+            if route is None or decision != route:
+                # D-IMPL-357 A3/A4: the artifact declares where the recorded
+                # verdict goes; the caller's decision is a double-entry that
+                # must agree. Names NEITHER the verdict nor the route (remedy 3:
+                # the refusal never answers the caller's question for them).
+                #
+                # ``.get(..., {}).get(...)`` and not an index, deliberately
+                # — now as disclosed defense-in-depth rather than as live
+                # coverage. The shape that motivated it was a gate which is
+                # both the start node and a declared terminal state: the
+                # factory's completeness population subtracts terminal
+                # states, so no route map was required, the A1 validator
+                # forbade declaring one, and ``_advance`` suspends on the
+                # step's kind before any terminal test — so such a gate
+                # could hold a resume, and an unguarded index would raise
+                # where a typed refusal is owed. D-IMPL-357 A2 (review round
+                # 1, item 7) now REFUSES that construction outright, in
+                # either position, so ``route is None`` is structurally
+                # unreachable with a usable target rather than merely
+                # improbable. No behavioral test can distinguish this from a
+                # plain index; it stands so that no later edit of this path
+                # reaches an unguarded one.
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"decision {decision!r} does not agree with the route"
+                        " the workflow definition declares for the verdict"
+                        " the HITL authority path recorded on"
+                        f" {record.current_state!r}; routing is interpreted"
+                        " from the artifact only (CINV-01; D-IMPL-357)"
+                    ),
+                    verdict_integrity="route_disagreement",
+                    recorded_approver=actor,
                 )
             trace = record.trace + (
                 self._entry(
@@ -935,12 +1020,25 @@ class WorkflowEngine:
         key: str,
         gate: str,
         record: WorkflowStateRecord,
-    ) -> HitlActionSubmission | None:
-        """The recorded human approval authorizing passage past ``gate``.
+    ) -> tuple[HitlActionSubmission, ...]:
+        """Every recorded human verdict ELIGIBLE to authorize passage past ``gate``.
 
         SEC-001. Reads the HITL transport's authority path — the only
         surface a human action returns through (D-IMPL-20) — and returns
-        the submission that authorizes THIS suspension, or ``None``.
+        the submissions that may authorize THIS suspension, oldest first, or
+        an empty tuple.
+
+        **Eligibility only; it decides nothing about agreement**
+        (D-IMPL-357 A4). The caller selects the authority from the head of
+        this tuple, exactly as the single-submission form selected it, and
+        asks :meth:`_recorded_gate_verdicts` — a deliberately BROADER
+        population — whether the verdicts recorded against this suspension
+        disagree. The two questions cannot share one predicate: the rules
+        below are what make a verdict *routable*, and a verdict that is not
+        routable can still be a recorded human decision that contradicts
+        the one that is. Reading agreement off this tuple would leave the
+        transport's stamp race wide open, because the racing officer's
+        rejection is recorded unstamped and fails the unstamped leg.
 
         Three conditions, all necessary:
 
@@ -1012,16 +1110,119 @@ class WorkflowEngine:
         ``runtime/ccf_runtime/http_api/routes/hitl.py``, not something this
         module may decide alone.
 
-        **Known residual (D-IMPL-350).** The verdict does not bind WHICH
-        declared target the resume may take, because no artifact declares
-        that mapping: a :class:`~ccf.workflow.definitions.WorkflowDefinition`
-        carries ``transitions`` (source→target) and nothing verdict-shaped.
-        Deriving one in code would put domain routing values in ``/src``
-        (No-Hardcoding, CLAUDE.md §6.4), so the mapping must be declared
-        before it can be enforced. Until then a recorded rejection can be
-        routed down the approving branch. Pinned by
-        ``tests/workflow/test_engine.py::
-        test_a_rejection_authorizes_resumption_but_does_not_bind_the_target``.
+        **The verdict→target binding, and exactly how far it closes.**
+        Declared on the artifact as ``gate_routes`` (D-IMPL-357 A1) and
+        enforced in :meth:`resume` after the declared-target check, pinned
+        by ``tests/workflow/test_engine.py::
+        test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch``.
+        Given one recorded human action, the caller's decision must agree
+        with the target the artifact declares for the verdict that action
+        carries.
+
+        **A VERDICT RECORDED BEFORE THIS RESUMPTION READS THE CONFLICT
+        POPULATION CANNOT REACH THE APPROVING TERMINAL** — whatever it
+        contradicts, in either arrival order, stamped or not (D-IMPL-357
+        A3 + A4). **That bound is the claim, and it is deliberately not
+        unconditional:** a verdict recorded *concurrently with* a
+        resumption, after the read and before the attributed commit, is
+        not in the population this check saw, which is residual 2(b)
+        below. Routing is the compare above; selection integrity is the
+        conflict refusal in :meth:`resume` over
+        :meth:`_recorded_gate_verdicts`. Both of the paths A3's review
+        measured are shut, and each was measured again going red:
+
+        * **Two distinct verdicts on one suspension** no longer resolve to
+          the oldest and route on it. They refuse, in either arrival order,
+          and the refusal is ordered ahead of the route compare so the
+          record says two humans disagreed rather than that a caller named
+          the wrong transition. Pinned in process and through the served
+          doors.
+        * **The transport's stamp race** no longer decides a verdict. Its
+          recorded end state — one stamped verdict and one unstamped
+          opposite verdict on the same suspension — is precisely what
+          :meth:`_recorded_gate_verdicts` refuses, which is why that
+          population is deliberately unfiltered by eligibility.
+
+        **What remains OPEN, stated here because this docstring is the
+        residual ledger a close panel, an adopter and the next maintainer
+        read.** Both items are real and neither may be read as closed. The
+        second one **can** put a rejection at an approving terminal — no
+        sentence here may reassure a reader otherwise, because a
+        reassurance is exactly what stops a maintainer looking for the
+        shape.
+
+        * **(1) The stamp race itself is still there, in the transport.**
+          A
+          claim is keyed ``(tenant, event_key)`` and consumed by whichever
+          submission for that pair arrives first, so an attacker holding
+          submit authority can still cause an officer's verdict to be
+          recorded unstamped. What changed is the consequence: the pair now
+          REFUSES and demands human reconciliation instead of routing on
+          the attacker's verdict. So the race has become an availability
+          problem — anyone with submit authority for the event can park a
+          contradicting verdict and hold the gate until a human
+          reconciles — rather than an integrity one. Closing it means
+          ``remove`` minting an opaque claim token that ``submit``
+          requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
+          signature change that belongs with the D-IMPL-62 door ruling.
+        * **(2) NOTHING MAKES THIS RESUMPTION'S READ-DECIDE-COMMIT
+          ATOMIC**,
+          and two shapes fall out of that one absence. :meth:`resume`
+          takes no per-execution lock and performs no compare-and-set: it
+          reads the state record, reads the authority and conflict
+          populations, decides, and only then writes. So **(a)** two
+          concurrent resumes of one suspension both pass the authority
+          read AND the conflict check, execute the downstream node twice
+          from one human action, and write two attributed resumption rows
+          — one human decision became two passages; and **(b)** a verdict
+          recorded *inside that window* is not seen at all, so a rejection
+          submitted after the conflict read and before the attributed
+          commit leaves BOTH verdicts standing in the record while the
+          execution completes at the approving terminal — the outcome the
+          check above refuses when the same rejection lands first.
+          **These are one defect, and closing both takes a fix that
+          reaches both: one per-execution lock taken by both the resumption
+          and the submission path for that execution's event, or a
+          compare-and-set that covers the conflict population as well as
+          the state record, closes both; a lock or compare-and-set on the
+          state record ALONE closes only (a).** The reason is structural
+          rather than incidental, and it is stated because this is the
+          sentence a maintainer would implement from: submissions live in
+          the transport's own list, and
+          :mod:`ccf.hitl.transport` names ``state_store``,
+          ``WORKFLOW_STATE`` and :class:`WorkflowStateRecord` zero times —
+          a late rejection never touches the state record at all, so a
+          compare-and-set on the state record SUCCEEDS and (b) stands. A
+          second read before the commit is not the fix
+          either: it narrows the window and invites a reader to think the
+          class is handled. **Nothing in this docstring may be read as
+          closing the concurrency class**, and no state-record guarantee
+          may be read as settling (b). Closing it needs the serialization
+          ruling.
+
+          **The probe shape, carried so it is not re-derived.** No engine
+          logic is altered: a pure helper on this read path is wrapped
+          with a tenth-of-a-second sleep purely to widen a window that is
+          already there, and a real second operating-system thread submits
+          the rejection through the real transport with a real capability.
+          Both verdicts end up recorded and the execution completes
+          approved. **The window is reachable in the shipped server
+          topology** — the resumption endpoint is asynchronous on the
+          event loop, the human-action endpoint is a synchronous handler
+          the server runs on a worker thread, and the unwidened window
+          spans the target lookup, the route lookup, the trace
+          serialization and the audit construction with its canonical
+          hashing: thousands of operations against a five-millisecond
+          thread-switch interval. An in-process sweep landed zero times in
+          480 trials, which is the honest counterweight — **structurally
+          open, not demonstrated in process, and given true concurrency by
+          the served doors.**
+
+        The bound on the claim above is deliberate, because this project
+        has already paid once for stating it wider: an earlier fix on this
+        same vulnerability was reported complete, and the close panel on
+        the follow-on work reproduced the CRITICAL finding with that fix
+        in place.
 
         Note the direction of trust: the engine *reads* the authority path
         and never writes a verdict to it. Resolution stays the gate
@@ -1034,23 +1235,111 @@ class WorkflowEngine:
             and event.event_class == GATE_EVENT_CLASS
             for event in self._hitl_transport.pending(tenant=tenant)
         )
-        return next(
-            (
-                submission
-                for submission in self._hitl_transport.submissions(
-                    tenant=tenant
-                )
-                if submission.event_key == event_key
-                and submission.principal.product_content_hash == suspension
-                and submission.action in GATE_ACTIONS
-                and (
-                    submission.answered_event_class == GATE_EVENT_CLASS
-                    and submission.answered_workflow_state_ref == key
-                    if submission.answered_event_class is not None
-                    else gate_still_pending
-                )
-            ),
-            None,
+        return tuple(
+            submission
+            for submission in self._hitl_transport.submissions(tenant=tenant)
+            if submission.event_key == event_key
+            and submission.principal.product_content_hash == suspension
+            and submission.action in GATE_ACTIONS
+            and (
+                submission.answered_event_class == GATE_EVENT_CLASS
+                and submission.answered_workflow_state_ref == key
+                if submission.answered_event_class is not None
+                else gate_still_pending
+            )
+        )
+
+    def _recorded_gate_verdicts(
+        self,
+        *,
+        tenant: str,
+        key: str,
+        gate: str,
+        record: WorkflowStateRecord,
+    ) -> tuple[HitlActionSubmission, ...]:
+        """Every gate verdict RECORDED against this suspension, oldest first.
+
+        D-IMPL-357 A4, and the population is broader than
+        :meth:`_gate_authority`'s on purpose: every submission naming this
+        gate's pending event, bound to this suspension's own content hash,
+        carrying a :data:`~ccf.hitl.approval_gate.GATE_ACTIONS` verdict —
+        **stamped or not, eligible to be the authority or not.** The caller
+        refuses the resumption when the distinct verdicts here number more
+        than one.
+
+        **Why eligibility is deliberately not applied.** Round 1 of A4's
+        review measured the sequence that walks straight through a
+        predicate that does apply it. A credit officer resolves the gate
+        ``reject``, which REMOVES the pending claim and then submits; an
+        attacker holding submit authority for the same event lands
+        ``approve`` in that window; the transport stamps whichever submit
+        arrives first (documented at
+        :meth:`~ccf.hitl.transport.HITLTransportProtocol.submit`), so the
+        attacker's verdict takes the stamp and the officer's is recorded
+        UNSTAMPED. The gate is no longer pending, so the officer's
+        rejection fails the unstamped leg and is not eligible at all — and
+        an eligibility-filtered verdict set then has exactly one member,
+        detects no conflict, and the routing compare faithfully agrees with
+        the attacker. Raced for real: **823 of 3000 executions succeeded
+        with four attacker threads.** Filtering nothing here is what closes
+        it, without weakening what selection requires of an authority.
+
+        **The suspension hash stays in the predicate**, and it is what
+        keeps this from over-refusing: a verdict recorded against an
+        EARLIER suspension of the same gate — a loop, an exception route
+        and a re-suspension — carries that suspension's content hash and is
+        correctly invisible here. Dropping it would let a resolved
+        disagreement poison every later suspension of the same node
+        forever.
+
+        **The event-key term is a BACKSTOP, not the load-bearing check** —
+        the same disclosure :meth:`_gate_authority` carries for its own copy
+        of this term, restated here so this predicate's reader does not have
+        to infer it. Two suspensions differ in at least ``execution_id`` or
+        ``current_state``, so the suspension hash above already separates
+        them, and dropping this line reddens nothing across
+        ``tests/workflow`` and ``tests/http_api/test_routes.py``. Measured,
+        not assumed. Kept because it is what a reader expects to see, and
+        stated so nobody mistakes it for the guard doing the work.
+
+        **The verdict-vocabulary term, by contrast, IS load-bearing and is
+        pinned** — by ``tests/workflow/test_engine.py::
+        test_an_annotation_and_an_override_beside_an_approval_still_route``.
+        :data:`~ccf.hitl.transport.HITL_ACTIONS` carries ``override`` and
+        ``annotate`` alongside the two gate verdicts, so without ``action in
+        GATE_ACTIONS`` either of those bound to this suspension would count
+        as a distinct verdict and wedge the gate. That failure direction is
+        over-refusal rather than bypass, which is exactly why it could sit
+        here unpinned — and it is still a denial of service on approvals,
+        the mirror image of the vulnerability this task closes.
+
+        **What it costs, stated rather than assumed.** Agreeing submissions
+        carry one distinct verdict, so nothing that previously proceeded on
+        agreement now refuses — a second approver recording the same
+        verdict (D-23 quorum) is unaffected. The one real behavior change
+        is the intended one: where a verdict was recorded that never became
+        the authority and the opposite verdict was then recorded, the
+        resumption previously proceeded on whichever one selection reached
+        and now refuses. A bank's answer to *two humans recorded opposite
+        verdicts on one decision* is to stop and require reconciliation,
+        not to resolve silently in favor of whichever one won a race.
+
+        A verdict recorded against a DIFFERENT primitive's event that
+        happens to name this event key and this suspension hash — the
+        escalation composition :meth:`_gate_authority` describes — counts
+        here even though it can never be the authority. That is the same
+        ruling applied consistently: it is a recorded human decision about
+        this suspension, and if it contradicts the routable one the fabric
+        does not get to pick.
+        """
+        event_key = self._event_key(key, gate)
+        suspension = content_hash(record)
+        return tuple(
+            submission
+            for submission in self._hitl_transport.submissions(tenant=tenant)
+            if submission.event_key == event_key
+            and submission.principal.product_content_hash == suspension
+            and submission.action in GATE_ACTIONS
         )
 
     def _escalation_pending(self, *, tenant: str, key: str) -> bool:
@@ -1079,13 +1368,31 @@ class WorkflowEngine:
         unaffected — pinned by ``test_an_exception_routed_resume_without_
         escalation_is_unaffected``.
 
-        **The same residual the gate carries (D-IMPL-350).** Either
+        **The escalation leg's OWN remaining gap — no longer the gate's**
+        (D-IMPL-357 A4). The gate's verdict→target residual is closed to
+        the bound :meth:`_gate_authority`'s ledger states — read it there
+        rather than inferring an unconditional close from this sentence:
+        ``gate_routes`` declares where each verdict goes (A1), the route
+        compare enforces it (A3), and conflicting verdicts recorded before
+        the resumption's own read refuse (A4). None of that reaches here,
+        because
+        ``gate_routes`` is keyed by the two
+        :data:`~ccf.hitl.approval_gate.GATE_ACTIONS` verdicts on a gate
+        NODE, and an escalation is a hold on an exception-routed state
+        rather than a gate. So for this leg it remains true that either
         :data:`~ccf.hitl.escalation.ESCALATION_ACTIONS` verdict releases
-        the hold, because a declined hand-off is still a recorded human
-        decision about this state and nothing in a
-        :class:`~ccf.workflow.definitions.WorkflowDefinition` maps a
-        verdict to a route. What changed is that some human must have
-        acted on this routing, and the audit names them.
+        the hold: a declined hand-off is still a recorded human decision
+        about this state, and nothing a
+        :class:`~ccf.workflow.definitions.WorkflowDefinition` carries maps
+        an escalation verdict to a route. What the SEC-001 work did change
+        here is that some human must have acted on this routing at all, and
+        the audit names them.
+
+        This is stated rather than deleted because it is a distinct open
+        question with a distinct answer: declaring escalation routes would
+        be a new generation of the workflow contract (the shape A1 took for
+        gates), and whether a declined hand-off should route somewhere
+        other than a retry of the same node is a ruling nobody has made.
         """
         return any(
             event.event_class == ESCALATION_EVENT_CLASS
@@ -1241,6 +1548,8 @@ class WorkflowEngine:
         action: AuditAction,
         resolved: bool,
         actor: str | None,
+        verdict_integrity: WorkflowVerdictIntegrityFailure | None = None,
+        recorded_approver: str | None = None,
     ) -> None:
         """Audit one transition that changes no persisted state.
 
@@ -1249,6 +1558,15 @@ class WorkflowEngine:
         would let a gate resolution be audited with the approver silently
         omitted — the shape that let the pre-fix engine record
         ``resolved=True`` for an approval that never happened.
+
+        ``verdict_integrity`` and ``recorded_approver`` DO default, because
+        their absence is the ordinary case and the log's default event class
+        is the honest record of it (D-IMPL-357 A4). Supplying the member
+        makes the appended event a
+        :class:`~ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent`,
+        which is how a refusal caused by a recorded human verdict stops
+        being byte-identical to a caller's typo. They travel as a pair:
+        every site that names a rule also names the approver it reached.
         """
         self._audit.append(
             action=action,
@@ -1258,6 +1576,8 @@ class WorkflowEngine:
             occurred_at=self._clock(),
             actor=actor,
             artifact_class=WORKFLOW_DEFINITION.class_id,
+            workflow_verdict_integrity=verdict_integrity,
+            workflow_recorded_approver=recorded_approver,
         )
 
     def _refuse(
@@ -1267,15 +1587,35 @@ class WorkflowEngine:
         *,
         execution_id: str,
         reason: str,
+        verdict_integrity: WorkflowVerdictIntegrityFailure | None = None,
+        recorded_approver: str | None = None,
     ) -> WorkflowResumeRefused:
-        """Return a typed refusal, audited ``resolved=False``."""
+        """Return a typed refusal, audited ``resolved=False``.
+
+        A refusal the caller's own request produced — no execution, a
+        terminal one, a definition mismatch, no authority, an undeclared
+        decision — audits with no actor, because no human's recorded
+        verdict is what refused it.
+
+        The two verdict-integrity refusals are different in kind and now
+        different in the record (D-IMPL-357 A4): they refuse BECAUSE a
+        human's verdict was recorded, so they name the rule and the
+        approver, and the appended event is a
+        :class:`~ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent`.
+        ``actor`` carries the same approver: the refusal row is not an
+        attributed passage — ``resolved`` is ``False`` — but it IS about a
+        human action, and an investigator filtering the log by actor must
+        find it.
+        """
         tenant = authorized.tenant
         self._append(
             workflow,
             self._key(tenant, execution_id),
             action="workflow_resumed",
             resolved=False,
-            actor=None,
+            actor=recorded_approver,
+            verdict_integrity=verdict_integrity,
+            recorded_approver=recorded_approver,
         )
         return WorkflowResumeRefused(
             tenant=tenant, execution_id=execution_id, reason=reason

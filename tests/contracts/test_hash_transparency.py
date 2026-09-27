@@ -346,6 +346,19 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.audit.AuthzDecisionAuditEvent.authz_resource",
         "ccf.controlplane.audit.AuthzDecisionAuditEvent.authz_matched_resource_pattern",
         "ccf.controlplane.audit.AuthzDecisionAuditEvent.authz_failing_axis",
+        # `D-IMPL-357` A4's verdict-integrity audit record, reconciled AT THE
+        # JOIN: its two fields are declared
+        # `json_schema_extra={HASH_TRANSPARENT_KEY: True}` at
+        # `src/ccf/controlplane/audit.py::WorkflowVerdictIntegrityAuditEvent`
+        # for the same reason as the three authz fields above — each is `None`
+        # on every audit event recorded before the capability existed, so an
+        # examiner's hash of an older row does not move, while a real value is
+        # a real claim and is rendered. Neither lane could see this gap alone:
+        # lane A added the fields and did not run this suite, and lane C ran
+        # this suite on a tree where the event did not exist. The roster is
+        # what caught it, which is why it is a roster and not a count.
+        "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_verdict_integrity",
+        "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_recorded_approver",
         "ccf.hitl.transport.HitlActionRequest.annotation",
         "ccf.hitl.transport.HitlActionRequest.signed_binding",
         "ccf.hitl.transport.HitlActionSubmission.authorizing_decision_id",
@@ -652,6 +665,19 @@ _MARKED_IN_THE_TREE = frozenset(
         # arrival this set-equality test exists to report.
         "ccf.hitl.transport.HitlActionSubmission.answered_event_class",
         "ccf.hitl.transport.HitlActionSubmission.answered_workflow_state_ref",
+        # `D-IMPL-357` C4 — the THIRD exclusive domain shape (a grammar) and
+        # the ninth declaration key (the subject's own further constraint).
+        # Both ADDITIVE and both sentinel-silent at `None`, so every domain and
+        # every request contract written before them canonicalizes byte-for-byte
+        # as it did and the `ProductRequestContract` digest below still
+        # reproduces. The tick is correct rather than merely recorded because
+        # the sentinel is the RESTRICTIVE reading at every consumer: an absent
+        # `pattern` declares no grammar rather than a permissive one, and an
+        # absent `subject_domain` narrows nothing — the mechanism floor
+        # (`SUBJECT_FLOOR_V1`) judges the subject either way, and no declaration
+        # can reach under it.
+        "ccf.products.request.ArgumentDomain.pattern",
+        "ccf.products.request.ProductRequestContract.subject_domain",
     }
 )
 

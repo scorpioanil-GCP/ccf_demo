@@ -1,0 +1,16 @@
+name: release-stamp
+on:
+  push:
+    tags: ["v*"]
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # setuptools_scm and `git describe` need the tags
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e "."
+      - run: python tools/check_version_stamp.py

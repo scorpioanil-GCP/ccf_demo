@@ -113,7 +113,7 @@ comparing a value with itself. The decisions of record are `C-05`, `C-06`,
   envelope would be the second rendering of the vessel that `ccf.client.wire`
   rejects by ruling; encoding text this adapter never inspects is a
   pass-through, not a transcoding
-- **Diagnostic narrowing, accepted rather than papered over:** `_decode`
+  - **Diagnostic narrowing, accepted rather than papered over:** `_decode`
   raised a `TransportError` naming the scheme and the program for malformed
   bytes. `decode_outcome` raises the same diagnosis in the same words without
   that context, and the generic message is taken. A thin adapter-level
@@ -144,7 +144,7 @@ comparing a value with itself. The decisions of record are `C-05`, `C-06`,
   the echo cross-check an object compared with itself, which is `B0` surviving
   in-process while being closed over the wire. The door half takes **text and
   never a `WireRequest`**, for the reason `door_question` already states
-- **The cost, ruled and not benchmarked:** two extra serializations per `ask`,
+  - **The cost, ruled and not benchmarked:** two extra serializations per `ask`,
   accepted with no benchmark owed (`C-14`). `D-13` already accepted *"a
   microsecond of serialization"* on the answer half, and the question is far
   smaller than the answer

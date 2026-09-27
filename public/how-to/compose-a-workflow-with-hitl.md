@@ -136,7 +136,11 @@ Resumption picks the suspended state back up and runs to a terminal state.
 **The human action is a precondition, not a convention:** the engine reads the
 HITL authority path and refuses to leave a gate unless a recorded action for
 that exact suspension is on it, so the decision string names the route and
-never supplies the permission. Exception paths are ordinary transitions here,
+never supplies the permission — and, since `D-IMPL-357`, it must agree with the
+route the definition's `gate_routes` declares for the verdict the human
+recorded; a decision that names another declared target is refused without the
+refusal naming the verdict or the route. Exception paths are ordinary
+transitions here,
 not error handling bolted on afterwards, so an escalation route is as
 inspectable as the happy path:
 

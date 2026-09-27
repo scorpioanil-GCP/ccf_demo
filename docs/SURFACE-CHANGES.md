@@ -17,19 +17,21 @@ It is assembled from the per-plan fragments under `docs/surface-changes/`, which
 
 **Phase 16 consumes this document directly.** The documentation rewrite describes the surface that exists; this is the record of how it got there from the surface Phase 14 documented.
 
+**WHAT THIS DOCUMENT IS NOT: it is not a complete security ledger, and it does not carry the residual ledgers.** It emits the seven field bullets of every entry and nothing else, so a fragment's prose sections — a stated bound on a security fix, its named residuals, its sabotage evidence — reach a reader through the fragment under `docs/surface-changes/` and never through this file. Measured on the `SEC-001` fragment: seven distinctive phrases from its limit-that-remains section appear once there and zero times here. So read this as the migration record it is, and read a security remediation's bound in `docs/DECISIONS.md` and in the owning fragment. Anything a residual owes an adopter belongs in a `Migration` bullet, where this document can carry it.
+
 ## How to read an entry
 
 Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `Before`, `After`, `Why`, and `Migration`. The assembler refuses to build this document from an entry missing any of them.
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1731 entries**, of which **1473** name a public Python surface.
+**1750 entries**, of which **1491** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-991 entries — 948 public Python surface, 43 not public Python API.
+1000 entries — 957 public Python surface, 43 not public Python API.
 
 ### Public Python surface
 
@@ -286,6 +288,121 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   absence on surfaces that could not ask for one
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+
+- Surface: ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+- Public surface: true
+- Change type: added
+- Before: absent. A `workflow_resumed` refusal caused by a recorded human
+  verdict was an `AuditEvent` indistinguishable from any other refusal of
+  the same execution — same action, same `resolved=False`, same `actor=None`.
+- After: a derived event class carrying two fields —
+  `workflow_verdict_integrity` (which rule refused) and
+  `workflow_recorded_approver` (the approver whose recorded verdict the
+  engine's selection rule reached). `AuditLog.append` returns one of these
+  whenever `workflow_verdict_integrity` is supplied, and the workflow engine
+  supplies it at exactly two sites: the route-disagreement refusal (A3) and
+  the conflicting-verdicts refusal (A4). Both fields are hash-transparent at
+  their sentinel (`ccf.contracts.canonical.HASH_TRANSPARENT_KEY`;
+  `D-IMPL-243`, *"silence equals yesterday"*), so an event appended with
+  either unset renders byte-identically to one appended before the class
+  existed. The refusal row also carries the approver in the base `actor`
+  field, so an investigator filtering the log by actor finds it — `resolved`
+  is still `False`, because a refusal is not an attributed passage.
+- Why: `SEC-001`. The remedy this vulnerability's own fix introduced is that
+  a gate opens only on a recorded human action; the log then has to be able
+  to say when a resumption was refused *because* of one. Recording nothing
+  about the human made the log say less than the engine knew — the approver
+  is a local in scope at both refusal sites.
+- Migration: none. Existing readers of `AuditLog.events()` receive
+  `AuditEvent` instances and these are `AuditEvent` subclasses; existing
+  canonical hashes do not move. A reader that wants the new facts narrows on
+  the class or reads the two fields.
+
+*Recorded by `357-A4-verdict-integrity-audit-event.md`.*
+
+#### ccf.controlplane.audit.WorkflowVerdictIntegrityFailure
+
+- Surface: ccf.controlplane.audit.WorkflowVerdictIntegrityFailure
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a closed `Literal` with two members — `"route_disagreement"` (the
+  caller's decision does not name the target the artifact declares for the
+  recorded verdict) and `"conflicting_verdicts"` (more than one distinct
+  verdict is recorded against one suspension, so no single recorded verdict
+  can be routed on at all). Closed rather than free-form prose because an
+  investigator queries a vocabulary, and `None` is the honest third state: a
+  refusal no verdict-integrity rule produced must never claim one.
+- Why: the same reason `AuthzFailingAxis` is closed — *"a deny says what it
+  denied"* — applied to the gate. It also keeps the two rules distinguishable
+  from each other, which matters because they mean different things about who
+  is at fault: a route disagreement is about the caller, a verdict conflict
+  is about two humans.
+- Migration: none; a new exported type.
+
+*Recorded by `357-A4-verdict-integrity-audit-event.md`.*
+
+#### ccf.assembly.worker.IdentityRefused
+
+- Surface: ccf.assembly.worker.IdentityRefused
+- Public surface: true
+- Change type: added
+- Before: absent — an inadmissible identity value rendered through bare
+  `str()` and silently minted a shared phantom URI (SEC-007)
+- After: `class IdentityRefused(ValueError)`, raised by
+  `SpecDrivenEntityResolution.resolve` with `envelope_id`, `entity_class`,
+  `key`, `field` and `reason` (`reason ∈ {"null", "empty", "bool", "float",
+  "non-finite", "non-scalar"}` — the widest refusal set ruling B1 declares,
+  plus the `non-finite` reason added in fix round 1 for a non-finite
+  `Decimal`, which is a scalar and was previously misnamed `non-scalar`)
+- Why: presence is not admissibility (D-IMPL-357 B1); the class is public so
+  a caller can catch it by name, and B3 converts the SDK's own seam class by
+  exactly this qualified string (`ccf.assembly.worker.IdentityRefused`)
+- Migration: none for existing deployments — every value that minted before
+  this change still mints the identical URI (D-IMPL-357 B2 / D-IMPL-316,
+  including `numbers.Integral` values such as `numpy.int64` after fix round
+  1); a caller that wants to catch the refusal imports
+  `ccf.assembly.worker.IdentityRefused`
+
+*Recorded by `357-B1-identity-refused.md`.*
+
+#### ccf.products.request.SUBJECT_FLOOR_V1
+
+- Surface: ccf.products.request.SUBJECT_FLOOR_V1
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[re.Pattern[str]]` — `re.compile(r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}\Z")`, the SDK-owned mechanism floor (`D-IMPL-357` C1a)
+- Why: the fabric's own grammar for what can be placed safely in a SPARQL IRI `<…>` position and a single- or double-quoted literal — an allowlist rather than a denylist, so `'` (which a denylist could admit by omission) never reaches an acquisition splice. NOT a URL-path-segment guarantee: the grammar admits `/` and `..` because a measured subject is itself a URI; a value that passes must still be percent-encoded before use in a URL path or query.
+- Migration: none; new name
+
+*Recorded by `357-C1-subject-floor.md`.*
+
+#### ccf.products.request.SUBJECT_FLOOR_VERSION
+
+- Surface: ccf.products.request.SUBJECT_FLOOR_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "SUBJECT_FLOOR_V1"`
+- Why: the grammar is versioned by name; a future tightening of the pattern is a new name, and the name rides on every refusal it decides (`detail`)
+- Migration: none; new name
+
+*Recorded by `357-C1-subject-floor.md`.*
+
+#### ccf.products.request.refuse_floor
+
+- Surface: ccf.products.request.refuse_floor
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `refuse_floor(*, request: ProductRequest, declared: ProductRequestContract) -> ProductRequestViolation | None` — pure (no clock, no registry, no I/O); judges `request.subject` first, then every declared `string` at every declared depth (`parent`, `parent.member`, `parent[]`, `parent[].member` — the same keying `refuse_payload` uses) in sorted-name order at each level, returning the first `malformed-value` violation or `None`
+- Why: `D-IMPL-357` C1 — the mechanism floor judge. `GovernedResolver.__call__` will run this after the addressing verdicts and before the overridable constraint-resolver seam (C2 adds that call site, not this task); a direct validator holding no declaration (`AssemblerAgent`) calls `refuse_request` on its own path and does not judge this separately.
+- Migration: none; new name, not yet called from any production path in this commit
+
+*Recorded by `357-C1-subject-floor.md`.*
 
 #### ccf.deployment.classes.resolve_artifact_class
 
@@ -15300,6 +15417,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.products.request.PARAMETER_VALUE_FLOOR_V1
+
+- Surface: ccf.products.request.PARAMETER_VALUE_FLOOR_V1
+- Public surface: true
+- Change type: added
+- Before: absent — a declared `string` parameter was judged by `SUBJECT_FLOOR_V1`, the ADDRESS grammar, which forbids a space
+- After: `Final[re.Pattern[str]]` — `re.compile(r"^(?=.{1,512}\Z)[A-Za-z0-9][A-Za-z0-9:/._~@+=-]*(?: [A-Za-z0-9:/._~@+=-]+)*\Z")`, the SDK-owned parameter-VALUE floor: ASCII letters and digits, plus `:` `/` `.` `_` `~` `@` `+` `=` `-` after the first character, plus **one ordinary INTERIOR space**, to a cap of **512 code points**. The first character must be alphanumeric. **Leading, trailing and doubled space are refused**, because a value differing from another only by invisible padding reads as equal to a human while hashing differently — a governance and replay hazard rather than an injection one. Anchored with `\Z`, like the subject floor, so an adopter copying the printed grammar and applying it with `re.match` cannot admit a value carrying an injected trailing newline.
+- Why: `SUBJECT_FLOOR_V1` is an ADDRESS grammar and stays one — its documented safe position is a SPARQL IRI `<…>`, and SPARQL 1.1's `IRIREF` production excludes `#x20` while admitting `:` and `=`, which is why a space may never enter a subject and why "a space is no worse than the `:` already admitted" is wrong on the grammar. A declared `string` PARAMETER is a value, not an address: `Term Loan` is an ordinary one. Two roles need two grammars, and the second is an ALLOWLIST so a character nobody considered is refused by default rather than admitted by omission.
+- Migration: none for a subject — the subject floor is **unchanged**, still forbids a space, and still decides `request.subject`. A declared `string` PARAMETER is now judged by this grammar instead of the address grammar, which is strictly WIDER for parameters (every character the subject floor admits, this floor admits — asserted over the class, not over samples), so no request that was admitted before is refused now. **Do not paste this pattern into an `ArgumentDomain(pattern=…)`**: that registration is refused by the SDK's own grammar shape guard, which fails closed on a repeat inside a look-around, and the refusal is correct — this floor already runs on every governed request, so re-declaring it narrows nothing. Declare a narrowing that expresses your own identifier rule instead; a declared `pattern` may narrow and can never widen past this floor, because the floor is judged first.
+
+*Recorded by `357-02-parameter-value-floor.md`.*
+
+#### ccf.products.request.PARAMETER_VALUE_FLOOR_VERSION
+
+- Surface: ccf.products.request.PARAMETER_VALUE_FLOOR_VERSION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[str] = "PARAMETER_VALUE_FLOOR_V1"`
+- Why: the grammar is versioned by name, like the subject floor; a future tightening or widening is a NEW name, never an edit to this pattern, and the name rides in every refusal this floor decides (`detail`) so a record says which grammar judged it
+- Migration: none; new name. A consumer that classifies refusals by the deciding grammar reads this marker out of `ProductRequestViolation.detail` rather than re-deriving it from the key.
+
+*Recorded by `357-02-parameter-value-floor.md`.*
+
+#### ccf.products.request.PARAMETER_VALUE_FLOOR_EXCLUSIONS
+
+- Surface: ccf.products.request.PARAMETER_VALUE_FLOOR_EXCLUSIONS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `Final[Mapping[str, str]]` — a read-only mapping of 38 named exclusions to a sample that exercises each: the quote and escape characters (`'`, `"`, `\`, `` ` ``), the tokens that are structural in SQL, SPARQL or both (`;` `,` `(` `)` `|` `^` `{` `}` `[` `]`), the tokens that are structural in an IRI or URI (`<` `>` `%` `#` `?` `&`), the control and format characters (LF, CR, TAB, NUL, DEL, a C1 control, U+200B, U+FEFF, U+00A0, U+2028), the padding shapes (leading, trailing and doubled space, space-only, empty), and the out-of-bounds cases (over the 512 cap, non-ASCII, an em dash)
+- Why: the ruling was to name the exact lexical exclusions rather than leave structural IRI/SPARQL tokens as prose, so a control can certify each one by name. The roster is a module constant and not a list retyped in a test, so the control cannot drift from the class that implements it.
+- Migration: none; new name. The roster is a floor on what the grammar refuses, not a complete denylist — the grammar is an allowlist and refuses everything outside it, whether or not the roster names it.
+
+*Recorded by `357-02-parameter-value-floor.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -15999,7 +16152,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-482 entries — 295 public Python surface, 187 not public Python API.
+489 entries — 301 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -16092,6 +16245,165 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. Existing callers ignore the return value and are unaffected
 
 *Recorded by `24.6-D-IMPL-258-the-disclosed-shell-normalizes-its-policy-bindings.md`.*
+
+#### ccf.workflow.WorkflowDefinition
+
+- Surface: ccf.workflow.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: the package-level re-export of the class below, unchanged in shape.
+- After: the same re-export of the same reshaped class — `gate_routes` reaches
+  a caller importing from `ccf.workflow` exactly as it reaches one importing
+  from `ccf.workflow.definitions`. Recorded as its own entry because
+  `tools/dump_surface.py` enumerates the re-export as a distinct manifest
+  name, so a fragment claiming only the defining module leaves the alias
+  unclaimed and `tests/test_surface_completeness.py::
+  test_every_diff_line_has_a_matching_public_log_entry` red. Added by A4 on
+  finding that red standing; the change itself is A1's and nothing about it
+  is A4's.
+- Why: as below.
+- Migration: none — the same as below.
+
+*Recorded by `357-A1-gate-routes.md`.*
+
+#### ccf.workflow.definitions.WorkflowDefinition
+
+- Surface: ccf.workflow.definitions.WorkflowDefinition
+- Public surface: true
+- Change type: reshaped
+- Before: no field declared which verdict at a gate leads to which
+  transition target. A `WorkflowDefinition` could route a `hitl-gate`-kind
+  step's approving and rejecting branches from nothing more than whatever
+  decision string an engine happened to read at resume time.
+- After: a new field, `gate_routes: Mapping[str, Mapping[str, str]]` (gate
+  step name → verdict → declared target), default `{}`. A
+  `model_validator(mode="after")` refuses: a route key naming no
+  non-terminal node in the wrapper's declared transition graph; a verdict
+  outside `GATE_ACTIONS` (`ccf.hitl.approval_gate`,
+  `frozenset({"approve", "reject"})`); a route target that is not a
+  declared outgoing transition target from that gate; and two verdicts from
+  one gate naming the same target (a map that would let a recorded
+  rejection resolve identically to an approval). The field is marked
+  `ccf_hash_transparent: False` (`ccf.contracts.canonical.HASH_TRANSPARENT_KEY`)
+  — a declared generation boundary (`D-IMPL-243` amendment 1), not a silent
+  default: a stored `WorkflowDefinition` document that predates this field
+  is of an earlier generation, named by `generation_mismatch` (by field
+  name, before re-execution), never silently treated as compatible. Whether
+  a declared key names a `hitl-gate`-kind step is, like `gate_policies`,
+  the `WorkflowFactory`'s semantic check, not this contract's.
+- Why: `SEC-001` — nothing in the artifact declared which verdict goes
+  where, so a recorded rejection had no declared route distinct from an
+  approval's. `gate_routes` is that declared map; later tasks in this lane
+  (`A2` factory-level completeness check on `hitl-gate`-kind steps, `A3`
+  engine-side compare against the recorded decision, `A4` refusal of
+  conflicting verdicts on one suspension) consume it by name and shape —
+  neither is renamed nor reshaped here.
+  **A routed gate declares at least TWO distinct outgoing transition
+  targets.** It follows from the validators rather than being declared
+  separately: every
+  route target must be a declared transition target from that gate, two
+  verdicts from one gate must not share a target, and `A2`'s factory check
+  requires a target for every `GATE_ACTIONS` verdict. A gate with a single
+  outgoing edge satisfies no pair of those, so a workflow that relied on
+  `D-IMPL-61` propagate-to-terminal for its rejecting branch — as the
+  covenant fixture's own comment does for exception refs
+  (`tests/fixtures/banking/workflows/covenant_review_workflow.yaml`) — now
+  declares an explicit reject edge. That is the lane's intent; what was
+  missing is that an author met it as two refusals from two modules with the
+  rule stated nowhere. It is now one clause on the `gate_routes` field
+  docstring (`src/ccf/workflow/definitions.py`).
+  **A `hitl-gate`-kind step is never a declared terminal state.** `A2`'s
+  factory refuses any step whose kind in the resolved TaskDefinition is
+  `hitl-gate`
+  and whose name appears in `effective_terminal_states`. Review measured both
+  shapes this closes: named in `terminal_states` and reached as a transition
+  target, the execution COMPLETES at the gate's name with no suspension and no
+  human action; as the START node, it suspends and can never resume. Neither
+  was reached by the completeness check, because `routable` subtracts the
+  terminal states — so "gate" silently meant two different no-ops depending on
+  how it was reached. A gate is a place a human acts, never a terminal
+  condition. A deployment whose workflow declares such a step is refused at
+  construction, which is a behavior change to `WorkflowFactory.construct` on a
+  shape that could not have worked as its author intended.
+- Migration: **for THIS task alone — the contract change, before any factory
+  check — none:** the field defaults to `{}`, so a `WorkflowDefinition`
+  document written before it still validates. That is the extent of the
+  no-migration claim, and it is scoped to A1 deliberately, because **the lane
+  as a whole does require migration** and an adopter reading only this bullet
+  would decide a release needs no work. In one clause: **every workflow
+  document whose wrapped task declares a `hitl-gate` step the wrapper can
+  reach must declare a complete `gate_routes` entry for that gate — a target
+  for each of the two `GATE_ACTIONS` verdicts, hence at least two distinct
+  outgoing transition targets — and must not name that gate in
+  `terminal_states`.** A document that does not is refused at
+  `WorkflowFactory.construct` (`A2`), and the terminal-gate refusal rejects
+  shapes that previously constructed, which is the behavior change the two
+  clauses above describe. **Content hashes move, by design and for every
+  `WorkflowDefinition` document — not only gate-bearing ones** — because the
+  field is a declared generation boundary
+  (`{HASH_TRANSPARENT_KEY: False}`) rather than a silent default, so it
+  renders at its default too; measured on a definition with no gate at all,
+  `5f09ffe6…` → `2f507135…`, and a stored document lacking the field is named
+  by `generation_mismatch` rather than run. The three in-tree gate-bearing
+  documents took **one routing entry each — not one line**: each needed a
+  `schema_version` bump to `2.0.0` plus a four-line `gate_routes` block, which
+  measures **10, 8 and 7 changed lines** (`git diff --numstat 00fde747..HEAD`)
+  for the covenant fixture, the payment-release fixture and
+  `perf/synth/artifacts/workflow.yaml`. An adopter sizes work from this figure,
+  so it states the entry count and the line count separately. The archived
+  example transcluded by
+  `public/reference/artifacts/workflow-definitions.md` declares no routes and
+  would now be refused, which that page says on its face.
+
+*Recorded by `357-A1-gate-routes.md`.*
+
+#### ccf.products.request.ProductRequestViolationReason
+
+- Surface: ccf.products.request.ProductRequestViolationReason
+- Public surface: true
+- Change type: reshaped
+- Before: `Literal["undeclared-parameter", "missing-required-parameter", "type-mismatch", "class-mismatch", "not-supported-at-tier", "not-a-proportion", "below-minimum", "above-maximum", "not-in-domain"]` (nine members)
+- After: the same nine, plus `"malformed-value"` appended LAST (never inserted) — ten members
+- Why: `D-IMPL-357` C1 — the tenth reason `refuse_floor` returns; appending rather than inserting keeps every older record's reason meeting the same roster prefix
+- Migration: none for an exhaustive `match`/`if` chain that already has a catch-all; a chain that enumerates every member explicitly needs a `"malformed-value"` arm added
+
+*Recorded by `357-C1-subject-floor.md`.*
+
+#### ccf.products.request.ProductRequestViolation
+
+- Surface: ccf.products.request.ProductRequestViolation
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` typed over the nine-member `ProductRequestViolationReason`
+- After: `reason` typed over the ten-member `ProductRequestViolationReason` (the reshape is entirely inherited from that Literal widening; no field added or removed)
+- Why: as `ProductRequestViolationReason`
+- Migration: none
+
+*Recorded by `357-C1-subject-floor.md`.*
+
+#### ccf.products.request.ArgumentDomain
+
+- Surface: ccf.products.request.ArgumentDomain
+- Public surface: true
+- Change type: reshaped
+- Before: three fields — `minimum: Decimal | None`, `maximum: Decimal | None`, `members: tuple[str | int | bool | Decimal, ...] | None`; exactly one of two shapes (numeric bounds OR an enumerated set), enforced by pairwise comparison
+- After: a fourth field, `pattern: str | None = None` (hash-transparent `True`), and exactly one of THREE shapes, enforced by a shape COUNT rather than a pairwise chain. A pattern is judged by `re.fullmatch` (never `re.search` — a value that merely contains the grammar satisfies a wider domain than the one declared) and is compiled once at construction so a non-compiling grammar is refused by name where the author can still fix it. `refuses(value)` returns `"not-in-domain"` for a non-string, or for a string the grammar does not match in full. **A declared grammar is additionally SHAPE-CHECKED at construction** (`D-IMPL-357` C4, round-3 ruling): a nested quantifier, an ambiguous alternation under a repeat, two unbounded repeats side by side over overlapping characters, and a repeat whose body can match nothing are each refused by name — and so is any shape the check cannot establish as safe (a backreference, a repeat inside a look-around, a conditional group, an unknown character category). The analysis is structural, over the standard library's own parse of the pattern; it adds no dependency, no timeout, no thread and no subprocess, and it never runs the pattern against text.
+- Why: `D-IMPL-357` C4 — an identifier whose legal form is a RULE (an LEI, an internal account format, a jurisdiction code) cannot be declared as a roster, and the alternative an adopter reaches for is validation in deployment code, which is a second authority over one bound (`D-IMPL-315`). Sentinel-silent at `None` (`D-IMPL-243`), so every domain written before the grammar existed canonicalizes byte-for-byte as it did and no committed request contract's content address moves.
+- Migration: none for any existing declaration. An author who reads the refusal message should note it now names a shape COUNT ("declares 2") rather than "both"; the word "neither" is retained for the no-shape case. **A grammar whose shape this check refuses must be simplified before it can be declared**, which is a narrowing with no shipped declaration behind it — `pattern` is introduced in this same unreleased lane, so no committed artifact is affected. The refusal is at REGISTRATION and never at serve: a caller can never trigger it.
+
+*Recorded by `357-C4-subject-domain.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: reshaped
+- Before: no declaration surface for the subject; a class could constrain any declared parameter and nothing about the address axis the question is actually about
+- After: `subject_domain: ArgumentDomain | None = None` (hash-transparent `True`), plus a validator refusing a NUMERIC subject domain by name — a subject is an identifier, not a magnitude, so bounds over one bound nothing (the sibling of the existing `unmeasurable` refusal over a declared `string`). `from_declared` reads it as the optional NINTH declaration key, so the field is reachable from an artifact and not only from Python. The declaration-time domain validator additionally refuses a `pattern` declared over a parameter whose type is not `string` (a grammar judges text; over any other type no value could satisfy it), named in the same exhaustive message as the five defects it already reports.
+- Why: `D-IMPL-357` C4. An adopter who knows their subjects are LEIs should be able to say so in the governed declaration rather than nowhere. Sentinel-silent at `None`, so every request contract written before the field keeps its content address; a declared domain renders and therefore MOVES the hash, deliberately — two classes holding their subjects to different grammars must not share one contract identity.
+- Migration: none. A contract declaring no `subject_domain` holds its subject to exactly what it did: the mechanism floor, judged by `refuse_floor`, which no declaration can reach under. A contract declaring one is held to the same grammar shape check as any argument domain, and additionally refuses a NON-STRING member set — `ProductRequest.subject` is typed `str`, so such a set is satisfied by no subject that could ever be presented.
+
+*Recorded by `357-C4-subject-domain.md`.*
 
 #### ccf.assembly.worker.EntityResolutionSpec
 
@@ -21437,6 +21749,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 ### Not public Python API
 
+#### docs/schemas/ccf.product-request-contract.json
+
+- Surface: docs/schemas/ccf.product-request-contract.json
+- Public surface: false
+- Change type: reshaped
+- Before: `ArgumentDomain` advertised three properties; the contract advertised nine
+- After: `ArgumentDomain` advertises `pattern` and the contract advertises `subject_domain`, both carrying `"ccf_hash_transparent": true` and `"default": null`
+- Why: the committed schema tree is the authoring baseline an adopter reads in their editor (ERGO-12); a declaration key that exists in the type and not in the schema is a key nobody can discover
+- Migration: none — both keys are optional and default to absent
+
+*Recorded by `357-C4-subject-domain.md`.*
+
 #### tools/lints/__main__.py
 
 - Surface: tools/lints/__main__.py
@@ -23721,6 +24045,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: a defaulted `refusal_seam` keyword, on the `child_resolutions` precedent
 - Why: the seam has to reach the replay writer through the one minting seam, not around it
 - Migration: none — defaulted, so every existing implementation and call site is unchanged
+  - Correction 2026-09-23: `Public surface` was `true`, and the manifest tracks the OWNING name rather than the member — so the entry claimed a diff line the instrument cannot show and `test_every_public_log_entry_has_a_matching_diff_line` went red. `false` is the convention this fragment already uses for `ContentGenerationPath.refusal_seam`. The change itself is unaffected and still described above.
 
 *Recorded by `20.3-01-seam-held-refusals-d-impl-347.md`.*
 
@@ -24282,7 +24607,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-220 entries — 192 public Python surface, 28 not public Python API.
+223 entries — 195 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -24588,6 +24913,62 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   it on both halves
 
 *Recorded by `24.6-D-IMPL-260-the-bound-carries-its-reason-and-crosses-without-its-provenance.md`.*
+
+#### Behavior claim — conflicting verdicts refuse the resumption
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine.resume
+- Public surface: true
+- Change type: behavior
+- Before: `resume` selected the OLDEST qualifying submission and routed on
+  it, so a rejection recorded after an approval was silently discarded.
+  Measured through the served doors: submit approve, then reject on the same
+  pending event, then resume claiming the approving decision, and the
+  execution completed `approved` with the rejection standing (HTTP 200). The
+  transport's stamp race reached the same terminal by a second route.
+- After: `resume` refuses when more than one distinct `GATE_ACTIONS` verdict
+  is recorded against this suspension, in either arrival order, ahead of the
+  declared-target and route compares. The verdicts it counts are a
+  deliberately BROADER population than the ones eligible to be the
+  authority — every gate-action submission naming this gate's pending event
+  and bound to this suspension's content hash, **stamped or not, eligible or
+  not** — because the stamp race's recorded end state is one stamped verdict
+  beside one unstamped opposite verdict, which an eligibility-filtered set
+  sees as a single verdict and waves through.
+- Why: `SEC-001`. A bank's answer to *two humans recorded opposite verdicts
+  on one decision* is to stop and require reconciliation, not to resolve
+  silently in favor of whichever verdict won a race.
+- Migration: agreeing submissions carry one distinct verdict, so nothing that
+  previously proceeded on agreement now refuses — a second approver recording
+  the same verdict (D-23 quorum) is unaffected. A deployment that relied on a
+  later verdict superseding an earlier one on the same suspension must now
+  reconcile explicitly: there is no supersession rule, deliberately, because
+  choosing one would be the fabric deciding which human to believe.
+
+*Recorded by `357-A4-verdict-integrity-audit-event.md`.*
+
+#### ccf.products.request.refuse_request
+
+- Surface: ccf.products.request.refuse_request
+- Public surface: true
+- Change type: behavior
+- Before: five ordered steps — address, tier, the payload comparison, the tolerance interval, the declared parameter domains
+- After: SIX ordered steps, with the subject's declared domain inserted SECOND, immediately after the address check and before the tier step: the subject is an address axis, so its verdict belongs beside the other address verdicts and none of the parameter steps has anything to say about it. The returned violation carries `reason` (`"not-in-domain"`), `key="subject"`, `declared_type="string"`, and the declared grammar or member set in `detail` — never the presented subject, on `refuse_floor`'s own discipline that `detail` states the RULE and never echoes untrusted caller text.
+- Why: `D-IMPL-357` C4. One comparison, so a registration-time capability check and a live request are judged by one reading of "well-formed". The step is a NARROWING and is explicitly NOT the mechanism floor: the paragraph `357-C2` added — that this function deliberately does not carry the floor, and that a caller validating a request outside `GovernedResolver` must call `refuse_floor` itself — remains true and is now stated alongside the narrowing step so the two cannot be confused.
+- Migration: none for a contract declaring no `subject_domain` (the step returns `None` immediately). A caller that declares one gets a `not-in-domain` violation keyed `"subject"`, which is an existing reason and an existing violation class — the door still maps by CLASS (`ProductRequestViolation` -> 400), never by reason token.
+
+*Recorded by `357-C4-subject-domain.md`.*
+
+#### ccf.products.request_schema.render_request_input_schema
+
+- Surface: ccf.products.request_schema.render_request_input_schema
+- Public surface: true
+- Change type: behavior
+- Before: derived exactly one of two things onto a domained property — `enum`, or `minimum` / `maximum` — and refused a base render that already carried any of those three keys
+- After: derives one of THREE — `pattern` verbatim for the grammar shape (a regular expression is text, so there is no value translation for it to need) — and refuses a planted `pattern` on the same D-00 / P-1 terms: the base render is not a declaration surface for legal values at all
+- Why: `D-IMPL-357` C4 on P-1's terms — the request contract is the authority for legal values and this module ADVERTISES that authority; a declared grammar reaching a caller as JSON Schema's own `pattern` keyword is the derivation, and a `pattern` written on the base render would be a second declaration that could disagree
+- Migration: none. This module still publishes nothing — no MCP tool, no HTTP route, no CLI verb serves the render (carry row `24.7-C-01`).
+
+*Recorded by `357-C4-subject-domain.md`.*
 
 #### ccf.controlplane.artifacts.load_artifact
 
@@ -26006,6 +26387,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   question B, and have A echoed while B is answered. `C-18` extends that to the
   temporal axis because `C-15` keeps the clock client-side, so a **concrete**
   `as_of` crosses the pipe twice
+  - **Known limit, stated rather than closed:** when the caller sent
   `as_of=None`, the client resolved the instant and there is **no second copy**
   to compare, so a transport altering `asked_at` alone is **undetected**. No
   fallback, tolerance window or reconstruction is added — a reconstructed
@@ -26086,6 +26468,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   envelope would be the second rendering of the vessel that `ccf.client.wire`
   rejects by ruling; encoding text this adapter never inspects is a
   pass-through, not a transcoding
+  - **Diagnostic narrowing, accepted rather than papered over:** `_decode`
   raised a `TransportError` naming the scheme and the program for malformed
   bytes. `decode_outcome` raises the same diagnosis in the same words without
   that context, and the generic message is taken. A thin adapter-level
@@ -26118,6 +26501,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   the echo cross-check an object compared with itself, which is `B0` surviving
   in-process while being closed over the wire. The door half takes **text and
   never a `WireRequest`**, for the reason `door_question` already states
+  - **The cost, ruled and not benchmarked:** two extra serializations per `ask`,
   accepted with no benchmark owed (`C-14`). `D-13` already accepted *"a
   microsecond of serialization"* on the answer half, and the question is far
   smaller than the answer
@@ -26219,6 +26603,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   in `tests/mcp/test_egress_parameters.py` contains no float case, so the
   divergence was real and invisible. This is the narrowing direction
   `D-IMPL-151` finding `B2` already chose for this pair of doors
+  - **The naive-`asked_at` refusal makes a shipped claim true.**
   `ccf.products.door.WireRequest`'s temporal guard states that *"both product
   doors refuse a naive `asked_at` by name"*. Measured before this change: this
   one did not
@@ -26226,6 +26611,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
   sending a `float` renders it with `format(value, 'f')`; a caller sending a
   bare local instant attaches an explicit offset. Both spellings are named in
   the refusal message rather than left to be guessed
+  - **Deferred, and named rather than papered over:** a naive `asked_at` would
   read better under a dedicated `product-asked-at-naive` error code.
   `runtime/ccf_runtime/http_api/errors.py` is outside this plan's declared
   file set, so the existing constant whose recorded meaning covers *an axis
@@ -27993,6 +28379,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Change type: behavior
 - Before: `declarations` listed every tenant's agent keys; `declaration` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `declarations` lists the capability's tenant's keys; `declaration` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+  - Also, pre-merge (R11): `declaration` and `versions` resolve the CAPABILITY's resource and refuse a `key` parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-01/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 
@@ -28005,6 +28392,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Change type: behavior
 - Before: `keys` listed every tenant's keys in a class; `resolution` and `versions` served any key the caller named after the gate's allow
 - After: same signature; `keys` lists the capability's tenant's; `resolution` of another tenant's key is the absent 404 (`absent`); `versions` of another tenant's key is `[]`
+  - Also, pre-merge (R11): `keys`, `versions` and `resolution` resolve the CAPABILITY's resource and refuse a parameter that differs from it before the first read (pre-merge check R11)
 - Why: F-READ-03/-04 (see `within_tenant`)
 - Migration: none for a caller reading its own tenant
 

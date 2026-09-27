@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **310** across **98** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **158** across **55** files
+- Coupling rows: **318** across **100** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **166** across **57** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **248**
 
 Rows by owning plan:
@@ -17,9 +17,9 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 104 |
-| 23-04 | 184 |
-| 23-10 | 12 |
+| 17-08 | 106 |
+| 23-04 | 186 |
+| 23-10 | 16 |
 
 Rows by coupling shape:
 
@@ -29,14 +29,14 @@ Rows by coupling shape:
 | `config-token` | 7 |
 | `count-constant` | 5 |
 | `count-scan-function` | 5 |
-| `docstring` | 80 |
+| `docstring` | 81 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 5 |
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 11 |
-| `prose` | 85 |
+| `prose` | 92 |
 | `snippet-include` | 56 |
 | `string-literal` | 16 |
 | `tmp_path-synthetic` | 13 |
@@ -53,12 +53,12 @@ Rows by coupling shape:
 | File | Line | Retiring path | Shape | Liveness | Witnesses | Intermediate | Owner | Note |
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 5 | `archive/examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 |  |
-| `.gitignore` | 23 | `archive/examples/external/00-hello-context` | `config-token` | live | - | - | 23-04 |  |
-| `Makefile` | 253 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 305 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 307 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 319 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 321 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `.gitignore` | 24 | `archive/examples/external/00-hello-context` | `config-token` | live | - | - | 23-04 |  |
+| `Makefile` | 273 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 325 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 327 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 339 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 341 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
 | `README.md` | 42 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
 | `README.md` | 46 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
 | `README.md` | 67 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
@@ -78,9 +78,9 @@ Rows by coupling shape:
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 67 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 69 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 89 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 148 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 160 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 90 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 149 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | 161 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 159 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 163 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 221 | `examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
@@ -104,6 +104,13 @@ Rows by coupling shape:
 | `docs/superpowers/specs/2026-08-14-ccf-config-consolidation-design.md` | 12 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/specs/2026-08-14-ccf-config-consolidation-design.md` | 18 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/specs/2026-08-14-property-not-shape-gating-design.md` | 21 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 228 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 928 | `public/tutorial/adopters-guide.md` | `prose` | documentary | - | - | 23-10 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1007 | `tests/examples/test_s1_01_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1202 | `public/tutorial/adopters-guide.md` | `prose` | documentary | - | - | 23-10 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1204 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1236 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
+| `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1237 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
@@ -185,10 +192,10 @@ Rows by coupling shape:
 | `public/how-to/compose-a-workflow-with-hitl.md` | 121 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `public/how-to/compose-a-workflow-with-hitl.md` | 124 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/compose-a-workflow-with-hitl.md` | 130 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 144 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 155 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 166 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/compose-a-workflow-with-hitl.md` | 174 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 148 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 159 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 170 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/compose-a-workflow-with-hitl.md` | 178 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/grant-and-revoke-a-skill.md` | 15 | `archive/examples/02-skilling` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/grant-and-revoke-a-skill.md` | 29 | `archive/examples/02-skilling` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/grant-and-revoke-a-skill.md` | 46 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
@@ -228,7 +235,7 @@ Rows by coupling shape:
 | `public/reference/artifacts/skill-catalog.md` | 39 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/skill-grants.md` | 25 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/task-definitions.md` | 16 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/reference/artifacts/workflow-definitions.md` | 18 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/reference/artifacts/workflow-definitions.md` | 22 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 513 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 515 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
@@ -237,10 +244,10 @@ Rows by coupling shape:
 | `runtime/ccf_runtime/mcp/experience.py` | 547 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 1153 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 1951 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 1655 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 4004 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 1858 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 2816 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 1830 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 4248 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -320,10 +327,10 @@ Rows by coupling shape:
 | `tests/products/test_gate_two_call_shape.py` | 4620 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 2 | - | 17-08 | `_delegated_binder_sites()` feeds `MINIMUM_DELEGATED_BINDER_SITES` — floor 2, 11 witnesses, headroom 9; under retiring paths: examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
 | `tests/products/test_gate_two_call_shape.py` | 5756 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_gate_two_call_shape.py` | 5763 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 715 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
-| `tests/products/test_request_contract.py` | 756 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 2051 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
-| `tests/products/test_request_contract.py` | 2053 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 716 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product/artifacts/request-contract.yaml` |
+| `tests/products/test_request_contract.py` | 757 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 3040 | `examples/s1-00-companies-over-revenue` | `literal-set-member` | live | - | - | 17-08 |  |
+| `tests/products/test_request_contract.py` | 3042 | `examples/s1-01-hello-context-product` | `module-constant` | live | - | - | 17-08 |  |
 | `tests/products/test_required_operators_guard.py` | 3 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/products/test_required_operators_guard.py` | 112 | `examples/s1-00-companies-over-revenue` | `count-constant` | live | 11 | - | 17-08 | `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
 | `tests/products/test_required_operators_guard.py` | 235 | `examples/s1-00-companies-over-revenue` | `count-scan-function` | live | 11 | - | 17-08 | `_implementations()` feeds `MINIMUM_IMPLEMENTATIONS` — floor 9, 44 witnesses, headroom 35; under retiring paths: archive/examples/00-quickstart=1, archive/examples/01-agent-basics=1, archive/examples/02-skilling=1, archive/examples/03-harness-portability=1, archive/examples/04-cross-process=1, archive/examples/06-decision-replay=1, archive/examples/07-artifact-store-mcp=1, archive/examples/08-e2e-demo=1, archive/examples/external/00-hello-context=1, examples/s1-00-companies-over-revenue=1, examples/s1-01-hello-context-product=1; first break: no wave in this phase |
@@ -352,6 +359,7 @@ Rows by coupling shape:
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 320 | `examples/00-quickstart` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/measure_null_attributes.py` | 74 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tools/publish_scan_tests/test_publish_scan.py` | 165 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tools/publish_scan_tests/test_publish_scan.py` | 182 | `public/tutorial/demo-walkthrough.md` | `string-literal` | live | - | - | 23-10 |  |
 | `tools/publish_scan_tests/test_publish_scan.py` | 192 | `examples/00-quickstart` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |

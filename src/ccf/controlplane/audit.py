@@ -59,6 +59,8 @@ __all__ = [
     "AuditLog",
     "AuthzDecisionAuditEvent",
     "AuthzFailingAxis",
+    "WorkflowVerdictIntegrityAuditEvent",
+    "WorkflowVerdictIntegrityFailure",
 ]
 
 #: The Control Plane interactions worth a record. Registration and resolution
@@ -266,6 +268,69 @@ class AuthzDecisionAuditEvent(AuditEvent):
     )
 
 
+#: Which verdict-integrity rule refused a workflow resumption past an approval
+#: gate (D-IMPL-357 A4). Closed on purpose, and the two members are the two
+#: questions a gate resumption asks about a recorded human verdict:
+#: ``"route_disagreement"`` — the caller's decision does not name the target
+#: the artifact declares for the verdict the authority path recorded — and
+#: ``"conflicting_verdicts"`` — more than one distinct verdict is recorded
+#: against this one suspension, so no single recorded verdict can be routed
+#: on at all. ``None`` on every other refusal and on every allow: a refusal
+#: that no verdict-integrity rule produced must never claim one of these.
+WorkflowVerdictIntegrityFailure = Literal[
+    "route_disagreement", "conflicting_verdicts"
+]
+
+
+class WorkflowVerdictIntegrityAuditEvent(AuditEvent):
+    """A ``workflow_resumed`` refusal that a RECORDED HUMAN VERDICT caused.
+
+    SDK-defined (CLAUDE.md §8.2; D-IMPL-357 A4; SEC-001). Every resume
+    refusal was audited identically before this class existed — same
+    ``workflow_resumed`` action, ``resolved=False``, ``actor=None``, and no
+    reason on the event — so *"a caller tried to route a recorded rejection
+    down the approving branch"* was byte-identical in the log to *"a caller
+    mistyped the decision"*. For a bank that is the one refusal an
+    investigator would search for, and the log could not answer it.
+
+    Two fields, and between them the record says what the prose refusal
+    deliberately does not tell the CALLER (SEC-001 remedy 3: a refusal never
+    answers the caller's question for them). The audit plane is a different
+    reader with a different entitlement — that separation is the point.
+
+    A derived class rather than fields on :class:`AuditEvent`, for the same
+    reason :class:`AuthzDecisionAuditEvent` is one: the canonical serializer
+    renders every declared field, so a field on the base would change the
+    canonical bytes of every pre-existing event. Both fields are additionally
+    hash-transparent at their sentinel (CINV-06; D-IMPL-243, *"silence equals
+    yesterday"*), so an event appended with either unset renders
+    byte-identically to one appended before they existed.
+
+    Attributes:
+        workflow_verdict_integrity: Which rule refused. The member, not
+            prose: an investigator queries a closed vocabulary.
+        workflow_recorded_approver: The approver whose recorded verdict the
+            engine's selection rule reached — the actor the resumption would
+            have been attributed to had it proceeded. Carried because it is
+            the fact in scope at the refusal site and the reason
+            ``actor=None`` was wrong here: a verdict-integrity refusal is
+            ALWAYS about a human action that really was recorded, so
+            recording nothing about the human made the log say less than it
+            knew. On ``"conflicting_verdicts"`` it names the approver at the
+            head of the eligible verdicts and **not** the only party — by
+            construction at least one other human recorded a contradicting
+            verdict against the same suspension, which is what the member
+            itself says.
+    """
+
+    workflow_verdict_integrity: WorkflowVerdictIntegrityFailure | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    workflow_recorded_approver: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
 class AuditLog:
     """An append-only sequence of :class:`AuditEvent`.
 
@@ -306,15 +371,27 @@ class AuditLog:
         authz_resource: str | None = None,
         authz_matched_resource_pattern: str | None = None,
         authz_failing_axis: AuthzFailingAxis | None = None,
+        workflow_verdict_integrity: WorkflowVerdictIntegrityFailure
+        | None = None,
+        workflow_recorded_approver: str | None = None,
     ) -> AuditEvent:
         """Append one event and return it, sequence number assigned.
 
         When any authz keyword is supplied the appended event is an
-        :class:`AuthzDecisionAuditEvent`; otherwise it is a plain
+        :class:`AuthzDecisionAuditEvent`; when
+        ``workflow_verdict_integrity`` is supplied it is a
+        :class:`WorkflowVerdictIntegrityAuditEvent`; otherwise it is a plain
         :class:`AuditEvent` whose canonical bytes are unchanged by the
         HARD-04 extension (the A2 stability commitment). The three
         D-IMPL-353 §3 keywords are additive and default to ``None``, so
         every pre-existing call shape appends exactly what it appended.
+
+        The verdict-integrity pair is dispatched on the MEMBER rather than on
+        the approver (D-IMPL-357 A4): the member is what names the rule that
+        refused, and an approver alone would silently promote any event that
+        happens to name a human. The two class tests are mutually exclusive
+        by construction — no call site supplies both families, and an authz
+        decision is never a workflow transition.
 
         Sequence assignment and the append happen under the log's lock,
         so concurrent appends from door threads can neither duplicate nor
@@ -322,7 +399,20 @@ class AuditLog:
         """
         event: AuditEvent
         with self._lock:
-            if (
+            if workflow_verdict_integrity is not None:
+                event = WorkflowVerdictIntegrityAuditEvent(
+                    sequence=len(self._events),
+                    action=action,
+                    key=key,
+                    version=version,
+                    resolved=resolved,
+                    occurred_at=occurred_at,
+                    actor=actor,
+                    artifact_class=artifact_class,
+                    workflow_verdict_integrity=workflow_verdict_integrity,
+                    workflow_recorded_approver=workflow_recorded_approver,
+                )
+            elif (
                 authz_action_id is not None
                 or authz_matched_pattern is not None
                 or authz_resource is not None
