@@ -3239,3 +3239,166 @@ def test_refuse_intent_is_exported() -> None:
     import ccf.products.request as request_module
 
     assert "refuse_intent" in request_module.__all__
+
+
+# --- D-IMPL-357 item 7: the parameter-value floor, a second floor with a second role ---
+
+
+def test_the_parameter_value_floor_admits_ordinary_space_and_the_subject_floor_does_not() -> None:
+    """D-IMPL-357 item 7 (a). Two floors, two roles, one call site.
+
+    The subject is an ADDRESS and its floor's own documented safe position is a
+    SPARQL IRI `<...>`; SPARQL 1.1's IRIREF production excludes #x20, so a space
+    may never enter a subject. A declared parameter is a VALUE, and `Term Loan`
+    is an ordinary one. Pinning both directions here is what keeps a later edit
+    from collapsing the two roles back together.
+    """
+    from ccf.products.request import PARAMETER_VALUE_FLOOR_V1, SUBJECT_FLOOR_V1
+
+    assert PARAMETER_VALUE_FLOOR_V1.fullmatch("Term Loan") is not None
+    assert PARAMETER_VALUE_FLOOR_V1.fullmatch("Revolving Credit Facility") is not None
+    assert SUBJECT_FLOOR_V1.fullmatch("Term Loan") is None
+    assert SUBJECT_FLOOR_V1.fullmatch(" ") is None
+
+
+def test_every_enumerated_exclusion_is_actually_refused_by_the_parameter_floor() -> None:
+    """Dave: name the exact lexical exclusions so the control is testable.
+
+    The roster is a module constant rather than a list retyped here, so the
+    control cannot drift from the thing it certifies: adding a name to the
+    roster without the class refusing it reddens this test.
+    """
+    from ccf.products.request import (
+        PARAMETER_VALUE_FLOOR_EXCLUSIONS,
+        PARAMETER_VALUE_FLOOR_V1,
+    )
+
+    assert PARAMETER_VALUE_FLOOR_EXCLUSIONS, "the roster may not be empty"
+    admitted = {
+        name: sample
+        for name, sample in PARAMETER_VALUE_FLOOR_EXCLUSIONS.items()
+        if PARAMETER_VALUE_FLOOR_V1.fullmatch(sample) is not None
+    }
+    assert admitted == {}, f"enumerated exclusions the floor admits: {admitted}"
+
+
+def test_the_parameter_floor_is_a_superset_of_the_subject_floor() -> None:
+    """A declared pattern may narrow and may never widen past the mechanism floor.
+
+    The structural half of that promise is the ORDER — `refuse_floor` runs before
+    the declared `pattern` — and the lexical half is this: nothing the subject
+    floor admits is refused by the value floor, so a subject-shaped parameter
+    value never refuses for being subject-shaped.
+    """
+    from ccf.products.request import PARAMETER_VALUE_FLOOR_V1, SUBJECT_FLOOR_V1
+
+    for sample in (
+        "B3BS7ACMDUWISF18KY76",
+        "credit-risk.spread",
+        "http://example.org/fibo/GammaBank",
+        "a" * 512,
+        "ab-",
+        "x",
+    ):
+        assert SUBJECT_FLOOR_V1.fullmatch(sample) is not None, sample
+        assert PARAMETER_VALUE_FLOOR_V1.fullmatch(sample) is not None, sample
+
+
+def test_a_declared_pattern_cannot_widen_past_the_parameter_floor() -> None:
+    """The floor runs FIRST, so an over-permissive declared grammar cannot admit.
+
+    `.*` admits anything as a grammar; the request still refuses, because the
+    mechanism floor is judged before the declared narrowing. This is the control
+    for Dave's "may never widen past the mechanism floor".
+
+    **Deviation from the task brief, recorded here rather than silently
+    corrected**: the brief's own text called ``refuse_request`` and passed
+    ``arguments`` as a bare ``dict``. Neither survives contact with the
+    fixture: ``refuse_request`` deliberately does NOT invoke ``refuse_floor``
+    (see that function's own docstring, ``D-IMPL-357`` C1/C2 — the floor is a
+    SEPARATE call ``GovernedResolver.__call__`` makes BEFORE
+    ``refuse_request`` runs, and this task's edit list never names
+    ``refuse_request``), so calling it here would return ``None`` regardless
+    of the value presented — verified empirically before writing this
+    control. What this test's own docstring describes — "the floor runs
+    FIRST" — is a property of ``refuse_floor``, not of ``refuse_request``,
+    so ``refuse_floor`` is the function actually under test. The bare
+    ``dict`` also fails Pydantic validation (``description`` and ``required``
+    are mandatory), so the fixture is built the way the rest of this module
+    builds one, through :class:`~ccf.skills.catalog.SkillArgumentSchema` and
+    :class:`~ccf.skills.catalog.SkillArgumentProperty`.
+    """
+    from ccf.products.request import ArgumentDomain, refuse_floor
+
+    contract = _contract(
+        argument_domains={"facility_type": ArgumentDomain(pattern=r".*")},
+        arguments=SkillArgumentSchema(
+            properties={
+                "facility_type": SkillArgumentProperty(
+                    type="string", description="a facility type label"
+                )
+            },
+            required=(),
+        ),
+    )
+    violation = refuse_floor(
+        request=_request(subject="acct-1", parameters={"facility_type": "a;b"}),
+        declared=contract,
+    )
+    assert violation is not None
+    assert violation.reason == "malformed-value"
+    assert violation.key == "facility_type"
+
+
+def test_the_refusal_states_lexical_admissibility_and_denies_sink_safety() -> None:
+    """Dave's semantic boundary, pinned in the text an adopter actually reads.
+
+    A guarantee documented wider than it is implemented is worse than an
+    undocumented one, because it removes the reason to check. This asserts the
+    refusal detail claims lexical admissibility only and names a sink it does
+    NOT cover.
+
+    Same deviation as the sibling control above, for the same reason: judges
+    ``refuse_floor`` rather than ``refuse_request`` (which never reaches the
+    parameter-value floor), and builds ``arguments`` through
+    :class:`~ccf.skills.catalog.SkillArgumentSchema` rather than a bare
+    ``dict`` Pydantic refuses to validate.
+    """
+    from ccf.products.request import refuse_floor
+
+    contract = _contract(
+        arguments=SkillArgumentSchema(
+            properties={
+                "facility_type": SkillArgumentProperty(
+                    type="string", description="a facility type label"
+                )
+            },
+            required=(),
+        ),
+    )
+    violation = refuse_floor(
+        request=_request(subject="acct-1", parameters={"facility_type": "a;b"}),
+        declared=contract,
+    )
+    assert violation is not None
+    assert "PARAMETER_VALUE_FLOOR_V1" in violation.detail
+    assert "lexically admissible" in violation.detail
+    assert "SQL" in violation.detail
+
+
+def test_the_printed_subject_grammar_ends_at_a_hard_anchor() -> None:
+    """D-IMPL-357 item 2, Dave: \\Z wins, the name does not change.
+
+    Every in-tree call site uses `fullmatch`, so this changes no shipped
+    behavior. It exists because the pattern is a PUBLISHED surface: an adopter
+    copying the printed grammar and applying it with `match` would, under `$`,
+    admit a subject carrying an injected trailing line.
+    """
+    import re
+
+    from ccf.products.request import SUBJECT_FLOOR_V1, SUBJECT_FLOOR_VERSION
+
+    assert SUBJECT_FLOOR_V1.pattern.endswith("\\Z")
+    assert "$" not in SUBJECT_FLOOR_V1.pattern
+    assert SUBJECT_FLOOR_VERSION == "SUBJECT_FLOOR_V1"
+    assert re.match(SUBJECT_FLOOR_V1.pattern, "GammaBank\n") is None

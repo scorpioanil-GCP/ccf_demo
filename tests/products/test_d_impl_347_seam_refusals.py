@@ -929,3 +929,54 @@ def test_the_REAL_route_converts_at_the_acquisition_seam_with_the_workers_own_re
         for other in ("null", "empty", "bool", "float", "non-scalar", "non-finite"):
             if other != reason:
                 assert f"({other})" not in block, (other, block)
+
+
+@pytest.mark.parametrize(
+    "invisible",
+    ["\u200b", "\ufeff", "\xa0", "\u2028", "\x00", "\u200b\ufeff\xa0\x00"],
+    ids=["zero-width-space", "BOM", "NBSP", "line-separator", "NUL", "mixed"],
+)
+def test_an_identity_of_only_invisible_characters_refuses_rather_than_minting(
+    invisible: str,
+) -> None:
+    """D-IMPL-357 item 1, Dave: amend B1 for IDENTITY VALUES ONLY.
+
+    `str.strip` removes Python's whitespace set, which does not contain U+200B,
+    U+FEFF or NUL. Before this amendment an identity holding only a zero-width
+    space passed the blank check and minted a node — reproduced at fabric level
+    as three distinct entities collapsing onto shared nodes with two real
+    relationships between them, which for a bank is two counterparties merged
+    by a character nobody can see in a diff, a log line or a review.
+
+    The reason stays `empty`: the value IS empty once invisibles are discounted,
+    and keeping the reason vocabulary fixed is Dave's item-3 ruling.
+
+    Calls :meth:`~ccf.assembly.worker.SpecDrivenEntityResolution._identity_of`
+    directly, per the task brief. That name is a class-level alias this repair
+    adds onto the module-level :func:`~ccf.assembly.worker._identity_text` —
+    the function the brief actually describes editing (its quoted "current"
+    branch text matches `_identity_text` verbatim, not any function literally
+    named `_identity_of` in the tree at this HEAD) — so the real production
+    path (`SpecDrivenEntityResolution.resolve`, which calls `_identity_text`
+    directly) is unchanged and this control exercises the same amended logic
+    through the class-qualified name the brief calls for.
+    """
+    from ccf.assembly.worker import SpecDrivenEntityResolution
+
+    resolved, reason = SpecDrivenEntityResolution._identity_of(invisible)
+    assert resolved is None
+    assert reason == "empty"
+
+
+def test_the_identity_amendment_does_not_touch_ordinary_attribute_semantics() -> None:
+    """Dave: "Do not change ordinary attribute semantics in this repair."
+
+    An identity carrying an invisible character BESIDE a visible one is still a
+    real identity, and an attribute holding only invisible characters is still
+    stored as text. Both are ledgered residuals (item 3), not things this repair
+    closes, and pinning the first here is what stops a later edit from widening
+    the amendment into ordinary attribute semantics.
+    """
+    from ccf.assembly.worker import SpecDrivenEntityResolution
+
+    assert SpecDrivenEntityResolution._identity_of("a\u200bb")[0] == "a\u200bb"

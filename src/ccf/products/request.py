@@ -123,6 +123,7 @@ import re
 import re._constants as _sre_constants  # type: ignore[import-not-found]
 import re._parser as _sre_parse  # type: ignore[import-not-found]
 from decimal import Decimal
+from types import MappingProxyType
 from typing import Final, TYPE_CHECKING, Any, Literal
 
 from pydantic import Field, model_validator
@@ -2692,10 +2693,128 @@ def _refuse_domain(
 #: grammar the mechanism owns, not a domain value. Versioned by name; a
 #: change is a new name, and the name rides on every refusal it decides
 #: (`detail`).
+#:
+#: Anchored with ``\Z`` rather than ``$`` (D-IMPL-357 item 2, Dave's ruling of
+#: 2026-09-27: *"\Z wins... it did not freeze the $ anchor"*). This pattern is
+#: a PUBLISHED surface an adopter may copy and apply with ``re.match`` rather
+#: than ``fullmatch``; under ``$``, ``re.match`` admits a subject carrying an
+#: injected trailing newline (``$`` matches just before a trailing ``\n``),
+#: which ``\Z`` refuses. Every in-tree call site already uses ``fullmatch``,
+#: for which ``$`` and ``\Z`` are equivalent except at a trailing newline, so
+#: this changes no shipped behavior — see the name and version below, both
+#: unchanged.
 SUBJECT_FLOOR_V1: Final[re.Pattern[str]] = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}$"
+    r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}\Z"
 )
 SUBJECT_FLOOR_VERSION: Final[str] = "SUBJECT_FLOOR_V1"
+
+#: The parameter-value floor (D-IMPL-357 item 7, Dave's ruling of 2026-09-27,
+#: option (a)). A SECOND floor with a SECOND role, not a widening of the first.
+#:
+#: `SUBJECT_FLOOR_V1` is an ADDRESS grammar and stays one: its documented safe
+#: position is a SPARQL IRI `<...>`, and SPARQL 1.1's `IRIREF` production
+#: excludes `#x20` while admitting `:` and `=` — which is why a space may never
+#: enter a subject, and why "a space is no worse than the `:` already admitted"
+#: is wrong on the grammar. A declared `string` PARAMETER is a value, not an
+#: address: `Term Loan` is an ordinary one, and the close census measured the
+#: address grammar refusing it.
+#:
+#: This floor is the subject floor's class PLUS an ordinary interior space, and
+#: nothing else. The admitted set is stated as an ALLOWLIST so that a character
+#: nobody considered is refused by default rather than admitted by omission;
+#: `PARAMETER_VALUE_FLOOR_EXCLUSIONS` then names the exclusions EXPLICITLY so a
+#: control can certify each one (Dave: "do not leave structural IRI/SPARQL
+#: tokens as prose only").
+#:
+#: Leading and trailing space are refused, and so is a run of two spaces: a
+#: value differing from another only by invisible padding reads as equal to a
+#: human while hashing differently, which is a governance and replay hazard
+#: rather than an injection one.
+#:
+#: **WHAT PASSING THIS FLOOR MEANS, exactly** (Dave's semantic boundary): the
+#: text is *lexically admissible as a governed string parameter*. It does NOT
+#: mean the value is safe for arbitrary SQL, SPARQL, IRI, shell or any other
+#: sink. Sink safety is the typed or bound sink contract's responsibility. A
+#: character class also cannot establish safety against a MULTI-CHARACTER
+#: construct: `-` is admitted, so the SQL comment sequence `--` is admitted,
+#: and this floor does not claim otherwise.
+#:
+#: **The adopter population is wider than what this admits, and that is
+#: recorded rather than glossed.** The close census measured exactly two
+#: refused values in the committed examples (`cp-21`'s `Term Loan` and
+#: `Revolving Credit Facility`), and two values are NOT the adopter population.
+#: Ordinary banking labels this floor still refuses include `Tier 1 (CET1)`
+#: (parentheses), `Standard & Poor's` (ampersand and apostrophe), `25%`
+#: (percent), `Moody's, Inc.` (apostrophe and comma) and any non-ASCII name
+#: such as `Cafe` written with an accent. Each is refused deliberately —
+#: parentheses, comma and semicolon are structural in SQL and SPARQL; `%`
+#: enables encode-smash; `&` and `#` delimit in a URI; the apostrophe is a
+#: quote character — and each is a named residual for a later ruling, not an
+#: oversight.
+#:
+#: Versioned by name, like the subject floor; a change is a new name, and the
+#: name rides on every refusal it decides (`detail`).
+PARAMETER_VALUE_FLOOR_V1: Final[re.Pattern[str]] = re.compile(
+    r"^(?=.{1,512}\Z)[A-Za-z0-9][A-Za-z0-9:/._~@+=-]*"
+    r"(?: [A-Za-z0-9:/._~@+=-]+)*\Z"
+)
+PARAMETER_VALUE_FLOOR_VERSION: Final[str] = "PARAMETER_VALUE_FLOOR_V1"
+
+#: Every exclusion `PARAMETER_VALUE_FLOOR_V1` is REQUIRED to keep refusing,
+#: named one by one with a sample that exercises it, so the control asserting
+#: them cannot drift from the class that implements them (Dave, item 7).
+#:
+#: The roster is the union of what both external reviewers independently named
+#: as must-exclude for a value that may be placed in a quoted SQL or SPARQL
+#: literal, plus the control and format characters, plus the padding shapes.
+PARAMETER_VALUE_FLOOR_EXCLUSIONS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        # Quote and escape: the splice vectors the floor exists for.
+        "single-quote": "Term's Loan",
+        "double-quote": 'Term "Loan"',
+        "backslash": "Term\\Loan",
+        "backtick": "Term`Loan",
+        # Structural in SQL, SPARQL or both.
+        "semicolon": "Term;Loan",
+        "comma": "Term,Loan",
+        "open-paren": "Tier 1 (CET1",
+        "close-paren": "Tier 1 CET1)",
+        "pipe": "a|b",
+        "caret": "a^b",
+        "brace-open": "a{b",
+        "brace-close": "a}b",
+        "bracket-open": "a[b",
+        "bracket-close": "a]b",
+        # Structural in an IRI or a URI.
+        "angle-open": "a<b",
+        "angle-close": "a>b",
+        "percent": "25%",
+        "hash": "a#b",
+        "question-mark": "a?b",
+        "ampersand": "S&P",
+        # Control and format characters, written as escapes on purpose.
+        "newline": "Term\nLoan",
+        "carriage-return": "Term\rLoan",
+        "tab": "Term\tLoan",
+        "nul": "Term\x00Loan",
+        "delete": "a\x7fb",
+        "c1-control": "a\x85b",
+        "zero-width-space": "a\u200bb",
+        "byte-order-mark": "a\ufeffb",
+        "non-breaking-space": "a\xa0b",
+        "line-separator": "a\u2028b",
+        # Padding shapes: equal to a human, distinct to a hash.
+        "leading-space": " Term Loan",
+        "trailing-space": "Term Loan ",
+        "double-space": "Term  Loan",
+        "space-only": " ",
+        "empty": "",
+        # Outside the cap, and outside ASCII.
+        "over-the-cap": "a" * 513,
+        "non-ascii": "Caf\xe9",
+        "em-dash": "a\u2014b",
+    }
+)
 
 
 #: The canonical decimal lexical form a ``number`` argument crosses the wire as.
@@ -3016,16 +3135,24 @@ def _refuse_floor_below(
     element's own keys for an object member inside an array.
 
     Returns the ``(key, presented text, declared_keys, presented_keys)`` of
-    the first declared string that lies outside :data:`SUBJECT_FLOOR_V1`, in
-    sorted-member-name order at each level (array elements themselves keep
-    their list order, since that order is already deterministic), or
-    ``None`` when every declared string presented conforms. A presented
-    value at a string-declared position that is not itself a ``str`` is
-    skipped — the payload comparison names that ``type-mismatch`` and runs
-    its own verdict first.
+    the first declared string that lies outside
+    :data:`PARAMETER_VALUE_FLOOR_V1`, in sorted-member-name order at each
+    level (array elements themselves keep their list order, since that order
+    is already deterministic), or ``None`` when every declared string
+    presented conforms. A presented value at a string-declared position that
+    is not itself a ``str`` is skipped — the payload comparison names that
+    ``type-mismatch`` and runs its own verdict first.
+
+    Judged under :data:`PARAMETER_VALUE_FLOOR_V1`, not
+    :data:`SUBJECT_FLOOR_V1`: every position this function walks is a
+    declared ``string`` PARAMETER, never ``request.subject`` — that address
+    stays judged by the subject floor, one level up, in :func:`refuse_floor`
+    itself (D-IMPL-357 item 7, Dave's ruling of 2026-09-27).
     """
     if spec.type == "string":
-        if isinstance(presented, str) and not SUBJECT_FLOOR_V1.fullmatch(presented):
+        if isinstance(presented, str) and not PARAMETER_VALUE_FLOOR_V1.fullmatch(
+            presented
+        ):
             return path, presented, declared_keys, presented_keys
         return None
     if spec.type == "object":
@@ -3039,7 +3166,9 @@ def _refuse_floor_below(
             if member_name not in presented:
                 continue
             value = presented[member_name]
-            if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
+            if isinstance(value, str) and not PARAMETER_VALUE_FLOOR_V1.fullmatch(
+                value
+            ):
                 return (
                     f"{path}.{member_name}",
                     value,
@@ -3056,7 +3185,9 @@ def _refuse_floor_below(
     items = spec.items
     for element in presented:
         if items.type == "string":
-            if isinstance(element, str) and not SUBJECT_FLOOR_V1.fullmatch(element):
+            if isinstance(element, str) and not PARAMETER_VALUE_FLOOR_V1.fullmatch(
+                element
+            ):
                 return f"{path}[]", element, frozenset(), frozenset()
             continue
         if items.type != "object" or items.properties is None:
@@ -3071,7 +3202,9 @@ def _refuse_floor_below(
             if member_name not in element:
                 continue
             value = element[member_name]
-            if isinstance(value, str) and not SUBJECT_FLOOR_V1.fullmatch(value):
+            if isinstance(value, str) and not PARAMETER_VALUE_FLOOR_V1.fullmatch(
+                value
+            ):
                 return (
                     f"{path}[].{member_name}",
                     value,
@@ -3084,7 +3217,17 @@ def _refuse_floor_below(
 def refuse_floor(
     *, request: ProductRequest, declared: ProductRequestContract
 ) -> ProductRequestViolation | None:
-    """Does the subject, and every declared string, lie inside the floor?
+    """Does the subject lie inside its floor, and every declared string parameter inside its own?
+
+    TWO floors, TWO roles, judged at this one call site (D-IMPL-357 item 7,
+    Dave's ruling of 2026-09-27): `request.subject` is judged against
+    :data:`SUBJECT_FLOOR_V1` — an ADDRESS grammar — and every DECLARED
+    `string` parameter, at every DECLARED depth, is judged against
+    :data:`PARAMETER_VALUE_FLOOR_V1` — a VALUE grammar that additionally
+    admits ordinary interior space. Passing either floor means only
+    *lexically admissible in that role*; neither is a sink-safety guarantee
+    (see :data:`PARAMETER_VALUE_FLOOR_V1`'s own docstring for the exact
+    boundary).
 
     Beside `refuse_intent`, `GovernedResolver.__call__` runs this AFTER the
     addressing verdicts (lane, intent) and BEFORE the overridable
@@ -3108,12 +3251,18 @@ def refuse_floor(
     type puts it out of reach; any other presented string at a position
     the declared contract does not type as `string`; and any string nested
     inside a declared member whose type is `object` — an opaque container
-    this function does not open. Whether the covered surface should widen —
-    judge the presented shape rather than only the declared shape, re-judge
-    over the effective request, or extend to `intent`/`freshness`/
-    `policy_overrides` — is `D-IMPL-357`'s open coverage question, held for
-    the project owner's ruling; this function does not decide it and must
-    not be widened to pre-empt it.
+    this function does not open.
+
+    **This is RULED, not open** (Dave's item-4 ruling, 2026-09-27, correcting
+    the prior wording's claim that the covered surface was an open question):
+    the floor stays on DECLARED positions only. `request.intent`,
+    `request.freshness`, `request.policy_overrides`, and any
+    presented-but-undeclared parameter position are deliberately NOT judged
+    here and are ledgered separately rather than folded into this function
+    by widening it. Registration-time validation of a contract's own
+    `defaults` string is out of scope for this repair and is planned for
+    1.0.3. This function does not re-judge the effective (post-resolution)
+    request, only the request as presented.
 
     A direct validator holding no declaration (`AssemblerAgent`,
     `src/ccf/agents/assembler.py`) calls `refuse_request` on its own path and
@@ -3139,7 +3288,27 @@ def refuse_floor(
         presented: object,
         declared_keys: frozenset[str],
         presented_keys: frozenset[str],
+        *,
+        floor: re.Pattern[str],
+        version: str,
     ) -> ProductRequestViolation:
+        if floor is SUBJECT_FLOOR_V1:
+            promise = (
+                "safe in a SPARQL IRI position and a quoted literal. NOT a"
+                " URL-path-segment guarantee: a passing value may contain '/'"
+                " or '..' and must be percent-encoded"
+                " (urllib.parse.quote(value, safe='')) before use in a URL"
+                " path or query"
+            )
+        else:
+            promise = (
+                "a passing value is lexically admissible as a governed string"
+                " parameter and NOTHING MORE — it is not thereby safe for SQL,"
+                " SPARQL, an IRI, a shell or any other sink, whose safety"
+                " remains the typed or bound sink contract's responsibility;"
+                " nor does a character class bound a multi-character construct"
+                " such as the SQL comment '--'"
+            )
         return ProductRequestViolation(
             reason="malformed-value",
             key=key,
@@ -3148,14 +3317,10 @@ def refuse_floor(
             declared_keys=declared_keys,
             presented_keys=presented_keys,
             detail=(
-                f"{key}: the presented text lies outside the fabric's identifier"
-                f" floor {SUBJECT_FLOOR_VERSION} ({SUBJECT_FLOOR_V1.pattern}) —"
-                " safe in a SPARQL IRI position and a quoted literal. NOT a"
-                " URL-path-segment guarantee: a passing value may contain '/'"
-                " or '..' and must be percent-encoded"
-                " (urllib.parse.quote(value, safe='')) before use in a URL"
-                " path or query. Refused by name, never rewritten"
-                " (D-IMPL-357 C1)"
+                f"{key}: the presented text lies outside the fabric's"
+                f" {version} ({floor.pattern}) — {promise}."
+                " Refused by name, never rewritten (D-IMPL-357 C1; item 7"
+                " ruled 2026-09-27)"
             ),
         )
 
@@ -3163,7 +3328,12 @@ def refuse_floor(
     root_presented_keys = frozenset(request.parameters)
     if not SUBJECT_FLOOR_V1.fullmatch(request.subject):
         return _violation(
-            "subject", request.subject, root_declared_keys, root_presented_keys
+            "subject",
+            request.subject,
+            root_declared_keys,
+            root_presented_keys,
+            floor=SUBJECT_FLOOR_V1,
+            version=SUBJECT_FLOOR_VERSION,
         )
     for name in sorted(declared.arguments.properties):
         if name not in request.parameters:
@@ -3176,7 +3346,11 @@ def refuse_floor(
             presented_keys=root_presented_keys,
         )
         if found is not None:
-            return _violation(*found)
+            return _violation(
+                *found,
+                floor=PARAMETER_VALUE_FLOOR_V1,
+                version=PARAMETER_VALUE_FLOOR_VERSION,
+            )
     return None
 
 

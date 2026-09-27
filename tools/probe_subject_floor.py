@@ -11,14 +11,16 @@ number a reader can check.
 
 STRICTLY READ-ONLY, AND STRUCTURALLY SO
 ---------------------------------------
-It opens files for reading, matches text against one compiled pattern, and
-prints. It writes no file, mutates nothing, spawns no subprocess, opens no
-socket and reads no clock: the only filesystem call below is
-`pathlib.Path.read_text`, and the whole import list is `argparse`, `ast`,
-`os`, `pathlib`, `sys`, `dataclasses`, `typing`, `yaml`, and three names out
-of `src/ccf/products/request.py` — no `subprocess`, no `socket`, no HTTP
-client, no database driver and no `datetime`. Nothing it does can reach
-`192.168.4.76` or any other estate host.
+It opens files for reading, matches text against one of two compiled
+patterns — `SUBJECT_FLOOR_V1` for a subject position, `PARAMETER_VALUE_FLOOR_V1`
+for a parameter position (D-IMPL-357 item 7) — and prints. It writes no file,
+mutates nothing, spawns no subprocess, opens no socket and reads no clock: the
+only filesystem call below is `pathlib.Path.read_text`, and the whole import
+list is `argparse`, `ast`, `os`, `pathlib`, `sys`, `dataclasses`, `typing`,
+`yaml`, and five names out of `src/ccf/products/request.py` — no
+`subprocess`, no `socket`, no HTTP client, no database driver and no
+`datetime`. Nothing it does can reach `192.168.4.76` or any other estate
+host.
 
 **The import list is why one name is derived by PARSING rather than by
 importing.** `question_constructor_name` needs the name of the SDK's own
@@ -92,6 +94,27 @@ REFUSE IS WORTHLESS
   module binding the binding collector already names. **That is a stated
   residual**, not a silent gap: a string-literal default at such an option is
   invisible to this instrument.
+* **A parameter value is collected only under the LITERAL key/kwarg name
+  `parameters`.** `_walk_mapping` (YAML) and `_record_parameter` (Python) walk
+  a `parameters:` mapping key or a `parameters={...}` keyword recursively
+  through a nested dict/list literal at that position — but a fixture
+  document that shapes its demonstration values under any OTHER key, and
+  whose *code* later reads them out and assembles a `parameters=` dict at run
+  time, presents no `parameters`-keyed literal for this probe to walk at all.
+  **This is the actual reason the wave-1 close census's `cp-21` refusals were
+  invisible to a zero from this probe** — measured:
+  `examples/cp-21-large-exposure/artifacts/question.yaml`'s
+  `breaching_case.proposal.facility_type: "Term Loan"` and
+  `fits_after_mitigation_case.proposal.facility_type:
+  "Revolving Credit Facility"` sit under `proposal`, not `parameters`, and
+  `run.py` builds the request's `parameters=` dict from `proposal` at run
+  time — a shape this instrument's own docstring here now names rather than
+  a residual restated as "collects `subject=` and does not collect
+  `parameters`" would suggest, since a `parameters:`-keyed literal (YAML or
+  Python) genuinely IS collected and floor-judged (see
+  `PARAMETER_VALUE_FLOOR_V1` above). **A zero from this probe is therefore
+  not evidence that no declared string parameter is refused** — the
+  boundary is the literal key name, not the concept of "a parameter."
 * **An empty glob is a failure, not a clean run.** A source glob that matches
   no files means the probe has stopped looking at something, which reads
   exactly like a tree with nothing to find. That exits 2 by itself. So does a
@@ -141,6 +164,8 @@ from typing import Iterator, Sequence
 import yaml
 
 from ccf.products.request import (
+    PARAMETER_VALUE_FLOOR_V1,
+    PARAMETER_VALUE_FLOOR_VERSION,
     SUBJECT_FLOOR_V1,
     SUBJECT_FLOOR_VERSION,
     ProductRequest,
@@ -233,9 +258,43 @@ class Value:
     why: str
 
     @property
+    def is_parameter_position(self) -> bool:
+        """Was this collected at a `parameters=`/`parameters:` position?
+
+        `"parameter"` appears in `kind` for exactly the two collection
+        branches that walk a `parameters` position — `yaml-parameter`
+        (`_walk_mapping`) and `*-parameter-kwarg`
+        (`scan_python`'s `_record_parameter`) — and in none of the
+        subject-position kinds (`yaml-subject`, `*-subject-kwarg`,
+        `*-option-default`, `*-binding`). D-IMPL-357 item 7 (Dave's ruling of
+        2026-09-27): a parameter position is judged under
+        `PARAMETER_VALUE_FLOOR_V1`, a subject position stays under
+        `SUBJECT_FLOOR_V1` — the same split `refuse_floor` itself makes.
+        """
+        return "parameter" in self.kind
+
+    @property
+    def floor_version(self) -> str:
+        """The floor NAME this value is judged under, printed so a reader need not infer it from `kind`."""
+        return (
+            PARAMETER_VALUE_FLOOR_VERSION
+            if self.is_parameter_position
+            else SUBJECT_FLOOR_VERSION
+        )
+
+    @property
     def refuses(self) -> bool:
-        """Does the mechanism floor refuse this text?"""
-        return SUBJECT_FLOOR_V1.fullmatch(self.value) is None
+        """Does the APPLICABLE mechanism floor refuse this text?
+
+        A parameter position is judged under `PARAMETER_VALUE_FLOOR_V1`; every
+        other collected position is a subject position and stays judged under
+        `SUBJECT_FLOOR_V1`, exactly as `refuse_floor` itself splits the two
+        (D-IMPL-357 item 7).
+        """
+        floor = (
+            PARAMETER_VALUE_FLOOR_V1 if self.is_parameter_position else SUBJECT_FLOOR_V1
+        )
+        return floor.fullmatch(self.value) is None
 
     @property
     def verdict(self) -> str:
@@ -247,7 +306,7 @@ class Value:
         shown = self.value if len(self.value) <= 72 else f"{self.value[:69]}..."
         judged = "judged" if self.judged else "not-judged"
         return (
-            f"  {self.path}:{self.line} [{self.kind}/{judged}] {self.key}"
+            f"  {self.path}:{self.line} [{self.kind}/{judged}/{self.floor_version}] {self.key}"
             f" = {shown!r} -> {self.verdict}"
         )
 
@@ -960,6 +1019,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     root: pathlib.Path = args.root.resolve()
 
     print(f"probe_subject_floor — {SUBJECT_FLOOR_VERSION} = {SUBJECT_FLOOR_V1.pattern}")
+    print(
+        f"                       {PARAMETER_VALUE_FLOOR_VERSION} ="
+        f" {PARAMETER_VALUE_FLOOR_V1.pattern}"
+    )
     print(f"root: {root}")
     estate = sorted(name for name in os.environ if name.startswith(ESTATE_PREFIX))
     print(
@@ -1116,6 +1179,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         f" errors={len(errors)} skipped={len(classified) + len(non_strings)}"
         f" unresolved={len(unknown_values)}"
     )
+    print(
+        "  COVERAGE, PRINTED UNCONDITIONALLY BESIDE THE COUNT (D-IMPL-357 item"
+        " 7): a parameter value is collected only when the source spells it"
+        " under the LITERAL key/kwarg name `parameters` — a `parameters:`"
+        " YAML mapping or a `parameters={...}` Python keyword, walked"
+        " recursively through a nested dict/list literal. A value a fixture"
+        " stores under any OTHER key, which code later reads and assembles"
+        " into a `parameters=` dict only at run time, presents no literal"
+        " this probe can see — measured: this is why the wave-1 close"
+        " census's two `cp-21` refusals (`facility_type` under"
+        " `breaching_case.proposal` / `fits_after_mitigation_case.proposal`,"
+        " not under a `parameters` key) were invisible to a zero from an"
+        " earlier run of this instrument. THIS ZERO IS NOT EVIDENCE THAT NO"
+        " DECLARED STRING PARAMETER IS REFUSED."
+    )
     print("  legend:")
     print(
         f"    judged     — {len(judged_values)} of {len(values)} collected values"
@@ -1167,8 +1245,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if findings:
         print(
             f"VERDICT: REFUSED — {len(findings)} of {len(judged_values)} judged"
-            f" value(s) the example suite carries lie outside"
-            f" {SUBJECT_FLOOR_VERSION}. Each is named above."
+            f" value(s) the example suite carries lie outside the floor"
+            f" applicable to their position ({SUBJECT_FLOOR_VERSION} for a"
+            f" subject, {PARAMETER_VALUE_FLOOR_VERSION} for a parameter)."
+            " Each is named above with the floor it was judged under."
         )
         conditional = [v for v in findings if "-branch " in v.key]
         if conditional:
@@ -1184,17 +1264,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         return 1
     print(
-        "VERDICT: PASS — every literal subject and declared string parameter the"
-        " example suite carries at a position refuse_floor judges lies inside"
-        f" {SUBJECT_FLOOR_VERSION}; {len(values)} value(s) were collected and"
-        f" {len(judged_values)} of them judged, so the population is non-empty"
-        " in the sense that matters; the matcher demonstrated it can refuse."
+        "VERDICT: PASS — every literal subject at a position refuse_floor"
+        f" judges lies inside {SUBJECT_FLOOR_VERSION}, and every literal"
+        " declared string parameter collected under a literal `parameters`"
+        f" key/kwarg at such a position lies inside"
+        f" {PARAMETER_VALUE_FLOOR_VERSION}; {len(values)} value(s) were"
+        f" collected and {len(judged_values)} of them judged, so the"
+        " population is non-empty in the sense that matters; the matcher"
+        " demonstrated it can refuse."
     )
     print(
         f"  Residual, stated: {len(unknown_values)} position(s) whose value is"
         " not in the source, every command-line default at an option name that"
-        " is not subject-shaped, and the whole of the estate-resolved"
-        " population. This probe does not cover those."
+        " is not subject-shaped, every parameter value the source assembles"
+        " into `parameters=` from a differently-named key at run time rather"
+        " than presenting under a literal `parameters` key/kwarg (see the"
+        " COVERAGE line above), and the whole of the estate-resolved"
+        " population. This probe does not cover those, and this PASS says"
+        " nothing about them."
     )
     return 0
 

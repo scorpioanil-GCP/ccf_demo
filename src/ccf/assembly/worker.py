@@ -40,10 +40,11 @@ with the Pattern 5 pipeline and will live in their own, untagged modules.
 from __future__ import annotations
 
 import numbers
+import unicodedata
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol, runtime_checkable
+from typing import Final, Protocol, runtime_checkable
 
 from pydantic import Field, model_validator
 
@@ -344,6 +345,40 @@ class IdentityRefused(ValueError):
         )
 
 
+#: Unicode general categories that carry no visible identity (D-IMPL-357 item 1,
+#: Dave's ruling of 2026-09-27, amending B1 for IDENTITY VALUES ONLY).
+#:
+#: ``str.strip`` removes Python's whitespace set, which does NOT contain U+200B
+#: (zero-width space), U+FEFF (BOM) or NUL. An identity holding only those
+#: passed the blank check and minted a node; three distinct entities carrying
+#: three different invisible-only identities were measured collapsing onto
+#: shared nodes with two real relationships between them.
+#:
+#: ``Cc`` control, ``Cf`` format, ``Zs``/``Zl``/``Zp`` separators. Deliberately
+#: NOT ``Cn`` (unassigned) or ``Co`` (private use): an unassigned or
+#: private-use codepoint is an identity a deployment may legitimately mint,
+#: and refusing it would be a widening Dave did not rule.
+_INVISIBLE_IDENTITY_CATEGORIES: Final[frozenset[str]] = frozenset(
+    {"Cc", "Cf", "Zs", "Zl", "Zp"}
+)
+
+
+def _is_invisible_identity(value: str) -> bool:
+    """Is every character of ``value`` one that carries no visible identity?
+
+    Answers True for the empty string, for Python-whitespace-only values (the
+    B1 set this amends), and for values built only from format, control or
+    Unicode separator characters. Answers False as soon as one visible
+    character is present, so ``"a\u200bb"`` is a real identity that happens to
+    carry an invisible character — refusing THAT would be a widening into
+    ordinary attribute semantics, which Dave's ruling excludes.
+    """
+    return all(
+        unicodedata.category(character) in _INVISIBLE_IDENTITY_CATEGORIES
+        for character in value
+    )
+
+
 def _identity_text(value: object) -> tuple[str | None, str]:
     """The text bare ``str()`` produced for an admissible identity value, or the refusal reason.
 
@@ -371,9 +406,20 @@ def _identity_text(value: object) -> tuple[str | None, str]:
     ±Infinity) gets its own reason, ``non-finite``, rather than being folded
     into ``non-scalar`` — it IS a scalar, just not one that names an entity.
 
-    The ``str`` blank check calls ``str.strip`` on the type rather than
-    ``value.strip()`` on the instance, so a ``str`` subclass overriding
-    ``strip()`` cannot pass a blank value through by shadowing it.
+    The ``str`` blank check is :func:`_is_invisible_identity` (D-IMPL-357 item
+    1, Dave's ruling of 2026-09-27, amending B1 for IDENTITY VALUES ONLY) —
+    not the original ``str.strip`` check it replaces, which only catches
+    Python's whitespace set and missed U+200B (zero-width space), U+FEFF
+    (BOM) and NUL. It is called on ``str(value)`` rather than on ``value``
+    directly, for the same reason the original called ``str.strip`` on the
+    type rather than ``value.strip()`` on the instance: a ``str`` subclass
+    overriding either method cannot pass a blank-or-invisible value through
+    by shadowing it. **The reason stays ``"empty"``**: the value IS empty
+    once invisible-only characters are discounted, and Dave's item-3 ruling
+    is not to change the reason vocabulary. An identity carrying an invisible
+    character BESIDE a visible one (``"a​b"``) is still a real identity —
+    refusing that would be a widening into ordinary attribute semantics that
+    Dave's ruling excludes.
     """
     if value is None:
         return None, "null"
@@ -384,7 +430,11 @@ def _identity_text(value: object) -> tuple[str | None, str]:
     if isinstance(value, float):
         return None, "float"
     if isinstance(value, str):
-        return (value, "") if str.strip(value) else (None, "empty")
+        return (
+            (None, "empty")
+            if _is_invisible_identity(str(value))
+            else (value, "")
+        )
     if isinstance(value, Decimal):
         return (str(value), "") if value.is_finite() else (None, "non-finite")
     return None, "non-scalar"
@@ -400,6 +450,15 @@ class SpecDrivenEntityResolution:
     other — and the URI survives a source migration, because it was never
     derived from where the record lived (INV-CH8-01).
     """
+
+    #: Class-level alias onto the module-level admissibility check
+    #: (D-IMPL-357 item 1). The real function is :func:`_identity_text`,
+    #: named for what it returns (text or a refusal reason); this alias
+    #: gives the seam controls a class-qualified name to call directly
+    #: (``SpecDrivenEntityResolution._identity_of(value)``) without a live
+    #: :class:`EntityResolutionSpec` or an envelope, and without renaming the
+    #: function :meth:`resolve` already calls below.
+    _identity_of = staticmethod(_identity_text)
 
     def __init__(self, *, spec: EntityResolutionSpec) -> None:
         self._spec = spec
