@@ -274,9 +274,13 @@ __all__ = [
 #: record's reason meets the same roster prefix.
 #:
 #: The tenth, ``malformed-value``, judges TEXT rather than declared shape or
-#: membership: the subject and every declared ``string`` (at every declared
-#: depth) must lie inside the mechanism floor :data:`SUBJECT_FLOOR_V1`
-#: (``D-IMPL-357`` C1/C1a) — 512 ASCII characters from an allowlist grammar
+#: membership, and it judges the two roles under TWO floors (``D-IMPL-357``
+#: item 7, Dave's ruling of 2026-09-27): ``request.subject`` must lie inside
+#: :data:`SUBJECT_FLOOR_V1` — an ADDRESS grammar, in which a space is never
+#: admissible — while every declared ``string`` parameter, at every declared
+#: depth, must lie inside :data:`PARAMETER_VALUE_FLOOR_V1`, a VALUE grammar
+#: that additionally admits an ordinary interior space. Both are 512-character
+#: ASCII allowlists (``D-IMPL-357`` C1/C1a, item 7)
 #: — judged by :func:`refuse_floor`, which ``GovernedResolver.__call__``
 #: runs AFTER the addressing verdicts (lane, intent) and BEFORE the
 #: overridable constraint-resolver seam (``D-IMPL-357`` C2; this task does
@@ -876,19 +880,33 @@ class ArgumentDomain(CCFContract):
     with nothing under it.
 
     **A declared grammar NARROWS; it can never widen past the mechanism
-    floor — ON THE GOVERNED PATH** (``D-IMPL-357`` C1/C2/C4).
-    :data:`SUBJECT_FLOOR_V1` is the fabric's
-    own character grammar for what can be placed safely in a SPARQL IRI
-    position or a quoted literal, and
-    :meth:`~ccf.products.resolver.GovernedResolver.__call__` judges it through
-    :func:`refuse_floor` **before** the overridable constraint-resolver seam
-    and therefore before any declaration-level judgment runs at all. An
+    floor — ON THE GOVERNED PATH** (``D-IMPL-357`` C1/C2/C4, **and item 7 as
+    ruled 2026-09-27, which is what makes the floor named here depend on the
+    position**). There are TWO mechanism floors and a domain sits on top of
+    whichever one governs its position: a domain bound to a declared ``string``
+    PARAMETER sits on :data:`PARAMETER_VALUE_FLOOR_V1` — a VALUE grammar,
+    admitting an ordinary interior space, so that ``"Term Loan"`` is an
+    ordinary parameter value — while
+    :attr:`ProductRequestContract.subject_domain` sits on
+    :data:`SUBJECT_FLOOR_V1`, an ADDRESS grammar in which a space is never
+    admissible because its own documented safe position is a SPARQL IRI and
+    that production excludes ``#x20``. Naming one floor for both roles was the
+    defect the close census measured: it refused ``"Term Loan"`` as a parameter
+    because an address grammar was judging a value.
+    :meth:`~ccf.products.resolver.GovernedResolver.__call__` judges both
+    through :func:`refuse_floor` **before** the overridable
+    constraint-resolver seam and therefore before any declaration-level
+    judgment runs at all. An
     adopter who declares ``pattern=".*"`` — a grammar admitting an apostrophe,
     and so a single-quoted-literal splice — does not thereby make an
-    apostrophe-bearing subject servable *through that resolver*: the floor is
+    apostrophe-bearing subject or parameter servable *through that resolver*:
+    the floor governing that position is
     mechanism and is not
     negotiable by declaration, and this domain is a *further* constraint on
-    top of it with no reach underneath. **The qualifier is load-bearing.** A
+    top of it with no reach underneath. Measured, so the ordering is not
+    merely asserted: with ``pattern=".*"`` declared on a string parameter,
+    :func:`refuse_request` ADMITS ``"a;b"`` and only the floor running first
+    refuses it. **The qualifier is load-bearing.** A
     caller that validates a request with :func:`refuse_request` alone — the
     standalone-validator path, which
     :class:`~ccf.agents.assembler.DeterministicAssembler` is by ruling — gets
@@ -1100,8 +1118,11 @@ class ArgumentDomain(CCFContract):
         against the declared pattern (``not-in-domain``) — a value that is not
         a string has no text to judge and misses a grammar for the same reason
         a string misses a member set, so it is refused rather than passed
-        through (``D-IMPL-357`` C4). Judged AFTER
-        :data:`SUBJECT_FLOOR_V1`, which a declaration cannot reach under.
+        through (``D-IMPL-357`` C4). Judged AFTER the mechanism floor that
+        governs the position — :data:`PARAMETER_VALUE_FLOOR_V1` for a declared
+        ``string`` parameter, :data:`SUBJECT_FLOOR_V1` for the subject
+        (``D-IMPL-357`` item 7) — and neither is reachable from under by a
+        declaration.
         """
         if self.pattern is not None:
             if isinstance(value, str) and re.fullmatch(self.pattern, value):
@@ -2962,10 +2983,12 @@ def refuse_request(
     reason this one delegates its parameter comparison to
     :func:`~ccf.products.payload.refuse_payload` rather than restating it.
 
-    **Deliberately does NOT carry the mechanism floor** (`D-IMPL-357` C1/C2,
-    sharpened at the C2 round-1 review). `GovernedResolver.__call__` judges
-    :func:`refuse_floor` — `request.subject` and every DECLARED `string`
-    parameter against `SUBJECT_FLOOR_V1` — as a separate call, before this
+    **Deliberately does NOT carry either mechanism floor** (`D-IMPL-357` C1/C2,
+    sharpened at the C2 round-1 review; two floors since item 7, ruled
+    2026-09-27). `GovernedResolver.__call__` judges
+    :func:`refuse_floor` — `request.subject` against `SUBJECT_FLOOR_V1`, and
+    every DECLARED `string` parameter at every declared depth against
+    `PARAMETER_VALUE_FLOOR_V1` — as a separate call, before this
     comparison even runs (C2); this function does not call `refuse_floor` and
     never has, so a conforming request under this function's own rules may
     still fail the floor, and this function alone cannot tell a caller which.

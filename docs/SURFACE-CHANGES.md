@@ -374,7 +374,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: `Final[re.Pattern[str]]` — `re.compile(r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}$")`, the SDK-owned mechanism floor (`D-IMPL-357` C1a)
+- After: `Final[re.Pattern[str]]` — `re.compile(r"^[A-Za-z0-9][A-Za-z0-9:/._~@+=-]{0,511}\Z")`, the SDK-owned mechanism floor (`D-IMPL-357` C1a)
 - Why: the fabric's own grammar for what can be placed safely in a SPARQL IRI `<…>` position and a single- or double-quoted literal — an allowlist rather than a denylist, so `'` (which a denylist could admit by omission) never reaches an acquisition splice. NOT a URL-path-segment guarantee: the grammar admits `/` and `..` because a measured subject is itself a URI; a value that passes must still be percent-encoded before use in a URL path or query.
 - Migration: none; new name
 
