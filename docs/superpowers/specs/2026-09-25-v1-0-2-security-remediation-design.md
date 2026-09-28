@@ -973,7 +973,10 @@ trees call `open_product(`, 12 call `build_governed_resolver(`. Union of files
 naming the changed symbols: 49.
 
 **Red when fixed (rewrite, never delete).**
-- `tests/products/test_resolver_seam.py::test_o3_a_non_composite_never_reads_the_admission_clock`
+- `tests/products/test_resolver_seam.py::test_o3_a_non_composite_reads_the_admission_clock_EXACTLY_ONCE`
+  (renamed by `D-IMPL-358` step 4: ruling 1 retires the premise that a
+  non-composite consumes no instant, so the control now asserts exactly one
+  read rather than none)
   (def at `:2861`, `assert reads == []` at `:2881`) → exactly one read.
 - `::test_an_answerable_question_yields_a_served_product` (`:933`; `recorded_at
   == ASKED_AT` at `:946` **stays true** under D2(a); Gate 3 red at a wall clock

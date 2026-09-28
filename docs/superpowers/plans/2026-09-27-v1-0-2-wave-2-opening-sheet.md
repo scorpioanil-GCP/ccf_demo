@@ -191,7 +191,7 @@ moves every address). **RULED (ruling 1): transparent-at-sentinel** — delibera
 
 ### 3.3 §4.5's "minted by the record builder" is not what the code does
 
-`build_replay_record` (`src/ccf/replay/record.py:1684-1708`) **never resolves or mints a
+`build_replay_record` (`src/ccf/replay/record.py::build_replay_record`) **never resolves or mints a
 `PolicyBinding`** — it receives the tuple and writes it (`:2032-2035`). Minting
 happens at two other sites. So "the `TemporalBoundaryPolicy` key+version is
 minted by the record builder" describes a builder that does not mint.

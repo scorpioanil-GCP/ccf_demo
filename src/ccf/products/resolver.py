@@ -2278,7 +2278,12 @@ class GovernedResolver:
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
-           the entire reason nothing here reads a clock.
+           the entire reason **the graph boundary** needs no clock. A clock IS
+           read, once, at entry (`D-IMPL-358` step 4): ``served_at``, when the
+           answer was handed over, which is a different instant answering a
+           different question and reaches no graph read. This sentence
+           previously claimed nothing here read a clock, which was already
+           untrue of the composite branch before the hoist made it material.
         4. **The operator registry is built from whatever the deployment
            declared**, then Π runs at L5.
         5. **The class registers**, minting the pins Gate 3 and the request
@@ -2355,6 +2360,23 @@ class GovernedResolver:
                 " must be able to say so, and such a surface needs a resolver"
                 " that answers without one"
             )
+
+        # `D-IMPL-358` step 4 — ONE READ, HERE. The fabric-controlled clock is
+        # read exactly once per call, at the entry to the governed path: after
+        # the three address checks above, which RAISE on a mis-wiring and so
+        # reach no governed decision at all, and before everything that does.
+        #
+        # Hoisted out of the composite branch below, where it was read only
+        # `if registered.requires:` — so before this, a NON-COMPOSITE serve read
+        # no clock and had no instant to say when it answered. `admitted_at` is
+        # now this same value, so the composite window is unchanged and the
+        # read-once-per-composition control still measures what it measured.
+        #
+        # A refusal path reads it too and, at THIS step, records nothing with
+        # it: threading `served_at` into refusal records is step 5. That is the
+        # ruled placement rather than an oversight — moving the read later and
+        # then moving it again would make step 5 redo step 4.
+        served_at = self.admission_clock()
 
         identity = RequestIdentity(
             product_id=product_class,
@@ -2627,10 +2649,14 @@ class GovernedResolver:
             # request so it is stable under replay and cannot be chosen per
             # child (F8: invocation-bound, and the binding is to THIS one).
             invocation = f"composition://{content_hash(request)}"
-            # Read ONCE per composition. Two children admitted against two
-            # readings of a clock would be judged in two windows, and the
-            # rows would disagree about when the composition admitted them.
-            admitted_at = self.admission_clock()
+            # Read ONCE per composition — and now once per CALL, which is
+            # strictly stronger. Two children admitted against two readings of a
+            # clock would be judged in two windows, and the rows would disagree
+            # about when the composition admitted them. `D-IMPL-358` step 4:
+            # `admitted_at := served_at`, the value read at entry, so the
+            # composite window is exactly the window it was and the instant the
+            # answer was served is the instant its children were admitted.
+            admitted_at = served_at
             if self.composite_children is None:
                 composed = CompositionOutcome(
                     factors=None,
@@ -3342,6 +3368,12 @@ class GovernedResolver:
             # (`D-IMPL-308`). Dimension 5 already carries `asked_at` on the
             # request it holds, so the record says both rather than one twice.
             recorded_at=decided_at,
+            # `D-IMPL-358` step 4. A THIRD instant, and the record now says all
+            # three rather than one of them twice: `request.asked_at` is what the
+            # question asks as of, `recorded_at` is when the decision was taken,
+            # and this is when the answer was handed over. `recorded_at` is
+            # deliberately untouched.
+            served_at=served_at,
             request=request,
             # 24.6-07: the assembler in force, on the served path and on every
             # refusal path alike (`D-IMPL-253` Q16). This resolver holds no

@@ -7656,6 +7656,7 @@
           "product_content_address": "<class 'str'>",
           "refusal_seam": "<class 'str'>",
           "request": "ccf.products.request.ProductRequest | None",
+          "served_at": "datetime.datetime | None",
           "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
           "ttl_anchor_at": "datetime.datetime | None",
@@ -7846,7 +7847,7 @@
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, packaging_trace: 'PackagingTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, packaging_trace: 'PackagingTrace | None' = None, served_at: 'datetime | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",

@@ -2858,14 +2858,25 @@ def test_o3_the_admission_clock_is_read_ONCE_for_a_whole_composition(
     assert reads == [1], f"the admission clock was read {len(reads)} times"
 
 
-def test_o3_a_non_composite_never_reads_the_admission_clock(
+def test_o3_a_non_composite_reads_the_admission_clock_EXACTLY_ONCE(
     booted: _Booted,
 ) -> None:
-    """The control. A product declaring no children admits none.
+    """AMENDED by `D-IMPL-358` step 4, and the amendment is the point.
 
-    Reading a clock it has no use for would be harmless and still wrong: it
-    would make the value look load-bearing on a path where nothing consumes
-    it, which is how a field ends up defended as though it governed something.
+    This control previously asserted ``reads == []`` — that a product declaring
+    no children read no clock at all — on the stated reasoning that *"reading a
+    clock it has no use for would be harmless and still wrong: it would make the
+    value look load-bearing on a path where nothing consumes it."*
+
+    **That premise is retired by ruling 1, not worked around.** A non-composite
+    serve now HAS a use for the instant: ``served_at``, when the answer was
+    handed over, which every governed serve records. The clock is no longer read
+    for a consumer that might not exist; it is read for one that always does.
+
+    What the control still enforces, and why it is not weaker: EXACTLY ONCE. One
+    read per call was the property worth having, and asserting a count rather
+    than an absence keeps it — a second read would put two instants in one
+    answer, which is the same defect the composition sibling guards against.
     """
     reads: list[int] = []
 
@@ -2878,7 +2889,157 @@ def test_o3_a_non_composite_never_reads_the_admission_clock(
         _request(),
     )
     assert isinstance(outcome, ServedProduct), outcome
-    assert reads == []
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+# --- D-IMPL-358 step 4: served_at, hoisted and captured ---------------------
+
+
+def _served_record(booted: _Booted, outcome: ServedProduct) -> DecisionReplayRecord:
+    """The record the seam minted for a served product, read back from the store."""
+    return DecisionReplayRecord.model_validate_json(
+        booted.store.get(content_address=outcome.replay_ref.content_address)
+    )
+
+
+def test_step4_served_at_is_captured_on_a_non_composite_serve(booted: _Booted) -> None:
+    """The path that read NO clock before this step now records when it answered.
+
+    `D-IMPL-358` step 4. The instant comes from the injected fabric clock, so the
+    assertion is against the value that clock returned and not against a range.
+    """
+    outcome = _ask(_resolver(booted, composite_children=None), _request())
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted, outcome)
+    assert record.content_generation_path.served_at == ADMITTED_AT
+
+
+def test_step4_served_at_is_captured_on_a_composite_serve(
+    booted_composite: _Booted,
+) -> None:
+    def recording(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=recording), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted_composite, outcome)
+    assert record.content_generation_path.served_at == ADMITTED_AT
+
+
+def test_step4_the_composite_window_is_the_same_instant_as_served_at(
+    booted_composite: _Booted,
+) -> None:
+    """``admitted_at := served_at``, asserted at the child boundary.
+
+    The design's requirement that the composite window is UNCHANGED by the hoist
+    is only checkable where the window is used, so this reads the instant the
+    child resolver was actually handed and holds it equal to the one the record
+    carries. A hoist that read a second clock would satisfy neither.
+    """
+    seen: dict[str, Any] = {}
+
+    def recording(**kwargs: Any) -> dict[str, Any]:
+        seen.update(kwargs)
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=recording), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted_composite, outcome)
+    assert seen["admitted_at"] == record.content_generation_path.served_at
+    assert seen["admitted_at"] == ADMITTED_AT
+    # And the graph boundary is still the question's instant, not the serve's.
+    assert seen["asked_at"] != seen["admitted_at"]
+
+
+def test_step4_a_composite_serve_reads_the_clock_exactly_once_for_both_uses(
+    booted_composite: _Booted,
+) -> None:
+    """One read now serves two consumers. Two reads would be two instants."""
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    def recording(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(
+            booted_composite, composite_children=recording, admission_clock=counting
+        ),
+        _request(),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+def test_step4_a_refusal_reads_the_clock_once_and_records_no_served_at_YET(
+    booted: _Booted,
+) -> None:
+    """THE STEP BOUNDARY, asserted rather than left to a commit message.
+
+    The read is at the entry to the governed path, so a refusal reads it too —
+    the ruled placement, because moving the read later and then moving it again
+    would make step 5 redo step 4. At THIS step nothing records it on a refusal
+    path: threading ``served_at`` through refusal records is step 5. This test is
+    expected to be AMENDED there, and says so.
+    """
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    outcome = _ask(
+        _resolver(
+            booted,
+            product_ttl_seconds=MAX_TTL_SECONDS + 1,
+            admission_clock=counting,
+        ),
+        _request(),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    assert record.content_generation_path.served_at is None, (
+        "a refusal record carrying served_at is step 5's wiring, not step 4's"
+    )
+
+
+def test_step4_two_serves_at_two_instants_are_two_records(booted: _Booted) -> None:
+    """Ruling 1's second half, end to end through the resolver.
+
+    A populated ``served_at`` participates in the address, so the same question
+    answered at two instants produces two records. That is the audit reading the
+    ruling asks for — which determination, produced when — and it is why every
+    "same determination twice" assertion must pin the clock.
+    """
+    first = _ask(
+        _resolver(booted, admission_clock=lambda: ADMITTED_AT), _request()
+    )
+    later = ADMITTED_AT + timedelta(seconds=1)
+    second = _ask(_resolver(booted, admission_clock=lambda: later), _request())
+    assert isinstance(first, ServedProduct) and isinstance(second, ServedProduct)
+
+    one, two = _served_record(booted, first), _served_record(booted, second)
+    assert one.content_generation_path.served_at == ADMITTED_AT
+    assert two.content_generation_path.served_at == later
+    assert first.replay_ref.content_address != second.replay_ref.content_address
+
+    # A PINNED clock gives one address back, which is what proves the clock is
+    # the only difference above.
+    third = _ask(_resolver(booted, admission_clock=lambda: ADMITTED_AT), _request())
+    assert isinstance(third, ServedProduct)
+    assert third.replay_ref.content_address == first.replay_ref.content_address
 
 
 # --- D-IMPL-357 C2: the mechanism floor, judged before the overridable seam --

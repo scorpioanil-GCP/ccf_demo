@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1758 entries**, of which **1498** name a public Python surface.
+**1761 entries**, of which **1501** name a public Python surface.
 
 ## Added
 
@@ -16248,7 +16248,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-489 entries — 301 public Python surface, 188 not public Python API.
+491 entries — 303 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -21843,6 +21843,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen members; the dimension related two instants — `request.asked_at`, carried on the request it holds, and the record's own `recorded_at`
+- After: a seventeenth member, `served_at: datetime | None`, `Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})` — **transparent at the sentinel**. A third instant, and the record now says all three rather than one of them twice: what the question asks as of, when the decision was taken, and when the answer was handed over. `recorded_at` is untouched on both the served and the refusal path
+- Why: `D-IMPL-358` ruling 1. The mark is the ruling and not a preference: `None` — every record written before the member existed — canonicalizes exactly as it did, so no pre-1.0.2 address moves and the member's mere schema presence is not a generation boundary; a populated value participates, so **two serves of one question are two records**, which is the audit reading a bank needs. Deliberately NOT `ChildResolution.child_admitted_at`'s `{HASH_TRANSPARENT_KEY: False}`: the accepted design asserted transparency while citing that field as its precedent, and ruling 1 settles that this one is transparent. The precedent it actually follows is `ttl_anchor_at` on this same class — same shape, same sentinel, same mark
+- Migration: none for a stored record. Every record written before the member existed rehydrates to the address it was written at, measured by the two rosters that hold the transparent set by name (`tests/contracts/test_hash_transparency.py` and `tests/replay/test_generation_mismatch.py`), both of which required this field to be DECLARED rather than merely marked. `THE_FIFTEEN` is unchanged, which is the load-bearing half: a row that grew that lineage would make an old record refuse. **For a caller that compares addresses across serves**: two serves of one question now differ, so any "same determination twice" assertion must pin the clock — which is what proves the clock is the only difference
+
+*Recorded by `358-04-served-at.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: twenty-one keyword-only parameters; the builder had no way to be told when the answer was served, because nothing in the fabric knew
+- After: a new keyword-only parameter `served_at: datetime | None = None`, passed straight through to the dimension. Passed rather than derived, unlike the sibling `ttl_anchor_at` immediately above it in the same construction, which is read off the product because the product carries it — no artifact carries the instant the answer was handed over, so only the resolver that read the clock can supply it
+- Why: `D-IMPL-358` step 4. One builder already mints every record on both the served and the refusal path, so the capture belongs in its signature rather than in a second construction
+- Migration: none. The parameter defaults to `None`, so every existing caller writes a record whose address is exactly what it was
+
+*Recorded by `358-04-served-at.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -24703,7 +24727,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-223 entries — 195 public Python surface, 28 not public Python API.
+224 entries — 196 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -28601,6 +28625,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for callers (the function derives); a deployment that persisted the old key string re-registers its mapping under the new one
 
 *Recorded by `353-09-the-join.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: `admission_clock` was invoked inside `if registered.requires:` only, so a non-composite serve read no clock; `__call__`'s docstring asserted that *"nothing here reads a clock"*, which was already untrue of that branch
+- After: `served_at = self.admission_clock()` once at the entry to the governed path; the composite branch binds `admitted_at` to that same value; the served build site passes `served_at` to `build_replay_record`. **No second clock anywhere.** The docstring sentence is corrected rather than removed: the graph boundary still needs no clock and still comes from `request.asked_at`, and the sentence now says which claim was previously overstated
+- Why: `D-IMPL-358` step 4 — a governed serve that cannot say when it answered cannot be audited for it, and one read per call is what keeps a single answer on a single instant
+- Migration: none for a deployment: `admission_clock` already existed, already defaulted, and is already wired by `build_governed_resolver` and `open_product(clock=)`. **For a test that counts clock reads on a non-composite serve**, the count is now one rather than zero; that is the ruled change and the one in-tree control asserting zero is renamed and re-pointed
+
+*Recorded by `358-04-served-at.md`.*
 
 ### Not public Python API
 
