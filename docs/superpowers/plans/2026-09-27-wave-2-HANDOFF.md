@@ -211,6 +211,9 @@ pattern is worth carrying rather than forgetting.
 | Invented a port policy in the write fence that nobody ruled | narrowed a protection while calling it precision |
 | Reported step 2(b) as landed while it was local only | treated my own work as evidence before pushing |
 | Reported step 4 complete while it reddened two client-conformance nodes | measured the changed population, not the dependent one |
+| Offered "drop the storage version" as a candidate repair for A-F2 | proposed weakening an assertion I had just argued must not be weakened |
+| Called the Gate-3 migration set "43 reds" from a two-directory run | reported a partial population's number as the whole |
+| `git checkout --` on a dirty tree, wiping an uncommitted fix | used a destructive revert where an inverse edit was required — the exact trap already recorded here |
 
 **The common thread:** confident first-pass output on specifications and
 measurements that had not been executed. **The counter-discipline that works,
@@ -301,7 +304,7 @@ ruling, not a cleanup. The narrow repair was taken instead: the temporal-boundar
 constant is exposed from `ccf.controlplane.artifacts`, following `RESOLUTION_SPEC`,
 whose contract likewise lives in another module.
 
-### Finding A-F2 — step 4 reddened two client-conformance nodes. BLOCKER, needs a ruling.
+### Finding A-F2 — step 4 reddened two client-conformance nodes. RULED AND CLOSED.
 
 Bisected, not inferred:
 
@@ -348,5 +351,197 @@ candidate repairs are all rulings, not plumbing:
 3. **Move `served_at` off the hashed record** — contradicts ruling 1 and
    `D-IMPL-243` amendment 1.
 
-Per CLAUDE.md §15 this is a `D-IMPL` question, so it is surfaced rather than
-defaulted. **Step 5 cannot be reported complete while it stands.**
+**Dave ruled option 1, 2026-09-28: pin the instant.** Verbatim: *"Two serves at
+two wall times must be two record versions. That is ruling 1 plus the canonical
+rule you already shipped… The conformance leg's docstring already required 'the
+same question at the same instant.' The fixture never did. The wave made that
+visible; it did not invent a new identity rule."* And on the other two: *"2 is a
+lie. Dropping the storage version hides a real difference and weakens
+24.11-C-01. 3 is a reversal of ruling 1. Forbidden."*
+
+Also ruled: threading the clock through the client adapter boot is **not a
+test-only knob** — it is the same injected fabric clock as D6(d) / `D-IMPL-159`.
+
+**Implemented and green at `b38f032e`.** `InProcessAdapter(address, *, clock=…)`
+threads to `_boot` and on to `build_governed_resolver(admission_clock=…)`; the
+default is the fabric's own clock, imported rather than restated. Both subjects
+are composed against one now — the in-process one directly, the `mcp+stdio` child
+through the environment, the one channel that reaches a separate process and one
+its adapter already passes on deliberately. `tests/client`: **453 passed, 0
+failed.** Two controls ship with it, one being the positive control for the
+other: the channel's second spelling is held equal to the constant, and removing
+the export turns the parity leg red.
+
+---
+
+## 11. Section H — the Gate-3 comparand migration set, CLASSIFIED
+
+Dave ruled, 2026-09-28: *"H's comparand is not done. `served_at` on the refusal
+record is not Gate 3's now… The 43 reds are the migration set, not a reason to
+skip H. Classify them, migrate the fixtures that pin a fictional decision against
+a live clock, then change the comparand."* H2 stays unnecessary; H1 stays as
+shipped. This section is the classification. **The comparand is NOT changed yet**
+and the tree is byte-for-byte as it was before the probe (digest verified).
+
+### The population, corrected
+
+**62 failed + 8 errors** on the **full non-example suite**
+(`pytest tests/ --ignore=tests/examples`), against 8376 passed and 115 skipped.
+
+My earlier report said "43 reds". That number was measured on
+`tests/products` + `tests/replay` **only** — a narrower population than the one
+the change actually reaches. 43 was not wrong about what it measured; it was
+wrong as a statement about the migration set, which is 60 probe-caused nodes plus
+8 errors across 22 modules.
+
+### The cause, uniform across all 60
+
+Gate 3 holds `now < expires_at <= now + MAX_TTL`. With `now = served_at` the
+lower bound bites: every failure is a `ttl-refusal` / `ttl-bounds`, or a
+`composite-child-refusal` / `child_admission` where a CHILD refused for that
+reason. Measured shapes in the run: 23 assertions land on a `ttl-refusal`
+envelope directly, 13 on `composite-child-refusal`.
+
+**This is Gate 3 working, not fixture noise.** A product whose `expires_at`
+already lies in the past at the moment it is handed over must not be served, and
+that is precisely the gap `decided_at` could not see. The clearest instance is an
+evidence-anchored class: with `ttl_anchor: from_entity_freshness`, `expires_at`
+runs from an observation BEFORE the question, so a serving instant even minutes
+later is past the expiry. `tests/products/test_cp05_canonical_path.py` fails
+exactly there.
+
+### Class 1 — no clock injected: a pinned question instant against a LIVE serving clock
+
+**37 nodes, 15 modules.** These modules pass no `admission_clock`, so `served_at`
+is the real wall clock while the question is pinned to a fictional instant. The
+two diverge by months, so `expires_at` is always in the past.
+
+*Migration shape:* inject a fabric clock consistent with the module's own pinned
+question instant — the same seam `ccf.client.adapters.inprocess.InProcessAdapter`
+just gained, and the same discipline the conformance suite already applies to
+`as_of`. No fixture VALUE needs inventing: each module already declares the
+instant it means.
+
+- `tests/client/conformance/test_a_crossed_question_is_caught_on_one_transport.py` — 3
+  - `test_a_crossed_question_is_caught_over_the_in_process_transport`
+  - `test_an_absent_boundary_leaves_the_moved_instant_undetectable`
+  - `test_an_altered_vessel_is_caught_over_the_in_process_transport`
+- `tests/client/conformance/test_mcp_conformance.py` — 1
+  - `test_the_decision_instant_is_auditable`
+- `tests/client/conformance/test_the_suite_fires.py` — 1
+  - `test_the_decision_instant_leg_fires_on_a_misreported_instant`
+- `tests/client/test_inprocess_adapter.py` — 5
+  - `test_a_first_ask_boots_the_fabric_and_returns_a_result`
+  - `test_a_relative_and_absolute_root_are_one_cache_entry`
+  - `test_an_explicit_as_of_reaches_the_deployment`
+  - `test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel`
+  - `test_two_clients_on_one_binding_share_one_fabric`
+- `tests/client/test_mcp_stdio_adapter.py` — 1
+  - `test_the_quoting_the_spaced_refusal_prescribes_actually_gets_past_the_grammar`
+- `tests/deployment/test_replay_binding.py` — 4
+  - `test_a_deployment_with_no_replay_section_is_untouched`
+  - `test_a_served_products_record_lands_where_the_control_plane_said`
+  - `test_an_explicit_record_class_wins_while_the_rest_stay_declared`
+  - `test_the_landing_control_fires_on_a_store_rooted_anywhere_else`
+- `tests/invariants/test_determination_authority_disclosure_delivery.py` — 1
+  - `test_no_control_here_edits_the_real_source_tree`
+- `tests/products/test_composite_integration.py` — 1
+  - `test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain`
+- `tests/products/test_d_impl_338_refusal_evidence.py` — 1
+  - `test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_identity`
+- `tests/products/test_d_impl_339_child_contract_view.py` — 1
+  - `test_an_invoked_child_that_refuses_admission_ALSO_blocks_projection`
+- `tests/products/test_d_impl_342_child_question_retention.py` — 3
+  - `test_c_b1_an_admitted_child_leaves_its_exact_question_on_the_parents_store`
+  - `test_c_b6_replay_and_audit_need_neither_the_mapping_nor_the_producer`
+  - `test_c_b7_other_bytes_at_the_address_are_a_divergence_on_both_replay_paths`
+- `tests/products/test_d_impl_344_refusal_reconstruction.py` — 1
+  - `test_case_8_an_optional_child_invoked_and_refused_blocks_and_reconstructs_as_optional`
+- `tests/products/test_resolver_defaults.py` — 11
+  - `test_an_explicit_scorer_overrides_the_default`
+  - `test_the_data_only_construction_satisfies_every_assertion`
+  - `test_the_default_is_selected_when_no_scorer_is_passed`
+  - `test_the_default_reports_a_measured_number_rather_than_a_placeholder`
+  - `test_the_half_life_artifact_moves_the_freshness_the_product_carries`
+  - `test_the_half_life_control_fires_on_two_identical_numbers`
+  - `test_the_half_life_control_fires_when_the_ordering_inverts`
+  - `test_the_override_and_the_default_produce_different_products`
+  - `test_the_override_control_fires_on_a_reference_produced_assessment`
+  - `test_the_selection_control_fires_on_a_stale_pinned_version`
+  - `test_the_selection_control_fires_when_the_default_is_made_inert`
+- `tests/products/test_runtime_product_gate.py` — 1
+  - `test_the_gate_never_runs_on_a_candidate_the_universal_gates_refused`
+- `tests/replay/test_refusal_replay_record.py` — 2
+  - `test_a_gate_refusal_records_the_state_it_actually_read`
+  - `test_the_evidence_bundle_is_the_executions_own_facts`
+
+
+### Class 2 — a clock IS injected, and the pinned serving instant is still past the expiry
+
+**23 nodes, 7 modules.** These already pin `served_at` (the paved fixture's
+`clock=lambda: ADMITTED_AT`, which is `ASKED_AT + 7 minutes`). The refusal is
+therefore not an artifact of a live clock — it is the fixture's own premise being
+incoherent under the correct comparand: a product with a 600-second window
+anchored on evidence five minutes OLDER than the question has expired before the
+seven-minute-later serve.
+
+*Migration shape:* make each fixture's own arithmetic coherent — align the
+serving gap with the declared window, or declare a window that survives it. Two
+of these (`test_d_impl_341_ttl_anchor.py`) are the C11 pair already migrated once
+this step and will need their instants restated a second time, which is expected:
+they are the controls most tightly coupled to which instant governs.
+
+- `tests/client/conformance/test_inprocess_conformance.py` — 1
+  - `test_the_decision_instant_is_auditable`
+- `tests/products/test_cp05_canonical_path.py` — 2
+  - `test_the_canonical_path_serves_cp05s_declared_family`
+  - `test_the_gate_seam_is_live_on_cp05s_path`
+- `tests/products/test_d_impl_341_ttl_anchor.py` — 4
+  - `test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant[breached-at-the-evaluation-instant]`
+  - `test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant[met-at-the-evaluation-instant]`
+  - `test_c6_evidence_older_than_the_window_refuses_ttl_bounds_naming_the_anchored_expiry`
+  - `test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children`
+- `tests/products/test_d_impl_342_producer_refusal_evidence.py` — 2
+  - `test_c_a2_an_admitted_child_carries_no_producer_refusal_and_its_reference_as_before`
+  - `test_c_a4b_a_served_answer_rejected_inside_the_gate_carries_its_references_and_no_producer_refusal`
+- `tests/products/test_delivery_determinism.py` — 1
+  - `test_moving_served_at_across_the_effectivity_boundary_changes_the_determination`
+- `tests/products/test_paved_consumer.py` — 9
+  - `test_a_bumped_skill_beside_a_grant_in_force_is_refused_at_open_naming_both_versions`
+  - `test_a_composite_is_served_with_its_child_admitted_from_declarations_alone`
+  - `test_a_floor_below_the_served_lane_serves_and_the_served_lane_is_what_admission_holds`
+  - `test_a_question_cannot_carry_an_instant_and_the_child_answers_the_composites`
+  - `test_a_served_lane_below_the_composites_floor_is_refused_at_admission_with_the_reason`
+  - `test_answer_admits_a_floor_bearing_request_the_way_resolve_admits_an_address`
+  - `test_opening_twice_over_one_control_plane_serves_twice`
+  - `test_the_build_children_hatch_composes_over_the_sdks_own_registrations`
+  - `test_the_mapping_is_the_authority_on_the_subject_and_the_row_records_what_was_asked`
+- `tests/products/test_resolver_seam.py` — 4
+  - `test_a_gate_refusal_comes_back_as_an_envelope`
+  - `test_a_gate_refusal_keeps_the_gates_own_typed_fields`
+  - `test_a_gate_refusal_serves_nothing_and_records_everything`
+  - `test_step5_a_refusal_reads_the_clock_once_and_NOW_records_served_at`
+
+
+### Class 3 — base-existing, NOT in the migration set
+
+**2 nodes.** Red at the accepted base `72bee6eb`, unrelated to the comparand, and
+left alone by standing instruction.
+
+- `tests/invariants/test_citation_coverage.py` — 1
+  - `test_the_unanchored_python_citation_population_cannot_regrow`
+- `tests/test_version_stamp.py` — 1
+  - `test_the_installed_version_is_not_the_stale_literal_and_is_git_derived`
+
+
+### What has to be true before the comparand moves
+
+1. Every class-1 module injects a clock aligned with its pinned question instant.
+2. Every class-2 fixture's window, anchor and serving gap are mutually coherent.
+3. `tests/products/test_door_answer.py`'s 8 errors are resolved — they are ERRORS,
+   not failures, so they are a fixture that stops constructing rather than an
+   assertion that fails, and an error is never read as a pass.
+4. Only then `now=served_at`, with the four `test_a_gate_refusal_*` controls in
+   `test_resolver_seam.py` checked individually: three of them construct a
+   DIFFERENT gate's refusal and would silently start measuring `ttl-bounds`
+   instead of their own subject.
