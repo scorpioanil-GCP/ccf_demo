@@ -72,6 +72,7 @@ from ccf.replay.serve import ServedProduct
 from tests.deployment.test_replay_binding import ENTITY_CLASS
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ADMITTED_AT, ASKED_AT, THRESHOLD_PARAMETER
+from tests.composition import declare_wide_temporal_boundary
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -221,6 +222,9 @@ def test_c4_a_declaration_no_row_could_honor_is_refused_by_name_at_open_and_at_t
             fabric.handle.close()
     registry = ControlPlaneRegistry()
     hand = load_config_and_boot(refused_root / "ccf_config.yaml", registry=registry, connection={"database_path": str(tmp_path / "hand.sqlite3")})
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one.
+    declare_wide_temporal_boundary(registry, tenant_id=hand.tenant_id)
     try:
         with pytest.raises(TTLAnchorUndeclared, match="declares no row with `decay_basis: valid-from`"):
             build_governed_resolver(**{**arguments, "fabric": hand, "control_plane": registry})

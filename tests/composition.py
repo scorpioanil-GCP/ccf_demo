@@ -168,6 +168,37 @@ def register_typed_at_composition(
     )
 
 
+def declare_wide_temporal_boundary(
+    registry: ControlPlaneRegistry, *, tenant_id: str
+) -> str:
+    """Declare a deliberately WIDE `TemporalBoundaryPolicy` for a fixture tenant.
+
+    `D-IMPL-358` step 5 ruling 11: a deployment that declares no temporal boundary
+    REFUSES every question — no SDK default and no fallback window. So a fixture
+    that means to serve has to declare one, and this is the one place that does it
+    so ~20 fixtures cannot drift into ~20 different windows.
+
+    **Wide on purpose.** The window is not what those fixtures are about, and a
+    narrow one here would make every unrelated case depend on the fixture's clock —
+    which is how a suite acquires a calendar dependency nobody chose. A test that
+    is ABOUT the window declares its own narrow one instead.
+    """
+    from ccf.controlplane.temporal_boundary import (
+        TEMPORAL_BOUNDARY_POLICY,
+        TemporalBoundaryPolicy,
+        temporal_boundary_policy_key,
+    )
+
+    return register_typed_at_composition(
+        registry,
+        temporal_boundary_policy_key(tenant_id=tenant_id),
+        TemporalBoundaryPolicy(
+            max_past_seconds=10**9, permitted_clock_skew_seconds=10**9
+        ),
+        TEMPORAL_BOUNDARY_POLICY,
+    )
+
+
 def register_versioned_at_composition(
     registry: ControlPlaneRegistry,
     key: str,

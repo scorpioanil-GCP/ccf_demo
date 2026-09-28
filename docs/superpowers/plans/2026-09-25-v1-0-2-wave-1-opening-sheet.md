@@ -995,7 +995,7 @@ def test_a_malformed_subject_is_refused_before_the_acquisition_seam_and_before_t
     record = DecisionReplayRecord.model_validate_json(booted.store.get(content_address=address))
     assert "malformed-value" in str(record.content_generation_path.assembly_refusal)
 ```
-(The module's helpers: `_resolver(booted, **overrides)` at `tests/products/test_resolver_seam.py:540`, `_request(**overrides)` at `:556`, `_ask(resolver, request)` at `:570`, the `booted` fixture, and the record read exactly as `:594-612` performs it; `acquisition=` and `constraint_resolver=` are `GovernedResolver` constructor fields, `src/ccf/products/resolver.py:1999` and `:2235`.)
+(The module's helpers: `tests/products/test_resolver_seam.py::_resolver`, `::_request`, `::_ask`, the `booted` fixture, and the record read exactly as `::_ask` performs it; `acquisition=` and `constraint_resolver=` are `GovernedResolver` constructor fields, `src/ccf/products/resolver.py::GovernedResolver`. **Cited by SYMBOL, not by line.** These were line numbers until `D-IMPL-358` step 5 added 188 lines to the seam module and shifted every one of them; a symbol citation cannot rot under a line shift, which is why the citation lint recommends it.)
 - [ ] **Step 2: Run to verify it fails** — Expected: FAIL — `AssertionError: the overridable seam ran before the floor` (or the seam is called).
 - [ ] **Step 3: Implement** — in `__call__`, immediately after the `refuse_intent` branch returns (`:2203-2229`) and before `declared = self._request_contract(declaration)` is consumed by the constraint resolver, hoist `declared = self._request_contract(declaration)` up and add:
 ```python

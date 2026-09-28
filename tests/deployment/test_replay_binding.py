@@ -348,6 +348,20 @@ def _servable_config(**overrides: Any) -> dict[str, Any]:
             "forced_llm_threshold": "0.30",
             "fail_closed_threshold": "0.70",
         },
+        # `D-IMPL-358` step 5 ruling 11: a deployment that declares no temporal
+        # boundary is UNDECLARED and refuses every question. This builder's whole
+        # job is "a config complete enough to build a resolver over", so a
+        # complete one now declares a bound — otherwise every test built on it
+        # would silently become a temporal-refusal test.
+        #
+        # Deliberately WIDE, and these numbers are FIXTURE VALUES: the SDK ships
+        # no duration and no default. A test that is ABOUT the window declares
+        # its own narrow one, and a test about the UNDECLARED case drops this
+        # section rather than inheriting it.
+        "temporal_boundary": {
+            "max_past_seconds": 315_360_000,
+            "permitted_clock_skew_seconds": 315_360_000,
+        },
         "policy": {
             "class_id": "fixture.policy-bundle",
             "role": "register",

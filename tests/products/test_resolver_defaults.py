@@ -115,7 +115,7 @@ from tests.products.test_resolver_seam import (
     REQUEST_CONTRACT_KEY,
     THRESHOLD_PARAMETER,
 )
-from tests.composition import declaring_store
+from tests.composition import declare_wide_temporal_boundary, declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- what this module adds to the fixture deployment ------------------------
@@ -499,6 +499,10 @@ def _boot(
         registry=control_plane,
         connection={"database_path": str(root / "graph.sqlite3")},
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one. Wide
+    # on purpose — the window is not what these tests are about.
+    declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     try:
         # The graph is **populated before a resolver exists**, and it has to be:
         # the manifest's signal batch is `role: load` (`D-IMPL-80`), so booting

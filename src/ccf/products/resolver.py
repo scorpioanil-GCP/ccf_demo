@@ -168,6 +168,10 @@ from ccf.controlplane.artifacts import (
     TtlBinding,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol, CrossTenantKeyRefused
+from ccf.controlplane.temporal_boundary import (
+    PinnedTemporalBoundary,
+    resolve_temporal_boundary,
+)
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import (
     BootedFabric,
@@ -248,6 +252,7 @@ from ccf.products.gates import (
 )
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
+    refuse_temporal_bound,
     NO_REPLAY_REFERENCE,
     RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
@@ -2583,6 +2588,53 @@ class GovernedResolver:
             update={"parameters": dict(effective.values())}
         )
 
+        # `D-IMPL-358` step 5 ruling C — THE DECISION INSTANT, DERIVED ONCE, HERE.
+        # Hoisted from below the graph read, where it used to be computed, because
+        # the temporal bound must judge it and the bound must be judged before
+        # anything is acquired. It is a pure function of `request` and
+        # `effective_request`, both final at this line and neither reassigned
+        # afterwards — so this is the same value the later stages used, computed
+        # once rather than twice. Two computations are two chances to disagree.
+        decided_at = self._decision_instant(request, effective_request)
+
+        # THE TEMPORAL BOUND, JUDGED HERE AND BEFORE ACQUISITION. The effective
+        # request exists (policy has narrowed what it can), the decision instant is
+        # derived, and nothing has been read or ingested — which is the point: an
+        # out-of-window question must cost nothing.
+        temporal = resolve_temporal_boundary(
+            registry=self.control_plane, tenant_id=self.fabric.tenant_id
+        )
+        temporal_pins = (
+            (temporal.binding,) if isinstance(temporal, PinnedTemporalBoundary) else ()
+        )
+        out_of_window = refuse_temporal_bound(
+            pinned=temporal,
+            served_at=served_at,
+            asked_at=request.asked_at,
+            decision_instant=decided_at,
+        )
+        if out_of_window is not None:
+            # A typed refusal BEFORE any write, through the same `_record_refusal`
+            # seam every other governed refusal uses — no fabricated record, no
+            # restamping. `temporal_pins` is EMPTY when the policy was undeclared
+            # (ruling 11 forbids minting a binding for a policy that does not
+            # exist) and carries the exact resolved binding when the policy itself
+            # is what refused.
+            return self._record_refusal(
+                envelope=envelope_for(
+                    out_of_window,
+                    request=identity,
+                    policy_bindings=effective.applied,
+                    provenance=effective,
+                ),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                served_at=served_at,
+                policy_bindings=(*self._applied_bindings(effective), *temporal_pins),
+                resolution=effective,
+            )
+
         # `D-IMPL-343` R-4: THE DECLARED ACQUISITION SEAM, HERE AND ONLY HERE.
         # The question is resolved (above) and the graph is not yet read
         # (below), so what the deployment reads its sources at is the value
@@ -2889,14 +2941,22 @@ class GovernedResolver:
             seeds=request_seeds(request),
         )
 
-        # `24.10-F-09` / `D-IMPL-308`. Bound ONCE and read FOUR times below —
-        # the product's expiry, the gate instant, the record's `recorded_at`
-        # and, as of `D-IMPL-343` R-3c, the instant an instant-aware scorer
-        # measures freshness as of — are four statements about the same
-        # moment, and deriving them separately is how they drift apart. Hoisted
-        # above the scorer call for that fourth reader; it reads only the two
-        # requests, so nothing about the value moved.
-        decided_at = self._decision_instant(request, effective_request)
+        # `24.10-F-09` / `D-IMPL-308`. `decided_at` is bound ONCE — far above,
+        # beside the temporal bound that judges it — and read FIVE times: the
+        # product's expiry, the gate instant, the record's `recorded_at`, the
+        # instant an instant-aware scorer measures freshness as of (`D-IMPL-343`
+        # R-3c), and now the temporal bound itself. Five statements about the same
+        # moment, and deriving them separately is how they drift apart.
+        #
+        # It used to be bound HERE, and the superseded reasoning is kept because
+        # it names the constraint the move had to satisfy: *"hoisted above the
+        # scorer call for that fourth reader; it reads only the two requests, so
+        # nothing about the value moved."* That is still why moving it is safe —
+        # it is a pure function of `request` and `effective_request`, and neither
+        # is reassigned between the new binding site and this line. `D-IMPL-358`
+        # step 5 ruling C moved it because the bound must judge the decision
+        # instant BEFORE anything is acquired, and a second derivation here would
+        # be a second chance to disagree with the instant that was judged.
 
         # `24.11-03` / `24.10-F-08`: hoisted out of the constructor because two
         # members are now derived from it — the assessment itself and the
@@ -3391,6 +3451,12 @@ class GovernedResolver:
                 # table it anchored under, so replay re-derives the anchor
                 # under the same declarations, never today's.
                 *self._ttl_anchor_pins(anchor),
+                # `D-IMPL-358` step 5 area 8: the temporal policy that governed
+                # this serve, pinned by its EXACT resolved version. `.binding` and
+                # never a `PolicyBinding(key, version)` rebuilt here — rebuilding
+                # is how a reconstructed version gets in, which is the step-3
+                # defect this pin exists to make load-bearing.
+                *temporal_pins,
             ),
             assembly_mode=registered.assembly_mode,
             # WHEN THE DECISION WAS TAKEN, not when the graph was read

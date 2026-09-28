@@ -40,6 +40,7 @@ from ccf.client.adapters.binding_document import load_binding_document
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment.config import load_config_and_boot
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from tests.composition import declare_wide_temporal_boundary
 
 #: The committed deployment every test copies. One authored deployment, so a
 #: second copy is never a second thing to keep in step.
@@ -150,6 +151,9 @@ def seed(root: Path, rows: tuple[tuple[str, str], ...] = SEEDED_ROWS) -> None:
         registry=registry,
         connection=load_binding_document(root).connection,
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one.
+    declare_wide_temporal_boundary(registry, tenant_id=booted.tenant_id)
     try:
         for index, (name, score) in enumerate(rows):
             booted.handle.worker.ingest(

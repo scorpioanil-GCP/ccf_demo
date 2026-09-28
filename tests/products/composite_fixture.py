@@ -79,7 +79,7 @@ from tests.products.test_resolver_seam import (
     _Booted,
     _arguments,
 )
-from tests.composition import register_typed_at_composition
+from tests.composition import declare_wide_temporal_boundary, register_typed_at_composition
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.composition import declaring_store
@@ -255,6 +255,10 @@ def boot_composite(
         registry=control_plane,
         connection={"database_path": str(tmp_path / "composite.sqlite3")},
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one. Wide
+    # on purpose — the window is not what these tests are about.
+    declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
     try:

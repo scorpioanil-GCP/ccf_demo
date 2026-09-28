@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 from typing import Any
+from tests.composition import declare_wide_temporal_boundary
 
 CHILD_CLASS = "fixture.child-product"
 CHILD_CLASS_KEY = "tenant-fixture/product-class-child"
@@ -159,6 +160,10 @@ def serve_atomic_child(workspace: Path) -> str:
     )
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one — and
+    # the PRODUCER is its own deployment with its own tenant, so it needs its own.
+    declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, CHILD_QUESTION_CLASS
 
     from tests.composition import declaring_store

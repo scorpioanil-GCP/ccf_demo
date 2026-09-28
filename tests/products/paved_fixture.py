@@ -57,6 +57,7 @@ from tests.deployment.test_replay_binding import (
     THRESHOLD_PARAMETER,
     _servable_config,
 )
+from tests.composition import declare_wide_temporal_boundary
 
 __all__ = [
     "ASKED_AT",
@@ -228,14 +229,6 @@ def producer_config(**overrides: Any) -> dict[str, Any]:
     """The producer: the servable fixture, re-labeled as the child class under its own tenant."""
     document = _servable_config(**_paved_sections(producer_id=PRODUCER_ID, tenant=PRODUCER_TENANT))
     document["tenant_id"] = PRODUCER_TENANT
-    # `D-IMPL-358` step 5 ruling 11: the producer is its own deployment with its
-    # own tenant, so it declares its own boundary — a consumer's declaration does
-    # not authorize a producer. Deliberately WIDE fixture values, authored here
-    # and not in `src/`.
-    document.setdefault(
-        "temporal_boundary",
-        {"max_past_seconds": 315_360_000, "permitted_clock_skew_seconds": 315_360_000},
-    )
     document["product_class"]["schema_name"] = CHILD_CLASS
     document["product_class"]["schema_version"] = CHILD_VERSION
     document["request_contract"]["schema_name"] = CHILD_CLASS
@@ -330,12 +323,6 @@ def consumer_config(
         governance or {"grant_requires_approval": False, "permitted_scopes": []}
     )
     document["debt_profile"]["key"] = f"{CONSUMER_TENANT}/ccf.debt-profile/paved-consumer"
-    # `D-IMPL-358` step 5 ruling 11: the consumer serves too, under its own
-    # tenant, so it declares its own boundary. Deliberately WIDE fixture values.
-    document.setdefault(
-        "temporal_boundary",
-        {"max_past_seconds": 315_360_000, "permitted_clock_skew_seconds": 315_360_000},
-    )
     if producers == "declared":
         document["producers"] = {"child": producer_section()}
     elif producers is not None:
@@ -407,6 +394,10 @@ def grants_in_force(
     assert isinstance(config, DeploymentConfig) and config.tenant_id is not None
     derived = derive_deployment(config)
     registry = control_plane if control_plane is not None else ControlPlaneRegistry()
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one. Wide
+    # on purpose — the window is not what the paved-road tests are about.
+    declare_wide_temporal_boundary(registry, tenant_id=config.tenant_id)
     declared_keys = derived.keys
     if declared_keys.agent is None or not declared_keys.skills:
         return registry, ()

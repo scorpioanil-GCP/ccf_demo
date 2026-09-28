@@ -50,6 +50,19 @@ def main() -> None:
         environment=fixture.producer_environment_text(),
     )
     environ = {**os.environ, fixture.CHILD_DSN_VAR: "postgresql://fixture"}
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question — and the PRODUCER is its own deployment, in its own
+    # process, with its own tenant. A consumer that declared one for itself would
+    # still get a `composite-child-refusal` if the producer had not, which is
+    # exactly what the paved-consumer suite measured before this line existed.
+    from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: PLC0415
+
+    from tests.composition import declare_wide_temporal_boundary  # noqa: PLC0415
+
+    control_plane = ControlPlaneRegistry()
+    declare_wide_temporal_boundary(
+        control_plane, tenant_id=fixture.PRODUCER_TENANT
+    )
     with open_product(
         config_root=root,
         scratch=workspace / "scratch",
@@ -57,6 +70,7 @@ def main() -> None:
         project=fixture.plan_factory,
         assess=fixture.assess,
         environ=environ,
+        control_plane=control_plane,
     ) as opened:
         open_door(opened, environ=environ).serve_loopback(
             announce=lambda port: print(f"READY {port}", flush=True)

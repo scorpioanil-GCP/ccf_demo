@@ -80,6 +80,13 @@ from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import PARAMETER_VALUE_FLOOR_VERSION, SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds  # noqa: E501 - one line on purpose: wrapping it shifts every line below, which the citation gate reads
+from ccf.controlplane.temporal_boundary import (
+    TEMPORAL_BOUNDARY_POLICY,
+    PinnedTemporalBoundary,
+    TemporalBoundaryPolicy,
+    resolve_temporal_boundary,
+    temporal_boundary_policy_key,
+)
 from ccf.replay.record import (
     NO_FABRIC_READ,
     ContentGenerationPath,
@@ -524,6 +531,20 @@ def _boot(
     # testing the empty case wearing the success case's name.
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
+    # `D-IMPL-358` step 5: a deployment that declares no temporal boundary now
+    # REFUSES every question (ruling 11 — no SDK default, no fallback window), so
+    # a fixture that means to serve must declare one. Declared in the ONE boot so
+    # the two fixtures cannot drift into two deployments, and declared WIDE — the
+    # window is not what these tests are about, and a narrow one here would make
+    # every unrelated case depend on the fixture's clock.
+    register_typed_at_composition(
+        control_plane,
+        temporal_boundary_policy_key(tenant_id=TENANT),
+        TemporalBoundaryPolicy(
+            max_past_seconds=10**9, permitted_clock_skew_seconds=10**9
+        ),
+        TEMPORAL_BOUNDARY_POLICY,
+    )
     try:
         yield _Booted(
             fabric=fabric,
@@ -2891,6 +2912,173 @@ def test_o3_a_non_composite_reads_the_admission_clock_EXACTLY_ONCE(
     )
     assert isinstance(outcome, ServedProduct), outcome
     assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+# --- D-IMPL-358 step 5: the temporal bound, judged before acquisition --------
+
+
+def _declare_temporal_bound(
+    booted: _Booted, *, max_past: int = 86_400, skew: int = 60
+) -> PinnedTemporalBoundary:
+    """Register a temporal boundary for the fixture tenant and return its pin."""
+    register_typed_at_composition(
+        booted.control_plane,
+        temporal_boundary_policy_key(tenant_id=TENANT),
+        TemporalBoundaryPolicy(
+            max_past_seconds=max_past, permitted_clock_skew_seconds=skew
+        ),
+        TEMPORAL_BOUNDARY_POLICY,
+    )
+    pinned = resolve_temporal_boundary(
+        registry=booted.control_plane, tenant_id=TENANT
+    )
+    assert isinstance(pinned, PinnedTemporalBoundary)
+    return pinned
+
+
+def _counting_acquisition() -> tuple[list[int], Any]:
+    """An acquisition seam that records every invocation. E5's instrument."""
+    calls: list[int] = []
+
+    def seam(*, request: ProductRequest, perspective: Perspective) -> None:
+        calls.append(1)
+
+    return calls, seam
+
+
+def test_E2_no_declared_temporal_policy_refuses_before_acquisition(
+    booted: _Booted,
+) -> None:
+    """E2. Undeclared is a governed refusal and nothing is invented.
+
+    `D-IMPL-358` ruling 11: no SDK default, no fallback window, and no binding
+    minted for a policy that does not exist. The refusal names the key and class
+    that were required and the absence reason, which is what an operator needs.
+    """
+    calls, seam = _counting_acquisition()
+    # A Control Plane on which NOTHING is registered, so the temporal boundary is
+    # genuinely absent. The shared `_boot` declares a wide one for every other
+    # fixture — a registry is append-only, so the undeclared case cannot be
+    # reached by removing it and has to be reached by not having it.
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, control_plane=ControlPlaneRegistry()),
+        _request(),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "temporal-boundary-undeclared"
+    assert calls == [], "an undeclared boundary must refuse BEFORE acquisition"
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    assert not [
+        binding
+        for binding in record.policy_bindings.bindings
+        if binding.key == temporal_boundary_policy_key(tenant_id=TENANT)
+    ], "a binding was minted for a policy that does not exist"
+
+
+def test_E3_an_asked_at_beyond_the_past_bound_refuses(booted: _Booted) -> None:
+    """E3. The question reaches further back than this tenant answers for."""
+    _declare_temporal_bound(booted, max_past=60)
+    calls, seam = _counting_acquisition()
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT - timedelta(days=30)),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "asked-at-outside-temporal-bound"
+    assert calls == []
+
+
+def test_E4_an_instant_beyond_the_permitted_forward_skew_refuses(
+    booted: _Booted,
+) -> None:
+    """E4. An instant from the future is refused, not treated as maximally fresh.
+
+    The DIRECTIONAL half: the past bound is wide open here, so only the forward
+    check can produce this refusal. A severing that removed the future comparison
+    would leave this green if the past bound were also narrow.
+    """
+    _declare_temporal_bound(booted, max_past=10**9, skew=60)
+    calls, seam = _counting_acquisition()
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT + timedelta(hours=1)),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "asked-at-outside-temporal-bound"
+    assert calls == []
+
+
+def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
+    booted: _Booted,
+) -> None:
+    """E5, and the positive control is in the same test.
+
+    A count of zero proves nothing unless the same seam is shown to count when a
+    request IS in bounds — otherwise a seam that was never wired would pass.
+    """
+    _declare_temporal_bound(booted, max_past=60)
+    calls, seam = _counting_acquisition()
+    resolver = _resolver(
+        booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT
+    )
+
+    refused = _ask(resolver, _request(asked_at=ADMITTED_AT - timedelta(days=30)))
+    assert isinstance(refused, RefusalEnvelope), refused
+    assert calls == [], "acquisition ran for a request outside the window"
+
+    served = _ask(resolver, _request(asked_at=ADMITTED_AT))
+    assert isinstance(served, ServedProduct), served
+    assert calls == [1], (
+        "THE POSITIVE CONTROL: the seam must count when a request is in bounds,"
+        " or the zero above is the count of a seam nobody wired"
+    )
+
+
+def test_E6_the_resolved_temporal_policy_pins_its_exact_step3_binding(
+    booted: _Booted,
+) -> None:
+    """E6. The step-3 provenance guarantee becomes load-bearing.
+
+    The binding on the decision is the one `PinnedTemporalBoundary.binding`
+    produced — not a `PolicyBinding` rebuilt at the call site, which is how a
+    reconstructed version would get in.
+    """
+    pinned = _declare_temporal_bound(booted)
+    outcome = _ask(
+        _resolver(booted, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted, outcome)
+    assert pinned.binding in record.policy_bindings.bindings, (
+        "the governed decision does not pin the temporal policy that governed it"
+    )
+
+
+def test_E6_an_out_of_window_refusal_pins_the_policy_that_refused_it(
+    booted: _Booted,
+) -> None:
+    """The other half of E6: the policy that CAUSED the refusal is pinned too."""
+    pinned = _declare_temporal_bound(booted, max_past=60)
+    outcome = _ask(
+        _resolver(booted, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT - timedelta(days=30)),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    assert pinned.binding in record.policy_bindings.bindings
 
 
 # --- D-IMPL-358 step 4: served_at, hoisted and captured ---------------------

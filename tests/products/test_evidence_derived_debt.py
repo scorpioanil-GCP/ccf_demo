@@ -122,7 +122,7 @@ from tests.products.test_resolver_seam import (
     MAX_TTL_SECONDS,
     PRODUCT_TTL_SECONDS,
 )
-from tests.composition import composition_replay_mint, declaring_store
+from tests.composition import declare_wide_temporal_boundary, composition_replay_mint, declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- this module's own fixture vocabulary ------------------------------------
@@ -675,6 +675,10 @@ def booted_empty(tmp_path: pathlib.Path) -> Iterator[Any]:
         registry=control_plane,
         connection={"database_path": str(tmp_path / "evidence-derived.sqlite3")},
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one. Wide
+    # on purpose — the window is not what these tests are about.
+    declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     try:
         yield (
             fabric,
