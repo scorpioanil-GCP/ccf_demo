@@ -269,6 +269,20 @@
       "default": null,
       "title": "Survivor Cap"
     },
+    "temporal_boundary": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Temporal Boundary"
+    },
     "tenant_id": {
       "anyOf": [
         {

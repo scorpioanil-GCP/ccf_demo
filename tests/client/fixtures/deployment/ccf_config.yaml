@@ -15,6 +15,18 @@ semver: "1.0.0"
 tenant_id: tenant-client-fixture
 backend: sqlite
 
+# `D-IMPL-358` step 5 ruling 11: a deployment that declares no temporal boundary
+# is UNDECLARED and refuses every question. This fixture exists to exercise the
+# in-process client seam, so it declares a deliberately WIDE boundary and keeps
+# being about its own subject rather than accidentally becoming a temporal test.
+#
+# These numbers are FIXTURE VALUES, not SDK defaults and not a recommendation.
+# The SDK supplies no number; both are authored here, in the document, which is
+# exactly where a deployment value belongs.
+temporal_boundary:
+  max_past_seconds: 315360000        # ten years of reach, so no pinned instant ages out
+  permitted_clock_skew_seconds: 315360000
+
 # What this product IS. One operator category: the question is about a SET
 # measured at a boundary, so there is no walk to seed.
 product_class:

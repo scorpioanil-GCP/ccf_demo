@@ -773,7 +773,7 @@ def test_a_null_attribute_is_absent_not_the_string_none() -> None:
 - Test: `tests/products/test_d_impl_347_seam_refusals.py` (reuse `_write_tree`, `_open`, `_question`, `_config`, imported there from `tests.products.test_paved_road`, and the module's own `_seam_of`; the record is read as `opened.record_of(outcome)` at `:58`/`:219`)
 
 **Interfaces:**
-- Consumes: `SeamRefusalBinding` (`src/ccf/controlplane/artifacts.py:1305`), `RefusalCause` `"nonexistent"`, `IdentityRefused` (B1).
+- Consumes: `SeamRefusalBinding` (`src/ccf/controlplane/artifacts.py::SeamRefusalBinding`), `RefusalCause` `"nonexistent"`, `IdentityRefused` (B1).
 - Produces: `SDK_SEAM_REFUSALS: Mapping[str, SeamRefusalBinding]` = `{"ccf.assembly.worker.IdentityRefused": SeamRefusalBinding(exception=…, cause="nonexistent", error_code="identity-refused")}`; `_declared_seam_refusal` consults it before the class's declared map.
 
 - [ ] **Step 1: Write the failing tests**

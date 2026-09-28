@@ -53,6 +53,10 @@ class DeploymentKeys:
         replay: The ``replay`` section's key (`D-IMPL-282` R-12), or ``None``.
         ttl: The ``ttl`` section's key (`D-IMPL-343`), or ``None``.
         door: The ``door`` section's key (`D-IMPL-343`), or ``None``.
+        temporal_boundary: The ``temporal_boundary`` section's canonical
+            tenant-qualified key (`D-IMPL-358` step 5), or ``None`` when the
+            config declares no boundary — which under ruling 11 means the
+            deployment is UNDECLARED and refuses, not that it is unbounded.
         agent: The ``agent`` section's key (`D-IMPL-343` R-2), or ``None``.
         operator_parameters: The ``operators:`` entries' keys, in the sorted
             order the derivation registered them — the tuple
@@ -74,6 +78,7 @@ class DeploymentKeys:
     replay: str | None
     ttl: str | None
     door: str | None
+    temporal_boundary: str | None
     agent: str | None
     operator_parameters: tuple[str, ...]
     policy_constraints: tuple[str, ...]

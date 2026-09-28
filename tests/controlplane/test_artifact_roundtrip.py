@@ -60,6 +60,7 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
+from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 from ccf.deployment.operators import build_operator_registry
 from ccf.deployment.pins import ResolvedPins
@@ -478,9 +479,37 @@ CASES: tuple[_Case, ...] = (
         # lock keeps out of configuration altogether (a URL, a credential).
         unknown_keys=("principal_id", "role", "issuer_url", "credential"),
     ),
+    _Case(
+        artifact_class=TEMPORAL_BOUNDARY_POLICY,
+        # A tenant's declared temporal boundary (`D-IMPL-358` step 5, ruling 11).
+        # Two members, both REQUIRED with no default, because the SDK supplies no
+        # duration and absence must mean *undeclared* rather than unbounded.
+        document={
+            "max_past_seconds": 86_400,
+            "permitted_clock_skew_seconds": 60,
+        },
+        # `semver` heads this list deliberately: this contract declares none, and
+        # it is the one reserved section whose derivation must NOT inject one
+        # (section A6). A refusal here is the closed-world proof of that — if a
+        # later change quietly added the field to buy a uniform derivation path,
+        # this key would stop being unknown and this case would go red.
+        # The rest are the four bookkeeping keys the derivation owns and refuses
+        # by name inside the section, plus the tenant it takes from the config.
+        unknown_keys=("semver", "key", "class_id", "role", "registration", "tenant_id"),
+    ),
 )
 
 _IDS = tuple(case.artifact_class.class_id for case in CASES)
+
+#: The lane partition, **derived from each contract** rather than listed by name.
+#: A name-keyed exception list is the shape this project refuses elsewhere: it
+#: goes green while the document it excuses stays wrong, and it cannot notice a
+#: contract that later gains or loses the field. Asking the contract what it
+#: declares cannot drift from what it declares.
+_LANE_CASES = tuple(c for c in CASES if "semver" in c.artifact_class.contract.model_fields)
+_LANE_IDS = tuple(c.artifact_class.class_id for c in _LANE_CASES)
+_NO_LANE_CASES = tuple(c for c in CASES if "semver" not in c.artifact_class.contract.model_fields)
+_NO_LANE_IDS = tuple(c.artifact_class.class_id for c in _NO_LANE_CASES)
 
 
 @pytest.mark.parametrize("case", CASES, ids=_IDS)
@@ -526,17 +555,58 @@ def test_an_unknown_key_is_refused(case: _Case) -> None:
             parse_artifact(document, case.artifact_class)
 
 
-@pytest.mark.parametrize("case", CASES, ids=_IDS)
+@pytest.mark.parametrize("case", _LANE_CASES, ids=_LANE_IDS)
 def test_a_document_that_states_no_semver_is_refused(case: _Case) -> None:
     """An artifact with no declared lane cannot be parsed, and so cannot be registered.
 
     ``semver`` has no default anywhere in the artifact surface: a default would
     be a version nobody chose, and the registry would then bump-check against a
     lane the author never asserted.
+
+    **Scoped to the contracts that declare a lane** (`D-IMPL-358` step 5 section
+    A6). This read blanket-parametrized over every case until a typed SDK class
+    arrived whose contract declares no ``semver`` at all — for which the claim is
+    not merely untrue but unstatable: there is no field to omit, so removing the
+    key yields the same document. The two halves are partitioned and each is
+    asserted below, so the exemption cannot silently widen.
     """
     document = {key: value for key, value in case.document.items() if key != "semver"}
     with pytest.raises(ArtifactLoadError):
         parse_artifact(document, case.artifact_class)
+
+
+def test_the_lane_partition_covers_every_case_and_neither_half_is_empty() -> None:
+    """The vacuity guard for the partition above.
+
+    Two ways the scoping could rot silently, both closed here: every case lands in
+    exactly one half (so a case cannot escape both tests), and **neither half is
+    empty** (so the lane test cannot become vacuous, and the exemption cannot
+    become the whole population).
+    """
+    assert len(_LANE_CASES) + len(_NO_LANE_CASES) == len(CASES)
+    assert set(_LANE_IDS).isdisjoint(_NO_LANE_IDS)
+    assert _LANE_CASES, "no case declares a lane; the semver refusal test is vacuous"
+    assert _NO_LANE_CASES, "no case is lane-free; the partition is doing nothing"
+
+
+@pytest.mark.parametrize("case", _NO_LANE_CASES, ids=_NO_LANE_IDS)
+def test_a_contract_declaring_no_lane_parses_with_no_semver_and_refuses_one(
+    case: _Case,
+) -> None:
+    """A lane-free contract's document carries no ``semver``, and cannot gain one.
+
+    The converse of the test above and the reason the exemption is safe. Both
+    directions are asserted because only the pair pins the behaviour `D-IMPL-358`
+    section A6 requires: the document parses **without** the key (so the
+    derivation does not have to invent one), and **refuses** it (so a derivation
+    that injected one to buy a uniform path would fail here rather than register a
+    lane the author never asserted).
+    """
+    assert "semver" not in case.document
+    parsed = parse_artifact(case.document, case.artifact_class)
+    assert parsed is not None
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact({**case.document, "semver": "1.0.0"}, case.artifact_class)
 
 
 def _document_for(class_id: str) -> dict[str, Any]:

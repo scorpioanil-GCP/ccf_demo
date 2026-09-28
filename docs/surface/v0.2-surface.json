@@ -1809,6 +1809,7 @@
       "SecretReference",
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
+      "TEMPORAL_BOUNDARY_POLICY",
       "TTL_BINDING",
       "TemporalAsOfParametersArtifact",
       "TraversalDescendantsParametersArtifact",
@@ -1907,6 +1908,7 @@
           "semver": "<class 'str'>",
           "skills": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "survivor_cap": "int | None",
+          "temporal_boundary": "collections.abc.Mapping[str, typing.Any] | None",
           "tenant_id": "str | None",
           "ttl": "collections.abc.Mapping[str, typing.Any] | None"
         }
@@ -2167,6 +2169,10 @@
           "semver": "<class 'str'>",
           "similarity_corpus_attribute_by_class": "collections.abc.Mapping[str, str]"
         }
+      },
+      "TEMPORAL_BOUNDARY_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
       },
       "TTL_BINDING": {
         "kind": "constant",
@@ -2831,7 +2837,7 @@
     "exports": {
       "DeploymentKeys": {
         "kind": "class",
-        "shape": "(product_class: 'str', request_contract: 'str | None', policy_bundle: 'str', resolution_spec: 'str', half_life: 'str | None', debt_profile: 'str | None', default_perspective: 'str | None', replay: 'str | None', ttl: 'str | None', door: 'str | None', agent: 'str | None', operator_parameters: 'tuple[str, ...]', policy_constraints: 'tuple[str, ...]', producers: 'tuple[str, ...]', skills: 'tuple[str, ...]') -> None"
+        "shape": "(product_class: 'str', request_contract: 'str | None', policy_bundle: 'str', resolution_spec: 'str', half_life: 'str | None', debt_profile: 'str | None', default_perspective: 'str | None', replay: 'str | None', ttl: 'str | None', door: 'str | None', temporal_boundary: 'str | None', agent: 'str | None', operator_parameters: 'tuple[str, ...]', policy_constraints: 'tuple[str, ...]', producers: 'tuple[str, ...]', skills: 'tuple[str, ...]') -> None"
       }
     }
   },

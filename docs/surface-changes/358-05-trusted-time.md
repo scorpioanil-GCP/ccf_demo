@@ -11,11 +11,21 @@ reaches outside the window a tenant declares, with a pure judgment behind it; an
 every governed refusal from one invocation now carries the ONE instant that
 invocation read, beside — never instead of — the question's own instant.
 
+Two further areas have since landed. **Policy effectivity is evaluated at
+`served_at` in all three layers** (`constraints_in_force`, `applicable`,
+`resolve_effective_request`), claimed below. And **a deployment can now declare
+its temporal boundary in its own configuration**: `ccf.temporal-boundary-policy`
+is manifest-addressable and `ccf_config.yaml` gains a reserved
+`temporal_boundary:` section, which is what makes ruling 11 livable — a rule that
+refuses every undeclared deployment needs an authoring surface for the
+declaration, and the alternative was weakening the rule.
+
 **What is NOT true on this tree, stated so no reader infers it.** Nothing yet
-CALLS the temporal-bound judgment: policy effectivity is still evaluated at
-`asked_at`, Gate 3's comparand is unchanged, composite remaining validity is
-unchanged, and `PeeringAdmission.admit(now=)` is unchanged. Those are the
-remainder of step 5.
+CALLS the temporal-bound judgment: Gate 3's comparand is unchanged, composite
+remaining validity is unchanged, and `PeeringAdmission.admit(now=)` is unchanged.
+A deployment that declares the section registers a policy that **nothing reads
+yet**, and a deployment that omits it is not refused yet. Those are the remainder
+of step 5.
 
 ## ccf.products.refusal.TemporalBoundRefusal
 
@@ -96,3 +106,33 @@ remainder of step 5.
 - After: a REQUIRED keyword-only `served_at: datetime`. **This is the parameter whose absence would have made the whole change cosmetic.** The function independently RE-EVALUATES applicability, so a constraint set selected at `served_at` upstream would have been silently re-filtered at `request.asked_at` here — the selection undone with no error and no test red. A default would have let exactly that pass
 - Why: `D-IMPL-358` step 5 ruling B, which names all three layers for this reason. The function stays pure: the instant arrives as an argument and no clock is read
 - Migration: every caller passes `served_at`, including `ReferencePolicyConstraintResolver.resolve` and the `PolicyConstraintResolver` Protocol, which gain the same required keyword. A deployment substituting its own resolver conforms to the new signature or fails the Protocol check
+
+## ccf.controlplane.artifacts.TEMPORAL_BOUNDARY_POLICY
+
+- Surface: ccf.controlplane.artifacts.TEMPORAL_BOUNDARY_POLICY
+- Public surface: true
+- Change type: added
+- Before: the constant existed only in `ccf.controlplane.temporal_boundary` (step 3) and was absent from the module that exposes the SDK's artifact-class catalog, so `SDK_ARTIFACT_CLASSES` named a class no reader of `ccf.controlplane.artifacts` could see
+- After: the constant is re-exposed here and listed in `__all__`. The contract, the canonical key helper and the resolution/pinning machinery all stay in `ccf.controlplane.temporal_boundary`; **only the constant is re-exposed**, and that module imports `ccf.controlplane.artifact_base` rather than this one, so the direction stays acyclic. This follows `RESOLUTION_SPEC`, whose contract likewise lives in another module (`ccf.assembly.worker`)
+- Why: `D-IMPL-358` step 5 section A1 makes the class manifest-addressable, and `tests/deployment/test_class_lookup.py` takes this module as its source of truth for *"the real constant"* when it asserts object identity against `SDK_ARTIFACT_CLASSES`. Exposing the constant satisfies that identity assertion with the real object. The rejected alternative was widening the control to walk the whole `ccf.controlplane` package: measured, that pulls in `ccf.entity-invalidation-register`, which is in neither SDK mapping, and turns a green control red on code this step does not own
+- Migration: none. An additive export; no existing name changes, and the class's own module is unchanged
+
+## ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no way to declare a temporal boundary in configuration, so every config-driven deployment was undeclared under ruling 11 with no authoring surface to fix it
+- After: an optional reserved section `temporal_boundary: Mapping[str, Any] | None = None`, marked `HASH_TRANSPARENT_KEY: True`. Transparent at its `None` sentinel, so **a config that omits the section keeps its pre-change content identity byte-for-byte** — measured on the existing reserved sections, which still derive exactly as before. Absence means *undeclared*; it does not mean unbounded and it synthesizes no policy. The body is the step-3 contract verbatim: no `semver` is injected, no tenant or key or registration metadata is accepted inside it, and the SDK supplies no duration default
+- Why: `D-IMPL-358` step 5 section A. Ruling 11 admits no exception, so the declaration needs a home in the document an operator actually edits
+- Migration: none required of an existing config — the field is optional and transparent at absence. A deployment that wants a bound adds the section; once enforcement lands (the remainder of step 5), a config-driven deployment without one will refuse
+
+## ccf.deployment.keys.DeploymentKeys
+
+- Surface: ccf.deployment.keys.DeploymentKeys
+- Public surface: true
+- Change type: reshaped
+- Before: no field naming the derived temporal-boundary key
+- After: `temporal_boundary: str | None` — the canonical key the derivation minted, or `None` when the config declared no section. The key is always `temporal_boundary_policy_key(tenant_id=config.tenant_id)`; an author cannot override it, and stating `key`, `class_id`, `role` or `registration` inside the section is **refused by name** rather than ignored or honored. A section present with no top-level `tenant_id` is refused rather than keyed class-only or given an invented tenant
+- Why: `D-IMPL-358` step 5 section A7. A caller that booted a deployment needs the address the policy was registered under without re-deriving it, and re-derivation at the call site is how two spellings of one key appear in one fabric
+- Migration: additive; a reader that ignores the field is unaffected

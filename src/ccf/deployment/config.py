@@ -133,6 +133,10 @@ from ccf.deployment.manifest import (
     _resolve_tenant,
 )
 from ccf.operators.base import OperatorCategory
+from ccf.controlplane.temporal_boundary import (
+    TEMPORAL_BOUNDARY_POLICY,
+    temporal_boundary_policy_key,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -235,6 +239,29 @@ _RESERVED_SECTIONS: Mapping[str, tuple[str | None, str | None]] = {
 #: class in the typed table."* This is that derivation: the section's body IS
 #: the artifact document, verbatim, and the only thing the SDK adds is the
 #: manifest entry that names it.
+#: The reserved sections whose class is SDK-owned and TYPED but whose contract
+#: declares no semantic ``semver``: section name → the ``ccf.*`` class id.
+#:
+#: **A third table, and the split is the same point the second one makes.**
+#: `_RESERVED_SECTIONS` injects the config's own ``semver`` into every document it
+#: materialises, which is right for a class that declares one.
+#: `TemporalBoundaryPolicy` declares exactly two integers and nothing else
+#: (`D-IMPL-358` step 3), so injecting a ``semver`` would be the fake-semver move
+#: `_RESERVED_VERSIONED_SECTIONS`'s docstring records Dave refusing for
+#: `ccf.agent-definition`: *"Do not fight D-IMPL-56 by injecting a fake semver
+#: typed class."* Widening the contract to accept one would be the same mistake
+#: from the other end. So this derivation materialises the section body VERBATIM
+#: and adds only the manifest entry that names it — the versioned table's own
+#: shape, on the typed registration path.
+#:
+#: Unlike both tables above, the key is NOT derived from the section name. It comes
+#: from `ccf.controlplane.temporal_boundary.temporal_boundary_policy_key`, which is
+#: load-bearing tenant isolation: a section that derived the bare key
+#: ``"temporal_boundary"`` would put every tenant's boundary on one key.
+_RESERVED_BARE_TYPED_SECTIONS: Mapping[str, str] = {
+    "temporal_boundary": TEMPORAL_BOUNDARY_POLICY.class_id,
+}
+
 _RESERVED_VERSIONED_SECTIONS: Mapping[str, str] = {
     "agent": AGENT_DEFINITION.class_id,
     # `D-IMPL-343` R-7 (the consumer half): one `ccf.skill-catalog-entry` per
@@ -803,6 +830,71 @@ def _refuse_adopter_owned_missing_fields(
             f" Decision Replay dimension 2 with nobody having chosen that."
             f" State {names} explicitly under {section_name!r}."
         )
+
+
+def _derive_bare_typed_entry(
+    *,
+    label: str,
+    body: Mapping[str, Any],
+    tenant_id: str | None,
+    config_filename: str,
+) -> tuple[ManifestEntry, Mapping[str, Any]]:
+    """Derive one SDK-owned TYPED entry whose document is the section body verbatim.
+
+    `D-IMPL-358` step 5 sections A4-A6. Three things this does differently from
+    `_derive_entry`, each of them a ruling rather than a convenience:
+
+    **No ``semver`` is injected.** The materialised document is exactly the two
+    numbers the author wrote. `TemporalBoundaryPolicy` declares no ``semver``, and
+    the alternatives — injecting a fake one, or widening the contract to hold one —
+    are the two halves of the mistake `_RESERVED_BARE_TYPED_SECTIONS`'s docstring
+    records being refused before.
+
+    **The key is not derived from the section name.** It comes from
+    `~ccf.controlplane.temporal_boundary.temporal_boundary_policy_key`, tenant
+    first. A section deriving the bare label would put every tenant's boundary on
+    one key, which is the isolation the registry's own tenant comparison depends on.
+
+    **The four bookkeeping keys are refused by name, not ignored and not honored.**
+    For this section ``key``, ``class_id``, ``role`` and ``registration`` are
+    mechanism. Silently dropping a stated one would let an author believe they had
+    redirected the policy; accepting one would let them actually do it.
+
+    Raises:
+        ValueError: the section states a bookkeeping key, or the config declares
+            no ``tenant_id``. The second is not a technicality: the canonical key
+            cannot be constructed honestly without knowing whose policy this is,
+            and the SDK will not invent a tenant or fall back to a class-only key.
+    """
+    stated = [name for name in _RESERVED_OVERRIDE_KEYS if name in body]
+    if stated:
+        raise ValueError(
+            f"the `{label}:` section states {', '.join(repr(n) for n in stated)},"
+            " which this section does not carry: its key, class id, role and"
+            " registration are mechanism, not authoring. The key is derived per"
+            " tenant as `{tenant}/ccf.temporal-boundary-policy` so two tenants"
+            " cannot share one boundary. Refused rather than ignored, because a"
+            " dropped override reads to an author as an accepted one"
+        )
+    if tenant_id is None:
+        raise ValueError(
+            f"the `{label}:` section requires a top-level `tenant_id`: a temporal"
+            " boundary is per tenant and its canonical key cannot be constructed"
+            " without knowing whose it is. The SDK will not read a tenant out of"
+            " the policy body, invent one, or fall back to a class-only key. A"
+            " multi-tenant deployment registers one policy per tenant"
+            " programmatically; this section is the single-tenant convenience"
+        )
+    key = temporal_boundary_policy_key(tenant_id=tenant_id)
+    entry = ManifestEntry(
+        path=config_filename,
+        key=key,
+        class_id=_RESERVED_BARE_TYPED_SECTIONS[label],
+        role="register",
+        registration="typed",
+    )
+    # Verbatim. Nothing added, nothing renamed, nothing wrapped.
+    return entry, dict(body)
 
 
 def _derive_entry(
@@ -1427,6 +1519,26 @@ def derive_deployment(
     # site — rather than re-implemented here. `_keys_are_unique`'s own
     # docstring is where the rejected `(path, key)` alternative is named;
     # see design spec §11.1 for why it was not taken.
+    # `D-IMPL-358` step 5 section A. DERIVED LAST, on the same ordering argument
+    # `replay:`, `ttl:` and `door:` each record: a config with no
+    # `temporal_boundary:` derives byte-for-byte what it derived before this
+    # section existed, and one with it APPENDS rather than inserts.
+    _refuse_empty_section("temporal_boundary", config.temporal_boundary, fields_set)
+    if config.temporal_boundary is not None:
+        entry, document = _derive_bare_typed_entry(
+            label="temporal_boundary",
+            body=config.temporal_boundary,
+            tenant_id=config.tenant_id,
+            config_filename=config_filename,
+        )
+        # Validated HERE, at derivation, on the `ttl:` precedent: a negative
+        # duration or a third key is refused by name before any document is
+        # materialised, where the author can still fix it.
+        parse_artifact(document, TEMPORAL_BOUNDARY_POLICY)
+        entries.append(entry)
+        documents[entry.key] = document
+        section_keys["temporal_boundary"] = entry.key
+
     manifest = DeploymentManifest(
         semver=config.semver,
         artifacts=tuple(entries),
@@ -1448,6 +1560,9 @@ def derive_deployment(
         replay=section_keys.get("replay"),
         ttl=section_keys.get("ttl"),
         door=section_keys.get("door"),
+        # `D-IMPL-358` step 5 section A7: the canonical tenant-qualified key, so no
+        # consumer has to restate it as a string.
+        temporal_boundary=section_keys.get("temporal_boundary"),
         agent=agent_key,
         operator_parameters=tuple(
             entry.key

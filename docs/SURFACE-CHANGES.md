@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1769 entries**, of which **1509** name a public Python surface.
+**1772 entries**, of which **1512** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1010 entries — 966 public Python surface, 44 not public Python API.
+1011 entries — 967 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -15561,6 +15561,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-05-trusted-time.md`.*
 
+#### ccf.controlplane.artifacts.TEMPORAL_BOUNDARY_POLICY
+
+- Surface: ccf.controlplane.artifacts.TEMPORAL_BOUNDARY_POLICY
+- Public surface: true
+- Change type: added
+- Before: the constant existed only in `ccf.controlplane.temporal_boundary` (step 3) and was absent from the module that exposes the SDK's artifact-class catalog, so `SDK_ARTIFACT_CLASSES` named a class no reader of `ccf.controlplane.artifacts` could see
+- After: the constant is re-exposed here and listed in `__all__`. The contract, the canonical key helper and the resolution/pinning machinery all stay in `ccf.controlplane.temporal_boundary`; **only the constant is re-exposed**, and that module imports `ccf.controlplane.artifact_base` rather than this one, so the direction stays acyclic. This follows `RESOLUTION_SPEC`, whose contract likewise lives in another module (`ccf.assembly.worker`)
+- Why: `D-IMPL-358` step 5 section A1 makes the class manifest-addressable, and `tests/deployment/test_class_lookup.py` takes this module as its source of truth for *"the real constant"* when it asserts object identity against `SDK_ARTIFACT_CLASSES`. Exposing the constant satisfies that identity assertion with the real object. The rejected alternative was widening the control to walk the whole `ccf.controlplane` package: measured, that pulls in `ccf.entity-invalidation-register`, which is in neither SDK mapping, and turns a green control red on code this step does not own
+- Migration: none. An additive export; no existing name changes, and the class's own module is unchanged
+
+*Recorded by `358-05-trusted-time.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16272,7 +16284,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-497 entries — 309 public Python surface, 188 not public Python API.
+499 entries — 311 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -21960,6 +21972,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: a REQUIRED keyword-only `served_at: datetime`. **This is the parameter whose absence would have made the whole change cosmetic.** The function independently RE-EVALUATES applicability, so a constraint set selected at `served_at` upstream would have been silently re-filtered at `request.asked_at` here — the selection undone with no error and no test red. A default would have let exactly that pass
 - Why: `D-IMPL-358` step 5 ruling B, which names all three layers for this reason. The function stays pure: the instant arrives as an argument and no clock is read
 - Migration: every caller passes `served_at`, including `ReferencePolicyConstraintResolver.resolve` and the `PolicyConstraintResolver` Protocol, which gain the same required keyword. A deployment substituting its own resolver conforms to the new signature or fails the Protocol check
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no way to declare a temporal boundary in configuration, so every config-driven deployment was undeclared under ruling 11 with no authoring surface to fix it
+- After: an optional reserved section `temporal_boundary: Mapping[str, Any] | None = None`, marked `HASH_TRANSPARENT_KEY: True`. Transparent at its `None` sentinel, so **a config that omits the section keeps its pre-change content identity byte-for-byte** — measured on the existing reserved sections, which still derive exactly as before. Absence means *undeclared*; it does not mean unbounded and it synthesizes no policy. The body is the step-3 contract verbatim: no `semver` is injected, no tenant or key or registration metadata is accepted inside it, and the SDK supplies no duration default
+- Why: `D-IMPL-358` step 5 section A. Ruling 11 admits no exception, so the declaration needs a home in the document an operator actually edits
+- Migration: none required of an existing config — the field is optional and transparent at absence. A deployment that wants a bound adds the section; once enforcement lands (the remainder of step 5), a config-driven deployment without one will refuse
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.deployment.keys.DeploymentKeys
+
+- Surface: ccf.deployment.keys.DeploymentKeys
+- Public surface: true
+- Change type: reshaped
+- Before: no field naming the derived temporal-boundary key
+- After: `temporal_boundary: str | None` — the canonical key the derivation minted, or `None` when the config declared no section. The key is always `temporal_boundary_policy_key(tenant_id=config.tenant_id)`; an author cannot override it, and stating `key`, `class_id`, `role` or `registration` inside the section is **refused by name** rather than ignored or honored. A section present with no top-level `tenant_id` is refused rather than keyed class-only or given an invented tenant
+- Why: `D-IMPL-358` step 5 section A7. A caller that booted a deployment needs the address the policy was registered under without re-deriving it, and re-derivation at the call site is how two spellings of one key appear in one fabric
+- Migration: additive; a reader that ignores the field is unaffected
 
 *Recorded by `358-05-trusted-time.md`.*
 
