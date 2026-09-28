@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1774 entries**, of which **1514** name a public Python surface.
+**1775 entries**, of which **1515** name a public Python surface.
 
 ## Added
 
@@ -16284,7 +16284,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-501 entries — 313 public Python surface, 188 not public Python API.
+502 entries — 314 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -22020,6 +22020,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: a model validator refuses that declaration at parse time. The boundary is INCLUSIVE (equal windows are admissible), matching Gate 3's own `expires_at <= now + MAX_TTL`
 - Why: `D-IMPL-358` step 5 section H1. A binding that cannot ever serve is an operator's configuration error, and reporting it to the caller as a governed refusal on every question misattributes it to the party who cannot fix it — while nothing anywhere names the actual cause
 - Migration: a deployment carrying such a binding now fails at boot instead of at every serve. It is **refused, never clamped**: silently lowering the product window would make the deployment serve under a TTL nobody declared — a value the fabric chose standing in for one the operator did not, which is the No-Hardcoding Rule's failure mode in miniature
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: reshaped
+- Before: `InProcessAdapter(address)` — a transport composed a governed resolver and took the fabric's clock implicitly, so two transports answering one question read two clocks
+- After: `InProcessAdapter(address, *, clock=<the fabric's own clock>)`, threaded to the private `_boot` and on to `build_governed_resolver(admission_clock=…)`. **The injected fabric clock of `D-IMPL-159` / D6(d), not a test knob**: a transport IS a composition site, and this is where a composition states its now. The default is the fabric's own clock — imported from `ccf.products.resolver`, never restated, because a second definition would be a second clock — so nothing that does not care is affected
+- Why: `D-IMPL-358` step 5. `served_at` is read once per governed invocation and is non-sentinel, so it is inside the replay record's hash (`D-IMPL-243` amendment 1: *"Any non-sentinel value is rendered and must move the hash"*). Two serves at two wall times are therefore two record versions — which is the ruled identity rule, not a new one. The conformance parity legs compare `replay_ref` across transports and their contract has always been *"the same question at the same instant"*; the fixture never established the second half, and the wave made that visible. The transports agreed on the record's NAME and differed on its `@version`
+- Migration: none required — the parameter is keyword-only and defaults to today's behavior. A composition that needs two transports to agree on a record version injects one clock into both. The boot cache memoizes per deployment root, so the first adapter to boot a root fixes that root's clock and a second naming the same root inherits it; that is `D-30`'s existing single-writer contract (one root is one fabric, and one fabric has one clock), not a new rule
 
 *Recorded by `358-05-trusted-time.md`.*
 

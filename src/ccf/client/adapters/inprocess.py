@@ -98,6 +98,7 @@ from __future__ import annotations
 
 import atexit
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -129,6 +130,15 @@ from ccf.products.resolver import (
     ServedProductResolverProtocol,
     build_governed_resolver,
 )
+
+#: The fabric's own clock, IMPORTED rather than restated (`D-IMPL-358` step 5).
+#: It is `build_governed_resolver`'s own default for `admission_clock`, and a
+#: second definition here would be a second clock: two compositions that both
+#: believe they read "the fabric's now" and drift apart the moment one of them
+#: is changed. The private reach is the same one this module's own `_boot` is
+#: reached by, and for the same reason — there is exactly one right value and it
+#: lives there.
+from ccf.products.resolver import _utc_now as _FABRIC_CLOCK
 
 __ccf_mode__ = "algorithmic"
 
@@ -243,7 +253,9 @@ def _artifact(fabric: BootedFabric, *, key: str, expected: type[_A]) -> _A:
     return artifact
 
 
-def _boot(document: BindingDocument) -> _BootedDeployment:
+def _boot(
+    document: BindingDocument, *, clock: Callable[[], datetime] = _FABRIC_CLOCK
+) -> _BootedDeployment:
     """Boot one deployment and build its resolver. Called at most once per root.
 
     **The SDK builds the resolver here** — that is what ``D-IMPL-141``'s ruling
@@ -291,6 +303,13 @@ def _boot(document: BindingDocument) -> _BootedDeployment:
         resolver = build_governed_resolver(
             fabric=fabric,
             control_plane=control_plane,
+            # `D-IMPL-358` step 5: THE INJECTED FABRIC CLOCK (`D-IMPL-159`,
+            # D6(d)). The serve path reads it exactly once per invocation to
+            # obtain `served_at`, and a non-sentinel `served_at` is inside the
+            # replay record's hash — so two compositions answering one question
+            # produce one record version only if they read ONE now. A transport
+            # is a composition site; this is where that value is supplied.
+            admission_clock=clock,
             product_class_key=under(document.product_class_key),
             request_contract_key=under(document.request_contract_key),
             operator_parameter_keys=tuple(under(key) for key in document.operator_parameter_keys),
@@ -369,10 +388,28 @@ class InProcessAdapter:
     #: nothing, which is the failure mode that suite was built to be immune to.
     _resolver: ServedProductResolverProtocol
 
-    __slots__ = ("_address", "_resolver")
+    __slots__ = ("_address", "_clock", "_resolver")
 
-    def __init__(self, address: str) -> None:
+    def __init__(
+        self, address: str, *, clock: Callable[[], datetime] = _FABRIC_CLOCK
+    ) -> None:
+        """Point at ``address``; ``clock`` is this composition's fabric clock.
+
+        `D-IMPL-358` step 5. The clock is a COMPOSITION value, not a knob: the
+        serve path reads it once per invocation for `served_at`, and a
+        non-sentinel `served_at` is inside the replay record's hash. Two
+        transports answering one question therefore agree on the record's
+        version only when they were composed against ONE now. The default is the
+        fabric's own clock, so nothing that does not care is affected.
+
+        It reaches :func:`_boot`, which the boot cache memoizes per deployment
+        root — so the FIRST adapter to boot a given root fixes that root's clock,
+        and a second adapter naming the same root inherits it. That is the
+        cache's existing single-writer contract (``D-30``) rather than a new
+        rule: one root is one fabric, and one fabric has one clock.
+        """
         self._address = address
+        self._clock = clock
 
     def ask(self, request: WireRequest) -> bytes:
         """Boot if needed, encode the question, and hand it to the door half.
@@ -443,7 +480,7 @@ class InProcessAdapter:
         with _BOOT_LOCK:
             booted = _BOOT_CACHE.get(document.root)
             if booted is None:
-                booted = _boot(document)
+                booted = _boot(document, clock=self._clock)
                 _BOOT_CACHE[document.root] = booted
         self._resolver = booted.resolver
         return booted

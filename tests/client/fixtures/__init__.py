@@ -11,11 +11,59 @@ deployment root (``D-10``, Dave, 2026-08-18).
 
 from __future__ import annotations
 
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
 
-__all__ = ["STDIO_SERVER", "declare_server"]
+__all__ = [
+    "PINNED_SERVED_AT",
+    "SERVED_AT_ENV",
+    "STDIO_SERVER",
+    "declare_server",
+    "pinned_clock",
+]
+
+#: The ONE instant every conformance subject is composed against.
+#:
+#: `D-IMPL-358` step 5. `served_at` is read once per invocation and, being
+#: non-sentinel, is INSIDE the replay record's hash — so two transports answering
+#: one question produce one record version only if they were composed against one
+#: now. This module already carries the same lesson for the question's own
+#: instant: `tests/client/conformance/test_inprocess_conformance.py` pins
+#: `as_of` because *"a parity leg handed an unpinned question compares clocks
+#: rather than answers"*. `served_at` is the second clock in that sentence, and
+#: this is its pin.
+#:
+#: It deliberately matches the pinned `as_of` there. Nothing requires them to be
+#: equal; making them equal means a reader comparing two instants in a failure
+#: message is looking at a real disagreement rather than at the fixture's own
+#: arbitrary offset.
+PINNED_SERVED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
+
+#: How :data:`PINNED_SERVED_AT` crosses a PROCESS boundary.
+#:
+#: The `mcp+stdio` subject is a child process, so a Python constant cannot reach
+#: it and a monkeypatch cannot either. The adapter passes `env=dict(os.environ)`
+#: explicitly (and documents why), so the environment is the one channel that
+#: does reach it. The parent exports this; the server program reads it and pins
+#: its own composition to the same instant.
+#:
+#: **Absent, the server composes against the real fabric clock** — the variable
+#: is how a fixture states an instant, never a way to configure a deployment.
+SERVED_AT_ENV = "CCF_FIXTURE_SERVED_AT"
+
+
+def pinned_clock() -> datetime:
+    """The instant this process's fixture compositions are pinned to.
+
+    Reads :data:`SERVED_AT_ENV` when it is set — which is how the child process
+    learns the parent's pin — and falls back to :data:`PINNED_SERVED_AT`, so the
+    in-process subject and the child agree whichever side is asked.
+    """
+    declared = os.environ.get(SERVED_AT_ENV)
+    return PINNED_SERVED_AT if declared is None else datetime.fromisoformat(declared)
 
 #: The fixture deployment's own MCP server program. Named once so the adapter
 #: tests and the conformance binding launch the same thing.
