@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1750 entries**, of which **1491** name a public Python surface.
+**1758 entries**, of which **1498** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1000 entries — 957 public Python surface, 43 not public Python API.
+1008 entries — 964 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -15453,6 +15453,90 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `357-02-parameter-value-floor.md`.*
 
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+- Public surface: true
+- Change type: added
+- Before: absent — no artifact declared how far into the past a request may reach, and no SDK surface existed to hold such a declaration
+- After: a `CCFContract` with two required integer members, `max_past_seconds` and `permitted_clock_skew_seconds`, each validated non-negative by one `field_validator` on the `EligibilityEvidencePolicy` precedent. **Neither field has a default**, so a deployment that forgot to declare one cannot silently inherit the SDK's opinion about how much history it answers for. Zero is a legal value and is the STRICTEST bound rather than "unbounded" — read off the accepted semantics the sibling already implements, whose comparison is `age > max_evidence_age_seconds`; the comparison itself is not implemented at this step
+- Why: `D-IMPL-358`, and `D-IMPL-38`'s no-silent-default rule — both members are deployment values and the SDK holds neither. A window is a policy decision about how much history a tenant will answer for, so the SDK supplies the shape, the validation, the key and the pinning, and no number
+- Migration: none. A new artifact class nothing yet consumes; no existing declaration, content address or behavior changes
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.TEMPORAL_BOUNDARY_POLICY
+
+- Surface: ccf.controlplane.temporal_boundary.TEMPORAL_BOUNDARY_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ArtifactClass` a deployment registers its boundary under, `class_id="ccf.temporal-boundary-policy"` — `ccf.<kebab-case>` per the convention all 33 existing class ids follow, and the direct sibling of `ccf.eligibility-evidence-policy`
+- Why: an artifact class is the identity the audit plane records, so a deployment's registration can be named without re-reading the artifact
+- Migration: none. Deliberately NOT added to `SDK_ARTIFACT_CLASSES`, matching all three sibling per-tenant policies, so it is not manifest-addressable; its committed schema arrives through `dump_schemas.py`'s discovered bucket instead
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.temporal_boundary_policy_key
+
+- Surface: ccf.controlplane.temporal_boundary.temporal_boundary_policy_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `temporal_boundary_policy_key(*, tenant_id) -> str`, returning `{tenant_id}/ccf.temporal-boundary-policy`. Tenant-FIRST, on the unanimous precedent of the four existing key helpers and for the reason each of them states: the registry's one tenant comparison reads the segment before the first `/` (`D-IMPL-353` §1.3), so a class-first key could be registered only by a capability whose tenant was the class name
+- Why: a derivation rather than a table, so two components cannot disagree about where a tenant's policy lives, and the SDK supplies no tenant and therefore holds no deployment's vocabulary (CINV-01)
+- Migration: none. A new key shape under which nothing is yet registered
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+
+- Surface: ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+- Public surface: true
+- Change type: added
+- Before: absent — the sibling's resolution returned only the policy, discarding the version
+- After: a frozen dataclass holding `key`, `version` and `policy` together, plus a `binding` property returning the `PolicyBinding(key, version)` a later step will append to served and refusal records. **One authority for the pin**, because three prospective call sites each building their own `PolicyBinding` would be three chances for one of them to reconstruct a version instead of carrying the resolved one. The `PolicyBinding` import is deferred rather than module-level: `ccf.replay.record` reaches `ccf.products.contract`, which imports `ccf.controlplane.registry`, so a module-level import would close a package-level cycle and pull 56 modules into `ccf.controlplane` for a two-field value
+- Why: `D-IMPL-358` step 3 — the exact resolved version is what a replay must pin, and holding it in the same value as the policy makes discarding it impossible to do by accident. There is no constructor that omits it
+- Migration: none, and nothing appends this binding yet. The value exists so the step that does has one place to get it from
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryUndeclared
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryUndeclared
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass carrying `key`, `required_class_id`, `reason` and `detail`, RETURNED rather than raised — absence is a governance outcome a deployment can legitimately be in, and a later governed refusal consumes this condition. It carries no `version` and no `policy` field, so there is nothing to fabricate
+- Why: `D-IMPL-358` ruling 11 — on absence the fabric records the policy key or class that was required and the absence reason, and never mints a fake binding or fabricates a version for a policy that does not exist
+- Migration: none. The refusal that consumes this is a later step; nothing raises or returns it on a live path yet
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryMisdeclared
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryMisdeclared
+- Public surface: true
+- Change type: added
+- Before: absent — the sibling reports a wrong artifact at its key as `eligibility-bound-undeclared`, the same token it reports absence with
+- After: a `TypeError` subclass RAISED when something is registered at the key and is not a `TemporalBoundaryPolicy`. A configuration error, deliberately not folded into the undeclared condition: a deployment that declared the wrong artifact and one that declared none need different things done about them, and reporting the first as the second sends an operator to add what is already present. A `TypeError` subclass so a caller already handling what `ArtifactClass.validate` raises for the same mistake keeps working. Its message names the fully qualified type found and expected, because the bare class name produces the useless "is a TemporalBoundaryPolicy, not a TemporalBoundaryPolicy" whenever two copies of the contract class are live at once — measured during this step's severing campaign
+- Why: `D-IMPL-358` — missing, wrong, and unavailable are three different facts, and only one of them is an absence
+- Migration: none. A new exception on a path nothing yet calls
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.resolve_temporal_boundary
+
+- Surface: ccf.controlplane.temporal_boundary.resolve_temporal_boundary
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `resolve_temporal_boundary(*, registry, tenant_id) -> PinnedTemporalBoundary | TemporalBoundaryUndeclared`. Three outcomes for three different facts: a declared policy returns the pin with the exact version the registry returned; an absent one returns `TemporalBoundaryUndeclared`; a wrong artifact raises `TemporalBoundaryMisdeclared`. **Only `ControlPlaneMissing` is caught**, and narrowly — every other registry failure propagates untouched, because a broad `except` would report a control-plane outage as an undeclared bound and silently disable the boundary on exactly the day the control plane was unwell. The tenant arrives as an argument because this is the mechanism; it is supplied by governed composition or runtime context at the call site, never read off a request payload and never declared by an envelope (`D-IMPL-358` ruling 3)
+- Why: `D-IMPL-358` step 3 — one resolution surface that cannot lose version identity, and that distinguishes the three facts a later refusal has to report differently
+- Migration: none. No caller exists yet; the resolver, ingress write guard and peering admission adopt it in later steps
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16147,6 +16231,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none
 
 *Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### docs/schemas/ccf.temporal-boundary-policy.json
+
+- Surface: docs/schemas/ccf.temporal-boundary-policy.json
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: the committed JSON Schema for the new artifact class, two required integers with `additionalProperties: false` and `x-ccf-class-id: ccf.temporal-boundary-policy`, emitted by `tools/dump_schemas.py`'s discovered bucket — which walks the tree for `ArtifactClass` instances rather than reading `SDK_ARTIFACT_CLASSES`, and is why all three sibling per-tenant policies have committed schemas while being absent from that mapping
+- Why: the committed schema tree is the authoring baseline an adopter reads in their editor (ERGO-12); an artifact class with no schema is a declaration nobody can discover. The freshness check fails without it
+- Migration: none — a new file describing a new class
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
 
 ## Reshaped
 

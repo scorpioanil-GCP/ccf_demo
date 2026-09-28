@@ -2478,6 +2478,50 @@
       }
     }
   },
+  "ccf.controlplane.temporal_boundary": {
+    "__all__": [
+      "PinnedTemporalBoundary",
+      "TEMPORAL_BOUNDARY_POLICY",
+      "TemporalBoundaryMisdeclared",
+      "TemporalBoundaryPolicy",
+      "TemporalBoundaryUndeclared",
+      "resolve_temporal_boundary",
+      "temporal_boundary_policy_key"
+    ],
+    "exports": {
+      "PinnedTemporalBoundary": {
+        "kind": "class",
+        "shape": "(key: 'str', version: 'str', policy: 'TemporalBoundaryPolicy') -> None"
+      },
+      "TEMPORAL_BOUNDARY_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "TemporalBoundaryMisdeclared": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "TemporalBoundaryPolicy": {
+        "kind": "contract",
+        "shape": {
+          "max_past_seconds": "<class 'int'>",
+          "permitted_clock_skew_seconds": "<class 'int'>"
+        }
+      },
+      "TemporalBoundaryUndeclared": {
+        "kind": "class",
+        "shape": "(key: 'str', required_class_id: 'str', reason: 'str', detail: 'str') -> None"
+      },
+      "resolve_temporal_boundary": {
+        "kind": "function",
+        "shape": "(*, registry: 'ControlPlaneProtocol', tenant_id: 'str') -> 'PinnedTemporalBoundary | TemporalBoundaryUndeclared'"
+      },
+      "temporal_boundary_policy_key": {
+        "kind": "function",
+        "shape": "(*, tenant_id: 'str') -> 'str'"
+      }
+    }
+  },
   "ccf.deployment": {
     "__all__": [
       "ArtifactPin",
