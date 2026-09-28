@@ -151,6 +151,80 @@ def test_build_redacts_every_free_text_field_before_anything_is_serialized() -> 
     assert bundle.provenance["dsn"] == "postgresql://ccf:***@192.168.4.76/ccf_v2"
 
 
+def test_build_redacts_the_estate_structures_it_is_handed() -> None:
+    """Estate measurements are NOT credential-free by nature.
+
+    An earlier docstring on `with_estate` justified skipping them by asserting
+    that *"estate positions are counts and hashes, carry no free text"*. That is
+    false the moment a probe records an ``error`` key, which is exactly what
+    `tools/estate_census/watermarks.py::measure_one` does. The guarantee is now
+    provided by the code rather than claimed by the prose.
+    """
+    secret = "Sup3r-S3cr3t-Pa55"
+    leaky = {
+        "fluree/curated": {
+            "kind": "fluree",
+            "target": "http://192.168.4.76:8090",
+            "error": f"RuntimeError: could not reach postgresql://ccf:{secret}@192.168.4.76/ccf_v2",
+        }
+    }
+    bundle = build(
+        provenance={"exit_status": 0},
+        estate_before=leaky,
+        estate_after={"p": {"nested": {"deeper": [f"password={secret}"]}}},
+        collected=("t.py::a",),
+        phase_reports={"t.py::a": (PhaseReport("call", "passed"),)},
+        collection_errors=(),
+    )
+    blob = json.dumps(bundle.as_dict())
+    assert secret not in blob, "an estate error carried a credential into the bundle"
+    assert "ccf:***@" in blob
+    assert "password=***" in blob, "redaction did not reach a NESTED estate value"
+
+
+def test_with_estate_redacts_the_measurement_attached_after_the_run() -> None:
+    """The after-measurement arrives once pytest has finished, so it enters the
+    bundle by a different door from `build`. Both doors redact."""
+    secret = "Sup3r-S3cr3t-Pa55"
+    bundle = build(
+        provenance={"exit_status": 0}, estate_before={}, estate_after={},
+        collected=("t.py::a",),
+        phase_reports={"t.py::a": (PhaseReport("call", "passed"),)},
+        collection_errors=(),
+    )
+    attached = bundle.with_estate(
+        before={"s": {"error": f"host=h user=u password={secret} dbname=d"}},
+        after={"s": {"error": f"mongodb://ccf:{secret}@h:27017/fibo_v2"}},
+    )
+    blob = json.dumps(attached.as_dict())
+    assert secret not in blob, blob
+    assert "password=***" in blob
+    assert "mongodb://ccf:***@" in blob
+
+
+def test_redaction_of_an_estate_structure_preserves_its_counts_and_hashes() -> None:
+    """Redaction must not disturb the positions the comparison depends on: a
+    rewritten count would make a moved estate look unmoved, or the reverse."""
+    position = {
+        "s": {
+            "kind": "fluree",
+            "position": {
+                "ledger_count": 28,
+                "ledger_roster_sha256": "9f" * 32,
+                "ledger_positions": {"fibo-v2:main": 5296, "ccf:cp04-x": 3},
+            },
+        }
+    }
+    bundle = build(
+        provenance={"exit_status": 0},
+        estate_before=position,
+        estate_after=position,
+        collected=(), phase_reports={}, collection_errors=(),
+    )
+    assert bundle.estate_before == position, "redaction altered a position it must leave alone"
+    assert bundle.estate_after["s"]["position"]["ledger_positions"]["fibo-v2:main"] == 5296
+
+
 def test_the_junit_rendering_is_well_formed_and_carries_the_exact_node_id(tmp_path: Path) -> None:
     """The ``file`` attribute is written explicitly — what ``junit_family=xunit1``
     preserves and ``xunit2`` drops — and the exact node id goes to ``name``, so

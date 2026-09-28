@@ -43,7 +43,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from tools.estate_census.redaction import redact_target
+from tools.estate_census.redaction import redact_target, redact_text
 
 #: Read timeout for every probe, in seconds. Generous: a census runs once and a
 #: slow answer is worth more than a fast unknown.
@@ -180,6 +180,31 @@ def _sqlite_digest(path_text: str) -> dict[str, Any]:
     return {"sha256": hashlib.sha256(blob).hexdigest(), "size_bytes": len(blob)}
 
 
+def _safe_error(text: str) -> str:
+    """Probe error text, redacted BEFORE it is stored.
+
+    **A driver exception is untrusted free text.** It is whatever the library chose
+    to say, and a library may echo the connection target it was handed. Measured
+    across nine failure modes — connection refused, unknown option, malformed
+    keyword DSN, bad port, malformed URI, unsupported scheme, bad option,
+    malformed URL — psycopg, pymongo and httpx all omit the password today. That is
+    a property of those drivers at those versions, not of this instrument, and it
+    is not a guarantee the census may rest on.
+
+    So the redaction happens here, at the source, and the measurement object is
+    already safe to serialize when it is returned. That matters because it reaches
+    four separate serialization paths — the standalone ``watermarks --out`` file,
+    `tools/estate_census/evidence.py::build`'s ``estate_before``,
+    `EvidenceBundle.with_estate`'s attached measurement, and the CLI's own
+    diagnostic line — and `tools/estate_census/evidence.py::credential_in_file`
+    catching it afterwards is defense in depth, not generation-time redaction.
+
+    No new grammar: this delegates to
+    `tools/estate_census/redaction.py::redact_text`, the single authority.
+    """
+    return redact_text(text) or ""
+
+
 def measure_one(store: StoreDeclaration, environ: dict[str, str] | None = None) -> dict[str, Any]:
     """One store's position, or an ``error`` describing why there is none.
 
@@ -190,7 +215,7 @@ def measure_one(store: StoreDeclaration, environ: dict[str, str] | None = None) 
     target = env.get(store.target_env, "")
     record: dict[str, Any] = {"kind": store.kind, "target": redact_target(target)}
     if not target:
-        record["error"] = f"{store.target_env} is unset — nothing was measured"
+        record["error"] = _safe_error(f"{store.target_env} is unset — nothing was measured")
         return record
     scopes = store.scopes
     if store.scope_env:
@@ -207,9 +232,9 @@ def measure_one(store: StoreDeclaration, environ: dict[str, str] | None = None) 
         elif store.kind == "sqlite":
             record["position"] = _sqlite_digest(target)
         else:
-            record["error"] = f"unknown store kind {store.kind!r} — nothing was measured"
+            record["error"] = _safe_error(f"unknown store kind {store.kind!r} — nothing was measured")
     except Exception as exc:                       # noqa: BLE001 — an outage is a fact
-        record["error"] = f"{type(exc).__name__}: {exc}"
+        record["error"] = _safe_error(f"{type(exc).__name__}: {exc}")
     return record
 
 

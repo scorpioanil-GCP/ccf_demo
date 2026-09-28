@@ -229,10 +229,21 @@ class EvidenceBundle:
         session it is part of, so the after-position is attached by
         `tools/estate_census/__main__.py` once the run has ended. Returning a new
         frozen bundle rather than mutating keeps the redaction boundary intact:
-        estate positions are counts and hashes, carry no free text, and are the
-        only fields that arrive after `build`.
+        the attached measurement is walked by `redact_structure` on the way in, so
+        this door has the same generation-time boundary `build` does.
+
+        An earlier revision of this docstring asserted that *"estate positions are
+        counts and hashes, carry no free text"* and skipped redaction on that
+        basis. It was false — `tools/estate_census/watermarks.py::measure_one`
+        records an ``error`` key of arbitrary exception text — and the claim is
+        kept here as the reason the guarantee is now provided by the code rather
+        than asserted by the prose.
         """
-        return dataclasses.replace(self, estate_before=before, estate_after=after)
+        return dataclasses.replace(
+            self,
+            estate_before=redact_structure(before),
+            estate_after=redact_structure(after),
+        )
 
 
 def build(
@@ -268,9 +279,15 @@ def build(
     return EvidenceBundle(
         kind=BUNDLE_KIND,
         version=BUNDLE_VERSION,
-        provenance={key: _redact_any(value) for key, value in provenance.items()},
-        estate_before=estate_before,
-        estate_after=estate_after,
+        provenance={key: redact_structure(value) for key, value in provenance.items()},
+        # Estate measurements are NOT credential-free by nature. A probe records an
+        # ``error`` key holding arbitrary exception text, so these walk the same
+        # redaction as everything else. An earlier revision skipped them on the
+        # reasoning that "estate positions are counts and hashes, carry no free
+        # text" — false the moment a probe fails, and reproduced on `f7f55468`
+        # across four serialization paths.
+        estate_before=redact_structure(estate_before),
+        estate_after=redact_structure(estate_after),
         collected=tuple(redact_text(node) or "" for node in collected),
         outcomes=outcomes,
         collection_errors=tuple(
@@ -281,14 +298,28 @@ def build(
     )
 
 
-def _redact_any(value: Any) -> Any:
-    """Redact strings anywhere inside a nested provenance value."""
+def redact_structure(value: Any) -> Any:
+    """Recursively redact every string inside a nested structure.
+
+    The ONE structural-redaction mechanism in this package. Named rather than
+    private because three entry points need it — `build`, `EvidenceBundle.with_estate`
+    and `tools/estate_census/__main__.py::_attach_estate` — and a second
+    implementation is how two copies drift until one of them is the one that
+    misses a serialization.
+
+    It delegates every leaf to `tools/estate_census/redaction.py::redact_text`, so
+    there is still exactly one secret grammar; this function only walks.
+    Non-strings are returned untouched, which is what keeps the estate positions
+    the comparison depends on — counts, transaction positions, roster digests —
+    bit-identical. `tools/estate_census_tests/test_evidence.py::test_redaction_of_an_estate_structure_preserves_its_counts_and_hashes`
+    pins that.
+    """
     if isinstance(value, str):
         return redact_text(value)
     if isinstance(value, dict):
-        return {key: _redact_any(item) for key, item in value.items()}
+        return {key: redact_structure(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
-        return [_redact_any(item) for item in value]
+        return [redact_structure(item) for item in value]
     return value
 
 

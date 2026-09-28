@@ -220,6 +220,66 @@ def test_the_postgres_probe_sets_the_connection_read_only_before_any_statement(
     assert "per_table_sha256" in position["schema:ccf_v2"]
 
 
+#: A probe whose exception text carries a credential. Injected, because the three
+#: shipped drivers do NOT produce one: measured across nine failure modes
+#: (connection refused, unknown option, malformed DSN, bad port, malformed URI,
+#: unsupported scheme, bad option, malformed URL) psycopg, pymongo and httpx all
+#: omit the password. That is a property of today's drivers, not of this
+#: instrument, and Dave's requirement is explicit about the case it does not
+#: cover: *"even if a future measurement provider returns one."*
+LEAKY_PROBE_SECRET = "Sup3r-S3cr3t-Pa55"
+
+
+@pytest.mark.parametrize(
+    "kind,probe_name,target",
+    [
+        ("fluree", "_fluree_ledgers", "http://192.168.4.76:8090"),
+        ("postgres", "_postgres_counts", "host=192.168.4.76 dbname=ccf_v2"),
+        ("mongo", "_mongo_counts", "mongodb://192.168.4.76:27017/fibo_v2"),
+        ("sqlite", "_sqlite_digest", "/tmp/nonexistent.db"),
+    ],
+)
+def test_a_probe_exception_carrying_a_credential_is_redacted_before_it_is_stored(
+    monkeypatch: pytest.MonkeyPatch, kind: str, probe_name: str, target: str
+) -> None:
+    """The measurement object must be SAFE TO SERIALIZE when it is returned.
+
+    The defect this pins, reproduced on `f7f55468`: `measure_one` stored
+    ``f"{type(exc).__name__}: {exc}"`` verbatim, and that text reached four
+    serialization paths — the ``watermarks --out`` file, `build`'s
+    ``estate_before``, `with_estate`'s attached measurement, and the CLI's own
+    diagnostic line. `credential_in_file` catching it afterwards is defense in
+    depth and does not satisfy generation-time redaction.
+    """
+    dsn = f"postgresql://ccf:{LEAKY_PROBE_SECRET}@192.168.4.76:5432/ccf_v2"
+
+    def raising(*_: Any, **__: Any) -> dict[str, Any]:
+        raise RuntimeError(f"could not reach store using {dsn}")
+
+    monkeypatch.setattr(watermarks, probe_name, raising)
+    store = StoreDeclaration(key=f"{kind}/curated", kind=kind, target_env="T", scopes=("s",))
+    record = measure_one(store, environ={"T": target})
+
+    assert "error" in record, record
+    serialized = json.dumps(record)
+    assert LEAKY_PROBE_SECRET not in serialized, f"the credential reached the measurement: {serialized}"
+    assert "ccf:***@" in record["error"], record["error"]
+
+
+def test_the_redacted_probe_error_still_says_what_went_wrong() -> None:
+    """Redaction must not destroy the diagnosis. An error nobody can read is a
+    different failure from a credential nobody can see."""
+    from tools.estate_census.redaction import redact_text
+
+    rendered = redact_text(
+        f"RuntimeError: could not reach store using postgresql://ccf:{LEAKY_PROBE_SECRET}@h:5432/d"
+    )
+    assert rendered is not None
+    assert "RuntimeError" in rendered
+    assert "could not reach store" in rendered
+    assert "h:5432/d" in rendered
+
+
 def test_an_unset_store_is_unmeasured_rather_than_measured_as_zero() -> None:
     """Recording zero would make an outage indistinguishable from an empty store,
     and comparing two zeros would then PROVE the estate did not move."""

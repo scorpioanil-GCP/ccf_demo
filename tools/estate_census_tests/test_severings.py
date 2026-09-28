@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
 import sys
 import types
 from pathlib import Path
@@ -61,6 +62,16 @@ SEVERING_LEDGER: dict[str, str] = {
     "S8-collection-error-ignored": "code",
     "S9-incomplete-execution-ignored": "code",
     "S10-rollup-precedence-inverted": "state",
+}
+
+
+#: The Step 2(a) COMPLETION severings, kept in their own ledger so the original
+#: ten are not inflated. These cover the estate/watermark error path, which the
+#: first campaign did not reach: it proved pytest REPORT text was redacted and
+#: said nothing about a probe exception.
+COMPLETION_SEVERING_LEDGER: dict[str, str] = {
+    "S11-probe-error-redaction-removed": "state",
+    "S12-estate-structure-redaction-removed": "state",
 }
 
 
@@ -401,3 +412,120 @@ def test_S10_severing_rollup_precedence_inverted(tmp_path: Path) -> None:
         module.PhaseReport("teardown", "error"),
     )
     assert module.NodeOutcome.rolled_up("t.py::x", severed_phases).outcome == "passed"
+
+
+# --------------------------------------------------------------------------
+# Step 2(a) COMPLETION severings — the estate/watermark error path.
+# --------------------------------------------------------------------------
+
+
+def test_the_completion_severing_ledger_is_separate_from_the_original_ten() -> None:
+    """The original campaign covered ten lines and did not reach this path. Merging
+    the counts would report broader coverage than was actually established."""
+    assert len(SEVERING_LEDGER) == 10
+    assert len(COMPLETION_SEVERING_LEDGER) == 2
+    assert not set(SEVERING_LEDGER) & set(COMPLETION_SEVERING_LEDGER)
+
+
+@pytest.mark.parametrize(
+    "label,secret,dsn",
+    [
+        ("uri", "URI_SECRET_Aa1-bB2", "postgresql://ccf:URI_SECRET_Aa1-bB2@192.168.4.76:5432/ccf_v2"),
+        (
+            "libpq-keyword",
+            "KEYWORD_SECRET_Cc3-dD4",
+            "host=192.168.4.76 port=5432 user=ccf password=KEYWORD_SECRET_Cc3-dD4 dbname=ccf_v2",
+        ),
+    ],
+)
+def test_S11_severing_probe_error_redaction_removed(
+    tmp_path: Path, label: str, secret: str, dsn: str
+) -> None:
+    """Severing `_safe_error` back to raw exception text must put the credential into
+    the returned measurement — for BOTH serializations, because URI-only handling is
+    the exact mistake this project has already paid for."""
+    module = severed(
+        tmp_path,
+        "tools/estate_census/watermarks.py",
+        "    return redact_text(text) or \"\"",
+        "    return text  # severed",
+        f"S11-probe-error-redaction-removed-{label}",
+    )
+
+    def raising(*_: Any, **__: Any) -> dict[str, Any]:
+        raise RuntimeError(f"could not reach store using {dsn}")
+
+    declaration = module.StoreDeclaration(
+        key="postgres/curated", kind="postgres", target_env="T", scopes=("ccf_v2",)
+    )
+    module._postgres_counts = raising
+    severed_record = module.measure_one(declaration, environ={"T": "host=h dbname=d"})
+
+    from tools.estate_census import watermarks as shipped
+    from tools.estate_census.watermarks import StoreDeclaration as ShippedDeclaration
+
+    original = shipped._postgres_counts
+    try:
+        shipped._postgres_counts = raising  # type: ignore[assignment]
+        shipped_record = shipped.measure_one(
+            ShippedDeclaration(
+                key="postgres/curated", kind="postgres", target_env="T", scopes=("ccf_v2",)
+            ),
+            environ={"T": "host=h dbname=d"},
+        )
+    finally:
+        shipped._postgres_counts = original  # type: ignore[assignment]
+
+    assert not surviving_runs(secret, json.dumps(shipped_record)), (
+        "the shipped control is not green — nothing was proved"
+    )
+    assert surviving_runs(secret, json.dumps(severed_record)), (
+        "the severing cost nothing — the property does not rest on that line"
+    )
+
+
+def test_S12_severing_estate_structure_redaction_removed(tmp_path: Path) -> None:
+    """Severing the recursive estate redaction at the `build` boundary must let a
+    credential-bearing estate error reach the bundle, even though the probe path is
+    still intact. That is what makes the two repairs independent rather than one
+    guarantee written twice."""
+    module = severed(
+        tmp_path,
+        "tools/estate_census/evidence.py",
+        "        estate_before=redact_structure(estate_before),",
+        "        estate_before=estate_before,  # severed",
+        "S12-estate-structure-redaction-removed",
+    )
+    secret = "URI_SECRET_Aa1-bB2"
+    leaky = {
+        "postgres/curated": {
+            "kind": "postgres",
+            "error": f"RuntimeError: could not reach store using postgresql://ccf:{secret}@192.168.4.76/ccf_v2",
+        }
+    }
+    kwargs: dict[str, Any] = dict(
+        provenance={"exit_status": 0},
+        estate_after={},
+        collected=("t.py::a",),
+        collection_errors=(),
+    )
+    from tools.estate_census.evidence import PhaseReport as ShippedPhase
+    from tools.estate_census.evidence import build as shipped_build
+
+    shipped = shipped_build(
+        estate_before=leaky,
+        phase_reports={"t.py::a": (ShippedPhase("call", "passed"),)},
+        **kwargs,
+    )
+    assert not surviving_runs(secret, json.dumps(shipped.as_dict())), (
+        "the shipped control is not green — nothing was proved"
+    )
+
+    severed_bundle = module.build(
+        estate_before=leaky,
+        phase_reports={"t.py::a": (module.PhaseReport("call", "passed"),)},
+        **kwargs,
+    )
+    assert surviving_runs(secret, json.dumps(severed_bundle.as_dict())), (
+        "the severing cost nothing — the property does not rest on that line"
+    )

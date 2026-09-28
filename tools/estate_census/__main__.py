@@ -29,6 +29,7 @@ from tools.estate_census.evidence import (
     credential_in_file,
     read_json,
     read_json_with_reason,
+    redact_structure,
 )
 from tools.estate_census.redaction import redact_text
 from tools.estate_census.reporter import (
@@ -61,7 +62,11 @@ def _watermarks(args: argparse.Namespace) -> int:
     unmeasured = sorted(key for key, record in measured.items() if record.get("error"))
     print(f"measured {len(measured)} store(s) -> {args.out}")
     for key in unmeasured:
-        print(f"  UNMEASURED {key}: {measured[key]['error']}")
+        # `_safe_error` already redacted this at the source. Redacted AGAIN here
+        # deliberately, because Dave's requirement covers the case this file cannot
+        # see: *"even if a future measurement provider returns one."* A console line
+        # is unrecoverable once printed.
+        print(f"  UNMEASURED {key}: {redact_text(measured[key]['error'])}")
     # An unmeasured store is reported but does not fail here: the operator may be
     # measuring a subset deliberately. The CLASSIFIER refuses it, which is the
     # right place — a missing position invalidates the comparison, not the read.
@@ -130,7 +135,16 @@ def _attach_estate(args: argparse.Namespace) -> int:
     except (OSError, ValueError):
         print(f"INDETERMINATE — after-measurement unreadable at {args.after}", file=sys.stderr)
         return EXIT_CODES[INDETERMINATE]
-    bundle.setdefault("estate", {})["after"] = after
+    # REPAIR 3. This is the one door into the primary bundle that does not pass
+    # through `build`, so it carries its own generation boundary. Both sides are
+    # walked, not only the one being attached: an `estate.before` that arrived from
+    # an older bundle or an externally produced watermark file would otherwise
+    # bypass the boundary entirely, which is the same omission this repair closes
+    # on the attach side.
+    estate = bundle.setdefault("estate", {})
+    estate["after"] = redact_structure(after)
+    if "before" in estate:
+        estate["before"] = redact_structure(estate["before"])
     bundle["kind"], bundle["version"] = BUNDLE_KIND, BUNDLE_VERSION
     Path(args.bundle).write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
     print(f"attached after-measurement of {len(after)} store(s) to {args.bundle}")

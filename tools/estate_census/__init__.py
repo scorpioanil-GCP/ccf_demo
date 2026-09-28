@@ -30,7 +30,13 @@ must never enter an artifact in the first place rather than be removed from one.
 from __future__ import annotations
 
 from tools.estate_census.classify import HOLD, INDETERMINATE, PASS, Verdict, classify
-from tools.estate_census.evidence import EvidenceBundle, build, read_json, write_json
+from tools.estate_census.evidence import (
+    EvidenceBundle,
+    build,
+    read_json,
+    redact_structure,
+    write_json,
+)
 from tools.estate_census.redaction import find_credential, redact_target, redact_text
 from tools.estate_census.watermarks import load_roster, measure
 
@@ -46,6 +52,7 @@ __all__ = [
     "load_roster",
     "measure",
     "read_json",
+    "redact_structure",
     "redact_target",
     "redact_text",
     "write_json",
