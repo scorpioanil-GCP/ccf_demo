@@ -174,7 +174,19 @@ def test_V2_severing_capture_dropped(tmp_path: Path, booted: _Booted) -> None:
     module = severed(
         tmp_path,
         "src/ccf/products/resolver.py",
-        (("            served_at=served_at,", "            served_at=None,  # severed"),),
+        # RE-PINNED at step 5. The anchor was `served_at=served_at,` alone when
+        # the resolver had exactly ONE such keyword; step 5 threaded the same
+        # keyword through 22 sites and the anchor went STALE — the failure mode
+        # this project records as "severing anchors go stale across rulings",
+        # caught here by the count!=1 guard rather than by silently mutating
+        # nothing. Widened to the comment unique to the SERVED build site, per
+        # the standing rule: fix the anchor, do not widen the match.
+        ((
+            "            # deliberately untouched.\n"
+            "            served_at=served_at,",
+            "            # deliberately untouched.\n"
+            "            served_at=None,  # severed",
+        ),),
         "V2-capture-dropped",
     )
     arguments = _arguments(booted)

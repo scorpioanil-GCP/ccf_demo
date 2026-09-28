@@ -229,6 +229,7 @@ def _absent_subject_resolver(holder: dict[str, Any], fabric: Fabric) -> Any:
             envelope,
             perspective=perspective,
             recorded_at=DETERMINED_AT,
+            served_at=DETERMINED_AT,
             resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             request=request,
         )

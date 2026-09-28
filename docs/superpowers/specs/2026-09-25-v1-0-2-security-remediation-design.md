@@ -747,7 +747,7 @@ component agreed on the caller's clock.
    `temporal-bound-refusal`), whose closed `reason` Literal is
    `temporal-bound-undeclared`, `asked-at-outside-temporal-bound`,
    `decision-instant-outside-temporal-bound`; it is registered in
-   `REFUSAL_KINDS` (`src/ccf/products/refusal.py:555`) and
+   `REFUSAL_KINDS` (`src/ccf/products/refusal.py::REFUSAL_KINDS`) and
    `_PRE_ASSEMBLY_REFUSALS` (`:789-797`), with its `EXTERNAL_STATEMENTS` /
    `PERMITTED_AT_MINIMAL` entries (`src/ccf/products/disclosure.py:192`, `:329`),
    its HTTP status in `runtime/ccf_runtime/http_api/refusal_status.py` and the

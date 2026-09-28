@@ -864,6 +864,7 @@ def test_a_subject_unavailable_refusal_is_the_same_determination_twice(
                 internal,
                 perspective=PERSPECTIVE,
                 recorded_at=ASKED_AT,
+                served_at=ASKED_AT,
                 resolution=ResolutionNotApplicable(reason="no-resolution-step"),
                 request=request,
                 execution=None,

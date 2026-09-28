@@ -6906,7 +6906,9 @@
       "ResolvedByTheResolver",
       "ResourceRequestIdentity",
       "SubjectUnavailableRefusal",
-      "envelope_for"
+      "TemporalBoundRefusal",
+      "envelope_for",
+      "refuse_temporal_bound"
     ],
     "exports": {
       "GovernedRefusalRaised": {
@@ -6990,9 +6992,25 @@
           "error_code": "str | None"
         }
       },
+      "TemporalBoundRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "max_past_seconds": "int | None",
+          "permitted_clock_skew_seconds": "int | None",
+          "policy_key": "<class 'str'>",
+          "presented_at": "datetime.datetime | None",
+          "reason": "typing.Literal['temporal-boundary-undeclared', 'asked-at-outside-temporal-bound', 'decision-instant-outside-temporal-bound']",
+          "served_at": "<class 'datetime.datetime'>"
+        }
+      },
       "envelope_for": {
         "kind": "function",
         "shape": "(refusal: 'object', *, request: 'RequestIdentity', pre_assembly_lineage: 'ProductLineage | None' = None, policy_bindings: 'tuple[ProvenanceSource, ...]' = (), evidence: 'RefusalEvidence | None' = None, provenance: 'EffectiveRequest | None' = None, resource: 'ResourceRequestIdentity | None' = None) -> 'RefusalEnvelope'"
+      },
+      "refuse_temporal_bound": {
+        "kind": "function",
+        "shape": "(*, pinned: 'PinnedTemporalBoundary | TemporalBoundaryUndeclared', served_at: 'datetime', asked_at: 'datetime', decision_instant: 'datetime') -> 'TemporalBoundRefusal | None'"
       }
     }
   },

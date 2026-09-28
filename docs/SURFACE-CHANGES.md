@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1761 entries**, of which **1501** name a public Python surface.
+**1766 entries**, of which **1506** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1008 entries — 964 public Python surface, 44 not public Python API.
+1010 entries — 966 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -15537,6 +15537,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-03-temporal-boundary-policy.md`.*
 
+#### ccf.products.refusal.TemporalBoundRefusal
+
+- Surface: ccf.products.refusal.TemporalBoundRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — no governed refusal named a question reaching outside a declared temporal window, and no vocabulary token existed for one
+- After: a `CCFContract` with a closed three-reason `Literal` (`temporal-boundary-undeclared`, `asked-at-outside-temporal-bound`, `decision-instant-outside-temporal-bound`), the canonical policy key, the trusted `served_at` it was judged at, and — for the two window reasons — the instant that fell outside and the declared bounds. The three defaulted members are declared **generation boundaries** (`HASH_TRANSPARENT_KEY: False`), because nothing predates this type: a transparent mark buys silence so that records written before a member existed keep their address, and no refusal of this kind has ever been written
+- Why: `D-IMPL-358` step 5 with ruling 11. Three reasons rather than one because they are three different facts with three different remedies — an undeclared policy is the operator's to fix and the caller can do nothing about it, while an out-of-window question is the caller's. Collapsing them would send one of the two to the wrong party
+- Migration: none. A new kind on a path nothing yet reaches; no existing refusal changes shape or address
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.refusal.refuse_temporal_bound
+
+- Surface: ccf.products.refusal.refuse_temporal_bound
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a **pure** judgment — it reads no clock and no registry — taking an already-resolved `PinnedTemporalBoundary | TemporalBoundaryUndeclared`, the trusted `served_at`, and both instants (`asked_at` and the derived decision instant), returning the refusal or `None`. `asked_at` is judged first so a question outside both is reported deterministically by the axis a caller controls most directly. The arithmetic is `ccf/peering/eligibility.py::_evidence_too_old`'s, reused rather than re-invented, which is what keeps two declared durations in this fabric meaning the same thing — and which fixes the reading of zero as the strictest bound rather than as unbounded
+- Why: `D-IMPL-358` step 5. The judgment is separated from the resolution so that the instant and the policy both arrive as arguments and nothing about where they came from is decided here — the same split step 3 made between resolving a policy and pinning it
+- Migration: none; no caller exists yet
+
+*Recorded by `358-05-trusted-time.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16248,7 +16272,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-491 entries — 303 public Python surface, 188 not public Python API.
+494 entries — 306 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -21866,6 +21890,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none. The parameter defaults to `None`, so every existing caller writes a record whose address is exactly what it was
 
 *Recorded by `358-04-served-at.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: reshaped
+- Before: twenty-seven kinds
+- After: twenty-eight — `temporal-bound-refusal` joins, and `_PRE_ASSEMBLY_REFUSALS` gains the type because the judgment is pre-acquisition and pre-graph-read, so no candidate exists and no lineage is invented for it. The token was checked against all twenty-seven for the vocabulary's substring rule (no token may contain another): no collision
+- Why: `D-IMPL-358` step 5. A refusal that is not in the roster cannot cross a door, be disclosed, or be given a status — the roster IS the vocabulary
+- Migration: a consumer switching exhaustively on the kind gains one arm. Every structural gate over the vocabulary enumerated exactly what registration was owed and is green: the disclosure statement and minimal tables, the door's status map, the MCP parity check, and the per-kind envelope test
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `record(...)` took `recorded_at` and no live instant, so a recorder had no way to state when a determination was actually made — and two of the five governed recorder families stamped live clock time into `recorded_at`, moving a refusal's dimension-1 boundary off the question
+- After: a **required keyword** `served_at: datetime | None`, with no default and explicitly nullable. Required so no site can omit it; nullable so a surface that genuinely has no live instant asserts that rather than being assumed. The shape follows the ruling this module already quotes — `D-IMPL-264` amendment 1, *"No intermediate layer may manufacture the marker from omission."* `recorded_at` is untouched and is NOT a synonym: the question's instant bounds the record and the live instant travels beside it
+- Why: `D-IMPL-358` step 5. One invocation reads one clock, and every refusal it produces must carry that instant rather than a fresh one — a recorder that read its own clock would put two instants in one determination
+- Migration: **every conforming recorder and every caller must pass it**, which the required keyword makes a type error rather than a silent default. All five governed families are migrated: the resolver's own path, `OpenedProduct`'s address refusal, the delivery boundary's four sites, the typed raised refusal, and the entitlement refusal. The most consequential repair is the address refusal, which had `request.asked_at` in scope three lines above and stamped `recorded_at=self._clock()` anyway
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.disclosure.EXTERNAL_STATEMENTS
+
+- Surface: ccf.products.disclosure.EXTERNAL_STATEMENTS
+- Public surface: true
+- Change type: reshaped
+- Before: no statement for the new kind, which the closure gate refuses
+- After: one statement covering all three reasons, chosen so that it does not tell an external consumer a tenant is MISCONFIGURED — that is the operator's fact and exactly the internal state the minimal level exists to withhold. `PERMITTED_AT_MINIMAL` permits the two declared bounds and nothing else, on the `ttl-refusal` precedent: a declared ceiling is actionable, the fabric's own instants are not, and the policy key never crosses
+- Why: `D-IMPL-358` step 5 with `D-IMPL-254` — what crosses a consumer boundary is the disclosure step's decision and no refusal type's
+- Migration: none for existing kinds. At minimal, the undeclared reason discloses nothing actionable, correctly: nothing the caller could do would fix it
+
+*Recorded by `358-05-trusted-time.md`.*
 
 ### Not public Python API
 

@@ -743,10 +743,21 @@ class OpenedProduct:
             presented_keys=frozenset(),
             detail=detail,
         )
+        # `D-IMPL-358` step 5, and this site is the reason the rule is worth
+        # stating as a rule. A question boundary WAS available here — three lines
+        # above, ``request.asked_at`` already supplies ``temporal_boundary`` on
+        # the identity — and ``recorded_at`` took the live clock anyway, so an
+        # address refusal's dimension-1 boundary moved with when the refusal
+        # happened rather than with what was asked. The two instants are now
+        # separate and both are carried: the QUESTION's instant bounds the
+        # record, and the LIVE instant this door determined at is measured ONCE
+        # here and travels as ``served_at`` beside it.
+        determined_at = self._clock()
         return self.refusal_recorder.record(
             envelope_for(violation, request=identity),
             perspective=perspective,
-            recorded_at=self._clock(),
+            recorded_at=request.asked_at,
+            served_at=determined_at,
             request=request,
             resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
         )

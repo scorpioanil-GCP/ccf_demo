@@ -675,6 +675,7 @@ def test_the_conformance_check_sees_a_defaulted_signature() -> None:
             *,
             perspective: Perspective,
             recorded_at: datetime,
+            served_at: datetime | None = None,
             resolution: Any = None,
         ) -> RefusalEnvelope:
             return envelope
@@ -2978,16 +2979,24 @@ def test_step4_a_composite_serve_reads_the_clock_exactly_once_for_both_uses(
     assert reads == [1], f"the admission clock was read {len(reads)} times"
 
 
-def test_step4_a_refusal_reads_the_clock_once_and_records_no_served_at_YET(
+def test_step5_a_refusal_reads_the_clock_once_and_NOW_records_served_at(
     booted: _Booted,
 ) -> None:
-    """THE STEP BOUNDARY, asserted rather than left to a commit message.
+    """AMENDED at step 5, exactly as its step-4 form said it would be.
 
-    The read is at the entry to the governed path, so a refusal reads it too —
-    the ruled placement, because moving the read later and then moving it again
-    would make step 5 redo step 4. At THIS step nothing records it on a refusal
-    path: threading ``served_at`` through refusal records is step 5. This test is
-    expected to be AMENDED there, and says so.
+    At step 4 this asserted ``served_at is None`` on a refusal record, and its
+    docstring said: *"threading served_at through refusal records is step 5.
+    This test is expected to be AMENDED there, and says so."* This is that
+    amendment. The rename is deliberate — a control named
+    ``..._records_no_served_at_YET`` that asserted it DOES record one would be a
+    name contradicting its own body.
+
+    Unchanged and still enforced: the clock is read EXACTLY ONCE for the whole
+    invocation, refusal included. New: the refusal record carries that one
+    instant as ``served_at``, while ``recorded_at`` stays the QUESTION's instant.
+    The two are beside each other and neither is the other — which is the
+    property `D-IMPL-358` step 5 states as *"do not make recorded_at a synonym
+    for served_at."*
     """
     reads: list[int] = []
 
@@ -3010,9 +3019,12 @@ def test_step4_a_refusal_reads_the_clock_once_and_records_no_served_at_YET(
             content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
         )
     )
-    assert record.content_generation_path.served_at is None, (
-        "a refusal record carrying served_at is step 5's wiring, not step 4's"
+    assert record.content_generation_path.served_at == ADMITTED_AT, (
+        "step 5 threads the one captured instant into every governed refusal"
     )
+    # And the two are NOT synonyms: dimension 1 stays on the question's instant.
+    assert record.recorded_at == ASKED_AT
+    assert record.recorded_at != record.content_generation_path.served_at
 
 
 def test_step4_two_serves_at_two_instants_are_two_records(booted: _Booted) -> None:

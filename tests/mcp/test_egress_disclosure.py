@@ -282,6 +282,10 @@ class _World:
                 principal_id=perspective.principal_id, role=NO_ROLE_RESOLVED
             ),
             recorded_at=DETERMINED_AT,
+            # `D-IMPL-358` step 5: this fixture's surface has no question
+            # instant, so the ruled resource-form boundary IS the determination
+            # instant — carried separately rather than by being the same field.
+            served_at=DETERMINED_AT,
             resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         )
 

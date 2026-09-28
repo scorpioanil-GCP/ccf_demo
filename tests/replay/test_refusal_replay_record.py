@@ -776,6 +776,7 @@ def test_the_recorder_answers_a_caller_with_a_principal_and_no_role(
             principal_id="principal-at-the-door", role=NO_ROLE_RESOLVED
         ),
         recorded_at=determined_at,
+        served_at=determined_at,
         request=None,
         execution=None,
         # 24.7-04 (D-IMPL-264 D-10 am.1): the seam requires the state too;
@@ -832,6 +833,7 @@ def test_a_recorder_with_no_bundle_pin_records_exactly_the_callers_bindings(
         _a_shell(),
         perspective=Perspective(principal_id="p-1", role=NO_ROLE_RESOLVED),
         recorded_at=ASKED_AT,
+        served_at=ASKED_AT,
         policy_bindings=passed,
         resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
@@ -855,6 +857,7 @@ def test_a_recorder_holding_a_bundle_pin_prepends_it(booted: _Booted) -> None:
         _a_shell(),
         perspective=Perspective(principal_id="p-1", role=NO_ROLE_RESOLVED),
         recorded_at=ASKED_AT,
+        served_at=ASKED_AT,
         policy_bindings=passed,
         resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )

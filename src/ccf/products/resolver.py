@@ -1101,6 +1101,7 @@ class RefusalRecorderProtocol(Protocol):
         *,
         perspective: Perspective,
         recorded_at: datetime,
+        served_at: datetime | None,
         request: ProductRequest | None = None,
         execution: ExecutionResult | None = None,
         policy_bindings: tuple[PolicyBinding, ...] = (),
@@ -1502,6 +1503,7 @@ class ReplayRefusalRecorder:
         *,
         perspective: Perspective,
         recorded_at: datetime,
+        served_at: datetime | None,
         request: ProductRequest | None = None,
         execution: ExecutionResult | None = None,
         policy_bindings: tuple[PolicyBinding, ...] = (),
@@ -1557,6 +1559,10 @@ class ReplayRefusalRecorder:
             execution=execution,
             product=None,
             refusal=envelope,
+            # `D-IMPL-358` step 5. Threaded from the caller and NEVER recomputed
+            # here: the recorder reads no clock, so every refusal from one
+            # governed invocation carries the one instant that invocation read.
+            served_at=served_at,
             # Recorded verbatim: identity is resolved at the door and this seam
             # constructs none of it (Pitfall 3).
             perspective=perspective,
@@ -2422,6 +2428,7 @@ class GovernedResolver:
                     ),
                 ),
                 resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+                served_at=served_at,
             )
 
         # THE DOOR, and this composition is the resolver standing at it. The
@@ -2490,6 +2497,7 @@ class GovernedResolver:
                     PolicyBinding(key=self.product_class_key, version=content_hash(declaration)),
                 ),
                 resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+                served_at=served_at,
             )
 
         outcome = self.constraint_resolver.resolve(
@@ -2555,6 +2563,7 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=self._applied_bindings(outcome.evidence),
                 resolution=outcome.evidence,
+                served_at=served_at,
             )
         effective = outcome.evidence
         # The engine answers the EFFECTIVE question — defaults applied, policy
@@ -2587,6 +2596,7 @@ class GovernedResolver:
                 return self._refuse_raised_at_seam(
                     raised, seam="acquisition", request=request, identity=identity,
                     perspective=perspective, effective=effective,
+                    served_at=served_at,
                 )
             except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
                 # `D-IMPL-347` B2: only a type THIS class declared converts.
@@ -2598,6 +2608,7 @@ class GovernedResolver:
                 return self._refuse_declared_at_seam(
                     error, binding, seam="acquisition", request=request,
                     identity=identity, perspective=perspective, effective=effective,
+                    served_at=served_at,
                 )
 
         view = self.fabric.handle.reader.as_of(
@@ -2721,6 +2732,7 @@ class GovernedResolver:
                         raised, seam="build_children", request=request,
                         identity=identity, perspective=perspective,
                         effective=effective,
+                        served_at=served_at,
                     )
                 except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
                     binding = self._declared_seam_refusal(error)
@@ -2730,6 +2742,7 @@ class GovernedResolver:
                         error, binding, seam="build_children", request=request,
                         identity=identity, perspective=perspective,
                         effective=effective,
+                        served_at=served_at,
                     )
                 # The per-requirement walk — provenance, slot / instant /
                 # invocation re-binding, the refusal branches — runs HERE,
@@ -2788,6 +2801,7 @@ class GovernedResolver:
                     policy_bindings=self._applied_bindings(effective),
                     resolution=effective,
                     child_resolutions=composed.resolutions,
+                    served_at=served_at,
                 )
 
         # `D-IMPL-300`: the plan is a NAMED LOCAL so the binder has somewhere to
@@ -2817,6 +2831,7 @@ class GovernedResolver:
             return self._refuse_raised_at_seam(
                 raised, seam="plan_factory", request=request, identity=identity,
                 perspective=perspective, effective=effective,
+                served_at=served_at,
             )
         except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
             binding = self._declared_seam_refusal(error)
@@ -2825,6 +2840,7 @@ class GovernedResolver:
             return self._refuse_declared_at_seam(
                 error, binding, seam="plan_factory", request=request,
                 identity=identity, perspective=perspective, effective=effective,
+                served_at=served_at,
             )
         # The product class's `required_operator_keys` and the plan's own
         # `required_operators()` are two separately authored documents (design
@@ -3037,6 +3053,7 @@ class GovernedResolver:
                 policy_bindings=self._applied_bindings(effective),
                 resolution=effective,
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         candidate = ContextProductContract(
@@ -3226,6 +3243,7 @@ class GovernedResolver:
                 policy_bindings=applied,
                 resolution=effective,
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         if not isinstance(gated, ServableProduct):
@@ -3248,6 +3266,7 @@ class GovernedResolver:
                 resolution=effective,
                 # `D-IMPL-338`: the children this candidate was composed from.
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         # `24.10-02` / `R-11` (`D-IMPL-282` option 1a), and the placement is
@@ -3278,6 +3297,7 @@ class GovernedResolver:
                     raised, seam="product_gate", request=request,
                     identity=identity, perspective=perspective,
                     effective=effective,
+                    served_at=served_at,
                 )
             except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
                 binding = self._declared_seam_refusal(error)
@@ -3287,6 +3307,7 @@ class GovernedResolver:
                     error, binding, seam="product_gate", request=request,
                     identity=identity, perspective=perspective,
                     effective=effective,
+                    served_at=served_at,
                 )
             if gate_violation:
                 declared_gate = self._declaration().declared_product_gate
@@ -3316,6 +3337,7 @@ class GovernedResolver:
                     resolution=effective,
                     # `D-IMPL-338`: the children this candidate was composed from.
                     child_resolutions=child_rows,
+                    served_at=served_at,
                 )
 
         # 24.6-04, the delivery boundary: the gates ADMITTED this product, and
@@ -3349,6 +3371,7 @@ class GovernedResolver:
                 # `D-IMPL-338`: a tolerance refusal is the case that most needs
                 # its children named — the debt it refused on is inherited.
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         record = build_replay_record(
@@ -3521,6 +3544,7 @@ class GovernedResolver:
         identity: RequestIdentity,
         perspective: Perspective,
         effective: EffectiveRequest,
+        served_at: datetime,
     ) -> RefusalEnvelope:
         """Mint the refusal the class declared for ``error``, at ``seam``.
 
@@ -3542,6 +3566,7 @@ class GovernedResolver:
             identity=identity,
             perspective=perspective,
             effective=effective,
+            served_at=served_at,
         )
 
     def _refuse_raised_at_seam(
@@ -3553,6 +3578,7 @@ class GovernedResolver:
         identity: RequestIdentity,
         perspective: Perspective,
         effective: EffectiveRequest,
+        served_at: datetime,
     ) -> RefusalEnvelope:
         """The typed handoff caught at a DEPLOYMENT-SUPPLIED seam.
 
@@ -3611,6 +3637,7 @@ class GovernedResolver:
             policy_bindings=self._applied_bindings(effective),
             resolution=effective,
             refusal_seam=seam,
+            served_at=served_at,
         )
 
     def _record_refusal(
@@ -3620,6 +3647,7 @@ class GovernedResolver:
         execution: ExecutionResult | None,
         request: ProductRequest,
         perspective: Perspective,
+        served_at: datetime,
         policy_bindings: tuple[PolicyBinding, ...] = (),
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
@@ -3632,9 +3660,17 @@ class GovernedResolver:
         composition produces goes through here, and nothing in ``src/`` calls
         :func:`~ccf.replay.serve.record_refusal` except the recorder itself.
 
-        The instant is ``request.asked_at`` for the reason nothing in this
-        module reads a clock: the caller supplies it at serve time and replay
-        supplies it at replay time, through this same code path.
+        **Two instants, and they are not synonyms** (`D-IMPL-358` step 5).
+        ``recorded_at`` is ``request.asked_at`` — the QUESTION's instant, which
+        keeps a refusal's dimension-1 boundary on what was asked rather than on
+        when the refusal happened, and which the caller supplies at serve time
+        and replay supplies at replay time through this same path. ``served_at``
+        is the LIVE instant this invocation determined the refusal at, read once
+        at `GovernedResolver.__call__` entry and threaded here.
+
+        This docstring previously said *"nothing in this module reads a clock"*.
+        That became untrue at step 4 and is corrected rather than deleted: the
+        module reads exactly one clock, once, at entry, and never here.
 
         ``resolution`` is required with no default (24.7-04): every branch
         that reaches here ran the resolution step and passes what it
@@ -3657,6 +3693,8 @@ class GovernedResolver:
             envelope,
             perspective=perspective,
             recorded_at=request.asked_at,
+            # The live instant beside the question's, never instead of it.
+            served_at=served_at,
             request=request,
             execution=execution,
             policy_bindings=policy_bindings,

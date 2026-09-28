@@ -306,6 +306,7 @@ def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
             ),
             perspective=perspective,
             recorded_at=request.asked_at,
+            served_at=request.asked_at,
             resolution=ResolutionNotApplicable(reason="no-resolution-step"),
             request=request,
         )

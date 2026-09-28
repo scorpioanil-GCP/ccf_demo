@@ -111,6 +111,10 @@ from pydantic import Field, field_validator
 
 from ccf.agents.errors import AssemblyRefusal
 from ccf.contracts.base import CCFContract
+from ccf.controlplane.temporal_boundary import (
+    PinnedTemporalBoundary,
+    TemporalBoundaryUndeclared,
+)
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 from ccf.graph.product_source import ProductMountRefusal
 from ccf.halflife.assessment import DebtAssessment
@@ -154,6 +158,8 @@ __all__ = [
     "NON_VALUE_VIOLATIONS",
     "NO_REPLAY_REFERENCE",
     "REFUSAL_KINDS",
+    "TemporalBoundRefusal",
+    "refuse_temporal_bound",
     "RefusalEnvelope",
     "RefusalEvidence",
     "RequestIdentity",
@@ -274,6 +280,183 @@ class SubjectUnavailableRefusal(CCFContract):
     error_code: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+
+
+class TemporalBoundRefusal(CCFContract):
+    """The question reaches outside the window this tenant answers for.
+
+    SDK-defined (CLAUDE.md §11); `D-IMPL-358` step 5, enforcing the
+    `ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy` step 3 declared.
+    **A returned value, never an exception** — the posture `D-IMPL-253` Q13
+    requires of every governed determination.
+
+    **Judged before acquisition and before the graph is read**, so an
+    out-of-window question costs nothing: no source is invoked, nothing is
+    ingested, and there is no candidate to have a lineage. It joins
+    `_PRE_ASSEMBLY_REFUSALS` for that reason.
+
+    **Defined here rather than beside the policy it enforces**, which is the one
+    place this module departs from the `ccf/products/constraints.py::ConstraintRefusal`
+    precedent. Two reasons: this module already hosts a concrete governed refusal
+    (`SubjectUnavailableRefusal`), so nothing new is introduced; and a refusal
+    kind is overwhelmingly a *delivery-vocabulary* item — it must be registered
+    in `REFUSAL_KINDS`, in the disclosure statement and minimal tables, and in
+    the door's status map — where the policy itself is a Control Plane artifact
+    three subsystems resolve. Putting the vocabulary item here keeps
+    `ccf.controlplane` free of a dependency on the products refusal surface.
+
+    **Three reasons, closed, and they are three different facts.** Collapsing
+    them would lose exactly what an operator needs to act:
+
+    ``temporal-boundary-undeclared``
+        No `TemporalBoundaryPolicy` is registered for this tenant, so how far
+        into the past it answers for is unknown. `D-IMPL-358` ruling 11: the
+        fabric refuses and records the key and class that were required and the
+        absence reason, and **mints no binding** — there is no version to pin
+        for a policy that does not exist. The remedy is the operator's, not the
+        caller's.
+    ``asked-at-outside-temporal-bound``
+        The question's own ``asked_at`` falls outside the declared window,
+        measured against the trusted ``served_at``.
+    ``decision-instant-outside-temporal-bound``
+        The instant the class DERIVES the decision from — which a declared
+        parameter may supply and policy may narrow — falls outside it. Checked
+        separately from ``asked_at`` because the two can differ and a class that
+        derives its decision instant from a parameter would otherwise reach
+        outside the window through a value nobody judged.
+
+    Attributes:
+        reason: Which of the three, above.
+        detail: The statement an operator reads. The typed members are the
+            machine-readable version.
+        policy_key: The canonical Control Plane key that was required or
+            resolved. Present on all three reasons, because "which key" is the
+            first thing an operator needs in every case.
+        served_at: The trusted instant the judgment was made at — read once at
+            `ccf.products.resolver.GovernedResolver.__call__` entry, never here.
+        presented_at: The instant that fell outside, for the two window reasons.
+            ``None`` for ``temporal-boundary-undeclared``, which is the positive
+            statement that no window existed to fall outside of.
+        max_past_seconds: The declared bound, when one resolved. ``None`` for
+            the undeclared reason — **not zero**, which is a legal and strict
+            declared bound and would read as one.
+        permitted_clock_skew_seconds: The declared forward tolerance, when one
+            resolved. ``None`` on the same reasoning.
+    """
+
+    reason: Literal[
+        "temporal-boundary-undeclared",
+        "asked-at-outside-temporal-bound",
+        "decision-instant-outside-temporal-bound",
+    ]
+    detail: str
+    policy_key: str
+    served_at: datetime
+    # `D-IMPL-243` amendments 1 and 2, and the mark is `False` rather than
+    # `True` for a reason this type makes easy: **nothing predates it.** A
+    # transparent mark buys silence at the sentinel so that records written
+    # BEFORE a member existed keep their address — and no refusal of this kind
+    # has ever been written, so there is no yesterday for silence to equal.
+    # Meanwhile all three are governed evidence about why a determination was
+    # refused, and the accepted design's rule is that security defaults are
+    # generation boundaries except where a stated reason makes silence safe. No
+    # such reason exists here, so they are declared boundaries by name.
+    presented_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    max_past_seconds: int | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+    permitted_clock_skew_seconds: int | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False}
+    )
+
+
+def refuse_temporal_bound(
+    *,
+    pinned: PinnedTemporalBoundary | TemporalBoundaryUndeclared,
+    served_at: datetime,
+    asked_at: datetime,
+    decision_instant: datetime,
+) -> TemporalBoundRefusal | None:
+    """Hold a question's instants to the tenant's declared window, or return ``None``.
+
+    `D-IMPL-358` step 5. **Pure**: it reads no clock and no registry. `served_at`
+    is the trusted instant the caller read once at
+    `ccf.products.resolver.GovernedResolver.__call__` entry, and `pinned` is what
+    `ccf.controlplane.temporal_boundary.resolve_temporal_boundary` already
+    returned — so this function judges and decides nothing about where either
+    came from.
+
+    **Both instants are checked, and they are two different facts.** ``asked_at``
+    is what the question asks as of; ``decision_instant`` is what the class
+    DERIVES its decision from, which a declared parameter may supply and policy
+    may narrow. A class that derives its decision instant from a parameter would
+    otherwise reach outside the window through a value nobody judged. ``asked_at``
+    is judged first, so a question outside both is reported by the axis a caller
+    controls most directly, deterministically.
+
+    **The comparison is the sibling artifact's, exactly.**
+    `ccf/peering/eligibility.py::_evidence_too_old` measures ``age`` forward from
+    the instant to the trusted time and refuses ``age > max`` in the past
+    direction and ``-age > skew`` in the future direction. Reusing that arithmetic
+    rather than inventing a second one is what keeps two declared durations in
+    this fabric meaning the same thing. It also fixes the reading of zero: a
+    declared ``0`` admits only an age of zero or less, which is the strictest
+    bound and not "unbounded".
+
+    Returns:
+        The refusal, or ``None`` when the question is inside the window. A
+        ``None`` from an UNDECLARED policy is impossible: absence always refuses,
+        because the SDK holds no window and inventing one is the defect
+        `D-IMPL-38` forbids.
+    """
+    if isinstance(pinned, TemporalBoundaryUndeclared):
+        return TemporalBoundRefusal(
+            reason="temporal-boundary-undeclared",
+            detail=pinned.detail,
+            policy_key=pinned.key,
+            served_at=served_at,
+        )
+    policy = pinned.policy
+    for instant, reason in (
+        (asked_at, "asked-at-outside-temporal-bound"),
+        (decision_instant, "decision-instant-outside-temporal-bound"),
+    ):
+        age = (served_at - instant).total_seconds()
+        if age > policy.max_past_seconds:
+            return TemporalBoundRefusal(
+                reason=reason,  # type: ignore[arg-type]
+                detail=(
+                    f"the instant {instant.isoformat()} is {int(age)}s before the"
+                    f" trusted serve instant {served_at.isoformat()}; this tenant"
+                    f" declares a maximum of {policy.max_past_seconds}s of past"
+                    " reach. Refused rather than narrowed: the fabric answers the"
+                    " question asked or says why it cannot"
+                ),
+                policy_key=pinned.key,
+                served_at=served_at,
+                presented_at=instant,
+                max_past_seconds=policy.max_past_seconds,
+                permitted_clock_skew_seconds=policy.permitted_clock_skew_seconds,
+            )
+        if -age > policy.permitted_clock_skew_seconds:
+            return TemporalBoundRefusal(
+                reason=reason,  # type: ignore[arg-type]
+                detail=(
+                    f"the instant {instant.isoformat()} is {int(-age)}s AFTER the"
+                    f" trusted serve instant {served_at.isoformat()}; this tenant"
+                    f" permits {policy.permitted_clock_skew_seconds}s of forward"
+                    " clock skew. An instant from the future is refused rather"
+                    " than treated as maximally current"
+                ),
+                policy_key=pinned.key,
+                served_at=served_at,
+                presented_at=instant,
+                max_past_seconds=policy.max_past_seconds,
+                permitted_clock_skew_seconds=policy.permitted_clock_skew_seconds,
+            )
+    return None
 
 
 class RefusalEvidence(CCFContract):
@@ -620,6 +803,16 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # (a candidate existed, so NOT in `_PRE_ASSEMBLY_REFUSALS`), and no shipped
     # token is a substring of it or it of them.
     ProductInvariantRefusal: "product-invariant-refusal",
+    # `D-IMPL-358` step 5. The question reaches outside the window this tenant
+    # answers for — judged BEFORE acquisition, so unlike every gate token above
+    # it there is no candidate and no lineage. Its own kind rather than a reuse
+    # of `constraint-refusal`: a constraint refusal is about a declared
+    # PARAMETER's value, and this is about the question's INSTANT, which is an
+    # address axis rather than a parameter and is judged against a Control Plane
+    # policy the caller cannot see. A consumer that could not tell them apart
+    # would retry by changing a parameter. No shipped token is a substring of
+    # this one or it of them (checked: 27 tokens, no collision).
+    TemporalBoundRefusal: "temporal-bound-refusal",
     # Beside it and deliberately NOT of it (24.6-L-05, `D-IMPL-251` C2=B):
     # `tolerance-exceeded` is not a gate token and `ToleranceExceededRefusal`
     # is not a `GateRefusal`. The gates admitted the product; an applicable
@@ -793,6 +986,9 @@ _PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
         ConstraintRefusal,
         PolicyResolutionConflict,
         SubjectUnavailableRefusal,
+        # `D-IMPL-358` step 5: judged before acquisition and before the graph
+        # read, so no candidate exists and no lineage is invented for it.
+        TemporalBoundRefusal,
     }
 )
 

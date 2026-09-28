@@ -23,7 +23,7 @@ measures what it measured.
 **A refusal path reads the instant and records nothing with it at this step.** That
 is the ruled placement rather than an oversight: moving the read later and then
 moving it again in step 5 would make step 5 redo step 4.
-`tests/products/test_resolver_seam.py::test_step4_a_refusal_reads_the_clock_once_and_records_no_served_at_YET`
+`tests/products/test_resolver_seam.py::test_step5_a_refusal_reads_the_clock_once_and_NOW_records_served_at`
 asserts the boundary and names itself as expected to be amended there.
 
 **One existing control's premise is retired by ruling 1, and it is renamed rather
