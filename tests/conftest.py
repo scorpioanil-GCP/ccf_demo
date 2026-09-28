@@ -262,7 +262,15 @@ def mongo_uri() -> str:
 #: The two variables that name the LOCAL DISPOSABLE store every writing test
 #: seeds. CLAUDE.md §9 and `D-IMPL-318`: reads go to the curated estate, writes
 #: go to a throwaway. Fenced together at session scope below.
-DISPOSABLE_STORE_ENV = ("CCF_TEST_FLUREE_URL", "CCF_TEST_POSTGRES_DSN")
+#: Every throwaway-store variable the session fence checks (`D-IMPL-358`
+#: ruling 12). `CCF_TEST_MONGO_URI` was DEFINED at :231 and absent from this
+#: tuple, while eight estate-gated trees read curated Mongo `fibo_v2` — so the
+#: one store the fence did not cover was a store the suite actually reaches.
+DISPOSABLE_STORE_ENV = (
+    "CCF_TEST_FLUREE_URL",
+    "CCF_TEST_POSTGRES_DSN",
+    MONGO_URI_ENV,
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
