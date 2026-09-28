@@ -265,6 +265,7 @@ from ccf.products.refusal import (
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
+    ProductRequestViolation,
     refuse_floor,
     refuse_intent,
     refuse_undeclared_class_default,
@@ -2596,6 +2597,52 @@ class GovernedResolver:
         # afterwards — so this is the same value the later stages used, computed
         # once rather than twice. Two computations are two chances to disagree.
         decided_at = self._decision_instant(request, effective_request)
+
+        # `D-IMPL-358` step 5 section C1: THE INSTANT MUST BE AWARE, judged here
+        # because this is the line after which the fabric does arithmetic with it.
+        # A declared instant is caller-supplied data and may arrive with no UTC
+        # offset. There is no implicit UTC in this fabric: assuming one answers
+        # for an hour the caller never named, silently, with every gate green —
+        # so this refuses by name rather than repairing with `.replace(tzinfo=…)`.
+        # Refusing here also keeps the bound below from raising `TypeError` on a
+        # naive-minus-aware subtraction, which would be an ungoverned 500 for what
+        # is a malformed value.
+        if decided_at.tzinfo is None or decided_at.tzinfo.utcoffset(decided_at) is None:
+            parameter = self.decision_instant_parameter
+            assert parameter is not None, (
+                "a naive instant can only come from a declared parameter; "
+                "`request.asked_at` is aware by contract"
+            )
+            return self._record_refusal(
+                envelope=envelope_for(
+                    ProductRequestViolation(
+                        reason="malformed-value",
+                        key=parameter,
+                        declared_type="an aware datetime (one carrying a UTC offset)",
+                        presented_type=type(decided_at).__name__,
+                        declared_keys=frozenset(effective_request.parameters),
+                        presented_keys=frozenset(
+                            request.parameters if request is not None else ()
+                        ),
+                        detail=(
+                            f"{parameter}: the declared decision instant carries no UTC"
+                            " offset, so the fabric cannot say which moment it names."
+                            " Refused by name and never repaired: there is no implicit"
+                            " UTC here, and assuming one would answer for an hour the"
+                            " caller never stated (`D-IMPL-358` step 5 section C1)"
+                        ),
+                    ),
+                    request=identity,
+                    policy_bindings=effective.applied,
+                    provenance=effective,
+                ),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                served_at=served_at,
+                policy_bindings=self._applied_bindings(effective),
+                resolution=effective,
+            )
 
         # THE TEMPORAL BOUND, JUDGED HERE AND BEFORE ACQUISITION. The effective
         # request exists (policy has narrowed what it can), the decision instant is

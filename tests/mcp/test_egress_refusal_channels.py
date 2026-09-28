@@ -686,7 +686,13 @@ def test_an_entitlement_denial_on_the_tool_path_is_a_recorded_shell(
     # conditions every caller under `ROLE` — not the positive-absence claim
     # (`D-IMPL-260` P-D).
     assert record.perspective_conditioning.role == ROLE
-    assert record.recorded_at == DETERMINED_AT
+    # `D-IMPL-358` step 5 section F. MIGRATED, not deleted: this asserted
+    # `DETERMINED_AT` and was pinning the defect — a refusal to a question asked
+    # at 09:30 recorded its dimension-1 boundary at the door's 11:15 clock. The
+    # two instants are now two statements and both are asserted, which is what a
+    # one-sided version of this could never have caught.
+    assert record.recorded_at == ASKED_AT
+    assert record.content_generation_path.served_at == DETERMINED_AT
     assert internal.resource is not None
     assert internal.resource.surface == "mcp-tool"
     assert internal.resource.address == product_uri(
@@ -800,7 +806,14 @@ def test_an_entitlement_denial_on_the_address_surface_records_that_address(
     assert internal.resource.address != product_uri(
         tenant=at.tenant, product_class=at.product_class, version=at.version
     )
-    assert internal.resource.determined_at == DETERMINED_AT == record.recorded_at
+    # `D-IMPL-358` step 5 section F. The chain is SPLIT because the two halves
+    # stopped being the same fact: the resource still carries the instant the
+    # determination was reached, while the record's boundary is the question's.
+    # Chaining them read as one claim and was really two, which is why the
+    # migration is a split rather than a re-pin.
+    assert internal.resource.determined_at == DETERMINED_AT
+    assert record.recorded_at == ASKED_AT
+    assert record.content_generation_path.served_at == DETERMINED_AT
 
 
 def test_the_two_resource_shells_are_both_minted_through_the_one_recorder(

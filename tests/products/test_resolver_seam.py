@@ -3665,3 +3665,81 @@ def test_a_narrow_subject_domain_admits_the_subject_it_declares(
         _request(subject=CONFORMING_SUBJECT),
     )
     assert isinstance(outcome, ServedProduct), outcome
+
+
+# --- `D-IMPL-358` step 5 section C1: the decision instant must be AWARE --------
+
+
+def test_C1_a_naive_declared_decision_instant_is_refused(
+    booted_declaring_a_decision_instant: _Booted,
+) -> None:
+    """C1. A declared instant with no offset is refused — not repaired, not assumed.
+
+    `D-IMPL-358` step 5 section C1. The decision instant is caller-supplied data
+    that now reaches the temporal bound's arithmetic, and `served_at` is aware.
+    Three outcomes were possible and only one is honest:
+
+    - **Assume UTC** (`.replace(tzinfo=UTC)`): answers for the wrong hour whenever
+      the caller did not mean UTC, silently, with every gate green. This is the
+      one the fabric refuses everywhere else.
+    - **Crash**: comparing naive to aware raises `TypeError`, which is an
+      ungoverned 500 for what is a caller's malformed value.
+    - **Refuse**: a governed "no" naming the parameter. This one.
+
+    There is no implicit UTC in this fabric.
+    """
+    outcome = _ask(
+        _resolver(
+            booted_declaring_a_decision_instant,
+            decision_instant_parameter=DECISION_INSTANT_PARAMETER,
+        ),
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                # The same literal the green test uses, with the offset removed —
+                # so the ONLY difference between refusal and service is awareness.
+                DECISION_INSTANT_PARAMETER: DECIDED_AT_LITERAL.replace("+00:00", ""),
+            }
+        ),
+    )
+    assert not isinstance(outcome, ServedProduct), (
+        "a naive declared decision instant was SERVED — the fabric answered for an "
+        "hour the caller never named"
+    )
+    # Refused for THE RIGHT REASON and at the right key. Without this the test
+    # would pass on any refusal at all, including one raised for an unrelated
+    # cause, which is how a control stops measuring its own subject.
+    envelope = outcome
+    assert envelope.reason == "malformed-value", envelope.reason
+    assert envelope.key == DECISION_INSTANT_PARAMETER, envelope.key
+    assert envelope.kind == "product-request-violation", envelope.kind
+    # The internal wording is NOT asserted here, and deliberately: at `minimal`
+    # disclosure the envelope's `detail` is the disclosure layer's sentence, not
+    # the violation's own (`D-IMPL-254` — what crosses a consumer boundary is the
+    # disclosure step's decision). Asserting the internal text here would be
+    # asserting a leak. The kind, reason and key are what the caller is owed and
+    # what pins the refusal to its cause.
+
+
+def test_C1_the_same_instant_WITH_an_offset_serves(
+    booted_declaring_a_decision_instant: _Booted,
+) -> None:
+    """C1's positive control, and the reason the refusal above is about awareness.
+
+    The same literal, the same parameter, the same everything — only the offset
+    restored. If this were red the refusal above would prove nothing: a control
+    that refuses both halves is measuring the fixture, not the rule.
+    """
+    outcome = _ask(
+        _resolver(
+            booted_declaring_a_decision_instant,
+            decision_instant_parameter=DECISION_INSTANT_PARAMETER,
+        ),
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                DECISION_INSTANT_PARAMETER: DECIDED_AT_LITERAL,
+            }
+        ),
+    )
+    assert isinstance(outcome, ServedProduct)

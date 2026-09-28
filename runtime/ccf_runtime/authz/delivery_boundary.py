@@ -409,7 +409,13 @@ def govern_absence(
         perspective=Perspective(
             principal_id=grant.client_id, role=perspective.role
         ),
-        recorded_at=determined_at,
+        # `D-IMPL-358` step 5 section F: THE QUESTION'S INSTANT bounds the
+        # record. This read `determined_at`, while the comment below already
+        # claimed the boundary stayed the question's — the code did not do what
+        # the comment said. No control caught it because every one in
+        # `tests/authz/test_delivery_boundary.py` passed `asked_at=DETERMINED_AT`,
+        # so the two readings were the same assertion and neither could fail.
+        recorded_at=asked_at if asked_at is not None else determined_at,
         # `D-IMPL-358` step 5: the LIVE determination instant, carried beside
         # the record's own boundary rather than collapsed into it. Where an
         # `asked_at` exists the boundary stays the QUESTION's instant; where a
@@ -691,7 +697,13 @@ def govern_entitlement(
                 # positive absence when none was established (D-IMPL-260 P-D).
                 role=refused.role if refused.role is not None else NO_ROLE_RESOLVED,
             ),
-            recorded_at=determined_at,
+            # `D-IMPL-358` step 5 section F: THE QUESTION'S INSTANT bounds the
+            # record — see the sibling in `govern_absence` for why this was wrong
+            # and why no control caught it. `govern_dereference` below keeps
+            # `determined_at` and is NOT a third instance: a resource
+            # dereference takes no `asked_at`, so the ruled resource-form
+            # boundary (`D-IMPL-256` (1)) is the only instant it has.
+            recorded_at=asked_at if asked_at is not None else determined_at,
             # `D-IMPL-358` step 5: the LIVE determination instant, carried beside
             # the record's own boundary rather than collapsed into it. Where an
             # `asked_at` exists the boundary stays the QUESTION's instant; where a
