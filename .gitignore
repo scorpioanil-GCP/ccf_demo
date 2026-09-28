@@ -40,3 +40,14 @@ node_modules/
 # the output is not. `page/build_page.py` reproduces it from the tree.
 examples/*/page/*.html
 !examples/*/page/template.html
+
+# Census evidence — the INSTRUMENT is committed, its output is not.
+# `tools/estate_census/` is reviewable in the repository (`D-IMPL-358` ruling 8);
+# what a run of it produces is not. Two separate reasons, both load-bearing:
+# raw evidence that still carried a credential would become permanent in history,
+# and a committed run would read as the census's answer long after the estate had
+# moved past it. Reproduce with `python -m tools.estate_census`.
+census-evidence/
+*.census.json
+*.census.xml
+*.census.log

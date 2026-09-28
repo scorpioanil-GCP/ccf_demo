@@ -220,6 +220,7 @@ gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `mak
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/product_gates_tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/check_version_stamp_tests -q
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/estate_census_tests -q
 
 # SEC-029 / D-IMPL-357 §D: the belt half of the version-stamp control. A no-op
 # off a tag (HEAD is not an exact `v*` tag — the ordinary state of every branch
