@@ -136,3 +136,23 @@ of step 5.
 - After: `temporal_boundary: str | None` — the canonical key the derivation minted, or `None` when the config declared no section. The key is always `temporal_boundary_policy_key(tenant_id=config.tenant_id)`; an author cannot override it, and stating `key`, `class_id`, `role` or `registration` inside the section is **refused by name** rather than ignored or honored. A section present with no top-level `tenant_id` is refused rather than keyed class-only or given an invented tenant
 - Why: `D-IMPL-358` step 5 section A7. A caller that booted a deployment needs the address the policy was registered under without re-deriving it, and re-derivation at the call site is how two spellings of one key appear in one fabric
 - Migration: additive; a reader that ignores the field is unaffected
+
+## ccf.products.composite.compose_children
+
+- Surface: ccf.products.composite.compose_children
+- Public surface: true
+- Change type: reshaped
+- Before: `compose_children(..., ttl_anchor_at, decided_at, validity_floors)` — the mixing law measured each constituent's remaining validity from the DECISION instant
+- After: the parameter is `evaluated_at` and the resolver supplies `served_at`. **The rename came with the value, deliberately:** a parameter named for one instant while carrying another is how the next reader re-derives the wrong one, and `D-IMPL-358` step 5 section I forbids leaving a variable named `decided_at` carrying `served_at`
+- Why: how much validity a constituent has LEFT is a fact about the moment the answer is handed over, not about when the parent's question was decided. The function's own comment already said "a fact about now"; section I made "now" literal
+- Migration: callers pass `evaluated_at`. Measured: one production caller (the resolver) and three in tests. The `D-IMPL-341` C11 control is migrated and **strengthened** — the fixture's three candidate instants are fifteen, ten and three minutes of remaining validity, so the new floor pair (four minutes refuses, two serves) separates all three readings where the old pair (twelve and nine) could only tell the evidence anchor from the decision
+
+## ccf.controlplane.artifacts.TtlBinding
+
+- Surface: ccf.controlplane.artifacts.TtlBinding
+- Public surface: true
+- Change type: reshaped
+- Before: each window was validated positive independently, and nothing compared them. A binding declaring `product_ttl_seconds` ABOVE its own `max_ttl_seconds` parsed cleanly — measured, it was accepted — and then failed Gate 3 on every single request as a governed `ttl-refusal`
+- After: a model validator refuses that declaration at parse time. The boundary is INCLUSIVE (equal windows are admissible), matching Gate 3's own `expires_at <= now + MAX_TTL`
+- Why: `D-IMPL-358` step 5 section H1. A binding that cannot ever serve is an operator's configuration error, and reporting it to the caller as a governed refusal on every question misattributes it to the party who cannot fix it — while nothing anywhere names the actual cause
+- Migration: a deployment carrying such a binding now fails at boot instead of at every serve. It is **refused, never clamped**: silently lowering the product window would make the deployment serve under a TTL nobody declared — a value the fabric chose standing in for one the operator did not, which is the No-Hardcoding Rule's failure mode in miniature

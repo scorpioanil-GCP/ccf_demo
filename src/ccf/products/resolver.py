@@ -3094,10 +3094,14 @@ class GovernedResolver:
                 # branches now, which is what `D-IMPL-308` says it is:
                 # the TTL runs from when the answer was PRODUCED.
                 ttl_anchor_at=anchored_at,
-                # AND THE DECISION INSTANT, for the mixing law alone: how much
-                # validity a child has LEFT is a fact about now, not about the
-                # parent's evidence (`D-IMPL-341` review).
-                decided_at=decided_at,
+                # AND THE INSTANT THE COMPOSITION IS EVALUATED AT, for the
+                # mixing law alone: how much validity a child has LEFT is a fact
+                # about now, not about the parent's evidence (`D-IMPL-341`
+                # review). `D-IMPL-358` step 5 section I made "now" literal —
+                # this is `served_at`, the instant the answer is handed over,
+                # and the parameter was renamed with the value so no variable
+                # named `decided_at` carries it.
+                evaluated_at=served_at,
                 validity_floors=registered.constituent_validity_floors,
             )
             if composed is not None and composed.factors is not None:

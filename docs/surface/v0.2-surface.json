@@ -5855,7 +5855,7 @@
       },
       "compose_children": {
         "kind": "function",
-        "shape": "(*, own_factors: 'DebtFactors', requirements: 'Sequence[ChildRequirement]', outcomes: 'Mapping[str, object]', asked_at: 'datetime', composition_invocation: 'str', own_lineage: 'ProductLineage', max_ttl: 'MaxTTL', ttl_anchor_at: 'datetime', decided_at: 'datetime', validity_floors: 'ConstituentValidityFloors') -> 'CompositionOutcome'"
+        "shape": "(*, own_factors: 'DebtFactors', requirements: 'Sequence[ChildRequirement]', outcomes: 'Mapping[str, object]', asked_at: 'datetime', composition_invocation: 'str', own_lineage: 'ProductLineage', max_ttl: 'MaxTTL', ttl_anchor_at: 'datetime', evaluated_at: 'datetime', validity_floors: 'ConstituentValidityFloors') -> 'CompositionOutcome'"
       },
       "invocation_from_dispatch": {
         "kind": "function",

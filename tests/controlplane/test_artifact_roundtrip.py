@@ -921,3 +921,63 @@ def test_every_sdk_artifact_class_has_a_round_trip_case() -> None:
     """
     assert CASES, "the case list is empty; this module would prove nothing"
     assert set(SDK_ARTIFACT_CLASSES) <= set(_IDS)
+
+
+# --- `D-IMPL-358` step 5 section H1: a TTL binding that cannot serve -----------
+
+
+def test_H1_a_product_window_above_its_own_ceiling_is_refused_at_declaration() -> None:
+    """H1. The misdeclaration is an operator's error and is named as one.
+
+    Gate 3 holds ``expires_at <= now + MAX_TTL``, so a binding whose product
+    window exceeds its own ceiling can never serve: every request against it
+    refuses. Measured before the repair — the binding was ACCEPTED, and the
+    failure surfaced at runtime as a governed `ttl-refusal`, a caller-facing "no"
+    for what is entirely the operator's configuration error, repeated on every
+    question with nothing anywhere naming the cause.
+    """
+    with pytest.raises(ArtifactLoadError):
+        parse_artifact(
+            {
+                "semver": "1.0.0",
+                "max_ttl_seconds": 3600,
+                "product_ttl_seconds": 7200,
+            },
+            TTL_BINDING,
+        )
+
+
+def test_H1_the_boundary_is_inclusive_and_a_valid_binding_still_parses() -> None:
+    """The positive control, and the boundary case that pins which way it reads.
+
+    Equal windows are ADMISSIBLE: Gate 3's comparison is ``<=``, so a product
+    whose window exactly equals the ceiling passes it. A validator written with
+    ``>=`` would refuse a legal declaration and this is the only test that would
+    notice.
+    """
+    parsed = parse_artifact(
+        {"semver": "1.0.0", "max_ttl_seconds": 3600, "product_ttl_seconds": 3600},
+        TTL_BINDING,
+    )
+    assert parsed is not None
+
+
+def test_H1_the_refusal_is_a_declaration_error_and_never_a_silent_clamp() -> None:
+    """Refused, not repaired.
+
+    A clamp would let the deployment serve while answering under a TTL nobody
+    declared — a value the fabric chose standing in for one the operator did not,
+    which is the No-Hardcoding Rule's failure mode in miniature. This asserts the
+    refusal SAYS so, because the next reader's instinct on seeing this validator
+    will be to make it clamp.
+    """
+    with pytest.raises(ArtifactLoadError) as raised:
+        parse_artifact(
+            {
+                "semver": "1.0.0",
+                "max_ttl_seconds": 60,
+                "product_ttl_seconds": 61,
+            },
+            TTL_BINDING,
+        )
+    assert "NOT clamped" in str(raised.value), str(raised.value)

@@ -333,7 +333,7 @@ partitioned.
 | `G13` | a refusal carries the governing F/C/S decomposition | **SDK control** (`tests/products/test_d_impl_338_refusal_evidence.py`) |
 | `G15` | determinism | **SDK control AND example-level gate** — in-process by `test_delivery_determinism.py`; across processes by cp-06-canonical's and cp-03-canonical's door gates, not by an SDK test |
 | `G16` | resolution and auditability kept apart (TRAP 1a) | **example-level gate only** (cp-13-canonical `CXRC-G01`/`G02`); no SDK test |
-| `G21` | mixing floors bind | **SDK control** (`test_composite.py` floor tests; `test_d_impl_341_ttl_anchor.py::test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant`) |
+| `G21` | mixing floors bind | **SDK control** (`test_composite.py` floor tests; `test_d_impl_341_ttl_anchor.py::test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant` — renamed from `…_from_the_decision_instant` by `D-IMPL-358` step 5 section I, AFTER this qualification ran; the control is the same one) |
 | `G24` | the empty-string `sic` guard on CION | **uncovered** — the consumer's own projection logic; no SDK control can carry it; open with the memo specification |
 | `G25` | no policy, no serve | **partial** — SDK half controlled (`test_policy_constraints.py`, `test_provenance_semantics.py`); the policy-version lookup by date has no control; open with the memo specification |
 

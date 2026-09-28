@@ -381,6 +381,7 @@ _MARKED_IN_THE_TREE = frozenset(
         # that document is never content-hashed into anything, and the mark
         # says so structurally rather than leaving the lint to ask.
         "ccf.controlplane.artifacts.DeploymentConfig.ttl",
+        "ccf.controlplane.artifacts.DeploymentConfig.temporal_boundary",
         "ccf.controlplane.artifacts.DeploymentConfig.door",
         "ccf.controlplane.artifacts.DeploymentConfig.agent",
         "ccf.controlplane.artifacts.DeploymentConfig.skills",

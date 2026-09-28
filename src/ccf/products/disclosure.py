@@ -190,15 +190,27 @@ WITHHELD: Final[str] = "undisclosed"
 #: ``tests/products/test_disclosure.py``, so a kind added to the vocabulary
 #: without a sentence is a red build rather than a shell with no statement.
 EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
-    # `D-IMPL-358` step 5. ONE statement for all three reasons, deliberately:
-    # which of them applied is the promoted `reason`, and the statement must not
-    # tell an external consumer that a TENANT IS MISCONFIGURED — that is the
-    # operator's fact, not the caller's, and it is exactly the kind of internal
-    # state the minimal level exists to withhold. So the statement says what is
-    # true of every reason and nothing more.
+    # `D-IMPL-358` step 5 (section G1 corrected this). ONE statement for all
+    # three reasons, deliberately: which of them applied is the promoted
+    # `reason`, and the statement must not tell an external consumer that a
+    # TENANT IS MISCONFIGURED — that is the operator's fact, not the caller's,
+    # and it is exactly the kind of internal state the minimal level exists to
+    # withhold.
+    #
+    # **The first draft of this sentence was FALSE for one of the three reasons**
+    # and is kept here because the mistake is instructive: it read *"the instant
+    # this question reaches is outside the window this tenant answers for"*,
+    # which asserts that a window EXISTS and the question fell outside it. On the
+    # `temporal-boundary-undeclared` reason no window exists at all, so the
+    # sentence told the caller something untrue while the comment above it
+    # claimed the statement was *"true of every reason"* — the claim and the
+    # sentence disagreed and nothing checked either.
+    #
+    # The replacement is true on all three without naming which: a tenant that
+    # declared no bound answers for no instant, and a tenant whose bound the
+    # question falls outside does not answer for that one.
     "temporal-bound-refusal": (
-        "the instant this question reaches is outside the window this tenant"
-        " answers for"
+        "this tenant does not answer for the instant this question names"
     ),
     # The gate family (whitepaper §7.6) and the attestation gate beside it. A
     # candidate existed and a declared gate did not admit it; which gate is the

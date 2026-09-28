@@ -2508,6 +2508,36 @@ class TtlBinding(VersionedArtifact):
             )
         return value
 
+    @model_validator(mode="after")
+    def _a_product_window_fits_inside_its_own_ceiling(self) -> "TtlBinding":
+        """`D-IMPL-358` step 5 section H1: refuse the misdeclaration AT DECLARATION.
+
+        A binding whose product window exceeds its own class ceiling cannot ever
+        serve: Gate 3 holds ``expires_at <= now + MAX_TTL``, so every request
+        against it refuses. Before this, that refusal arrived at RUNTIME as a
+        governed ``ttl-refusal`` — a caller-facing "no" for what is entirely the
+        operator's configuration error, repeated on every question, with nothing
+        anywhere naming the actual cause.
+
+        **Refused, never clamped.** Silently lowering the product window to the
+        ceiling would make the deployment serve while answering under a TTL
+        nobody declared, which is the No-Hardcoding Rule's failure mode in
+        miniature: a value the fabric chose standing in for one the operator did
+        not. A declaration that cannot mean what it says is refused by name.
+        """
+        if self.product_ttl_seconds > self.max_ttl_seconds:
+            raise ValueError(
+                f"product_ttl_seconds {self.product_ttl_seconds} exceeds this"
+                f" binding's own max_ttl_seconds {self.max_ttl_seconds}, so every"
+                " product served under it would fail Gate 3"
+                " (expires_at <= now + MAX_TTL, INV-CH7-48). This is a"
+                " declaration error and is refused here rather than becoming a"
+                " governed TTL refusal on every request; it is NOT clamped,"
+                " because a window the fabric chose is not the window the"
+                " deployment declared (D-IMPL-358 step 5 section H1)"
+            )
+        return self
+
 
 #: A deployment's TTL binding (`D-IMPL-343`; SDK-defined per CLAUDE.md §11).
 TTL_BINDING = ArtifactClass(class_id="ccf.ttl-binding", contract=TtlBinding)
