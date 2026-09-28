@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1766 entries**, of which **1506** name a public Python surface.
+**1769 entries**, of which **1509** name a public Python surface.
 
 ## Added
 
@@ -16272,7 +16272,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-494 entries — 306 public Python surface, 188 not public Python API.
+497 entries — 309 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -21924,6 +21924,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: one statement covering all three reasons, chosen so that it does not tell an external consumer a tenant is MISCONFIGURED — that is the operator's fact and exactly the internal state the minimal level exists to withhold. `PERMITTED_AT_MINIMAL` permits the two declared bounds and nothing else, on the `ttl-refusal` precedent: a declared ceiling is actionable, the fabric's own instants are not, and the policy key never crosses
 - Why: `D-IMPL-358` step 5 with `D-IMPL-254` — what crosses a consumer boundary is the disclosure step's decision and no refusal type's
 - Migration: none for existing kinds. At minimal, the undeclared reason discloses nothing actionable, correctly: nothing the caller could do would fix it
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.constraints.constraints_in_force
+
+- Surface: ccf.products.constraints.constraints_in_force
+- Public surface: true
+- Change type: reshaped
+- Before: `constraints_in_force(control_plane, *, asked_at)` — the effectivity window was selected at the question's own instant
+- After: `constraints_in_force(control_plane, *, served_at)`. A REQUIRED keyword with no default; the parameter is renamed rather than added beside, because its only job is the effectivity window and a retained `asked_at` would be an unused parameter inviting the two readings to diverge. `_require_aware` follows the instant — there is no implicit UTC in this fabric, and comparing a naive instant against an aware window answers for the wrong hour rather than raising
+- Why: `D-IMPL-358` step 5 ruling B. A constraint that became effective after a question was asked but before it was answered now governs the answer, so a tenant that tightens a bound at noon has it in force at noon rather than from whenever the oldest in-flight question happened to be asked
+- Migration: **every caller passes `served_at`, enforced as a type error rather than a silent default.** The superseded reasoning (`D-IMPL-253` Q6 — *"asked_at, absolutely. Otherwise replay of the same historical decision can resolve a different policy"*) is retained in the docstring because it names the risk that had to be answered before the instant could move; that risk is closed by a different mechanism, which is why the move is safe. Replay never re-derives effectivity: it resolves each binding at the version the record pinned, `ReplayResolver` has no `resolve_latest` to reach for, and nothing under `ccf/replay/` imports this module
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.constraints.applicable
+
+- Surface: ccf.products.constraints.applicable
+- Public surface: true
+- Change type: reshaped
+- Before: `applicable(constraint, *, product_class, tenant, perspective_role, intent, asked_at)`
+- After: the same four axes with `served_at` in place of `asked_at`. The four axes are unchanged; only the window reading moved, and the docstring now states which ruling amended which
+- Why: `D-IMPL-358` step 5 ruling B. `applicable` and `constraints_in_force` share one `_in_window` reading precisely so the fabric cannot answer *"which policy was in force?"* two ways at two layers — so the instant had to move in both or in neither
+- Migration: callers pass `served_at`. Measured: `applicable` has two executable callers and both are inside this module, so no external caller is affected
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: reshaped
+- Before: no instant parameter — the function took `request` and re-checked applicability at `request.asked_at` on its own
+- After: a REQUIRED keyword-only `served_at: datetime`. **This is the parameter whose absence would have made the whole change cosmetic.** The function independently RE-EVALUATES applicability, so a constraint set selected at `served_at` upstream would have been silently re-filtered at `request.asked_at` here — the selection undone with no error and no test red. A default would have let exactly that pass
+- Why: `D-IMPL-358` step 5 ruling B, which names all three layers for this reason. The function stays pure: the instant arrives as an argument and no clock is read
+- Migration: every caller passes `served_at`, including `ReferencePolicyConstraintResolver.resolve` and the `PolicyConstraintResolver` Protocol, which gain the same required keyword. A deployment substituting its own resolver conforms to the new signature or fails the Protocol check
 
 *Recorded by `358-05-trusted-time.md`.*
 

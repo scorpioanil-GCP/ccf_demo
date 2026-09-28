@@ -6005,15 +6005,15 @@
       },
       "applicable": {
         "kind": "function",
-        "shape": "(constraint: 'PolicyConstraint', *, product_class: 'str', tenant: 'str', perspective_role: 'str', intent: 'str', asked_at: 'datetime') -> 'bool'"
+        "shape": "(constraint: 'PolicyConstraint', *, product_class: 'str', tenant: 'str', perspective_role: 'str', intent: 'str', served_at: 'datetime') -> 'bool'"
       },
       "constraints_in_force": {
         "kind": "function",
-        "shape": "(control_plane: '_ConstraintSource', *, asked_at: 'datetime') -> 'tuple[PinnedConstraint, ...]'"
+        "shape": "(control_plane: '_ConstraintSource', *, served_at: 'datetime') -> 'tuple[PinnedConstraint, ...]'"
       },
       "resolve_effective_request": {
         "kind": "function",
-        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'ResolutionOutcome'"
+        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', served_at: 'datetime', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'ResolutionOutcome'"
       }
     }
   },

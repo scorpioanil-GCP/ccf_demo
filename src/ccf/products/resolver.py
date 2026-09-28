@@ -2501,6 +2501,12 @@ class GovernedResolver:
             )
 
         outcome = self.constraint_resolver.resolve(
+            # `D-IMPL-358` step 5 ruling B: effectivity at the TRUSTED serve
+            # instant — the one this invocation read once at entry. The graph is
+            # still read at `request.asked_at` below, which keeps the two axes
+            # separate: a question about last quarter stays about last quarter
+            # while the policy governing the answer is today's.
+            served_at=served_at,
             product_class=product_class,
             request=request,
             declared=declared,

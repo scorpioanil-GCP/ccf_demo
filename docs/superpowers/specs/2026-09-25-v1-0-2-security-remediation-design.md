@@ -987,7 +987,7 @@ naming the changed symbols: 49.
 - `tests/products/test_delivery_determinism.py::test_a_fulfilled_product_is_the_same_determination_twice`
   (`:467`), `::test_a_subject_unavailable_refusal_is_the_same_determination_twice`
   (`:830`) and `:486` (record address) — under a pinned clock.
-- `tests/products/test_delivery_determinism.py::test_moving_asked_at_across_the_effectivity_boundary_changes_the_determination`
+- `tests/products/test_delivery_determinism.py::test_moving_served_at_across_the_effectivity_boundary_changes_the_determination`
   (`:937`; the self-declared `D-IMPL-253` Q6 control) — rewrite so the two
   asks share one `asked_at` and pin two `served_at` values either side of
   `BOUNDARY`, asserting the policy and its pin move with `served_at` and not

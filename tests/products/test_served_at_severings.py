@@ -40,6 +40,7 @@ from ccf.replay.record import ContentGenerationPath, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
 from tests.products.test_resolver_seam import (  # noqa: F401 — fixtures
     ADMITTED_AT,
+    ASKED_AT,
     PERSPECTIVE,
     _Booted,
     _arguments,
@@ -135,7 +136,15 @@ def test_V1_severing_hoist_reverted(tmp_path: Path, booted: _Booted) -> None:
         tmp_path,
         "src/ccf/products/resolver.py",
         (
-            ("        served_at = self.admission_clock()", "        served_at = None"),
+            # RE-AIMED at step 5. At step 4 this severed the read to `None`,
+            # which was enough when `served_at` fed only the capture. Step 5 makes
+            # it feed policy effectivity too, so `None` now crashes in
+            # `_require_aware` — a red, but a crude one that proves less than it
+            # could. The severing is now the REALISTIC wrong implementation, the
+            # one a hurried author would actually write: reuse the question's own
+            # instant. It costs three controls at once — the capture, the
+            # read-once count, and effectivity.
+            ("        served_at = self.admission_clock()", "        served_at = request.asked_at"),
             ("            admitted_at = served_at", "            admitted_at = self.admission_clock()"),
         ),
         "V1-hoist-reverted",
@@ -146,8 +155,14 @@ def test_V1_severing_hoist_reverted(tmp_path: Path, booted: _Booted) -> None:
     broken = _ask(module.GovernedResolver(**arguments), _request())
     assert isinstance(broken, ServedProduct), broken
     assert reads == [], "the severing cost nothing — the clock is still read at entry"
-    assert _served_record(booted, broken).content_generation_path.served_at is None, (
-        "the severing cost nothing — served_at is still captured"
+    # The severed record does not LACK an instant — it carries the WRONG one, and
+    # says the answer was served at the moment the question was asked. A lie is
+    # worse evidence than a gap, which is what makes this the severing worth
+    # running: the record still looks complete.
+    recorded = _served_record(booted, broken).content_generation_path.served_at
+    assert recorded == ASKED_AT, "the severing did not take"
+    assert recorded != ADMITTED_AT, (
+        "the severing cost nothing — the trusted clock still reached the record"
     )
 
 

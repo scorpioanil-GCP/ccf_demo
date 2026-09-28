@@ -597,6 +597,7 @@ def test_a_class_default_the_contract_does_not_declare_is_refused() -> None:
             tenant=TENANT,
             class_defaults={DEBT_TOLERANCE_PARAMETER: CLASS_DEFAULT},
             class_source=pin,
+            served_at=request.asked_at,
         )
 
     # And the control: the same call with the parameter DECLARED resolves.
@@ -627,6 +628,7 @@ def test_a_class_default_the_contract_does_not_declare_is_refused() -> None:
         tenant=TENANT,
         class_defaults={DEBT_TOLERANCE_PARAMETER: CLASS_DEFAULT},
         class_source=pin,
+        served_at=request.asked_at,
     )
     assert resolved.refusal is None, resolved.refusal
     tolerance = resolved.evidence.parameter(DEBT_TOLERANCE_PARAMETER)
@@ -680,4 +682,5 @@ def test_a_class_default_with_no_pin_is_refused() -> None:
             tenant=TENANT,
             class_defaults={DEBT_TOLERANCE_PARAMETER: CLASS_DEFAULT},
             class_source=None,
+            served_at=request.asked_at,
         )

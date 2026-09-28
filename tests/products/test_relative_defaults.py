@@ -150,6 +150,7 @@ def _resolve(
         verified_overrides=(),
         perspective=PERSPECTIVE,
         tenant=TENANT,
+        served_at=request.asked_at,
     )
 
 

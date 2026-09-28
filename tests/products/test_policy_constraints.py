@@ -222,6 +222,7 @@ def _resolve(
         verified_overrides=overrides,
         perspective=PERSPECTIVE,
         tenant=TENANT,
+        served_at=request.asked_at,
     )
 
 
@@ -929,7 +930,7 @@ def test_the_effectivity_window_is_half_open_at_its_end() -> None:
         tenant=TENANT,
         perspective_role=ROLE,
         intent=INTENT,
-        asked_at=INSTANT,
+        served_at=INSTANT,
     )
     assert applicable(
         constraint,
@@ -937,7 +938,7 @@ def test_the_effectivity_window_is_half_open_at_its_end() -> None:
         tenant=TENANT,
         perspective_role=ROLE,
         intent=INTENT,
-        asked_at=INSTANT - timedelta(seconds=1),
+        served_at=INSTANT - timedelta(seconds=1),
     )
 
 
@@ -958,7 +959,7 @@ def test_a_naive_asked_at_is_refused() -> None:
             tenant=TENANT,
             perspective_role=ROLE,
             intent=INTENT,
-            asked_at=naive,
+            served_at=naive,
         )
 
     request = _request(**{DEPTH: 8}).model_copy(update={"asked_at": naive})

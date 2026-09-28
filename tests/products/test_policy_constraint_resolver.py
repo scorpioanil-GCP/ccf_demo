@@ -273,6 +273,7 @@ def _resolve(
     registry: ControlPlaneRegistry,
     *,
     asked_at: datetime,
+    served_at: datetime | None = None,
     perspective: Perspective = ENTITLED,
     overrides: tuple[str, ...] = (),
     entitlement_key: str | None = None,
@@ -297,6 +298,11 @@ def _resolve(
         intent="fixture-intent",
         tenant=TENANT,
         capabilities=(),
+        # `D-IMPL-358` step 5 ruling B: effectivity is evaluated at the TRUSTED
+        # serve instant. Defaults to `asked_at` in this helper only so the
+        # suite's pre-existing cases keep asserting what they asserted; every
+        # case that cares passes the two instants apart.
+        served_at=asked_at if served_at is None else served_at,
     )
 
 
@@ -418,6 +424,67 @@ def test_a_request_inside_the_first_window_resolves_the_first_constraint(
     assert _constraint_pins(resolved) == ((KEY_A, version_a),)
 
 
+def test_E1_a_constraint_effective_after_asked_at_but_before_served_at_applies(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """E1 (`D-IMPL-358` step 5 ruling B). **Built before the change it proves.**
+
+    The two instants are pulled APART: the question asks as of ``BEFORE_T1``,
+    inside constraint ``a``'s window, and the trusted serve instant is ``T1``,
+    where ``b`` is in force. A constraint that became effective after the question
+    was asked but before the answer was served **governs the live serve**.
+
+    **This control discriminates, and its predecessors do not.** Measured across
+    522 test files, nothing registered a windowed constraint alongside a differing
+    clock — so the whole suite could stay green while effectivity was evaluated at
+    the wrong instant. Its sibling boundary test is green either way because its
+    pinned instant happens to be in the past relative to wall time, which is a
+    calendar accident rather than a guard.
+
+    **It fails if EITHER layer still reads ``asked_at``.** Selection happens in
+    `ccf/products/constraints.py::constraints_in_force`, and
+    `ccf/products/constraints.py::resolve_effective_request` then RE-CHECKS
+    applicability on its own — so a served-at selection upstream would be silently
+    re-filtered downstream unless both take the instant. Asserting the resolved
+    VALUE rather than the pin roster is what makes one assertion cover both: only
+    ``b`` yields ``MAXIMUM_LATE``.
+    """
+    _version_a, version_b = _register_two_windows(registry)
+
+    resolved = _resolve(registry, asked_at=BEFORE_T1, served_at=T1)
+
+    assert resolved.refusal is None, resolved.refusal
+    evidence = resolved.evidence
+    tolerance = evidence.parameter(DEBT_TOLERANCE_PARAMETER)
+    assert tolerance is not None
+    assert tolerance.value == MAXIMUM_LATE, (
+        "effectivity was evaluated at asked_at: the question's own instant is"
+        " inside constraint `a`'s window, and only a served_at reading reaches `b`"
+    )
+    assert tolerance.authority == "policy"
+    assert _constraint_pins(evidence) == ((KEY_B, version_b),), (
+        "the pinned constraint must be the one that governed the LIVE serve"
+    )
+
+
+def test_E1_the_graph_boundary_stays_on_the_question_while_policy_moves(
+    registry: ControlPlaneRegistry,
+) -> None:
+    """The two axes are separate, and this is the half that must NOT move.
+
+    Ruling B: *"Graph reads stay at asked_at."* So the effective request that
+    comes back still carries the question's own instant — a resolution that
+    quietly advanced it to the serve instant would answer a different question
+    than the one asked, which is the defect `asked_at` exists to prevent.
+    """
+    _register_two_windows(registry)
+    resolved = _resolve(registry, asked_at=BEFORE_T1, served_at=T1)
+    assert resolved.refusal is None, resolved.refusal
+    assert resolved.evidence.asked_at == BEFORE_T1, (
+        "the question's instant moved; only the POLICY reading is at served_at"
+    )
+
+
 def test_a_request_at_the_boundary_instant_resolves_the_second(
     registry: ControlPlaneRegistry,
 ) -> None:
@@ -451,7 +518,7 @@ def test_the_two_windows_never_resolve_together(
     _register_two_windows(registry)
 
     for instant in (T0, BEFORE_T1, T1, T1 + timedelta(days=365)):
-        in_force = constraints_in_force(registry, asked_at=instant)
+        in_force = constraints_in_force(registry, served_at=instant)
         assert len(in_force) == 1, instant
         expected = KEY_A if instant < T1 else KEY_B
         assert in_force[0].key == expected, instant
@@ -547,7 +614,7 @@ def test_two_versions_of_one_key_in_force_at_once_is_a_conflict(
     assert first != second
 
     with pytest.raises(ConstraintEffectivityConflict) as raised:
-        constraints_in_force(registry, asked_at=BEFORE_T1)
+        constraints_in_force(registry, served_at=BEFORE_T1)
 
     message = str(raised.value)
     assert KEY_A in message
@@ -582,7 +649,7 @@ def test_a_superseded_version_of_one_key_is_not_a_conflict(
         POLICY_CONSTRAINT,
     )
 
-    in_force = constraints_in_force(registry, asked_at=T1)
+    in_force = constraints_in_force(registry, served_at=T1)
 
     assert [(pin.key, pin.version) for pin in in_force] == [(KEY_A, later)]
 

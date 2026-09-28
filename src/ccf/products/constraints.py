@@ -511,7 +511,7 @@ def applicable(
     tenant: str,
     perspective_role: str,
     intent: str,
-    asked_at: datetime,
+    served_at: datetime,
 ) -> bool:
     """Does this constraint reach this request, at this instant?
 
@@ -523,9 +523,29 @@ def applicable(
     end is stated, half-open so a constraint that ends at the instant another
     begins never applies twice.
 
-    Evaluated at ``asked_at`` and never at "now" (``D-IMPL-253`` Q6, Dave:
-    *"asked_at, absolutely. Otherwise replay of the same historical decision
-    can resolve a different policy."*).
+    **AMENDED by `D-IMPL-358` step 5 ruling B: evaluated at ``served_at``, the
+    trusted live instant, and not at ``asked_at``.** The superseded reasoning is
+    kept because it names the risk that had to be answered — ``D-IMPL-253`` Q6,
+    Dave: *"asked_at, absolutely. Otherwise replay of the same historical
+    decision can resolve a different policy."*
+
+    That risk is real and is closed by a DIFFERENT mechanism, which is why the
+    instant could move. Replay never re-derives effectivity at all: it resolves
+    each binding at the version the record pinned
+    (`ccf/replay/engine.py::_resolve_bindings`), `ReplayResolver` has no
+    ``resolve_latest`` method to reach for, and nothing under `ccf/replay/`
+    imports this module. So a historical decision replays against the constraint
+    that governed it because the RECORD says which one did — not because this
+    function would select the same one again.
+
+    What the change buys is the live half: a constraint that became effective
+    after a question was asked but before it was answered now governs the answer.
+    A tenant that tightens a bound at noon has it in force at noon, rather than
+    from whenever the oldest in-flight question happened to be asked.
+
+    **The two axes stay separate.** This is the POLICY reading. The graph is
+    still read at ``request.asked_at``, which is what keeps a question about last
+    quarter a question about last quarter.
 
     Args:
         constraint: The artifact.
@@ -546,7 +566,10 @@ def applicable(
             an aware effectivity window would either raise deep inside a
             comparison or, worse, silently answer for the wrong hour.
     """
-    _require_aware(asked_at)
+    # `D-IMPL-358` step 5: the guard follows the instant. There is no implicit
+    # UTC in this fabric, and comparing a naive instant against an aware
+    # effectivity window would answer for the wrong hour rather than raise.
+    _require_aware(served_at)
     axes = (
         (constraint.applies_to.product_class, product_class),
         (constraint.applies_to.tenant, tenant),
@@ -556,24 +579,25 @@ def applicable(
     for narrowed, presented in axes:
         if narrowed is not None and narrowed != presented:
             return False
-    return _in_window(constraint, asked_at=asked_at)
+    return _in_window(constraint, served_at=served_at)
 
 
-def _in_window(constraint: PolicyConstraint, *, asked_at: datetime) -> bool:
-    """Is ``asked_at`` inside this constraint's effectivity window?
+def _in_window(constraint: PolicyConstraint, *, served_at: datetime) -> bool:
+    """Is ``served_at`` inside this constraint's effectivity window?
 
-    Half-open — ``effective_from <= asked_at < effective_until`` — so a
+    Half-open — ``effective_from <= served_at < effective_until`` — so a
     constraint that ends at the instant another begins never applies twice.
 
     One reading, called from both :func:`applicable` (which also holds the four
     axes) and :func:`constraints_in_force` (which selects by the window alone,
     before any axis is known). Two copies of a comparison this small are how a
     fabric comes to answer *"which policy was in force?"* two different ways at
-    two different layers.
+    two different layers — and `D-IMPL-358` step 5 makes that reason sharper, not
+    weaker: the instant this reads changed, and it changed in ONE place.
     """
-    if constraint.effective_from > asked_at:
+    if constraint.effective_from > served_at:
         return False
-    return constraint.effective_until is None or asked_at < constraint.effective_until
+    return constraint.effective_until is None or served_at < constraint.effective_until
 
 
 def _fold(
@@ -791,10 +815,19 @@ def resolve_effective_request(
     verified_overrides: tuple[OverrideRecord, ...],
     perspective: Perspective,
     tenant: str,
+    served_at: datetime,
     class_defaults: Mapping[str, Any] | None = None,
     class_source: ProvenanceSource | None = None,
 ) -> ResolutionOutcome:
     """The one resolution: defaults, caller, policy, capability, validation.
+
+    ``served_at`` is a REQUIRED keyword with no default (`D-IMPL-358` step 5
+    ruling B). It is the instant policy EFFECTIVITY is judged at, and it arrives
+    as an argument because this function is pure and reads no clock. The re-check
+    below is why a default would have been dangerous: this function independently
+    re-evaluates applicability, so a selection made at ``served_at`` upstream
+    would have been silently re-filtered at ``request.asked_at`` here, and the
+    two layers would answer *"which policy was in force?"* two different ways.
 
     Whitepaper §7.8; SDK-defined per CLAUDE.md §11 (``D-IMPL-253`` Q4-Q8,
     ``D-IMPL-254``). The sequence and its reasons are in the module docstring.
@@ -1038,7 +1071,8 @@ def resolve_effective_request(
             tenant=tenant,
             perspective_role=perspective.role,
             intent=request.intent,
-            asked_at=request.asked_at,
+            # `D-IMPL-358` step 5 ruling B: the SAME instant the selection used.
+            served_at=served_at,
         ):
             continue
         if pinned.constraint.overridable and pinned.constraint.policy_id in honored:
@@ -1269,12 +1303,17 @@ class _ConstraintSource(Protocol):
 
 
 def constraints_in_force(
-    control_plane: _ConstraintSource, *, asked_at: datetime
+    control_plane: _ConstraintSource, *, served_at: datetime
 ) -> tuple[PinnedConstraint, ...]:
-    """Every policy constraint the Control Plane holds in force at ``asked_at``.
+    """Every policy constraint the Control Plane holds in force at ``served_at``.
+
+    `D-IMPL-358` step 5 ruling B: the TRUSTED serve instant, not the question's.
+    See :func:`applicable` for why the instant moved and why replay is unaffected.
 
     SDK-defined (CLAUDE.md §11); whitepaper §7.8, and ``D-IMPL-253`` Q6 in
-    Dave's words: *"asked_at, absolutely. Otherwise replay of the same
+    The superseded reasoning, kept because it names the risk that had to be
+    answered before the instant could move — Dave's words: *"asked_at,
+    absolutely. Otherwise replay of the same
     historical decision can resolve a different policy."*
 
     The walk is four steps and each is the one it is for a reason:
@@ -1294,7 +1333,8 @@ def constraints_in_force(
 
     Args:
         control_plane: The Control Plane's read surface.
-        asked_at: The request's own instant. Timezone-aware, always.
+        served_at: The TRUSTED serve instant (`D-IMPL-358` step 5 ruling B),
+            supplied by the caller that read the fabric clock once. Timezone-aware, always.
 
     Returns:
         One :class:`PinnedConstraint` per key in force, ordered by key so two
@@ -1304,14 +1344,14 @@ def constraints_in_force(
 
     Raises:
         ConstraintEffectivityConflict: two versions of one key are both in
-            force at ``asked_at``.
-        TypeError: ``asked_at`` is zone-less, or a key bound to the constraint
+            force at ``served_at``.
+        TypeError: ``served_at`` is zone-less, or a key bound to the constraint
             class holds something that is not a
             :class:`~ccf.controlplane.artifacts.PolicyConstraint` — a
             registration that bypassed the typed path, and a broken deployment
             rather than a governed determination.
     """
-    _require_aware(asked_at)
+    _require_aware(served_at)
     pinned: list[PinnedConstraint] = []
     for key in sorted(control_plane.keys_of_class(POLICY_CONSTRAINT.class_id)):
         in_force: list[tuple[str, PolicyConstraint]] = []
@@ -1324,14 +1364,14 @@ def constraints_in_force(
                     f" holds {type(candidate).__name__}; a constraint set is"
                     " read as constraints or it is not read"
                 )
-            if _in_window(candidate, asked_at=asked_at):
+            if _in_window(candidate, served_at=served_at):
                 in_force.append((version, candidate))
         if not in_force:
             continue
         if len(in_force) > 1:
             raise ConstraintEffectivityConflict(
                 f"two versions of Control Plane key {key!r} are both in force"
-                f" at {asked_at.isoformat()}:"
+                f" at {served_at.isoformat()}:"
                 f" {', '.join(repr(version) for version, _ in in_force)}; the"
                 " effectivity windows overlap, so which boundary governs this"
                 " request has no answer — the fabric refuses to pick one"
@@ -1396,6 +1436,7 @@ class PolicyConstraintResolver(Protocol):
         intent: str,
         tenant: str,
         capabilities: tuple[TechnicalCapability, ...],
+        served_at: datetime,
         class_defaults: Mapping[str, Any] | None = None,
         class_source: ProvenanceSource | None = None,
     ) -> ResolutionOutcome:
@@ -1505,6 +1546,7 @@ class ReferencePolicyConstraintResolver:
         intent: str,
         tenant: str,
         capabilities: tuple[TechnicalCapability, ...],
+        served_at: datetime,
         class_defaults: Mapping[str, Any] | None = None,
         class_source: ProvenanceSource | None = None,
     ) -> ResolutionOutcome:
@@ -1521,9 +1563,10 @@ class ReferencePolicyConstraintResolver:
             TypeError: ``request.asked_at`` is zone-less, or a Control Plane
                 key holds an artifact of the wrong class.
         """
-        in_force = constraints_in_force(
-            self.control_plane, asked_at=request.asked_at
-        )
+        # `D-IMPL-358` step 5 ruling B: effectivity at the TRUSTED serve instant.
+        # The graph is still read at `request.asked_at` — the caller's question
+        # keeps its own boundary and only the POLICY reading moved.
+        in_force = constraints_in_force(self.control_plane, served_at=served_at)
         reaching = tuple(
             pinned
             for pinned in in_force
@@ -1533,10 +1576,11 @@ class ReferencePolicyConstraintResolver:
                 tenant=tenant,
                 perspective_role=perspective.role,
                 intent=intent,
-                asked_at=request.asked_at,
+                served_at=served_at,
             )
         )
         return resolve_effective_request(
+            served_at=served_at,
             request=request,
             declared=declared,
             declared_source=declared_source,

@@ -935,19 +935,31 @@ def _assert_two_shells_agree(
 # --- the controls: what MUST change the answer --------------------------------
 
 
-def test_moving_asked_at_across_the_effectivity_boundary_changes_the_determination(
+def test_moving_served_at_across_the_effectivity_boundary_changes_the_determination(
     tmp_path: pathlib.Path,
 ) -> None:
-    """``D-IMPL-253`` Q6, as the control on every sameness assertion above.
+    """REWRITTEN by `D-IMPL-358` step 5 ruling B, not deleted — the property inverts.
 
-    Two ``maximum`` constraints on the tolerance over adjacent windows. The
-    same question, one instant apart, is bounded by a **different policy** to a
-    different number — so the recorded resolution and the applied sources both
-    move. Without this, every "same" above could be the answer of a composition
-    that ignored ``asked_at`` entirely.
+    This control's job is unchanged: it is the control on every sameness assertion
+    above, and without it each "same" could be the answer of a composition that
+    ignored the governing instant entirely. What changed is WHICH instant governs.
 
-    A ``maximum`` on the tolerance clamps rather than refuses (worked case 3),
-    so both instants SERVE: what changes is the authority, which is the layer
+    It previously moved ``asked_at`` across the boundary and asserted the
+    determination moved (``D-IMPL-253`` Q6). Ruling B makes policy effectivity a
+    reading at the TRUSTED SERVE INSTANT, so that is no longer the property: the
+    question's own instant does not select the policy any more. This version moves
+    ``served_at`` across the boundary with ``asked_at`` HELD FIXED, and asserts the
+    determination moves — and its sibling below asserts the complement, that moving
+    ``asked_at`` with ``served_at`` held fixed does NOT move the policy. Between
+    them the two axes are pinned apart, which neither the old control nor any other
+    test in this tree did.
+
+    The clocks are INJECTED and pinned. Relying on wall time would make the
+    control's verdict depend on the day it ran, which is the calendar accident the
+    old sibling test quietly depended on.
+
+    A ``maximum`` on the tolerance clamps rather than refuses (worked case 3), so
+    both instants SERVE: what changes is the authority, which is the layer
     ``D-IMPL-254`` names, rather than which branch was taken.
     """
     with _deployment(
@@ -975,16 +987,17 @@ def test_moving_asked_at_across_the_effectivity_boundary_changes_the_determinati
             ),
             POLICY_CONSTRAINT,
         )
-        resolver = _governed(booted)
         parameters = {
             THRESHOLD_PARAMETER: CALLER_THRESHOLD,
             DEBT_TOLERANCE_PARAMETER: CALLER_TOLERANCE,
         }
-
+        # ONE question, asked at ONE instant, answered under two pinned serve
+        # instants either side of the effectivity boundary.
+        question = _request(asked_at=BEFORE_BOUNDARY, parameters=parameters)
         before = _ask(
-            resolver, _request(asked_at=BEFORE_BOUNDARY, parameters=parameters)
+            _governed(booted, admission_clock=lambda: BEFORE_BOUNDARY), question
         )
-        after = _ask(resolver, _request(asked_at=BOUNDARY, parameters=parameters))
+        after = _ask(_governed(booted, admission_clock=lambda: BOUNDARY), question)
 
         assert isinstance(before, ServedProduct), before
         assert isinstance(after, ServedProduct), after
@@ -1011,9 +1024,41 @@ def test_moving_asked_at_across_the_effectivity_boundary_changes_the_determinati
         assert _constraint_pins(resolved_before) == ((KEY_EARLY, version_early),)
         assert _constraint_pins(resolved_after) == ((KEY_LATE, version_late),)
 
-        # And the whole record differs, which is the property inverted.
+        # And the RECORD differs while the PRODUCT does not — which is a sharper
+        # statement of the property than the old control could make. One question
+        # asked once has one content; what moved is which policy governed
+        # answering it, and the record is where that shows. The old assertion that
+        # the products differed held only because `asked_at` was moving too.
         assert record_dimensions_equal(record_before, record_after) != []
-        assert content_hash(before.product) != content_hash(after.product)
+        assert content_hash(before.product) == content_hash(after.product), (
+            "the question was held fixed, so its content must be — only the"
+            " governance moved"
+        )
+
+        # THE COMPLEMENT, in the same fixture so the two cannot drift apart:
+        # moving the QUESTION across the boundary under ONE pinned serve instant
+        # leaves the policy determination where it was. Ruling B: *"Graph reads
+        # stay at asked_at"* — the question's instant still governs what is read,
+        # and no longer governs which policy governs the reading.
+        pinned = _governed(booted, admission_clock=lambda: BOUNDARY)
+        early_question = _ask(
+            pinned, _request(asked_at=BEFORE_BOUNDARY, parameters=parameters)
+        )
+        later_question = _ask(
+            pinned, _request(asked_at=BOUNDARY, parameters=parameters)
+        )
+        assert isinstance(early_question, ServedProduct), early_question
+        assert isinstance(later_question, ServedProduct), later_question
+        for served in (early_question, later_question):
+            resolution = EffectiveRequest.model_validate_json(
+                _resolution_of(_record_of(booted, served))
+            )
+            tolerance = resolution.parameter(DEBT_TOLERANCE_PARAMETER)
+            assert tolerance is not None
+            assert Decimal(str(tolerance.value)) == TOLERANCE_LATE, (
+                "the question's own instant selected the policy; only served_at may"
+            )
+            assert _constraint_pins(resolution) == ((KEY_LATE, version_late),)
 
 
 def _constraint_pins(resolved: EffectiveRequest) -> tuple[tuple[str, str], ...]:
