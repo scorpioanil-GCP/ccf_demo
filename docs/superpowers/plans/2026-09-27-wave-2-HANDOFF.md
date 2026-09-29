@@ -1083,3 +1083,51 @@ two coincide the gap is invisible, which is why no control noticed.
 **Not the recorded `observed_at == asked_at` degeneracy** — that one is about a fixture
 and is explicitly not this step's subject. This is about which of two DIFFERENT instants
 the shipped scorer reads, and it needs a ruling.
+
+### S7-F1 — RULED IN SCOPE and CLOSED
+
+Dave, 2026-09-29: *"Ruling 6 is the decision instant, not 'whatever instant happened to
+be handed.'"*
+
+**The control was RED before any `src/` edit**, and red for the right reason rather than
+for a missing attribute: it asserts the reference scorer is on the instant-aware seam,
+and it was not —
+
+    AssertionError: the reference scorer is not on the instant-aware seam, so the
+    resolver never hands it `decided_at` and the debt is measured at `asked_at` (S7-F1)
+
+**Finding the fixture that could discriminate took two attempts, and the failures are
+the recorded degeneracy doing exactly what it is recorded for.** The seam fixture
+(`booted_declaring_a_decision_instant`) reports freshness `1` at every instant because
+its observation is dated at the question instant — measured: declaring a decision instant
+of 12:05 against a question at 12:00 still gave `1`, and so did asking directly at 12:05.
+A fixture whose observation coincides with its question cannot tell two instants apart.
+`tests/products/test_reference_debt_scorer.py` dates its records a fixed age before a
+fixed `AT`, which is why the control lives there.
+
+**The production change — the existing seam, not a second one.**
+`AssemblyDebtScorer.score_at(*, view, evidence, decided_at, children)` now declares the
+`InstantAwareDebtScorerProtocol` the resolver ALREADY checks first and ALREADY had
+`decided_at` in hand for. The scorer simply had not declared it, so it fell through to
+the instant-blind branch. All four decay reads in the body move from `view.as_of` to
+`decided_at`; `__call__` is preserved and delegates with `decided_at=view.as_of`, so a
+deployment holding this scorer as a plain `AssemblyDebtScorerProtocol` — the shape it has
+always had — gets exactly the behaviour it always got.
+
+Three things deliberately did NOT move:
+
+- **the graph boundary.** `view.as_of` stays `request.asked_at`. What was observed is
+  still observed as of the question; only the instant the decay is measured FROM changed,
+  and the control asserts the view is untouched so a repair cannot quietly move both.
+- **`served_at`.** It is not a debt instant and is absent from this method.
+- **`children`.** Accepted and not read. This scorer is not child-aware — that is a
+  different seam — and it received no children on the blind branch either, so nothing
+  that used to be read is dropped.
+
+**The severing:** `the-debt-is-measured-at-the-questions-instant`, a one-line edit handing
+`view.as_of` to the freshness measurement again. It reddens the S7-F1 control, and the
+control's own fixture drives it so the two cannot drift.
+
+Measured after the change: the full non-example suite is unchanged apart from the two new
+tests — the reference scorer moving onto the instant-aware branch broke nothing, because
+every other fixture has the two instants coinciding.

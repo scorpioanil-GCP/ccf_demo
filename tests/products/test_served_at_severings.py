@@ -779,6 +779,7 @@ def test_mutation_Bound_the_refusal_record_loses_the_hoisted_served_at(
 
 STEP7_DEBT_MUTATIONS: dict[str, str] = {
     "the-freshness-scorer-reads-a-wall-clock": "state",
+    "the-debt-is-measured-at-the-questions-instant": "state",
 }
 
 
@@ -874,3 +875,68 @@ def test_severing_the_freshness_scorer_reads_a_wall_clock(tmp_path: Path) -> Non
         "the severed scorer still more than halved the figure, so the shipped"
         " control's magnitude assertion would not have reddened"
     )
+
+
+
+def test_severing_the_debt_returns_to_the_questions_instant(tmp_path: Path) -> None:
+    """Hand the freshness measurement `view.as_of` again — the S7-F1 defect, restored.
+
+    `view.as_of` is `request.asked_at`: *when the graph was observed*. Ruling 6
+    computes Context Debt at the DECISION instant, and the two differ wherever a
+    product class declares a decision-instant parameter. This is the one-line edit
+    that puts the defect back, and the control it must redden is
+    `tests/products/test_reference_debt_scorer.py::test_S7F1_the_reference_scorer_measures_at_the_DECISION_instant`.
+
+    The control's own fixture drives this, so the two cannot drift: two instants two
+    half-lives apart, far from the `1E-18` quantum, over a view whose `as_of` stays
+    the question's instant.
+    """
+    from ccf.halflife.debt import FreshnessScorer
+    from tests.products.test_reference_debt_scorer import (
+        AT,
+        HALF_LIFE_SECONDS,
+        record,
+        scorer,
+        test_S7F1_the_reference_scorer_measures_at_the_DECISION_instant as shipped,
+        view,
+    )
+
+    shipped()  # green on the shipped tree, or this severing measures nothing
+
+    module = severed(
+        tmp_path,
+        "src/ccf/products/debt_scorer.py",
+        (
+            (
+                "            freshness = freshness_scorer.score(observations, now=decided_at)",
+                "            freshness = freshness_scorer.score(observations, now=view.as_of)",
+            ),
+        ),
+        "the-debt-is-measured-at-the-questions-instant",
+    )
+
+    honest = scorer()
+    broken = module.AssemblyDebtScorer(
+        table=honest.table,
+        profile=honest.profile,
+        completeness=honest.completeness,
+        semantic_consistency=honest.semantic_consistency,
+    )
+    observed = view(record("urn:fixture:a", age_seconds=HALF_LIFE_SECONDS))
+    decided_at = AT + timedelta(seconds=HALF_LIFE_SECONDS * 2)
+    observations = honest._observations(observed)
+    freshness_scorer = FreshnessScorer(
+        table=honest.table, risk_sensitivity=honest.profile.risk_sensitivity
+    )
+    at_decided = freshness_scorer.score(observations, now=decided_at)
+    at_asked = freshness_scorer.score(observations, now=AT)
+    assert at_decided != at_asked, "the fixture cannot tell the two instants apart"
+
+    assessed = broken.score_at(
+        view=observed, evidence=None, decided_at=decided_at, children=None
+    )
+    assert assessed.factors.freshness == at_asked, (
+        "the severing cost nothing — the figure still follows the decision instant,"
+        " so the control is not guarding which instant the decay is measured from"
+    )
+    assert assessed.factors.freshness != at_decided

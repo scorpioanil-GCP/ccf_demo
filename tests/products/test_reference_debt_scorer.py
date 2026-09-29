@@ -825,3 +825,76 @@ def test_the_scorer_copies_both_claim_times_onto_each_observation() -> None:
         " `decay_basis: valid-from` refuses every observation the fabric"
         " produces and the declaration can never take effect"
     )
+
+
+# --- `D-IMPL-358` step 7 / S7-F1: the debt instant is the DECISION instant -----
+
+
+def test_S7F1_the_reference_scorer_measures_at_the_DECISION_instant() -> None:
+    """Ruling 6: Context Debt is computed at the decision instant.
+
+    **The defect S7-F1 named.** `decay.freshness`'s own docstring calls its `now`
+    *"The decision instant"*, but this scorer passed `view.as_of`, and the resolver
+    binds the view to `request.asked_at`. `decided_at` reached a scorer on exactly
+    ONE branch — `InstantAwareDebtScorerProtocol.score_at` — which the reference
+    scorer did not implement, so it fell to the instant-blind branch and measured
+    decay from the question's instant. Wherever a product class declares a
+    decision-instant parameter the two differ, and the debt was computed at the
+    wrong one.
+
+    **The graph boundary does NOT move with it.** `view.as_of` stays `asked_at` —
+    what the graph was observed at is a different fact from when the answer was
+    decided, and this asserts the view is untouched so a repair cannot quietly
+    move both.
+
+    The oracle is the shipped arithmetic, not a hand-computed constant: the same
+    observations put through `FreshnessScorer` at each instant. The two instants
+    are two half-lives apart, so the figures are far from each other and far from
+    the `1E-18` quantum — a control on the quantum would redden from underflow
+    rather than from a moved instant.
+    """
+    from ccf.halflife.debt import FreshnessScorer
+    from ccf.products.resolver import InstantAwareDebtScorerProtocol
+
+    subject = scorer()
+    decided_at = AT + timedelta(seconds=HALF_LIFE_SECONDS * 2)
+    assert decided_at != AT, "the two instants must be pinned APART"
+    observed = view(record("urn:fixture:a", age_seconds=HALF_LIFE_SECONDS))
+    assert observed.as_of == AT, "the graph boundary is the question's instant"
+
+    assert isinstance(subject, InstantAwareDebtScorerProtocol), (
+        "the reference scorer is not on the instant-aware seam, so the resolver"
+        " never hands it `decided_at` and the debt is measured at `asked_at`"
+        " (S7-F1)"
+    )
+
+    observations = AssemblyDebtScorer._observations(observed)
+    assert observations, "the fixture carries no observation, so F is the identity"
+    freshness_scorer = FreshnessScorer(
+        table=subject.table, risk_sensitivity=subject.profile.risk_sensitivity
+    )
+    at_decided = freshness_scorer.score(observations, now=decided_at)
+    at_asked = freshness_scorer.score(observations, now=AT)
+    assert at_decided != at_asked, "the fixture cannot tell the two instants apart"
+    assert at_decided > _QUANTUM_FLOOR, (
+        f"the decision-instant reading {at_decided} is at the quantization floor,"
+        " so this control would measure underflow rather than a moved instant"
+    )
+
+    assessed = subject.score_at(
+        view=observed, evidence=None, decided_at=decided_at, children=None
+    )
+
+    assert assessed.factors.freshness == at_decided, (
+        "the debt was not measured at the decision instant:"
+        f" {assessed.factors.freshness} against the decision instant's {at_decided}"
+    )
+    assert assessed.factors.freshness != at_asked, (
+        "the debt is still being measured at the question's instant"
+    )
+    # ...and the graph boundary did not travel with the decay instant.
+    assert observed.as_of == AT
+
+
+#: Comfortably above `RATIO_QUANTUM = 1E-18`, so a reading at the floor is caught.
+_QUANTUM_FLOOR = Decimal("1E-12")
