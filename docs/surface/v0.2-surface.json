@@ -7998,11 +7998,17 @@
   },
   "ccf.signal.envelope": {
     "__all__": [
+      "IngressTemporalBound",
       "SignalEnvelope",
       "SourceIdentity",
+      "TemporalWriteRefused",
       "refuse_foreign_envelope"
     ],
     "exports": {
+      "IngressTemporalBound": {
+        "kind": "class",
+        "shape": "(pinned: 'Mapping[str, object]') -> None"
+      },
       "SignalEnvelope": {
         "kind": "contract",
         "shape": {
@@ -8020,6 +8026,10 @@
         "shape": {
           "system_id": "<class 'str'>"
         }
+      },
+      "TemporalWriteRefused": {
+        "kind": "class",
+        "shape": "(*, envelope_id: 'str', tenant_id: 'str', instant: 'datetime', policy_key: 'str', reason: 'str', detail: 'str') -> 'None'"
       },
       "refuse_foreign_envelope": {
         "kind": "function",

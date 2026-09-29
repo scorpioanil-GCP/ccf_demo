@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1776 entries**, of which **1516** name a public Python surface.
+**1778 entries**, of which **1518** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1011 entries — 967 public Python surface, 44 not public Python API.
+1013 entries — 969 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -15572,6 +15572,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none. An additive export; no existing name changes, and the class's own module is unchanged
 
 *Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.signal.envelope.IngressTemporalBound
+
+- Surface: ccf.signal.envelope.IngressTemporalBound
+- Public surface: true
+- Change type: added
+- Before: absent. `SignalEnvelope.ingestion_timestamp` carried NO validation of any kind — measured: a naive `1900-01-01` instant constructs cleanly, and a ten-year-out-of-window envelope wrote two entities and one relationship straight into the graph
+- After: a frozen dataclass minted once at the composition root by `at_composition(registry=…, tenant_ids=…)`, holding each roster tenant's resolved `PinnedTemporalBoundary | TemporalBoundaryUndeclared`. `refuse_outside_window(envelope, *, now)` judges only `ingestion_timestamp`, reusing `refuse_temporal_bound`'s arithmetic through a deferred import rather than restating it — `ccf.products.product` imports this module, so a module-level import would close a cycle. An UNDECLARED policy is pinned as its own absence rather than raising at boot: composition succeeds and the refusal happens at the write, where it can name the envelope it refused
+- Why: `D-IMPL-358` step 8 with ruling 11. The write path was the one governed boundary where an out-of-window instant could still land, and `D-IMPL-159` forbids the writer reading a clock — so the instant is handed in by the ingress caller, read once per acquisition
+- Migration: none for an existing deployment; the paved road composes it automatically at `OpenedProduct._acquisition_seam`. A deployment ingesting on its own path composes one at its own composition root
+
+*Recorded by `358-08-temporal-write-guard.md`.*
+
+#### ccf.signal.envelope.TemporalWriteRefused
+
+- Surface: ccf.signal.envelope.TemporalWriteRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` carrying `envelope_id`, `tenant_id`, `instant`, `policy_key`, `reason` and `detail` as ATTRIBUTES, not only prose — ruling 11 admits no default and no fabricated binding, so an operator must be able to act on the refusal, which means knowing which key was consulted and why it refused. The instant is carried VERBATIM: not rounded, clamped or restamped
+- Why: `D-IMPL-358` step 8. A `ValueError` matches this module's existing refusal idiom (`refuse_foreign_envelope`) and the worker's own (`IdentityRefused`) rather than inventing a new failure family
+- Migration: none — a new type on a path that previously admitted everything. A caller that wants to distinguish it from `refuse_foreign_envelope`'s refusal catches the type; one that does not still catches `ValueError`
+
+*Recorded by `358-08-temporal-write-guard.md`.*
 
 ### Not public Python API
 

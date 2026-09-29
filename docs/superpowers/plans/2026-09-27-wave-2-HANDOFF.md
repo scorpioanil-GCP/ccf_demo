@@ -1131,3 +1131,74 @@ control's own fixture drives it so the two cannot drift.
 Measured after the change: the full non-example suite is unchanged apart from the two new
 tests — the reference scorer moving onto the instant-aware branch broke nothing, because
 every other fixture has the two instants coinciding.
+
+---
+
+## 16. Step 8 — the tenant-bound temporal write guard, and the four dispositions
+
+**The failure, measured before any `src/` edit** (probe, not committed): a ten-year
+out-of-window envelope wrote **2 entities and 1 relationship** straight into the graph,
+and a naive `1900-01-01` ingestion instant constructed cleanly.
+`SignalEnvelope.ingestion_timestamp` carried no awareness check, no ordering check and no
+bounds check.
+
+**Placement, by ruling.** The guard is a shared admission function beside
+`refuse_foreign_envelope` in `src/ccf/signal/envelope.py` — **not** in
+`AssemblyWorker`, which gains no field and no parameter and still acquires no clock and
+invents no tenant. Composition state lives in the guard: the boot-frozen tenant roster and
+the temporal policy **pinned per roster tenant**. Nothing on the judging path consults the
+registry, and a control counts registry reads to prove it (five envelopes judged, zero
+reads).
+
+`envelope.tenant_id` is a CLAIM. Off-roster refuses; on-roster selects the policy pinned
+for it at composition.
+
+### The four dispositions, each with its evidence
+
+| entry | disposition | evidence |
+| --- | --- | --- |
+| `ingest` | **GUARDED** at the one production caller | `products/product.py::OpenedProduct` calls the guard before `worker.ingest`, beside the `refuse_foreign_envelope` that was already there |
+| `ingest_admitted` | **zero production callers** — the disposition itself | `grep` over `src/` + `runtime/`: five hits, all docstrings plus one guarded-type roster entry in `contracts/guarded.py`. No caller was invented |
+| `admit_entity_claim` | **structurally internal** | the ONLY `src/`+`runtime/` caller is `worker.py:699`, inside `ingest` — already behind the guard |
+| `admit_relationship_claim` | **structurally internal** | the ONLY `src/`+`runtime/` caller is `worker.py:753`, inside `ingest` |
+
+The worker methods were NOT wrapped and the 91 test call sites and cp-04/cp-05 were NOT
+edited, per ruling. Recorded so the caller lists are the proof rather than a claim:
+example and test callers exist and are deliberately out of the measured population, which
+is `src/` + `runtime/` only.
+
+### Two things the controls caught in my own work
+
+1. **The first wiring judged the question's own instant.** I passed
+   `now=request.asked_at`, and `refuse_foreign_envelope` already requires
+   `ingestion_timestamp == asked_at` on that road — so the age was always zero and the
+   guard could never fire. The end-to-end control caught it. The instant is now the
+   FABRIC's, read once per acquisition from the injected clock.
+2. **The roster severing is stronger than I asserted.** Removing the roster check does not
+   merely drop a refusal: the guard reaches `self.pinned[claimed]` for a tenant never
+   pinned and raises `KeyError` — an untyped crash where a governed refusal belongs.
+   Recorded as measured rather than as predicted.
+
+### FINDING S8-F1 — on the paved road the guard is unreachable
+
+Asserted rather than described, in
+`tests/signal_layer/test_step8_temporal_write_guard.py::test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE`.
+Two earlier refusals already cover the ground:
+
+1. step 5's resolver bound judges `asked_at` against the SAME tenant policy and refuses
+   the question **before acquisition runs**, so no envelope is produced (measured: the
+   acquisition spy records zero contexts);
+2. and `refuse_foreign_envelope` requires `ingestion_timestamp == asked_at`, so an
+   in-window question can only produce an in-window envelope.
+
+So on the paved road the write guard is belt-and-braces. Its value is on ingress paths
+that do not sit behind the resolver's bound — the low road, CDC, and `ingest_admitted` if
+a caller ever appears. Recorded plainly rather than dressed up: this step did not
+demonstrate the guard firing on the paved road, because it structurally cannot.
+
+### Residual — `valid_from`, out of scope by ruling
+
+`SignalEnvelope.observed_time` lands as a claim's `valid_from` and is NOT bounded. That is
+valid time, a different axis from the write window; bounding it with `max_past_seconds`
+would refuse legitimate back-dated valid-time. Named, not guarded. No second policy field
+was invented.

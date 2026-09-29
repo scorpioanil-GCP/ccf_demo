@@ -156,7 +156,7 @@ Held and unmoving: `recorded_at`, `ttl_anchor_at`, `expires_at`,
 | `admit_entity_claim` | `src/ccf/assembly/worker.py:622` | only `claim.observed_at` |
 | `admit_relationship_claim` | `src/ccf/assembly/worker.py:638` | only `claim.observed_at` |
 
-`refuse_foreign_envelope` (`src/ccf/signal/envelope.py:76`) is the SDK's **only** existing
+`refuse_foreign_envelope` (`src/ccf/signal/envelope.py::refuse_foreign_envelope`) is the SDK's **only** existing
 check on the write stamp, and it has **zero controls**.
 
 ---
