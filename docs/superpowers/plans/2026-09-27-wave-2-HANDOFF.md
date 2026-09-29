@@ -545,3 +545,164 @@ left alone by standing instruction.
    `test_resolver_seam.py` checked individually: three of them construct a
    DIFFERENT gate's refusal and would silently start measuring `ttl-bounds`
    instead of their own subject.
+
+---
+
+## 12. Section H closed — every tracked node, to its final result
+
+Dave, 2026-09-28: *"List all eight `test_door_answer.py` setup-error node IDs
+alongside the 60 migration failure nodes. Track each to its final result. Keep the
+two baseline failures separate, and report skipped or otherwise unexecuted checks
+explicitly."*
+
+**Commits, in the ruled order:** classes 1 and 2 at `416fa420`, the comparand at
+`2ee67428`. The comparand was NOT moved before the migration.
+
+**Verification of this table:** the 68 node ids below were run as an explicit node
+list — `pytest <68 ids> -rA` — which reports a per-node outcome and errors on an id
+that does not resolve. Result: **68 passed, 0 failed, 0 errors, 0 skipped, 0
+xfailed, 0 xpassed.** Nothing in this population was unexecuted; a mistyped or
+renamed id would have failed the run rather than silently dropping out of it.
+
+**A correction to the class labels, and the roster is unaffected.** My class
+assignment came from scanning each module's own text for a clock, which mis-files
+any module whose clock arrives through an imported helper — measured on the
+composite family and on `test_paved_consumer.py`. The node ROSTER is what the
+migration was allowed to use and it is unchanged; the labels below are as
+originally recorded, marked `1*` where the module in fact inherits a pinned clock
+and so behaved as class 2. The distinction changed the shape of each repair, never
+which nodes were in scope.
+
+**`tests/client/conformance/test_a_crossed_question_is_caught_on_one_transport.py`** — 3 tracked, failures
+- [x] `test_a_crossed_question_is_caught_over_the_in_process_transport` — class 1 → **passes**
+- [x] `test_an_absent_boundary_leaves_the_moved_instant_undetectable` — class 1 → **passes**
+- [x] `test_an_altered_vessel_is_caught_over_the_in_process_transport` — class 1 → **passes**
+
+**`tests/client/conformance/test_inprocess_conformance.py`** — 1 tracked, failures
+- [x] `test_the_decision_instant_is_auditable` — class 2 → **passes**
+
+**`tests/client/conformance/test_mcp_conformance.py`** — 1 tracked, failures
+- [x] `test_the_decision_instant_is_auditable` — class 1 → **passes**
+
+**`tests/client/conformance/test_the_suite_fires.py`** — 1 tracked, failures
+- [x] `test_the_decision_instant_leg_fires_on_a_misreported_instant` — class 1 → **passes**
+
+**`tests/client/test_inprocess_adapter.py`** — 5 tracked, failures
+- [x] `test_a_first_ask_boots_the_fabric_and_returns_a_result` — class 1 → **passes**
+- [x] `test_a_relative_and_absolute_root_are_one_cache_entry` — class 1 → **passes**
+- [x] `test_an_explicit_as_of_reaches_the_deployment` — class 1 → **passes**
+- [x] `test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel` — class 1 → **passes**
+- [x] `test_two_clients_on_one_binding_share_one_fabric` — class 1 → **passes**
+
+**`tests/client/test_mcp_stdio_adapter.py`** — 1 tracked, failures
+- [x] `test_the_quoting_the_spaced_refusal_prescribes_actually_gets_past_the_grammar` — class 1 → **passes**
+
+**`tests/deployment/test_replay_binding.py`** — 4 tracked, failures
+- [x] `test_a_deployment_with_no_replay_section_is_untouched` — class 1 → **passes**
+- [x] `test_a_served_products_record_lands_where_the_control_plane_said` — class 1 → **passes**
+- [x] `test_an_explicit_record_class_wins_while_the_rest_stay_declared` — class 1 → **passes**
+- [x] `test_the_landing_control_fires_on_a_store_rooted_anywhere_else` — class 1 → **passes**
+
+**`tests/invariants/test_determination_authority_disclosure_delivery.py`** — 1 tracked, failures
+- [x] `test_no_control_here_edits_the_real_source_tree` — class 1 → **passes**
+
+**`tests/products/test_composite_integration.py`** — 1 tracked, failures
+- [x] `test_int01b_a_real_L2_change_invalidates_the_NESTED_composite_chain` — class 1 → **passes**
+
+**`tests/products/test_cp05_canonical_path.py`** — 2 tracked, failures
+- [x] `test_the_canonical_path_serves_cp05s_declared_family` — class 2 → **passes**
+- [x] `test_the_gate_seam_is_live_on_cp05s_path` — class 2 → **passes**
+
+**`tests/products/test_d_impl_338_refusal_evidence.py`** — 1 tracked, failures
+- [x] `test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_identity` — class 1 → **passes**
+
+**`tests/products/test_d_impl_339_child_contract_view.py`** — 1 tracked, failures
+- [x] `test_an_invoked_child_that_refuses_admission_ALSO_blocks_projection` — class 1 → **passes**
+
+**`tests/products/test_d_impl_341_ttl_anchor.py`** — 4 tracked, failures
+- [x] `test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant[breached-at-the-evaluation-instant]` — class 2 → **passes**
+- [x] `test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant[met-at-the-evaluation-instant]` — class 2 → **passes**
+- [x] `test_c6_evidence_older_than_the_window_refuses_ttl_bounds_naming_the_anchored_expiry` — class 2 → **passes**
+- [x] `test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children` — class 2 → **passes**
+
+**`tests/products/test_d_impl_342_child_question_retention.py`** — 3 tracked, failures
+- [x] `test_c_b1_an_admitted_child_leaves_its_exact_question_on_the_parents_store` — class 1 → **passes**
+- [x] `test_c_b6_replay_and_audit_need_neither_the_mapping_nor_the_producer` — class 1 → **passes**
+- [x] `test_c_b7_other_bytes_at_the_address_are_a_divergence_on_both_replay_paths` — class 1 → **passes**
+
+**`tests/products/test_d_impl_342_producer_refusal_evidence.py`** — 2 tracked, failures
+- [x] `test_c_a2_an_admitted_child_carries_no_producer_refusal_and_its_reference_as_before` — class 2 → **passes**
+- [x] `test_c_a4b_a_served_answer_rejected_inside_the_gate_carries_its_references_and_no_producer_refusal` — class 2 → **passes**
+
+**`tests/products/test_d_impl_344_refusal_reconstruction.py`** — 1 tracked, failures
+- [x] `test_case_8_an_optional_child_invoked_and_refused_blocks_and_reconstructs_as_optional` — class 1 → **passes**
+
+**`tests/products/test_delivery_determinism.py`** — 1 tracked, failures
+- [x] `test_moving_served_at_across_the_effectivity_boundary_changes_the_determination` — class 2 → **passes**
+
+**`tests/products/test_door_answer.py`** — 8 tracked, errors
+- [x] `test_a_single_space_inside_the_vessel_breaks_the_address_it_claims` — class 1* → **passes**
+- [x] `test_an_absent_boundary_is_echoed_absent_though_the_door_answered_at_one` — class 1* → **passes**
+- [x] `test_an_explicit_boundary_is_echoed_as_that_boundary` — class 1* → **passes**
+- [x] `test_control_a_sabotaged_door_makes_the_address_assertion_raise[claims-a-constant]` — class 1* → **passes**
+- [x] `test_control_a_sabotaged_door_makes_the_address_assertion_raise[hashes-a-second-rendering]` — class 1* → **passes**
+- [x] `test_control_the_resolved_instant_witness_fires_when_the_echo_carries_it` — class 1* → **passes**
+- [x] `test_the_claimed_address_is_sha256_of_the_vessel_beside_it` — class 1* → **passes**
+- [x] `test_the_echo_is_the_whole_question_and_not_a_projection_of_it` — class 1* → **passes**
+
+**`tests/products/test_paved_consumer.py`** — 9 tracked, failures
+- [x] `test_a_bumped_skill_beside_a_grant_in_force_is_refused_at_open_naming_both_versions` — class 2 → **passes**
+- [x] `test_a_composite_is_served_with_its_child_admitted_from_declarations_alone` — class 2 → **passes**
+- [x] `test_a_floor_below_the_served_lane_serves_and_the_served_lane_is_what_admission_holds` — class 2 → **passes**
+- [x] `test_a_question_cannot_carry_an_instant_and_the_child_answers_the_composites` — class 2 → **passes**
+- [x] `test_a_served_lane_below_the_composites_floor_is_refused_at_admission_with_the_reason` — class 2 → **passes**
+- [x] `test_answer_admits_a_floor_bearing_request_the_way_resolve_admits_an_address` — class 2 → **passes**
+- [x] `test_opening_twice_over_one_control_plane_serves_twice` — class 2 → **passes**
+- [x] `test_the_build_children_hatch_composes_over_the_sdks_own_registrations` — class 2 → **passes**
+- [x] `test_the_mapping_is_the_authority_on_the_subject_and_the_row_records_what_was_asked` — class 2 → **passes**
+
+**`tests/products/test_resolver_defaults.py`** — 11 tracked, failures
+- [x] `test_an_explicit_scorer_overrides_the_default` — class 1 → **passes**
+- [x] `test_the_data_only_construction_satisfies_every_assertion` — class 1 → **passes**
+- [x] `test_the_default_is_selected_when_no_scorer_is_passed` — class 1 → **passes**
+- [x] `test_the_default_reports_a_measured_number_rather_than_a_placeholder` — class 1 → **passes**
+- [x] `test_the_half_life_artifact_moves_the_freshness_the_product_carries` — class 1 → **passes**
+- [x] `test_the_half_life_control_fires_on_two_identical_numbers` — class 1 → **passes**
+- [x] `test_the_half_life_control_fires_when_the_ordering_inverts` — class 1 → **passes**
+- [x] `test_the_override_and_the_default_produce_different_products` — class 1 → **passes**
+- [x] `test_the_override_control_fires_on_a_reference_produced_assessment` — class 1 → **passes**
+- [x] `test_the_selection_control_fires_on_a_stale_pinned_version` — class 1 → **passes**
+- [x] `test_the_selection_control_fires_when_the_default_is_made_inert` — class 1 → **passes**
+
+**`tests/products/test_resolver_seam.py`** — 4 tracked, failures
+- [x] `test_a_gate_refusal_comes_back_as_an_envelope` — class 2 → **passes**
+- [x] `test_a_gate_refusal_keeps_the_gates_own_typed_fields` — class 2 → **passes**
+- [x] `test_a_gate_refusal_serves_nothing_and_records_everything` — class 2 → **passes**
+- [x] `test_step5_a_refusal_reads_the_clock_once_and_NOW_records_served_at` — class 2 → **passes**
+
+**`tests/products/test_runtime_product_gate.py`** — 1 tracked, failures
+- [x] `test_the_gate_never_runs_on_a_candidate_the_universal_gates_refused` — class 1 → **passes**
+
+**`tests/replay/test_refusal_replay_record.py`** — 2 tracked, failures
+- [x] `test_a_gate_refusal_records_the_state_it_actually_read` — class 1 → **passes**
+- [x] `test_the_evidence_bundle_is_the_executions_own_facts` — class 1 → **passes**
+
+### The two baseline failures, kept separate
+
+Red at the accepted base `72bee6eb`, never in the migration set, untouched:
+
+- [ ] `tests/invariants/test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow` — base-existing, still red **by ruling**
+- [ ] `tests/test_version_stamp.py::test_the_installed_version_is_not_the_stale_literal_and_is_git_derived` — base-existing, still red **by ruling**
+
+One of them moved without being worked on: the unanchored-citation ratchet reads
+**362** where the base reads 363, because two rotted line-number citations were
+converted to the `path.py::Symbol` form while fixing what this step broke. Still
+above its ceiling of 0, so still red, and still not this step's to close.
+
+### Nothing else was left unexecuted
+
+The full non-example suite after `2ee67428`: **8445 passed, 115 skipped, 2
+failed** — the two above. The 115 skips are the standing estate- and
+extra-gated population (`postgres`, `fluree`, `mongo`, `neo4j`, `harness`,
+`crossproc` where a backend is absent), unchanged by this step and not part of it.
+`tests/examples` is excluded by ruling and was not run.
