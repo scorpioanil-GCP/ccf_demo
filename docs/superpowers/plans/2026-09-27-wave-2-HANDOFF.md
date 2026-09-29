@@ -835,3 +835,131 @@ reproduced hole, and no production code moved.
    module-private `BoundSkillView` — so there is no governed path to drive. A gate
    was NOT stood up merely to make the ledger look finished. The structural hop
    guard plus the one-word-edit severing is the proof this tree can support.
+
+---
+
+## 14. Step 6 — the replay-clock residual is REFUTED, and recorded time verified
+
+**Step 6 changed no production code, and that is the finding.** Dave's instruction was
+explicit: reproduce the residual before prescribing its repair, and *"do not change
+production code merely because the constructor carries a callable."* The constructor
+does carry the callable. Replay never reads it.
+
+### The residual as written, and what was measured
+
+The residual read: *"replay re-judges a peered child's admission at replay wall-clock,
+because `src/ccf/replay/environment.py:116` rebuilds the resolver via
+`build_governed_resolver(**opened.build_arguments(fabric))`, which carries the
+DEPLOYMENT's `admission_clock` (default `_utc_now`) rather than the `served_at` pinned
+on the record."*
+
+**Verdict: REFUTED.** The premise is true and the conclusion does not follow.
+
+| probe | result |
+| --- | --- |
+| `arguments["admission_clock"] is <the raising clock>` | **True** — the callable IS carried |
+| a RAISING `admission_clock`, then `replay(...)` through the supported path | **never invoked.** Reconstruction completed; replayed product address identical to the recorded one; bytes identical |
+| the SAME raising callable on the SERVE path (positive control) | **raises**, at `resolver.py::GovernedResolver.__call__` where `served_at` is obtained |
+
+A counter would not have settled this — a counter on a callable nobody invokes reads the
+same as a callable that does not exist. A clock that RAISES turns *"was it read?"* into a
+fact the measurement cannot miss.
+
+**Two live-time reads DO exist on the wider path, and neither is a temporal evaluation of
+the historical determination.** Both were found by making all seven `_utc_now` functions
+in `src/` raise:
+
+1. `load_config_and_boot` → `deployment/manifest.py::_mint_register`,
+   `occurred_at=_utc_now()` — an audit event about REOPENING the fabric.
+2. `RecordedEnvironment.__init__` → `build_governed_resolver` → `__post_init__` →
+   `_mint_replay_at_composition` → `_composition_decision(occurred_at=_utc_now())` —
+   minting the resolver's own replay capability at composition.
+
+Both are bookkeeping instants about the act of reconstructing. Neither participates in
+judging what the original determination was. Recorded so a later reader does not
+rediscover them and mistake them for the residual.
+
+**Structurally, the clock is not even reachable from the reconstruction object.**
+`RecordedEnvironment.__init__` reads three declarations off the rebuilt resolver
+(`plan_factory`, `policy_bundle_key`, `product_ttl_seconds`) and **discards it**. The
+mutation that falsifies the clock control therefore needs TWO anchors — one to smuggle the
+clock onto the environment, one to read it — because there is nothing there to call.
+
+**The reported peered-child re-judgment is not reachable through the supported path at
+all.** A real composite with one admitted child replays to `ReplayUnresolvable`: *"this
+decision composed 1 admitted child product(s) and the environment does not implement
+`resolve_composite_plan`."* No instrument fired. Consistent with step 5's finding that no
+deployment wires a `PeeringAdmissionGate` anywhere.
+
+### Corrected characterization, for the record
+
+> Replay does not consult the deployment clock when reconstructing a determination. The
+> deployment's `admission_clock` is carried into the rebuilt resolver and is never
+> invoked; the resolver itself is discarded after three declarations are read off it.
+> Live time is read twice on the wider path — reopening the fabric, and minting the
+> reconstruction's own replay capability — and neither is a temporal evaluation of the
+> recorded determination. The peered-child re-judgment the original residual described is
+> unreachable through the supported replay path.
+
+### What replay's temporal evaluation actually uses
+
+Measured, not assumed: `replay/engine.py` calls `resolve_ttl_anchor(...,
+decided_at=record.recorded_at, ...)` — a RECORDED instant. And `grep served_at
+src/ccf/replay/{engine,serve,environment}.py` returns **zero hits**: replay does not read
+`served_at` at all, so there was never a path for it to be re-derived on.
+
+### Controls added — `tests/replay/test_step6_recorded_time.py`, 11 tests
+
+**Historical bytes retain their address.** On the ONE committed pre-field record in the
+tree: `tests/replay/fixtures/golden_13bd250/artifacts/401bfc18…`, `producing_commit
+13bd250e7a9d9ea12daf596ef86597557aad702f` = tag `phase-24.5-base`, and **that tree
+declares `served_at` zero times** (verified with `git show <commit>:src/ccf/replay/record.py`).
+So it is pre-field by PROVENANCE, not by inspection alone. The expected address is read
+from the evidence in two independent places — the artifact's own filename and the
+manifest's `record_content_address` — and held equal, so the central assertion is not a
+re-hash compared against itself. Measured: loading it under today's model reproduces the
+stored bytes BYTE-IDENTICALLY and `content_hash` equals the stored address.
+
+**Populated time remains addressed.** Two records differing in `served_at` and nothing
+else take different addresses; restoring the sentinel restores the historical address. No
+product content is required to change.
+
+**Deployment time cannot change reconstruction.** The raising-clock control, its positive
+control on the serve path, and a second leg reconstructing the same record under
+deployment clocks FIVE YEARS apart with an identical reproduced address.
+
+**Pinned policy remains pinned.** The shared mechanism is already proven for the debt
+profile by `test_engine_rehydration.py::test_a_replay_reproduces_the_obligation_in_force_at_decision_time`,
+which is cited rather than duplicated. What is ADDED covers the binding step 5 itself
+introduced and that control predates: a later `ccf.temporal-boundary-policy` version
+registered under the same key does not displace the recorded one. Both halves asserted —
+the rebinding is genuinely different and genuinely available.
+
+### Falsifications — `STEP6_RECORD_MUTATIONS`, three entries
+
+Named separately from step 5's ledgers; folding them in would make that ledger's
+arithmetic wrong about what it covers. `src/` and `runtime/` verified unchanged after the
+campaign, and no `__pycache__` was written (`python -B`, `PYTHONDONTWRITEBYTECODE=1`).
+
+| mutation | effect |
+| --- | --- |
+| `transparency-mark-flipped-to-a-generation-boundary` | the pre-field record stops reproducing its stored address |
+| `populated-served-at-dropped-from-addressed-content` | two distinct serve instants share one address |
+| `a-live-clock-read-inserted-into-reconstruction` | the raising-clock control reddens |
+
+**The third is explicitly NOT a repair.** Dave's named mutation was *"replacing the
+recorded evaluation instant with the deployment-clock path that the reproduction
+identified."* The reproduction identified NO such path. Rather than manufacture an
+execution path to validate the earlier wording, it inserts a clock read that does not
+exist on the shipped tree and shows the control catching it — evidence that the guard
+discriminates, not evidence of a defect.
+
+### Residual dispositions after step 6
+
+1. **Replay-clock residual — CLOSED by refutation**, with the measured evidence above.
+   No production change. `replay/environment.py` untouched.
+2. **Peer behavioral-coverage residual — UNCHANGED and carried.** Structurally guarded;
+   end-to-end behavioral integration remains unproven, and step 6's composite probe
+   independently confirms why: the supported path raises `ReplayUnresolvable` before any
+   child re-judgment. No `PeeringAdmissionGate` deployment was invented.
+3. **Detector widening — closed in step 5**, test-only. Untouched here.
