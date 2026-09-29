@@ -76,7 +76,8 @@ from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
-from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+from ccf.products.gates import DEBT_TOLERANCE_PARAMETER, GATE_TTL_BOUNDS
+from ccf.products import resolver as resolver_module
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import PARAMETER_VALUE_FLOOR_VERSION, SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds  # noqa: E501 - one line on purpose: wrapping it shifts every line below, which the citation gate reads
@@ -2990,11 +2991,27 @@ def test_E2_no_declared_temporal_policy_refuses_before_acquisition(
             content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
         )
     )
-    assert not [
+    # `D-IMPL-358` step 5: WIDENED from the tenant-qualified key to the CLASS.
+    # Measured escape: this filtered on `binding.key == temporal_boundary_policy_key(
+    # tenant_id=TENANT)`, so a probe that minted the undeclared-path binding under
+    # the bare class id — `PolicyBinding(key="ccf.temporal-boundary-policy",
+    # version="unknown")` — carried a fabricated version straight past it. Ruling 11
+    # forbids minting ANY binding for a policy that does not exist, not merely one
+    # spelled with this tenant's prefix.
+    minted = [
         binding
         for binding in record.policy_bindings.bindings
-        if binding.key == temporal_boundary_policy_key(tenant_id=TENANT)
-    ], "a binding was minted for a policy that does not exist"
+        if TEMPORAL_BOUNDARY_POLICY.class_id in binding.key
+    ]
+    assert not minted, (
+        f"a binding was minted for a policy that does not exist: {minted}"
+    )
+    # The key is NOT asserted on the envelope, and that is the disclosure ruling
+    # rather than a gap: at `minimal` the permitted set is the two declared bounds
+    # and the policy key never crosses, so `outcome.key` is `None` here BY DESIGN
+    # (`D-IMPL-254`). Asserting it would be asserting a leak. The "states the key
+    # and the absence reason" half belongs to the pre-disclosure refusal object and
+    # is held in `tests/products/test_refusal_envelope.py`.
 
 
 def test_E3_an_asked_at_beyond_the_past_bound_refuses(booted: _Booted) -> None:
@@ -3759,3 +3776,164 @@ def test_C1_the_same_instant_WITH_an_offset_serves(
         ),
     )
     assert isinstance(outcome, ServedProduct)
+
+
+# --- `D-IMPL-358` step 5 section H: Gate 3's comparand, BEHAVIORALLY -----------
+
+
+#: A product window that expires BETWEEN the decision and the hand-over.
+#:
+#: The fixture asks at 12:00 and serves at 12:07, so a five-minute window expires
+#: at 12:05 — after the question was decided and before the answer is handed over.
+#: That is the one case Gate 3's comparand change exists for, and it is the only
+#: arithmetic that tells `decided_at` from `served_at`: at `decided_at` the lower
+#: bound reads `12:00 < 12:05` and admits; at `served_at` it reads `12:07 < 12:05`
+#: and refuses.
+_EXPIRES_BETWEEN_DECISION_AND_SERVICE = 300
+
+
+def test_H_a_product_that_expired_before_hand_over_is_NOT_served(
+    booted: _Booted,
+) -> None:
+    """Gate 3's lower bound, measured on the case it was moved for.
+
+    `D-IMPL-358` step 5 section H. **Nothing else in the suite asserts this.**
+    Measured before this control existed: every `test_served_at_pinning.py` leg and
+    every E-series test stayed GREEN with `now=decided_at` restored, because on
+    `from_decision` the expiry and the comparand move together — so the lower bound
+    could never bite, and the control that was believed to guard the comparand was
+    guarding the replay record's contents instead.
+
+    The arithmetic is the whole control, and both instants are the fixture's own:
+
+        asked/decided 12:00 → expires 12:00 + 300s = 12:05 → served 12:07
+
+    At the decision instant the product is valid, with five minutes left. By the
+    moment it is handed to the consumer it has been expired for two. Serving it
+    would hand out a product whose own declared validity had already lapsed, which
+    is exactly what `decided_at` as the comparand could not see.
+    """
+    outcome = _ask(
+        _resolver(
+            booted, product_ttl_seconds=_EXPIRES_BETWEEN_DECISION_AND_SERVICE
+        ),
+        _request(),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope), (
+        "a product whose declared validity lapsed between the decision and the"
+        " hand-over was SERVED — Gate 3 is comparing against the decision instant"
+    )
+    assert outcome.kind == "ttl-refusal", outcome.kind
+    assert outcome.reason == GATE_TTL_BOUNDS, outcome.reason
+
+
+def test_H_the_window_straddles_the_two_instants_and_the_fixture_serves(
+    booted: _Booted,
+) -> None:
+    """The positive control, and the proof the refusal above is about the comparand.
+
+    Two halves, both needed:
+
+    1. **The arithmetic straddles.** `ASKED_AT < expires_at < ADMITTED_AT` — the
+       window is valid at the decision instant and lapsed at the serving instant.
+       That is what makes the pair discriminating, and it is asserted rather than
+       described so the sibling above cannot quietly become a test of an
+       always-invalid window if either fixture instant moves.
+    2. **The fixture serves at all.** The same resolver with its ordinary window
+       serves, so the refusal above is caused by the window straddling the two
+       instants and not by a deployment that refuses everything.
+
+    `_refuse_ttl` is deliberately NOT called here to re-judge the same product at
+    the other comparand. The comparand is not a parameter of the serve path — that
+    is the property, not a gap — and constructing a `RegisteredProductClass` to
+    reach the gate directly would be machinery that adds no truth the straddle does
+    not already carry.
+    """
+    expires_at = ASKED_AT + timedelta(seconds=_EXPIRES_BETWEEN_DECISION_AND_SERVICE)
+    assert ASKED_AT < expires_at < ADMITTED_AT, (
+        "the fixture's instants no longer straddle this window, so neither half of"
+        f" this pair measures the comparand: {ASKED_AT} / {expires_at} / {ADMITTED_AT}"
+    )
+
+    served = _ask(
+        _resolver(booted, product_ttl_seconds=PRODUCT_TTL_SECONDS), _request()
+    )
+    assert isinstance(served, ServedProduct), served
+    assert served.product.expires_at == ASKED_AT + timedelta(
+        seconds=PRODUCT_TTL_SECONDS
+    ), "the fixture's expiry is not decision-anchored, so the straddle proves nothing"
+
+
+# --- `D-IMPL-358` step 5 section I: the composite's evaluation instant ----------
+
+
+def _capturing_compose(monkeypatch: pytest.MonkeyPatch, module: Any) -> dict[str, Any]:
+    """Record `compose_children`'s kwargs on ``module``, then delegate to the real one.
+
+    The composition still RUNS — the recorded call is the one the resolver actually
+    made, not a stub standing in for it, so the value captured is the value the
+    mixing law was handed.
+    """
+    captured: dict[str, Any] = {}
+    real = module.compose_children
+
+    def recording(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return real(**kwargs)
+
+    monkeypatch.setattr(module, "compose_children", recording)
+    return captured
+
+
+def test_I_compose_children_is_handed_the_hoisted_served_at(
+    booted_composite: _Booted, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The boundary-level assertion for `evaluated_at`, at the kwarg itself.
+
+    `D-IMPL-358` step 5 section I. Before this, the ONLY guard on
+    `compose_children(evaluated_at=...)` was behavioral: one parametrized leg of
+    `test_d_impl_341_ttl_anchor.py`'s c11, discriminating through a four-minute
+    floor against three minutes of remaining validity. A 180-second margin,
+    entangled with the parent's own anchor and window — true, but it does not say
+    which value crossed the boundary, and it is one arithmetic change away from
+    going quiet.
+
+    This asserts the value: the kwarg is the ONE hoisted `served_at`, identical to
+    the instant the record carries, and is neither the decision instant nor the
+    question's. The fixture keeps those three distinguishable — `ASKED_AT` 12:00,
+    `ADMITTED_AT` 12:07 — which is asserted here so the claim cannot become vacuous
+    if they ever coincide.
+    """
+    captured = _capturing_compose(monkeypatch, resolver_module)
+    served = _ask(
+        _resolver(
+            booted_composite,
+            # The same seam `V4` wires: the composite path needs its children
+            # supplied, and an empty mapping is enough — the subject is the INSTANT
+            # handed to the mixing law, not what the children returned.
+            composite_children=lambda **_: {},
+            admission_clock=lambda: ADMITTED_AT,
+        ),
+        _request(),
+    )
+    assert isinstance(served, ServedProduct), served
+
+    assert captured, "compose_children was never called; this test proves nothing"
+    assert captured["evaluated_at"] == ADMITTED_AT, (
+        "the mixing law was handed an instant other than the hoisted `served_at`:"
+        f" {captured['evaluated_at']}"
+    )
+    assert ASKED_AT != ADMITTED_AT, (
+        "the fixture's question and serving instants have converged, so this"
+        " assertion can no longer tell them apart"
+    )
+    assert captured["asked_at"] == ASKED_AT, (
+        "`asked_at` moved too — the two instants are meant to travel SEPARATELY,"
+        " and a composite that carries one value for both has lost the distinction"
+    )
+    record = _served_record(booted_composite, served)
+    assert record.content_generation_path.served_at == captured["evaluated_at"], (
+        "the instant the composition was evaluated at is not the instant the record"
+        " reports serving at — one of them is a second read"
+    )

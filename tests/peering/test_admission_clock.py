@@ -85,3 +85,74 @@ def test_J_the_sweep_scanned_something() -> None:
     modules = list(_PEERING.glob("*.py"))
     assert len(modules) >= 3, modules
     assert any(p.name == "admission.py" for p in modules), modules
+
+
+# --- `D-IMPL-358` step 5: the hop from the fabric instant to `admit(now=)` -----
+
+
+_CHILD_RESOLVER = (
+    pathlib.Path(__file__).resolve().parents[2]
+    / "src" / "ccf" / "products" / "child_resolver.py"
+)
+
+
+def test_the_peering_hop_passes_the_FABRIC_instant_and_not_the_question_s() -> None:
+    """`_admit_peered` is handed `admitted_at`, never the caller's `asked_at`.
+
+    **This control is STRUCTURAL, and that is a stated limitation rather than a
+    choice.** The property it guards is behavioral — a governed A2A admission
+    verdict must be judged at the instant the fabric chose — and the behavioral
+    control does not exist because no path to it exists: `_admit` requires a
+    `ResolvedProducer`, which is mint-only through `resolve_producing_grant` from a
+    module-private `BoundSkillView`, and no deployment in `src/`, `runtime/` or
+    `examples/` wires a `PeeringAdmissionGate` into a child resolver at all. So
+    there is nothing to borrow and nothing to drive. The end-to-end control is
+    recorded as owed.
+    
+    **What makes this worth shipping anyway.** The hazard is specific and measured:
+    `ChildResolver._admit` receives BOTH `asked_at` and `admitted_at` as keywords,
+    so a caller-supplied instant sits in scope beside the fabric one at the exact
+    line that feeds the admission verdict. Substituting it is a one-word edit that
+    the entire suite — all of `tests/peering/`, every `served_at` severing — was
+    measured to leave green. A source assertion catches that edit; the alternative
+    was catching nothing.
+
+    It reads the CALL, not a line number, so it survives the file moving.
+    """
+    source = _CHILD_RESOLVER.read_text(encoding="utf-8")
+    call = source.index("self._admit_peered(")
+    end = source.index(")", source.index("now=", call))
+    hop = source[call:end]
+
+    assert "now=admitted_at," in hop, (
+        "the peering admission verdict is no longer handed the fabric instant"
+        f" `admitted_at`; the call reads: {hop!r}"
+    )
+    assert "now=asked_at" not in hop, (
+        "the verdict is judged at the CALLER's instant — a governed A2A peer can"
+        " then choose the moment its own admission is judged at"
+    )
+
+
+def test_the_hop_detector_can_see_the_substitution() -> None:
+    """The positive control: the assertion above is not satisfied by any text.
+
+    Without this, `now=admitted_at,` could have been matched inside a comment, or
+    the slice could have been empty, and the control would pass on a substituted
+    call. The severing in
+    `tests/products/test_served_at_severings.py::test_severing_Peer_the_verdict_is_judged_at_the_callers_instant`
+    drives the same substitution through the real harness.
+    """
+    substituted = (
+        "        verified = self._admit_peered(\n"
+        "            dispatched,\n"
+        "            requirement,\n"
+        "            consumer_lineage=consumer_lineage,\n"
+        "            now=asked_at,\n"
+        "        )\n"
+    )
+    call = substituted.index("self._admit_peered(")
+    end = substituted.index(")", substituted.index("now=", call))
+    hop = substituted[call:end]
+    assert "now=admitted_at," not in hop
+    assert "now=asked_at" in hop

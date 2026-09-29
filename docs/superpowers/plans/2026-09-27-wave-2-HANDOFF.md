@@ -706,3 +706,92 @@ failed** — the two above. The 115 skips are the standing estate- and
 extra-gated population (`postgres`, `fluree`, `mongo`, `neo4j`, `harness`,
 `crossproc` where a backend is absent), unchanged by this step and not part of it.
 `tests/examples` is excluded by ruling and was not run.
+
+---
+
+## 13. Bound / Bind / Comp / Peer / Gate — verified, guarded, falsified
+
+Dave's ruling, 2026-09-28: *"R1–R4, P1 and severings 1–11 were GO-text echoes, not
+sheet identifiers. Do not invent a roster under those names."* So the ledger is
+named by PROPERTY, and each entry carries the one concrete `src/` edit that
+falsifies it. `tests/products/test_served_at_severings.py::STEP5_SEVERING_LEDGER`.
+
+All five properties were already WIRED at `acd1930e`. They were not all guarded.
+A read-only verification pass over each one found four real gaps, three of them
+MEASURED escapes rather than reasoned ones.
+
+### What the verification found, and what it cost to close
+
+| property | wired | the gap found | closed by |
+| --- | --- | --- | --- |
+| Bound | yes | placement rests solely on E5's `calls == []`; nothing else notices the order | the severing that invokes acquisition one block early |
+| Bind | yes | **measured escape** — E2 filtered on the tenant-qualified key, so a binding minted under the BARE class id carried a fabricated version `"unknown"` straight past it | E2 widened to the class id, plus a severing that mints exactly that shape |
+| Comp | yes | only ONE parametrized leg guarded `evaluated_at`, behaviorally, through a 180-second floor margin entangled with the parent's own anchor | a kwarg-level control asserting the value `compose_children` was handed, plus its severing |
+| Gate | yes | **measured** — all three `test_served_at_pinning.py` legs stay GREEN under `now=decided_at`; the comparand had NO control at all | a behavioral pair on the case the change exists for, plus its severing |
+| Peer | yes | the two interior hops are unguarded; a one-word substitution left the ENTIRE suite green | a structural hop guard (limitation stated) plus its severing |
+
+**The Gate finding is the one worth reading twice.** The companion control written
+for the clock ruling was believed to guard the comparand. It does not: its subject
+is `served_at`'s presence in the replay record, and both of its pinned instants sit
+inside the declared window against either comparand. On `from_decision` the expiry
+and the comparand move together, so Gate 3's lower bound could never bite — which
+means the change had been made and nothing would have noticed it being undone.
+
+The new control is the only arithmetic that separates the two instants:
+
+    asked/decided 12:00 → expires 12:00 + 300s = 12:05 → served 12:07
+
+valid with five minutes left when decided, expired for two when handed over.
+
+### Peer — proven, and honestly under-guarded
+
+**No code repair was needed.** There is exactly ONE production call site
+(`src/ccf/products/child_resolver.py:576`); its instant is the single hoisted
+`served_at` across five hops; `GovernedResolver.__call__` accepts no instant; and
+`admission_clock` is a boot-fixed zero-arg callable nothing mutates per request.
+Every test caller passes a deterministic fixture constant, not a clock. Nothing
+under `src/ccf/peering/` reads an ambient clock — verified by an AST walk
+deliberately WIDER than the shipped detector (aliased roots, bare-name calls,
+non-call references, `today()`), and clean.
+
+`archive/examples/04-cross-process/run.py` holds the only other two peering
+`admit(` calls in the repository. They are EXCLUDED: `archive/` is a dated
+reference surface (`D-IMPL-351` — no fixes, no findings), and no live `examples/`
+file calls `.admit(` at all. Recorded so they never read as unrepaired governed
+paths.
+
+**The falsification is STRUCTURAL and that is stated, not hidden.** The behavioral
+end-to-end control does not exist because no path to it exists: `_admit` requires a
+`ResolvedProducer`, mint-only through `resolve_producing_grant` from a
+module-private `BoundSkillView`, and **no deployment in `src/`, `runtime/` or
+`examples/` wires a `PeeringAdmissionGate` into a child resolver at all**. So there
+is nothing to borrow and nothing to drive. The hazard is nonetheless specific:
+`ChildResolver._admit` receives BOTH `asked_at` and `admitted_at`, so a
+caller-supplied instant sits in scope beside the fabric one at the exact line that
+feeds the verdict — a one-word edit the whole suite was measured to permit.
+
+### Residuals recorded, NOT worked
+
+1. **Replay re-judges a peered child's admission at replay wall-clock.**
+   `src/ccf/replay/environment.py:116` rebuilds the resolver through
+   `build_governed_resolver(**opened.build_arguments(fabric))`, carrying the
+   DEPLOYMENT's `admission_clock` (default `_utc_now`) rather than the `served_at`
+   the record pinned. Fabric-controlled, so the Peer property holds and no A2A
+   caller can influence it — but it is a replay-determinism question and nothing
+   guards it. **Step 6 territory; not started.**
+2. **The Peer property is currently vacuous on shipped code.** `peering_gate=` is
+   supplied at exactly one place and the paved road passes it nothing, so a peered
+   child today takes the honest refusal at `child_resolver.py:569-573`. The property
+   holds for the first deployment that wires a gate, and it holds because the SDK
+   threads the instant — not because any deployment gets it right.
+3. **The peering clock detector is narrower than its own docstring.** It matches
+   only attribute calls rooted at the literal names `datetime`/`time`. The wider
+   sweep is clean today, so this is hardening rather than a reproduced hole — but
+   the docstring claims a guarantee the detector does not deliver.
+
+### Still owed on step 5
+
+- the behavioral peered-child control (item 2 above is why it cannot be written yet)
+- widening the clock detector to match its docstring
+- a control that the out-of-window refusal's record carries the ONE hoisted
+  `served_at` — the "no restamping" half is guarded on the TTL leg, not this one
