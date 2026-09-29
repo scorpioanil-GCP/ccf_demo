@@ -25,7 +25,12 @@ _PEERING = pathlib.Path(__file__).resolve().parents[2] / "src" / "ccf" / "peerin
 #: The ambient reads that would make an admission verdict non-deterministic.
 #: `datetime.now`/`utcnow` and `time.time` are the three this fabric has actually
 #: had to remove elsewhere, so they are the three named.
-_AMBIENT = frozenset({"now", "utcnow", "time", "monotonic", "time_ns"})
+_AMBIENT = frozenset(
+    {"now", "utcnow", "today", "time", "monotonic", "time_ns", "perf_counter"}
+)
+
+#: Modules whose names, bound under ANY alias, are a clock source.
+_CLOCK_MODULES = frozenset({"datetime", "time"})
 
 
 def _ambient_clock_calls(source: str) -> list[str]:
@@ -36,16 +41,49 @@ def _ambient_clock_calls(source: str) -> list[str]:
     is written down there, so a grep would report the prose that states the rule
     as a violation of it.
     """
+    tree = ast.parse(source)
+
+    # WIDENED (`D-IMPL-358` step 5, residual 3). The first version matched only
+    # attribute CALLS rooted at the literal names `datetime`/`time`, while its
+    # docstring claimed to guard "reads no ambient clock". Four shapes walked
+    # straight past it, and the docstring is now true of the detector:
+    #
+    #   * an ALIASED root — `from datetime import datetime as dt; dt.now()`
+    #   * a BARE-NAME call — `from time import time; time()`
+    #   * a NON-CALL reference — `Field(default_factory=datetime.now)`, which reads
+    #     a clock later without ever being a `Call` node here
+    #   * `datetime.today()` and `time.perf_counter()`, absent from the old set
+    #
+    # This is a TEST-ONLY widening. The wider sweep was run before the change and
+    # is clean, so nothing in `src/ccf/peering/` moves — it closes the gap between
+    # what the control claimed and what it checked.
+    aliases: set[str] = set()
+    bare: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in _CLOCK_MODULES:
+                    aliases.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if (node.module or "").split(".")[0] in _CLOCK_MODULES:
+                for alias in node.names:
+                    bound = alias.asname or alias.name
+                    if alias.name in _AMBIENT:
+                        bare.add(bound)
+                    else:
+                        aliases.add(bound)
+
     found: list[str] = []
-    for node in ast.walk(ast.parse(source)):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if isinstance(func, ast.Attribute) and func.attr in _AMBIENT:
-            base = func.value
+    for node in ast.walk(tree):
+        # (a) attribute reads, whether called or merely referenced
+        if isinstance(node, ast.Attribute) and node.attr in _AMBIENT:
+            base = node.value
             root = base.id if isinstance(base, ast.Name) else getattr(base, "attr", "")
-            if root in {"datetime", "time"}:
-                found.append(f"{root}.{func.attr}")
+            if root in _CLOCK_MODULES or root in aliases:
+                found.append(f"{root}.{node.attr}")
+        # (b) bare names bound from a clock module, whether called or referenced
+        elif isinstance(node, ast.Name) and node.id in bare:
+            found.append(node.id)
     return found
 
 
@@ -78,6 +116,46 @@ def test_J_the_detector_can_see_a_planted_clock() -> None:
         "    return datetime.now(), time.time()\n"
     )
     assert sorted(_ambient_clock_calls(planted)) == ["datetime.now", "time.time"]
+
+
+@pytest.mark.parametrize(
+    "shape,source",
+    [
+        (
+            "aliased-root",
+            "from datetime import datetime as dt\ndef v():\n    return dt.now()\n",
+        ),
+        (
+            "bare-name-call",
+            "from time import time\ndef v():\n    return time()\n",
+        ),
+        (
+            "non-call-reference",
+            "from datetime import datetime\nfrom pydantic import Field\n"
+            "x = Field(default_factory=datetime.now)\n",
+        ),
+        ("today", "import datetime\ndef v():\n    return datetime.today()\n"),
+        (
+            "perf-counter",
+            "import time\ndef v():\n    return time.perf_counter()\n",
+        ),
+    ],
+)
+def test_J_the_WIDENED_detector_sees_each_shape_the_first_one_missed(
+    shape: str, source: str
+) -> None:
+    """The positive control for the widening (`D-IMPL-358` step 5, residual 3).
+
+    Each of these walked past the original detector, which matched only attribute
+    CALLS rooted at the literal names `datetime`/`time` — so its docstring claimed a
+    guarantee it did not deliver. Widening a sweep is worth nothing until the sweep
+    is shown catching what it was widened for, and the sweep over
+    `src/ccf/peering/` is clean BEFORE and AFTER, which makes this hardening rather
+    than a reproduced hole.
+    """
+    assert _ambient_clock_calls(source), (
+        f"the widened detector still cannot see a {shape} clock read"
+    )
 
 
 def test_J_the_sweep_scanned_something() -> None:

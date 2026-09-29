@@ -789,9 +789,49 @@ feeds the verdict — a one-word edit the whole suite was measured to permit.
    sweep is clean today, so this is hardening rather than a reproduced hole — but
    the docstring claims a guarantee the detector does not deliver.
 
-### Still owed on step 5
+### The last step-5 control, and residual 3 closed
 
-- the behavioral peered-child control (item 2 above is why it cannot be written yet)
-- widening the clock detector to match its docstring
-- a control that the out-of-window refusal's record carries the ONE hoisted
-  `served_at` — the "no restamping" half is guarded on the TTL leg, not this one
+**Bound's restamp half now has its own control**, on the leg it belongs to.
+`test_resolver_seam.py::test_Bound_the_out_of_window_refusal_record_carries_the_ONE_hoisted_served_at`
+drives the real out-of-window `TemporalBoundRefusal`, asserts its specific reason,
+resolves the refusal's own replay reference and reads the PERSISTED record.
+
+Its instrument is what makes it work: an **advancing** clock, returning `ADMITTED_AT`
+on the first read and one second later each time after. A clock pinned to a constant
+cannot tell one read from two — a second read returns the same instant, the record
+looks right, and only a counter notices. Against an advancing clock a restamp is a
+wrong VALUE. The three instants are deliberately distinct (asked thirty days back,
+`recorded_at` following the question, `served_at` the fabric's), asserted as
+distinct, so a control in which they coincided could not tell a restamp from a
+substitution from the truth.
+
+**Three mutations, named separately and NOT folded into the six-entry ledger** —
+those six are one-edit-per-property falsifications; these are three ways to break one
+half of one property, and renumbering to absorb them would make the ledger's own
+arithmetic lie. `BOUND_RESTAMP_MUTATIONS`:
+
+| mutation | what it does | caught by |
+| --- | --- | --- |
+| `restamped-from-a-second-clock-read` | `served_at=self.admission_clock()` | the record carries `ADMITTED_AT + 1s` and reads are `[1, 1]` |
+| `substituted-with-the-questions-instant` | `served_at=request.asked_at` | the record carries the question's instant |
+| `omitted-entirely` | the argument dropped | a `TypeError` at the call — `served_at` is a REQUIRED keyword on the recorder (`D-IMPL-264` amendment 1, *"No intermediate layer may manufacture the marker from omission"*), so omission cannot silently yield a record at all |
+
+**Residual 3 is CLOSED, test-only.** The clock detector matched only attribute CALLS
+rooted at the literal names `datetime`/`time`, while its docstring claimed to guard
+"reads no ambient clock". Four shapes walked past it: an aliased root
+(`datetime as dt`), a bare-name call (`from time import time`), a non-call reference
+(`Field(default_factory=datetime.now)`), and `today()`/`perf_counter()`. The detector
+now sees all of them, each proven by a planted shape, and **the sweep over all six
+`src/ccf/peering/` modules is clean before and after** — so this is hardening, not a
+reproduced hole, and no production code moved.
+
+### Residuals still carried
+
+1. **Replay re-judges a peered child on the deployment clock** —
+   `replay/environment.py:116`. **Step 6, ruled. Not touched.**
+2. **Peer is structurally guarded; behavioral integration coverage is deferred.**
+   No deployment wires a `PeeringAdmissionGate` into a child resolver, and a
+   `ResolvedProducer` is mint-only via `resolve_producing_grant` from a
+   module-private `BoundSkillView` — so there is no governed path to drive. A gate
+   was NOT stood up merely to make the ledger look finished. The structural hop
+   guard plus the one-word-edit severing is the proof this tree can support.

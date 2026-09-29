@@ -3937,3 +3937,92 @@ def test_I_compose_children_is_handed_the_hoisted_served_at(
         "the instant the composition was evaluated at is not the instant the record"
         " reports serving at — one of them is a second read"
     )
+
+
+# --- `D-IMPL-358` step 5: the out-of-window refusal's own `served_at` -----------
+
+
+def _advancing_clock() -> tuple[list[int], Any]:
+    """A clock that returns a DIFFERENT instant on every read.
+
+    The instrument that makes a restamp visible as a wrong VALUE rather than only
+    as a wrong count. A clock pinned to a constant cannot tell one read from two:
+    a second read returns the same instant, the record looks right, and only a
+    read-counter notices. This returns `ADMITTED_AT` first and one second later
+    each time after, so any instant in the record other than `ADMITTED_AT` is
+    positive evidence that something read the clock again.
+    """
+    reads: list[int] = []
+
+    def clock() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT + timedelta(seconds=len(reads) - 1)
+
+    return reads, clock
+
+
+def test_Bound_the_out_of_window_refusal_record_carries_the_ONE_hoisted_served_at(
+    booted: _Booted,
+) -> None:
+    """The restamp half of Bound, on the leg it belongs to.
+
+    `D-IMPL-358` step 5. The "no restamping" half was guarded only on the TTL
+    ceiling leg — a refusal raised far BELOW the temporal bound — so it caught a
+    restamp placed inside `_record_refusal` and nothing about this path. This is
+    the out-of-window `TemporalBoundRefusal` itself.
+
+    Four things asserted together, because each fails differently:
+
+    1. the refusal is the RIGHT one — `temporal-bound-refusal` /
+       `asked-at-outside-temporal-bound`, not some other governed no that happens
+       to be recorded;
+    2. the clock is read EXACTLY once, with an advancing clock so a second read
+       cannot hide behind a constant;
+    3. acquisition runs ZERO times, so the record read below is a record of a
+       refusal that cost nothing;
+    4. the PERSISTED record — resolved through the refusal's own replay reference,
+       not a record built alongside — carries that one instant, and carries it
+       BESIDE the question's rather than instead of it.
+
+    The three instants are deliberately distinct: the question is asked thirty days
+    before the bound, `recorded_at` follows the question, and `served_at` is the
+    fabric's. A control in which they coincided could not tell a restamp from a
+    substitution from the truth.
+    """
+    _declare_temporal_bound(booted, max_past=60)
+    reads, clock = _advancing_clock()
+    calls, seam = _counting_acquisition()
+    asked = ADMITTED_AT - timedelta(days=30)
+
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, admission_clock=clock),
+        _request(asked_at=asked),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal", outcome.kind
+    assert outcome.reason == "asked-at-outside-temporal-bound", outcome.reason
+    assert calls == [], "an out-of-window question must cost no acquisition"
+    assert reads == [1], (
+        f"the serve path read the clock {len(reads)} time(s); an out-of-window"
+        " refusal must carry the ONE instant the invocation read"
+    )
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    served_at = record.content_generation_path.served_at
+    assert served_at == ADMITTED_AT, (
+        f"the record's `served_at` is {served_at}, not the hoisted {ADMITTED_AT} —"
+        " it was restamped, substituted or dropped"
+    )
+    assert record.recorded_at == asked, (
+        "the record's dimension-1 boundary moved off the question's own instant"
+    )
+    assert served_at != record.recorded_at, (
+        "the two instants coincide, so this control cannot tell the live instant"
+        " from the question's and a substitution would pass"
+    )
+    assert asked != ADMITTED_AT, "the fixture's premise moved"

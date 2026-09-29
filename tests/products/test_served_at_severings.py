@@ -49,6 +49,7 @@ from tests.products.test_resolver_seam import (  # noqa: F401 — fixtures
     _counting_acquisition,
     _declare_temporal_bound,
     _capturing_compose,
+    _advancing_clock,
     PERSPECTIVE,
     _Booted,
     _arguments,
@@ -652,3 +653,118 @@ def test_severing_Bind_a_fabricated_version_on_the_undeclared_path(
         " E2's widened filter is not what is holding this"
     )
     assert any(b.version == "unknown" for b in minted), minted
+
+
+# --- `D-IMPL-358` step 5: Bound's RESTAMP mutations ----------------------------
+#
+# Named SEPARATELY from `STEP5_SEVERING_LEDGER` and deliberately not folded into
+# it: those six are one-edit-per-property falsifications, and these are three ways
+# to break one half of ONE property. Renumbering the six to absorb them would make
+# the ledger's own arithmetic lie about what it covers.
+
+BOUND_RESTAMP_MUTATIONS: dict[str, str] = {
+    "restamped-from-a-second-clock-read": "state",
+    "substituted-with-the-questions-instant": "state",
+    "omitted-entirely": "state",
+}
+
+
+def test_every_bound_restamp_mutation_has_a_test_that_exists() -> None:
+    """The same non-vacuity guard the two ledgers carry."""
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    for key in BOUND_RESTAMP_MUTATIONS:
+        assert f'"{key}",' in source, (
+            f"{key!r} is claimed but no mutation in this module passes that label"
+        )
+
+
+_RECORD_ANCHOR = """            recorded_at=request.asked_at,
+            # The live instant beside the question's, never instead of it.
+            served_at=served_at,"""
+
+
+def _out_of_window_served_at(module: Any, booted: _Booted) -> Any:
+    """Drive the out-of-window refusal on ``module`` and return the record's instant.
+
+    Returns the persisted `served_at`, or the exception a mutation raised. Either
+    falsifies the control — what must not happen is a record that quietly carries
+    the right instant after the line that puts it there was broken.
+    """
+    _declare_temporal_bound(booted, max_past=60)
+    reads, clock = _advancing_clock()
+    calls, seam = _counting_acquisition()
+    arguments = _arguments(booted)
+    arguments.update(acquisition=seam, admission_clock=clock)
+    request = _request(asked_at=ADMITTED_AT - timedelta(days=30))
+    try:
+        outcome = _ask(module.GovernedResolver(**arguments), request)
+    except TypeError as raised:
+        return raised
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    return (record.content_generation_path.served_at, reads, calls)
+
+
+@pytest.mark.parametrize(
+    "label,replacement",
+    [
+        (
+            "restamped-from-a-second-clock-read",
+            _RECORD_ANCHOR.replace(
+                "served_at=served_at,", "served_at=self.admission_clock(),"
+            ),
+        ),
+        (
+            "substituted-with-the-questions-instant",
+            _RECORD_ANCHOR.replace(
+                "served_at=served_at,", "served_at=request.asked_at,"
+            ),
+        ),
+        (
+            "omitted-entirely",
+            "            recorded_at=request.asked_at,",
+        ),
+    ],
+    ids=list(BOUND_RESTAMP_MUTATIONS),
+)
+def test_mutation_Bound_the_refusal_record_loses_the_hoisted_served_at(
+    tmp_path: Path, booted: _Booted, label: str, replacement: str
+) -> None:
+    """Each of the three ways to break Bound's restamp half must be CAUGHT.
+
+    The control is
+    `test_resolver_seam.py::test_Bound_the_out_of_window_refusal_record_carries_the_ONE_hoisted_served_at`.
+    Its instrument is an ADVANCING clock — a second read returns a later instant —
+    so a restamp shows up as the wrong value and not only as a wrong count. That is
+    what makes the first mutation visible at all; against a clock pinned to a
+    constant it would have been invisible in the record.
+
+    The third mutation cannot produce a record: `served_at` is a REQUIRED keyword on
+    the recorder (`D-IMPL-264` amendment 1 — *"No intermediate layer may manufacture
+    the marker from omission"*), so omitting it is a `TypeError` at the call. That is
+    the design working, and it is asserted as such rather than as a missing field.
+    """
+    shipped = _out_of_window_served_at(resolver_module, booted)
+    assert shipped[0] == ADMITTED_AT, f"the shipped control is not green: {shipped}"
+    assert shipped[1] == [1] and shipped[2] == [], shipped
+
+    module = severed(
+        tmp_path, "src/ccf/products/resolver.py", ((_RECORD_ANCHOR, replacement),), label
+    )
+    observed = _out_of_window_served_at(module, booted)
+
+    if isinstance(observed, TypeError):
+        assert "served_at" in str(observed), observed
+        return
+    served_at, reads, _calls = observed
+    assert served_at != ADMITTED_AT, (
+        f"the mutation {label!r} cost nothing — the record still carries the hoisted"
+        " instant, so the control is not guarding this line"
+    )
+    if label == "restamped-from-a-second-clock-read":
+        assert reads == [1, 1], f"expected a second clock read, saw {reads}"
+        assert served_at == ADMITTED_AT + timedelta(seconds=1), served_at
