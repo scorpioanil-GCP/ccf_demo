@@ -549,6 +549,17 @@ def _arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
         "operator_parameter_keys": (TRAVERSAL_KEY,),
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
+        # `D-IMPL-358` step 5 section H, class 1. THE FABRIC CLOCK, pinned to
+        # THIS MODULE'S OWN question instant — `ASKED_AT`, imported from the seam
+        # module, not a new fixture time. Without it `served_at` is the real wall
+        # clock while every question here is asked at a fictional instant, so a
+        # product's expiry (which runs from the decision) lies months in the past
+        # by the time Gate 3 compares it against the moment of service.
+        #
+        # One clock per composition, and it is the same instant the questions
+        # name: that is what makes these tests about their own subjects rather
+        # than about how far today is from March.
+        "admission_clock": lambda: ASKED_AT,
         "artifact_store": booted.store,
         "replay_record_class": REPLAY_RECORD_CLASS,
         "query_pin_class": QUERY_PIN_CLASS,

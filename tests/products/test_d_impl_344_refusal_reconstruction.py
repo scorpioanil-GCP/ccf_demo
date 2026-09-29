@@ -595,7 +595,12 @@ def test_case_7_a_store_that_cannot_retain_fails_the_determination_before_any_re
 def _a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
     """The child answers at a different instant, so admission refuses it
     (`as-of-mismatch`) AFTER it was genuinely dispatched and served."""
-    return {"subject": "acct-1", "asked_at": (asked_at + timedelta(days=1)).isoformat(), "threshold": "1000"}
+    # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
+    # The mismatch is the subject; the day was incidental — and admissible only
+    # while Gate 3 measured its ceiling from the child's own (future) decision.
+    # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
+    # the child refuses `ttl-bounds` before this test's subject is reached.
+    return {"subject": "acct-1", "asked_at": (asked_at + timedelta(minutes=1)).isoformat(), "threshold": "1000"}
 
 
 def test_case_8_an_optional_child_invoked_and_refused_blocks_and_reconstructs_as_optional(

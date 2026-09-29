@@ -528,12 +528,18 @@ def test_a_peered_leg_with_NO_peering_gate_refuses_rather_than_raising(
 #: When the leaf was assembled. The chain's normal instant.
 T0 = ASKED_AT
 #: When the world changed. Between the leaf and the re-serve, on purpose.
-T_WORLD = datetime(2026, 3, 2, 13, 0, tzinfo=UTC)
+#:
+#: `D-IMPL-358` step 5 section H moved these two closer to `T0`. What this module
+#: needs is the ORDERING — `T0 < T_WORLD < T_LATER` — and the magnitude was
+#: incidental: a re-serve two hours after the question sat beyond MAX_TTL measured
+#: from the instant this fixture serves at, so Gate 3 refused it. Twenty and forty
+#: minutes keep every relationship and put both serves inside their own windows.
+T_WORLD = datetime(2026, 3, 2, 12, 20, tzinfo=UTC)
 #: When the fabric LEARNED it. Months later, so a boundary at the wrong clock
 #: would be unmistakable (`D-IMPL-335`).
 T_INGEST = datetime(2026, 6, 15, tzinfo=UTC)
 #: When the dependent products are re-served. After the world change.
-T_LATER = datetime(2026, 3, 2, 14, 0, tzinfo=UTC)
+T_LATER = datetime(2026, 3, 2, 12, 40, tzinfo=UTC)
 
 
 def _supersede_the_leafs_entity(booted: _Booted) -> None:

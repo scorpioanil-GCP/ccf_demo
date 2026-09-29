@@ -72,6 +72,7 @@ from ccf.replay.serve import ServedProduct
 
 from tests.deployment.conftest import ARTIFACT_SET, PRODUCT_CLASS_KEY
 from tests.products.test_resolver_seam import (
+    ONE_SECOND_PAST_THE_TTL_CEILING,
     ASKED_AT,
     MAX_TTL_SECONDS,
     PRODUCT_CLASS,
@@ -459,7 +460,7 @@ def test_the_gate_never_runs_on_a_candidate_the_universal_gates_refused(
             declaring,
             gross=DOUBLE_SUBTRACTED_GROSS,
             guard=guard,
-            product_ttl_seconds=MAX_TTL_SECONDS + 1,
+            product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING,
         ),
         _request(),
     )

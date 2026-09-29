@@ -52,6 +52,7 @@ from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
 from ccf.products.contract import ContextProductContract
 
 from tests.client.conformance.suite import Provision, Question
+from tests.client.fixtures import pinned_clock
 from tests.client.conformance.test_inprocess_conformance import (
     OTHER_PARAMETERS,
     QUESTION,
@@ -246,7 +247,7 @@ def test_a_crossed_question_is_caught_over_the_in_process_transport(
     """`P1`, on one transport: `inprocess` alone, and no second subject."""
     assert_a_crossed_question_is_caught(
         hostile=_InProcessAnswersAnotherQuestion(str(provision("crossed"))),
-        honest=InProcessAdapter(str(provision("honest"))),
+        honest=InProcessAdapter(str(provision("honest")), clock=pinned_clock),
         question=QUESTION,
     )
 
@@ -262,7 +263,7 @@ def test_a_crossed_question_is_caught_over_the_mcp_transport(
     """
     assert_a_crossed_question_is_caught(
         hostile=_McpAnswersAnotherQuestion(str(provision("crossed"))),
-        honest=McpStdioAdapter(str(provision("honest"))),
+        honest=McpStdioAdapter(str(provision("honest")), clock=pinned_clock),
         question=QUESTION,
     )
 
@@ -284,8 +285,8 @@ def test_control_the_assertion_fails_when_it_is_handed_an_honest_adapter(
     """
     with pytest.raises(pytest.fail.Exception) as fired:
         assert_a_crossed_question_is_caught(
-            hostile=InProcessAdapter(str(provision("honest-in-the-hostile-slot"))),
-            honest=InProcessAdapter(str(provision("honest"))),
+            hostile=InProcessAdapter(str(provision("honest-in-the-hostile-slot")), clock=pinned_clock),
+            honest=InProcessAdapter(str(provision("honest")), clock=pinned_clock),
             question=QUESTION,
         )
 
@@ -333,7 +334,7 @@ def test_the_unmutated_adapter_serves_the_same_concrete_question(
     """
     served = ProductClient(
         product_id=QUESTION.product_id,
-        adapter=McpStdioAdapter(str(provision("unmutated"))),
+        adapter=McpStdioAdapter(str(provision("unmutated")), clock=pinned_clock),
     ).ask(parameters=QUESTION.parameters, as_of=QUESTION.as_of)
 
     assert not served.refused
@@ -361,7 +362,9 @@ def test_an_absent_boundary_leaves_the_moved_instant_undetectable(
     _McpMovesTheDoorsInstant.substituted.clear()
     served = ProductClient(
         product_id=UNPINNED_QUESTION.product_id,
-        adapter=_McpMovesTheDoorsInstant(str(provision("moved-and-unpinned"))),
+        adapter=_McpMovesTheDoorsInstant(
+            str(provision("moved-and-unpinned")), clock=pinned_clock
+        ),
     ).ask(
         parameters=UNPINNED_QUESTION.parameters, as_of=UNPINNED_QUESTION.as_of
     )
@@ -534,11 +537,11 @@ def test_an_altered_vessel_is_caught_over_the_in_process_transport(
 ) -> None:
     """`P2`(a), on one transport: `inprocess` alone, and no second subject."""
     hostile = _Editing(
-        InProcessAdapter(str(provision("altered"))), _alter_the_vessel
+        InProcessAdapter(str(provision("altered")), clock=pinned_clock), _alter_the_vessel
     )
     assert_an_altered_vessel_is_caught(
         hostile=hostile,
-        honest=InProcessAdapter(str(provision("honest"))),
+        honest=InProcessAdapter(str(provision("honest")), clock=pinned_clock),
         question=QUESTION,
     )
     _assert_the_tamper_stayed_well_formed(hostile.edited)
@@ -549,11 +552,11 @@ def test_an_altered_vessel_is_caught_over_the_mcp_transport(
 ) -> None:
     """`P2`(a), on the other transport: `mcp+stdio` alone, independently."""
     hostile = _Editing(
-        McpStdioAdapter(str(provision("altered"))), _alter_the_vessel
+        McpStdioAdapter(str(provision("altered")), clock=pinned_clock), _alter_the_vessel
     )
     assert_an_altered_vessel_is_caught(
         hostile=hostile,
-        honest=McpStdioAdapter(str(provision("honest"))),
+        honest=McpStdioAdapter(str(provision("honest")), clock=pinned_clock),
         question=QUESTION,
     )
     _assert_the_tamper_stayed_well_formed(hostile.edited)
@@ -570,8 +573,8 @@ def test_control_the_vessel_assertion_fails_when_it_is_handed_an_honest_adapter(
     """
     with pytest.raises(pytest.fail.Exception) as fired:
         assert_an_altered_vessel_is_caught(
-            hostile=InProcessAdapter(str(provision("honest-in-the-hostile-slot"))),
-            honest=InProcessAdapter(str(provision("honest"))),
+            hostile=InProcessAdapter(str(provision("honest-in-the-hostile-slot")), clock=pinned_clock),
+            honest=InProcessAdapter(str(provision("honest")), clock=pinned_clock),
             question=QUESTION,
         )
 

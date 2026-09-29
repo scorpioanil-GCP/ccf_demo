@@ -52,6 +52,8 @@ import yaml
 
 import ccf
 from ccf.client.adapters.mcp_stdio import SCHEME, McpStdioAdapter
+from ccf.client.binding import SCHEME_REGISTRY
+from tests.client.fixtures import SERVED_AT_ENV
 from ccf.client.client import ProductClient
 from ccf.client.errors import BindingError, TransportError
 from ccf.contracts.canonical import canonical_bytes
@@ -74,6 +76,29 @@ PARAMETER = str(_CONFIG["request_contract"]["arguments"]["required"][0])
 
 #: A pinned instant, so nothing here depends on when it ran.
 PINNED = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def _compose_against_the_pinned_instant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every adapter this module resolves through the registry reads :data:`PINNED`.
+
+    `D-IMPL-358` step 5 section H. Three legs here reach a client through
+    `CCF_BINDING` rather than by handing one an adapter, so the registry is where
+    their composition happens. Without the pin they ask at `PINNED` and serve at
+    the real clock, and Gate 3 — which measures its window from the moment of
+    service — refuses a March-anchored product today.
+    """
+    monkeypatch.setitem(
+        SCHEME_REGISTRY,
+        SCHEME,
+        lambda address: McpStdioAdapter(address, clock=lambda: PINNED),
+    )
+    # And the CHILD, which is where the serving actually happens. The client's
+    # clock governs only its own `as_of=None` read; the instant a separate
+    # process serves at is that process's own, so it crosses through the
+    # environment — the one channel a child inherits, and the same one the
+    # conformance package exports.
+    monkeypatch.setenv(SERVED_AT_ENV, PINNED.isoformat())
 
 #: A stub MCP server answering the product tool with ``BODY``. The eight
 #: arguments are declared because the shipped tool declares them: a stub with a
@@ -157,7 +182,11 @@ def _ask(root: Path, parameters: dict[str, object] | None = None) -> object:
     :func:`~tests.client.fixtures.declare_server` through ``_root``.
     """
     return ProductClient(
-        product_id=PRODUCT_ID, adapter=McpStdioAdapter(str(root))
+        product_id=PRODUCT_ID,
+        # `D-IMPL-358` step 5 section H: composed against this module's own
+        # pinned instant, so `as_of=PINNED` and the serving instant agree. A
+        # product anchored on a pinned March decision cannot be served today.
+        adapter=McpStdioAdapter(str(root), clock=lambda: PINNED),
     ).ask(
         parameters={PARAMETER: 11} if parameters is None else parameters,
         as_of=PINNED,

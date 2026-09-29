@@ -269,7 +269,13 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     # evidence is five minutes old and its window twelve minutes, so its own
     # term ends seven minutes after the question — before the child's ten-minute
     # window does — while a decision-anchored own term would end after it.
-    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=12)
+    # `D-IMPL-358` step 5 section H: FOURTEEN minutes, not twelve. With evidence
+    # five minutes old, a twelve-minute window ends at ASKED_AT + 7min — exactly
+    # the instant this fixture serves at — and Gate 3's lower bound is strict
+    # (`now < expires_at`), so the parent refused itself before its own subject
+    # was reached. Fourteen ends at +9min: clear of the serving instant, and still
+    # BEFORE the child's ten-minute window, which is the premise below.
+    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
     config = fixture.consumer_config()
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     row = dict(config["half_life"][ENTITY_CLASS]); row["decay_basis"] = "valid-from"
@@ -387,7 +393,13 @@ def test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant(
     """
     from tests.products.test_paved_consumer import _environ, _producer, _question, _the_row  # noqa: PLC0415
 
-    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=12)
+    # `D-IMPL-358` step 5 section H: FOURTEEN minutes, not twelve. With evidence
+    # five minutes old, a twelve-minute window ends at ASKED_AT + 7min — exactly
+    # the instant this fixture serves at — and Gate 3's lower bound is strict
+    # (`now < expires_at`), so the parent refused itself before its own subject
+    # was reached. Fourteen ends at +9min: clear of the serving instant, and still
+    # BEFORE the child's ten-minute window, which is the premise below.
+    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
     config = fixture.consumer_config()
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     config["product_class"]["constituent_validity_floors"] = {

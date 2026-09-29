@@ -71,6 +71,18 @@ def main() -> None:
         assess=fixture.assess,
         environ=environ,
         control_plane=control_plane,
+        # `D-IMPL-358` step 5 section H, class 1. THE PRODUCER'S FABRIC CLOCK,
+        # pinned to the SAME instant the consumer is pinned to. Unpinned, this
+        # process served at the real wall clock while the consumer asked in March,
+        # so the child arrived claiming validity months beyond anything the
+        # consumer's own MAX_TTL admits — and the composition refused a child
+        # that was never the subject of the test.
+        #
+        # The producer is its own process. It reads the instant from the fixture
+        # it already imports rather than from an environment variable, because
+        # this program is launched with the repo importable and `fixture` is where
+        # that instant is declared.
+        clock=lambda: fixture.ADMITTED_AT,
     ) as opened:
         open_door(opened, environ=environ).serve_loopback(
             announce=lambda port: print(f"READY {port}", flush=True)

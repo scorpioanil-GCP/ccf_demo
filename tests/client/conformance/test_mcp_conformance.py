@@ -45,6 +45,7 @@ from tests.client.conformance.test_inprocess_conformance import (
 )
 from tests.client.conformance.test_inprocess_conformance import SUBJECTS as IN_PROCESS
 from tests.client.fixtures import declare_server
+from tests.client.fixtures import pinned_clock
 
 pytestmark = pytest.mark.conformance
 
@@ -60,7 +61,7 @@ def connect_over_stdio(root: Path) -> McpStdioAdapter:
     The address is the root and nothing else (``D-05``); the program the child
     runs is the ``server:`` the ``provision`` fixture wrote into this copy.
     """
-    return McpStdioAdapter(str(root))
+    return McpStdioAdapter(str(root), clock=pinned_clock)
 
 
 def break_over_stdio(root: Path) -> McpStdioAdapter:
@@ -77,7 +78,7 @@ def break_over_stdio(root: Path) -> McpStdioAdapter:
     broken = root.parent / BROKEN_SERVER
     broken.write_text("raise SystemExit(1)\n", encoding="utf-8")
     declare_server(root, broken)
-    return McpStdioAdapter(str(root))
+    return McpStdioAdapter(str(root), clock=pinned_clock)
 
 
 #: This transport, as one subject. Named on its own because the controls in

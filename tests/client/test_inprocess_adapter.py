@@ -67,6 +67,50 @@ THRESHOLD = "minimum_score"
 _PINNED = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 
 
+#: The one test here whose subject IS the registry entry itself, so it must see
+#: the UNPATCHED one. A name list, which this project distrusts — so it is held
+#: honest by `test_the_registry_optout_names_a_real_test` below: rename the test
+#: and that goes red rather than the opt-out silently ceasing to apply.
+_READS_THE_REAL_REGISTRY = frozenset({"test_the_inprocess_scheme_is_registered_at_import"})
+
+
+def test_the_registry_optout_names_a_real_test() -> None:
+    """The guard that makes the name list above safe."""
+    present = {name for name in globals() if name.startswith("test_")}
+    missing = _READS_THE_REAL_REGISTRY - present
+    assert not missing, f"the opt-out names tests that do not exist here: {sorted(missing)}"
+
+
+@pytest.fixture(autouse=True)
+def _compose_against_the_pinned_instant(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every adapter this module builds reads :data:`_PINNED` as its now.
+
+    `D-IMPL-358` step 5 section H. The paragraph above explains why the QUESTION
+    is pinned; the serving instant needs the same pin for the same reason. A
+    product anchored on a March decision cannot be served in September — Gate 3
+    measures its window from the moment of service — so an unpinned fabric clock
+    turns every leg here into a `ttl-bounds` refusal about how far today is from
+    March rather than about its own subject.
+
+    **Patched through** ``SCHEME_REGISTRY`` **rather than by handing
+    ``ProductClient`` a pre-built adapter**, which matters: two legs below are
+    ABOUT binding resolution — one relative-versus-absolute root, one two clients
+    sharing a fabric — and passing an adapter directly would bypass the very path
+    they measure. The registry is documented as mutable so a test may register a
+    scheme (``D-06``); this replaces the factory for the scheme already there, so
+    every binding string and every cache key stays exactly what it was.
+    """
+    if request.node.name in _READS_THE_REAL_REGISTRY:
+        return
+    monkeypatch.setitem(
+        SCHEME_REGISTRY,
+        SCHEME,
+        lambda address: InProcessAdapter(address, clock=lambda: _PINNED),
+    )
+
+
 class _BootCounter:
     """Counts the boots the adapter actually performs.
 
@@ -311,7 +355,10 @@ def test_the_wire_carries_exactly_the_canonical_bytes_of_the_vessel(
     decoder re-serialize it would satisfy a weaker assertion about equal
     payloads while having skipped the wire entirely.
     """
-    adapter = InProcessAdapter(str(seeded_root))
+    # `D-IMPL-358` step 5 section H: composed against this module's own pinned
+    # instant, the same one its questions name. A direct construction bypasses the
+    # registry the autouse fixture patches, so it states the clock itself.
+    adapter = InProcessAdapter(str(seeded_root), clock=lambda: _PINNED)
     request = WireRequest(
         product_id=_product_id(seeded_root),
         parameters={THRESHOLD: 20},
@@ -377,7 +424,10 @@ def test_the_question_half_crosses_the_wire_too(seeded_root: Path) -> None:
     a question nobody asked, and this asserts it is as detectable as a crossed
     vessel.
     """
-    adapter = InProcessAdapter(str(seeded_root))
+    # `D-IMPL-358` step 5 section H: composed against this module's own pinned
+    # instant, the same one its questions name. A direct construction bypasses the
+    # registry the autouse fixture patches, so it states the clock itself.
+    adapter = InProcessAdapter(str(seeded_root), clock=lambda: _PINNED)
     nested = {"widget_ref": "w-1", "note": "one declared level"}
     request = WireRequest(
         product_id=_product_id(seeded_root),
@@ -417,7 +467,10 @@ def test_an_absent_boundary_is_echoed_absent_though_the_door_answered_at_one(
     actually computed at is not lost by that — it is reported on the served
     vessel, which is where a caller reads it.
     """
-    adapter = InProcessAdapter(str(seeded_root))
+    # `D-IMPL-358` step 5 section H: composed against this module's own pinned
+    # instant, the same one its questions name. A direct construction bypasses the
+    # registry the autouse fixture patches, so it states the clock itself.
+    adapter = InProcessAdapter(str(seeded_root), clock=lambda: _PINNED)
     request = WireRequest(
         product_id=_product_id(seeded_root),
         parameters={THRESHOLD: 20},
@@ -601,7 +654,9 @@ def test_a_binding_naming_no_deployment_refuses_when_it_is_asked(
         client.ask(parameters={THRESHOLD: 20})
 
 
-def test_an_explicit_as_of_reaches_the_deployment(seeded_root: Path) -> None:
+def test_an_explicit_as_of_reaches_the_deployment(
+    seeded_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """`D-04`. Naming an instant asks the question against that moment.
 
     The fixture's rows are fixed instants, so a boundary before them assembles
@@ -626,6 +681,18 @@ def test_an_explicit_as_of_reaches_the_deployment(seeded_root: Path) -> None:
     """
     before = datetime(2020, 1, 1, tzinfo=UTC)
 
+    # `D-IMPL-358` step 5 section H: THIS leg's serving instant follows THIS
+    # leg's question. The module's pin is 2026 and this asks as of 2020, so the
+    # module default would have the fabric serving six years after the instant it
+    # answered against — which Gate 3 refuses correctly, measuring its window
+    # from the moment of service. The question and the service move together, or
+    # the fixture is asserting an incoherent deployment.
+    monkeypatch.setitem(
+        SCHEME_REGISTRY,
+        SCHEME,
+        lambda address: InProcessAdapter(address, clock=lambda: before),
+    )
+
     result = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=before)
 
     assert result.temporal_boundary == before
@@ -638,7 +705,7 @@ def test_an_explicit_as_of_reaches_the_deployment(seeded_root: Path) -> None:
     # and adding one is a client-surface change this row is fenced away from —
     # so the product is read where it demonstrably arrived, through the one
     # decoder, rather than through a private attribute.
-    adapter = InProcessAdapter(str(seeded_root))
+    adapter = InProcessAdapter(str(seeded_root), clock=lambda: before)
     decoded = decode_outcome(
         adapter.ask(
             request := WireRequest(
@@ -658,6 +725,20 @@ def test_an_explicit_as_of_reaches_the_deployment(seeded_root: Path) -> None:
     assert finding.operators_returned_empty
     assert finding.operators_returned_empty <= finding.operators_invoked
     assert finding.plan_id == decoded.vessel.plan_id
+
+    # `D-IMPL-358` step 5 section H: the positive control asks at a DIFFERENT
+    # instant, so it needs a fabric composed at that instant. The boot cache fixes
+    # a root's clock at its first boot — one root is one fabric, and one fabric has
+    # one clock — so the cache is dropped and the module's own pin restored for
+    # this leg. Without this the control would serve at 2020 while asking at 2026
+    # and refuse, which would read as the leg failing rather than as two legs
+    # needing two compositions.
+    inprocess.reset_boot_cache()
+    monkeypatch.setitem(
+        SCHEME_REGISTRY,
+        SCHEME,
+        lambda address: InProcessAdapter(address, clock=lambda: _PINNED),
+    )
 
     served = _client(seeded_root).ask(parameters={THRESHOLD: 20}, as_of=_PINNED)
     assert not served.refused

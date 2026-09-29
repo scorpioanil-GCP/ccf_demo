@@ -555,6 +555,14 @@ def _resolver(
         operator_parameter_keys=tuple(_placed(fabric.booted, key) for key in OPERATOR_PARAMETER_KEYS),
         policy_bundle_key=_placed(fabric.booted, POLICY_BUNDLE_KEY),
         plan_factory=plan_factory,
+        # `D-IMPL-358` step 5 section H, class 1. The fabric clock, pinned to the
+        # instant this fixture's own acquisition source is pinned to (line above:
+        # `FileRecordAcquisitionSource(clock=lambda: ASKED_AT)`). Unpinned, cp-05's
+        # records are ingested as of March and served at the real clock, so the
+        # declared TTL has long expired by the time Gate 3 compares it against the
+        # moment of service — and this module's findings are about a WRONG answer,
+        # which a refusal cannot demonstrate.
+        admission_clock=lambda: ASKED_AT,
         debt_scorer=declared_debt_scorer(fabric.booted),
         product_gate=reconciliation_gate,
         artifact_store_root=fabric.root,

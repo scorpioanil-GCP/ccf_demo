@@ -277,7 +277,12 @@ def test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_ident
     def a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
         return {
             "subject": "acct-1",
-            "asked_at": (asked_at + timedelta(days=1)).isoformat(),
+            # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
+            # The mismatch is the subject; the day was incidental — and admissible only
+            # while Gate 3 measured its ceiling from the child's own (future) decision.
+            # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
+            # the child refuses `ttl-bounds` before this test's subject is reached.
+            "asked_at": (asked_at + timedelta(minutes=1)).isoformat(),
             "threshold": "1000",
         }
 

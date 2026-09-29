@@ -129,7 +129,12 @@ from tests.composition import register_typed_at_composition
 #: raise :class:`~ccf.products.constraints.ConstraintEffectivityConflict`.
 WINDOW_OPENS = datetime(2026, 1, 1, tzinfo=UTC)
 BOUNDARY = datetime(2026, 6, 1, tzinfo=UTC)
-BEFORE_BOUNDARY = BOUNDARY - timedelta(days=1)
+# `D-IMPL-358` step 5 section H: ONE MINUTE before, not one day. The gap only
+# has to CROSS the effectivity boundary, which is this module's subject; a full
+# day also put the second serve outside the product's own validity window, so
+# Gate 3 — measuring that window from the moment of service — refused it. A
+# minute crosses the boundary and leaves both serves inside the window.
+BEFORE_BOUNDARY = BOUNDARY - timedelta(minutes=1)
 
 #: The two Control Plane keys the adjacent windows are registered under, and
 #: the policy id each artifact carries. Key and policy id are deliberately

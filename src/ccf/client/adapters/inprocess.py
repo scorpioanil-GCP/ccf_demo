@@ -461,7 +461,17 @@ class InProcessAdapter:
         # as `C-02` requires, and the resolved instant travels to the door
         # half as a separate argument — mirroring `mcp+stdio`, where
         # `asked_at` is a separate tool argument.
-        asked_at = request.temporal_boundary or datetime.now(UTC)
+        # `D-IMPL-358` step 5 section H: resolved by THIS COMPOSITION'S CLOCK,
+        # not an ambient read. The two are the same value by default, and differ
+        # exactly when a composition states its own now — at which point an
+        # ambient read here would pin `served_at` while leaving `asked_at` live,
+        # so the fabric would answer a question asked at one instant and serve it
+        # as of another. One clock per composition means one clock for both.
+        #
+        # The read stays CLIENT-SIDE. Relocating it to the door is the separate
+        # design question `C-13` recorded and declined; this changes which clock
+        # it reads, not where it is read.
+        asked_at = request.temporal_boundary or self._clock()
         return self._door(
             canonical_bytes(request).decode("utf-8"),
             asked_at=asked_at,

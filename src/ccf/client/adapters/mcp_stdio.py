@@ -129,6 +129,7 @@ import os
 import shlex
 import sys
 from dataclasses import dataclass
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -143,6 +144,10 @@ from ccf.client.adapters.binding_document import (
 )
 from ccf.client.binding import SCHEME_REGISTRY
 from ccf.client.errors import BindingError, TransportError
+
+#: The fabric's own clock, IMPORTED rather than restated — the same rule the
+#: in-process adapter states: one right value, and it lives in the resolver.
+from ccf.products.resolver import _utc_now as _FABRIC_CLOCK
 from ccf.client.wire import WireRequest
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.artifacts import DEPLOYMENT_CONFIG, DeploymentConfig
@@ -197,10 +202,26 @@ class McpStdioAdapter:
             takes for a root.
     """
 
-    __slots__ = ("_address",)
+    __slots__ = ("_address", "_clock")
 
-    def __init__(self, address: str) -> None:
+    def __init__(
+        self, address: str, *, clock: Callable[[], datetime] = _FABRIC_CLOCK
+    ) -> None:
+        """Point at ``address``; ``clock`` is this composition's fabric clock.
+
+        `D-IMPL-358` step 5 section H. The same seam
+        :class:`~ccf.client.adapters.inprocess.InProcessAdapter` carries, and for
+        the same reason: this adapter resolves ``as_of=None`` client-side, so an
+        ambient read here would leave `asked_at` live while a pinned deployment
+        served at its own instant. The default is the fabric's own clock, so
+        nothing that does not care is affected.
+
+        The clock does NOT cross to the child process — the child composes its
+        own, and a deployment that needs the two to agree says so in the program
+        it ships. What this governs is the instant this CLIENT resolves.
+        """
         self._address = address
+        self._clock = clock
 
     def ask(self, request: WireRequest) -> bytes:
         """Launch the deployment's server, ask it one question, and carry its bytes.
@@ -247,8 +268,10 @@ class McpStdioAdapter:
             # leaving the argument out is forced by the tool's own shape —
             # all four §6.3 axes are required, which makes a partial address
             # unrepresentable rather than merely refused.
+            # `D-IMPL-358` step 5 section H: this composition's clock, not an
+            # ambient read — see the constructor.
             "asked_at": (
-                request.temporal_boundary or datetime.now(UTC)
+                request.temporal_boundary or self._clock()
             ).isoformat(),
             # Verbatim, exactly as the door forwards them: MCP carries tool
             # arguments as JSON, so `D-IMPL-103`'s one level of declared

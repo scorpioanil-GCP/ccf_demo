@@ -1378,7 +1378,7 @@
     "exports": {
       "McpStdioAdapter": {
         "kind": "class",
-        "shape": "(address: 'str') -> 'None'"
+        "shape": "(address: 'str', *, clock: 'Callable[[], datetime]' = <function _utc_now>) -> 'None'"
       },
       "SCHEME": {
         "kind": "constant",

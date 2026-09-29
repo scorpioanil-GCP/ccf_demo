@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1775 entries**, of which **1515** name a public Python surface.
+**1776 entries**, of which **1516** name a public Python surface.
 
 ## Added
 
@@ -16284,7 +16284,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-502 entries — 314 public Python surface, 188 not public Python API.
+503 entries — 315 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -22032,6 +22032,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: `InProcessAdapter(address, *, clock=<the fabric's own clock>)`, threaded to the private `_boot` and on to `build_governed_resolver(admission_clock=…)`. **The injected fabric clock of `D-IMPL-159` / D6(d), not a test knob**: a transport IS a composition site, and this is where a composition states its now. The default is the fabric's own clock — imported from `ccf.products.resolver`, never restated, because a second definition would be a second clock — so nothing that does not care is affected
 - Why: `D-IMPL-358` step 5. `served_at` is read once per governed invocation and is non-sentinel, so it is inside the replay record's hash (`D-IMPL-243` amendment 1: *"Any non-sentinel value is rendered and must move the hash"*). Two serves at two wall times are therefore two record versions — which is the ruled identity rule, not a new one. The conformance parity legs compare `replay_ref` across transports and their contract has always been *"the same question at the same instant"*; the fixture never established the second half, and the wave made that visible. The transports agreed on the record's NAME and differed on its `@version`
 - Migration: none required — the parameter is keyword-only and defaults to today's behavior. A composition that needs two transports to agree on a record version injects one clock into both. The boot cache memoizes per deployment root, so the first adapter to boot a root fixes that root's clock and a second naming the same root inherits it; that is `D-30`'s existing single-writer contract (one root is one fabric, and one fabric has one clock), not a new rule
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: reshaped
+- Before: `McpStdioAdapter(address)`, resolving `as_of=None` with an ambient `datetime.now(UTC)`
+- After: `McpStdioAdapter(address, *, clock=<the fabric's own clock>)`, and that clock is what resolves `as_of=None`. The same seam `InProcessAdapter` carries, with the same imported default — never a restated one
+- Why: `D-IMPL-358` step 5 section H. The two adapters each resolved `as_of=None` client-side from an ambient clock. Once a composition can state its own now, an ambient read there pins `served_at` while leaving `asked_at` live — so the fabric would answer a question asked at one instant and serve it as of another. One clock per composition means one clock for both instants
+- Migration: none required — keyword-only with today's behavior as its default. **The read stays CLIENT-SIDE:** relocating it to the door is the separate design question `C-13` recorded and declined, and this changes which clock it reads, not where. The clock does not cross to the child process either; a child composes its own, which is why the fixture deployment's program reads its instant from the environment
 
 *Recorded by `358-05-trusted-time.md`.*
 

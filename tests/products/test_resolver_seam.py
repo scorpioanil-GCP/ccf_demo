@@ -202,6 +202,22 @@ ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 #: resolver had conflated two of them.
 ADMITTED_AT = datetime(2026, 3, 2, 12, 7, tzinfo=UTC)
 
+#: A product TTL exactly ONE SECOND past the ceiling Gate 3 actually applies.
+#:
+#: `D-IMPL-358` step 5 section H. Six fixture sites spelled `MAX_TTL_SECONDS + 1`,
+#: which is one second past a ceiling measured from the DECISION instant. Gate 3
+#: measures its ceiling from the moment of SERVICE, which this fixture pins seven
+#: minutes later — so those values landed comfortably INSIDE the real ceiling and
+#: their tests SERVED instead of refusing. That is the opposite direction from
+#: most of this migration, and the reason a count of reds is not a diagnosis.
+#:
+#: DERIVED from this module's own two instants rather than restated as a number,
+#: so it stays one second past the ceiling if either instant moves. Defined here
+#: because this is the module that declares both.
+ONE_SECOND_PAST_THE_TTL_CEILING = (
+    MAX_TTL_SECONDS + int((ADMITTED_AT - ASKED_AT).total_seconds()) + 1
+)
+
 #: The perspective a calling surface would have resolved and entitled.
 PERSPECTIVE = Perspective(principal_id="principal-fixture", role="role-fixture")
 
@@ -1578,7 +1594,7 @@ def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:
 def test_a_gate_refusal_comes_back_as_an_envelope(booted: _Booted) -> None:
     """Gate 3 fires when the product outlives the class's declared ceiling."""
     outcome = _ask(
-        _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1), _request()
+        _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING), _request()
     )
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -1589,7 +1605,7 @@ def test_a_gate_refusal_comes_back_as_an_envelope(booted: _Booted) -> None:
 def test_a_gate_refusal_keeps_the_gates_own_typed_fields(booted: _Booted) -> None:
     """Constraint (a): nothing is flattened out on the way across the seam."""
     outcome = _ask(
-        _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1), _request()
+        _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING), _request()
     )
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -1634,7 +1650,7 @@ def test_a_gate_refusal_serves_nothing_and_records_everything(
     could record and still hand back a servable shape, and one could return the
     shell and quietly append nothing — which is the state this row corrected.
     """
-    resolver = _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1)
+    resolver = _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING)
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -3195,7 +3211,7 @@ def test_step5_a_refusal_reads_the_clock_once_and_NOW_records_served_at(
     outcome = _ask(
         _resolver(
             booted,
-            product_ttl_seconds=MAX_TTL_SECONDS + 1,
+            product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING,
             admission_clock=counting,
         ),
         _request(),

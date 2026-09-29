@@ -492,6 +492,12 @@ def _resolver_arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
         "operator_parameter_keys": (f"{TENANT}/{OPERATOR_ID}",),
         "policy_bundle_key": f"{TENANT}/policy",
         "plan_factory": _plan_factory,
+        # `D-IMPL-358` step 5 section H, class 1. The fabric clock, pinned to
+        # THIS module's own question instant. Unpinned, `served_at` is the real
+        # wall clock while every question here is asked in March, so the expiry
+        # a decision-anchored product carries is months past by the time Gate 3
+        # compares it against the moment of service.
+        "admission_clock": lambda: ASKED_AT,
         "max_ttl_seconds": MAX_TTL_SECONDS,
         "product_ttl_seconds": PRODUCT_TTL_SECONDS,
         "half_life_key": f"{TENANT}/half_life",
