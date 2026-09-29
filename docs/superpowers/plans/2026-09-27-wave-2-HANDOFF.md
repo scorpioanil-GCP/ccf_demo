@@ -963,3 +963,123 @@ discriminates, not evidence of a defect.
    independently confirms why: the supported path raises `ReplayUnresolvable` before any
    child re-judgment. No `PeeringAdmissionGate` deployment was invented.
 3. **Detector widening — closed in step 5**, test-only. Untouched here.
+
+---
+
+## 15. Step 7 — the debt instant. Sheet §3.7 REFUTED; the real gap was a different one
+
+**No production code changed.** Ruling 6 holds on this tree and always did; what was
+missing was a control whose subject is the instant.
+
+### §3.7 does not reproduce
+
+The sheet recorded: *"with a plugin making `FreshnessScorer.score` read a wall clock
+instead of the instant handed to it, the suite is **153 passed / 0 failed / 0 errors**
+— unchanged. The D8 ruling is unprovable as the design stands."*
+
+Measured with exactly that substitution, applied as a scratch pytest plugin (the tree
+never edited):
+
+| population | control | under the substitution |
+| --- | --- | --- |
+| `tests/halflife/` | **225 passed** | **220 passed, 5 failed** |
+| `tests/products/` | **1724 passed** | **1719 passed, 5 failed** |
+
+**Ten tests redden.** And the claim cannot have been measured over these files:
+`tests/halflife/`, `src/ccf/halflife/` and `tests/products/test_reference_debt_scorer.py`
+are BYTE-IDENTICAL between the sheet's baseline `51158a58` and this tree, and all ten
+reddening tests were present at that baseline. The 153-node population could not be
+identified and **was not invented** — the likeliest reading is a population that never
+invoked the subject, or a plugin that never bound the class attribute. A green run over
+a population that never calls the thing under test measures nothing.
+
+Positive control for the instrument: an identity plugin that passes `now` through leaves
+`tests/halflife/` at 225 passed with 16 `score` calls intercepted — so the interception
+machinery breaks nothing and the substitution is the cause of every red.
+
+### But the protection was INCIDENTAL, which is the real finding
+
+Four of the ten redden because they pin freshness at exactly `Decimal(1)` for an
+observation dated AT the handed instant, and `decay.freshness` returns exactly 1 only at
+zero age. Those are VALUE assertions that a clock read happens to break. Re-date such a
+fixture by one second for an unrelated reason and the protection disappears with nothing
+to notice.
+
+Measured against Dave's three categories:
+
+- **(a) value/band controls** — many.
+- **(b) which instant is used** — exactly ONE deliberate control in the whole tree
+  (`test_reference_debt_scorer.py::test_the_instant_is_the_views_own_as_of`), and it sits
+  one frame ABOVE `FreshnessScorer.score` on `AssemblyDebtScorer.__call__`, framed as a
+  provenance claim, with no severing.
+- **(c) the scorer reads no clock at all** — **EMPTY.** No debt-side analogue of
+  `tests/peering/test_admission_clock.py`. The one near-miss
+  (`test_debt.py::test_the_recency_is_carried_and_never_consumed`) scans only
+  `halflife/assessment.py`, which holds no computation, by raw substring, with no
+  positive control — so `debt.py` and `decay.py`, where the computation actually lives,
+  were never scanned.
+
+### What step 7 built — `tests/halflife/test_step7_debt_instant.py`, 9 tests
+
+**(c), the empty category.** An AST sweep over every module that participates in a debt
+figure — all of `src/ccf/halflife/` plus `products/debt_scorer.py`, the frame that hands
+the instant down — using the ONE widened detector from step 5's section J, imported
+rather than restated. With its own positive control (the sweep runs over different files
+than the detector was written for) and a vacuity guard.
+
+**(b), at the level it was missing.** Every `now=` in `tests/halflife/test_debt.py` is
+the single module constant `NOW`, so nothing there can tell the handed instant from any
+other. The new control scores ONE observation at TWO instants a year apart and requires
+the figure to follow the argument. Plus the structural half: `now` is keyword-only with
+no default, so no caller can omit it and fall back to whatever is in scope.
+
+**A deliberately LONG half-life, and the reason is arithmetic.** `relevance_ratio`
+quantizes to `RATIO_QUANTUM = 1E-18`. At the fixture calibrations (λ_c 3600 s, and
+cp-06's 86400 s) a wall-clock reading is thousands of half-lives old and the figure
+UNDERFLOWS to `0E-18` — so a strict inequality would redden because both readings
+collapsed to the quantum, not because a different instant was measured, and a non-strict
+one would go green. **A control must not be built on the quantum.** At 180 days neither
+reading underflows, and the control asserts that distance explicitly rather than
+trusting a comment.
+
+### The severing caught a defect in my own control
+
+`STEP7_DEBT_MUTATIONS` — `the-freshness-scorer-reads-a-wall-clock`, a two-anchor edit
+(`debt.py` imports only `datetime`, so the substitution must bring `UTC` with it; a
+severing that raised `NameError` would redden for an import error, which is not evidence
+about a temporal property).
+
+**The first draft of the control asserted only the ORDERING** — `at_near > at_far` — and
+the severing showed it **still passing** under the substitution. Two `datetime.now()`
+calls land microseconds apart, so the later reading is very slightly staler and the
+ordering holds by accident of call order, the two figures differing in about the twelfth
+decimal place. The control now asserts a MAGNITUDE: a year at a 180-day half-life is more
+than two half-lives, so the figure must more than HALVE, which two clock reads a
+microsecond apart cannot produce whatever their order. The severing asserts the GAP
+collapses (honest gap ≈ 0.75, severed gap ≈ 1e-12) and that the magnitude assertion would
+indeed have failed.
+
+### FINDING S7-F1 — the reference scorer measures from `asked_at`, not the decision instant
+
+Surfaced, NOT fixed: repairing it changes which instant the shipped reference scorer
+measures from, which is a production behavior change beyond this step's named scope.
+
+- `decay.freshness`'s docstring (`src/ccf/halflife/decay.py::freshness`) says `now` is *"The
+  decision instant. Injected, never read from a clock."*
+- The shipped reference scorer passes `now=view.as_of`
+  (`src/ccf/products/debt_scorer.py::AssemblyDebtScorer`), and `view.as_of` is `request.asked_at` — the
+  resolver's only `reader.as_of(` call binds `at=request.asked_at`
+  (`src/ccf/products/resolver.py::GovernedResolver`).
+- `decided_at` reaches a scorer on exactly ONE branch: `InstantAwareDebtScorerProtocol.score_at`
+  (`src/ccf/products/resolver.py::InstantAwareDebtScorerProtocol`). The other two branches receive no instant at all. The SDK's
+  one conformer, `_AssessAdapter.score_at` (`src/ccf/products/product.py::_AssessAdapter`), hands
+  `decided_at` to the DEVELOPER's callable and does not force it into `FreshnessScorer`.
+
+So wherever a product class declares a decision-instant parameter — making `decided_at`
+differ from `asked_at` — the reference scorer measures decay from the question's instant
+while ruling 6 says the debt is computed at the decision instant. On fixtures where the
+two coincide the gap is invisible, which is why no control noticed.
+
+**Not the recorded `observed_at == asked_at` degeneracy** — that one is about a fixture
+and is explicitly not this step's subject. This is about which of two DIFFERENT instants
+the shipped scorer reads, and it needs a ruling.

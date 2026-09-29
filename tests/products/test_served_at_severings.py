@@ -768,3 +768,109 @@ def test_mutation_Bound_the_refusal_record_loses_the_hoisted_served_at(
     if label == "restamped-from-a-second-clock-read":
         assert reads == [1, 1], f"expected a second clock read, saw {reads}"
         assert served_at == ADMITTED_AT + timedelta(seconds=1), served_at
+
+
+# --- `D-IMPL-358` step 7: the debt instant ------------------------------------
+#
+# Named separately from step 5's ledgers and step 6's mutations, for the same reason
+# each of those is separate: this falsifies ruling 6's property, not a step-5
+# one-edit-per-property entry, and folding it in would make those ledgers' arithmetic
+# wrong about what they cover.
+
+STEP7_DEBT_MUTATIONS: dict[str, str] = {
+    "the-freshness-scorer-reads-a-wall-clock": "state",
+}
+
+
+def test_every_step7_mutation_has_a_test_that_exists() -> None:
+    """The same non-vacuity guard the other ledgers carry."""
+    source = pathlib.Path(__file__).read_text(encoding="utf-8")
+    for key in STEP7_DEBT_MUTATIONS:
+        assert f'"{key}",' in source, (
+            f"{key!r} is claimed but no mutation in this module passes that label"
+        )
+
+
+def test_severing_the_freshness_scorer_reads_a_wall_clock(tmp_path: Path) -> None:
+    """The sheet's own named edit, and the control it must now redden.
+
+    Sheet §3.7 recorded this substitution as leaving the suite at *"153 passed / 0
+    failed"* — **measured on this tree, it does not**: ten tests redden under it. But
+    four of those ten redden because they pin freshness at exactly `Decimal(1)` for a
+    zero-age observation, which is a VALUE assertion that a clock read happens to
+    break. Re-date such a fixture by one second for an unrelated reason and the
+    protection vanishes with nothing to notice.
+
+    So this severing is aimed at the control whose SUBJECT is the instant:
+    `tests/halflife/test_step7_debt_instant.py::test_the_freshness_figure_is_measured_from_THE_HANDED_INSTANT`.
+    Under the substitution the two scorings — the same observation, an hour and a year
+    after it was made — collapse to ONE figure, because both read the same clock.
+
+    The severed copy is driven behaviorally with the shipped control's own fixture, so
+    the two cannot drift: if the control's arithmetic changes, this changes with it.
+    """
+    from tests.halflife.test_step7_debt_instant import (
+        _LONG_HALF_LIFE_SECONDS,
+        _OBSERVED_AT,
+        _TYPE,
+        _scorer,
+        test_the_freshness_figure_is_measured_from_THE_HANDED_INSTANT as shipped,
+    )
+
+    shipped()  # green on the shipped tree, and the severing is meaningless otherwise
+    assert _LONG_HALF_LIFE_SECONDS > 0
+
+    module = severed(
+        tmp_path,
+        "src/ccf/halflife/debt.py",
+        (
+            # TWO anchors: `debt.py` imports only `datetime`, so the substitution has
+            # to bring `UTC` with it. A severing that raised `NameError` would redden
+            # the control for an import error rather than for a measured instant, and
+            # an import failure is not evidence about a temporal property.
+            ("from datetime import datetime", "from datetime import UTC, datetime"),
+            ("                    now=now,", "                    now=datetime.now(UTC),"),
+        ),
+        "the-freshness-scorer-reads-a-wall-clock",
+    )
+
+    from ccf.halflife.decay import HalfLifeTable, Observation
+
+    honest = _scorer()
+    wall = module.FreshnessScorer(
+        table=HalfLifeTable.model_validate(honest.table.model_dump()),
+        risk_sensitivity=honest.risk_sensitivity,
+    )
+    observation = Observation(
+        observation_type=_TYPE, observed_at=_OBSERVED_AT, subject="step7-subject"
+    )
+    near = _OBSERVED_AT + timedelta(hours=1)
+    far = _OBSERVED_AT + timedelta(days=365)
+
+    honest_near = honest.score((observation,), now=near)
+    honest_far = honest.score((observation,), now=far)
+    assert honest_far < honest_near / 2, "the shipped control is not green"
+
+    wall_near = wall.score((observation,), now=near)
+    wall_far = wall.score((observation,), now=far)
+
+    # NOT exact equality, and the difference is the whole lesson. Two `datetime.now()`
+    # calls land microseconds apart, so the severed scorer returns two figures that
+    # differ in about the twelfth decimal place — and the later one IS very slightly
+    # staler, so a bare `>` ordering assertion would have stayed GREEN under this
+    # edit. That is what this severing caught in the control's first draft, and why
+    # the shipped control asserts a MAGNITUDE.
+    #
+    # What collapses is the GAP: a year of declared decay becomes a microsecond of
+    # wall time.
+    honest_gap = honest_near - honest_far
+    severed_gap = abs(wall_near - wall_far)
+    assert severed_gap < honest_gap / 10**6, (
+        "the severing cost nothing — the two readings are still materially apart"
+        f" (honest gap {honest_gap}, severed gap {severed_gap}), so the control is not"
+        " guarding which instant is measured from"
+    )
+    assert not (wall_far < wall_near / 2), (
+        "the severed scorer still more than halved the figure, so the shipped"
+        " control's magnitude assertion would not have reddened"
+    )
