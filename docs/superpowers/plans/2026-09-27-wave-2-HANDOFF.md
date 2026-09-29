@@ -746,7 +746,7 @@ valid with five minutes left when decided, expired for two when handed over.
 ### Peer — proven, and honestly under-guarded
 
 **No code repair was needed.** There is exactly ONE production call site
-(`src/ccf/products/child_resolver.py:576`); its instant is the single hoisted
+(`src/ccf/products/child_resolver.py::GrantBoundChildResolver`); its instant is the single hoisted
 `served_at` across five hops; `GovernedResolver.__call__` accepts no instant; and
 `admission_clock` is a boot-fixed zero-arg callable nothing mutates per request.
 Every test caller passes a deterministic fixture constant, not a clock. Nothing
@@ -773,7 +773,7 @@ feeds the verdict — a one-word edit the whole suite was measured to permit.
 ### Residuals recorded, NOT worked
 
 1. **Replay re-judges a peered child's admission at replay wall-clock.**
-   `src/ccf/replay/environment.py:116` rebuilds the resolver through
+   `src/ccf/replay/environment.py::RecordedEnvironment` rebuilds the resolver through
    `build_governed_resolver(**opened.build_arguments(fabric))`, carrying the
    DEPLOYMENT's `admission_clock` (default `_utc_now`) rather than the `served_at`
    the record pinned. Fabric-controlled, so the Peer property holds and no A2A
@@ -781,7 +781,7 @@ feeds the verdict — a one-word edit the whole suite was measured to permit.
    guards it. **Step 6 territory; not started.**
 2. **The Peer property is currently vacuous on shipped code.** `peering_gate=` is
    supplied at exactly one place and the paved road passes it nothing, so a peered
-   child today takes the honest refusal at `child_resolver.py:569-573`. The property
+   child today takes the honest refusal at `child_resolver.py::GrantBoundChildResolver`. The property
    holds for the first deployment that wires a gate, and it holds because the SDK
    threads the instant — not because any deployment gets it right.
 3. **The peering clock detector is narrower than its own docstring.** It matches
@@ -828,7 +828,7 @@ reproduced hole, and no production code moved.
 ### Residuals still carried
 
 1. **Replay re-judges a peered child on the deployment clock** —
-   `replay/environment.py:116`. **Step 6, ruled. Not touched.**
+   `src/ccf/replay/environment.py::RecordedEnvironment`. **Step 6, ruled. Not touched.**
 2. **Peer is structurally guarded; behavioral integration coverage is deferred.**
    No deployment wires a `PeeringAdmissionGate` into a child resolver, and a
    `ResolvedProducer` is mint-only via `resolve_producing_grant` from a
@@ -848,7 +848,7 @@ does carry the callable. Replay never reads it.
 ### The residual as written, and what was measured
 
 The residual read: *"replay re-judges a peered child's admission at replay wall-clock,
-because `src/ccf/replay/environment.py:116` rebuilds the resolver via
+because `src/ccf/replay/environment.py::RecordedEnvironment` rebuilds the resolver via
 `build_governed_resolver(**opened.build_arguments(fabric))`, which carries the
 DEPLOYMENT's `admission_clock` (default `_utc_now`) rather than the `served_at` pinned
 on the record."*
