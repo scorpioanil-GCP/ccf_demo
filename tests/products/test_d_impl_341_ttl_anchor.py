@@ -255,7 +255,12 @@ def test_c6_evidence_older_than_the_window_refuses_ttl_bounds_naming_the_anchore
     assert refused.kind != "ttl-anchor-refusal"
     block = json.loads(record.content_generation_path.assembly_refusal)
     assert json.loads(block["fields"]["expires_at"]) == (stale + WINDOW).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    assert json.loads(block["fields"]["now"]) == ASKED_AT.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    # `D-IMPL-358` step 5 section H. MIGRATED with the comparand: this asserted
+    # `ASKED_AT`. Gate 3's `now` is the instant it actually applies its bound at,
+    # and that is the moment of SERVICE. The old assertion was pinning the defect —
+    # it said the gate compared against the question's instant, and it did, which
+    # is why a product already expired at hand-over could be served.
+    assert json.loads(block["fields"]["now"]) == fixture.ADMITTED_AT.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 # --- C8 ------------------------------------------------------------------------------------

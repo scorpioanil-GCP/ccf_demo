@@ -3303,10 +3303,29 @@ class GovernedResolver:
                 # has always been.
                 engine_resolved=execution.operators_invoked
                 | (composed.admitted_operators if composed is not None else frozenset()),
-                # The TTL gate asks whether this product expires within bounds OF
-                # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
-                # from (`D-IMPL-308`).
-                now=decided_at,
+                # `D-IMPL-358` step 5 section H: GATE 3 ASKS ABOUT THE MOMENT OF
+                # SERVICE. The comparand was `decided_at`, on the reasoning that
+                # the expiry RUNS FROM the decision instant (`D-IMPL-308`) — which
+                # is true of how `expires_at` is COMPUTED and is a different
+                # question from the one the gate ASKS.
+                #
+                # The gate holds `now < expires_at <= now + MAX_TTL`, and the
+                # inequality stays two-sided. Both bounds are statements about the
+                # CONSUMER's moment, not the fabric's:
+                #
+                #   * lower — a product whose expiry already passed between being
+                #     decided and being handed over must not be served. Judged at
+                #     `decided_at` this was blind to exactly the gap `served_at`
+                #     exists to name;
+                #   * upper — a product may not promise more than MAX_TTL of life
+                #     measured from when the consumer receives it. Judged at
+                #     `decided_at` a child answering a question a DAY out fit a
+                #     ceiling drawn from its own future decision.
+                #
+                # `served_at` on a refusal RECORD is not this: the record says when
+                # the determination happened; this is the instant the bound is
+                # applied at. Both were needed and only the first had landed.
+                now=served_at,
                 registry=self.control_plane,
                 product_class=registered,
                 source_attestation=execution.source_attestation,
