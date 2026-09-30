@@ -107,6 +107,24 @@ artifacts:
     role: register
     registration: typed
 
+  # How far back this tenant answers for, and how much clock disagreement it
+  # tolerates. `register`, because an UNDECLARED boundary refuses every question
+  # (`D-IMPL-358` ruling 11) — so this is squarely "what this fabric is permitted
+  # to do", and a question must replay against the window in force when it was
+  # asked rather than the one in force today.
+  #
+  # THE KEY HERE IS NOT FREE VOCABULARY, unlike every other key in this file.
+  # The resolver looks the policy up under a key the SDK DERIVES —
+  # `<tenant_id>/ccf.temporal-boundary-policy` — so that two components cannot
+  # disagree about where a tenant's policy lives. The loader already places every
+  # manifest key under this deployment's `tenant_id`, so the key below must be
+  # the class id exactly, and renaming it would register a document nothing reads.
+  - path: temporal-boundary.yaml
+    key: ccf.temporal-boundary-policy
+    class_id: ccf.temporal-boundary-policy
+    role: register
+    registration: typed
+
   - path: operator-parameters-traversal.yaml
     key: traversal
     class_id: ccf.operator-parameters.traversal
