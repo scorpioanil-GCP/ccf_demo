@@ -686,16 +686,32 @@ def questions(example: Any) -> Any:
 
 
 @pytest.fixture(scope="module")
+def service_instants(example: Any) -> Any:
+    """The instant the FABRIC serves each declared question at (`D-IMPL-358` step 13).
+
+    Composed by the harness from `artifacts/questions.yaml`'s declared demonstration
+    periods, exactly as ``questions`` above is, and paired with it positionally.
+    Requested as a fixture rather than derived here so that this module reads the
+    same two values the driver does — TWO periods, August for questions 1 and 2 and
+    September for question 3.
+    """
+    return example.deployment.declared_service_instants()
+
+
+@pytest.fixture(scope="module")
 def answers(
     example: Any,
     questions: Any,
+    service_instants: Any,
     fluree_url: str,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Any:
     """One answered product per declared question, in declaration order."""
     del fluree_url  # Requested as the gate; see `result` above.
     return example.ask_all(
-        root=tmp_path_factory.mktemp("s1-01-questions"), requests=questions
+        root=tmp_path_factory.mktemp("s1-01-questions"),
+        requests=questions,
+        service_instants=service_instants,
     )
 
 

@@ -72,6 +72,7 @@ import pathlib
 import sys
 import tempfile
 from collections.abc import Sequence
+from datetime import datetime
 
 from ccf.products.request import ProductRequest
 
@@ -88,7 +89,10 @@ import spine  # noqa: E402
 
 
 def run(
-    *, root: pathlib.Path, request: ProductRequest | None = None
+    *,
+    root: pathlib.Path,
+    request: ProductRequest | None = None,
+    service_instant: datetime | None = None,
 ) -> spine.Assembled:
     """Assemble and serve one ultimate-beneficial-ownership Context Product.
 
@@ -103,7 +107,20 @@ def run(
     particular to ask still gets a product — never to a subject or an instant
     written down in this file.
     """
-    asked = deployment.declared_questions()[0] if request is None else request
+    if request is None:
+        # `D-IMPL-358` step 13. A DECLARED question comes with its declared
+        # demonstration period, so the default path takes both from the document
+        # rather than one from the document and the other from a clock.
+        asked = deployment.declared_questions()[0]
+        if service_instant is None:
+            service_instant = deployment.declared_service_instants()[0]
+    else:
+        # A caller-composed question carries no declared period. Left as `None`
+        # deliberately: the fabric then serves on its own clock, and a historical
+        # `decision_instant` is refused with `ttl-refusal`. Inventing a serve
+        # instant to match whatever was asked would be the harness deciding what
+        # time it is on the caller's behalf.
+        asked = request
     return spine.assemble_and_serve(
         manifest=deployment.MANIFEST,
         connection=deployment.connection(root=root),
@@ -111,11 +128,15 @@ def run(
         plan_class=deployment.UltimateBeneficialOwnershipPlan,
         request=asked,
         root=root,
+        service_instant=service_instant,
     )
 
 
 def ask_all(
-    *, root: pathlib.Path, requests: Sequence[ProductRequest]
+    *,
+    root: pathlib.Path,
+    requests: Sequence[ProductRequest],
+    service_instants: Sequence[datetime] | None = None,
 ) -> tuple[spine.Assembled, ...]:
     """Ask every question in turn, each against its own fabric under ``root``.
 
@@ -124,11 +145,25 @@ def ask_all(
     is what lets two replay records — and the query sequences they pin — be
     compared side by side without either run having observed the other.
     """
+    if service_instants is not None and len(service_instants) != len(requests):
+        raise ValueError(
+            f"{len(requests)} question(s) and {len(service_instants)} serve"
+            " instant(s): they are paired POSITIONALLY, so a mismatch would serve"
+            " some question at another question's instant"
+        )
     answered = []
     for index, request in enumerate(requests):
         scratch = root / f"q{index}"
         scratch.mkdir(parents=True, exist_ok=True)
-        answered.append(run(root=scratch, request=request))
+        answered.append(
+            run(
+                root=scratch,
+                request=request,
+                service_instant=(
+                    None if service_instants is None else service_instants[index]
+                ),
+            )
+        )
     return tuple(answered)
 
 
@@ -215,6 +250,11 @@ def main(argv: list[str] | None = None) -> int:
             " answered anyway"
         )
 
+    # `D-IMPL-358` step 13: the declared questions come with their declared
+    # periods; an ad-hoc question has none and is served on the process clock.
+    service_instants = (
+        deployment.declared_service_instants() if arguments.subject is None else None
+    )
     requests = (
         deployment.declared_questions()
         if arguments.subject is None
@@ -227,7 +267,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     with tempfile.TemporaryDirectory(prefix="ccf-s1-01-") as scratch:
-        answers = ask_all(root=pathlib.Path(scratch), requests=requests)
+        answers = ask_all(
+            root=pathlib.Path(scratch),
+            requests=requests,
+            service_instants=service_instants,
+        )
         # Rendered INSIDE the `with` block, deliberately: the file-backed
         # ArtifactStore lives under this root, and the report resolves the
         # replay record and the pinned graph queries out of it. Rendering after

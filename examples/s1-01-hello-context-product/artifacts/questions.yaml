@@ -57,6 +57,41 @@ declaration:
   default_intent: kyc-periodic-review
   default_freshness: as-of-boundary
 
+  # THE SIMULATION CLOCK — which instant the FABRIC IS SERVING AT, per
+  # demonstration period. **Harness-owned, and deliberately not on any request.**
+  #
+  # **Why this exists.** A governed serve is judged at the SERVE instant: Gate 3
+  # holds `served_at < expires_at <= served_at + max_ttl` (INV-CH7-48), and this
+  # class anchors its expiry to the DECISION instant (`product-governance.yaml`'s
+  # `product_ttl_seconds`). Those two facts together mean a question whose
+  # decision instant is 1 August cannot be answered by a fabric whose clock reads
+  # today: the product expired on 1 August, and Gate 3 is right to refuse it.
+  # That is not a defect to route around — it is the TTL doing its job.
+  #
+  # So these three questions are **controlled historical simulations**, and the
+  # harness says so out loud by composing a trusted clock for each declared
+  # period. `../run.py` reads the instant for a question's `service_period` and
+  # hands it to the fabric's `admission_clock` seam. The alternative — quietly
+  # taking the serve instant off the incoming request's `decision_instant` —
+  # would let any caller move the fabric's clock by asking a question, which is
+  # the opposite of a trusted instant.
+  #
+  # **TWO PERIODS, NOT ONE.** Questions 1 and 2 are the August experiment;
+  # question 3 is the September one, six weeks later, and pinning all three to
+  # one August clock would erase the very difference the third question exists to
+  # show.
+  #
+  # **The ad-hoc path gets NO simulation clock.** `../run.py --subject …` is not
+  # a declared period, so the fabric serves on its own process clock and a
+  # historical `--decision-instant` is refused with `ttl-refusal`. That is the
+  # honest answer to "answer this stale question now", and it is left visible
+  # rather than papered over.
+  #
+  # Quoted and zoned for the same reasons every other instant in this file is.
+  simulation_clock:
+    august-2026: "2026-08-01T00:05:00Z"
+    september-2026: "2026-09-15T00:05:00Z"
+
   questions:
     # 1 — the original question this example has always answered, unchanged, so
     #     that the served product and its replay record are byte-comparable
@@ -65,6 +100,7 @@ declaration:
       intent: kyc-periodic-review
       freshness: as-of-boundary
       asked_at: "2026-08-01T00:00:00Z"
+      service_period: august-2026
       parameters:
         decision_instant: "2026-08-01T00:05:00Z"
 
@@ -75,6 +111,7 @@ declaration:
       intent: kyc-onboarding
       freshness: as-of-boundary
       asked_at: "2026-08-01T00:00:00Z"
+      service_period: august-2026
       parameters:
         decision_instant: "2026-08-01T00:05:00Z"
 
@@ -85,5 +122,6 @@ declaration:
       intent: kyc-periodic-review
       freshness: as-of-boundary
       asked_at: "2026-09-15T00:00:00Z"
+      service_period: september-2026
       parameters:
         decision_instant: "2026-09-15T00:05:00Z"

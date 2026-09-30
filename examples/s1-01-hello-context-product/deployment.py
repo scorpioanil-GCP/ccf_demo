@@ -191,6 +191,12 @@ QUESTION_INTENT = "intent"
 QUESTION_FRESHNESS = "freshness"
 QUESTION_ASKED_AT = "asked_at"
 QUESTION_PARAMETERS = "parameters"
+#: The harness-owned simulation clock (`D-IMPL-358` step 13). `QUESTIONS_CLOCK`
+#: names the block of declared demonstration periods; `QUESTION_SERVICE_PERIOD`
+#: names which of them one question is served in. Neither reaches a
+#: `ProductRequest`: the serve instant is composition state, not caller input.
+QUESTIONS_CLOCK = "simulation_clock"
+QUESTION_SERVICE_PERIOD = "service_period"
 
 POLICY_THRESHOLD_PERCENT = "beneficial_ownership_threshold_percent"
 POLICY_SCALE_PLACES = "ownership_percent_scale_places"
@@ -780,6 +786,47 @@ def declared_questions() -> tuple[ProductRequest, ...]:
         )
         for question in document[QUESTIONS_LIST]
     )
+
+
+def declared_service_instants() -> tuple[datetime, ...]:
+    """The instant the FABRIC serves at, one per declared question, in order.
+
+    `D-IMPL-358` step 13. Paired positionally with :func:`declared_questions`, so
+    `../run.py` can hand each question the clock its demonstration period runs on.
+
+    **This is composition state, and it is read from the document rather than off
+    the request.** A governed serve is judged at the serve instant — Gate 3 holds
+    `served_at < expires_at <= served_at + max_ttl`, and this class anchors expiry
+    to the decision instant — so a historical question needs a historical fabric
+    clock to be answerable at all. Taking that instant off the incoming request's
+    `decision_instant` would let any caller move the fabric's clock by asking a
+    question; the questions document declares the periods instead, and a question
+    names one.
+
+    **An unknown or missing period REFUSES rather than defaulting.** There is no
+    fallback to the process clock and none to "the first period": a simulation
+    whose clock nobody declared is not a simulation (`D-IMPL-38`).
+    """
+    document = _questions_document()
+    periods = document[QUESTIONS_CLOCK]
+    instants = []
+    for index, question in enumerate(document[QUESTIONS_LIST], start=1):
+        if QUESTION_SERVICE_PERIOD not in question:
+            raise ValueError(
+                f"question {index} declares no {QUESTION_SERVICE_PERIOD!r}. Every"
+                " declared question names the demonstration period it is served"
+                " in; there is deliberately no default, because a serve instant"
+                " nobody wrote down is a clock read wearing a disguise"
+            )
+        named = question[QUESTION_SERVICE_PERIOD]
+        if named not in periods:
+            raise ValueError(
+                f"question {index} names service period {named!r}, which"
+                f" {QUESTIONS_CLOCK!r} does not declare. Declared periods:"
+                f" {sorted(periods)!r}"
+            )
+        instants.append(datetime.fromisoformat(periods[named]))
+    return tuple(instants)
 
 
 def ad_hoc_question(
