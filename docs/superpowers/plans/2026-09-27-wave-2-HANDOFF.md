@@ -1256,3 +1256,76 @@ the potential authoring surface; it is not authorization to add the field to 32 
 Ruling 7 controls step 13 — s1-01 is live and a new red BLOCKS; cp-00–cp-04 are frozen and
 reds are ledgered; an undispositioned example's new red stops the sitting and returns for
 explicit disposition. **Disposition first, repair second.**
+
+---
+
+## 17. Step 9 — the red-when-fixed inventory. The set is EMPTY, and here is the search.
+
+Dave, 2026-09-30: *"'No step 9' is not the empty search the GO asked for. Either name the
+remaining red-when-fixed controls or name the search that found none. Do not invent
+migrations to fill the step."*
+
+He is right that my earlier "no step 9" was an assertion rather than a search. This is the
+search. **No new work was created and no migration was invented.**
+
+### The sheet's own §4.1 roster, item by item
+
+§4.1 named five controls that pin pre-wave defective behaviour. Each is dispositioned
+against the tree at `492ef8f1`:
+
+| § 4.1 item | disposition | evidence |
+| --- | --- | --- |
+| `test_delivery_determinism.py` — two runs record at one instant | **not owed.** The assertion still HOLDS: step 5 ruling F kept `recorded_at` at `request.asked_at`, so two runs of one question still record at one instant | its *stated reason* is stale — the comment claims *"the governed path reads no clock at all"*, which `served_at` made false. Prose, not a pin |
+| `test_policy_constraint_resolver.py` — *"the property replay would lose if effectivity were evaluated at 'now'"* | **not owed.** The assertion still holds; its stated reason is superseded by area 1 | effectivity IS now evaluated at `served_at`, and replay does not lose the property because it resolves each binding at the recorded version. The surviving phrase sits at `test_policy_constraint_resolver.py::test_a_request_at_the_boundary_instant_resolves_the_second` |
+| `test_d_impl_341_ttl_anchor.py` c11 — mixing floor at the decision instant (720s/False, 540s/True) | **MIGRATED**, step 5 | floors became 240s/120s and the test was renamed to the evaluation instant; the migration also STRENGTHENED it — the new pair separates all three candidate instants where the old separated two |
+| `test_refusal_envelope.py:432` — `set(envelope.fields) == {"expires_at","now","max_ttl_seconds"}` | **not owed.** The change it anticipated did not happen, by ruling | H2 was ruled unnecessary in step 6. Verified: `TTLRefusal.model_fields` is `detail, expires_at, gate, max_ttl_seconds, now` — no `served_at`, so the roster still matches |
+| the nine record-shape pins | **not disturbed** | they pin the TOP-LEVEL record shape. Verified: `served_at` is on `ContentGenerationPath`, NOT on `DecisionReplayRecord` — `'served_at' in DecisionReplayRecord.model_fields` is `False` |
+
+### Migrated during the wave, outside §4.1
+
+Three controls the sheet did not list were found pinning the defect and migrated when the
+change that reddened them landed — not retro-fitted to fill this step:
+
+- `tests/mcp/test_egress_refusal_channels.py` — two nodes, step 5 ruling F
+- `tests/http_api/test_product_refusal_statuses.py` — one node, step 5 ruling F
+- `tests/products/test_d_impl_341_ttl_anchor.py` c6 — step 5 section H, the comparand
+
+### The search, named
+
+**Population:** `tests/` excluding `archive/`, `--include=*.py` — **527 test files**,
+**8620 collected nodes** in the non-example suite.
+
+| pattern | hits |
+| --- | --- |
+| `red-when-fixed` | 0 |
+| `red when fixed` | 0 |
+| `pins the defect` | 0 |
+| `pins today's` | 0 |
+| `pinning the defect` | 3 |
+| `was pinning the defect` | 3 |
+
+All three `pinning the defect` hits are the SAME three, and every one reads **"was**
+pinning the defect" — past tense, written by the migration that fixed it. Zero controls
+describe themselves as still pinning.
+
+### The closure that does not depend on a grep
+
+A label search can only find controls that label themselves. The decisive argument is
+arithmetic:
+
+**A control that still pinned a defect this wave FIXED would be RED right now**, because
+the defect it pinned no longer reproduces. The full non-example suite is **8502 passed,
+115 skipped, 2 failed** — and both failures are base-existing at `72bee6eb`
+(`test_citation_coverage`, `test_version_stamp`), neither of which asserts any temporal
+behaviour. So the set of still-pinning controls for fixed defects is **empty**, whether or
+not any of them carried a label.
+
+What remains green and legitimately so are controls pinning behaviour this wave did NOT
+change — and every one of those is a NAMED residual rather than an undiscovered pin: Peer
+behavioural coverage, S8-F1 (the paved-road guard is unreachable), `observed_time` /
+`valid_from` unguarded, the eight Wave-1 residuals, and the citation ratchet above its
+ceiling.
+
+**Step 9 is therefore paid as an inventory with an empty result set.** Two stale *stated
+reasons* are recorded above rather than edited: they are comments, this sitting is
+inventory-only, and changing prose is not a migration.
