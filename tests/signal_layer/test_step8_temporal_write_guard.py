@@ -217,6 +217,7 @@ def test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE(
 STEP8_GUARD_MUTATIONS: dict[str, str] = {
     "the-roster-check-removed": "state",
     "the-judged-instant-becomes-the-fabric-clock": "state",
+    "the-undeclared-policy-becomes-no-constraint": "state",
 }
 
 
@@ -324,3 +325,84 @@ def test_severing_the_judged_instant_becomes_the_fabric_clock(
     # ...and the envelope was never rewritten: the severing changed what the guard
     # READ, not what the caller supplied.
     assert stale.ingestion_timestamp == NOW - timedelta(days=3650)
+
+
+
+def test_severing_an_undeclared_policy_becomes_no_constraint(
+    tmp_path: "object",
+) -> None:
+    """Ruling 11's INGRESS half, and the line no other ledger entry's edit touches.
+
+    Added at step 10 as reconciliation, not as a new campaign: ruling 11 admits no
+    default and no fabricated binding, and
+    `test_a_missing_policy_REFUSES_and_names_the_key_and_the_absence` above asserts
+    it — but nothing in any of the six ledgers took that property away, so the
+    control's force was asserted rather than measured.
+
+    **The property rests on TWO lines, and only one of them was covered.**
+
+    1. `temporal_boundary.py` returning an ABSENCE rather than a default. That line
+       is `T3-missing-means-default` in `STEP3_SEVERING_LEDGER`. Measured at step 10:
+       substituting T3's behaviour in process does admit this envelope, so the line
+       is genuinely load-bearing here — but T3's asserted red is step 3's pin control
+       on a scratch copy of `temporal_boundary.py`, which the guard never imports.
+    2. The guard's own undeclared branch, HERE: the pinned absence is handed to
+       `refuse_temporal_bound` rather than being read as "nothing to enforce". No
+       ledger entry's edit touches it. This severing does.
+
+    The severing is the realistic wrong implementation for this line — *no declared
+    policy means no window, so there is nothing to refuse* — and it is the exact
+    inversion of the ruling: an undeclared tenant would write freely, which is the
+    default ruling 11 forbids arriving by omission instead of by declaration.
+    """
+    import pathlib as _p
+
+    from ccf.signal.envelope import IngressTemporalBound, TemporalWriteRefused
+    from tests.products.test_served_at_severings import severed
+
+    # (1) SHIPPED: undeclared refuses, and the refusal names the key and the absence.
+    shipped = IngressTemporalBound.at_composition(
+        registry=ControlPlaneRegistry(), tenant_ids=(TENANT,)
+    )
+    with pytest.raises(TemporalWriteRefused) as raised:
+        shipped.refuse_outside_window(_envelope(), now=NOW)
+    assert raised.value.policy_key == temporal_boundary_policy_key(tenant_id=TENANT), (
+        "the shipped control is not green — nothing below proves anything"
+    )
+    assert raised.value.reason == "temporal-boundary-undeclared", raised.value.reason
+
+    # (2) SEVERED: the same envelope is ADMITTED, cleanly. A crash would redden the
+    # control for the wrong reason; this returns `None`, which is what a fabric would
+    # actually do with a tenant nobody declared a window for.
+    module = severed(
+        _p.Path(str(tmp_path)),
+        "src/ccf/signal/envelope.py",
+        (
+            (
+                "        bound = self.pinned[claimed]",
+                "        bound = self.pinned[claimed]\n"
+                "        if isinstance(bound, TemporalBoundaryUndeclared):  # severed\n"
+                "            return",
+            ),
+        ),
+        "the-undeclared-policy-becomes-no-constraint",
+    )
+    broken = module.IngressTemporalBound.at_composition(
+        registry=ControlPlaneRegistry(), tenant_ids=(TENANT,)
+    )
+    assert broken.refuse_outside_window(_envelope(), now=NOW) is None, (
+        "the severing cost nothing — the undeclared policy still refuses, so this"
+        " ledger entry would be naming a falsification that does not bite"
+    )
+
+    # (3) ...and a DECLARED tenant still refuses under the same severed copy, so the
+    # entry is about the undeclared branch and not about the window arithmetic.
+    registry = ControlPlaneRegistry()
+    _roster(registry)
+    declared = module.IngressTemporalBound.at_composition(
+        registry=registry, tenant_ids=(TENANT,)
+    )
+    with pytest.raises(module.TemporalWriteRefused):
+        declared.refuse_outside_window(
+            _envelope(at=NOW - timedelta(days=3650)), now=NOW
+        )
