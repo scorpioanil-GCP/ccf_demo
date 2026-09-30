@@ -216,12 +216,22 @@ def test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE(
 
 STEP8_GUARD_MUTATIONS: dict[str, str] = {
     "the-roster-check-removed": "state",
-    "the-window-judgment-removed": "state",
+    "the-judged-instant-becomes-the-fabric-clock": "state",
 }
 
 
 def test_every_step8_mutation_has_a_test_that_exists() -> None:
-    """The non-vacuity guard the other ledgers carry."""
+    """The non-vacuity guard, and it did not catch what it should have.
+
+    An earlier ledger carried `the-window-judgment-removed`, whose mutation rewrote
+    `refusal = refuse_temporal_bound(` to `refusal = None or refuse_temporal_bound(`.
+    Those are the same expression — `None or X` IS `X` — so the entry named a
+    falsification that cost nothing, and this guard passed it because the label was
+    genuinely present in the source. **A guard that checks a label exists cannot
+    check that the mutation bites.** The entry is gone and the two that remain each
+    take a property away; nothing here is a reachability check wearing a severing's
+    name.
+    """
     import pathlib as _p
 
     source = _p.Path(__file__).read_text(encoding="utf-8")
@@ -229,34 +239,12 @@ def test_every_step8_mutation_has_a_test_that_exists() -> None:
         assert f'"{key}",' in source, f"{key!r} is claimed but no mutation exists"
 
 
-@pytest.mark.parametrize(
-    "label,anchor,replacement,expect",
-    [
-        (
-            "the-roster-check-removed",
-            "        if claimed not in self.pinned:",
-            "        if False:",
-            "roster",
-        ),
-        (
-            "the-window-judgment-removed",
-            "        refusal = refuse_temporal_bound(",
-            "        refusal = None or refuse_temporal_bound(",
-            "window",
-        ),
-    ],
-    ids=["roster", "window"],
-)
-def test_mutation_the_guard_stops_refusing(
-    tmp_path: "object", label: str, anchor: str, replacement: str, expect: str
-) -> None:
-    """Each named edit must make the guard admit what it refuses today.
+def test_severing_the_roster_check_is_removed(tmp_path: "object") -> None:
+    """Without the roster check a foreign tenant is not refused — it CRASHES.
 
-    The `window` case is deliberately a NO-OP rewrite of the same expression: it
-    proves the severing harness reaches this line and that the anchor is live, without
-    changing behaviour — so it is reported as a REACHABILITY check rather than as a
-    falsification. The `roster` case is a real falsification: the off-roster refusal
-    disappears and a foreign tenant is admitted to the window judgment.
+    Stronger than predicted and reported as measured: the guard reaches
+    `self.pinned[claimed]` for a tenant that was never pinned and raises `KeyError`,
+    an untyped crash where a governed refusal belongs.
     """
     import pathlib as _p
 
@@ -265,25 +253,74 @@ def test_mutation_the_guard_stops_refusing(
     module = severed(
         _p.Path(str(tmp_path)),
         "src/ccf/signal/envelope.py",
-        ((anchor, replacement),),
-        label,
+        (("        if claimed not in self.pinned:", "        if False:"),),
+        "the-roster-check-removed",
     )
     bound = module.IngressTemporalBound.at_composition(
         registry=ControlPlaneRegistry(), tenant_ids=(TENANT,)
     )
-    if expect == "roster":
-        # Off-roster no longer refuses as foreign; it falls through to the window
-        # judgment, which refuses for a DIFFERENT reason — so the specific refusal
-        # the control asserts is gone.
-        # STRONGER than expected, and reported as measured: without the roster
-        # check the guard does not refuse a foreign tenant at all — it reaches
-        # `self.pinned[claimed]` for a tenant that was never pinned and raises
-        # `KeyError`. An untyped crash where a governed refusal belongs, which is
-        # exactly what the check prevents.
-        with pytest.raises(KeyError):
-            bound.refuse_outside_window(
-                _envelope(tenant_id="tenant-not-on-the-roster"), now=NOW
-            )
-    else:
-        with pytest.raises(module.TemporalWriteRefused):
-            bound.refuse_outside_window(_envelope(), now=NOW)
+    with pytest.raises(KeyError):
+        bound.refuse_outside_window(
+            _envelope(tenant_id="tenant-not-on-the-roster"), now=NOW
+        )
+
+
+def test_severing_the_judged_instant_becomes_the_fabric_clock(
+    tmp_path: "object",
+) -> None:
+    """Judge the fabric's own instant instead of the envelope's. The guard goes blind.
+
+    **The falsification the opening sheet asked for** — *"replace
+    `envelope.ingestion_timestamp` in the guard"* — and the one an earlier ledger
+    entry only pretended to be.
+
+    The severed guard judges `now` against itself, so the age is always ZERO and
+    every envelope is in window however stale it is. The envelope still carries its
+    real old timestamp; nothing is restamped in production, and only the scratch copy
+    shows what this mistake would cost.
+
+    Both halves of the property are asserted on the SHIPPED implementation first —
+    that the envelope's own instant is what is judged, and that the refusal REPORTS
+    that same instant rather than a restamped one — so the severing is measured
+    against a control known to be green and known to be about the right value.
+    """
+    import pathlib as _p
+
+    from ccf.signal.envelope import TemporalWriteRefused
+    from tests.products.test_served_at_severings import severed
+
+    stale = _envelope(at=NOW - timedelta(days=3650))
+
+    # (1) SHIPPED: refuses, and reports the instant it was handed — not a restamp.
+    shipped = _roster(ControlPlaneRegistry())
+    with pytest.raises(TemporalWriteRefused) as raised:
+        shipped.refuse_outside_window(stale, now=NOW)  # type: ignore[attr-defined]
+    assert raised.value.instant == stale.ingestion_timestamp, (
+        "the shipped refusal reports an instant other than the envelope's own"
+    )
+    assert raised.value.instant != NOW, (
+        "the shipped guard reports the fabric's instant, so this severing could not"
+        " tell the two apart"
+    )
+
+    # (2) SEVERED: the same stale envelope is admitted.
+    module = severed(
+        _p.Path(str(tmp_path)),
+        "src/ccf/signal/envelope.py",
+        (
+            (
+                "        instant = envelope.ingestion_timestamp",
+                "        instant = now",
+            ),
+        ),
+        "the-judged-instant-becomes-the-fabric-clock",
+    )
+    registry = ControlPlaneRegistry()
+    _roster(registry)
+    bound = module.IngressTemporalBound.at_composition(
+        registry=registry, tenant_ids=(TENANT,)
+    )
+    bound.refuse_outside_window(stale, now=NOW)  # must NOT raise
+    # ...and the envelope was never rewritten: the severing changed what the guard
+    # READ, not what the caller supplied.
+    assert stale.ingestion_timestamp == NOW - timedelta(days=3650)

@@ -1202,3 +1202,57 @@ demonstrate the guard firing on the paved road, because it structurally cannot.
 valid time, a different axis from the write window; bounding it with `max_past_seconds`
 would refuse legitimate back-dated valid-time. Named, not guarded. No second policy field
 was invented.
+
+### Step 8 completion hold — the window severing was not a severing
+
+Dave, 2026-09-29, holding step 8 on one verification defect. He is right and it is mine.
+
+The ledger entry `the-window-judgment-removed` rewrote
+`refusal = refuse_temporal_bound(` to `refusal = None or refuse_temporal_bound(`.
+**Those are the same expression** — `None or X` IS `X` — so the entry named a
+falsification that cost nothing. I had labelled it a reachability check in its own
+docstring and then listed it in a MUTATION LEDGER anyway, which counts it as a
+severing. The opening sheet's required property — *"the writer refuses an out-of-window
+envelope and never restamps it"* — therefore had no edit that broke it.
+
+**Worse: my own non-vacuity guard passed it.** That guard asserts every ledger key
+appears as a label in the module's source. The label was genuinely there. **A guard that
+checks a label exists cannot check that the mutation bites** — the same shape of hole as
+the class-lookup control that took `artifacts.py` as its only source of truth, and it is
+now stated in the guard's own docstring so the next reader does not trust it further than
+it goes.
+
+**The real falsification**, the shape the sheet named (*"replace
+`envelope.ingestion_timestamp` in the guard"*):
+
+    instant = envelope.ingestion_timestamp   →   instant = now
+
+The severed guard judges the fabric's instant against itself, so the age is always zero
+and a ten-year-stale envelope is admitted. The envelope still carries its real
+timestamp; nothing is restamped in production.
+
+**Required RED, demonstrated on the real source and then restored from bytes:**
+`test_an_out_of_window_envelope_is_REFUSED` → `Failed: DID NOT RAISE
+TemporalWriteRefused`. Digest before and after: `ff5a82a0f82d…4799`, unchanged.
+
+Both halves of the property are now asserted on the shipped implementation before the
+severing runs: the envelope's own instant is what is judged, AND the refusal reports that
+same instant rather than a restamped one (`raised.value.instant ==
+stale.ingestion_timestamp`, and `!= NOW`, so the control cannot pass if the guard started
+reporting the fabric's instant).
+
+Ledger now carries two entries, each costing a property: `the-roster-check-removed` and
+`the-judged-instant-becomes-the-fabric-clock`. The no-op entry is gone rather than
+relabelled.
+
+**Test-only.** No production source changed; `src/ccf/signal/envelope.py` and
+`src/ccf/products/product.py` are byte-identical to `48ab4106`.
+
+### Step 13 — a correction to my own framing
+
+I reported "32 of 32 config-driven examples lack `temporal_boundary:`" and described the
+remaining work as "32 bounded config edits". Dave's correction stands: **that count bounds
+the potential authoring surface; it is not authorization to add the field to 32 files.**
+Ruling 7 controls step 13 — s1-01 is live and a new red BLOCKS; cp-00–cp-04 are frozen and
+reds are ledgered; an undispositioned example's new red stops the sitting and returns for
+explicit disposition. **Disposition first, repair second.**
