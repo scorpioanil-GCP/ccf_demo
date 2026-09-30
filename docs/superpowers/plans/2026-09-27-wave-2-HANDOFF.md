@@ -1329,3 +1329,107 @@ ceiling.
 **Step 9 is therefore paid as an inventory with an empty result set.** Two stale *stated
 reasons* are recorded above rather than edited: they are comments, this sitting is
 inventory-only, and changing prose is not a migration.
+
+---
+
+## 18. Step 12 census roster and step 13 disposition (roster-only; no hosts, no `.env` identifiers)
+
+Bundles are NOT filed on origin by ruling — they carry estate connection identifiers.
+This section is the reviewable substitute: node ids, trees, base vs candidate, and
+store watermarks as ledger/namespace names with positions only.
+
+### Store watermarks — unchanged across all six census runs
+
+| store | measured position, before AND after, every run |
+| --- | --- |
+| Fluree | 30 ledgers; `fibo-v2:main` t=5878 · `ccf:main` t=1608 · the v1 ledger (name withheld — it is an `.env` identifier) t=5; 27 `ccf:cp04-*` + 7 `ccf:cp04-debt-*` at t=1 |
+| PostgreSQL | schema `ccf_v2` — table count, per-table row counts and per-table sha256 identical |
+| MongoDB | database `fibo_v2` — collection count, per-collection document counts and sha256 identical |
+
+Checked on **both** sides of **all six** bundles. `classify` only ever compares the
+candidate's own before/after, so a write during a base run would have classified PASS.
+
+### Census totals — `tests/examples`, base `51158a58` vs candidate `1a4d62d3`
+
+| | base | candidate |
+| --- | --- | --- |
+| nodes | 1810 | 1826 (+14, Wave 2's own write-fence tests) |
+| red | 298 | 575 |
+
+NEW under Wave 2 **277** · base-existing **298** · recovered **0** · coverage lost **0**.
+
+### Disposition
+
+| tree | disposition | Wave-2 new reds | action taken |
+| --- | --- | --- | --- |
+| `s1-01` | **live reference** | 43 (measured separately on a local Fluree; 0 in this census because the census sets no local-Fluree variable) | **repaired**: temporal boundary declared. `temporal-boundary-undeclared` 38 → 0. Still 43 red on `ttl-refusal / ttl-bounds` — a different ruling's consequence |
+| `cp-00`…`cp-04` (non-canonical) | **frozen specimen** | **0** | nothing to ledger. 558 nodes ran; outcome distribution byte-identical both sides (393 passed / 4 failed / 111 xfailed / 48 skipped / 2 error). Not a mass skip |
+| `s1-00`, `door-cp-05`, `cp-05`…`cp-14` | known base-existing, gap ledger `SEC353-G-01..G-09` OPEN | 0 new | left alone |
+| 15 undispositioned trees, 31 modules, listed below | **no disposition** | 277 | **named only, not touched** |
+| Wave-2 write-fence tests (+14) | this wave's own | 0 | already in `tests/examples` |
+
+### Undispositioned trees carrying new reds — NAMES ONLY, none edited
+
+The 15 trees: `cp-03-canonical`, `cp-04-canonical`, `cp-06-canonical`,
+`cp-13-canonical`, `cp-15`, `cp-16`, `cp-17`, `cp-18`, `cp-19`, `cp-21`, `cp-22`,
+`cp-23`, `cp-24`, `dr-02`, `hw1`. Note `cp-03-canonical` and `cp-04-canonical` are
+SEPARATE trees from the frozen `cp-03` / `cp-04` specimens; conflating them would
+have mis-filed 18 nodes into the frozen bucket.
+
+| module | new reds |
+| --- | --- |
+| `test_cp_03_canonical_output.py` | 12 |
+| `test_cp_04_canonical_output.py` | 6 |
+| `test_cp_06_canonical_output.py` | 15 |
+| `test_cp_13_canonical_output.py` | 15 |
+| `test_cp_15_ownership.py` | 12 |
+| `test_cp_15_replay.py` | 1 |
+| `test_cp_15_review.py` | 4 |
+| `test_cp_15_sabotage.py` | 3 |
+| `test_cp_16_granularity.py` | 9 |
+| `test_cp_16_replay.py` | 4 |
+| `test_cp_16_sabotage.py` | 12 |
+| `test_cp_16_surveillance.py` | 13 |
+| `test_cp_17_replay.py` | 4 |
+| `test_cp_17_sabotage.py` | 7 |
+| `test_cp_17_wall.py` | 9 |
+| `test_cp_18_ranking.py` | 13 |
+| `test_cp_18_replay.py` | 2 |
+| `test_cp_18_sabotage.py` | 3 |
+| `test_cp_19_replay.py` | 3 |
+| `test_cp_19_sabotage.py` | 2 |
+| `test_cp_19_typology.py` | 11 |
+| `test_cp_21_large_exposure.py` | 21 |
+| `test_cp_21_sabotage.py` | 23 |
+| `test_cp_22_agent_internal.py` | 9 |
+| `test_cp_23_portfolio.py` | 20 |
+| `test_cp_23_sabotage.py` | 8 |
+| `test_cp_24_sabotage.py` | 9 |
+| `test_cp_24_whatif.py` | 15 |
+| `test_dr_02_packaging.py` | 9 |
+| `test_hw1_empty_fabric_refusal.py` | 2 |
+| `test_hw1_two_transports.py` | 1 |
+
+31 modules, 277 nodes. A new red in any of these stops the sitting.
+
+### The 14 order-shadowed reds — new reds whose own text does NOT name the temporal bound
+
+- `tests/examples/test_cp_13_canonical_output.py::test_a_role_with_no_entitlement_row_is_refused_never_narrowed`
+- `tests/examples/test_cp_13_canonical_output.py::test_an_unknown_evidence_node_refuses_distinctly`
+- `tests/examples/test_cp_17_sabotage.py::test_a_claim_outside_the_classification_vocabulary_never_reaches_the_product`
+- `tests/examples/test_cp_17_sabotage.py::test_an_acquisition_keyed_to_another_principal_is_not_refused`
+- `tests/examples/test_cp_17_sabotage.py::test_an_unreachable_control_room_stops_every_principal`
+- `tests/examples/test_cp_22_agent_internal.py::test_a_caller_cannot_steer_the_determination`
+- `tests/examples/test_cp_22_agent_internal.py::test_agent_b_assembles_in_process_behind_no_door`
+- `tests/examples/test_cp_22_agent_internal.py::test_debt_governs_without_travelling`
+- `tests/examples/test_cp_22_agent_internal.py::test_no_ccf_shaped_structure_crosses_the_wire`
+- `tests/examples/test_cp_22_agent_internal.py::test_the_exchange_crosses_a_real_process_boundary`
+- `tests/examples/test_cp_22_agent_internal.py::test_the_extraction_is_lossy_by_a_wide_margin`
+- `tests/examples/test_cp_22_agent_internal.py::test_the_reply_answers_the_question`
+- `tests/examples/test_cp_22_agent_internal.py::test_the_wire_answer_agrees_with_the_in_process_product`
+- `tests/examples/test_dr_02_packaging.py::test_an_upstream_refusal_becomes_this_products_refusal`
+
+Each is an assertion that no longer reaches its subject: the bound refuses ahead of
+acquisition and ahead of every other governed refusal. Step-13 **inputs**, not a
+resolver reorder — the bound stays first.
+
