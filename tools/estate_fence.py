@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import sys
 
 #: The parser, imported rather than restated. See the module docstring.
@@ -64,32 +63,6 @@ WRITE_TARGET_VARS: tuple[str, ...] = (
     # fencing only the operator's input would miss a derived destination.
     "CCF_S1_00_POSTGRES_DSN",
 )
-
-
-#: Password-bearing shapes this gate masks before printing. MEASURED, not assumed:
-#: the fence's own `_redacted` handles the URI form (``://user:pw@``) and NOT the
-#: libpq keyword form, so a refusal on
-#: ``host=... password=...`` printed the estate credential verbatim. This gate writes
-#: to stderr and CI keeps that output, so the credential would be published every
-#: time somebody misconfigured a run — which is the exact failure `_redacted`'s own
-#: docstring says it exists to prevent, found by running this gate rather than by
-#: reading it.
-#:
-#: Masked HERE rather than in the fence because repairing
-#: `tests/examples/estate_guard.py::_redacted` is not authorised in this sitting.
-#: The underlying gap is reported as a finding and still stands for the PYTEST
-#: fence; this stops THIS gate from printing a secret.
-_SECRET_SHAPES: tuple[re.Pattern[str], ...] = (
-    re.compile(r"(://[^:/@\s]+:)[^@\s]*(@)"),              # postgresql://user:pw@host
-    re.compile(r"((?:password|pgpassword)\s*=\s*)('[^']*'|\"[^\"]*\"|\S+)", re.I),
-)
-
-
-def _scrub(message: str) -> str:
-    """Mask every password-bearing shape in ``message``."""
-    for pattern in _SECRET_SHAPES:
-        message = pattern.sub(lambda m: m.group(1) + "***" + (m.group(2) if m.re.groups > 1 and m.group(2) and m.group(2) == "@" else ""), message)
-    return message
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -121,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     except RuntimeError as refused:
         where = f" before {arguments.label}" if arguments.label else ""
         print(
-            f"ESTATE FENCE REFUSED{where}.\n\n{_scrub(str(refused))}\n\n"
+            f"ESTATE FENCE REFUSED{where}.\n\n{refused}\n\n"
             "Checked: " + ", ".join(sorted(present)) + ".\n"
             "Nothing has been transacted. The run stopped before it opened a"
             " writer.",

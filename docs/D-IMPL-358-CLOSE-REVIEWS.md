@@ -117,10 +117,18 @@ with the Makefile gate; see that module and the step-15 section of the Wave 2 ha
 | 6 | The fence's `_normalize_host` accepts four alternate spellings of the curated address (decimal, dotted-octal, v4-mapped IPv6, trailing dot). The trailing-dot form is accident-shaped and does **not** fail closed | `tests/examples/estate_guard.py::_normalize_host` |
 | 7 | The **peered-child branch of the composite resolver has never executed** — zero behavioural coverage, measured by coverage run. This is the missing Peer proof, named | `src/ccf/products/child_resolver.py` |
 | 8 | `PolicyConstraintResolver`'s docstring still tells implementors to evaluate effectivity at `request.asked_at` and never documents the now-required `served_at`. Narrowed by the critic: `served_at` is a required keyword, so an omitting implementor gets a loud `TypeError`, not a silent bypass. Prose defect | `src/ccf/products/constraints.py::PolicyConstraintResolver` |
-| 9 | **Found by RUNNING the new gate, not by reading it:** the fence's `_redacted` masks the URI password form (`://u:pw@`) and **not** the libpq keyword form, so a refusal on `host=… password=…` printed the credential verbatim. Masked in `tools/estate_fence.py::_scrub` for the new gate; the gap still stands for the pytest fence, whose repair was not authorised in this sitting | `tests/examples/estate_guard.py::_redacted` |
+| 9 | **Found by RUNNING the new gate, not by reading it:** `_redacted` masked the URI password form (`://u:pw@`) and **not** the libpq keyword form, so a refusal on `host=… password=…` printed the credential verbatim — and the existing credential control used the URI form, so it could not catch it. **CLOSED 2026-10-01** on Dave's authorisation: `_redacted` now masks both serializations, with a control that asserts both plus a negative control for a password-free target. The duplicate redactor added to the gate was removed — one redactor, for the same reason there is one parser | `tests/examples/estate_guard.py::_redacted` |
+| 10 | **The `make example-s1-00` recipe fences only half of what the run uses.** The recipe forwards `CCF_TEST_POSTGRES_DSN`; `CCF_S1_00_POSTGRES_DSN` — the variable s1-00's write profile actually reads — is checked only if it is ALREADY exported, and `provision.py` sets it *after* the gate has run. Measured as **not exploitable today, and the reason is a property of `provision.py` rather than of the gate**: its supplied-DSN branch sets the derived variable to the very value the gate fenced, and its container branch sets it to a Postgres the code itself just started. A third branch deriving a destination from anywhere else would be unfenced and nothing would notice. Named rather than waved through; closing it structurally needs either an `examples/` edit or a test pinning `provisioned()`'s two destinations, neither authorised in this sitting | `examples/s1-00-companies-over-revenue/scenario/provision.py::provisioned` |
 
-Items 1–8 are carried by Dave's ruling of 2026-10-01 (*"Those stay carried"*). Item 9 is new
-and is carried on the same basis: the pytest fence's own repair was not authorised.
+Items 1–8 are carried by Dave's ruling of 2026-10-01 (*"Those stay carried"*). Item 9 was
+found by this sitting and CLOSED in it. Item 10 was found by Dave verifying this record
+against the tree rather than against its commit message, and is carried as named.
+
+**Exit codes, stated precisely because an earlier draft of this record conflated them.**
+The gate itself returns **1** on refusal (`tools/estate_fence.py::main`); `make` then
+returns **2**, which is GNU make's own code for a failed recipe. Both measured. The
+gate's `2` means something different — the fence could not run at all — and reporting
+only make's number read as contradicting that.
 
 ## Verdict
 

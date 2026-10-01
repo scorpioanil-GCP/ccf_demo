@@ -362,3 +362,35 @@ def test_severing_the_make_gate_stops_refusing_a_curated_host(
         "the shipped gate stopped refusing after the severing ran — the tree was"
         " mutated, which the scratch-copy discipline exists to prevent"
     )
+
+
+def test_the_refusal_masks_BOTH_postgres_password_serializations() -> None:
+    """A refusal must never publish the estate credential, in EITHER DSN form.
+
+    `D-IMPL-358` step 15. This control exists because the one beside it did not catch
+    the gap: the existing credential assertion used the URI form, and `_redacted`
+    masked only that form, so a refusal on a libpq keyword DSN
+    (``host=... password=...``) printed the password verbatim. It was found by running
+    the `make`-side gate, which writes the refusal to stderr where CI keeps it.
+
+    **Both serializations, for the same reason `_destinations` parses both:** knowing
+    one proves nothing about the other. The non-password target at the end is the
+    negative control — a redactor that masked everything would pass the first four
+    assertions and be useless.
+    """
+    from tests.examples.estate_guard import _redacted
+
+    secret = "SUPERSECRET"
+    for target in (
+        f"postgresql://u:{secret}@192.168.4.76:5432/x",
+        f"host=192.168.4.76 port=5432 dbname=x user=u password={secret}",
+        f"host=192.168.4.76 password='{secret} with spaces' user=u",
+        f"host=192.168.4.76 PGPASSWORD={secret}",
+    ):
+        masked = _redacted(target)
+        assert secret not in masked, f"the password survived redaction: {masked}"
+        assert "***" in masked, f"nothing was masked at all: {masked}"
+
+    # NEGATIVE CONTROL: a target with no password is passed through unchanged, so
+    # this test cannot be satisfied by a function that masks indiscriminately.
+    assert _redacted("http://192.168.4.76:8090") == "http://192.168.4.76:8090"

@@ -1451,6 +1451,21 @@ ledger and this record. That is checkable rather than asserted —
 In scope: `src/`, `runtime/`, `tools/`, the non-example `tests/`, and
 `examples/s1-01-hello-context-product`.
 
+**CORRECTED 2026-10-01, after the step-15 ruling.** The paragraph above said
+*"everything after it on this branch is documentation"* and offered
+`git diff 9926f594 HEAD --stat` as the check. That was true when written and is **no
+longer true**: Dave's step-15 ruling authorised the `make`-side estate fence, so the
+diff since the candidate now also names `Makefile`, `tools/estate_fence.py`,
+`tests/examples/estate_guard.py` and `tests/examples/test_curated_estate_write_fence.py`.
+The sentence is corrected here rather than quietly left standing, because a freeze
+record whose own check has stopped holding is worse than no check.
+
+**What has NOT changed is the SDK's behaviour.** `src/` and `runtime/` are byte-identical
+to `9926f594`; the step-15 work is build tooling, support machinery, one severing and the
+fence helper's redaction repair. `9926f594` remains the BEHAVIOUR candidate. The accurate
+check is now: `git diff 9926f594 HEAD --name-only` names nothing under `src/` or
+`runtime/`.
+
 ### What the freeze deliberately leaves red
 
 The **15 undispositioned example trees**, 277 nodes, ledgered at

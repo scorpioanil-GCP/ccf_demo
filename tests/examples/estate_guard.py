@@ -45,16 +45,34 @@ def _curated_hosts() -> frozenset[str]:
     return frozenset(part.strip() for part in raw.split(",") if part.strip())
 
 
+#: The password-bearing shapes a connection target can carry. **BOTH PostgreSQL
+#: serializations, because knowing one proves nothing about the other** — the same
+#: lesson :func:`_destinations` records for parsing, and it had to be learned twice.
+#: Until `D-IMPL-358` step 15 this function masked only the URI form, so a refusal
+#: on a libpq keyword DSN (``host=... password=...``) printed the estate credential
+#: verbatim. Found by RUNNING the new `make`-side gate, not by reading it: the
+#: existing credential control used the URI form and so could not catch it.
+_PASSWORD_SHAPES: tuple[tuple[re.Pattern[str], str], ...] = (
+    # postgresql://user:secret@host -> postgresql://user:***@host
+    (re.compile(r"://([^:/@]+):[^@]*@"), r"://\1:***@"),
+    # password=secret | PGPASSWORD='s e c r e t' -> password=***
+    (re.compile(r"((?:password|pgpassword)\s*=\s*)('[^']*'|\"[^\"]*\"|\S+)", re.I), r"\1***"),
+)
+
+
 def _redacted(target: str) -> str:
     """A connection target safe to put in a message.
 
     A DSN carries a password. This guard's whole job is to be LOUD — it raises,
-    pytest prints the message once per erroring test, and CI keeps that output
-    — so an un-redacted DSN here would publish the estate's credential every
-    time somebody misconfigured a run. Found by reading this guard's own first
-    failure output rather than by review.
+    pytest prints the message once per erroring test, CI keeps that output, and
+    since `D-IMPL-358` step 15 a `make`-side gate prints it to stderr too — so an
+    un-redacted DSN here would publish the estate's credential every time somebody
+    misconfigured a run. Found by reading this guard's own first failure output
+    rather than by review; the libpq half was found by running the gate.
     """
-    return re.sub(r"://([^:/@]+):[^@]*@", r"://\1:***@", target)
+    for pattern, replacement in _PASSWORD_SHAPES:
+        target = pattern.sub(replacement, target)
+    return target
 
 
 
