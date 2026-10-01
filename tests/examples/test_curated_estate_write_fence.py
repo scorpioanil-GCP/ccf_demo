@@ -297,3 +297,68 @@ def test_an_UNPARSEABLE_target_fails_CLOSED() -> None:
 
     with pytest.raises(RuntimeError, match="refusing to SEED a curated store"):
         refuse_to_write_the_curated_estate("   ")
+
+
+# ---------------------------------------------------------------------------
+# `D-IMPL-358` step 15 — the ONE severing for the `make example-*` gate.
+# ---------------------------------------------------------------------------
+
+
+def test_severing_the_make_gate_stops_refusing_a_curated_host(
+    tmp_path: "object", monkeypatch: "object"
+) -> None:
+    """Drop the gate's refusal and the curated-host case PROCEEDS. Restored by construction.
+
+    `tools/estate_fence.py` is what stands between an operator-exported curated
+    destination and a `make example-s1-00` / `example-s1-01` run that transacts. This
+    is the control that the standing between is real rather than decorative.
+
+    **A scratch COPY, never an edit-and-revert.** The shipped source is read, mutated
+    as a string, written under ``tmp_path`` and imported under a unique name, so the
+    tree is never written and restoration is byte-for-byte by construction — and a
+    file that did not exist a moment ago has no stale ``.pyc``. The anchor is asserted
+    to occur EXACTLY ONCE before substitution: a stale anchor silently applies no
+    mutation and the severing then "passes" having changed nothing.
+
+    **No network, on either leg.** The gate only PARSES; it opens no connection. The
+    curated address below is a string. Nothing here reaches the curated estate, and
+    the severed leg deliberately stops at the gate's return value rather than running
+    an example.
+    """
+    import pathlib as _p
+
+    from tests.products.test_served_at_severings import severed
+
+    curated = "http://192.168.4.76:8090"
+    monkeypatch.setenv("CCF_TEST_FLUREE_URL", curated)  # type: ignore[attr-defined]
+
+    # (1) SHIPPED: the gate refuses, so the make recipe stops before the run.
+    from tools.estate_fence import main as shipped_main
+
+    assert shipped_main([]) == 1, (
+        "the shipped gate did not refuse a curated host — nothing below proves"
+        " anything, because the control is not green"
+    )
+
+    # (2) SEVERED: the refusal call is removed and the same curated target PROCEEDS.
+    module = severed(
+        _p.Path(str(tmp_path)),
+        "tools/estate_fence.py",
+        (
+            (
+                "        refuse_to_write_the_curated_estate(*present.values())",
+                "        pass  # severed",
+            ),
+        ),
+        "the-make-gate-stops-refusing",
+    )
+    assert module.main([]) == 0, (
+        "the severing cost nothing — the gate still refused with its refusal call"
+        " removed, so this control is not guarding that line"
+    )
+
+    # (3) ...and the shipped gate still refuses, so the severing touched only the copy.
+    assert shipped_main([]) == 1, (
+        "the shipped gate stopped refusing after the severing ran — the tree was"
+        " mutated, which the scratch-copy discipline exists to prevent"
+    )
