@@ -1433,3 +1433,55 @@ Each is an assertion that no longer reaches its subject: the bound refuses ahead
 acquisition and ahead of every other governed refusal. Step-13 **inputs**, not a
 resolver reorder — the bound stays first.
 
+
+---
+
+## 19. Step 14 — the FREEZE. Candidate `9926f594`, scope SDK + `s1-01`.
+
+Dave, 2026-09-30, choosing option 1: *"ledger them out of this wave's repair, then freeze
+SDK + s1-01."*
+
+### What is frozen
+
+**Candidate: `9926f594e1c01b1edda368ad5efefe3c9024f85d`** — the last commit that changes
+behavior. Everything after it on this branch is documentation: the Wave 2 examples gap
+ledger and this record. That is checkable rather than asserted —
+`git diff 9926f594 HEAD --stat` names files under `docs/` and nothing else.
+
+In scope: `src/`, `runtime/`, `tools/`, the non-example `tests/`, and
+`examples/s1-01-hello-context-product`.
+
+### What the freeze deliberately leaves red
+
+The **15 undispositioned example trees**, 277 nodes, ledgered at
+`docs/D-IMPL-358-EXAMPLES-GAP-LEDGER.md` as `SEC358-G-01` (263 direct) and `SEC358-G-02`
+(14 order-shadowed). They are a measured, accepted consequence of ruling 11 and they are
+**not** a silent pass into the freeze — the ledger is the record of what is left undone,
+and Dave's instruction was to ledger them out rather than repair them here.
+
+The frozen specimens `cp-00`…`cp-04` need no row: 558 of their nodes ran in the census with
+a byte-identical outcome distribution on both sides. `s1-00`, `door-cp-05` and `cp-05`…`cp-14`
+are base-existing under `SEC353-G-01..G-09`.
+
+### Verification AT the freeze, measured
+
+| subject | result |
+| --- | --- |
+| full non-example suite | **8503 passed · 115 skipped · 2 failed · 1 deselected** (633s) |
+| the 2 failures | `test_citation_coverage.py::test_the_unanchored_python_citation_population_cannot_regrow` and `test_version_stamp.py::test_the_installed_version_is_not_the_stale_literal_and_is_git_derived` — both base-existing, both carried |
+| citation coverage ratchet | population **365**, measured with this wave's docs present AND with them moved aside: identical. This wave added two line-number citations and they were converted to the `path.py::Symbol` form `D-IMPL-114` ruled rather than by raising the ceiling |
+| `s1-01` on a disposable Fluree | **47 passed · 0 failed · 0 errors**, exit 0 (46 = the base population at `51158a58`, +1 the later-service control) |
+| `s1-01` as a program | `run.py` exit 0; three reports, three distinct content addresses, question 3 over 9 ownership stakes and 4 parties against questions 1–2's 8 and 3 |
+| `tools.lints --all` | exit 0 |
+| example artifact / spine / purity / deployment gates | 682 passed · 2 failed, both `archive/` header reds identical at base (`D-IMPL-351` excludes `archive/`) |
+| curated estate | position unmoved on **both** sides of **all six** census runs |
+
+The suite count moved 8502 → 8503 across this wave's last two steps: step 10's
+`the-undeclared-policy-becomes-no-constraint` severing. Step 13's later-service control is
+in `tests/examples`, which this count excludes.
+
+### What the freeze is NOT
+
+No tag. No merge to `main`. No SEC identifier closed. `main` stays `51158a58`, the sheet
+stays `35b7e118`, the fence stays `8a9846fd`. Steps 15 (the Codex + Cursor + Gemini close
+panel) and 16 (`D-GATE-358`) are **not started** and need their own GO.
