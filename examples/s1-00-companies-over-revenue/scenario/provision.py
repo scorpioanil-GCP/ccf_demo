@@ -104,7 +104,20 @@ def seed(dsn: str) -> int:
 
     Idempotent: the schema is ``if not exists`` and the seed upserts, so a
     repeated run against a long-lived server converges rather than duplicating.
+
+    **THE FENCE IS ALSO HERE, as the first statement** (`D-IMPL-358` step 15, Dave
+    2026-10-01). :func:`provisioned` already refuses a curated destination on both of its
+    branches, and those calls stay. This one covers what they cannot: a DIRECT caller.
+    Before it existed, ``seed(dsn)`` opened ``psycopg.connect`` with whatever it was
+    handed, so a third branch, a future helper or a test reached the network unfenced —
+    which is the same shape the close-panel's finding 10 named, one layer down. Checking
+    at the write boundary rather than only at the two known call sites means a new caller
+    is fenced by construction instead of by somebody remembering.
+
+    Calling it twice on the supplied/container paths is deliberate and costs nothing: the
+    check is a pure string classification that opens no connection.
     """
+    refuse_to_write_the_curated_estate(dsn)
     with psycopg.connect(dsn, autocommit=True) as connection:
         with connection.cursor() as cursor:
             cursor.execute(SCHEMA_SQL.read_text(encoding="utf-8"))

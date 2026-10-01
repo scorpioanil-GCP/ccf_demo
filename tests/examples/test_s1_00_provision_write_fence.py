@@ -103,3 +103,41 @@ def test_direct_script_import_reuses_the_gate_helper(tmp_path: pathlib.Path) -> 
         timeout=30,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_a_DIRECT_seed_call_is_fenced_before_it_reaches_psycopg(
+    provision: types.ModuleType,
+) -> None:
+    """`seed()` refuses a curated destination itself, not only via `provisioned()`.
+
+    `D-IMPL-358` step 15, Dave 2026-10-01. The two `provisioned()` calls cover its own
+    two branches; they cannot cover a DIRECT caller. Before the check moved into
+    `seed()`, `seed(dsn)` opened `psycopg.connect` with whatever it was handed, so a
+    third branch, a future helper or a test reached the network unfenced — the same shape
+    finding 10 named, one layer down.
+
+    **A STRING AND A MOCK. No network on either leg.** The curated value is a string that
+    is classified and never dialled, and the fixture has already replaced
+    `psycopg.connect` with a `Mock` that raises locally, so even the admitted leg cannot
+    open a socket. `call_count` is what distinguishes "the fence stopped it" from "it was
+    stopped later".
+    """
+    connect = provision.psycopg.connect
+
+    # (1) REFUSED, and psycopg is never reached — the fence precedes the connection.
+    with pytest.raises(RuntimeError, match="curated"):
+        provision.seed("host=192.168.4.76 port=15432 dbname=demo user=u password=pw")
+    assert connect.call_count == 0, (
+        "the fence did not precede psycopg.connect: the mock was reached"
+        f" {connect.call_count} time(s) for a curated destination"
+    )
+
+    # (2) NEGATIVE CONTROL: a throwaway destination is admitted and DOES reach the mock,
+    #     which is how this test distinguishes a working fence from one that refuses
+    #     everything. The mock raises instead of connecting, so no socket is opened.
+    with pytest.raises(AssertionError, match="network forbidden"):
+        provision.seed("postgresql://u:pw@localhost:15432/demo")
+    assert connect.call_count == 1, (
+        "a throwaway destination did not reach psycopg.connect, so the fence is"
+        " refusing targets it should admit and assertion (1) proves nothing"
+    )
