@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../../docs/schemas/ccf.temporal-boundary-policy.json
+# How far into the past this tenant will answer for, and how much clock
+# disagreement it tolerates (`D-IMPL-358` ruling 11; KYC/UBO domain).
+#
+# **Why this document exists at all.** A governed serve consults this tenant's
+# temporal boundary on EVERY question, and an undeclared boundary refuses —
+# `temporal-boundary-undeclared`, with no default and no fabricated binding. The
+# SDK holds no window and inventing one is the defect `D-IMPL-38` forbids, so a
+# deployment that means to answer questions declares one here. Before this file
+# existed, every question this example asks came back as a governed refusal: the
+# fabric was working exactly as ruled, and the deployment had simply not said how
+# far back it answers for.
+#
+# **Both numbers are this deployment's, and the SDK supplies neither.** A
+# duration here is a policy decision about how much history a tenant will stand
+# behind — not a tuning knob, and not something a library can know.
+#
+# **Zero would be the STRICTEST bound, not "unbounded".** A declared `0` admits
+# only an age of zero or less and refuses every positive one, matching
+# `ccf/peering/eligibility.py::EligibilityEvidencePolicy`. There is no value that
+# means "no bound"; a tenant that wants a wide reach writes a wide number, which
+# is what this file does and says so.
+#
+# > **Illustrative calibration:** This example runs against a point-in-time
+# > demonstration estate rather than continuously refreshed production data.
+# > Freshness half-lives and related thresholds are calibrated to make the
+# > governed behavior observable in that snapshot. They demonstrate how the SDK
+# > applies these controls and should not be interpreted as recommended
+# > production coverage-policy thresholds.
+#
+# **What the wide window does and does not demonstrate.** `artifacts/questions.yaml`
+# asks about instants in 2026-08 and 2026-09 while the serve instant is whatever
+# the clock reads when you run it, and that gap grows every day this snapshot
+# ages. Ten years of past reach is therefore chosen so the DECLARATION is what
+# the reader sees, not an arithmetic accident of how long ago the estate was
+# captured — and it is wide enough that no bundled question is out of window. So
+# this file demonstrates that the boundary is DECLARED and satisfied; it does not
+# demonstrate the refusal. A deployment that wants to see the refusal writes a
+# small `max_past_seconds` here and re-runs the same command — nothing else in
+# this directory changes, which is the point.
+#
+# `role: register`. How far back a tenant answers for is squarely "what this
+# fabric is permitted to do", so it is pinned and lands in replay dimension 2 —
+# and a question replays against the window that was in force when it was asked,
+# not the one in force today.
+#
+# NO `semver` KEY HERE, and that is structural rather than an omission.
+# `TemporalBoundaryPolicy` is a bare typed contract with `extra=forbid`: the SDK
+# owns the class and its version, the deployment owns only the two values, and a
+# `semver` line would be REFUSED at parse. The pin that reaches replay is minted
+# by registering this document, not authored in it.
+#
+# [ADAPT] domain vocabulary — safe to change for your domain
+# [MECHANISM] structural keys interpreted by the factory — do not rename
+#
+# In this file: both values are [ADAPT]; the keys `max_past_seconds` and
+# `permitted_clock_skew_seconds` are [MECHANISM].
+
+# Ten years. Wide, deliberately, and disclosed above as illustrative.
+max_past_seconds: 315360000
+
+# One day of tolerated clock disagreement ahead of the serve instant. A presented
+# instant further into the future than this is refused as impossible rather than
+# treated as maximally fresh.
+permitted_clock_skew_seconds: 86400

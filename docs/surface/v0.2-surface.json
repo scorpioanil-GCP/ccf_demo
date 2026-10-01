@@ -1358,7 +1358,7 @@
     "exports": {
       "InProcessAdapter": {
         "kind": "class",
-        "shape": "(address: 'str') -> 'None'"
+        "shape": "(address: 'str', *, clock: 'Callable[[], datetime]' = <function _utc_now>) -> 'None'"
       },
       "SCHEME": {
         "kind": "constant",
@@ -1378,7 +1378,7 @@
     "exports": {
       "McpStdioAdapter": {
         "kind": "class",
-        "shape": "(address: 'str') -> 'None'"
+        "shape": "(address: 'str', *, clock: 'Callable[[], datetime]' = <function _utc_now>) -> 'None'"
       },
       "SCHEME": {
         "kind": "constant",
@@ -1809,6 +1809,7 @@
       "SecretReference",
       "SignalBatch",
       "SimilaritySelectParametersArtifact",
+      "TEMPORAL_BOUNDARY_POLICY",
       "TTL_BINDING",
       "TemporalAsOfParametersArtifact",
       "TraversalDescendantsParametersArtifact",
@@ -1907,6 +1908,7 @@
           "semver": "<class 'str'>",
           "skills": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
           "survivor_cap": "int | None",
+          "temporal_boundary": "collections.abc.Mapping[str, typing.Any] | None",
           "tenant_id": "str | None",
           "ttl": "collections.abc.Mapping[str, typing.Any] | None"
         }
@@ -2167,6 +2169,10 @@
           "semver": "<class 'str'>",
           "similarity_corpus_attribute_by_class": "collections.abc.Mapping[str, str]"
         }
+      },
+      "TEMPORAL_BOUNDARY_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
       },
       "TTL_BINDING": {
         "kind": "constant",
@@ -2475,6 +2481,50 @@
       "verify_any": {
         "kind": "function",
         "shape": "(authorized: 'object', *, kinds: 'tuple[type[ActionKind], ...]', resource: 'str') -> 'type[ActionKind]'"
+      }
+    }
+  },
+  "ccf.controlplane.temporal_boundary": {
+    "__all__": [
+      "PinnedTemporalBoundary",
+      "TEMPORAL_BOUNDARY_POLICY",
+      "TemporalBoundaryMisdeclared",
+      "TemporalBoundaryPolicy",
+      "TemporalBoundaryUndeclared",
+      "resolve_temporal_boundary",
+      "temporal_boundary_policy_key"
+    ],
+    "exports": {
+      "PinnedTemporalBoundary": {
+        "kind": "class",
+        "shape": "(key: 'str', version: 'str', policy: 'TemporalBoundaryPolicy') -> None"
+      },
+      "TEMPORAL_BOUNDARY_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "TemporalBoundaryMisdeclared": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "TemporalBoundaryPolicy": {
+        "kind": "contract",
+        "shape": {
+          "max_past_seconds": "<class 'int'>",
+          "permitted_clock_skew_seconds": "<class 'int'>"
+        }
+      },
+      "TemporalBoundaryUndeclared": {
+        "kind": "class",
+        "shape": "(key: 'str', required_class_id: 'str', reason: 'str', detail: 'str') -> None"
+      },
+      "resolve_temporal_boundary": {
+        "kind": "function",
+        "shape": "(*, registry: 'ControlPlaneProtocol', tenant_id: 'str') -> 'PinnedTemporalBoundary | TemporalBoundaryUndeclared'"
+      },
+      "temporal_boundary_policy_key": {
+        "kind": "function",
+        "shape": "(*, tenant_id: 'str') -> 'str'"
       }
     }
   },
@@ -2787,7 +2837,7 @@
     "exports": {
       "DeploymentKeys": {
         "kind": "class",
-        "shape": "(product_class: 'str', request_contract: 'str | None', policy_bundle: 'str', resolution_spec: 'str', half_life: 'str | None', debt_profile: 'str | None', default_perspective: 'str | None', replay: 'str | None', ttl: 'str | None', door: 'str | None', agent: 'str | None', operator_parameters: 'tuple[str, ...]', policy_constraints: 'tuple[str, ...]', producers: 'tuple[str, ...]', skills: 'tuple[str, ...]') -> None"
+        "shape": "(product_class: 'str', request_contract: 'str | None', policy_bundle: 'str', resolution_spec: 'str', half_life: 'str | None', debt_profile: 'str | None', default_perspective: 'str | None', replay: 'str | None', ttl: 'str | None', door: 'str | None', temporal_boundary: 'str | None', agent: 'str | None', operator_parameters: 'tuple[str, ...]', policy_constraints: 'tuple[str, ...]', producers: 'tuple[str, ...]', skills: 'tuple[str, ...]') -> None"
       }
     }
   },
@@ -5805,7 +5855,7 @@
       },
       "compose_children": {
         "kind": "function",
-        "shape": "(*, own_factors: 'DebtFactors', requirements: 'Sequence[ChildRequirement]', outcomes: 'Mapping[str, object]', asked_at: 'datetime', composition_invocation: 'str', own_lineage: 'ProductLineage', max_ttl: 'MaxTTL', ttl_anchor_at: 'datetime', decided_at: 'datetime', validity_floors: 'ConstituentValidityFloors') -> 'CompositionOutcome'"
+        "shape": "(*, own_factors: 'DebtFactors', requirements: 'Sequence[ChildRequirement]', outcomes: 'Mapping[str, object]', asked_at: 'datetime', composition_invocation: 'str', own_lineage: 'ProductLineage', max_ttl: 'MaxTTL', ttl_anchor_at: 'datetime', evaluated_at: 'datetime', validity_floors: 'ConstituentValidityFloors') -> 'CompositionOutcome'"
       },
       "invocation_from_dispatch": {
         "kind": "function",
@@ -5961,15 +6011,15 @@
       },
       "applicable": {
         "kind": "function",
-        "shape": "(constraint: 'PolicyConstraint', *, product_class: 'str', tenant: 'str', perspective_role: 'str', intent: 'str', asked_at: 'datetime') -> 'bool'"
+        "shape": "(constraint: 'PolicyConstraint', *, product_class: 'str', tenant: 'str', perspective_role: 'str', intent: 'str', served_at: 'datetime') -> 'bool'"
       },
       "constraints_in_force": {
         "kind": "function",
-        "shape": "(control_plane: '_ConstraintSource', *, asked_at: 'datetime') -> 'tuple[PinnedConstraint, ...]'"
+        "shape": "(control_plane: '_ConstraintSource', *, served_at: 'datetime') -> 'tuple[PinnedConstraint, ...]'"
       },
       "resolve_effective_request": {
         "kind": "function",
-        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'ResolutionOutcome'"
+        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract', declared_source: 'ProvenanceSource', constraints: 'tuple[PinnedConstraint, ...]', capabilities: 'tuple[TechnicalCapability, ...]', capability_bindings: 'Mapping[str, str]', verified_overrides: 'tuple[OverrideRecord, ...]', perspective: 'Perspective', tenant: 'str', served_at: 'datetime', class_defaults: 'Mapping[str, Any] | None' = None, class_source: 'ProvenanceSource | None' = None) -> 'ResolutionOutcome'"
       }
     }
   },
@@ -6862,7 +6912,9 @@
       "ResolvedByTheResolver",
       "ResourceRequestIdentity",
       "SubjectUnavailableRefusal",
-      "envelope_for"
+      "TemporalBoundRefusal",
+      "envelope_for",
+      "refuse_temporal_bound"
     ],
     "exports": {
       "GovernedRefusalRaised": {
@@ -6946,9 +6998,25 @@
           "error_code": "str | None"
         }
       },
+      "TemporalBoundRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "max_past_seconds": "int | None",
+          "permitted_clock_skew_seconds": "int | None",
+          "policy_key": "<class 'str'>",
+          "presented_at": "datetime.datetime | None",
+          "reason": "typing.Literal['temporal-boundary-undeclared', 'asked-at-outside-temporal-bound', 'decision-instant-outside-temporal-bound']",
+          "served_at": "<class 'datetime.datetime'>"
+        }
+      },
       "envelope_for": {
         "kind": "function",
         "shape": "(refusal: 'object', *, request: 'RequestIdentity', pre_assembly_lineage: 'ProductLineage | None' = None, policy_bindings: 'tuple[ProvenanceSource, ...]' = (), evidence: 'RefusalEvidence | None' = None, provenance: 'EffectiveRequest | None' = None, resource: 'ResourceRequestIdentity | None' = None) -> 'RefusalEnvelope'"
+      },
+      "refuse_temporal_bound": {
+        "kind": "function",
+        "shape": "(*, pinned: 'PinnedTemporalBoundary | TemporalBoundaryUndeclared', served_at: 'datetime', asked_at: 'datetime', decision_instant: 'datetime') -> 'TemporalBoundRefusal | None'"
       }
     }
   },
@@ -7612,6 +7680,7 @@
           "product_content_address": "<class 'str'>",
           "refusal_seam": "<class 'str'>",
           "request": "ccf.products.request.ProductRequest | None",
+          "served_at": "datetime.datetime | None",
           "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
           "ttl_anchor_at": "datetime.datetime | None",
@@ -7802,7 +7871,7 @@
       },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, packaging_trace: 'PackagingTrace | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, packaging_trace: 'PackagingTrace | None' = None, served_at: 'datetime | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",
@@ -7929,11 +7998,17 @@
   },
   "ccf.signal.envelope": {
     "__all__": [
+      "IngressTemporalBound",
       "SignalEnvelope",
       "SourceIdentity",
+      "TemporalWriteRefused",
       "refuse_foreign_envelope"
     ],
     "exports": {
+      "IngressTemporalBound": {
+        "kind": "class",
+        "shape": "(pinned: 'Mapping[str, object]') -> None"
+      },
       "SignalEnvelope": {
         "kind": "contract",
         "shape": {
@@ -7951,6 +8026,10 @@
         "shape": {
           "system_id": "<class 'str'>"
         }
+      },
+      "TemporalWriteRefused": {
+        "kind": "class",
+        "shape": "(*, envelope_id: 'str', tenant_id: 'str', instant: 'datetime', policy_key: 'str', reason: 'str', detail: 'str') -> 'None'"
       },
       "refuse_foreign_envelope": {
         "kind": "function",

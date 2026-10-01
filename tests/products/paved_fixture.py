@@ -57,6 +57,7 @@ from tests.deployment.test_replay_binding import (
     THRESHOLD_PARAMETER,
     _servable_config,
 )
+from tests.composition import declare_wide_temporal_boundary
 
 __all__ = [
     "ASKED_AT",
@@ -393,6 +394,10 @@ def grants_in_force(
     assert isinstance(config, DeploymentConfig) and config.tenant_id is not None
     derived = derive_deployment(config)
     registry = control_plane if control_plane is not None else ControlPlaneRegistry()
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one. Wide
+    # on purpose — the window is not what the paved-road tests are about.
+    declare_wide_temporal_boundary(registry, tenant_id=config.tenant_id)
     declared_keys = derived.keys
     if declared_keys.agent is None or not declared_keys.skills:
         return registry, ()

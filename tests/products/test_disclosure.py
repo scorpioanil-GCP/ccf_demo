@@ -52,8 +52,10 @@ from ccf.products.provenance import (
     ProvenanceSource,
 )
 from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
+from ccf.controlplane.temporal_boundary import TemporalBoundaryUndeclared
 from ccf.products.refusal import (
     REFUSAL_KINDS,
+    refuse_temporal_bound,
     RefusalEnvelope,
     RefusalEvidence,
     RequestIdentity,
@@ -805,3 +807,58 @@ def test_the_declared_intent_set_crosses_only_where_detail_crosses(
             assert declared in shell.detail
     # The caller's own intent crosses at every level — it is the caller's.
     assert _PRESENTED_INTENT in rendered
+
+
+# --- `D-IMPL-358` step 5 section G1: the minimal sentence must be TRUE ---------
+
+
+def test_G1_the_minimal_sentence_is_true_for_all_three_reasons() -> None:
+    """G1. One sentence covers three reasons, so it must hold for the weakest.
+
+    `D-IMPL-358` step 5 section G1. The kind keeps ONE statement deliberately —
+    which reason applied is the promoted `reason`, and the statement must not
+    tell an external consumer that a tenant is misconfigured. The cost of one
+    sentence is that it has to be true of every reason, and the first draft was
+    not: it said the instant fell *"outside the window this tenant answers for"*,
+    which presupposes a declared window. On `temporal-boundary-undeclared` there
+    is no window, so that sentence stated something false.
+
+    The substring check is a PROXY and is named as one: it cannot verify a
+    sentence's truth, only that the sentence has not gone back to asserting the
+    structure that does not exist on all three reasons. The claim it guards is in
+    the module comment beside the statement.
+    """
+    statement = EXTERNAL_STATEMENTS["temporal-bound-refusal"]
+    for presupposing in ("window", "outside", "bound"):
+        assert presupposing not in statement, (
+            f"the minimal statement says {presupposing!r}, which presupposes a"
+            " declared temporal window — untrue on the"
+            " `temporal-boundary-undeclared` reason, where none exists"
+        )
+
+
+def test_G1_the_undeclared_reason_discloses_nothing_actionable_at_minimal() -> None:
+    """The other half: silence at minimal is CORRECT here, not an omission.
+
+    Both declared bounds are `None` on the undeclared reason, so the permitted
+    set yields nothing. That is the honest answer — there is no number the caller
+    could act on, because the tenant declared none — and it is why the shared
+    sentence may not imply one exists.
+    """
+    permitted = PERMITTED_AT_MINIMAL["temporal-bound-refusal"]
+    assert permitted == frozenset({"max_past_seconds", "permitted_clock_skew_seconds"})
+    refusal = refuse_temporal_bound(
+        pinned=TemporalBoundaryUndeclared(
+            key="tenant-g1/ccf.temporal-boundary-policy",
+            required_class_id="ccf.temporal-boundary-policy",
+            reason="no-such-artifact",
+            detail="the fixture registered none",
+        ),
+        served_at=_INSTANT,
+        asked_at=_INSTANT,
+        decision_instant=_INSTANT,
+    )
+    assert refusal is not None
+    assert refusal.reason == "temporal-boundary-undeclared"
+    for name in permitted:
+        assert getattr(refusal, name) is None, name

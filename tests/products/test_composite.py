@@ -548,7 +548,7 @@ def compose(
         # The decision instant too, for the mixing law (`D-IMPL-341` review):
         # this fixture's decision instant IS `SERVED_AT`, so every floor
         # measurement below is exactly the one it made before the split.
-        decided_at=SERVED_AT,
+        evaluated_at=SERVED_AT,
         validity_floors=floors,
     )
 
@@ -1300,7 +1300,9 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
     """`R6`: the composite path silently reverted `D-IMPL-308`.
 
     It anchored expiry at `asked_at` while the non-composite branch anchored
-    at `decided_at`, so declaring a child requirement SHORTENED a product's
+    at the evaluation instant (the parameter was named `decided_at` until
+    `D-IMPL-358` step 5 section I renamed it with its value), so declaring a child
+    requirement SHORTENED a product's
     window by the decision lag — and the measured consequence was two distinct
     governed answers landing on one content address.
 
@@ -1322,7 +1324,7 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
         ),
         max_ttl=MaxTTL(seconds=60),
         ttl_anchor_at=ASKED_AT,
-        decided_at=ASKED_AT,
+        evaluated_at=ASKED_AT,
         validity_floors=NO_VALIDITY_FLOORS,
     )
     later = compose_children(
@@ -1338,7 +1340,7 @@ def test_r6_the_ttl_anchor_is_the_DECISION_instant_not_the_request_one(
         ),
         max_ttl=MaxTTL(seconds=60),
         ttl_anchor_at=ASKED_AT + timedelta(minutes=5),
-        decided_at=ASKED_AT + timedelta(minutes=5),
+        evaluated_at=ASKED_AT + timedelta(minutes=5),
         validity_floors=NO_VALIDITY_FLOORS,
     )
     assert early.served and later.served

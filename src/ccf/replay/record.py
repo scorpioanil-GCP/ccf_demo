@@ -1464,6 +1464,29 @@ class ContentGenerationPath(CCFContract):
     ttl_anchor_at: datetime | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # `D-IMPL-358` ruling 1 — WHEN THE ANSWER WAS SERVED, read once from the
+    # fabric-controlled clock at `GovernedResolver.__call__` entry. A third
+    # instant, distinct from both of the two this dimension already relates:
+    # `request.asked_at` is what the question asks AS OF, `recorded_at` is when
+    # the decision was taken, and this is when it was handed over.
+    #
+    # TRANSPARENT AT THE SENTINEL, and the mark is the ruling rather than a
+    # preference. `None` — every record written before this member existed —
+    # canonicalizes exactly as it did, so no pre-1.0.2 address moves and the
+    # member's mere schema presence is not a generation boundary. A populated
+    # value participates in the address, so **two serves of one question are
+    # two records**: which determination, produced when, is the audit reading a
+    # bank needs.
+    #
+    # Deliberately NOT `ChildResolution.child_admitted_at`'s mark, which is
+    # `{HASH_TRANSPARENT_KEY: False}` — a declared generation boundary. The
+    # accepted design asserted transparency while citing that field as its
+    # precedent; the two are different marks and ruling 1 settles that this one
+    # takes `True`. The precedent to read instead is `ttl_anchor_at` above: the
+    # same shape, the same sentinel, on this same class.
+    served_at: datetime | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     child_resolutions: tuple[ChildResolution, ...] = Field(
         default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
@@ -1698,6 +1721,7 @@ def build_replay_record(
     agent_conditioning: PerspectiveConditioning | None = None,
     harness_trace: HarnessTrace | None = None,
     packaging_trace: PackagingTrace | None = None,
+    served_at: datetime | None = None,
     hitl_actions: str | None = None,
     workflow_step_sequence: str | None = None,
     assembly_refusal: str | None = None,
@@ -2118,6 +2142,13 @@ def build_replay_record(
             # recorded with no evidence that any child was ever admitted.
             child_resolutions=child_resolutions,
             ttl_anchor_at=product.ttl_anchor_at if product is not None else None,
+            # `D-IMPL-358` step 4. Passed rather than derived: `ttl_anchor_at`
+            # above can be read off the product because the product carries it,
+            # and no artifact carries the instant the answer was handed over —
+            # only the resolver that read the clock knows it. Defaults to `None`,
+            # so every caller that does not supply it writes a record whose
+            # address is exactly what it was.
+            served_at=served_at,
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,

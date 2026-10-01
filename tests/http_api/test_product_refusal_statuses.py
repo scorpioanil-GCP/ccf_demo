@@ -81,6 +81,7 @@ from ccf_runtime.http_api.auth import BearerTokenAuth
 from ccf_runtime.mcp.auth import FileTokenSource
 
 from tests.http_api.test_product_declared_obligation_409 import (
+    ASKED_AT,
     DETERMINED_AT,
     PRINCIPAL,
     ROLE,
@@ -364,7 +365,12 @@ def test_an_unentitled_class_answers_the_envelope_at_the_unavailable_row(
     reference = shell["replay_reference"]
     assert reference is not None and reference != NO_REPLAY_REFERENCE
     record = governed.record_at(reference)
-    assert record.recorded_at == DETERMINED_AT
+    # `D-IMPL-358` step 5 section F. MIGRATED: this asserted `DETERMINED_AT` and
+    # was pinning the defect — an entitlement refusal to a question asked at
+    # 09:30 bounded its dimension-1 record at the door's own clock. The two
+    # instants are two statements now and both are asserted.
+    assert record.recorded_at == ASKED_AT
+    assert record.content_generation_path.served_at == DETERMINED_AT
     internal = governed.internal(record)
     assert internal.kind == SUBJECT_UNAVAILABLE
     assert json.loads(internal.fields["cause"]) == "unauthorized"

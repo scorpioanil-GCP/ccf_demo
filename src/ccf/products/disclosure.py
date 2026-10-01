@@ -190,6 +190,28 @@ WITHHELD: Final[str] = "undisclosed"
 #: ``tests/products/test_disclosure.py``, so a kind added to the vocabulary
 #: without a sentence is a red build rather than a shell with no statement.
 EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
+    # `D-IMPL-358` step 5 (section G1 corrected this). ONE statement for all
+    # three reasons, deliberately: which of them applied is the promoted
+    # `reason`, and the statement must not tell an external consumer that a
+    # TENANT IS MISCONFIGURED — that is the operator's fact, not the caller's,
+    # and it is exactly the kind of internal state the minimal level exists to
+    # withhold.
+    #
+    # **The first draft of this sentence was FALSE for one of the three reasons**
+    # and is kept here because the mistake is instructive: it read *"the instant
+    # this question reaches is outside the window this tenant answers for"*,
+    # which asserts that a window EXISTS and the question fell outside it. On the
+    # `temporal-boundary-undeclared` reason no window exists at all, so the
+    # sentence told the caller something untrue while the comment above it
+    # claimed the statement was *"true of every reason"* — the claim and the
+    # sentence disagreed and nothing checked either.
+    #
+    # The replacement is true on all three without naming which: a tenant that
+    # declared no bound answers for no instant, and a tenant whose bound the
+    # question falls outside does not answer for that one.
+    "temporal-bound-refusal": (
+        "this tenant does not answer for the instant this question names"
+    ),
     # The gate family (whitepaper §7.6) and the attestation gate beside it. A
     # candidate existed and a declared gate did not admit it; which gate is the
     # promoted `reason`, which crosses at every level.
@@ -327,6 +349,17 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
 #: refusal type turns this table red rather than silently withholding a field
 #: that no longer exists while passing one that does.
 PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
+    # `D-IMPL-358` step 5, on the `ttl-refusal` precedent: the DECLARED bounds
+    # are actionable — a caller told the window can ask about an instant inside
+    # it — and everything else is fabric state. `policy_key` names an internal
+    # Control Plane key and never crosses; `served_at` is the fabric's own
+    # trusted instant; `presented_at` is the caller's own value echoed back,
+    # which tells them nothing they did not send. Both bounds are `None` on the
+    # undeclared reason, so that reason discloses nothing actionable at minimal
+    # — correctly, because nothing the caller can do would fix it.
+    "temporal-bound-refusal": frozenset(
+        {"max_past_seconds", "permitted_clock_skew_seconds"}
+    ),
     # A candidate existed and a gate refused it. Which gate is the promoted
     # reason; everything the gate measured is fabric state.
     "gate-refusal": frozenset(),

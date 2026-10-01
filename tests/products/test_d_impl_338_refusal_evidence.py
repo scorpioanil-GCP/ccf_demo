@@ -277,7 +277,12 @@ def test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_ident
     def a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
         return {
             "subject": "acct-1",
-            "asked_at": (asked_at + timedelta(days=1)).isoformat(),
+            # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
+            # The mismatch is the subject; the day was incidental — and admissible only
+            # while Gate 3 measured its ceiling from the child's own (future) decision.
+            # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
+            # the child refuses `ttl-bounds` before this test's subject is reached.
+            "asked_at": (asked_at + timedelta(minutes=1)).isoformat(),
             "threshold": "1000",
         }
 
@@ -375,13 +380,21 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
     the one `child_rows` binding, or, for the pre-projection refusal
     `D-IMPL-339` added (reached after acquisition and before the binding
     exists), `composed.resolutions` directly — and every one before it passes
-    no `child_resolutions` at all. Nine exits: three before, six after (the
+    no `child_resolutions` at all. Eleven exits: five before, six after (the
     sixth `D-IMPL-341`'s TTL-anchor refusal; the third before-exit is
     `D-IMPL-357` C2's mechanism-floor refusal — judged ahead of the
     overridable constraint-resolver seam and therefore ahead of acquisition
     too, so it carries no child evidence for the same reason the other two
-    before-exits carry none). A tenth exit added after acquisition without
-    the rows, or a row invented before
+    before-exits carry none). The fourth before-exit is `D-IMPL-358` step 5's
+    temporal-bound refusal, and it is before acquisition BY DESIGN rather than by
+    accident of placement: a question reaching outside the declared window must
+    cost nothing, so it is judged once the effective request exists and before a
+    single child is acquired. It carries no child evidence because at that line
+    no child has been asked anything. The fifth before-exit is section C1's naive-decision-instant
+    refusal, which shares the temporal bound's placement for the same reason: it
+    is judged where the arithmetic starts, and at that line no child has been
+    acquired either. A twelfth exit added after acquisition
+    without the rows, or a row invented before
     it, turns this red without anyone having to remember the ruling.
     """
     source = inspect.getsource(GovernedResolver.__call__)
@@ -390,10 +403,10 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
         m.start()
         for m in re.finditer(r"^\s+return self\._record_refusal\(", source, flags=re.M)
     ]
-    # Nine since `D-IMPL-357` C2: the mechanism-floor refusal, reached before
-    # the constraint resolver and therefore before acquisition, joined the
-    # two existing before-exits.
-    assert len(calls) == 9, f"the exit census moved: {len(calls)} exits"
+    # Eleven since `D-IMPL-358` step 5: the temporal-bound refusal and section
+    # C1's naive-instant refusal joined the three before-exits (`D-IMPL-357` C2's
+    # mechanism floor was the third).
+    assert len(calls) == 11, f"the exit census moved: {len(calls)} exits"
 
     def call_text(start: int) -> str:
         """The full text of the call beginning at ``start``, parens balanced."""
@@ -408,8 +421,9 @@ def test_every_refusal_exit_after_the_binding_passes_the_rows_and_none_before_it
 
     before = [c for c in calls if c < acquisition]
     after = [c for c in calls if c > acquisition]
-    # `D-IMPL-357` C2: three before — the mechanism floor joined the two.
-    assert len(before) == 3 and len(after) == 6, (len(before), len(after))
+    # `D-IMPL-358` step 5: five before — the temporal bound and the naive-instant
+    # refusal joined the three.
+    assert len(before) == 5 and len(after) == 6, (len(before), len(after))
     for start in before:
         assert "child_resolutions" not in call_text(start), "a row invented before acquisition"
     for start in after:

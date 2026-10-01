@@ -63,6 +63,7 @@ rather than spelled — the No-Hardcoding Rule (CLAUDE.md §6.4) scopes to
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -111,10 +112,36 @@ SCOPE = "ccf.product.read"
 TOKEN_FILE = "stdio-tokens.json"
 
 
+#: The env var carrying the parent's pinned instant. SPELLED here rather than
+#: imported from :mod:`tests.client.fixtures`, because this file is launched as a
+#: PROGRAM (``python <path>``) and so has no package context to import its own
+#: package through. The two spellings are held equal by
+#: ``tests/client/conformance/test_served_at_pinning.py``, so they cannot drift.
+_SERVED_AT_ENV = "CCF_FIXTURE_SERVED_AT"
+
+
+def _fabric_clock() -> datetime:
+    """This composition's clock: the parent's pinned instant, or the real one.
+
+    `D-IMPL-358` step 5. `served_at` is read once per invocation and, being
+    non-sentinel, is inside the replay record's hash — so this child and the
+    parent's in-process subject produce ONE record version for one question only
+    if they were composed against ONE now. A child process cannot be
+    monkeypatched and cannot see a Python constant; the adapter passes
+    ``env=dict(os.environ)`` deliberately, so the environment is the channel that
+    reaches here.
+
+    Unset, this is the real fabric clock. The variable is how a FIXTURE states an
+    instant; it is not a way to configure a deployment.
+    """
+    declared = os.environ.get(_SERVED_AT_ENV)
+    return datetime.now(UTC) if declared is None else datetime.fromisoformat(declared)
+
+
 def serve(root: Path) -> None:
     """Boot the deployment at ``root``, expose its product door, serve on stdio."""
     document = load_binding_document(root)
-    booted = _boot(document)
+    booted = _boot(document, clock=_fabric_clock)
     perspective = document.perspective
     # The binding names the deployment's bare section key; the loader placed it
     # under the deployment's tenant (D-IMPL-354), so the fabric is read by the

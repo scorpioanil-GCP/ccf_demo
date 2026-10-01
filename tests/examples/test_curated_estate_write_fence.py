@@ -36,6 +36,8 @@ import pathlib
 import subprocess
 import sys
 
+import pytest
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 #: A node that neither reads nor writes an estate, so the ONLY thing that can
@@ -167,3 +169,228 @@ def test_every_module_naming_the_disposable_store_is_now_covered() -> None:
         " does not request it writes unfenced"
     )
     assert json.dumps(naming)  # the roster is enumerated, never counted alone
+
+
+# --------------------------------------------------------------------------
+# D-IMPL-358 ruling 12 — the fence compares HOSTS, not substrings, and covers
+# every disposable-store variable.
+# --------------------------------------------------------------------------
+
+
+def test_the_fence_covers_every_disposable_store_variable_including_mongo() -> None:
+    """`CCF_TEST_MONGO_URI` was defined and NOT fenced (`D-IMPL-358` ruling 12).
+
+    Eight estate-gated trees read curated Mongo `fibo_v2`, so the one store the
+    session fence did not cover was a store the suite actually reaches. Asserted
+    as a ROSTER rather than a count, because a right count with a wrong member
+    audits clean forever.
+    """
+    from tests.conftest import DISPOSABLE_STORE_ENV, MONGO_URI_ENV
+
+    assert set(DISPOSABLE_STORE_ENV) == {
+        "CCF_TEST_FLUREE_URL",
+        "CCF_TEST_POSTGRES_DSN",
+        MONGO_URI_ENV,
+    }
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "http://192.168.4.76:8090",
+        "http://192.168.4.76:8091",
+        "postgresql://u:pw@192.168.4.76:5432/ccf_v2",
+        "host=192.168.4.76 port=5432 dbname=ccf_v2 user=u password=pw",
+        "hostaddr=192.168.4.76 port=5432 dbname=ccf_v2",
+        "host=h1,192.168.4.76 port=5432,5433 dbname=ccf_v2",
+        "postgresql://u:pw@h1:5432,192.168.4.76:5433/db",
+        "mongodb://192.168.4.76:27017",
+        "mongodb://a:27017,192.168.4.76:27017/db",
+        "192.168.4.76:8090",
+    ],
+    ids=[
+        "fluree",
+        "fluree-peer",
+        "dsn-uri",
+        "dsn-libpq",
+        "dsn-hostaddr",
+        "dsn-multihost-keyword",
+        "dsn-multihost-uri",
+        "mongo",
+        "mongo-multihost",
+        "bare",
+    ],
+)
+def test_a_curated_target_is_refused_in_every_serialization(target: str) -> None:
+    """Both PostgreSQL serializations, because knowing one proves nothing about
+    the other.
+
+    Wave 1 paid for this directly: a credential sweep that knew only the URI form
+    reported "no DSN points at the estate" while a **libpq keyword-form** DSN was
+    sitting in a census log. A fence that parses one form and not the other has a
+    hole exactly the shape of the form it does not parse.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    with pytest.raises(RuntimeError, match="refusing to SEED a curated store"):
+        refuse_to_write_the_curated_estate(target)
+
+
+def test_a_curated_host_inside_a_PASSWORD_is_not_a_curated_TARGET() -> None:
+    """The substring test's false positive, pinned (`D-IMPL-358` ruling 12).
+
+    `any(host in target for host in curated)` answered True for this DSN because
+    the curated address appears in the password. The host is `localhost`; the
+    write goes to a throwaway container; refusing it would stop a legitimate run
+    and teach the operator that the fence is noise.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    refuse_to_write_the_curated_estate(
+        "postgresql://u:192.168.4.76@localhost:5432/test"
+    )
+
+
+def test_curated_protection_is_HOST_LEVEL_and_no_port_rule_exists() -> None:
+    """The estate rule is *"the curated host is read-only"*, not *"on certain
+    ports"* (`D-IMPL-358` ruling 12 as corrected).
+
+    An earlier draft of this fence treated a curated declaration carrying a port
+    as fencing **only** that port. That invented a port policy nobody ruled and
+    narrowed a host-level protection into a port list — a weakening dressed as
+    precision. This control pins the opposite: a declaration that happens to
+    carry a port still fences **every** port on that host, and a declaration
+    without one behaves identically.
+    """
+    from tests.examples.estate_guard import (
+        CURATED_HOSTS_ENV,
+        refuse_to_write_the_curated_estate,
+    )
+
+    previous = os.environ.get(CURATED_HOSTS_ENV)
+    os.environ[CURATED_HOSTS_ENV] = "192.168.4.76:8091"
+    try:
+        for port in (8090, 8091, 5432, 27017):
+            with pytest.raises(RuntimeError, match="refusing to SEED a curated store"):
+                refuse_to_write_the_curated_estate(f"http://192.168.4.76:{port}")
+    finally:
+        if previous is None:
+            del os.environ[CURATED_HOSTS_ENV]
+        else:
+            os.environ[CURATED_HOSTS_ENV] = previous
+
+
+def test_an_UNPARSEABLE_target_fails_CLOSED() -> None:
+    """*Don't know* must never collapse into *pass*.
+
+    A target whose destination cannot be established is a target nobody has
+    checked, so the fence refuses it rather than admitting it.
+
+    The carrier is a target that yields NO destination at all. A malformed port
+    is deliberately NOT the carrier any more: the authority is now split
+    structurally rather than through `urlsplit(...).port`, so
+    `http://192.168.4.76:not-a-port` is correctly classified as the curated host
+    and refused for the right reason — which is a better outcome than being
+    refused for being unreadable.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    with pytest.raises(RuntimeError, match="refusing to SEED a curated store"):
+        refuse_to_write_the_curated_estate("   ")
+
+
+# ---------------------------------------------------------------------------
+# `D-IMPL-358` step 15 — the ONE severing for the `make example-*` gate.
+# ---------------------------------------------------------------------------
+
+
+def test_severing_the_make_gate_stops_refusing_a_curated_host(
+    tmp_path: "object", monkeypatch: "object"
+) -> None:
+    """Drop the gate's refusal and the curated-host case PROCEEDS. Restored by construction.
+
+    `tools/estate_fence.py` is what stands between an operator-exported curated
+    destination and a `make example-s1-00` / `example-s1-01` run that transacts. This
+    is the control that the standing between is real rather than decorative.
+
+    **A scratch COPY, never an edit-and-revert.** The shipped source is read, mutated
+    as a string, written under ``tmp_path`` and imported under a unique name, so the
+    tree is never written and restoration is byte-for-byte by construction — and a
+    file that did not exist a moment ago has no stale ``.pyc``. The anchor is asserted
+    to occur EXACTLY ONCE before substitution: a stale anchor silently applies no
+    mutation and the severing then "passes" having changed nothing.
+
+    **No network, on either leg.** The gate only PARSES; it opens no connection. The
+    curated address below is a string. Nothing here reaches the curated estate, and
+    the severed leg deliberately stops at the gate's return value rather than running
+    an example.
+    """
+    import pathlib as _p
+
+    from tests.products.test_served_at_severings import severed
+
+    curated = "http://192.168.4.76:8090"
+    monkeypatch.setenv("CCF_TEST_FLUREE_URL", curated)  # type: ignore[attr-defined]
+
+    # (1) SHIPPED: the gate refuses, so the make recipe stops before the run.
+    from tools.estate_fence import main as shipped_main
+
+    assert shipped_main([]) == 1, (
+        "the shipped gate did not refuse a curated host — nothing below proves"
+        " anything, because the control is not green"
+    )
+
+    # (2) SEVERED: the refusal call is removed and the same curated target PROCEEDS.
+    module = severed(
+        _p.Path(str(tmp_path)),
+        "tools/estate_fence.py",
+        (
+            (
+                "        refuse_to_write_the_curated_estate(*present.values())",
+                "        pass  # severed",
+            ),
+        ),
+        "the-make-gate-stops-refusing",
+    )
+    assert module.main([]) == 0, (
+        "the severing cost nothing — the gate still refused with its refusal call"
+        " removed, so this control is not guarding that line"
+    )
+
+    # (3) ...and the shipped gate still refuses, so the severing touched only the copy.
+    assert shipped_main([]) == 1, (
+        "the shipped gate stopped refusing after the severing ran — the tree was"
+        " mutated, which the scratch-copy discipline exists to prevent"
+    )
+
+
+def test_the_refusal_masks_BOTH_postgres_password_serializations() -> None:
+    """A refusal must never publish the estate credential, in EITHER DSN form.
+
+    `D-IMPL-358` step 15. This control exists because the one beside it did not catch
+    the gap: the existing credential assertion used the URI form, and `_redacted`
+    masked only that form, so a refusal on a libpq keyword DSN
+    (``host=... password=...``) printed the password verbatim. It was found by running
+    the `make`-side gate, which writes the refusal to stderr where CI keeps it.
+
+    **Both serializations, for the same reason `_destinations` parses both:** knowing
+    one proves nothing about the other. The non-password target at the end is the
+    negative control — a redactor that masked everything would pass the first four
+    assertions and be useless.
+    """
+    from tests.examples.estate_guard import _redacted
+
+    secret = "SUPERSECRET"
+    for target in (
+        f"postgresql://u:{secret}@192.168.4.76:5432/x",
+        f"host=192.168.4.76 port=5432 dbname=x user=u password={secret}",
+        f"host=192.168.4.76 password='{secret} with spaces' user=u",
+        f"host=192.168.4.76 PGPASSWORD={secret}",
+    ):
+        masked = _redacted(target)
+        assert secret not in masked, f"the password survived redaction: {masked}"
+        assert "***" in masked, f"nothing was masked at all: {masked}"
+
+    # NEGATIVE CONTROL: a target with no password is passed through unchanged, so
+    # this test cannot be satisfied by a function that masks indiscriminately.
+    assert _redacted("http://192.168.4.76:8090") == "http://192.168.4.76:8090"

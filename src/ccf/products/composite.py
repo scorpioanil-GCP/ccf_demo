@@ -2027,7 +2027,7 @@ def compose_children(
     own_lineage: ProductLineage,
     max_ttl: MaxTTL,
     ttl_anchor_at: datetime,
-    decided_at: datetime,
+    evaluated_at: datetime,
     validity_floors: ConstituentValidityFloors,
 ) -> CompositionOutcome:
     """Compose an admitted child set, or refuse, and record every requirement.
@@ -2058,8 +2058,13 @@ def compose_children(
             clock and so a composite and a non-composite of one class anchor
             identically (`R6`: they did not, and two governed answers collided
             on one content address). **Used for the expiry only.**
-        decided_at: The decision instant, and the instant `D-IMPL-31`'s mixing
-            law measures each constituent's REMAINING validity from. Separate
+        evaluated_at: The instant `D-IMPL-31`'s mixing law measures each
+            constituent's REMAINING validity from — the instant the composition
+            is EVALUATED at, which the resolver supplies as ``served_at``
+            (`D-IMPL-358` step 5 section I). It was named ``decided_at`` and
+            carried the decision instant; the rename came with the value, because
+            a parameter named for one instant while carrying another is how the
+            next reader re-derives the wrong one. Separate
             from ``ttl_anchor_at`` because the two answer different questions,
             and the review of `D-IMPL-341` caught them sharing one argument:
             with an evidence anchor weeks before the decision, a child's
@@ -2117,11 +2122,14 @@ def compose_children(
             for child in admitted_children
         ],
         floors=validity_floors,
-        # Remaining validity is judged at the DECISION instant — never at the
-        # evidence anchor, which for a `from_entity_freshness` class lies in
-        # the past and would report more validity remaining than there is
-        # (`D-IMPL-341` review, 2026-09-18).
-        evaluated_at=decided_at,
+        # Remaining validity is judged at the instant the composition is
+        # EVALUATED — never at the evidence anchor, which for a
+        # `from_entity_freshness` class lies in the past and would report more
+        # validity remaining than there is (`D-IMPL-341` review, 2026-09-18).
+        # `D-IMPL-358` step 5 section I: that instant is `served_at`, because how
+        # much validity a child has LEFT is a fact about the moment the answer is
+        # handed over, not about when the parent's question was decided.
+        evaluated_at=evaluated_at,
     )
     if mixing is not None:
         return CompositionOutcome(

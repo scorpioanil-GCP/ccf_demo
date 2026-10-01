@@ -71,6 +71,7 @@ from tests.crossproc.servers.product_producer_identity import (  # noqa: E402
     PRODUCER_TENANT,
     PRODUCT_CLASS,
 )
+from tests.composition import declare_wide_temporal_boundary
 PRINCIPAL = "principal-fixture"
 ROLE = "role-fixture"
 SCOPE = "ccf:egress"
@@ -219,6 +220,9 @@ def build_server(workspace: Path) -> FastMCP:
         registry=control_plane,
         connection={"database_path": str(workspace / "producer.sqlite3")},
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one.
+    declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     for envelope in fabric.artifacts[rekey(SIGNAL_BATCH_KEY)].envelopes:
         fabric.handle.worker.ingest(envelope)
     # The record class this producer's recorder files into, declared under

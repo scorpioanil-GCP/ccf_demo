@@ -747,7 +747,7 @@ component agreed on the caller's clock.
    `temporal-bound-refusal`), whose closed `reason` Literal is
    `temporal-bound-undeclared`, `asked-at-outside-temporal-bound`,
    `decision-instant-outside-temporal-bound`; it is registered in
-   `REFUSAL_KINDS` (`src/ccf/products/refusal.py:555`) and
+   `REFUSAL_KINDS` (`src/ccf/products/refusal.py::REFUSAL_KINDS`) and
    `_PRE_ASSEMBLY_REFUSALS` (`:789-797`), with its `EXTERNAL_STATEMENTS` /
    `PERMITTED_AT_MINIMAL` entries (`src/ccf/products/disclosure.py:192`, `:329`),
    its HTTP status in `runtime/ccf_runtime/http_api/refusal_status.py` and the
@@ -973,7 +973,10 @@ trees call `open_product(`, 12 call `build_governed_resolver(`. Union of files
 naming the changed symbols: 49.
 
 **Red when fixed (rewrite, never delete).**
-- `tests/products/test_resolver_seam.py::test_o3_a_non_composite_never_reads_the_admission_clock`
+- `tests/products/test_resolver_seam.py::test_o3_a_non_composite_reads_the_admission_clock_EXACTLY_ONCE`
+  (renamed by `D-IMPL-358` step 4: ruling 1 retires the premise that a
+  non-composite consumes no instant, so the control now asserts exactly one
+  read rather than none)
   (def at `:2861`, `assert reads == []` at `:2881`) → exactly one read.
 - `::test_an_answerable_question_yields_a_served_product` (`:933`; `recorded_at
   == ASKED_AT` at `:946` **stays true** under D2(a); Gate 3 red at a wall clock
@@ -984,7 +987,7 @@ naming the changed symbols: 49.
 - `tests/products/test_delivery_determinism.py::test_a_fulfilled_product_is_the_same_determination_twice`
   (`:467`), `::test_a_subject_unavailable_refusal_is_the_same_determination_twice`
   (`:830`) and `:486` (record address) — under a pinned clock.
-- `tests/products/test_delivery_determinism.py::test_moving_asked_at_across_the_effectivity_boundary_changes_the_determination`
+- `tests/products/test_delivery_determinism.py::test_moving_served_at_across_the_effectivity_boundary_changes_the_determination`
   (`:937`; the self-declared `D-IMPL-253` Q6 control) — rewrite so the two
   asks share one `asked_at` and pin two `served_at` values either side of
   `BOUNDARY`, asserting the policy and its pin move with `served_at` and not

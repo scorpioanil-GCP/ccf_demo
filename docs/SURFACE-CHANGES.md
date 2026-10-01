@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1750 entries**, of which **1491** name a public Python surface.
+**1778 entries**, of which **1518** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1000 entries — 957 public Python surface, 43 not public Python API.
+1013 entries — 969 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -15453,6 +15453,150 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `357-02-parameter-value-floor.md`.*
 
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+- Public surface: true
+- Change type: added
+- Before: absent — no artifact declared how far into the past a request may reach, and no SDK surface existed to hold such a declaration
+- After: a `CCFContract` with two required integer members, `max_past_seconds` and `permitted_clock_skew_seconds`, each validated non-negative by one `field_validator` on the `EligibilityEvidencePolicy` precedent. **Neither field has a default**, so a deployment that forgot to declare one cannot silently inherit the SDK's opinion about how much history it answers for. Zero is a legal value and is the STRICTEST bound rather than "unbounded" — read off the accepted semantics the sibling already implements, whose comparison is `age > max_evidence_age_seconds`; the comparison itself is not implemented at this step
+- Why: `D-IMPL-358`, and `D-IMPL-38`'s no-silent-default rule — both members are deployment values and the SDK holds neither. A window is a policy decision about how much history a tenant will answer for, so the SDK supplies the shape, the validation, the key and the pinning, and no number
+- Migration: none. A new artifact class nothing yet consumes; no existing declaration, content address or behavior changes
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.TEMPORAL_BOUNDARY_POLICY
+
+- Surface: ccf.controlplane.temporal_boundary.TEMPORAL_BOUNDARY_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ArtifactClass` a deployment registers its boundary under, `class_id="ccf.temporal-boundary-policy"` — `ccf.<kebab-case>` per the convention all 33 existing class ids follow, and the direct sibling of `ccf.eligibility-evidence-policy`
+- Why: an artifact class is the identity the audit plane records, so a deployment's registration can be named without re-reading the artifact
+- Migration: none. Deliberately NOT added to `SDK_ARTIFACT_CLASSES`, matching all three sibling per-tenant policies, so it is not manifest-addressable; its committed schema arrives through `dump_schemas.py`'s discovered bucket instead
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.temporal_boundary_policy_key
+
+- Surface: ccf.controlplane.temporal_boundary.temporal_boundary_policy_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `temporal_boundary_policy_key(*, tenant_id) -> str`, returning `{tenant_id}/ccf.temporal-boundary-policy`. Tenant-FIRST, on the unanimous precedent of the four existing key helpers and for the reason each of them states: the registry's one tenant comparison reads the segment before the first `/` (`D-IMPL-353` §1.3), so a class-first key could be registered only by a capability whose tenant was the class name
+- Why: a derivation rather than a table, so two components cannot disagree about where a tenant's policy lives, and the SDK supplies no tenant and therefore holds no deployment's vocabulary (CINV-01)
+- Migration: none. A new key shape under which nothing is yet registered
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+
+- Surface: ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+- Public surface: true
+- Change type: added
+- Before: absent — the sibling's resolution returned only the policy, discarding the version
+- After: a frozen dataclass holding `key`, `version` and `policy` together, plus a `binding` property returning the `PolicyBinding(key, version)` a later step will append to served and refusal records. **One authority for the pin**, because three prospective call sites each building their own `PolicyBinding` would be three chances for one of them to reconstruct a version instead of carrying the resolved one. The `PolicyBinding` import is deferred rather than module-level: `ccf.replay.record` reaches `ccf.products.contract`, which imports `ccf.controlplane.registry`, so a module-level import would close a package-level cycle and pull 56 modules into `ccf.controlplane` for a two-field value
+- Why: `D-IMPL-358` step 3 — the exact resolved version is what a replay must pin, and holding it in the same value as the policy makes discarding it impossible to do by accident. There is no constructor that omits it
+- Migration: none, and nothing appends this binding yet. The value exists so the step that does has one place to get it from
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryUndeclared
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryUndeclared
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a frozen dataclass carrying `key`, `required_class_id`, `reason` and `detail`, RETURNED rather than raised — absence is a governance outcome a deployment can legitimately be in, and a later governed refusal consumes this condition. It carries no `version` and no `policy` field, so there is nothing to fabricate
+- Why: `D-IMPL-358` ruling 11 — on absence the fabric records the policy key or class that was required and the absence reason, and never mints a fake binding or fabricates a version for a policy that does not exist
+- Migration: none. The refusal that consumes this is a later step; nothing raises or returns it on a live path yet
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryMisdeclared
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryMisdeclared
+- Public surface: true
+- Change type: added
+- Before: absent — the sibling reports a wrong artifact at its key as `eligibility-bound-undeclared`, the same token it reports absence with
+- After: a `TypeError` subclass RAISED when something is registered at the key and is not a `TemporalBoundaryPolicy`. A configuration error, deliberately not folded into the undeclared condition: a deployment that declared the wrong artifact and one that declared none need different things done about them, and reporting the first as the second sends an operator to add what is already present. A `TypeError` subclass so a caller already handling what `ArtifactClass.validate` raises for the same mistake keeps working. Its message names the fully qualified type found and expected, because the bare class name produces the useless "is a TemporalBoundaryPolicy, not a TemporalBoundaryPolicy" whenever two copies of the contract class are live at once — measured during this step's severing campaign
+- Why: `D-IMPL-358` — missing, wrong, and unavailable are three different facts, and only one of them is an absence
+- Migration: none. A new exception on a path nothing yet calls
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.controlplane.temporal_boundary.resolve_temporal_boundary
+
+- Surface: ccf.controlplane.temporal_boundary.resolve_temporal_boundary
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `resolve_temporal_boundary(*, registry, tenant_id) -> PinnedTemporalBoundary | TemporalBoundaryUndeclared`. Three outcomes for three different facts: a declared policy returns the pin with the exact version the registry returned; an absent one returns `TemporalBoundaryUndeclared`; a wrong artifact raises `TemporalBoundaryMisdeclared`. **Only `ControlPlaneMissing` is caught**, and narrowly — every other registry failure propagates untouched, because a broad `except` would report a control-plane outage as an undeclared bound and silently disable the boundary on exactly the day the control plane was unwell. The tenant arrives as an argument because this is the mechanism; it is supplied by governed composition or runtime context at the call site, never read off a request payload and never declared by an envelope (`D-IMPL-358` ruling 3)
+- Why: `D-IMPL-358` step 3 — one resolution surface that cannot lose version identity, and that distinguishes the three facts a later refusal has to report differently
+- Migration: none. No caller exists yet; the resolver, ingress write guard and peering admission adopt it in later steps
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
+#### ccf.products.refusal.TemporalBoundRefusal
+
+- Surface: ccf.products.refusal.TemporalBoundRefusal
+- Public surface: true
+- Change type: added
+- Before: absent — no governed refusal named a question reaching outside a declared temporal window, and no vocabulary token existed for one
+- After: a `CCFContract` with a closed three-reason `Literal` (`temporal-boundary-undeclared`, `asked-at-outside-temporal-bound`, `decision-instant-outside-temporal-bound`), the canonical policy key, the trusted `served_at` it was judged at, and — for the two window reasons — the instant that fell outside and the declared bounds. The three defaulted members are declared **generation boundaries** (`HASH_TRANSPARENT_KEY: False`), because nothing predates this type: a transparent mark buys silence so that records written before a member existed keep their address, and no refusal of this kind has ever been written
+- Why: `D-IMPL-358` step 5 with ruling 11. Three reasons rather than one because they are three different facts with three different remedies — an undeclared policy is the operator's to fix and the caller can do nothing about it, while an out-of-window question is the caller's. Collapsing them would send one of the two to the wrong party
+- Migration: none. A new kind on a path nothing yet reaches; no existing refusal changes shape or address
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.refusal.refuse_temporal_bound
+
+- Surface: ccf.products.refusal.refuse_temporal_bound
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a **pure** judgment — it reads no clock and no registry — taking an already-resolved `PinnedTemporalBoundary | TemporalBoundaryUndeclared`, the trusted `served_at`, and both instants (`asked_at` and the derived decision instant), returning the refusal or `None`. `asked_at` is judged first so a question outside both is reported deterministically by the axis a caller controls most directly. The arithmetic is `ccf/peering/eligibility.py::_evidence_too_old`'s, reused rather than re-invented, which is what keeps two declared durations in this fabric meaning the same thing — and which fixes the reading of zero as the strictest bound rather than as unbounded
+- Why: `D-IMPL-358` step 5. The judgment is separated from the resolution so that the instant and the policy both arrive as arguments and nothing about where they came from is decided here — the same split step 3 made between resolving a policy and pinning it
+- Migration: none; no caller exists yet
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.controlplane.artifacts.TEMPORAL_BOUNDARY_POLICY
+
+- Surface: ccf.controlplane.artifacts.TEMPORAL_BOUNDARY_POLICY
+- Public surface: true
+- Change type: added
+- Before: the constant existed only in `ccf.controlplane.temporal_boundary` (step 3) and was absent from the module that exposes the SDK's artifact-class catalog, so `SDK_ARTIFACT_CLASSES` named a class no reader of `ccf.controlplane.artifacts` could see
+- After: the constant is re-exposed here and listed in `__all__`. The contract, the canonical key helper and the resolution/pinning machinery all stay in `ccf.controlplane.temporal_boundary`; **only the constant is re-exposed**, and that module imports `ccf.controlplane.artifact_base` rather than this one, so the direction stays acyclic. This follows `RESOLUTION_SPEC`, whose contract likewise lives in another module (`ccf.assembly.worker`)
+- Why: `D-IMPL-358` step 5 section A1 makes the class manifest-addressable, and `tests/deployment/test_class_lookup.py` takes this module as its source of truth for *"the real constant"* when it asserts object identity against `SDK_ARTIFACT_CLASSES`. Exposing the constant satisfies that identity assertion with the real object. The rejected alternative was widening the control to walk the whole `ccf.controlplane` package: measured, that pulls in `ccf.entity-invalidation-register`, which is in neither SDK mapping, and turns a green control red on code this step does not own
+- Migration: none. An additive export; no existing name changes, and the class's own module is unchanged
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.signal.envelope.IngressTemporalBound
+
+- Surface: ccf.signal.envelope.IngressTemporalBound
+- Public surface: true
+- Change type: added
+- Before: absent. `SignalEnvelope.ingestion_timestamp` carried NO validation of any kind — measured: a naive `1900-01-01` instant constructs cleanly, and a ten-year-out-of-window envelope wrote two entities and one relationship straight into the graph
+- After: a frozen dataclass minted once at the composition root by `at_composition(registry=…, tenant_ids=…)`, holding each roster tenant's resolved `PinnedTemporalBoundary | TemporalBoundaryUndeclared`. `refuse_outside_window(envelope, *, now)` judges only `ingestion_timestamp`, reusing `refuse_temporal_bound`'s arithmetic through a deferred import rather than restating it — `ccf.products.product` imports this module, so a module-level import would close a cycle. An UNDECLARED policy is pinned as its own absence rather than raising at boot: composition succeeds and the refusal happens at the write, where it can name the envelope it refused
+- Why: `D-IMPL-358` step 8 with ruling 11. The write path was the one governed boundary where an out-of-window instant could still land, and `D-IMPL-159` forbids the writer reading a clock — so the instant is handed in by the ingress caller, read once per acquisition
+- Migration: none for an existing deployment; the paved road composes it automatically at `OpenedProduct._acquisition_seam`. A deployment ingesting on its own path composes one at its own composition root
+
+*Recorded by `358-08-temporal-write-guard.md`.*
+
+#### ccf.signal.envelope.TemporalWriteRefused
+
+- Surface: ccf.signal.envelope.TemporalWriteRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `ValueError` carrying `envelope_id`, `tenant_id`, `instant`, `policy_key`, `reason` and `detail` as ATTRIBUTES, not only prose — ruling 11 admits no default and no fabricated binding, so an operator must be able to act on the refusal, which means knowing which key was consulted and why it refused. The instant is carried VERBATIM: not rounded, clamped or restamped
+- Why: `D-IMPL-358` step 8. A `ValueError` matches this module's existing refusal idiom (`refuse_foreign_envelope`) and the worker's own (`IdentityRefused`) rather than inventing a new failure family
+- Migration: none — a new type on a path that previously admitted everything. A caller that wants to distinguish it from `refuse_foreign_envelope`'s refusal catches the type; one that does not still catches `ValueError`
+
+*Recorded by `358-08-temporal-write-guard.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16148,11 +16292,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
 
+#### docs/schemas/ccf.temporal-boundary-policy.json
+
+- Surface: docs/schemas/ccf.temporal-boundary-policy.json
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: the committed JSON Schema for the new artifact class, two required integers with `additionalProperties: false` and `x-ccf-class-id: ccf.temporal-boundary-policy`, emitted by `tools/dump_schemas.py`'s discovered bucket — which walks the tree for `ArtifactClass` instances rather than reading `SDK_ARTIFACT_CLASSES`, and is why all three sibling per-tenant policies have committed schemas while being absent from that mapping
+- Why: the committed schema tree is the authoring baseline an adopter reads in their editor (ERGO-12); an artifact class with no schema is a declaration nobody can discover. The freshness check fails without it
+- Migration: none — a new file describing a new class
+
+*Recorded by `358-03-temporal-boundary-policy.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-489 entries — 301 public Python surface, 188 not public Python API.
+503 entries — 315 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -21747,6 +21903,174 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: sixteen members; the dimension related two instants — `request.asked_at`, carried on the request it holds, and the record's own `recorded_at`
+- After: a seventeenth member, `served_at: datetime | None`, `Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True})` — **transparent at the sentinel**. A third instant, and the record now says all three rather than one of them twice: what the question asks as of, when the decision was taken, and when the answer was handed over. `recorded_at` is untouched on both the served and the refusal path
+- Why: `D-IMPL-358` ruling 1. The mark is the ruling and not a preference: `None` — every record written before the member existed — canonicalizes exactly as it did, so no pre-1.0.2 address moves and the member's mere schema presence is not a generation boundary; a populated value participates, so **two serves of one question are two records**, which is the audit reading a bank needs. Deliberately NOT `ChildResolution.child_admitted_at`'s `{HASH_TRANSPARENT_KEY: False}`: the accepted design asserted transparency while citing that field as its precedent, and ruling 1 settles that this one is transparent. The precedent it actually follows is `ttl_anchor_at` on this same class — same shape, same sentinel, same mark
+- Migration: none for a stored record. Every record written before the member existed rehydrates to the address it was written at, measured by the two rosters that hold the transparent set by name (`tests/contracts/test_hash_transparency.py` and `tests/replay/test_generation_mismatch.py`), both of which required this field to be DECLARED rather than merely marked. `THE_FIFTEEN` is unchanged, which is the load-bearing half: a row that grew that lineage would make an old record refuse. **For a caller that compares addresses across serves**: two serves of one question now differ, so any "same determination twice" assertion must pin the clock — which is what proves the clock is the only difference
+
+*Recorded by `358-04-served-at.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: twenty-one keyword-only parameters; the builder had no way to be told when the answer was served, because nothing in the fabric knew
+- After: a new keyword-only parameter `served_at: datetime | None = None`, passed straight through to the dimension. Passed rather than derived, unlike the sibling `ttl_anchor_at` immediately above it in the same construction, which is read off the product because the product carries it — no artifact carries the instant the answer was handed over, so only the resolver that read the clock can supply it
+- Why: `D-IMPL-358` step 4. One builder already mints every record on both the served and the refusal path, so the capture belongs in its signature rather than in a second construction
+- Migration: none. The parameter defaults to `None`, so every existing caller writes a record whose address is exactly what it was
+
+*Recorded by `358-04-served-at.md`.*
+
+#### ccf.products.refusal.REFUSAL_KINDS
+
+- Surface: ccf.products.refusal.REFUSAL_KINDS
+- Public surface: true
+- Change type: reshaped
+- Before: twenty-seven kinds
+- After: twenty-eight — `temporal-bound-refusal` joins, and `_PRE_ASSEMBLY_REFUSALS` gains the type because the judgment is pre-acquisition and pre-graph-read, so no candidate exists and no lineage is invented for it. The token was checked against all twenty-seven for the vocabulary's substring rule (no token may contain another): no collision
+- Why: `D-IMPL-358` step 5. A refusal that is not in the roster cannot cross a door, be disclosed, or be given a status — the roster IS the vocabulary
+- Migration: a consumer switching exhaustively on the kind gains one arm. Every structural gate over the vocabulary enumerated exactly what registration was owed and is green: the disclosure statement and minimal tables, the door's status map, the MCP parity check, and the per-kind envelope test
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: reshaped
+- Before: `record(...)` took `recorded_at` and no live instant, so a recorder had no way to state when a determination was actually made — and two of the five governed recorder families stamped live clock time into `recorded_at`, moving a refusal's dimension-1 boundary off the question
+- After: a **required keyword** `served_at: datetime | None`, with no default and explicitly nullable. Required so no site can omit it; nullable so a surface that genuinely has no live instant asserts that rather than being assumed. The shape follows the ruling this module already quotes — `D-IMPL-264` amendment 1, *"No intermediate layer may manufacture the marker from omission."* `recorded_at` is untouched and is NOT a synonym: the question's instant bounds the record and the live instant travels beside it
+- Why: `D-IMPL-358` step 5. One invocation reads one clock, and every refusal it produces must carry that instant rather than a fresh one — a recorder that read its own clock would put two instants in one determination
+- Migration: **every conforming recorder and every caller must pass it**, which the required keyword makes a type error rather than a silent default. All five governed families are migrated: the resolver's own path, `OpenedProduct`'s address refusal, the delivery boundary's four sites, the typed raised refusal, and the entitlement refusal. The most consequential repair is the address refusal, which had `request.asked_at` in scope three lines above and stamped `recorded_at=self._clock()` anyway
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.disclosure.EXTERNAL_STATEMENTS
+
+- Surface: ccf.products.disclosure.EXTERNAL_STATEMENTS
+- Public surface: true
+- Change type: reshaped
+- Before: no statement for the new kind, which the closure gate refuses
+- After: one statement covering all three reasons, chosen so that it does not tell an external consumer a tenant is MISCONFIGURED — that is the operator's fact and exactly the internal state the minimal level exists to withhold. `PERMITTED_AT_MINIMAL` permits the two declared bounds and nothing else, on the `ttl-refusal` precedent: a declared ceiling is actionable, the fabric's own instants are not, and the policy key never crosses
+- Why: `D-IMPL-358` step 5 with `D-IMPL-254` — what crosses a consumer boundary is the disclosure step's decision and no refusal type's
+- Migration: none for existing kinds. At minimal, the undeclared reason discloses nothing actionable, correctly: nothing the caller could do would fix it
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.constraints.constraints_in_force
+
+- Surface: ccf.products.constraints.constraints_in_force
+- Public surface: true
+- Change type: reshaped
+- Before: `constraints_in_force(control_plane, *, asked_at)` — the effectivity window was selected at the question's own instant
+- After: `constraints_in_force(control_plane, *, served_at)`. A REQUIRED keyword with no default; the parameter is renamed rather than added beside, because its only job is the effectivity window and a retained `asked_at` would be an unused parameter inviting the two readings to diverge. `_require_aware` follows the instant — there is no implicit UTC in this fabric, and comparing a naive instant against an aware window answers for the wrong hour rather than raising
+- Why: `D-IMPL-358` step 5 ruling B. A constraint that became effective after a question was asked but before it was answered now governs the answer, so a tenant that tightens a bound at noon has it in force at noon rather than from whenever the oldest in-flight question happened to be asked
+- Migration: **every caller passes `served_at`, enforced as a type error rather than a silent default.** The superseded reasoning (`D-IMPL-253` Q6 — *"asked_at, absolutely. Otherwise replay of the same historical decision can resolve a different policy"*) is retained in the docstring because it names the risk that had to be answered before the instant could move; that risk is closed by a different mechanism, which is why the move is safe. Replay never re-derives effectivity: it resolves each binding at the version the record pinned, `ReplayResolver` has no `resolve_latest` to reach for, and nothing under `ccf/replay/` imports this module
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.constraints.applicable
+
+- Surface: ccf.products.constraints.applicable
+- Public surface: true
+- Change type: reshaped
+- Before: `applicable(constraint, *, product_class, tenant, perspective_role, intent, asked_at)`
+- After: the same four axes with `served_at` in place of `asked_at`. The four axes are unchanged; only the window reading moved, and the docstring now states which ruling amended which
+- Why: `D-IMPL-358` step 5 ruling B. `applicable` and `constraints_in_force` share one `_in_window` reading precisely so the fabric cannot answer *"which policy was in force?"* two ways at two layers — so the instant had to move in both or in neither
+- Migration: callers pass `served_at`. Measured: `applicable` has two executable callers and both are inside this module, so no external caller is affected
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: reshaped
+- Before: no instant parameter — the function took `request` and re-checked applicability at `request.asked_at` on its own
+- After: a REQUIRED keyword-only `served_at: datetime`. **This is the parameter whose absence would have made the whole change cosmetic.** The function independently RE-EVALUATES applicability, so a constraint set selected at `served_at` upstream would have been silently re-filtered at `request.asked_at` here — the selection undone with no error and no test red. A default would have let exactly that pass
+- Why: `D-IMPL-358` step 5 ruling B, which names all three layers for this reason. The function stays pure: the instant arrives as an argument and no clock is read
+- Migration: every caller passes `served_at`, including `ReferencePolicyConstraintResolver.resolve` and the `PolicyConstraintResolver` Protocol, which gain the same required keyword. A deployment substituting its own resolver conforms to the new signature or fails the Protocol check
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no way to declare a temporal boundary in configuration, so every config-driven deployment was undeclared under ruling 11 with no authoring surface to fix it
+- After: an optional reserved section `temporal_boundary: Mapping[str, Any] | None = None`, marked `HASH_TRANSPARENT_KEY: True`. Transparent at its `None` sentinel, so **a config that omits the section keeps its pre-change content identity byte-for-byte** — measured on the existing reserved sections, which still derive exactly as before. Absence means *undeclared*; it does not mean unbounded and it synthesizes no policy. The body is the step-3 contract verbatim: no `semver` is injected, no tenant or key or registration metadata is accepted inside it, and the SDK supplies no duration default
+- Why: `D-IMPL-358` step 5 section A. Ruling 11 admits no exception, so the declaration needs a home in the document an operator actually edits
+- Migration: none required of an existing config — the field is optional and transparent at absence. A deployment that wants a bound adds the section; once enforcement lands (the remainder of step 5), a config-driven deployment without one will refuse
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.deployment.keys.DeploymentKeys
+
+- Surface: ccf.deployment.keys.DeploymentKeys
+- Public surface: true
+- Change type: reshaped
+- Before: no field naming the derived temporal-boundary key
+- After: `temporal_boundary: str | None` — the canonical key the derivation minted, or `None` when the config declared no section. The key is always `temporal_boundary_policy_key(tenant_id=config.tenant_id)`; an author cannot override it, and stating `key`, `class_id`, `role` or `registration` inside the section is **refused by name** rather than ignored or honored. A section present with no top-level `tenant_id` is refused rather than keyed class-only or given an invented tenant
+- Why: `D-IMPL-358` step 5 section A7. A caller that booted a deployment needs the address the policy was registered under without re-deriving it, and re-derivation at the call site is how two spellings of one key appear in one fabric
+- Migration: additive; a reader that ignores the field is unaffected
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.products.composite.compose_children
+
+- Surface: ccf.products.composite.compose_children
+- Public surface: true
+- Change type: reshaped
+- Before: `compose_children(..., ttl_anchor_at, decided_at, validity_floors)` — the mixing law measured each constituent's remaining validity from the DECISION instant
+- After: the parameter is `evaluated_at` and the resolver supplies `served_at`. **The rename came with the value, deliberately:** a parameter named for one instant while carrying another is how the next reader re-derives the wrong one, and `D-IMPL-358` step 5 section I forbids leaving a variable named `decided_at` carrying `served_at`
+- Why: how much validity a constituent has LEFT is a fact about the moment the answer is handed over, not about when the parent's question was decided. The function's own comment already said "a fact about now"; section I made "now" literal
+- Migration: callers pass `evaluated_at`. Measured: one production caller (the resolver) and three in tests. The `D-IMPL-341` C11 control is migrated and **strengthened** — the fixture's three candidate instants are fifteen, ten and three minutes of remaining validity, so the new floor pair (four minutes refuses, two serves) separates all three readings where the old pair (twelve and nine) could only tell the evidence anchor from the decision
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.controlplane.artifacts.TtlBinding
+
+- Surface: ccf.controlplane.artifacts.TtlBinding
+- Public surface: true
+- Change type: reshaped
+- Before: each window was validated positive independently, and nothing compared them. A binding declaring `product_ttl_seconds` ABOVE its own `max_ttl_seconds` parsed cleanly — measured, it was accepted — and then failed Gate 3 on every single request as a governed `ttl-refusal`
+- After: a model validator refuses that declaration at parse time. The boundary is INCLUSIVE (equal windows are admissible), matching Gate 3's own `expires_at <= now + MAX_TTL`
+- Why: `D-IMPL-358` step 5 section H1. A binding that cannot ever serve is an operator's configuration error, and reporting it to the caller as a governed refusal on every question misattributes it to the party who cannot fix it — while nothing anywhere names the actual cause
+- Migration: a deployment carrying such a binding now fails at boot instead of at every serve. It is **refused, never clamped**: silently lowering the product window would make the deployment serve under a TTL nobody declared — a value the fabric chose standing in for one the operator did not, which is the No-Hardcoding Rule's failure mode in miniature
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: reshaped
+- Before: `InProcessAdapter(address)` — a transport composed a governed resolver and took the fabric's clock implicitly, so two transports answering one question read two clocks
+- After: `InProcessAdapter(address, *, clock=<the fabric's own clock>)`, threaded to the private `_boot` and on to `build_governed_resolver(admission_clock=…)`. **The injected fabric clock of `D-IMPL-159` / D6(d), not a test knob**: a transport IS a composition site, and this is where a composition states its now. The default is the fabric's own clock — imported from `ccf.products.resolver`, never restated, because a second definition would be a second clock — so nothing that does not care is affected
+- Why: `D-IMPL-358` step 5. `served_at` is read once per governed invocation and is non-sentinel, so it is inside the replay record's hash (`D-IMPL-243` amendment 1: *"Any non-sentinel value is rendered and must move the hash"*). Two serves at two wall times are therefore two record versions — which is the ruled identity rule, not a new one. The conformance parity legs compare `replay_ref` across transports and their contract has always been *"the same question at the same instant"*; the fixture never established the second half, and the wave made that visible. The transports agreed on the record's NAME and differed on its `@version`
+- Migration: none required — the parameter is keyword-only and defaults to today's behavior. A composition that needs two transports to agree on a record version injects one clock into both. The boot cache memoizes per deployment root, so the first adapter to boot a root fixes that root's clock and a second naming the same root inherits it; that is `D-30`'s existing single-writer contract (one root is one fabric, and one fabric has one clock), not a new rule
+
+*Recorded by `358-05-trusted-time.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: reshaped
+- Before: `McpStdioAdapter(address)`, resolving `as_of=None` with an ambient `datetime.now(UTC)`
+- After: `McpStdioAdapter(address, *, clock=<the fabric's own clock>)`, and that clock is what resolves `as_of=None`. The same seam `InProcessAdapter` carries, with the same imported default — never a restated one
+- Why: `D-IMPL-358` step 5 section H. The two adapters each resolved `as_of=None` client-side from an ambient clock. Once a composition can state its own now, an ambient read there pins `served_at` while leaving `asked_at` live — so the fabric would answer a question asked at one instant and serve it as of another. One clock per composition means one clock for both instants
+- Migration: none required — keyword-only with today's behavior as its default. **The read stays CLIENT-SIDE:** relocating it to the door is the separate design question `C-13` recorded and declined, and this changes which clock it reads, not where. The clock does not cross to the child process either; a child composes its own, which is why the fixture deployment's program reads its instant from the environment
+
+*Recorded by `358-05-trusted-time.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -24607,7 +24931,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-223 entries — 195 public Python surface, 28 not public Python API.
+224 entries — 196 public Python surface, 28 not public Python API.
 
 ### Public Python surface
 
@@ -28505,6 +28829,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for callers (the function derives); a deployment that persisted the old key string re-registers its mapping under the new one
 
 *Recorded by `353-09-the-join.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: `admission_clock` was invoked inside `if registered.requires:` only, so a non-composite serve read no clock; `__call__`'s docstring asserted that *"nothing here reads a clock"*, which was already untrue of that branch
+- After: `served_at = self.admission_clock()` once at the entry to the governed path; the composite branch binds `admitted_at` to that same value; the served build site passes `served_at` to `build_replay_record`. **No second clock anywhere.** The docstring sentence is corrected rather than removed: the graph boundary still needs no clock and still comes from `request.asked_at`, and the sentence now says which claim was previously overstated
+- Why: `D-IMPL-358` step 4 — a governed serve that cannot say when it answered cannot be audited for it, and one read per call is what keeps a single answer on a single instant
+- Migration: none for a deployment: `admission_clock` already existed, already defaulted, and is already wired by `build_governed_resolver` and `open_product(clock=)`. **For a test that counts clock reads on a non-composite serve**, the count is now one rather than zero; that is the ruled change and the one in-tree control asserting zero is renamed and re-pointed
+
+*Recorded by `358-04-served-at.md`.*
 
 ### Not public Python API
 

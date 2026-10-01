@@ -66,6 +66,7 @@ from tests.deployment.test_replay_binding import (
     _plan_factory,
     _servable_config,
 )
+from tests.composition import declare_wide_temporal_boundary
 
 ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 LIMIT_PARAMETER = "limit"
@@ -278,6 +279,9 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
             opened.config_path, registry=opened.control_plane,
             connection={"database_path": str(scratch / "low-road.sqlite3")},
         )
+        # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+        # refuses every question, so a fixture that means to serve declares one.
+        declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             arguments = opened.build_arguments(fabric)
             assert "max_ttl_seconds" not in arguments and "decision_instant_parameter" not in arguments
@@ -294,6 +298,9 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
             opened.config_path, registry=opened.control_plane,
             connection={"database_path": str(scratch / "low-road-2.sqlite3")},
         )
+        # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+        # refuses every question, so a fixture that means to serve declares one.
+        declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             arguments = opened.build_arguments(fabric)
             arguments["plan_factory"] = lambda *, required, request: _plan_factory(
@@ -360,6 +367,9 @@ def test_the_ttl_and_decision_instant_keywords_are_held_equal_to_the_declaration
             opened.config_path, registry=opened.control_plane,
             connection={"database_path": str(scratch / "equal.sqlite3")},
         )
+        # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+        # refuses every question, so a fixture that means to serve declares one.
+        declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             arguments = opened.build_arguments(fabric)
             build_governed_resolver(**arguments, max_ttl_seconds=3600, product_ttl_seconds=600)  # equal: builds
@@ -389,6 +399,9 @@ def test_a_config_with_a_declared_decision_instant_is_built_from_the_declaration
             opened.config_path, registry=opened.control_plane,
             connection={"database_path": str(tmp_path / "scratch" / "instant.sqlite3")},
         )
+        # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+        # refuses every question, so a fixture that means to serve declares one.
+        declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             with pytest.raises(TypeError, match="decision_instant_parameter: as_of"):
                 build_governed_resolver(**{**opened.build_arguments(fabric), "decision_instant_parameter": THRESHOLD_PARAMETER})

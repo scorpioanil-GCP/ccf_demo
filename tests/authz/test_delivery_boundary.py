@@ -858,3 +858,81 @@ def test_the_shared_outcome_is_the_kind_a_nonexistent_subject_also_carries(
         record.content_generation_path.disclosure_decision
     )
     assert decision.internal_kind == decision.external_kind == "subject-unavailable"
+
+
+# --- `D-IMPL-358` step 5 section F: the question's instant bounds the record ---
+
+#: Distinct from :data:`DETERMINED_AT` ON PURPOSE. Every pre-existing control in
+#: this module passes ``asked_at=DETERMINED_AT``, so `recorded_at=determined_at`
+#: and `recorded_at=asked_at` are the same assertion there and neither could ever
+#: fail. A control that agrees by coincidence is not a control.
+QUESTION_ASKED_AT = datetime(2026, 4, 7, 9, 0, tzinfo=UTC)
+
+
+def test_F_govern_entitlement_bounds_the_record_at_the_QUESTION(
+    fixture: Any,
+) -> None:
+    """F. `recorded_at` is the question's instant; `served_at` is the live one.
+
+    `D-IMPL-358` step 5 section F. These are two different statements about one
+    determination and the record carries both: dimension 1's boundary is *the
+    moment the question was asked as-of*, and the live instant travels beside it.
+    Collapsing them moves a refusal's graph boundary onto whenever the door
+    happened to run, which is a different question than the one that was asked.
+    """
+    assert QUESTION_ASKED_AT != DETERMINED_AT, "the premise of this control moved"
+    # The same way this module's own controls reach the refusal path: a resolver
+    # that substitutes the principal is refused before any source is consulted.
+    fixture.resolver = _SubstitutingResolver()
+
+    shell = fixture.govern(asked_at=QUESTION_ASKED_AT)
+    assert isinstance(shell, RefusalEnvelope), type(shell)
+
+    record = fixture.record_at(shell.replay_reference)
+    assert record.recorded_at == QUESTION_ASKED_AT, (
+        "the record's boundary moved onto the door's clock — this refusal now "
+        "claims to have been asked at an instant nobody asked at"
+    )
+    assert record.content_generation_path.served_at == DETERMINED_AT
+
+
+def test_F_govern_absence_bounds_the_record_at_the_QUESTION(
+    fixture: Any,
+) -> None:
+    """F, the absence path. Same two statements, same separation."""
+    shell = govern_absence(
+        grant=_grant(),
+        tenant=TENANT,
+        product_class=PRODUCT_CLASS,
+        product_version=PRODUCT_VERSION,
+        parameters={"threshold": 1},
+        asked_at=QUESTION_ASKED_AT,
+        surface=SURFACE_HTTP_ROUTE,
+        address=ADDRESS,
+        perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
+        absent=LookupError("nothing servable at that address (fixture)"),
+        entitlement_source=fixture.source,
+        refusal_recorder=fixture.recorder,
+    )
+    record = fixture.record_at(shell.replay_reference)
+    assert record.recorded_at == QUESTION_ASKED_AT
+    assert record.content_generation_path.served_at == DETERMINED_AT
+
+
+def test_F_a_surface_with_no_question_instant_falls_back_to_the_determination(
+    fixture: Any,
+) -> None:
+    """The other half, and the reason the fallback is not a synonym.
+
+    A governed surface that genuinely has no ``asked_at`` keeps the ruled
+    resource-form boundary (`D-IMPL-256` (1)). Without this half the repair above
+    could be read as *"always use asked_at"*, which would refuse to record a
+    surface that legitimately has none.
+    """
+    fixture.resolver = _SubstitutingResolver()
+
+    shell = fixture.govern(asked_at=None)
+    assert isinstance(shell, RefusalEnvelope), type(shell)
+    record = fixture.record_at(shell.replay_reference)
+    assert record.recorded_at == DETERMINED_AT
+    assert record.content_generation_path.served_at == DETERMINED_AT

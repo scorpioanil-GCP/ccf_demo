@@ -25,7 +25,12 @@ import pytest
 
 from tests.client.conformance.suite import Provision
 from tests.client.conftest import FIXTURE_DEPLOYMENT, seed
-from tests.client.fixtures import STDIO_SERVER, declare_server
+from tests.client.fixtures import (
+    PINNED_SERVED_AT,
+    SERVED_AT_ENV,
+    STDIO_SERVER,
+    declare_server,
+)
 
 
 @pytest.fixture()
@@ -68,3 +73,21 @@ def provision(tmp_path: Path) -> Provision:
         return root
 
     return make
+
+
+@pytest.fixture(autouse=True)
+def _pin_the_serving_instant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Export the pinned instant so a CHILD-process subject inherits it.
+
+    `D-IMPL-358` step 5. The in-process subject is composed with the pin
+    directly; the `mcp+stdio` subject is a separate process and can be reached
+    only through the environment, which its adapter passes on deliberately
+    (`env=dict(os.environ)`). Autouse because every leg in this package compares
+    subjects to each other, and a leg that pinned one side only would compare a
+    pinned answer against a live one and report the difference as a transport
+    disagreement.
+
+    `monkeypatch` so the export dies with the test rather than leaking into
+    whatever runs next in this process.
+    """
+    monkeypatch.setenv(SERVED_AT_ENV, PINNED_SERVED_AT.isoformat())

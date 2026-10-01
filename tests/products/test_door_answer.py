@@ -134,7 +134,12 @@ def _resolved(root: Path, request: ProductRequest) -> object:
     refuses — *"a synthesized `kind` would name a refusal vocabulary the
     fabric does not speak"*.
     """
-    booted = _boot(load_binding_document(str(root)))
+    # `D-IMPL-358` step 5 section H: composed against `RESOLVED_AT`, the same
+    # pinned instant every request below names. Unpinned, the fabric serves at the
+    # real clock while the door answers as of August, and Gate 3 — which measures
+    # its window from the moment of service — refuses every one of them, which
+    # arrives here as a SETUP ERROR rather than a failure.
+    booted = _boot(load_binding_document(str(root)), clock=lambda: RESOLVED_AT)
     try:
         return booted.resolver(
             tenant=booted.fabric.tenant_id,

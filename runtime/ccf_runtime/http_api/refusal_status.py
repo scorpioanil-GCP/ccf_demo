@@ -109,7 +109,11 @@ from ccf.products.gates import (
     TTLRefusal,
 )
 from ccf.products.payload import PayloadSchemaViolation
-from ccf.products.refusal import REFUSAL_KINDS, SubjectUnavailableRefusal
+from ccf.products.refusal import (
+    REFUSAL_KINDS,
+    SubjectUnavailableRefusal,
+    TemporalBoundRefusal,
+)
 from ccf.products.request import AnchorAmbiguityRefusal, ProductRequestViolation
 
 __ccf_mode__ = "algorithmic"
@@ -148,6 +152,19 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         ProductRequestViolation: STATUS_REQUEST,
         PayloadSchemaViolation: STATUS_REQUEST,
         ConstraintRefusal: STATUS_REQUEST,
+        # `D-IMPL-358` step 5. 400 on the `ConstraintRefusal` precedent
+        # immediately above: two of the three reasons are a PRESENTED INSTANT
+        # outside a declared bound, which is the same shape as a presented value
+        # outside a declared bound, and the instant is the caller's to change.
+        #
+        # RESIDUAL, named rather than hidden: the third reason,
+        # `temporal-boundary-undeclared`, is a DEPLOYMENT misconfiguration the
+        # caller can do nothing about, and 400 tells them their request was bad
+        # when it was not. This table maps by TYPE and the vocabulary is ruled to
+        # ONE kind, so the type takes the status its majority of reasons earns.
+        # Splitting the kind, or giving this table a reason-level arm, is a
+        # ruling and not this step's to take.
+        TemporalBoundRefusal: STATUS_REQUEST,
         # -- the unavailable class --------------------------------------------
         SubjectUnavailableRefusal: STATUS_UNAVAILABLE,
         # -- the fulfillment-withheld class -----------------------------------

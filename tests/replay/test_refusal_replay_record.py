@@ -94,7 +94,9 @@ from tests.deployment.conftest import POLICY_BUNDLE_KEY, TENANT
 # first would fail deep inside the Authority layer for the wrong reason.
 from tests.composition import composition_replay_mint
 from tests.products.test_resolver_seam import (  # noqa: F401
+    ADMITTED_AT,
     ASKED_AT,
+    ONE_SECOND_PAST_THE_TTL_CEILING,
     MAX_TTL_SECONDS,
     REPLAY_RECORD_CLASS,
     THRESHOLD_PARAMETER,
@@ -128,6 +130,8 @@ def _recorded_shell(record: DecisionReplayRecord) -> RefusalEnvelope:
 
 
 # --- (a) a pre-assembly refusal ---------------------------------------------
+
+
 
 
 def test_a_request_conformity_refusal_is_recorded_with_nothing_read(
@@ -265,7 +269,7 @@ def test_a_gate_refusal_records_the_state_it_actually_read(
     for both would be recording a false claim about half of them.
     """
     # A product TTL above the class's registered ceiling: Gate 3 refuses.
-    resolver = _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1)
+    resolver = _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING)
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -776,6 +780,7 @@ def test_the_recorder_answers_a_caller_with_a_principal_and_no_role(
             principal_id="principal-at-the-door", role=NO_ROLE_RESOLVED
         ),
         recorded_at=determined_at,
+        served_at=determined_at,
         request=None,
         execution=None,
         # 24.7-04 (D-IMPL-264 D-10 am.1): the seam requires the state too;
@@ -832,6 +837,7 @@ def test_a_recorder_with_no_bundle_pin_records_exactly_the_callers_bindings(
         _a_shell(),
         perspective=Perspective(principal_id="p-1", role=NO_ROLE_RESOLVED),
         recorded_at=ASKED_AT,
+        served_at=ASKED_AT,
         policy_bindings=passed,
         resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
@@ -855,6 +861,7 @@ def test_a_recorder_holding_a_bundle_pin_prepends_it(booted: _Booted) -> None:
         _a_shell(),
         perspective=Perspective(principal_id="p-1", role=NO_ROLE_RESOLVED),
         recorded_at=ASKED_AT,
+        served_at=ASKED_AT,
         policy_bindings=passed,
         resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
@@ -896,7 +903,7 @@ def test_a_pre_assembly_refusal_shows_no_search_because_there_was_none(
 def test_the_evidence_bundle_is_the_executions_own_facts(booted: _Booted) -> None:
     """Not re-derived: a refusal cannot describe a different search from the
     one that ran, because the same execution supplies both."""
-    resolver = _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1)
+    resolver = _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING)
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)

@@ -456,10 +456,45 @@ class AssemblyDebtScorer:
     completeness: DebtFactorScorerProtocol
     semantic_consistency: DebtFactorScorerProtocol
 
-    def __call__(
-        self, *, view: GraphView, evidence: ExecutionEvidence | None = None
+    def score_at(
+        self,
+        *,
+        view: GraphView,
+        evidence: ExecutionEvidence | None = None,
+        decided_at: datetime,
+        children: object | None = None,
     ) -> DebtAssessment:
-        """Assess ``D_c`` over the graph state ``view`` carries.
+        """Assess ``D_c`` over ``view``, measuring decay at ``decided_at``.
+
+        `D-IMPL-358` step 7, finding S7-F1. This method exists so the reference
+        scorer sits on the EXISTING instant-aware seam
+        (:class:`~ccf.products.resolver.InstantAwareDebtScorerProtocol`) rather
+        than on the instant-blind one. It is not a second seam: the resolver
+        already checked that Protocol first and already had ``decided_at`` in
+        hand; this scorer simply did not declare it, so it fell through to the
+        blind branch and measured decay from ``view.as_of``.
+
+        **Why that was wrong.** ``view.as_of`` is ``request.asked_at`` — *when
+        the graph was observed*. Ruling 6 computes Context Debt at the DECISION
+        instant, and wherever a product class declares a decision-instant
+        parameter the two differ. :func:`~ccf.halflife.decay.freshness`'s own
+        docstring already called its ``now`` *"The decision instant"*; the
+        caller was what disagreed with it.
+
+        **The graph boundary does not move with the decay instant.** ``view`` is
+        untouched — what was observed is still observed as of ``asked_at``. Only
+        the instant the decay is measured FROM changes.
+
+        ``children`` is accepted and not read: this scorer is not child-aware
+        (that is :class:`~ccf.products.resolver.ChildAwareDebtScorerProtocol`,
+        a different seam), and accepting the argument is what lets it satisfy
+        the instant-aware Protocol without claiming a capability it lacks. It
+        received no children on the blind branch either, so nothing is dropped
+        that used to be read.
+
+        ``served_at`` is NOT a debt instant and is deliberately absent here.
+
+        Assess ``D_c`` over the graph state ``view`` carries.
 
         **There is no branch on how many rows the view carries**
         (``D-IMPL-255`` (2), ``24.6-L-06``). The three factors are computed one
@@ -527,7 +562,7 @@ class AssemblyDebtScorer:
         # before that field existed — passes through `leading_edge` unchanged.
         observations = leading_edge(
             self._observations(view, table=self.table),
-            table=self.table, now=view.as_of,
+            table=self.table, now=decided_at,
         )
         # D-30: no cardinality branch
         freshness_scorer = FreshnessScorer(
@@ -539,7 +574,7 @@ class AssemblyDebtScorer:
         # construction rather than by a second branch.
         pins: list[ScorerPin] = list(NO_SCORER_PINS)
         if observations:
-            freshness = freshness_scorer.score(observations, now=view.as_of)
+            freshness = freshness_scorer.score(observations, now=decided_at)
             pins.append(ScorerPin.of(freshness_scorer, factor="freshness"))
         else:
             freshness = _UNIT
@@ -551,17 +586,37 @@ class AssemblyDebtScorer:
             DebtFactors(
                 freshness=freshness,
                 completeness=self._factor(
-                    self.completeness, observations, now=view.as_of, evidence=evidence
+                    self.completeness, observations, now=decided_at, evidence=evidence
                 ),
                 semantic_consistency=self._factor(
                     self.semantic_consistency,
                     observations,
-                    now=view.as_of,
+                    now=decided_at,
                     evidence=evidence,
                 ),
             ),
             profile=self.profile,
             scorers=tuple(pins),
+        )
+
+    def __call__(
+        self, *, view: GraphView, evidence: ExecutionEvidence | None = None
+    ) -> DebtAssessment:
+        """The instant-blind seam, preserved: decay is measured at ``view.as_of``.
+
+        `D-IMPL-358` step 7. Kept so that a caller holding this scorer as a plain
+        :class:`~ccf.products.resolver.AssemblyDebtScorerProtocol` — the shape it
+        has always had — gets exactly the behaviour it always got. The resolver no
+        longer reaches this path for THIS scorer, because it now declares the
+        instant-aware Protocol and that branch is checked first; but the seam is
+        part of the published surface and a deployment may call it directly.
+
+        Where the two differ, :meth:`score_at` is the correct one: this one has no
+        decision instant to be told about, so it falls back to the only instant it
+        has, which is the question's.
+        """
+        return self.score_at(
+            view=view, evidence=evidence, decided_at=view.as_of, children=None
         )
 
     @staticmethod

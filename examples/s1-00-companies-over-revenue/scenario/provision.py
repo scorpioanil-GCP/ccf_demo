@@ -17,20 +17,27 @@ The resolved DSN is exported under the variable name
 fabric through the declared ``from_env`` path and is never written down anywhere
 — not in an artifact, not in an argument, not in this module.
 
-This mirrors ``tests/conftest.py`` rather than importing it: an example that
-imported from the test tree would not stand alone.
+Provisioning mirrors ``tests/conftest.py``. The write fence deliberately imports
+the same helper as the make gate: one parser, applied to the resolved DSN before
+either branch seeds it (``D-IMPL-358``, finding 10).
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 import psycopg
+
+# The documented script path has src/runtime, but not the repository root,
+# on PYTHONPATH. Reuse the gate's helper without copying its parser.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from tests.examples.estate_guard import refuse_to_write_the_curated_estate  # noqa: E402
 
 #: The variable `artifacts/config/backends.yaml` reads the fabric's DSN from.
 #: Named here because this module is what sets it; the fabric only ever sees
@@ -58,6 +65,7 @@ def provisioned() -> Iterator[str]:
     """
     supplied = os.environ.get(SUPPLIED_DSN_ENV)
     if supplied:
+        refuse_to_write_the_curated_estate(supplied)
         seed(supplied)
         os.environ[FABRIC_DSN_ENV] = supplied
         yield supplied
@@ -83,6 +91,7 @@ def provisioned() -> Iterator[str]:
         ) from exc
     try:
         dsn = str(container.get_connection_url())
+        refuse_to_write_the_curated_estate(dsn)
         seed(dsn)
         os.environ[FABRIC_DSN_ENV] = dsn
         yield dsn
@@ -95,7 +104,20 @@ def seed(dsn: str) -> int:
 
     Idempotent: the schema is ``if not exists`` and the seed upserts, so a
     repeated run against a long-lived server converges rather than duplicating.
+
+    **THE FENCE IS ALSO HERE, as the first statement** (`D-IMPL-358` step 15, Dave
+    2026-10-01). :func:`provisioned` already refuses a curated destination on both of its
+    branches, and those calls stay. This one covers what they cannot: a DIRECT caller.
+    Before it existed, ``seed(dsn)`` opened ``psycopg.connect`` with whatever it was
+    handed, so a third branch, a future helper or a test reached the network unfenced —
+    which is the same shape the close-panel's finding 10 named, one layer down. Checking
+    at the write boundary rather than only at the two known call sites means a new caller
+    is fenced by construction instead of by somebody remembering.
+
+    Calling it twice on the supplied/container paths is deliberate and costs nothing: the
+    check is a pure string classification that opens no connection.
     """
+    refuse_to_write_the_curated_estate(dsn)
     with psycopg.connect(dsn, autocommit=True) as connection:
         with connection.cursor() as cursor:
             cursor.execute(SCHEMA_SQL.read_text(encoding="utf-8"))

@@ -76,10 +76,18 @@ from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.contract import ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
-from ccf.products.gates import DEBT_TOLERANCE_PARAMETER
+from ccf.products.gates import DEBT_TOLERANCE_PARAMETER, GATE_TTL_BOUNDS
+from ccf.products import resolver as resolver_module
 from ccf.products.disclosure import DisclosureDecision
 from ccf.products.refusal import NO_REPLAY_REFERENCE, RefusalEnvelope
 from ccf.products.request import PARAMETER_VALUE_FLOOR_VERSION, SUBJECT_FLOOR_VERSION, ProductRequest, request_seeds  # noqa: E501 - one line on purpose: wrapping it shifts every line below, which the citation gate reads
+from ccf.controlplane.temporal_boundary import (
+    TEMPORAL_BOUNDARY_POLICY,
+    PinnedTemporalBoundary,
+    TemporalBoundaryPolicy,
+    resolve_temporal_boundary,
+    temporal_boundary_policy_key,
+)
 from ccf.replay.record import (
     NO_FABRIC_READ,
     ContentGenerationPath,
@@ -194,6 +202,22 @@ ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 #: on purpose: the whole finding is that the three are different facts and the
 #: resolver had conflated two of them.
 ADMITTED_AT = datetime(2026, 3, 2, 12, 7, tzinfo=UTC)
+
+#: A product TTL exactly ONE SECOND past the ceiling Gate 3 actually applies.
+#:
+#: `D-IMPL-358` step 5 section H. Six fixture sites spelled `MAX_TTL_SECONDS + 1`,
+#: which is one second past a ceiling measured from the DECISION instant. Gate 3
+#: measures its ceiling from the moment of SERVICE, which this fixture pins seven
+#: minutes later — so those values landed comfortably INSIDE the real ceiling and
+#: their tests SERVED instead of refusing. That is the opposite direction from
+#: most of this migration, and the reason a count of reds is not a diagnosis.
+#:
+#: DERIVED from this module's own two instants rather than restated as a number,
+#: so it stays one second past the ceiling if either instant moves. Defined here
+#: because this is the module that declares both.
+ONE_SECOND_PAST_THE_TTL_CEILING = (
+    MAX_TTL_SECONDS + int((ADMITTED_AT - ASKED_AT).total_seconds()) + 1
+)
 
 #: The perspective a calling surface would have resolved and entitled.
 PERSPECTIVE = Perspective(principal_id="principal-fixture", role="role-fixture")
@@ -524,6 +548,20 @@ def _boot(
     # testing the empty case wearing the success case's name.
     for envelope in fabric.artifacts[SIGNAL_BATCH_KEY].envelopes:
         fabric.handle.worker.ingest(envelope)
+    # `D-IMPL-358` step 5: a deployment that declares no temporal boundary now
+    # REFUSES every question (ruling 11 — no SDK default, no fallback window), so
+    # a fixture that means to serve must declare one. Declared in the ONE boot so
+    # the two fixtures cannot drift into two deployments, and declared WIDE — the
+    # window is not what these tests are about, and a narrow one here would make
+    # every unrelated case depend on the fixture's clock.
+    register_typed_at_composition(
+        control_plane,
+        temporal_boundary_policy_key(tenant_id=TENANT),
+        TemporalBoundaryPolicy(
+            max_past_seconds=10**9, permitted_clock_skew_seconds=10**9
+        ),
+        TEMPORAL_BOUNDARY_POLICY,
+    )
     try:
         yield _Booted(
             fabric=fabric,
@@ -675,6 +713,7 @@ def test_the_conformance_check_sees_a_defaulted_signature() -> None:
             *,
             perspective: Perspective,
             recorded_at: datetime,
+            served_at: datetime | None = None,
             resolution: Any = None,
         ) -> RefusalEnvelope:
             return envelope
@@ -1556,7 +1595,7 @@ def test_the_served_products_replay_reference_resolves(booted: _Booted) -> None:
 def test_a_gate_refusal_comes_back_as_an_envelope(booted: _Booted) -> None:
     """Gate 3 fires when the product outlives the class's declared ceiling."""
     outcome = _ask(
-        _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1), _request()
+        _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING), _request()
     )
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -1567,7 +1606,7 @@ def test_a_gate_refusal_comes_back_as_an_envelope(booted: _Booted) -> None:
 def test_a_gate_refusal_keeps_the_gates_own_typed_fields(booted: _Booted) -> None:
     """Constraint (a): nothing is flattened out on the way across the seam."""
     outcome = _ask(
-        _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1), _request()
+        _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING), _request()
     )
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -1612,7 +1651,7 @@ def test_a_gate_refusal_serves_nothing_and_records_everything(
     could record and still hand back a servable shape, and one could return the
     shell and quietly append nothing — which is the state this row corrected.
     """
-    resolver = _resolver(booted, product_ttl_seconds=MAX_TTL_SECONDS + 1)
+    resolver = _resolver(booted, product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING)
     outcome = _ask(resolver, _request())
 
     assert isinstance(outcome, RefusalEnvelope)
@@ -2858,14 +2897,25 @@ def test_o3_the_admission_clock_is_read_ONCE_for_a_whole_composition(
     assert reads == [1], f"the admission clock was read {len(reads)} times"
 
 
-def test_o3_a_non_composite_never_reads_the_admission_clock(
+def test_o3_a_non_composite_reads_the_admission_clock_EXACTLY_ONCE(
     booted: _Booted,
 ) -> None:
-    """The control. A product declaring no children admits none.
+    """AMENDED by `D-IMPL-358` step 4, and the amendment is the point.
 
-    Reading a clock it has no use for would be harmless and still wrong: it
-    would make the value look load-bearing on a path where nothing consumes
-    it, which is how a field ends up defended as though it governed something.
+    This control previously asserted ``reads == []`` — that a product declaring
+    no children read no clock at all — on the stated reasoning that *"reading a
+    clock it has no use for would be harmless and still wrong: it would make the
+    value look load-bearing on a path where nothing consumes it."*
+
+    **That premise is retired by ruling 1, not worked around.** A non-composite
+    serve now HAS a use for the instant: ``served_at``, when the answer was
+    handed over, which every governed serve records. The clock is no longer read
+    for a consumer that might not exist; it is read for one that always does.
+
+    What the control still enforces, and why it is not weaker: EXACTLY ONCE. One
+    read per call was the property worth having, and asserting a count rather
+    than an absence keeps it — a second read would put two instants in one
+    answer, which is the same defect the composition sibling guards against.
     """
     reads: list[int] = []
 
@@ -2878,7 +2928,351 @@ def test_o3_a_non_composite_never_reads_the_admission_clock(
         _request(),
     )
     assert isinstance(outcome, ServedProduct), outcome
-    assert reads == []
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+# --- D-IMPL-358 step 5: the temporal bound, judged before acquisition --------
+
+
+def _declare_temporal_bound(
+    booted: _Booted, *, max_past: int = 86_400, skew: int = 60
+) -> PinnedTemporalBoundary:
+    """Register a temporal boundary for the fixture tenant and return its pin."""
+    register_typed_at_composition(
+        booted.control_plane,
+        temporal_boundary_policy_key(tenant_id=TENANT),
+        TemporalBoundaryPolicy(
+            max_past_seconds=max_past, permitted_clock_skew_seconds=skew
+        ),
+        TEMPORAL_BOUNDARY_POLICY,
+    )
+    pinned = resolve_temporal_boundary(
+        registry=booted.control_plane, tenant_id=TENANT
+    )
+    assert isinstance(pinned, PinnedTemporalBoundary)
+    return pinned
+
+
+def _counting_acquisition() -> tuple[list[int], Any]:
+    """An acquisition seam that records every invocation. E5's instrument."""
+    calls: list[int] = []
+
+    def seam(*, request: ProductRequest, perspective: Perspective) -> None:
+        calls.append(1)
+
+    return calls, seam
+
+
+def test_E2_no_declared_temporal_policy_refuses_before_acquisition(
+    booted: _Booted,
+) -> None:
+    """E2. Undeclared is a governed refusal and nothing is invented.
+
+    `D-IMPL-358` ruling 11: no SDK default, no fallback window, and no binding
+    minted for a policy that does not exist. The refusal names the key and class
+    that were required and the absence reason, which is what an operator needs.
+    """
+    calls, seam = _counting_acquisition()
+    # A Control Plane on which NOTHING is registered, so the temporal boundary is
+    # genuinely absent. The shared `_boot` declares a wide one for every other
+    # fixture — a registry is append-only, so the undeclared case cannot be
+    # reached by removing it and has to be reached by not having it.
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, control_plane=ControlPlaneRegistry()),
+        _request(),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "temporal-boundary-undeclared"
+    assert calls == [], "an undeclared boundary must refuse BEFORE acquisition"
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    # `D-IMPL-358` step 5: WIDENED from the tenant-qualified key to the CLASS.
+    # Measured escape: this filtered on `binding.key == temporal_boundary_policy_key(
+    # tenant_id=TENANT)`, so a probe that minted the undeclared-path binding under
+    # the bare class id — `PolicyBinding(key="ccf.temporal-boundary-policy",
+    # version="unknown")` — carried a fabricated version straight past it. Ruling 11
+    # forbids minting ANY binding for a policy that does not exist, not merely one
+    # spelled with this tenant's prefix.
+    minted = [
+        binding
+        for binding in record.policy_bindings.bindings
+        if TEMPORAL_BOUNDARY_POLICY.class_id in binding.key
+    ]
+    assert not minted, (
+        f"a binding was minted for a policy that does not exist: {minted}"
+    )
+    # The key is NOT asserted on the envelope, and that is the disclosure ruling
+    # rather than a gap: at `minimal` the permitted set is the two declared bounds
+    # and the policy key never crosses, so `outcome.key` is `None` here BY DESIGN
+    # (`D-IMPL-254`). Asserting it would be asserting a leak. The "states the key
+    # and the absence reason" half belongs to the pre-disclosure refusal object and
+    # is held in `tests/products/test_refusal_envelope.py`.
+
+
+def test_E3_an_asked_at_beyond_the_past_bound_refuses(booted: _Booted) -> None:
+    """E3. The question reaches further back than this tenant answers for."""
+    _declare_temporal_bound(booted, max_past=60)
+    calls, seam = _counting_acquisition()
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT - timedelta(days=30)),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "asked-at-outside-temporal-bound"
+    assert calls == []
+
+
+def test_E4_an_instant_beyond_the_permitted_forward_skew_refuses(
+    booted: _Booted,
+) -> None:
+    """E4. An instant from the future is refused, not treated as maximally fresh.
+
+    The DIRECTIONAL half: the past bound is wide open here, so only the forward
+    check can produce this refusal. A severing that removed the future comparison
+    would leave this green if the past bound were also narrow.
+    """
+    _declare_temporal_bound(booted, max_past=10**9, skew=60)
+    calls, seam = _counting_acquisition()
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT + timedelta(hours=1)),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal"
+    assert outcome.reason == "asked-at-outside-temporal-bound"
+    assert calls == []
+
+
+def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
+    booted: _Booted,
+) -> None:
+    """E5, and the positive control is in the same test.
+
+    A count of zero proves nothing unless the same seam is shown to count when a
+    request IS in bounds — otherwise a seam that was never wired would pass.
+    """
+    _declare_temporal_bound(booted, max_past=60)
+    calls, seam = _counting_acquisition()
+    resolver = _resolver(
+        booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT
+    )
+
+    refused = _ask(resolver, _request(asked_at=ADMITTED_AT - timedelta(days=30)))
+    assert isinstance(refused, RefusalEnvelope), refused
+    assert calls == [], "acquisition ran for a request outside the window"
+
+    served = _ask(resolver, _request(asked_at=ADMITTED_AT))
+    assert isinstance(served, ServedProduct), served
+    assert calls == [1], (
+        "THE POSITIVE CONTROL: the seam must count when a request is in bounds,"
+        " or the zero above is the count of a seam nobody wired"
+    )
+
+
+def test_E6_the_resolved_temporal_policy_pins_its_exact_step3_binding(
+    booted: _Booted,
+) -> None:
+    """E6. The step-3 provenance guarantee becomes load-bearing.
+
+    The binding on the decision is the one `PinnedTemporalBoundary.binding`
+    produced — not a `PolicyBinding` rebuilt at the call site, which is how a
+    reconstructed version would get in.
+    """
+    pinned = _declare_temporal_bound(booted)
+    outcome = _ask(
+        _resolver(booted, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted, outcome)
+    assert pinned.binding in record.policy_bindings.bindings, (
+        "the governed decision does not pin the temporal policy that governed it"
+    )
+
+
+def test_E6_an_out_of_window_refusal_pins_the_policy_that_refused_it(
+    booted: _Booted,
+) -> None:
+    """The other half of E6: the policy that CAUSED the refusal is pinned too."""
+    pinned = _declare_temporal_bound(booted, max_past=60)
+    outcome = _ask(
+        _resolver(booted, admission_clock=lambda: ADMITTED_AT),
+        _request(asked_at=ADMITTED_AT - timedelta(days=30)),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    assert pinned.binding in record.policy_bindings.bindings
+
+
+# --- D-IMPL-358 step 4: served_at, hoisted and captured ---------------------
+
+
+def _served_record(booted: _Booted, outcome: ServedProduct) -> DecisionReplayRecord:
+    """The record the seam minted for a served product, read back from the store."""
+    return DecisionReplayRecord.model_validate_json(
+        booted.store.get(content_address=outcome.replay_ref.content_address)
+    )
+
+
+def test_step4_served_at_is_captured_on_a_non_composite_serve(booted: _Booted) -> None:
+    """The path that read NO clock before this step now records when it answered.
+
+    `D-IMPL-358` step 4. The instant comes from the injected fabric clock, so the
+    assertion is against the value that clock returned and not against a range.
+    """
+    outcome = _ask(_resolver(booted, composite_children=None), _request())
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted, outcome)
+    assert record.content_generation_path.served_at == ADMITTED_AT
+
+
+def test_step4_served_at_is_captured_on_a_composite_serve(
+    booted_composite: _Booted,
+) -> None:
+    def recording(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=recording), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted_composite, outcome)
+    assert record.content_generation_path.served_at == ADMITTED_AT
+
+
+def test_step4_the_composite_window_is_the_same_instant_as_served_at(
+    booted_composite: _Booted,
+) -> None:
+    """``admitted_at := served_at``, asserted at the child boundary.
+
+    The design's requirement that the composite window is UNCHANGED by the hoist
+    is only checkable where the window is used, so this reads the instant the
+    child resolver was actually handed and holds it equal to the one the record
+    carries. A hoist that read a second clock would satisfy neither.
+    """
+    seen: dict[str, Any] = {}
+
+    def recording(**kwargs: Any) -> dict[str, Any]:
+        seen.update(kwargs)
+        return {}
+
+    outcome = _ask(
+        _resolver(booted_composite, composite_children=recording), _request()
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    record = _served_record(booted_composite, outcome)
+    assert seen["admitted_at"] == record.content_generation_path.served_at
+    assert seen["admitted_at"] == ADMITTED_AT
+    # And the graph boundary is still the question's instant, not the serve's.
+    assert seen["asked_at"] != seen["admitted_at"]
+
+
+def test_step4_a_composite_serve_reads_the_clock_exactly_once_for_both_uses(
+    booted_composite: _Booted,
+) -> None:
+    """One read now serves two consumers. Two reads would be two instants."""
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    def recording(**_: Any) -> dict[str, Any]:
+        return {}
+
+    outcome = _ask(
+        _resolver(
+            booted_composite, composite_children=recording, admission_clock=counting
+        ),
+        _request(),
+    )
+    assert isinstance(outcome, ServedProduct), outcome
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+
+
+def test_step5_a_refusal_reads_the_clock_once_and_NOW_records_served_at(
+    booted: _Booted,
+) -> None:
+    """AMENDED at step 5, exactly as its step-4 form said it would be.
+
+    At step 4 this asserted ``served_at is None`` on a refusal record, and its
+    docstring said: *"threading served_at through refusal records is step 5.
+    This test is expected to be AMENDED there, and says so."* This is that
+    amendment. The rename is deliberate — a control named
+    ``..._records_no_served_at_YET`` that asserted it DOES record one would be a
+    name contradicting its own body.
+
+    Unchanged and still enforced: the clock is read EXACTLY ONCE for the whole
+    invocation, refusal included. New: the refusal record carries that one
+    instant as ``served_at``, while ``recorded_at`` stays the QUESTION's instant.
+    The two are beside each other and neither is the other — which is the
+    property `D-IMPL-358` step 5 states as *"do not make recorded_at a synonym
+    for served_at."*
+    """
+    reads: list[int] = []
+
+    def counting() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT
+
+    outcome = _ask(
+        _resolver(
+            booted,
+            product_ttl_seconds=ONE_SECOND_PAST_THE_TTL_CEILING,
+            admission_clock=counting,
+        ),
+        _request(),
+    )
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert reads == [1], f"the admission clock was read {len(reads)} times"
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    assert record.content_generation_path.served_at == ADMITTED_AT, (
+        "step 5 threads the one captured instant into every governed refusal"
+    )
+    # And the two are NOT synonyms: dimension 1 stays on the question's instant.
+    assert record.recorded_at == ASKED_AT
+    assert record.recorded_at != record.content_generation_path.served_at
+
+
+def test_step4_two_serves_at_two_instants_are_two_records(booted: _Booted) -> None:
+    """Ruling 1's second half, end to end through the resolver.
+
+    A populated ``served_at`` participates in the address, so the same question
+    answered at two instants produces two records. That is the audit reading the
+    ruling asks for — which determination, produced when — and it is why every
+    "same determination twice" assertion must pin the clock.
+    """
+    first = _ask(
+        _resolver(booted, admission_clock=lambda: ADMITTED_AT), _request()
+    )
+    later = ADMITTED_AT + timedelta(seconds=1)
+    second = _ask(_resolver(booted, admission_clock=lambda: later), _request())
+    assert isinstance(first, ServedProduct) and isinstance(second, ServedProduct)
+
+    one, two = _served_record(booted, first), _served_record(booted, second)
+    assert one.content_generation_path.served_at == ADMITTED_AT
+    assert two.content_generation_path.served_at == later
+    assert first.replay_ref.content_address != second.replay_ref.content_address
+
+    # A PINNED clock gives one address back, which is what proves the clock is
+    # the only difference above.
+    third = _ask(_resolver(booted, admission_clock=lambda: ADMITTED_AT), _request())
+    assert isinstance(third, ServedProduct)
+    assert third.replay_ref.content_address == first.replay_ref.content_address
 
 
 # --- D-IMPL-357 C2: the mechanism floor, judged before the overridable seam --
@@ -3304,3 +3698,331 @@ def test_a_narrow_subject_domain_admits_the_subject_it_declares(
         _request(subject=CONFORMING_SUBJECT),
     )
     assert isinstance(outcome, ServedProduct), outcome
+
+
+# --- `D-IMPL-358` step 5 section C1: the decision instant must be AWARE --------
+
+
+def test_C1_a_naive_declared_decision_instant_is_refused(
+    booted_declaring_a_decision_instant: _Booted,
+) -> None:
+    """C1. A declared instant with no offset is refused — not repaired, not assumed.
+
+    `D-IMPL-358` step 5 section C1. The decision instant is caller-supplied data
+    that now reaches the temporal bound's arithmetic, and `served_at` is aware.
+    Three outcomes were possible and only one is honest:
+
+    - **Assume UTC** (`.replace(tzinfo=UTC)`): answers for the wrong hour whenever
+      the caller did not mean UTC, silently, with every gate green. This is the
+      one the fabric refuses everywhere else.
+    - **Crash**: comparing naive to aware raises `TypeError`, which is an
+      ungoverned 500 for what is a caller's malformed value.
+    - **Refuse**: a governed "no" naming the parameter. This one.
+
+    There is no implicit UTC in this fabric.
+    """
+    outcome = _ask(
+        _resolver(
+            booted_declaring_a_decision_instant,
+            decision_instant_parameter=DECISION_INSTANT_PARAMETER,
+        ),
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                # The same literal the green test uses, with the offset removed —
+                # so the ONLY difference between refusal and service is awareness.
+                DECISION_INSTANT_PARAMETER: DECIDED_AT_LITERAL.replace("+00:00", ""),
+            }
+        ),
+    )
+    assert not isinstance(outcome, ServedProduct), (
+        "a naive declared decision instant was SERVED — the fabric answered for an "
+        "hour the caller never named"
+    )
+    # Refused for THE RIGHT REASON and at the right key. Without this the test
+    # would pass on any refusal at all, including one raised for an unrelated
+    # cause, which is how a control stops measuring its own subject.
+    envelope = outcome
+    assert envelope.reason == "malformed-value", envelope.reason
+    assert envelope.key == DECISION_INSTANT_PARAMETER, envelope.key
+    assert envelope.kind == "product-request-violation", envelope.kind
+    # The internal wording is NOT asserted here, and deliberately: at `minimal`
+    # disclosure the envelope's `detail` is the disclosure layer's sentence, not
+    # the violation's own (`D-IMPL-254` — what crosses a consumer boundary is the
+    # disclosure step's decision). Asserting the internal text here would be
+    # asserting a leak. The kind, reason and key are what the caller is owed and
+    # what pins the refusal to its cause.
+
+
+def test_C1_the_same_instant_WITH_an_offset_serves(
+    booted_declaring_a_decision_instant: _Booted,
+) -> None:
+    """C1's positive control, and the reason the refusal above is about awareness.
+
+    The same literal, the same parameter, the same everything — only the offset
+    restored. If this were red the refusal above would prove nothing: a control
+    that refuses both halves is measuring the fixture, not the rule.
+    """
+    outcome = _ask(
+        _resolver(
+            booted_declaring_a_decision_instant,
+            decision_instant_parameter=DECISION_INSTANT_PARAMETER,
+        ),
+        _request(
+            parameters={
+                THRESHOLD_PARAMETER: 1000,
+                DECISION_INSTANT_PARAMETER: DECIDED_AT_LITERAL,
+            }
+        ),
+    )
+    assert isinstance(outcome, ServedProduct)
+
+
+# --- `D-IMPL-358` step 5 section H: Gate 3's comparand, BEHAVIORALLY -----------
+
+
+#: A product window that expires BETWEEN the decision and the hand-over.
+#:
+#: The fixture asks at 12:00 and serves at 12:07, so a five-minute window expires
+#: at 12:05 — after the question was decided and before the answer is handed over.
+#: That is the one case Gate 3's comparand change exists for, and it is the only
+#: arithmetic that tells `decided_at` from `served_at`: at `decided_at` the lower
+#: bound reads `12:00 < 12:05` and admits; at `served_at` it reads `12:07 < 12:05`
+#: and refuses.
+_EXPIRES_BETWEEN_DECISION_AND_SERVICE = 300
+
+
+def test_H_a_product_that_expired_before_hand_over_is_NOT_served(
+    booted: _Booted,
+) -> None:
+    """Gate 3's lower bound, measured on the case it was moved for.
+
+    `D-IMPL-358` step 5 section H. **Nothing else in the suite asserts this.**
+    Measured before this control existed: every `test_served_at_pinning.py` leg and
+    every E-series test stayed GREEN with `now=decided_at` restored, because on
+    `from_decision` the expiry and the comparand move together — so the lower bound
+    could never bite, and the control that was believed to guard the comparand was
+    guarding the replay record's contents instead.
+
+    The arithmetic is the whole control, and both instants are the fixture's own:
+
+        asked/decided 12:00 → expires 12:00 + 300s = 12:05 → served 12:07
+
+    At the decision instant the product is valid, with five minutes left. By the
+    moment it is handed to the consumer it has been expired for two. Serving it
+    would hand out a product whose own declared validity had already lapsed, which
+    is exactly what `decided_at` as the comparand could not see.
+    """
+    outcome = _ask(
+        _resolver(
+            booted, product_ttl_seconds=_EXPIRES_BETWEEN_DECISION_AND_SERVICE
+        ),
+        _request(),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope), (
+        "a product whose declared validity lapsed between the decision and the"
+        " hand-over was SERVED — Gate 3 is comparing against the decision instant"
+    )
+    assert outcome.kind == "ttl-refusal", outcome.kind
+    assert outcome.reason == GATE_TTL_BOUNDS, outcome.reason
+
+
+def test_H_the_window_straddles_the_two_instants_and_the_fixture_serves(
+    booted: _Booted,
+) -> None:
+    """The positive control, and the proof the refusal above is about the comparand.
+
+    Two halves, both needed:
+
+    1. **The arithmetic straddles.** `ASKED_AT < expires_at < ADMITTED_AT` — the
+       window is valid at the decision instant and lapsed at the serving instant.
+       That is what makes the pair discriminating, and it is asserted rather than
+       described so the sibling above cannot quietly become a test of an
+       always-invalid window if either fixture instant moves.
+    2. **The fixture serves at all.** The same resolver with its ordinary window
+       serves, so the refusal above is caused by the window straddling the two
+       instants and not by a deployment that refuses everything.
+
+    `_refuse_ttl` is deliberately NOT called here to re-judge the same product at
+    the other comparand. The comparand is not a parameter of the serve path — that
+    is the property, not a gap — and constructing a `RegisteredProductClass` to
+    reach the gate directly would be machinery that adds no truth the straddle does
+    not already carry.
+    """
+    expires_at = ASKED_AT + timedelta(seconds=_EXPIRES_BETWEEN_DECISION_AND_SERVICE)
+    assert ASKED_AT < expires_at < ADMITTED_AT, (
+        "the fixture's instants no longer straddle this window, so neither half of"
+        f" this pair measures the comparand: {ASKED_AT} / {expires_at} / {ADMITTED_AT}"
+    )
+
+    served = _ask(
+        _resolver(booted, product_ttl_seconds=PRODUCT_TTL_SECONDS), _request()
+    )
+    assert isinstance(served, ServedProduct), served
+    assert served.product.expires_at == ASKED_AT + timedelta(
+        seconds=PRODUCT_TTL_SECONDS
+    ), "the fixture's expiry is not decision-anchored, so the straddle proves nothing"
+
+
+# --- `D-IMPL-358` step 5 section I: the composite's evaluation instant ----------
+
+
+def _capturing_compose(monkeypatch: pytest.MonkeyPatch, module: Any) -> dict[str, Any]:
+    """Record `compose_children`'s kwargs on ``module``, then delegate to the real one.
+
+    The composition still RUNS — the recorded call is the one the resolver actually
+    made, not a stub standing in for it, so the value captured is the value the
+    mixing law was handed.
+    """
+    captured: dict[str, Any] = {}
+    real = module.compose_children
+
+    def recording(**kwargs: Any) -> Any:
+        captured.update(kwargs)
+        return real(**kwargs)
+
+    monkeypatch.setattr(module, "compose_children", recording)
+    return captured
+
+
+def test_I_compose_children_is_handed_the_hoisted_served_at(
+    booted_composite: _Booted, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The boundary-level assertion for `evaluated_at`, at the kwarg itself.
+
+    `D-IMPL-358` step 5 section I. Before this, the ONLY guard on
+    `compose_children(evaluated_at=...)` was behavioral: one parametrized leg of
+    `test_d_impl_341_ttl_anchor.py`'s c11, discriminating through a four-minute
+    floor against three minutes of remaining validity. A 180-second margin,
+    entangled with the parent's own anchor and window — true, but it does not say
+    which value crossed the boundary, and it is one arithmetic change away from
+    going quiet.
+
+    This asserts the value: the kwarg is the ONE hoisted `served_at`, identical to
+    the instant the record carries, and is neither the decision instant nor the
+    question's. The fixture keeps those three distinguishable — `ASKED_AT` 12:00,
+    `ADMITTED_AT` 12:07 — which is asserted here so the claim cannot become vacuous
+    if they ever coincide.
+    """
+    captured = _capturing_compose(monkeypatch, resolver_module)
+    served = _ask(
+        _resolver(
+            booted_composite,
+            # The same seam `V4` wires: the composite path needs its children
+            # supplied, and an empty mapping is enough — the subject is the INSTANT
+            # handed to the mixing law, not what the children returned.
+            composite_children=lambda **_: {},
+            admission_clock=lambda: ADMITTED_AT,
+        ),
+        _request(),
+    )
+    assert isinstance(served, ServedProduct), served
+
+    assert captured, "compose_children was never called; this test proves nothing"
+    assert captured["evaluated_at"] == ADMITTED_AT, (
+        "the mixing law was handed an instant other than the hoisted `served_at`:"
+        f" {captured['evaluated_at']}"
+    )
+    assert ASKED_AT != ADMITTED_AT, (
+        "the fixture's question and serving instants have converged, so this"
+        " assertion can no longer tell them apart"
+    )
+    assert captured["asked_at"] == ASKED_AT, (
+        "`asked_at` moved too — the two instants are meant to travel SEPARATELY,"
+        " and a composite that carries one value for both has lost the distinction"
+    )
+    record = _served_record(booted_composite, served)
+    assert record.content_generation_path.served_at == captured["evaluated_at"], (
+        "the instant the composition was evaluated at is not the instant the record"
+        " reports serving at — one of them is a second read"
+    )
+
+
+# --- `D-IMPL-358` step 5: the out-of-window refusal's own `served_at` -----------
+
+
+def _advancing_clock() -> tuple[list[int], Any]:
+    """A clock that returns a DIFFERENT instant on every read.
+
+    The instrument that makes a restamp visible as a wrong VALUE rather than only
+    as a wrong count. A clock pinned to a constant cannot tell one read from two:
+    a second read returns the same instant, the record looks right, and only a
+    read-counter notices. This returns `ADMITTED_AT` first and one second later
+    each time after, so any instant in the record other than `ADMITTED_AT` is
+    positive evidence that something read the clock again.
+    """
+    reads: list[int] = []
+
+    def clock() -> datetime:
+        reads.append(1)
+        return ADMITTED_AT + timedelta(seconds=len(reads) - 1)
+
+    return reads, clock
+
+
+def test_Bound_the_out_of_window_refusal_record_carries_the_ONE_hoisted_served_at(
+    booted: _Booted,
+) -> None:
+    """The restamp half of Bound, on the leg it belongs to.
+
+    `D-IMPL-358` step 5. The "no restamping" half was guarded only on the TTL
+    ceiling leg — a refusal raised far BELOW the temporal bound — so it caught a
+    restamp placed inside `_record_refusal` and nothing about this path. This is
+    the out-of-window `TemporalBoundRefusal` itself.
+
+    Four things asserted together, because each fails differently:
+
+    1. the refusal is the RIGHT one — `temporal-bound-refusal` /
+       `asked-at-outside-temporal-bound`, not some other governed no that happens
+       to be recorded;
+    2. the clock is read EXACTLY once, with an advancing clock so a second read
+       cannot hide behind a constant;
+    3. acquisition runs ZERO times, so the record read below is a record of a
+       refusal that cost nothing;
+    4. the PERSISTED record — resolved through the refusal's own replay reference,
+       not a record built alongside — carries that one instant, and carries it
+       BESIDE the question's rather than instead of it.
+
+    The three instants are deliberately distinct: the question is asked thirty days
+    before the bound, `recorded_at` follows the question, and `served_at` is the
+    fabric's. A control in which they coincided could not tell a restamp from a
+    substitution from the truth.
+    """
+    _declare_temporal_bound(booted, max_past=60)
+    reads, clock = _advancing_clock()
+    calls, seam = _counting_acquisition()
+    asked = ADMITTED_AT - timedelta(days=30)
+
+    outcome = _ask(
+        _resolver(booted, acquisition=seam, admission_clock=clock),
+        _request(asked_at=asked),
+    )
+
+    assert isinstance(outcome, RefusalEnvelope), outcome
+    assert outcome.kind == "temporal-bound-refusal", outcome.kind
+    assert outcome.reason == "asked-at-outside-temporal-bound", outcome.reason
+    assert calls == [], "an out-of-window question must cost no acquisition"
+    assert reads == [1], (
+        f"the serve path read the clock {len(reads)} time(s); an out-of-window"
+        " refusal must carry the ONE instant the invocation read"
+    )
+
+    record = DecisionReplayRecord.model_validate_json(
+        booted.store.get(
+            content_address=booted.store.resolve_uri(uri=outcome.replay_reference)
+        )
+    )
+    served_at = record.content_generation_path.served_at
+    assert served_at == ADMITTED_AT, (
+        f"the record's `served_at` is {served_at}, not the hoisted {ADMITTED_AT} —"
+        " it was restamped, substituted or dropped"
+    )
+    assert record.recorded_at == asked, (
+        "the record's dimension-1 boundary moved off the question's own instant"
+    )
+    assert served_at != record.recorded_at, (
+        "the two instants coincide, so this control cannot tell the live instant"
+        " from the question's and a substitution would pass"
+    )
+    assert asked != ADMITTED_AT, "the fixture's premise moved"

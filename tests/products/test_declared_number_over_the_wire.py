@@ -222,6 +222,7 @@ def test_the_governed_resolution_computes_over_the_decoded_number() -> None:
         verified_overrides=(),
         perspective=Perspective(principal_id="fixture-principal", role="fixture-role"),
         tenant="fixture-tenant",
+        served_at=_asked(LEXICAL).asked_at,
     )
 
     assert outcome.refusal is None, (

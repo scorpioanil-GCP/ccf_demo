@@ -115,7 +115,7 @@ from tests.products.test_resolver_seam import (
     REQUEST_CONTRACT_KEY,
     THRESHOLD_PARAMETER,
 )
-from tests.composition import declaring_store
+from tests.composition import declare_wide_temporal_boundary, declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
 # --- what this module adds to the fixture deployment ------------------------
@@ -499,6 +499,10 @@ def _boot(
         registry=control_plane,
         connection={"database_path": str(root / "graph.sqlite3")},
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one. Wide
+    # on purpose — the window is not what these tests are about.
+    declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     try:
         # The graph is **populated before a resolver exists**, and it has to be:
         # the manifest's signal batch is `role: load` (`D-IMPL-80`), so booting
@@ -545,6 +549,17 @@ def _arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
         "operator_parameter_keys": (TRAVERSAL_KEY,),
         "policy_bundle_key": POLICY_BUNDLE_KEY,
         "plan_factory": _plan_factory,
+        # `D-IMPL-358` step 5 section H, class 1. THE FABRIC CLOCK, pinned to
+        # THIS MODULE'S OWN question instant — `ASKED_AT`, imported from the seam
+        # module, not a new fixture time. Without it `served_at` is the real wall
+        # clock while every question here is asked at a fictional instant, so a
+        # product's expiry (which runs from the decision) lies months in the past
+        # by the time Gate 3 compares it against the moment of service.
+        #
+        # One clock per composition, and it is the same instant the questions
+        # name: that is what makes these tests about their own subjects rather
+        # than about how far today is from March.
+        "admission_clock": lambda: ASKED_AT,
         "artifact_store": booted.store,
         "replay_record_class": REPLAY_RECORD_CLASS,
         "query_pin_class": QUERY_PIN_CLASS,

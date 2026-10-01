@@ -1,0 +1,23 @@
+[
+  {
+    "key": "fluree/curated",
+    "kind": "fluree",
+    "target_env": "CCF_CP_04_FLUREE_URL",
+    "comment": "Every ledger on the curated Fluree server, not only fibo-v2: a stray write creates a new ledger as readily as it advances a known one."
+  },
+  {
+    "key": "postgres/curated",
+    "kind": "postgres",
+    "target_env": "CCF_CP_04_POSTGRES_DSN",
+    "scopes": ["ccf_v2"],
+    "comment": "The v2 schema the examples read. .env names the v1 'public' schema; the v2 names live only in ccf_dataprep/ccf/config.py (CLAUDE.md section 9)."
+  },
+  {
+    "key": "mongo/curated",
+    "kind": "mongo",
+    "target_env": "CCF_CP_13_MONGO_URI",
+    "scope_env": "CCF_CP_13_MONGO_DB",
+    "scopes": ["fibo_v2"],
+    "comment": "The v2 Mongo database. CCF_TEST_MONGO_URI is the DISPOSABLE variable and is fenced by the write guard; this is the curated read."
+  }
+]

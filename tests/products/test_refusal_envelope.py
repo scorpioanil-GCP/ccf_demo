@@ -67,6 +67,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 
 from ccf.products.refusal import (
+    TemporalBoundRefusal,
     NON_PRODUCT_REFUSALS,
     NON_VALUE_VIOLATIONS,
     NO_REPLAY_REFERENCE,
@@ -433,6 +434,57 @@ def test_envelope_for_ttl_refusal(request_identity: RequestIdentity) -> None:
     assert envelope.fields["expires_at"] == '"2026-08-16T12:00:00.000000Z"'
     assert envelope.fields["now"] == '"2026-08-15T12:00:00.000000Z"'
     assert envelope.fields["max_ttl_seconds"] == "3600"
+
+
+def test_envelope_for_temporal_bound_refusal(request_identity: RequestIdentity) -> None:
+    """`D-IMPL-358` step 5: the question reaches outside the window this tenant
+    answers for. Judged before acquisition, so there is no candidate and no
+    lineage. The DECLARED bounds and the two instants cross intact, and `reason`
+    is promoted so a consumer can tell an undeclared policy from an out-of-window
+    question without parsing prose."""
+    refusal = TemporalBoundRefusal(
+        reason="asked-at-outside-temporal-bound",
+        detail="the question asks as of an instant before the declared window",
+        policy_key="tenant-fixture/ccf.temporal-boundary-policy",
+        served_at=_INSTANT,
+        presented_at=datetime(2020, 1, 1, tzinfo=UTC),
+        max_past_seconds=86_400,
+        permitted_clock_skew_seconds=60,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+    assert envelope.kind == REFUSAL_KINDS[TemporalBoundRefusal] == "temporal-bound-refusal"
+    assert envelope.reason == "asked-at-outside-temporal-bound"
+    assert set(envelope.fields) == {
+        "policy_key",
+        "served_at",
+        "presented_at",
+        "max_past_seconds",
+        "permitted_clock_skew_seconds",
+    }
+    assert envelope.fields["max_past_seconds"] == "86400"
+    assert envelope.fields["presented_at"] == '"2020-01-01T00:00:00.000000Z"'
+
+
+def test_envelope_for_temporal_bound_refusal_undeclared_mints_no_bound(
+    request_identity: RequestIdentity,
+) -> None:
+    """The undeclared reason carries NO bound, and `None` is not zero.
+
+    Zero is a legal and strict declared bound. A refusal that rendered `0` where
+    no policy existed would tell an operator a window was declared and was
+    zero-width, which is a different and actionable fact.
+    """
+    refusal = TemporalBoundRefusal(
+        reason="temporal-boundary-undeclared",
+        detail="no temporal boundary is registered for this tenant",
+        policy_key="tenant-fixture/ccf.temporal-boundary-policy",
+        served_at=_INSTANT,
+    )
+    assert refusal.max_past_seconds is None
+    assert refusal.permitted_clock_skew_seconds is None
+    assert refusal.presented_at is None
+    envelope = envelope_for(refusal, request=request_identity)
+    assert envelope.reason == "temporal-boundary-undeclared"
 
 
 def test_envelope_for_ttl_anchor_refusal(request_identity: RequestIdentity) -> None:

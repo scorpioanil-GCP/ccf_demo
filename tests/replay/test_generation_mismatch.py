@@ -192,8 +192,8 @@ def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
 def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent() -> None:
     """Amendment 1's measurement, re-measured: a roster, not a count.
 
-    Twenty-four fields are absent from the bytes: the fifteen, none keyed,
-    and nine marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
+    Twenty-five fields are absent from the bytes: the fifteen, none keyed,
+    and TEN marked ``True`` — ``context_fabric_snapshot.store_snapshot_pin``
     (24.5's row 5), which the first specification already excluded and which
     the amendment therefore did not count; ``policy_bindings.request_resolution``
     (``24.6-03``); and ``24.6-07``'s three, the assembler in force on
@@ -206,7 +206,7 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
     by declaration, which is exactly why it is not a generation boundary.
 
     ``THE_FIFTEEN`` is unchanged by ``24.6-07``, by ``D-IMPL-336``, by
-    ``D-IMPL-346`` and by ``D-IMPL-347``, and that
+    ``D-IMPL-346``, by ``D-IMPL-347`` and by ``D-IMPL-358``, and that
     is the load-bearing
     half of this assertion — the lineage a pre-extension record replays past
     is a closed historical fact, and a row that grew it would be a row that
@@ -234,6 +234,11 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         # `D-IMPL-341`: the served product's anchor instant, `None` on every
         # record written before it existed — decision-anchored by that sentinel.
         "content_generation_path.ttl_anchor_at",
+        # `D-IMPL-358` ruling 1: when the answer was served. `None` on every
+        # record written before the member existed, so it joins this side and
+        # NOT `THE_FIFTEEN` — a row that grew the lineage would make an old
+        # record refuse, and that is the load-bearing half of this assertion.
+        "content_generation_path.served_at",
         "content_generation_path.child_resolutions",
     )
     assert not [name for name, key in absent if key is False]

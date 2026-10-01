@@ -546,6 +546,7 @@ def _minted(
         envelope,
         perspective=Perspective(principal_id=PRINCIPAL, role=ROLE),
         recorded_at=DETERMINED_AT,
+        served_at=DETERMINED_AT,
         resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )
     governed = _governed(

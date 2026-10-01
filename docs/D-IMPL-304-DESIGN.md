@@ -44,7 +44,7 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
 4. `produce_governed` (`examples/cp-05-credit-exposure-rollup/produce.py:136`) calls the
    specimen's `deployment.effective_request`, which assembles the four inputs from the
    specimen's documents and hands them to the SDK's own resolution seam —
-   `resolve_effective_request` at `src/ccf/products/constraints.py:783`.
+   `resolve_effective_request` at `src/ccf/products/constraints.py::resolve_effective_request`.
 5. That seam returns a `ResolutionOutcome` (`src/ccf/products/constraints.py:333`): a
    `refusal` — here a `ConstraintRefusal` (`src/ccf/products/constraints.py:236`)
    carrying the bound and its authority (`policy`) — **paired with the partial

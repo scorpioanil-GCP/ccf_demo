@@ -72,6 +72,7 @@ from ccf.replay.serve import ServedProduct
 from tests.deployment.test_replay_binding import ENTITY_CLASS
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ADMITTED_AT, ASKED_AT, THRESHOLD_PARAMETER
+from tests.composition import declare_wide_temporal_boundary
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -221,6 +222,9 @@ def test_c4_a_declaration_no_row_could_honor_is_refused_by_name_at_open_and_at_t
             fabric.handle.close()
     registry = ControlPlaneRegistry()
     hand = load_config_and_boot(refused_root / "ccf_config.yaml", registry=registry, connection={"database_path": str(tmp_path / "hand.sqlite3")})
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one.
+    declare_wide_temporal_boundary(registry, tenant_id=hand.tenant_id)
     try:
         with pytest.raises(TTLAnchorUndeclared, match="declares no row with `decay_basis: valid-from`"):
             build_governed_resolver(**{**arguments, "fabric": hand, "control_plane": registry})
@@ -251,7 +255,12 @@ def test_c6_evidence_older_than_the_window_refuses_ttl_bounds_naming_the_anchore
     assert refused.kind != "ttl-anchor-refusal"
     block = json.loads(record.content_generation_path.assembly_refusal)
     assert json.loads(block["fields"]["expires_at"]) == (stale + WINDOW).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    assert json.loads(block["fields"]["now"]) == ASKED_AT.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    # `D-IMPL-358` step 5 section H. MIGRATED with the comparand: this asserted
+    # `ASKED_AT`. Gate 3's `now` is the instant it actually applies its bound at,
+    # and that is the moment of SERVICE. The old assertion was pinning the defect —
+    # it said the gate compared against the question's instant, and it did, which
+    # is why a product already expired at hand-over could be served.
+    assert json.loads(block["fields"]["now"]) == fixture.ADMITTED_AT.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 # --- C8 ------------------------------------------------------------------------------------
@@ -265,7 +274,13 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     # evidence is five minutes old and its window twelve minutes, so its own
     # term ends seven minutes after the question — before the child's ten-minute
     # window does — while a decision-anchored own term would end after it.
-    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=12)
+    # `D-IMPL-358` step 5 section H: FOURTEEN minutes, not twelve. With evidence
+    # five minutes old, a twelve-minute window ends at ASKED_AT + 7min — exactly
+    # the instant this fixture serves at — and Gate 3's lower bound is strict
+    # (`now < expires_at`), so the parent refused itself before its own subject
+    # was reached. Fourteen ends at +9min: clear of the serving instant, and still
+    # BEFORE the child's ten-minute window, which is the premise below.
+    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
     config = fixture.consumer_config()
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     row = dict(config["half_life"][ENTITY_CLASS]); row["decay_basis"] = "valid-from"
@@ -346,34 +361,50 @@ def test_c4c_the_road_refuses_an_evidence_anchor_with_no_half_life_section_at_op
 
 @pytest.mark.parametrize(
     "floor_seconds,serves",
-    [(720, False), (540, True)],
-    ids=["breached-at-the-decision-instant", "met-at-the-decision-instant"],
+    [(240, False), (120, True)],
+    ids=["breached-at-the-evaluation-instant", "met-at-the-evaluation-instant"],
 )
-def test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant(
+def test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant(
     tmp_path: pathlib.Path, floor_seconds: int, serves: bool
 ) -> None:
-    """`D-IMPL-31`'s mixing law measures how much validity a child has LEFT, and
-    that is a fact about the DECISION instant — never about the parent's
-    evidence anchor, which for a `from_entity_freshness` class lies in the past.
+    """`D-IMPL-31`'s mixing law measures how much validity a child has LEFT.
 
-    The review of `D-IMPL-341` found the two sharing one argument: the resolver
-    passed the evidence anchor as `compose_children`'s only instant and
-    `refuse_mixing` read it as `evaluated_at`, so every constituent's remaining
-    validity was overstated by `decided_at - ttl_anchor_at` and a child
-    breaching its declared floor at the decision instant composed anyway.
+    **MIGRATED by `D-IMPL-358` step 5 section I, and strictly strengthened.**
+    This read *"a fact about the DECISION instant"* and measured from
+    `decided_at`. Section I made the measuring instant `served_at` — the moment
+    the answer is handed over — and renamed the parameter to `evaluated_at` with
+    the value, because how much validity a child has left is a fact about when
+    the consumer receives it, not about when the parent's question was decided.
 
-    The arithmetic is what makes the control decisive, and every instant is
-    measured rather than assumed: the parent's evidence is five minutes OLDER
-    than the decision, and the child's window ends ten minutes after it. So the
-    child has TEN minutes of validity left at the decision instant and FIFTEEN
-    at the evidence anchor. A floor of twelve minutes must REFUSE — it is met
-    only if the law reads the anchor — and a floor of nine minutes must SERVE,
-    which is what keeps the refusing case from passing for want of any
-    composition at all.
+    The review of `D-IMPL-341` found the anchor and the instant sharing one
+    argument: the resolver passed the evidence anchor as `compose_children`'s
+    only instant and `refuse_mixing` read it as `evaluated_at`, so every
+    constituent's remaining validity was overstated by `decided_at -
+    ttl_anchor_at` and a child breaching its declared floor composed anyway.
+
+    **The arithmetic, every instant MEASURED from the fixture rather than
+    assumed** — and this is why the migration makes the control sharper. The
+    parent's evidence is at 11:55, the question is asked at 12:00, the answer is
+    served at 12:07, and the child's window ends at 12:10. So the child has
+
+        FIFTEEN minutes left at the evidence anchor,
+        TEN at the decision instant,
+        THREE at the instant it is actually served.
+
+    A floor of FOUR minutes must REFUSE and one of TWO must SERVE. The old pair
+    (twelve and nine minutes) could only tell the anchor from the decision; this
+    pair separates all three readings, so a regression to EITHER of the two
+    superseded instants turns it red rather than only one of them.
     """
     from tests.products.test_paved_consumer import _environ, _producer, _question, _the_row  # noqa: PLC0415
 
-    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=12)
+    # `D-IMPL-358` step 5 section H: FOURTEEN minutes, not twelve. With evidence
+    # five minutes old, a twelve-minute window ends at ASKED_AT + 7min — exactly
+    # the instant this fixture serves at — and Gate 3's lower bound is strict
+    # (`now < expires_at`), so the parent refused itself before its own subject
+    # was reached. Fourteen ends at +9min: clear of the serving instant, and still
+    # BEFORE the child's ten-minute window, which is the premise below.
+    parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
     config = fixture.consumer_config()
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     config["product_class"]["constituent_validity_floors"] = {
@@ -409,7 +440,13 @@ def test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant(
             block = json.loads(record.content_generation_path.assembly_refusal)
             assert "declared validity floor" in block["detail"], block["detail"]
             assert json.loads(block["fields"]["reason"]) == "mixing-refused", block["fields"]
-            assert record.recorded_at.isoformat() in block["detail"], "the refusal names an instant other than the decision"
+            # `D-IMPL-358` step 5 section I: the refusal names the EVALUATION
+            # instant. It named `recorded_at` (the decision) until the mixing law's
+            # instant moved to `served_at`. Both superseded readings are refused
+            # below rather than only one, which is what makes this pair able to
+            # catch a regression to EITHER of them.
+            assert fixture.ADMITTED_AT.isoformat() in block["detail"], "the refusal names an instant other than the evaluation"
+            assert record.recorded_at.isoformat() not in block["detail"], "the mixing law read the decision instant"
             assert parent_observed.isoformat() not in block["detail"], "the mixing law read the evidence anchor"
 
 

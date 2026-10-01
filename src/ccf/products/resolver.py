@@ -168,6 +168,10 @@ from ccf.controlplane.artifacts import (
     TtlBinding,
 )
 from ccf.controlplane.registry import ControlPlaneProtocol, CrossTenantKeyRefused
+from ccf.controlplane.temporal_boundary import (
+    PinnedTemporalBoundary,
+    resolve_temporal_boundary,
+)
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.deployment import (
     BootedFabric,
@@ -248,6 +252,7 @@ from ccf.products.gates import (
 )
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
+    refuse_temporal_bound,
     NO_REPLAY_REFERENCE,
     RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
@@ -260,6 +265,7 @@ from ccf.products.refusal import (
 from ccf.products.request import (
     ProductRequest,
     ProductRequestContract,
+    ProductRequestViolation,
     refuse_floor,
     refuse_intent,
     refuse_undeclared_class_default,
@@ -1101,6 +1107,7 @@ class RefusalRecorderProtocol(Protocol):
         *,
         perspective: Perspective,
         recorded_at: datetime,
+        served_at: datetime | None,
         request: ProductRequest | None = None,
         execution: ExecutionResult | None = None,
         policy_bindings: tuple[PolicyBinding, ...] = (),
@@ -1502,6 +1509,7 @@ class ReplayRefusalRecorder:
         *,
         perspective: Perspective,
         recorded_at: datetime,
+        served_at: datetime | None,
         request: ProductRequest | None = None,
         execution: ExecutionResult | None = None,
         policy_bindings: tuple[PolicyBinding, ...] = (),
@@ -1557,6 +1565,10 @@ class ReplayRefusalRecorder:
             execution=execution,
             product=None,
             refusal=envelope,
+            # `D-IMPL-358` step 5. Threaded from the caller and NEVER recomputed
+            # here: the recorder reads no clock, so every refusal from one
+            # governed invocation carries the one instant that invocation read.
+            served_at=served_at,
             # Recorded verbatim: identity is resolved at the door and this seam
             # constructs none of it (Pitfall 3).
             perspective=perspective,
@@ -2278,7 +2290,12 @@ class GovernedResolver:
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
-           the entire reason nothing here reads a clock.
+           the entire reason **the graph boundary** needs no clock. A clock IS
+           read, once, at entry (`D-IMPL-358` step 4): ``served_at``, when the
+           answer was handed over, which is a different instant answering a
+           different question and reaches no graph read. This sentence
+           previously claimed nothing here read a clock, which was already
+           untrue of the composite branch before the hoist made it material.
         4. **The operator registry is built from whatever the deployment
            declared**, then Π runs at L5.
         5. **The class registers**, minting the pins Gate 3 and the request
@@ -2356,6 +2373,23 @@ class GovernedResolver:
                 " that answers without one"
             )
 
+        # `D-IMPL-358` step 4 — ONE READ, HERE. The fabric-controlled clock is
+        # read exactly once per call, at the entry to the governed path: after
+        # the three address checks above, which RAISE on a mis-wiring and so
+        # reach no governed decision at all, and before everything that does.
+        #
+        # Hoisted out of the composite branch below, where it was read only
+        # `if registered.requires:` — so before this, a NON-COMPOSITE serve read
+        # no clock and had no instant to say when it answered. `admitted_at` is
+        # now this same value, so the composite window is unchanged and the
+        # read-once-per-composition control still measures what it measured.
+        #
+        # A refusal path reads it too and, at THIS step, records nothing with
+        # it: threading `served_at` into refusal records is step 5. That is the
+        # ruled placement rather than an oversight — moving the read later and
+        # then moving it again would make step 5 redo step 4.
+        served_at = self.admission_clock()
+
         identity = RequestIdentity(
             product_id=product_class,
             product_version=version,
@@ -2400,6 +2434,7 @@ class GovernedResolver:
                     ),
                 ),
                 resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+                served_at=served_at,
             )
 
         # THE DOOR, and this composition is the resolver standing at it. The
@@ -2468,9 +2503,16 @@ class GovernedResolver:
                     PolicyBinding(key=self.product_class_key, version=content_hash(declaration)),
                 ),
                 resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
+                served_at=served_at,
             )
 
         outcome = self.constraint_resolver.resolve(
+            # `D-IMPL-358` step 5 ruling B: effectivity at the TRUSTED serve
+            # instant — the one this invocation read once at entry. The graph is
+            # still read at `request.asked_at` below, which keeps the two axes
+            # separate: a question about last quarter stays about last quarter
+            # while the policy governing the answer is today's.
+            served_at=served_at,
             product_class=product_class,
             request=request,
             declared=declared,
@@ -2533,6 +2575,7 @@ class GovernedResolver:
                 perspective=perspective,
                 policy_bindings=self._applied_bindings(outcome.evidence),
                 resolution=outcome.evidence,
+                served_at=served_at,
             )
         effective = outcome.evidence
         # The engine answers the EFFECTIVE question — defaults applied, policy
@@ -2545,6 +2588,99 @@ class GovernedResolver:
         effective_request = request.model_copy(
             update={"parameters": dict(effective.values())}
         )
+
+        # `D-IMPL-358` step 5 ruling C — THE DECISION INSTANT, DERIVED ONCE, HERE.
+        # Hoisted from below the graph read, where it used to be computed, because
+        # the temporal bound must judge it and the bound must be judged before
+        # anything is acquired. It is a pure function of `request` and
+        # `effective_request`, both final at this line and neither reassigned
+        # afterwards — so this is the same value the later stages used, computed
+        # once rather than twice. Two computations are two chances to disagree.
+        decided_at = self._decision_instant(request, effective_request)
+
+        # `D-IMPL-358` step 5 section C1: THE INSTANT MUST BE AWARE, judged here
+        # because this is the line after which the fabric does arithmetic with it.
+        # A declared instant is caller-supplied data and may arrive with no UTC
+        # offset. There is no implicit UTC in this fabric: assuming one answers
+        # for an hour the caller never named, silently, with every gate green —
+        # so this refuses by name rather than repairing with `.replace(tzinfo=…)`.
+        # Refusing here also keeps the bound below from raising `TypeError` on a
+        # naive-minus-aware subtraction, which would be an ungoverned 500 for what
+        # is a malformed value.
+        if decided_at.tzinfo is None or decided_at.tzinfo.utcoffset(decided_at) is None:
+            parameter = self.decision_instant_parameter
+            assert parameter is not None, (
+                "a naive instant can only come from a declared parameter; "
+                "`request.asked_at` is aware by contract"
+            )
+            return self._record_refusal(
+                envelope=envelope_for(
+                    ProductRequestViolation(
+                        reason="malformed-value",
+                        key=parameter,
+                        declared_type="an aware datetime (one carrying a UTC offset)",
+                        presented_type=type(decided_at).__name__,
+                        declared_keys=frozenset(effective_request.parameters),
+                        presented_keys=frozenset(
+                            request.parameters if request is not None else ()
+                        ),
+                        detail=(
+                            f"{parameter}: the declared decision instant carries no UTC"
+                            " offset, so the fabric cannot say which moment it names."
+                            " Refused by name and never repaired: there is no implicit"
+                            " UTC here, and assuming one would answer for an hour the"
+                            " caller never stated (`D-IMPL-358` step 5 section C1)"
+                        ),
+                    ),
+                    request=identity,
+                    policy_bindings=effective.applied,
+                    provenance=effective,
+                ),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                served_at=served_at,
+                policy_bindings=self._applied_bindings(effective),
+                resolution=effective,
+            )
+
+        # THE TEMPORAL BOUND, JUDGED HERE AND BEFORE ACQUISITION. The effective
+        # request exists (policy has narrowed what it can), the decision instant is
+        # derived, and nothing has been read or ingested — which is the point: an
+        # out-of-window question must cost nothing.
+        temporal = resolve_temporal_boundary(
+            registry=self.control_plane, tenant_id=self.fabric.tenant_id
+        )
+        temporal_pins = (
+            (temporal.binding,) if isinstance(temporal, PinnedTemporalBoundary) else ()
+        )
+        out_of_window = refuse_temporal_bound(
+            pinned=temporal,
+            served_at=served_at,
+            asked_at=request.asked_at,
+            decision_instant=decided_at,
+        )
+        if out_of_window is not None:
+            # A typed refusal BEFORE any write, through the same `_record_refusal`
+            # seam every other governed refusal uses — no fabricated record, no
+            # restamping. `temporal_pins` is EMPTY when the policy was undeclared
+            # (ruling 11 forbids minting a binding for a policy that does not
+            # exist) and carries the exact resolved binding when the policy itself
+            # is what refused.
+            return self._record_refusal(
+                envelope=envelope_for(
+                    out_of_window,
+                    request=identity,
+                    policy_bindings=effective.applied,
+                    provenance=effective,
+                ),
+                execution=None,
+                request=request,
+                perspective=perspective,
+                served_at=served_at,
+                policy_bindings=(*self._applied_bindings(effective), *temporal_pins),
+                resolution=effective,
+            )
 
         # `D-IMPL-343` R-4: THE DECLARED ACQUISITION SEAM, HERE AND ONLY HERE.
         # The question is resolved (above) and the graph is not yet read
@@ -2565,6 +2701,7 @@ class GovernedResolver:
                 return self._refuse_raised_at_seam(
                     raised, seam="acquisition", request=request, identity=identity,
                     perspective=perspective, effective=effective,
+                    served_at=served_at,
                 )
             except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
                 # `D-IMPL-347` B2: only a type THIS class declared converts.
@@ -2576,6 +2713,7 @@ class GovernedResolver:
                 return self._refuse_declared_at_seam(
                     error, binding, seam="acquisition", request=request,
                     identity=identity, perspective=perspective, effective=effective,
+                    served_at=served_at,
                 )
 
         view = self.fabric.handle.reader.as_of(
@@ -2627,10 +2765,14 @@ class GovernedResolver:
             # request so it is stable under replay and cannot be chosen per
             # child (F8: invocation-bound, and the binding is to THIS one).
             invocation = f"composition://{content_hash(request)}"
-            # Read ONCE per composition. Two children admitted against two
-            # readings of a clock would be judged in two windows, and the
-            # rows would disagree about when the composition admitted them.
-            admitted_at = self.admission_clock()
+            # Read ONCE per composition — and now once per CALL, which is
+            # strictly stronger. Two children admitted against two readings of a
+            # clock would be judged in two windows, and the rows would disagree
+            # about when the composition admitted them. `D-IMPL-358` step 4:
+            # `admitted_at := served_at`, the value read at entry, so the
+            # composite window is exactly the window it was and the instant the
+            # answer was served is the instant its children were admitted.
+            admitted_at = served_at
             if self.composite_children is None:
                 composed = CompositionOutcome(
                     factors=None,
@@ -2695,6 +2837,7 @@ class GovernedResolver:
                         raised, seam="build_children", request=request,
                         identity=identity, perspective=perspective,
                         effective=effective,
+                        served_at=served_at,
                     )
                 except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
                     binding = self._declared_seam_refusal(error)
@@ -2704,6 +2847,7 @@ class GovernedResolver:
                         error, binding, seam="build_children", request=request,
                         identity=identity, perspective=perspective,
                         effective=effective,
+                        served_at=served_at,
                     )
                 # The per-requirement walk — provenance, slot / instant /
                 # invocation re-binding, the refusal branches — runs HERE,
@@ -2762,6 +2906,7 @@ class GovernedResolver:
                     policy_bindings=self._applied_bindings(effective),
                     resolution=effective,
                     child_resolutions=composed.resolutions,
+                    served_at=served_at,
                 )
 
         # `D-IMPL-300`: the plan is a NAMED LOCAL so the binder has somewhere to
@@ -2791,6 +2936,7 @@ class GovernedResolver:
             return self._refuse_raised_at_seam(
                 raised, seam="plan_factory", request=request, identity=identity,
                 perspective=perspective, effective=effective,
+                served_at=served_at,
             )
         except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
             binding = self._declared_seam_refusal(error)
@@ -2799,6 +2945,7 @@ class GovernedResolver:
             return self._refuse_declared_at_seam(
                 error, binding, seam="plan_factory", request=request,
                 identity=identity, perspective=perspective, effective=effective,
+                served_at=served_at,
             )
         # The product class's `required_operator_keys` and the plan's own
         # `required_operators()` are two separately authored documents (design
@@ -2841,14 +2988,22 @@ class GovernedResolver:
             seeds=request_seeds(request),
         )
 
-        # `24.10-F-09` / `D-IMPL-308`. Bound ONCE and read FOUR times below —
-        # the product's expiry, the gate instant, the record's `recorded_at`
-        # and, as of `D-IMPL-343` R-3c, the instant an instant-aware scorer
-        # measures freshness as of — are four statements about the same
-        # moment, and deriving them separately is how they drift apart. Hoisted
-        # above the scorer call for that fourth reader; it reads only the two
-        # requests, so nothing about the value moved.
-        decided_at = self._decision_instant(request, effective_request)
+        # `24.10-F-09` / `D-IMPL-308`. `decided_at` is bound ONCE — far above,
+        # beside the temporal bound that judges it — and read FIVE times: the
+        # product's expiry, the gate instant, the record's `recorded_at`, the
+        # instant an instant-aware scorer measures freshness as of (`D-IMPL-343`
+        # R-3c), and now the temporal bound itself. Five statements about the same
+        # moment, and deriving them separately is how they drift apart.
+        #
+        # It used to be bound HERE, and the superseded reasoning is kept because
+        # it names the constraint the move had to satisfy: *"hoisted above the
+        # scorer call for that fourth reader; it reads only the two requests, so
+        # nothing about the value moved."* That is still why moving it is safe —
+        # it is a pure function of `request` and `effective_request`, and neither
+        # is reassigned between the new binding site and this line. `D-IMPL-358`
+        # step 5 ruling C moved it because the bound must judge the decision
+        # instant BEFORE anything is acquired, and a second derivation here would
+        # be a second chance to disagree with the instant that was judged.
 
         # `24.11-03` / `24.10-F-08`: hoisted out of the constructor because two
         # members are now derived from it — the assessment itself and the
@@ -2939,10 +3094,14 @@ class GovernedResolver:
                 # branches now, which is what `D-IMPL-308` says it is:
                 # the TTL runs from when the answer was PRODUCED.
                 ttl_anchor_at=anchored_at,
-                # AND THE DECISION INSTANT, for the mixing law alone: how much
-                # validity a child has LEFT is a fact about now, not about the
-                # parent's evidence (`D-IMPL-341` review).
-                decided_at=decided_at,
+                # AND THE INSTANT THE COMPOSITION IS EVALUATED AT, for the
+                # mixing law alone: how much validity a child has LEFT is a fact
+                # about now, not about the parent's evidence (`D-IMPL-341`
+                # review). `D-IMPL-358` step 5 section I made "now" literal —
+                # this is `served_at`, the instant the answer is handed over,
+                # and the parameter was renamed with the value so no variable
+                # named `decided_at` carries it.
+                evaluated_at=served_at,
                 validity_floors=registered.constituent_validity_floors,
             )
             if composed is not None and composed.factors is not None:
@@ -3011,6 +3170,7 @@ class GovernedResolver:
                 policy_bindings=self._applied_bindings(effective),
                 resolution=effective,
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         candidate = ContextProductContract(
@@ -3143,10 +3303,29 @@ class GovernedResolver:
                 # has always been.
                 engine_resolved=execution.operators_invoked
                 | (composed.admitted_operators if composed is not None else frozenset()),
-                # The TTL gate asks whether this product expires within bounds OF
-                # THE MOMENT IT WAS DECIDED, which is the instant its expiry runs
-                # from (`D-IMPL-308`).
-                now=decided_at,
+                # `D-IMPL-358` step 5 section H: GATE 3 ASKS ABOUT THE MOMENT OF
+                # SERVICE. The comparand was `decided_at`, on the reasoning that
+                # the expiry RUNS FROM the decision instant (`D-IMPL-308`) — which
+                # is true of how `expires_at` is COMPUTED and is a different
+                # question from the one the gate ASKS.
+                #
+                # The gate holds `now < expires_at <= now + MAX_TTL`, and the
+                # inequality stays two-sided. Both bounds are statements about the
+                # CONSUMER's moment, not the fabric's:
+                #
+                #   * lower — a product whose expiry already passed between being
+                #     decided and being handed over must not be served. Judged at
+                #     `decided_at` this was blind to exactly the gap `served_at`
+                #     exists to name;
+                #   * upper — a product may not promise more than MAX_TTL of life
+                #     measured from when the consumer receives it. Judged at
+                #     `decided_at` a child answering a question a DAY out fit a
+                #     ceiling drawn from its own future decision.
+                #
+                # `served_at` on a refusal RECORD is not this: the record says when
+                # the determination happened; this is the instant the bound is
+                # applied at. Both were needed and only the first had landed.
+                now=served_at,
                 registry=self.control_plane,
                 product_class=registered,
                 source_attestation=execution.source_attestation,
@@ -3200,6 +3379,7 @@ class GovernedResolver:
                 policy_bindings=applied,
                 resolution=effective,
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         if not isinstance(gated, ServableProduct):
@@ -3222,6 +3402,7 @@ class GovernedResolver:
                 resolution=effective,
                 # `D-IMPL-338`: the children this candidate was composed from.
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         # `24.10-02` / `R-11` (`D-IMPL-282` option 1a), and the placement is
@@ -3252,6 +3433,7 @@ class GovernedResolver:
                     raised, seam="product_gate", request=request,
                     identity=identity, perspective=perspective,
                     effective=effective,
+                    served_at=served_at,
                 )
             except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
                 binding = self._declared_seam_refusal(error)
@@ -3261,6 +3443,7 @@ class GovernedResolver:
                     error, binding, seam="product_gate", request=request,
                     identity=identity, perspective=perspective,
                     effective=effective,
+                    served_at=served_at,
                 )
             if gate_violation:
                 declared_gate = self._declaration().declared_product_gate
@@ -3290,6 +3473,7 @@ class GovernedResolver:
                     resolution=effective,
                     # `D-IMPL-338`: the children this candidate was composed from.
                     child_resolutions=child_rows,
+                    served_at=served_at,
                 )
 
         # 24.6-04, the delivery boundary: the gates ADMITTED this product, and
@@ -3323,6 +3507,7 @@ class GovernedResolver:
                 # `D-IMPL-338`: a tolerance refusal is the case that most needs
                 # its children named — the debt it refused on is inherited.
                 child_resolutions=child_rows,
+                served_at=served_at,
             )
 
         record = build_replay_record(
@@ -3336,12 +3521,24 @@ class GovernedResolver:
                 # table it anchored under, so replay re-derives the anchor
                 # under the same declarations, never today's.
                 *self._ttl_anchor_pins(anchor),
+                # `D-IMPL-358` step 5 area 8: the temporal policy that governed
+                # this serve, pinned by its EXACT resolved version. `.binding` and
+                # never a `PolicyBinding(key, version)` rebuilt here — rebuilding
+                # is how a reconstructed version gets in, which is the step-3
+                # defect this pin exists to make load-bearing.
+                *temporal_pins,
             ),
             assembly_mode=registered.assembly_mode,
             # WHEN THE DECISION WAS TAKEN, not when the graph was read
             # (`D-IMPL-308`). Dimension 5 already carries `asked_at` on the
             # request it holds, so the record says both rather than one twice.
             recorded_at=decided_at,
+            # `D-IMPL-358` step 4. A THIRD instant, and the record now says all
+            # three rather than one of them twice: `request.asked_at` is what the
+            # question asks as of, `recorded_at` is when the decision was taken,
+            # and this is when the answer was handed over. `recorded_at` is
+            # deliberately untouched.
+            served_at=served_at,
             request=request,
             # 24.6-07: the assembler in force, on the served path and on every
             # refusal path alike (`D-IMPL-253` Q16). This resolver holds no
@@ -3489,6 +3686,7 @@ class GovernedResolver:
         identity: RequestIdentity,
         perspective: Perspective,
         effective: EffectiveRequest,
+        served_at: datetime,
     ) -> RefusalEnvelope:
         """Mint the refusal the class declared for ``error``, at ``seam``.
 
@@ -3510,6 +3708,7 @@ class GovernedResolver:
             identity=identity,
             perspective=perspective,
             effective=effective,
+            served_at=served_at,
         )
 
     def _refuse_raised_at_seam(
@@ -3521,6 +3720,7 @@ class GovernedResolver:
         identity: RequestIdentity,
         perspective: Perspective,
         effective: EffectiveRequest,
+        served_at: datetime,
     ) -> RefusalEnvelope:
         """The typed handoff caught at a DEPLOYMENT-SUPPLIED seam.
 
@@ -3579,6 +3779,7 @@ class GovernedResolver:
             policy_bindings=self._applied_bindings(effective),
             resolution=effective,
             refusal_seam=seam,
+            served_at=served_at,
         )
 
     def _record_refusal(
@@ -3588,6 +3789,7 @@ class GovernedResolver:
         execution: ExecutionResult | None,
         request: ProductRequest,
         perspective: Perspective,
+        served_at: datetime,
         policy_bindings: tuple[PolicyBinding, ...] = (),
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
@@ -3600,9 +3802,17 @@ class GovernedResolver:
         composition produces goes through here, and nothing in ``src/`` calls
         :func:`~ccf.replay.serve.record_refusal` except the recorder itself.
 
-        The instant is ``request.asked_at`` for the reason nothing in this
-        module reads a clock: the caller supplies it at serve time and replay
-        supplies it at replay time, through this same code path.
+        **Two instants, and they are not synonyms** (`D-IMPL-358` step 5).
+        ``recorded_at`` is ``request.asked_at`` — the QUESTION's instant, which
+        keeps a refusal's dimension-1 boundary on what was asked rather than on
+        when the refusal happened, and which the caller supplies at serve time
+        and replay supplies at replay time through this same path. ``served_at``
+        is the LIVE instant this invocation determined the refusal at, read once
+        at `GovernedResolver.__call__` entry and threaded here.
+
+        This docstring previously said *"nothing in this module reads a clock"*.
+        That became untrue at step 4 and is corrected rather than deleted: the
+        module reads exactly one clock, once, at entry, and never here.
 
         ``resolution`` is required with no default (24.7-04): every branch
         that reaches here ran the resolution step and passes what it
@@ -3625,6 +3835,8 @@ class GovernedResolver:
             envelope,
             perspective=perspective,
             recorded_at=request.asked_at,
+            # The live instant beside the question's, never instead of it.
+            served_at=served_at,
             request=request,
             execution=execution,
             policy_bindings=policy_bindings,

@@ -35,6 +35,7 @@ from ccf.client.adapters.inprocess import SCHEME, InProcessAdapter
 from tests.client.conformance import suite
 from tests.client.conformance.suite import AdapterSubject, Provision, Question
 from tests.client.conftest import FIXTURE_DEPLOYMENT, SEEDED_ROWS, config_document
+from tests.client.fixtures import pinned_clock
 
 pytestmark = pytest.mark.conformance
 
@@ -56,8 +57,15 @@ _SCORES = sorted(int(score) for _, score in SEEDED_ROWS)
 
 
 def connect_in_process(root: Path) -> InProcessAdapter:
-    """A healthy in-process adapter pointed at ``root``."""
-    return InProcessAdapter(str(root))
+    """A healthy in-process adapter pointed at ``root``, at the PINNED instant.
+
+    `D-IMPL-358` step 5. The clock is injected for the same reason `as_of` is
+    pinned below: a parity leg composed against two clocks compares scheduling
+    rather than assembly. `served_at` is the second clock, and a non-sentinel
+    `served_at` is inside the replay record's hash, so without this the two
+    transports agree on the record's NAME and differ on its `@version`.
+    """
+    return InProcessAdapter(str(root), clock=pinned_clock)
 
 
 def break_in_process(root: Path) -> InProcessAdapter:
@@ -69,7 +77,7 @@ def break_in_process(root: Path) -> InProcessAdapter:
     substituted object.
     """
     (root / BINDING_DOCUMENT_NAME).unlink()
-    return InProcessAdapter(str(root))
+    return InProcessAdapter(str(root), clock=pinned_clock)
 
 
 #: The collection every leg compares over. One subject today; ``17-10`` appends.

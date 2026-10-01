@@ -50,6 +50,19 @@ def main() -> None:
         environment=fixture.producer_environment_text(),
     )
     environ = {**os.environ, fixture.CHILD_DSN_VAR: "postgresql://fixture"}
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question — and the PRODUCER is its own deployment, in its own
+    # process, with its own tenant. A consumer that declared one for itself would
+    # still get a `composite-child-refusal` if the producer had not, which is
+    # exactly what the paved-consumer suite measured before this line existed.
+    from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: PLC0415
+
+    from tests.composition import declare_wide_temporal_boundary  # noqa: PLC0415
+
+    control_plane = ControlPlaneRegistry()
+    declare_wide_temporal_boundary(
+        control_plane, tenant_id=fixture.PRODUCER_TENANT
+    )
     with open_product(
         config_root=root,
         scratch=workspace / "scratch",
@@ -57,6 +70,19 @@ def main() -> None:
         project=fixture.plan_factory,
         assess=fixture.assess,
         environ=environ,
+        control_plane=control_plane,
+        # `D-IMPL-358` step 5 section H, class 1. THE PRODUCER'S FABRIC CLOCK,
+        # pinned to the SAME instant the consumer is pinned to. Unpinned, this
+        # process served at the real wall clock while the consumer asked in March,
+        # so the child arrived claiming validity months beyond anything the
+        # consumer's own MAX_TTL admits — and the composition refused a child
+        # that was never the subject of the test.
+        #
+        # The producer is its own process. It reads the instant from the fixture
+        # it already imports rather than from an environment variable, because
+        # this program is launched with the repo importable and `fixture` is where
+        # that instant is declared.
+        clock=lambda: fixture.ADMITTED_AT,
     ) as opened:
         open_door(opened, environ=environ).serve_loopback(
             announce=lambda port: print(f"READY {port}", flush=True)

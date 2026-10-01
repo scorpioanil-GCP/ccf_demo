@@ -283,6 +283,7 @@ def assemble_and_serve(
     plan_class: Callable[..., ProjectionPlan],
     request: ProductRequest,
     root: Path,
+    service_instant: datetime | None = None,
 ) -> Assembled:
     """Answer one question, end to end, against ``root`` as its scratch directory.
 
@@ -399,6 +400,26 @@ def assemble_and_serve(
             # wiring — the value travels on the request.
             decision_instant_parameter=scenario.decision_instant_parameter,
             source_refresh_recency=scenario.source_refresh_recency,
+            # `D-IMPL-358` step 13. THE SERVE INSTANT, when the caller composed
+            # one. The fabric judges a governed serve at this instant — Gate 3's
+            # comparand and the temporal bound's — so a controlled historical
+            # simulation has to be able to say what "now" is for the run it is
+            # simulating. The seam is the SDK's own `admission_clock`.
+            #
+            # Passed ONLY when supplied: omitted, the SDK's process clock stands,
+            # which is the right value for a deployment answering live questions.
+            # This file invents no default and reads no clock itself — a default
+            # here would be the spine deciding what time it is on a deployment's
+            # behalf.
+            #
+            # The instant arrives as an ARGUMENT, never off `request`. A serve
+            # instant taken from caller input would let any question move the
+            # fabric's clock, which is the opposite of a trusted instant.
+            **(
+                {"admission_clock": lambda: service_instant}
+                if service_instant is not None
+                else {}
+            ),
         )
         served = resolve(
             tenant=booted.tenant_id,

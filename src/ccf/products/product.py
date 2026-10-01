@@ -168,7 +168,11 @@ from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
-from ccf.signal.envelope import SignalEnvelope, refuse_foreign_envelope
+from ccf.signal.envelope import (
+    IngressTemporalBound,
+    SignalEnvelope,
+    refuse_foreign_envelope,
+)
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog, SkillCatalogEntry
 from ccf.skills.dispatch import McpSkillRegistry
@@ -743,10 +747,21 @@ class OpenedProduct:
             presented_keys=frozenset(),
             detail=detail,
         )
+        # `D-IMPL-358` step 5, and this site is the reason the rule is worth
+        # stating as a rule. A question boundary WAS available here — three lines
+        # above, ``request.asked_at`` already supplies ``temporal_boundary`` on
+        # the identity — and ``recorded_at`` took the live clock anyway, so an
+        # address refusal's dimension-1 boundary moved with when the refusal
+        # happened rather than with what was asked. The two instants are now
+        # separate and both are carried: the QUESTION's instant bounds the
+        # record, and the LIVE instant this door determined at is measured ONCE
+        # here and travels as ``served_at`` beside it.
+        determined_at = self._clock()
         return self.refusal_recorder.record(
             envelope_for(violation, request=identity),
             perspective=perspective,
-            recorded_at=self._clock(),
+            recorded_at=request.asked_at,
+            served_at=determined_at,
             request=request,
             resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
         )
@@ -803,6 +818,15 @@ class OpenedProduct:
         tenant_id = self.tenant_id
         sources = self.sources
         acquire = self._acquire
+        # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
+        # — the trusted ingress composition — and bound ONCE per opened product
+        # rather than per envelope. The roster is this deployment's own tenant and
+        # the policy is pinned for it at composition, so nothing on the ingest path
+        # resolves a policy and no envelope can introduce a tenant.
+        temporal_bound = IngressTemporalBound.at_composition(
+            registry=self.control_plane, tenant_ids=(tenant_id,)
+        )
+        clock = self._clock
 
         def seam(*, request: ProductRequest, perspective: Perspective) -> None:
             context = AcquisitionContext(
@@ -812,8 +836,20 @@ class OpenedProduct:
                 sources=sources,
                 instant=request.asked_at,
             )
+            # THE FABRIC'S instant, read ONCE per acquisition and handed to the
+            # guard — never `request.asked_at`. `refuse_foreign_envelope` above
+            # already requires `ingestion_timestamp == asked_at` on this road, so
+            # judging the instant against the question's own would compare a value
+            # with itself: the age would always be zero and the guard could never
+            # fire. Measured — the first draft of this wiring did exactly that and
+            # the end-to-end control caught it.
+            ingress_at = clock()
             for envelope in acquire(context):
                 refuse_foreign_envelope(envelope, tenant_id=tenant_id, asked_at=request.asked_at)
+                # BEFORE the single writer sees it. An out-of-window or undeclared
+                # envelope raises here, so no claim lands, nothing is restamped, and
+                # no replay record is fabricated for a write that did not happen.
+                temporal_bound.refuse_outside_window(envelope, now=ingress_at)
                 worker.ingest(envelope)
 
         return seam

@@ -328,6 +328,15 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.products.contract.ContextProductContract.ttl_anchor_at",
         "ccf.replay.record.ContentGenerationPath.ttl_anchor_at",
         "ccf.replay.record.ChildResolution.child_ttl_anchor",
+        # `D-IMPL-358` ruling 1 — ONE mark, ticked deliberately. When the answer
+        # was served, on dimension 5. `None` on every record written before the
+        # member existed, so no pre-1.0.2 address moves and the member's mere
+        # schema presence is not a generation boundary; a populated value
+        # participates, so two serves of one question are two records. Ticked
+        # `True` and NOT `False`: the accepted design asserted transparency while
+        # citing `ChildResolution.child_admitted_at` — a declared boundary — as
+        # its precedent, and ruling 1 settles that this one is transparent.
+        "ccf.replay.record.ContentGenerationPath.served_at",
         # `D-IMPL-353` — seven marks, ticked deliberately. The authorization
         # capability's evidence on the objects that predate it: the audit id
         # of the decision an `AuthzDecision` was minted from, the resource
@@ -372,6 +381,7 @@ _MARKED_IN_THE_TREE = frozenset(
         # that document is never content-hashed into anything, and the mark
         # says so structurally rather than leaving the lint to ask.
         "ccf.controlplane.artifacts.DeploymentConfig.ttl",
+        "ccf.controlplane.artifacts.DeploymentConfig.temporal_boundary",
         "ccf.controlplane.artifacts.DeploymentConfig.door",
         "ccf.controlplane.artifacts.DeploymentConfig.agent",
         "ccf.controlplane.artifacts.DeploymentConfig.skills",

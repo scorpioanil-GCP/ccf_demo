@@ -220,6 +220,7 @@ gate-tools: ## Run the tools/ suites CI runs that `testpaths` excludes from `mak
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/publish_scan_tests tools/docs_tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/product_gates_tests -q
 	$(ENV_DOCS) $(PYTHON) -m pytest tools/check_version_stamp_tests -q
+	$(ENV_DOCS) $(PYTHON) -m pytest tools/estate_census_tests -q
 
 # SEC-029 / D-IMPL-357 §D: the belt half of the version-stamp control. A no-op
 # off a tag (HEAD is not an exact `v*` tag — the ordinary state of every branch
@@ -322,7 +323,21 @@ leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identic
 # It lives here rather than in `examples:` above because its manifest declares a
 # networked substrate; see that target's comment. No new variable: the default
 # is the one the four legs already share.
+# THE ESTATE FENCE RUNS FIRST, AND `make` STOPS IF IT REFUSES (`D-IMPL-358` step 15
+# ruling). This target WRITES to a networked store, and before this gate existed it
+# took its destination from an operator-exported value with nothing on the path
+# saying no — the accident shape that left permanent ledgers and transactions on the
+# curated server. The fence classifies with the pytest fence's own parser (imported,
+# not copied): host-level, both PostgreSQL serializations, Mongo's multi-host form,
+# fail-closed on anything it cannot parse, and no port rule. A throwaway localhost
+# target proceeds; a curated host refuses before a writer is opened.
+#
+# `ENV_DOCS` rather than `ENV`: the gate imports the fence helper, so the repo root
+# has to be on the path. The variable is passed to the gate as well as to the run,
+# because fencing a value the run will not use would prove nothing.
 example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions; needs a Fluree server)
+	$(ENV_DOCS) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+		$(PYTHON) -m tools.estate_fence --label "example-s1-01 (writes Fluree transactions)"
 	$(ENV) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) examples/s1-01-hello-context-product/run.py
 
@@ -336,7 +351,21 @@ example-s1-01: ## Run examples/s1-01-hello-context-product (three declared quest
 # question in `scenario/question.yaml`. The contract still requires the
 # parameter — a request without one is refused with `missing-required-parameter`
 # below this CLI (test_a_missing_threshold_is_refused_not_defaulted).
+# THE ESTATE FENCE RUNS FIRST, AND `make` STOPS IF IT REFUSES (`D-IMPL-358` step 15
+# ruling). This target WRITES to a networked store, and before this gate existed it
+# took its destination from an operator-exported value with nothing on the path
+# saying no — the accident shape that left permanent ledgers and transactions on the
+# curated server. The fence classifies with the pytest fence's own parser (imported,
+# not copied): host-level, both PostgreSQL serializations, Mongo's multi-host form,
+# fail-closed on anything it cannot parse, and no port rule. A throwaway localhost
+# target proceeds; a curated host refuses before a writer is opened.
+#
+# `ENV_DOCS` rather than `ENV`: the gate imports the fence helper, so the repo root
+# has to be on the path. The variable is passed to the gate as well as to the run,
+# because fencing a value the run will not use would prove nothing.
 example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> optional; needs Docker or CCF_TEST_POSTGRES_DSN)
+	$(ENV_DOCS) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
+		$(PYTHON) -m tools.estate_fence --label "example-s1-00 (writes DDL and rows)"
 	$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
 		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
 		$(if $(MIN_REVENUE),--min-revenue $(MIN_REVENUE))

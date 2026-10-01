@@ -190,6 +190,7 @@ from tests.signal_layer.test_cp05_acquisition_boundary import (
     drive_into_l2,
 )
 from tests.composition import declaring_store
+from tests.composition import declare_wide_temporal_boundary
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -374,6 +375,9 @@ def _boot(root: pathlib.Path) -> Fabric:
         registry=control_plane,
         connection={"database_path": str(root / f"cp05_{uuid.uuid4().hex[:12]}.sqlite3")},
     )
+    # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
+    # refuses every question, so a fixture that means to serve declares one.
+    declare_wide_temporal_boundary(control_plane, tenant_id=booted.tenant_id)
     source = FileRecordAcquisitionSource(
         path=FIXTURE, source=SOURCE, clock=lambda: ASKED_AT
     )
@@ -551,6 +555,14 @@ def _resolver(
         operator_parameter_keys=tuple(_placed(fabric.booted, key) for key in OPERATOR_PARAMETER_KEYS),
         policy_bundle_key=_placed(fabric.booted, POLICY_BUNDLE_KEY),
         plan_factory=plan_factory,
+        # `D-IMPL-358` step 5 section H, class 1. The fabric clock, pinned to the
+        # instant this fixture's own acquisition source is pinned to (line above:
+        # `FileRecordAcquisitionSource(clock=lambda: ASKED_AT)`). Unpinned, cp-05's
+        # records are ingested as of March and served at the real clock, so the
+        # declared TTL has long expired by the time Gate 3 compares it against the
+        # moment of service — and this module's findings are about a WRONG answer,
+        # which a refusal cannot demonstrate.
+        admission_clock=lambda: ASKED_AT,
         debt_scorer=declared_debt_scorer(fabric.booted),
         product_gate=reconciliation_gate,
         artifact_store_root=fabric.root,

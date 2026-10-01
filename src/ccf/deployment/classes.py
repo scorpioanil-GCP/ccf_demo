@@ -108,6 +108,7 @@ from ccf.controlplane.artifacts import (
     RegistrationMode,
     declared_artifact_class,
 )
+from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import SKILL_GRANT
 from ccf.workflow.definitions import WORKFLOW_DEFINITION
@@ -190,6 +191,19 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # `artifact_version`: they are deployment binding, not authored content.
     TTL_BINDING.class_id: TTL_BINDING,
     EGRESS_DOOR.class_id: EGRESS_DOOR,
+    # `D-IMPL-358` step 5 section A1, and the ONE deliberate departure from the
+    # four sibling per-tenant policies. Those stay out of this mapping and their
+    # status is unchanged: a deployment that admits peered children, trusts a
+    # peer, bounds a payload or entitles a principal registers that policy
+    # programmatically. This one cannot be optional in the same way, because
+    # ruling 11 makes an UNDECLARED temporal boundary refuse every question — so
+    # a config-driven deployment with no authoring surface for it would be
+    # permanently refused, including this SDK's own paved road. Manifest-
+    # addressable is what closes that, and the rule is not weakened to avoid it.
+    #
+    # TYPED, not versioned: the contract carries no author lanes. It is
+    # deliberately absent from `SDK_VERSIONED_ARTIFACT_CLASSES`.
+    TEMPORAL_BOUNDARY_POLICY.class_id: TEMPORAL_BOUNDARY_POLICY,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``

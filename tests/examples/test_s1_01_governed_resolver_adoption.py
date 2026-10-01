@@ -121,6 +121,7 @@ import importlib.util
 import json
 import pathlib
 import sys
+from datetime import datetime, timedelta
 from collections.abc import Callable, Iterator
 from typing import Any, NamedTuple
 
@@ -227,6 +228,7 @@ def _wire(
     *,
     root: pathlib.Path,
     question: Any,
+    service_instant: Any = None,
 ) -> tuple[Any, Any, Any]:
     """Boot, populate, and build a governed resolver over ``s1-01``'s fabric.
 
@@ -291,6 +293,18 @@ def _wire(
         # `D-IMPL-308` / `24.10-F-08`: when this estate's sources last
         # published. Declared, because no operator can observe it.
         source_refresh_recency=scenario.source_refresh_recency,
+        # `D-IMPL-358` step 13. The trusted SERVE instant for this demonstration
+        # period, when the caller composed one -- Gate 3's comparand and the
+        # temporal bound's. Passed only when supplied, so the SDK's process clock
+        # stands for a deployment answering live questions and this module invents
+        # no default. It arrives as an ARGUMENT and is never read off `question`:
+        # a serve instant taken from caller input would let the question move the
+        # fabric's clock.
+        **(
+            {"admission_clock": lambda: service_instant}
+            if service_instant is not None
+            else {}
+        ),
         # `24.11-02b` / `D-IMPL-292`. Nothing here says anything about a
         # similarity index, and that is the point: the deployment declares
         # `index_version` on `operator-parameters-similarity.yaml`, which
@@ -327,7 +341,7 @@ class Answered(NamedTuple):
 @pytest.fixture
 def adopted_resolver(
     example: Any, tmp_path: pathlib.Path
-) -> Iterator[Callable[[Any], Answered]]:
+) -> Iterator[Callable[..., Answered]]:
     """The resolver as a deployment would actually wire it — nothing bridged.
 
     Until ``24.11-02`` this fixture monkeypatched
@@ -352,11 +366,29 @@ def adopted_resolver(
     citations move with it.
     """
     booted: list[Any] = []
+    # `D-IMPL-358` step 13. The harness's own pairing of a DECLARED question with
+    # the DEMONSTRATION PERIOD the questions document declares for it. Read once,
+    # here, so the lookup below selects among instants the DOCUMENT states and
+    # never computes one from a request's fields -- the clock is composition state.
+    # A question that is not one of the declared three matches nothing and is
+    # served on the process clock, which is the honest answer for an ad-hoc
+    # question and stays visible as a `ttl-refusal`.
+    declared_questions = example.deployment.declared_questions()
+    declared_instants = example.deployment.declared_service_instants()
 
-    def answer(question: Any) -> Answered:
+    def answer(question: Any, *, service_instant: Any = None) -> Answered:
+        if service_instant is None:
+            for candidate, instant in zip(
+                declared_questions, declared_instants, strict=True
+            ):
+                if candidate == question:
+                    service_instant = instant
+                    break
         root = tmp_path / f"q{len(booted)}"
         root.mkdir(parents=True, exist_ok=True)
-        fabric, scenario, resolver = _wire(example, root=root, question=question)
+        fabric, scenario, resolver = _wire(
+            example, root=root, question=question, service_instant=service_instant
+        )
         booted.append(fabric)
         outcome = resolver(
             tenant=fabric.tenant_id,
@@ -396,7 +428,13 @@ def test_the_resolver_serves_a_class_whose_operators_include_similarity(
     """
     root = tmp_path / "adopted"
     root.mkdir()
-    booted, scenario, resolver = _wire(example, root=root, question=questions[0])
+    booted, scenario, resolver = _wire(
+        example,
+        root=root,
+        question=questions[0],
+        # The first declared question's own declared period (`D-IMPL-358` step 13).
+        service_instant=example.deployment.declared_service_instants()[0],
+    )
     try:
         outcome = resolver(
             tenant=booted.tenant_id,
@@ -588,3 +626,87 @@ def test_two_ambient_ledger_heads_serve_one_content_address(
         f" ambient ledger heads ({heads[0]!r} then {heads[1]!r}) — `MOD-05`"
         " has regressed and `D-IMPL-309` is not in force"
     )
+
+
+# ---------------------------------------------------------------------------
+# `D-IMPL-358` step 13 — the LATER-SERVICE control. Three service instants on ONE
+# question, so that a green suite cannot rest on the decision instant and the
+# service instant happening to coincide.
+# ---------------------------------------------------------------------------
+
+
+def test_service_after_expiry_is_REFUSED_while_service_inside_the_window_is_SERVED(
+    example: Any, questions: Any, adopted_resolver: Any
+) -> None:
+    """Gate 3 stays at `served_at`, and this is the proof that it bites.
+
+    The simulation clock that makes the three declared questions answerable pins
+    the serve instant to each question's declared demonstration period, which for
+    question 1 is the SAME instant as its decision instant. That coincidence is
+    convenient and it is also a hazard: every TTL assertion in this module would
+    pass just as well against a gate that compared nothing at all. So this control
+    moves the serve instant alone -- the question, the TTL duration, the temporal
+    policy and the expected answer are all untouched -- and asserts the ordering
+    the gate is supposed to enforce.
+
+    Question 1 decides at 2026-08-01T00:05:00Z. `product-governance.yaml` declares
+    `product_ttl_seconds: 600`, so the product expires at 00:15:00Z, and
+    `max_ttl_seconds: 1200` puts the ceiling at 00:25:00Z.
+
+    | serve instant | expected | why |
+    | --- | --- | --- |
+    | 00:05:00Z | SERVED | the declared period; decision and service coincide |
+    | 00:10:00Z | SERVED | strictly AFTER the decision instant, still inside TTL |
+    | 00:20:00Z | REFUSED | past expiry: `served_at < expires_at` fails |
+
+    The middle row is the one that makes the other two mean something: it shows the
+    product is servable at an instant that is NOT its decision instant, so the first
+    row is not passing by coincidence. The third shows expiry is still enforced
+    against the serve instant, which is exactly what step 5 section H moved it to.
+
+    Nothing here anchors expiry to the serve instant. Expiry remains
+    decision-anchored -- `test_the_ttl_runs_from_the_declared_decision_instant`
+    above asserts that, and it is deliberately left as it was.
+    """
+    question = questions[0]
+    decided_at = datetime.fromisoformat(
+        question.parameters[example.deployment.PARAM_DECISION_INSTANT]
+    )
+    # Offsets, not absolute instants: the two probes below are asserted to straddle
+    # the DECLARED expiry, so they move with `product-governance.yaml` instead of
+    # pinning a number this test invented.
+    inside = decided_at + timedelta(seconds=300)
+    after_expiry = decided_at + timedelta(seconds=900)
+
+    at_period = adopted_resolver(question)
+    assert getattr(at_period.outcome, "product", None) is not None, (
+        f"the declared period does not serve: {at_period.outcome!r} — the control"
+        " below cannot be read against a broken baseline"
+    )
+    scenario = at_period.scenario
+    # Expiry is anchored to the DECISION instant, stated directly rather than
+    # through an identity that would hold whatever the values were.
+    assert scenario.now == decided_at, (
+        f"the scenario decides at {scenario.now.isoformat()}, not at the question's"
+        f" declared {decided_at.isoformat()}"
+    )
+    assert scenario.expires_at > scenario.now, scenario.expires_at
+    assert inside < scenario.expires_at < after_expiry, (
+        "this control's two probe instants no longer straddle expiry"
+        f" ({scenario.expires_at.isoformat()}), so it would prove nothing"
+    )
+
+    served_later = adopted_resolver(question, service_instant=inside)
+    assert getattr(served_later.outcome, "product", None) is not None, (
+        "a product served STRICTLY AFTER its decision instant and inside its TTL"
+        f" was refused: {served_later.outcome!r}. Gate 3 is not admitting a live"
+        " serve, so every other TTL assertion here is passing on a coincidence"
+    )
+
+    expired = adopted_resolver(question, service_instant=after_expiry)
+    assert getattr(expired.outcome, "product", None) is None, (
+        "a product served AFTER its expiry was still served — Gate 3 is no longer"
+        " judging expiry against the serve instant"
+    )
+    assert expired.outcome.kind == "ttl-refusal", expired.outcome
+    assert expired.outcome.reason == "ttl-bounds", expired.outcome
