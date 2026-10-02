@@ -11,7 +11,7 @@
 
 | ref | SHA |
 | --- | --- |
-| `main` = `origin/main` | `1b7a71dc7652afdc5d28e8d40d192dbf999b7751` |
+| `main` = `origin/main` | **verify from the tree.** It moves every time this file is amended, so no SHA here can be current. The behaviour candidate below is the pin that must NOT move. |
 | the Wave 2 merge commit | `5f296156401258bc268d12bb6de00f9411b4724a` |
 | `wave-2-358` (closed, merged, do not move) | `d431af05efb2a9843785a4899cd72de745646672` |
 | behaviour candidate (`src/`+`runtime/` frozen at this) | `9926f594e1c01b1edda368ad5efefe3c9024f85d` |
@@ -98,6 +98,23 @@ is true and insufficient**, and Dave has agreed that it is.
    before giving it an answer.
 2. **Dave's own enumeration said "twelve" while listing thirteen.** The tree says
    thirteen. This was raised and not yet ruled.
+
+**AMENDMENT 2026-10-02, after §3.2 was written.** Both roster questions are RULED by
+Dave. The count is **thirteen** paved pairs — his earlier "twelve" was a miscount of his
+own thirteen-item list. The ledger's `hw1` means **`hw1-companies-over-revenue`**:
+`tests/examples/test_hw1_empty_fabric_refusal.py:73` imports `EXAMPLE_ROOT` from
+`test_hw1_two_transports`, which sets it at `:90` to `CLIENT_EXAMPLE_ROOTS[0]`, the first
+key of `PERMITTED_IMPORTS`, measured as `examples/hw1-companies-over-revenue`.
+`hw1-harness-clients` is the SECOND key, its own test modules
+(`test_hw1_harness_clients_no_model.py`, `_readme.py`, `_retirement.py`) are absent from
+`SEC358-G-01`'s new-red set, and it is **OUTSIDE this sitting**. So the roster is **13
+paved pairs + `hw1-companies-over-revenue` (nested `deployment/ccf_config.yaml`, no
+`ccf_environment.yaml`) + `cp-22-agent-internal-assembly` (neither) = 15 names, 15 owed
+trees.** Sixteen directories exist; the sixteenth is not owed by this row. **The sentences
+in §3.2 calling these two questions unsettled, and its "15 names cover 16 trees" framing,
+were true when written and are false after this ruling — and so is §3.4's "`hw1` needs
+its name resolved first".** Nothing else changes: the paved/nested/neither split in §3.2
+is as measured, and every other question in §3.4 is still open.
 
 ### 3.3 What has NOT been measured, and must not be inferred
 
