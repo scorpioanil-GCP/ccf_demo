@@ -130,6 +130,45 @@ two.** `cp-22` needs its own answer (no config at all). `hw1` needs its name res
 first. **Service periods are NOT invented** — `s1-01`'s two were given by Dave
 (2026-08-01T00:05:00Z, 2026-09-15T00:05:00Z).
 
+**AMENDMENT 2026-10-02 — the row is DERIVED. It is NOT a ruling and it is NOT signed
+off.** Dave stated what *can* be ruled; eleven of the fifteen are diagnosed, not ruled.
+Measured read-only on `4e76c5ac`, no estate contact, nothing executed.
+
+**The discriminator is `anchored_at + product_ttl_seconds` against `served_at` — NOT
+"is the decision instant historical".** §3.3's question, asked literally, does not decide
+the column: `src/ccf/products/resolver.py::GovernedResolver._decision_instant` falls back
+to `request.asked_at` when no parameter is declared, and a historical anchor under a long
+enough window still sits inside Gate 3's bound. Route-by-anchor-class alone scored three
+cells wrong before this correction.
+
+**ACT 1 IS OWED BY ALL FIFTEEN.** Zero `temporal_boundary` / `max_past_seconds` keys and
+zero boundary artifacts across the roster, the same probe firing on `s1-01` as a positive
+control. `refuse_temporal_bound` refuses unconditionally before acquisition, so
+`temporal-boundary-undeclared` is the first refusal everywhere. **`acts: one` does not
+mean a tree is clear.**
+
+- **Two acts, settled (9)** — `cp-13-canonical`, `cp-15`, `cp-17`, `cp-18`, `cp-19`,
+  `cp-21`, `cp-23`, `cp-24`, `cp-22`.
+- **`cp-22` has NO declaration site of its own.** It loads
+  `examples/cp-21-large-exposure`'s config (`artifacts/agent-b.yaml:consumed_product.tree`),
+  so act 1 has no site in it; act 2's site is its own call but is unreachable because
+  cp-21's `produce.py::product` forwards no `clock=`. **Ownership stays OPEN. It gets no
+  clock, and the per-tree date is not applied to it.**
+- **One act, structural (2)** — `cp-04-canonical` and `hw1`. The serve instant is already
+  the run clock, not a pinned literal: cp-04-canonical passes `asked_at=datetime.now(UTC)`,
+  and for hw1 `src/ccf/client/adapters/binding_document.py::QuestionDeclaration` retains
+  `binding.yaml`'s `asked_at` while stating no code path reads it.
+- **Four unread anchors, left unfinished (4)** — `dr-02`, `cp-03-canonical`,
+  `cp-06-canonical`, `cp-16`. These take expiry from the data rather than from a pinned
+  date, so their anchor was not read; `from_entity_freshness` cannot borrow `asked_at`,
+  because an unresolved anchor returns `TTLAnchorRefusal` and `_record_refusal` returns
+  before `expires_at` is built. **No database read was authorised and none was made. This
+  is a legitimate stop, not a gap.**
+
+9 + 2 + 4 = 15. **No declaration was written, no service period was written, and the
+per-tree date reading stays unwritten until the buckets are ruled.** §3.4's "`hw1` needs
+its name resolved first" was already superseded by the roster amendment in §3.2.
+
 ### 3.5 The `s1-01` pattern, if and when a repair is authorised
 
 Two artifacts and two code seams, all inside one tree:
