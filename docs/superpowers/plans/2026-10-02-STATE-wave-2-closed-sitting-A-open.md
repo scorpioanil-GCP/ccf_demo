@@ -102,8 +102,8 @@ is true and insufficient**, and Dave has agreed that it is.
 **AMENDMENT 2026-10-02, after §3.2 was written.** Both roster questions are RULED by
 Dave. The count is **thirteen** paved pairs — his earlier "twelve" was a miscount of his
 own thirteen-item list. The ledger's `hw1` means **`hw1-companies-over-revenue`**:
-`tests/examples/test_hw1_empty_fabric_refusal.py:73` imports `EXAMPLE_ROOT` from
-`test_hw1_two_transports`, which sets it at `:90` to `CLIENT_EXAMPLE_ROOTS[0]`, the first
+`tests/examples/test_hw1_empty_fabric_refusal.py` imports `EXAMPLE_ROOT` (module level) from
+`test_hw1_two_transports`, which sets it to `CLIENT_EXAMPLE_ROOTS[0]`, the first
 key of `PERMITTED_IMPORTS`, measured as `examples/hw1-companies-over-revenue`.
 `hw1-harness-clients` is the SECOND key, its own test modules
 (`test_hw1_harness_clients_no_model.py`, `_readme.py`, `_retirement.py`) are absent from
