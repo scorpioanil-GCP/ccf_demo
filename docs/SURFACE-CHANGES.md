@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1781 entries**, of which **1521** name a public Python surface.
+**1782 entries**, of which **1522** name a public Python surface.
 
 ## Added
 
@@ -16343,7 +16343,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-505 entries — 317 public Python surface, 188 not public Python API.
+506 entries — 318 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -16398,6 +16398,44 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   action submitted
 
 *Recorded by `005-verdict-joins-the-signed-claim-set.md`.*
+
+#### ccf.assembly.worker.IdentityRefused
+
+- Surface: ccf.assembly.worker.IdentityRefused
+- Public surface: true
+- Change type: reshaped
+- Before: `__init__(*, envelope_id: str, entity_class: str, key: str,
+  field: str, reason: str)` — every field required; `reason ∈ {"null",
+  "empty", "bool", "float", "non-finite", "non-scalar"}`, all of them faults
+  of a VALUE on a declared identity key. A rule declaring zero identity keys
+  was refused at the same mint site as a bare `ValueError`, outside this class
+- After: `__init__(*, envelope_id: str, entity_class: str, reason: str,
+  key: str | None = None, field: str | None = None)`. A seventh reason,
+  `undeclared`, names an EMPTY DECLARATION: a matching rule with
+  `identity_keys == ()` raises `IdentityRefused(envelope_id=…,
+  entity_class=…, reason="undeclared")` with `key is None` and
+  `field is None`, because nothing was read and there is no key or field to
+  name, and its message reads *"envelope … matched rule for …, which declares
+  no identity keys (undeclared); the fabric refuses to mint a URI from empty
+  identity (SEC-007)"*. The six value reasons keep `key` and `field` set and
+  their message unchanged
+- Why: `IdentityRefused` is the SDK-owned seam class the governed path
+  converts by mechanism (`SDK_SEAM_REFUSALS`, unchanged), so raising the
+  empty-declaration fault BY NAME is what turns a traceback with no record
+  into a refusal at the `acquisition` seam whose replay record carries
+  `identity-refused` / `nonexistent` and the worker's own detail. The map is
+  not widened and the product class declares nothing: the conversion is the
+  existing one
+- Migration: none for a caller constructing the class — `key` and `field`
+  are keyword-only and still accepted, so every existing construction site is
+  unchanged. A caller that catches `IdentityRefused` and reads `key` or
+  `field` must now accept `None` for the `undeclared` reason. A deployment
+  whose resolution spec declares a rule with `identity_keys: []` now receives
+  a governed refusal on the paved road where it previously received a
+  traceback; the declaration itself still constructs, by ruling, so the
+  refusal can name the envelope that reached the mint
+
+*Recorded by `007-empty-identity-declaration-refused-by-name.md`.*
 
 #### ccf.products.contract.ProductLineage
 
