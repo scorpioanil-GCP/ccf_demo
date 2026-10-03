@@ -131,6 +131,39 @@ Three build waves, one decision-only wave, one release:
 
 **Closed and not re-chased:** `SEC-001` (Tier 0), `SEC-003`, `SEC-002`, `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (Tier 1). `SEC-012`/`016`/`018` were re-verified closed on `main` during this recon (`runtime/ccf_runtime/http_api/routes/skill.py:27`, `:248-249`; `runtime/ccf_runtime/cli/credential.py`; `runtime/ccf_runtime/mcp/experience.py:87-90`).
 
+**AMENDMENT 2026-10-03 — `SEC-005`'s unsigned-verdict leg is SHUT. THE
+IDENTIFIER IS NOT CLOSED.** The roster above is stamped *verified on `main` @
+`a5b0f691`*, and its `SEC-005` row is a historical reading: the clause "the
+verdict travels unsigned at both doors" was true at that commit and is false on
+`610c7e3c`. Only that clause is amended here; every other clause of that row,
+and every other row, stands as written and unre-read.
+
+**What is shut, and the evidence.** The verdict is now inside the signed claim
+set: `ccf.hitl.principal.HumanPrincipalBinding` carries a required `verdict`,
+rendered into `canonical_bytes(binding)` and marked a `D-IMPL-243` generation
+boundary, and `ccf.hitl.transport.enforce_signed_binding` refuses a presented
+action that disagrees with the signed one. The evidence is a test that was RED
+first: `tests/workflow/test_engine.py::test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict`,
+committed red at `5819a764` — where a binding signed to reject was presented as
+an approval, admitted by `ApprovalGate.resolve`, and completed the workflow at
+its approving terminal — and green at `33c87718`. Severing the comparison
+reproduces that failure in full, so the test pins the mechanism rather than an
+outcome any guard could satisfy.
+
+**Why the identifier stays OPEN** (Dave, 2026-10-03): *"Closing the identifier
+would claim the rest of that row, including the `action_time` follow-up, which
+was not re-read."* That follow-up — `D-IMPL-353` blocking door replay only
+through `action_time` equality, and the signed leg therefore not working under a
+wall clock, recorded as an unruled follow-up in
+`docs/surface-changes/353-06-the-approval-record-is-server-attested.md` — has
+not been measured since. A leg shut is not a row closed, and this amendment
+records the first and refuses the second.
+
+**Standing as of `610c7e3c`:** no `SEC` identifier is closed by any of the
+2026-10-03 work; the ledger remains 7 of 29. Three legs are shut, each with a
+red-first test on `main`: the empty-identity mint (`a7ef72d1` → `20420d2e`),
+the `gate_routes` write (`6ad276b2` → `ece2ae2d`), and this one.
+
 ---
 
 ## 2. Standing rules for every wave
