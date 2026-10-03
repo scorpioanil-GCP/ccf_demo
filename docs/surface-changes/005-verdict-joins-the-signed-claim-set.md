@@ -66,3 +66,29 @@ assembler uses it only as a sort key.
   findable under the name they actually use
 - Migration: identical to the entry above — include `verdict`, equal to the
   action submitted
+
+## ccf_runtime.identity_binding.principal_from_authorized
+
+- Surface: ccf_runtime.identity_binding.principal_from_authorized
+- Public surface: true
+- Change type: added
+- Before: `(authorized, *, authentication, action_time, product_content_hash)
+  -> HumanPrincipalBinding` — the door minted a binding with no verdict in it,
+  because the contract had no verdict to mint
+- After: a required keyword-only `action: 'str'`, stored as the binding's
+  `verdict`. Full shape:
+  `(authorized: 'Authorized[HitlSubmit]', *, authentication:
+  'AuthenticationClaims', action_time: 'datetime', product_content_hash:
+  'str', action: 'str') -> 'HumanPrincipalBinding'`
+- Why: the verdict has to reach the signed claims from somewhere, and the door
+  is the only minting site (`SEC-005`). Required rather than defaulted: a door
+  that forgot it would otherwise mint a binding attesting a decision nobody
+  made. `Change type: added` rather than `reshaped` because the name is absent
+  from the frozen baseline `docs/surface/v0.2-surface-baseline.json`, so the
+  completeness gate places it in the `added` partition — the same reason
+  `353-06-the-approval-record-is-server-attested.md` records it as added; this
+  entry carries the migration note for the keyword that commit did not have
+- Migration: any caller invoking this function directly must pass `action=`,
+  equal to the action it submits. Both served doors already do — the HTTP door
+  from `body.action`, the MCP door from its `action` parameter — so a
+  deployment that reaches the fabric only through them needs no change

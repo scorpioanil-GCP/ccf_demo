@@ -25,15 +25,43 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1780 entries**, of which **1520** name a public Python surface.
+**1781 entries**, of which **1521** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1013 entries — 969 public Python surface, 44 not public Python API.
+1014 entries — 970 public Python surface, 44 not public Python API.
 
 ### Public Python surface
+
+#### ccf_runtime.identity_binding.principal_from_authorized
+
+- Surface: ccf_runtime.identity_binding.principal_from_authorized
+- Public surface: true
+- Change type: added
+- Before: `(authorized, *, authentication, action_time, product_content_hash)
+  -> HumanPrincipalBinding` — the door minted a binding with no verdict in it,
+  because the contract had no verdict to mint
+- After: a required keyword-only `action: 'str'`, stored as the binding's
+  `verdict`. Full shape:
+  `(authorized: 'Authorized[HitlSubmit]', *, authentication:
+  'AuthenticationClaims', action_time: 'datetime', product_content_hash:
+  'str', action: 'str') -> 'HumanPrincipalBinding'`
+- Why: the verdict has to reach the signed claims from somewhere, and the door
+  is the only minting site (`SEC-005`). Required rather than defaulted: a door
+  that forgot it would otherwise mint a binding attesting a decision nobody
+  made. `Change type: added` rather than `reshaped` because the name is absent
+  from the frozen baseline `docs/surface/v0.2-surface-baseline.json`, so the
+  completeness gate places it in the `added` partition — the same reason
+  `353-06-the-approval-record-is-server-attested.md` records it as added; this
+  entry carries the migration note for the keyword that commit did not have
+- Migration: any caller invoking this function directly must pass `action=`,
+  equal to the action it submits. Both served doors already do — the HTTP door
+  from `body.action`, the MCP door from its `action` parameter — so a
+  deployment that reaches the fabric only through them needs no change
+
+*Recorded by `005-verdict-joins-the-signed-claim-set.md`.*
 
 #### ccf.replay.record.NO_ASSEMBLY_REFUSAL
 

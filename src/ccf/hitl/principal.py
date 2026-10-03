@@ -173,7 +173,11 @@ class HumanPrincipalBinding(CCFContract):
     At the served doors this is minted by
     :func:`ccf_runtime.identity_binding.principal_from_authorized` from the
     capability, the verified :class:`AuthenticationClaims` and the door's
-    clock — the caller supplies only the product hash (D-IMPL-353 §2 P6).
+    clock — the caller supplies the product hash and the verdict, and nothing
+    about their own identity (D-IMPL-353 §2 P6; SEC-005). The sentence that
+    stood here until 2026-10-03 said "only the product hash", which this
+    contract's own `verdict` field made false the moment it was added, and that
+    description is PUBLISHED in `openapi.json`.
     """
 
     approver: ApproverIdentity
