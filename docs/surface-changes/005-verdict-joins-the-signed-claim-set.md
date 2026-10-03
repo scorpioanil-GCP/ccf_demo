@@ -92,3 +92,5 @@ assembler uses it only as a sort key.
   equal to the action it submits. Both served doors already do — the HTTP door
   from `body.action`, the MCP door from its `action` parameter — so a
   deployment that reaches the fabric only through them needs no change
+- Comment 2026-10-03: this entry was not produced by the completeness gate. That gate diffs the live surface against the frozen baseline, not the previous commit. `principal_from_authorized` was already outside that baseline and already claimed as `added` by `353-06`, so the new required `action` keyword produced no unclaimed name. It is recorded here because a reader of the earlier `added` entry would not learn that the call shape changed.
+
