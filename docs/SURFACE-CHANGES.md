@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1778 entries**, of which **1518** name a public Python surface.
+**1780 entries**, of which **1520** name a public Python surface.
 
 ## Added
 
@@ -16308,9 +16308,61 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-503 entries — 315 public Python surface, 188 not public Python API.
+505 entries — 317 public Python surface, 188 not public Python API.
 
 ### Public Python surface
+
+#### ccf.hitl.principal.HumanPrincipalBinding
+
+- Surface: ccf.hitl.principal.HumanPrincipalBinding
+- Public surface: true
+- Change type: reshaped
+- Before: four required fields — `approver`, `authentication`, `action_time`,
+  `product_content_hash`. The verdict was not among them, so
+  `canonical_bytes(binding)` did not cover it and
+  `ccf.hitl.transport.enforce_signed_binding` compared only the signature and
+  the principal
+- After: a fifth required field, `verdict: str`, marked
+  `json_schema_extra={HASH_TRANSPARENT_KEY: False}` — a `D-IMPL-243`
+  generation boundary, rendered into every binding's hash, so a stored object
+  lacking it is named by `generation_mismatch` rather than verifying
+  silently. `enforce_signed_binding` now raises `SignedBindingInvalidRefused`
+  when the verified binding's `verdict` is not the submission's `action`
+- Why: a signature that still verifies after the action is swapped authorizes
+  a decision the approver never made (`SEC-005`). Binding the verdict into the
+  signed bytes is what makes non-repudiation mean what a deployment that
+  turned `HitlPolicy.signed_binding_required` on already believed it meant
+- Migration: **a client that signs its own binding must include the verdict,
+  and it must equal the action the client submits.** The served doors need no
+  change — both mint the binding through
+  `ccf_runtime.identity_binding.principal_from_authorized`, which binds the
+  verdict from the request field the submission already carries. For
+  `ccf.hitl.override.OverrideBoundary` the submitted action is derived
+  (`override` when a substitute is supplied, otherwise `approve`), so an
+  approver signs the verdict matching the resolve they are performing. The
+  binding's content hash moves for every instance, by design; no stored signed
+  binding is re-verified anywhere in the SDK, so nothing written before this
+  change has to keep verifying
+
+*Recorded by `005-verdict-joins-the-signed-claim-set.md`.*
+
+#### ccf.hitl.HumanPrincipalBinding
+
+- Surface: ccf.hitl.HumanPrincipalBinding
+- Public surface: true
+- Change type: reshaped
+- Before: the `ccf.hitl` package re-export of the same class, carrying the
+  same four required fields
+- After: the same reshape, reached through the package path — recorded
+  separately because the manifest tracks the re-export as its own name and
+  the completeness gate matches at name granularity
+- Why: the same ruling; see the entry above. A reader who imports from
+  `ccf.hitl` rather than `ccf.hitl.principal` needs the migration note to be
+  findable under the name they actually use
+- Migration: identical to the entry above — include `verdict`, equal to the
+  action submitted
+
+*Recorded by `005-verdict-joins-the-signed-claim-set.md`.*
 
 #### ccf.products.contract.ProductLineage
 

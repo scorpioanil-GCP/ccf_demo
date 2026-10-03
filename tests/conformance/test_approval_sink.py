@@ -120,6 +120,7 @@ def sink_factory(request: pytest.FixtureRequest) -> Iterator[SinkFactory]:
                 event_key=event.event_key,
                 action="approve" if approve else "reject",
                 principal=HumanPrincipalBinding(
+                    verdict="approve",
                     approver=ApproverIdentity(**approver["identity"]),
                     authentication=AuthenticationContext(
                         **approver["authentication"]

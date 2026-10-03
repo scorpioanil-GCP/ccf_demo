@@ -141,6 +141,7 @@ def principal_from_authorized(
     authentication: AuthenticationClaims,
     action_time: datetime,
     product_content_hash: str,
+    action: str,
 ) -> HumanPrincipalBinding:
     """Mint the binding for one human action from what the door verified.
 
@@ -154,6 +155,10 @@ def principal_from_authorized(
             wall clock read inside this function.
         product_content_hash: The D-IMPL-26 content hash of the Context
             Product the approver saw — the one value the human states.
+        action: The verdict this human is submitting, which the door already
+            holds and now binds INTO the signed claims (`SEC-005`). Passed
+            rather than defaulted: a door that forgot it would otherwise mint
+            a binding attesting a decision nobody made.
 
     Returns:
         The typed binding, validated by the contract's own gates.
@@ -170,4 +175,5 @@ def principal_from_authorized(
         ),
         action_time=action_time,
         product_content_hash=product_content_hash,
+        verdict=action,
     )

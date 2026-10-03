@@ -433,7 +433,7 @@ git commit -m "fix(357-A3): resume holds the caller's decision to the artifact's
 - Test: `tests/workflow/test_engine.py` (in-process, through the submit-only path) and `tests/http_api/test_routes.py` (through `POST /hitl/actions` twice)
 
 **Interfaces:**
-- Consumes: `HitlActionSubmission` (`src/ccf/hitl/transport.py:377`), `transport.submit(authorized, submission=…)`, `submit_capability(...)` and `_binding(hash, subject_id=…)` from the test modules.
+- Consumes: `HitlActionSubmission` (`src/ccf/hitl/transport.py::HitlActionSubmission`), `transport.submit(authorized, submission=…)`, `submit_capability(...)` and `_binding(hash, subject_id=…)` from the test modules.
 - Produces: `_gate_authority(...) -> tuple[HitlActionSubmission, ...]`; `resume` refuses (typed, audited `resolved=False, actor=None`) when `{s.action for s in qualifying}` has more than one member.
 
 - [ ] **Step 1: Write the failing tests**

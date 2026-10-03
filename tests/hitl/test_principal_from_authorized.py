@@ -59,6 +59,7 @@ def test_the_subject_is_the_capabilitys_principal() -> None:
         authentication=_CLAIMS,
         action_time=_TIME,
         product_content_hash=_HASH,
+        action="approve",
     )
     assert binding.approver.subject_id == "credit-officer-7"
     assert binding.approver.identity_provider_ref == _CLAIMS.identity_provider_ref
@@ -78,6 +79,12 @@ def test_no_parameter_exists_for_the_subject_or_any_claim_axis() -> None:
         "authentication",
         "action_time",
         "product_content_hash",
+        # SEC-005 (Dave, 2026-10-03): the verdict joins the signed claim set,
+        # so it has to reach the binding — and like `product_content_hash` it
+        # is a value the HUMAN states, not an attestation claim a caller could
+        # forge about their own identity. The forbidden list below is what this
+        # test actually protects, and it is unchanged.
+        "action",
     }
     for forbidden in (
         "subject_id",
@@ -98,6 +105,7 @@ def test_the_contract_validators_are_not_laundered() -> None:
             authentication=_CLAIMS,
             action_time=_TIME,
             product_content_hash="not-a-hash",
+            action="approve",
         )
 
 

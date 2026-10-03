@@ -126,7 +126,7 @@ def build_app(scratch: pathlib.Path) -> Any:
     from ccf.artifacts.protocol import WriteKinds
     from ccf.authz.capability import (
         COMPOSITION_PRINCIPAL,
-        Register,
+        CompositionRegister,
         ReplayMint,
         mint_at_composition,
     )
@@ -163,13 +163,20 @@ def build_app(scratch: pathlib.Path) -> Any:
         event = plane.audit_log.append(
             action="composition",
             key=key,
-            version=Register.action_id,
+            version=CompositionRegister.action_id,
             resolved=True,
             occurred_at=datetime.now(UTC),
             actor=COMPOSITION_PRINCIPAL,
         )
         return mint_at_composition(
-            Register,
+            # `CompositionRegister`, not `Register` (= `ConfigRegister`):
+            # `mint_at_composition` mints `ReplayMint` and
+            # `CompositionRegister` and nothing else (`D-IMPL-353` §1.1,
+            # `D-IMPL-354`), so this recipe had stopped running at all and the
+            # documented `make openapi` regeneration raised
+            # `CapabilityBypassError` before emitting anything. Same recipe
+            # `tests/composition.py::composition_register` uses.
+            CompositionRegister,
             tenant=key.partition("/")[0],
             principal=COMPOSITION_PRINCIPAL,
             resource=key,

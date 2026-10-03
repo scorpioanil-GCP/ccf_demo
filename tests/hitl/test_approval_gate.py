@@ -91,6 +91,7 @@ def _principal(
 ) -> HumanPrincipalBinding:
     approver = fixture["approvers"]["credit_officer"]
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=ApproverIdentity(**approver["identity"]),
         authentication=AuthenticationContext(**approver["authentication"]),
         action_time=datetime.fromisoformat(approver["action_time"]),

@@ -39,6 +39,7 @@ def _binding_document() -> dict[str, Any]:
         },
         "action_time": ACTION_TIME,
         "product_content_hash": content_hash({"product": "seen"}),
+        "verdict": "approve",
     }
 
 

@@ -47,9 +47,10 @@ import string
 from datetime import datetime
 from typing import Final
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 
 __ccf_mode__ = "algorithmic"
 
@@ -160,9 +161,10 @@ class AuthenticationClaims(CCFContract):
 class HumanPrincipalBinding(CCFContract):
     """One human action's complete principal binding (D-IMPL-21; CLAUDE.md §8.2).
 
-    SDK-defined. The four D-IMPL-21 fields, all required: approver identity,
-    authentication context, action time (injected), and the content hash of
-    the Context Product the approver saw. Audit-by-construction holds
+    SDK-defined. The four D-IMPL-21 fields plus the verdict, all required:
+    approver identity, authentication context, action time (injected), the
+    content hash of the Context Product the approver saw, and WHAT THEY
+    DECIDED. Audit-by-construction holds
     regardless of identity provider: no HITL action lands without a binding,
     because the HITL action contracts require this type as a field —
     omission is a validation error at the boundary, never a null in the
@@ -178,6 +180,30 @@ class HumanPrincipalBinding(CCFContract):
     authentication: AuthenticationContext
     action_time: datetime
     product_content_hash: str
+
+    #: WHAT THE APPROVER DECIDED, and a SIGNED claim (`SEC-005`; Dave,
+    #: 2026-10-03: *"The verdict joins the signed claim set. A signature that
+    #: still verifies after the action is swapped authorizes a decision the
+    #: approver never made."*). Until it was a field here the signed payload —
+    #: ``canonical_bytes(binding)`` — covered who acted, how they
+    #: authenticated, when, and what they saw, but never the decision: that
+    #: travelled beside the binding as ``HitlActionSubmission.action`` and
+    #: again as ``ApprovalGate.resolve``'s own parameter, so ONE valid
+    #: signature authorized either verdict. Measured before this field
+    #: existed: a binding signed to reject was presented as an approval,
+    #: admitted, and the workflow completed at the approving terminal.
+    #:
+    #: A GENERATION BOUNDARY (`D-IMPL-243` amendment 1), not hash-transparent.
+    #: It is rendered into every binding's hash, which is the point — a
+    #: signature that did not cover the verdict belongs to an earlier
+    #: generation of this contract, and `generation_mismatch` names it rather
+    #: than letting it verify silently.
+    #:
+    #: The vocabulary is the submission's, deliberately not re-declared here:
+    #: this value is compared against ``HitlActionSubmission.action`` by
+    #: ``ccf.hitl.transport.enforce_signed_binding``, and a second enumeration
+    #: would be a second place for the two to drift apart.
+    verdict: str = Field(json_schema_extra={HASH_TRANSPARENT_KEY: False})
 
     @field_validator("product_content_hash")
     @classmethod

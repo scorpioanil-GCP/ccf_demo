@@ -82,10 +82,20 @@ def _clock() -> Any:
 
 
 def _principal(
-    fixture: dict[str, Any], *, product_content_hash: str
+    fixture: dict[str, Any],
+    *,
+    product_content_hash: str,
+    # SEC-005: the verdict is a signed claim and `enforce_signed_binding`
+    # compares it to the submission's action. `OverrideBoundary.resolve`
+    # submits `override` only when a substitute is actually supplied
+    # (`overridden = override is not None`), so an approver signs `override`
+    # exactly when they are substituting a value and `approve` when they are
+    # letting the determination stand.
+    verdict: str = "approve",
 ) -> HumanPrincipalBinding:
     approver = fixture["approvers"]["credit_officer"]
     return HumanPrincipalBinding(
+        verdict=verdict,
         approver=ApproverIdentity(**approver["identity"]),
         authentication=AuthenticationContext(**approver["authentication"]),
         action_time=datetime.fromisoformat(approver["action_time"]),
@@ -393,7 +403,11 @@ def test_override_required_and_valid_binding_passes_both_layers(
     document = fixture["override"]["event"]
     substitute = _Determination(**fixture["override"]["substitute"])
     principal = _principal(
-        fixture, product_content_hash=content_hash(original)
+        fixture,
+        product_content_hash=content_hash(original),
+        # This approver IS substituting a value, so the action the boundary
+        # will submit is `override` — and that is what they sign (SEC-005).
+        verdict="override",
     )
     signed = sign_principal_binding(principal, provider=provider, key_id=kid)
     resolution = boundary.resolve(

@@ -366,6 +366,8 @@ def build_hitl_server(
             authentication=authentication,
             action_time=clock(),
             product_content_hash=product_content_hash,
+            # SEC-005: see the HTTP door — the verdict joins the signed claims.
+            action=action,
         )
         if (signed_binding_signature is None) != (signed_binding_key_id is None):
             raise ValueError(

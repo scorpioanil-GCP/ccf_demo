@@ -214,6 +214,7 @@ class World:
             event_key=suspended.event_key,
             action="approve",
             principal=HumanPrincipalBinding(
+                verdict="approve",
                 approver=ApproverIdentity(**approver["identity"]),
                 authentication=AuthenticationContext(
                     **approver["authentication"]

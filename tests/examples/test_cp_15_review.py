@@ -156,6 +156,7 @@ def _binding(product_content_hash: str) -> HumanPrincipalBinding:
     approver = HumanPrincipalBinding.model_fields["approver"].annotation
     authentication = HumanPrincipalBinding.model_fields["authentication"].annotation
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=approver(subject_id=REVIEWER, identity_provider_ref="cp-15-demo-idp"),
         authentication=authentication(method="password", assurance_level="aal2",
                                       session_ref="cp-15-demo-session"),

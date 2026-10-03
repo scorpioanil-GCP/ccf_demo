@@ -162,6 +162,10 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                 authentication=authentication,
                 action_time=clock(),
                 product_content_hash=body.product_content_hash,
+                # SEC-005: the verdict is bound INTO the signed claims, from
+                # the same request field the submission carries, so a
+                # signature cannot later authorize a different decision.
+                action=body.action,
             ),
             annotation=body.annotation,
             signed_binding=body.signed_binding,

@@ -71,6 +71,7 @@ def _binding(subject_id: str = PRINCIPAL) -> HumanPrincipalBinding:
             },
             "action_time": ACTION_TIME,
             "product_content_hash": PRODUCT_HASH,
+            "verdict": "approve",
         }
     )
 

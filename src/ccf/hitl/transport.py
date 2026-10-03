@@ -324,6 +324,23 @@ def enforce_signed_binding(
             " submission's principal; a valid signature over a"
             " different identity binds nothing here (D-16; T-08-06)"
         )
+    if verified.verdict != submission.action:
+        # SEC-005. The verdict is a SIGNED claim (`HumanPrincipalBinding.
+        # verdict`), so a presented action that is not the one the approver
+        # signed is refused here rather than recorded as theirs. Before the
+        # verdict joined the claim set this comparison had nothing to read:
+        # the signature covered who acted, how, when and what they saw, and
+        # `submission.action` was never an input to any verification — so one
+        # valid signature authorized either decision, and a binding signed to
+        # reject completed a workflow at its approving terminal.
+        #
+        # Compared, not re-derived: the authority is the signed bytes, and
+        # this check only refuses a presentation that disagrees with them.
+        raise SignedBindingInvalidRefused(
+            "the verified signed binding's verdict is not the submission's"
+            " action; a signature over one decision does not authorize"
+            " another (SEC-005; D-16; D-IMPL-21)"
+        )
 
 
 class HitlActionRequest(CCFContract):

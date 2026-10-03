@@ -175,6 +175,7 @@ class _Bindings:
 def _principal(*, product_content_hash: str) -> HumanPrincipalBinding:
     approver = _load("hitl.yaml")["approvers"]["credit_officer"]
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=ApproverIdentity(**approver["identity"]),
         authentication=AuthenticationContext(**approver["authentication"]),
         action_time=datetime.fromisoformat(approver["action_time"]),

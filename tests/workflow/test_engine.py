@@ -740,9 +740,21 @@ def test_resuming_with_an_undeclared_decision_is_a_typed_refusal(
 # restored control — they fail against the pre-fix engine.
 
 
-def _binding(product_content_hash: str, *, subject_id: str = "officer-1"):
-    """One approver's complete D-IMPL-21 binding over what they saw."""
+def _binding(
+    product_content_hash: str,
+    *,
+    subject_id: str = "officer-1",
+    verdict: str = "approve",
+):
+    """One approver's complete D-IMPL-21 binding over what they saw and decided.
+
+    ``verdict`` is a SIGNED claim (`SEC-005`), so it is a parameter rather than
+    a constant: a helper that pinned one verdict could not express an approver
+    who rejected, and `enforce_signed_binding` compares this value against the
+    submission's action.
+    """
     return HumanPrincipalBinding(
+        verdict=verdict,
         approver=ApproverIdentity(
             subject_id=subject_id,
             identity_provider_ref="oidc://acme-bank/staff",
@@ -782,7 +794,7 @@ def _resolve_gate(
         event_key=event_key,
         action=action,
         principal=_binding(
-            pending.product_content_hash, subject_id=subject_id
+            pending.product_content_hash, subject_id=subject_id, verdict=action
         ),
     )
     assert isinstance(resolution, GateResolution)
@@ -2192,7 +2204,9 @@ def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
         for event in transport.pending(tenant=tenant)
         if event.event_key == suspended.event_key
     )
-    binding = _binding(pending.product_content_hash, subject_id="officer-2")
+    binding = _binding(
+        pending.product_content_hash, subject_id="officer-2", verdict="reject"
+    )
     signed = sign_principal_binding(
         binding, provider=provider, key_id=_SIGNING_KID
     )
@@ -2219,22 +2233,35 @@ def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
     else:
         verified_after_swap = True
 
-    swapped = ApprovalGate(
-        transport=transport, audit=registry.audit_log, clock=_ticking_clock()
-    ).resolve(
-        submit_capability(
-            tenant=tenant, principal="officer-2", event_key=suspended.event_key
-        ),
-        event_key=suspended.event_key,
-        action="approve",
-        principal=binding,
-        signed_binding=signed,
-    )
-    outcome = asyncio.run(
-        engine.resume(
-            resume_as(workflow), workflow, execution_id="exec-1", decision=approving
+    # Wrapped for the reason the null-identity control is wrapped: a repair
+    # that starts REFUSING must not abort before the assertions are reached.
+    # The gate invokes the same shared helper, so once the verdict is a signed
+    # claim the refusal surfaces here too, not only at `enforce_signed_binding`.
+    swapped: object
+    try:
+        swapped = ApprovalGate(
+            transport=transport, audit=registry.audit_log, clock=_ticking_clock()
+        ).resolve(
+            submit_capability(
+                tenant=tenant, principal="officer-2", event_key=suspended.event_key
+            ),
+            event_key=suspended.event_key,
+            action="approve",
+            principal=binding,
+            signed_binding=signed,
         )
-    )
+    except SignedBindingInvalidRefused as refused:
+        swapped = refused
+    outcome: object | None = None
+    if isinstance(swapped, GateResolution):
+        outcome = asyncio.run(
+            engine.resume(
+                resume_as(workflow),
+                workflow,
+                execution_id="exec-1",
+                decision=approving,
+            )
+        )
     after = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-1")
     assert isinstance(after, WorkflowStateRecord)
 

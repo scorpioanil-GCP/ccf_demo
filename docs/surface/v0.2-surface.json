@@ -788,6 +788,7 @@
       "EntityResolutionSpec",
       "EntityResolutionStrategy",
       "FederatedIngestSpec",
+      "IdentityRefused",
       "IngestResult",
       "NO_RESOLVING_RULE",
       "RelationshipResolutionRule",
@@ -828,6 +829,10 @@
           "record_key_aliases": "collections.abc.Mapping[str, str]",
           "source_system_id": "<class 'str'>"
         }
+      },
+      "IdentityRefused": {
+        "kind": "class",
+        "shape": "(*, envelope_id: 'str', entity_class: 'str', key: 'str', field: 'str', reason: 'str') -> 'None'"
       },
       "IngestResult": {
         "kind": "contract",
@@ -2243,7 +2248,9 @@
       "AuditEvent",
       "AuditLog",
       "AuthzDecisionAuditEvent",
-      "AuthzFailingAxis"
+      "AuthzFailingAxis",
+      "WorkflowVerdictIntegrityAuditEvent",
+      "WorkflowVerdictIntegrityFailure"
     ],
     "exports": {
       "AuditAction": {
@@ -2288,6 +2295,25 @@
       "AuthzFailingAxis": {
         "kind": "function",
         "shape": "typing.Literal['tenant', 'action', 'resource', 'mapping']"
+      },
+      "WorkflowVerdictIntegrityAuditEvent": {
+        "kind": "contract",
+        "shape": {
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition']",
+          "actor": "str | None",
+          "artifact_class": "str | None",
+          "key": "<class 'str'>",
+          "occurred_at": "<class 'datetime.datetime'>",
+          "resolved": "<class 'bool'>",
+          "sequence": "<class 'int'>",
+          "version": "<class 'str'>",
+          "workflow_recorded_approver": "str | None",
+          "workflow_verdict_integrity": "typing.Optional[typing.Literal['route_disagreement', 'conflicting_verdicts']]"
+        }
+      },
+      "WorkflowVerdictIntegrityFailure": {
+        "kind": "function",
+        "shape": "typing.Literal['route_disagreement', 'conflicting_verdicts']"
       }
     }
   },
@@ -4219,7 +4245,8 @@
           "action_time": "<class 'datetime.datetime'>",
           "approver": "<class 'ccf.hitl.principal.ApproverIdentity'>",
           "authentication": "<class 'ccf.hitl.principal.AuthenticationContext'>",
-          "product_content_hash": "<class 'str'>"
+          "product_content_hash": "<class 'str'>",
+          "verdict": "<class 'str'>"
         }
       },
       "InMemoryHitlTransport": {
@@ -4657,7 +4684,8 @@
           "action_time": "<class 'datetime.datetime'>",
           "approver": "<class 'ccf.hitl.principal.ApproverIdentity'>",
           "authentication": "<class 'ccf.hitl.principal.AuthenticationContext'>",
-          "product_content_hash": "<class 'str'>"
+          "product_content_hash": "<class 'str'>",
+          "verdict": "<class 'str'>"
         }
       },
       "validate_content_hash": {
@@ -7025,13 +7053,19 @@
       "AnchorAmbiguityRefusal",
       "ArgumentDomain",
       "NO_REQUEST_CONTRACT",
+      "PARAMETER_VALUE_FLOOR_EXCLUSIONS",
+      "PARAMETER_VALUE_FLOOR_V1",
+      "PARAMETER_VALUE_FLOOR_VERSION",
       "PRODUCT_REQUEST_CONTRACT",
       "ProductRequest",
       "ProductRequestContract",
       "ProductRequestViolation",
       "ProductRequestViolationReason",
       "RelativeDefault",
+      "SUBJECT_FLOOR_V1",
+      "SUBJECT_FLOOR_VERSION",
       "decode_declared_request",
+      "refuse_floor",
       "refuse_intent",
       "refuse_request",
       "refuse_request_contract_pin",
@@ -7052,10 +7086,23 @@
         "shape": {
           "maximum": "decimal.Decimal | None",
           "members": "tuple[str | int | bool | decimal.Decimal, ...] | None",
-          "minimum": "decimal.Decimal | None"
+          "minimum": "decimal.Decimal | None",
+          "pattern": "str | None"
         }
       },
       "NO_REQUEST_CONTRACT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "PARAMETER_VALUE_FLOOR_EXCLUSIONS": {
+        "kind": "constant",
+        "shape": "mappingproxy"
+      },
+      "PARAMETER_VALUE_FLOOR_V1": {
+        "kind": "constant",
+        "shape": "Pattern"
+      },
+      "PARAMETER_VALUE_FLOOR_VERSION": {
         "kind": "constant",
         "shape": "str"
       },
@@ -7087,6 +7134,7 @@
           "schema_name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "semver": "<class 'str'>",
+          "subject_domain": "ccf.products.request.ArgumentDomain | None",
           "unsupported_arguments": "collections.abc.Mapping[str, str]"
         }
       },
@@ -7100,12 +7148,12 @@
           "overrides": "tuple[ccf.products.provenance.OverrideRecord, ...]",
           "presented_keys": "frozenset[str]",
           "presented_type": "str | None",
-          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain']"
+          "reason": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain', 'malformed-value']"
         }
       },
       "ProductRequestViolationReason": {
         "kind": "function",
-        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain']"
+        "shape": "typing.Literal['undeclared-parameter', 'missing-required-parameter', 'type-mismatch', 'class-mismatch', 'not-supported-at-tier', 'not-a-proportion', 'below-minimum', 'above-maximum', 'not-in-domain', 'malformed-value']"
       },
       "RelativeDefault": {
         "kind": "contract",
@@ -7114,9 +7162,21 @@
           "render": "typing.Literal['date', 'timestamp']"
         }
       },
+      "SUBJECT_FLOOR_V1": {
+        "kind": "constant",
+        "shape": "Pattern"
+      },
+      "SUBJECT_FLOOR_VERSION": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "decode_declared_request": {
         "kind": "function",
         "shape": "(request: 'ProductRequest', declared: 'ProductRequestContract') -> 'ProductRequest'"
+      },
+      "refuse_floor": {
+        "kind": "function",
+        "shape": "(*, request: 'ProductRequest', declared: 'ProductRequestContract') -> 'ProductRequestViolation | None'"
       },
       "refuse_intent": {
         "kind": "function",
@@ -8954,6 +9014,7 @@
           "artifact_version": "<class 'str'>",
           "exception_refs": "collections.abc.Mapping[str, str]",
           "gate_policies": "collections.abc.Mapping[str, str]",
+          "gate_routes": "collections.abc.Mapping[str, collections.abc.Mapping[str, str]]",
           "name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "start": "<class 'str'>",
@@ -9011,6 +9072,7 @@
           "artifact_version": "<class 'str'>",
           "exception_refs": "collections.abc.Mapping[str, str]",
           "gate_policies": "collections.abc.Mapping[str, str]",
+          "gate_routes": "collections.abc.Mapping[str, collections.abc.Mapping[str, str]]",
           "name": "<class 'str'>",
           "schema_version": "<class 'str'>",
           "start": "<class 'str'>",
@@ -10792,7 +10854,7 @@
       },
       "principal_from_authorized": {
         "kind": "function",
-        "shape": "(authorized: 'Authorized[HitlSubmit]', *, authentication: 'AuthenticationClaims', action_time: 'datetime', product_content_hash: 'str') -> 'HumanPrincipalBinding'"
+        "shape": "(authorized: 'Authorized[HitlSubmit]', *, authentication: 'AuthenticationClaims', action_time: 'datetime', product_content_hash: 'str', action: 'str') -> 'HumanPrincipalBinding'"
       }
     }
   },

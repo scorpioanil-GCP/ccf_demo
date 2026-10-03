@@ -197,6 +197,7 @@ def _principal(
 ) -> HumanPrincipalBinding:
     approver = _load("hitl.yaml")["approvers"][approver_key]
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=ApproverIdentity(**approver["identity"]),
         authentication=AuthenticationContext(**approver["authentication"]),
         action_time=datetime.fromisoformat(approver["action_time"]),

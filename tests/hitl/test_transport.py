@@ -54,6 +54,7 @@ def _binding() -> HumanPrincipalBinding:
             },
             "action_time": ACTION_TIME,
             "product_content_hash": content_hash({"product": "seen"}),
+            "verdict": "approve",
         }
     )
 

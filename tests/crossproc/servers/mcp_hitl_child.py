@@ -198,6 +198,7 @@ def principal_binding(*, product_content_hash: str) -> HumanPrincipalBinding:
     """The fixture credit officer's complete binding — shared with the parent."""
     approver = _hitl_fixture()["approvers"]["credit_officer"]
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=ApproverIdentity(**approver["identity"]),
         authentication=AuthenticationContext(**approver["authentication"]),
         action_time=datetime.fromisoformat(approver["action_time"]),

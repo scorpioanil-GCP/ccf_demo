@@ -82,6 +82,7 @@ def _write_key(directory: Path, key_id: str) -> ECKey:
 
 def _binding(subject_id: str = "approver-1") -> HumanPrincipalBinding:
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=ApproverIdentity(
             subject_id=subject_id,
             identity_provider_ref="test-idp",

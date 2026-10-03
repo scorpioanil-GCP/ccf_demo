@@ -83,6 +83,7 @@ def _minted_binding(*, assurance_level: str = _CLAIMS.assurance_level) -> HumanP
     signer must sign. ``assurance_level`` is a parameter only so a test can
     sign a binding the door will NOT mint."""
     return HumanPrincipalBinding(
+        verdict="approve",
         approver=ApproverIdentity(
             subject_id=_CLIENT_ID,
             identity_provider_ref=_CLAIMS.identity_provider_ref,
