@@ -493,6 +493,28 @@ class SpecDrivenEntityResolution:
             # the field of the same name, which is every rule written before
             # `identity_sources` existed.
             source_of = {key: rule.identity_sources.get(key, key) for key in rule.identity_keys}
+            # A RULE THAT DECLARES NO IDENTITY IS NOT AN ENTITY (SEC-007
+            # residual; Dave, 2026-10-03). The admissibility loop below fills
+            # `identity` from `source_of`, so an empty declaration reaches the
+            # mint as `{}` and EVERY record the rule matches converges on
+            # `<entity-class>://content_hash({})` — one node shared by records
+            # with nothing in common but the rule, and a node anyone who knows
+            # the entity class can derive, because `content_hash({})` is
+            # `sha256(b"{}")`. The presence check below cannot see it (`missing`
+            # is empty) and `_identity_text` is never called, so neither
+            # existing refusal fires.
+            #
+            # The empty map is REFUSED rather than coerced into a URI: there is
+            # no identity to hash. Refused HERE rather than at declaration so
+            # the refusal names the envelope that reached the mint, matching the
+            # partial-identity refusal immediately below — zero identity is its
+            # degenerate case, not a different kind of fault.
+            if not source_of:
+                raise ValueError(
+                    f"envelope {envelope.envelope_id!r} matched rule for "
+                    f"{rule.entity_class!r}, which declares no identity keys; "
+                    "the fabric refuses to mint a URI from empty identity"
+                )
             missing = [
                 key for key, field in source_of.items() if field not in payload
             ]
