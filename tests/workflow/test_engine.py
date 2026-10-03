@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -44,6 +45,7 @@ from typing import Any
 
 import pytest
 import yaml
+from joserfc.jwk import ECKey
 
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal
 
@@ -80,7 +82,19 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
-from ccf.hitl.transport import HitlActionSubmission, InMemoryHitlTransport
+from ccf.hitl.identity_binding import sign_principal_binding
+from ccf.hitl.transport import (
+    HITL_POLICY,
+    HitlActionSubmission,
+    HitlPolicy,
+    InMemoryHitlTransport,
+    SignedBindingInvalidRefused,
+    enforce_signed_binding,
+)
+from ccf.peering.identity import (
+    DetachedJwsIdentityProvider,
+    FileBackedKeySource,
+)
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -112,6 +126,7 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
+from tests.composition import register_typed_at_composition
 from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
@@ -354,8 +369,9 @@ def _engine(
     *,
     failing: frozenset[str] = frozenset(),
     debt: bool = True,
+    transport: InMemoryHitlTransport | None = None,
 ) -> tuple[WorkflowEngine, InMemoryHitlTransport, _Bindings]:
-    transport = InMemoryHitlTransport()
+    transport = InMemoryHitlTransport() if transport is None else transport
     bindings = _Bindings(failing=failing)
     engine = WorkflowEngine(
         control_plane=registry,
@@ -2084,3 +2100,156 @@ def test_a_conflicting_verdict_refusal_is_a_distinct_audited_record(
     )
     assert type(caller_refusal) is AuditEvent
     assert caller_refusal.actor is None
+
+
+# --- SEC-005: the signed binding does not cover the verdict -------------------
+
+#: This test-as-deployment's own vocabulary (CINV-01): the signing key it
+#: writes and the Control Plane key it binds its HITL policy under.
+_SIGNING_KID = "hitl-approver-signing-key"
+_HITL_POLICY_KEY = "acme-bank/hitl/policy"
+
+
+def _signed_path(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> tuple[InMemoryHitlTransport, DetachedJwsIdentityProvider, Mapping[str, Any]]:
+    """A transport on the SIGNED path — the policy in force requires a binding.
+
+    Requiredness is a Control Plane value and defaults to false
+    (``HitlPolicy.signed_binding_required``), so a deployment that has NOT
+    turned signing on gets no signature over anything and SEC-005 says nothing
+    about it. This harness turns it ON, which is the only posture in which the
+    finding bites: a deployment entitled to believe it obtained
+    non-repudiation.
+    """
+    keys = tmp_path / "hitl-keys"
+    keys.mkdir()
+    key = ECKey.generate_key("P-256", parameters={"kid": _SIGNING_KID})
+    (keys / f"{_SIGNING_KID}.jwk").write_text(
+        json.dumps(key.as_dict(private=True)), encoding="utf-8"
+    )
+    policy = parse_artifact(
+        {"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY
+    )
+    assert isinstance(policy, HitlPolicy)
+    register_typed_at_composition(registry, _HITL_POLICY_KEY, policy, HITL_POLICY)
+    provider = DetachedJwsIdentityProvider(
+        key_source=FileBackedKeySource(directory=keys)
+    )
+    trusted = {_SIGNING_KID: key.as_dict(private=False)}
+    transport = InMemoryHitlTransport(
+        control_plane=registry,
+        hitl_policy_key=_HITL_POLICY_KEY,
+        identity_provider=provider,
+        trusted_keys=trusted,
+    )
+    return transport, provider, trusted
+
+
+def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-005. The signature proves WHO acted and WHAT THEY SAW, not WHAT THEY
+    DECIDED — so one valid signature authorizes either verdict.
+
+    ``HumanPrincipalBinding`` carries exactly the four `D-IMPL-21` fields —
+    approver, authentication, action time, product content hash — and
+    ``sign_principal_binding`` signs ``canonical_bytes(binding)`` over
+    precisely those. The verdict is not among them: ``action`` travels beside
+    the binding on ``HitlActionSubmission`` and beside it again as
+    ``ApprovalGate.resolve``'s own parameter. ``enforce_signed_binding`` then
+    does two things and only two — verify the signature, and check that the
+    verified principal is the submission's. ``submission.action`` is never an
+    input to either.
+
+    WHY THE ROUTE FREEZE DOES NOT REACH THIS. `ece2ae2d` froze
+    ``gate_routes`` so a write cannot retarget a verdict. Here the map is
+    untouched and the VERDICT ITSELF is forged, so the route compare agrees
+    with it and the resume is regular. Wave 1's ``conflicting_verdicts``
+    cross-check does not reach it either: that refuses only when two DISTINCT
+    verdicts are recorded against one suspension, and here the genuine
+    rejection is never submitted — only the swap is.
+
+    BOTH FACTS ARE GATHERED BEFORE ANYTHING IS ASSERTED, so one failing run
+    reports the whole chain rather than stopping at its first link. The
+    mechanism assertion comes first and pins the signature's scope directly:
+    the two outcome assertions alone would be satisfied by whichever guard in
+    ``resume`` happened to fire. ``verified_after_swap`` is asserted for the
+    reason ``landed`` is asserted in
+    ``test_mutating_gate_routes_cannot_route_a_recorded_rejection_to_the_approving_terminal``.
+    """
+    transport, provider, trusted = _signed_path(registry, tmp_path)
+    engine, _, _ = _engine(registry, tmp_path, transport=transport)
+    workflow = _covenant(registry)
+    tenant = workflow.definition.tenant
+    suspended = asyncio.run(
+        engine.execute(execute_as(workflow), workflow, execution_id="exec-1")
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+
+    pending = next(
+        event
+        for event in transport.pending(tenant=tenant)
+        if event.event_key == suspended.event_key
+    )
+    binding = _binding(pending.product_content_hash, subject_id="officer-2")
+    signed = sign_principal_binding(
+        binding, provider=provider, key_id=_SIGNING_KID
+    )
+
+    # The approver signed intending to REJECT. The same signature is presented
+    # with the opposite verdict; nothing else about it is altered.
+    record = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-1")
+    assert isinstance(record, WorkflowStateRecord)
+    gate = record.current_state
+    approving = workflow.definition.gate_routes[gate]["approve"]
+    try:
+        enforce_signed_binding(
+            HitlActionSubmission(
+                event_key=suspended.event_key,
+                action="approve",
+                principal=binding,
+                signed_binding=signed,
+            ),
+            identity_provider=provider,
+            trusted_keys=trusted,
+        )
+    except SignedBindingInvalidRefused:
+        verified_after_swap = False
+    else:
+        verified_after_swap = True
+
+    swapped = ApprovalGate(
+        transport=transport, audit=registry.audit_log, clock=_ticking_clock()
+    ).resolve(
+        submit_capability(
+            tenant=tenant, principal="officer-2", event_key=suspended.event_key
+        ),
+        event_key=suspended.event_key,
+        action="approve",
+        principal=binding,
+        signed_binding=signed,
+    )
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1", decision=approving
+        )
+    )
+    after = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-1")
+    assert isinstance(after, WorkflowStateRecord)
+
+    assert not verified_after_swap, (
+        "a binding signed over the four D-IMPL-21 fields still verified after"
+        " the verdict was swapped to 'approve', so the signature authorizes a"
+        f" decision the approver never made; the swapped resolution was"
+        f" {type(swapped).__name__} and the execution reached"
+        f" {after.status!r} at {after.current_state!r}"
+    )
+    assert not isinstance(outcome, WorkflowCompleted), (
+        "the workflow COMPLETED on a verdict carried by a signature that never"
+        f" covered it (terminal {after.current_state!r})"
+    )
+    assert after.current_state != approving, (
+        f"the execution advanced to the approving terminal {approving!r} on a"
+        " swapped verdict"
+    )
