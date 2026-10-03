@@ -1164,3 +1164,66 @@ def test_three_distinct_identifiers_do_not_collapse_onto_one_node(
         " refused (0) or stay distinguishable (3), never merged;"
         f" minted={sorted(minted)}"
     )
+
+
+# --- SEC-007 empty-identity leg: refused BY NAME, nothing minted (Dave, 2026-10-03)
+
+
+def test_a_rule_declaring_no_identity_keys_constructs() -> None:
+    """The empty declaration is NOT refused at construction — by ruling the
+    refusal sits at the mint, where it can name the envelope that reached it.
+    Pinned so a later declaration-time validator is a visible change, not an
+    accident that silently moves the refusal site."""
+    spec = _zero_identity_key_spec()
+    assert spec.entity_rules[0].identity_keys == ()
+
+
+def test_a_matching_envelope_under_an_empty_identity_declaration_is_refused_by_name() -> None:
+    """``IdentityRefused`` with reason ``undeclared`` and no key or field —
+    there is none to name — carrying the envelope that reached the mint and
+    the rule's class. A bare ``ValueError`` is insufficient: it is not in
+    ``SDK_SEAM_REFUSALS``, so on the governed path it escapes as a traceback
+    with no replay record (measured at ``621173a1``)."""
+    strategy = SpecDrivenEntityResolution(spec=_zero_identity_key_spec())
+    with pytest.raises(IdentityRefused) as caught:
+        strategy.resolve(envelope=envelope(envelope_id="z1", payload={"lei": LEI}))
+    refused = caught.value
+    assert refused.reason == "undeclared"
+    assert refused.key is None and refused.field is None
+    assert refused.envelope_id == "z1" and refused.entity_class == "owner"
+    assert "declares no identity keys" in str(refused)
+    # The VALUE was admissible; the fault is the declaration, and the message
+    # must not describe it as an inadmissible value.
+    assert "inadmissible identity value" not in str(refused)
+
+
+def test_an_empty_identity_declaration_mints_no_entity_and_no_relationship(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """Through ``AssemblyWorker.ingest`` with a relationship rule in play:
+    the refusal is raised, not swallowed, and the graph gains nothing — no
+    node for the empty declaration, no node for the OTHER rule the same
+    envelope matched, and no edge between them."""
+    spec = EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(
+                match_key="parent_lei", entity_class="family_member", identity_keys=()
+            ),
+            EntityResolutionRule(
+                match_key="lei", entity_class="family_member", identity_keys=("lei",)
+            ),
+        ),
+        relationship_rules=(_OWNS,),
+    )
+    handle = spec_fabric(spec)
+    with pytest.raises(IdentityRefused) as caught:
+        handle.worker.ingest(
+            envelope(envelope_id="e1", payload={"parent_lei": PARENT_LEI, "lei": LEI})
+        )
+    assert caught.value.reason == "undeclared"
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    minted = {record.claim.entity_uri for record in view.entities}
+    assert f"family_member://{content_hash({})}" not in minted, sorted(minted)
+    assert len(view.entities) == 0, sorted(minted)
+    assert len(view.relationships) == 0

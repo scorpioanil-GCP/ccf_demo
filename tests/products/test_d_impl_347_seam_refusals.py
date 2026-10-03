@@ -1040,3 +1040,59 @@ def test_a_str_subclass_cannot_shadow_the_identity_blank_check() -> None:
             return ""
 
     assert _identity_text(Erase("REAL-LEI-549300XYZ"))[0] == "REAL-LEI-549300XYZ"
+
+
+def test_the_REAL_route_converts_an_empty_identity_declaration_with_the_workers_own_reason(
+    tmp_path: pathlib.Path,
+) -> None:
+    """SEC-007, the empty-identity leg (Dave, 2026-10-03): a rule that declares
+    ZERO identity keys refuses at the mint as ``IdentityRefused`` with reason
+    ``undeclared``, and the governed path converts it through the EXISTING map
+    — nothing declared on the product class — into a refusal at the
+    ``acquisition`` seam with a replay record carrying ``identity-refused`` /
+    ``nonexistent`` and the worker's own detail.
+
+    Measured at ``621173a1`` before the repair: the mint raised a bare
+    ``ValueError`` that escaped ``opened.answer()`` as a traceback, and no
+    replay record was written. The VALUE here is a real-shape LEI: the fault
+    is the declaration, not the value.
+    """
+    from ccf.assembly.worker import (
+        EntityResolutionRule,
+        EntityResolutionSpec,
+        SpecDrivenEntityResolution,
+    )
+    from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+
+    spec = EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(
+                match_key="counterparty_lei", entity_class="company", identity_keys=()
+            ),
+        ),
+    )
+    root = _write_tree(tmp_path / "b3real-undeclared", config=_config())
+    scratch = tmp_path / "b3real-undeclared" / "scratch"
+
+    def _acquire_under_an_empty_declaration(context: Any) -> Any:
+        return SpecDrivenEntityResolution(spec=spec).resolve(
+            envelope=SignalEnvelope(
+                tenant_id="tenant-a",
+                envelope_id="env-source-1",
+                source=SourceIdentity(system_id="core-banking"),
+                ingestion_timestamp=_ACQUIRED_AT,
+                raw_payload={"counterparty_lei": "5493001KJTIIGC8Y1R12"},
+            )
+        )
+
+    with _open(root, scratch, acquire=_acquire_under_an_empty_declaration) as opened:
+        assert opened.declaration.seam_refusals == ()  # the conversion is the SDK map's
+        outcome = opened.answer(_question(opened))
+        assert isinstance(outcome, RefusalEnvelope), outcome
+        assert _seam_of(opened, outcome) == "acquisition"
+        block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+        assert "identity-refused" in block and "nonexistent" in block, block
+        assert "(undeclared)" in block and "declares no identity keys" in block, block
+        for other in ("null", "empty", "bool", "float", "non-scalar", "non-finite"):
+            assert f"({other})" not in block, (other, block)
