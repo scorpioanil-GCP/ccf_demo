@@ -897,6 +897,19 @@ def test_mutating_gate_routes_cannot_route_a_recorded_rejection_to_the_approving
     rather than asserted, so a green result cannot be mistaken for the hole
     being absent for a different reason.
 
+    ``landed`` IS ASSERTED, and that assertion is the point (Dave, 2026-10-03).
+    The two outcome assertions alone would be satisfied by whichever guard
+    happened to fire — ``resume`` has several that return a
+    ``WorkflowResumeRefused`` — so a green on them is the absence of this hole
+    only by accident, and a later un-freeze would not necessarily redden this
+    file. ``assert not landed`` pins the mechanism directly: the mapping must
+    REFUSE the write. The assignment is wrapped so the refusal does not abort
+    the test before that assertion is reached, and ``pin_held`` stays reported
+    rather than asserted because asserting it would let the test redden for the
+    hash instead of for the hole. The two outcome assertions stay as the
+    consequence pin: un-freeze the mapping and ``landed`` is true, the engine
+    routes the recorded rejection, and they fail too.
+
     Both the gate and the approving terminal are DERIVED — the gate from the
     state the workflow actually suspended at, the terminal from where the
     artifact routes its own ``approve`` verdict — so no step names a domain
@@ -923,9 +936,18 @@ def test_mutating_gate_routes_cannot_route_a_recorded_rejection_to_the_approving
     pinned = workflow.identity.definition_hash
     routes = workflow.definition.gate_routes[gate]
     approving = routes["approve"]
-    routes["reject"] = approving
-    landed = routes["reject"] == approving
+    try:
+        routes["reject"] = approving
+    except TypeError:
+        landed = False
+    else:
+        landed = routes["reject"] == approving
     pin_held = workflow.identity.definition_hash == pinned
+    assert not landed, (
+        "the route mapping accepted a write after construction and"
+        f" gate_routes[{gate!r}]['reject'] now names the approving terminal"
+        f" {approving!r}; definition-hash pin held={pin_held}"
+    )
 
     outcome = asyncio.run(
         engine.resume(

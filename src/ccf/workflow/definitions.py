@@ -38,6 +38,8 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from types import MappingProxyType
+
 from collections.abc import Mapping
 
 from pydantic import Field, field_validator, model_validator
@@ -160,6 +162,40 @@ class WorkflowDefinition(_TwoLaneVersioned):
     gate_routes: Mapping[str, Mapping[str, str]] = Field(
         default={}, json_schema_extra={HASH_TRANSPARENT_KEY: False}
     )
+
+    @field_validator("gate_routes", mode="after")
+    @classmethod
+    def _routes_are_immutable_after_construction(
+        cls, value: Mapping[str, Mapping[str, str]]
+    ) -> Mapping[str, Mapping[str, str]]:
+        """A contained mapping must not be mutable after construction.
+
+        ``CCFContract`` sets ``frozen=True``, which forbids REBINDING this
+        attribute and says nothing about mutating the object it points at.
+        Pydantic validates a ``Mapping`` annotation into a plain ``dict``, so
+        before this validator a holder of the definition could retarget a
+        verdict in place — and ``WorkflowEngine.resume`` reads the route live
+        on every resume, so the mutated map was the map its compare consulted.
+        The pin did not catch it: ``Workflow.__init__`` computes
+        ``content_hash(definition)`` once and only VERIFIES it, after which
+        ``resume`` compares two strings, neither re-derived.
+
+        Frozen HERE, at construction, rather than re-derived at resume. A hash
+        recomputed at the compare would detect the swap but would also accept a
+        definition whose routes had been retargeted before the first hash was
+        taken; refusing the write outright removes the window instead of
+        policing it (Dave, 2026-10-03).
+
+        THE HASH DOES NOT MOVE. ``MappingProxyType`` is a
+        :class:`collections.abc.Mapping`, and
+        ``ccf.contracts.canonical._normalize`` dispatches on that, so an
+        unmutated definition renders byte-for-byte as it did before this
+        validator existed — measured equal on the shipped covenant fixture.
+        Every stored ``workflow_definition_hash`` therefore still resolves.
+        """
+        return MappingProxyType(
+            {gate: MappingProxyType(dict(routes)) for gate, routes in value.items()}
+        )
 
     @field_validator("task_definition_ref")
     @classmethod
