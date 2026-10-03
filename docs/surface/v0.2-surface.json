@@ -832,7 +832,7 @@
       },
       "IdentityRefused": {
         "kind": "class",
-        "shape": "(*, envelope_id: 'str', entity_class: 'str', key: 'str', field: 'str', reason: 'str') -> 'None'"
+        "shape": "(*, envelope_id: 'str', entity_class: 'str', reason: 'str', key: 'str | None' = None, field: 'str | None' = None) -> 'None'"
       },
       "IngestResult": {
         "kind": "contract",

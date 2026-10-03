@@ -323,26 +323,61 @@ class EntityResolutionStrategy(Protocol):
 
 
 class IdentityRefused(ValueError):
-    """An identity component's value cannot name an entity (D-IMPL-357 B1; SEC-007).
+    """An identity component cannot name an entity (D-IMPL-357 B1; SEC-007).
 
-    Raised, never swallowed, at the ONE mint site: a null, blank, boolean,
-    float or non-scalar value would render through ``str()`` into a string
-    every such record shares, minting one phantom node and, through the
-    relationship rules, false edges onto it. The reason is named so an
-    operator can tell which it was. Presence is checked before this
-    (partial identity), admissibility here.
+    Raised, never swallowed, at the ONE mint site, for one of two faults:
+
+    - **An inadmissible VALUE** on a declared identity key — a null, blank,
+      boolean, float, non-finite or non-scalar value would render through
+      ``str()`` into a string every such record shares, minting one phantom
+      node and, through the relationship rules, false edges onto it.
+      ``key`` and ``field`` name the declared key and the payload field it was
+      read from; ``reason`` is one of ``null``, ``empty``, ``bool``, ``float``,
+      ``non-finite``, ``non-scalar``.
+    - **An EMPTY DECLARATION** — a rule whose ``identity_keys`` is ``()``
+      (SEC-007, the empty-identity leg; Dave, 2026-10-03). There is no value
+      to judge and no key or field to name, so ``key`` and ``field`` are
+      ``None`` and ``reason`` is ``undeclared``. Refused rather than hashed:
+      ``{}`` would mint ``<class>://content_hash({})`` for every record the
+      rule matches — one node shared by records with nothing in common but
+      the rule, derivable by anyone who knows the entity class.
+
+    The reason is named so an operator can tell which it was. Presence is
+    checked before the value case (partial identity), admissibility here.
+    The class is the SDK-owned seam class the governed path converts by
+    mechanism (``SDK_SEAM_REFUSALS``), so either fault reaches the caller as a
+    governed refusal with a replay record rather than as a traceback.
     """
 
-    def __init__(self, *, envelope_id: str, entity_class: str, key: str, field: str, reason: str) -> None:
+    def __init__(
+        self,
+        *,
+        envelope_id: str,
+        entity_class: str,
+        reason: str,
+        key: str | None = None,
+        field: str | None = None,
+    ) -> None:
         self.envelope_id, self.entity_class, self.key, self.field, self.reason = (
             envelope_id, entity_class, key, field, reason
         )
-        super().__init__(
-            f"envelope {envelope_id!r} presents an inadmissible identity value"
-            f" ({reason}) for {entity_class!r} key {key!r} read from payload"
-            f" field {field!r}; the fabric refuses to mint a URI from a value"
-            " that names no entity (D-IMPL-357 B1)"
-        )
+        if key is None:
+            # The empty declaration: nothing was read, so no key or field is
+            # named — naming an empty string would describe a value that was
+            # never judged.
+            message = (
+                f"envelope {envelope_id!r} matched rule for {entity_class!r},"
+                f" which declares no identity keys ({reason}); the fabric refuses"
+                " to mint a URI from empty identity (SEC-007)"
+            )
+        else:
+            message = (
+                f"envelope {envelope_id!r} presents an inadmissible identity value"
+                f" ({reason}) for {entity_class!r} key {key!r} read from payload"
+                f" field {field!r}; the fabric refuses to mint a URI from a value"
+                " that names no entity (D-IMPL-357 B1)"
+            )
+        super().__init__(message)
 
 
 #: Unicode general categories that carry no visible identity (D-IMPL-357 item 1,
@@ -506,14 +541,18 @@ class SpecDrivenEntityResolution:
             #
             # The empty map is REFUSED rather than coerced into a URI: there is
             # no identity to hash. Refused HERE rather than at declaration so
-            # the refusal names the envelope that reached the mint, matching the
-            # partial-identity refusal immediately below — zero identity is its
-            # degenerate case, not a different kind of fault.
+            # the refusal names the envelope that reached the mint. Raised BY
+            # NAME as `IdentityRefused` (reason `undeclared`, no key and no
+            # field, because none was read): a bare `ValueError` is not in
+            # `SDK_SEAM_REFUSALS`, so on the governed path it escaped
+            # `opened.answer()` as a traceback with no replay record (measured
+            # at 621173a1). The partial-identity refusal immediately below is
+            # deliberately untouched (out of scope, Dave, 2026-10-03).
             if not source_of:
-                raise ValueError(
-                    f"envelope {envelope.envelope_id!r} matched rule for "
-                    f"{rule.entity_class!r}, which declares no identity keys; "
-                    "the fabric refuses to mint a URI from empty identity"
+                raise IdentityRefused(
+                    envelope_id=envelope.envelope_id,
+                    entity_class=rule.entity_class,
+                    reason="undeclared",
                 )
             missing = [
                 key for key, field in source_of.items() if field not in payload
