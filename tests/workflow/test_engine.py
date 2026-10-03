@@ -862,6 +862,93 @@ def test_a_resolved_gate_resumes_and_audits_the_approver(
     assert resumed[0].actor == "officer-1"
 
 
+def test_mutating_gate_routes_cannot_route_a_recorded_rejection_to_the_approving_terminal(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """THE SEC-001 RESIDUAL the route compare does not cover: the route map it
+    reads is mutable in place, and the hash that would catch the swap is a
+    string captured once.
+
+    ``WorkflowDefinition.gate_routes`` is annotated ``Mapping[str, Mapping[str,
+    str]]``, which Pydantic v2 validates into a plain ``dict`` of ``dict``s.
+    ``CCFContract`` sets ``frozen=True``, which forbids REBINDING the attribute
+    and says nothing about mutating the object it already points at. The engine
+    reads the route live on every resume, so a mutated map is the map the
+    compare consults.
+
+    The hash does not save it. ``Workflow.__init__`` computes
+    ``content_hash(definition)`` once and only VERIFIES it against the identity
+    it was handed; ``WorkflowEngine.resume`` then compares
+    ``record.workflow_definition_hash`` against
+    ``workflow.identity.definition_hash`` — two strings, neither re-derived from
+    the definition. So a post-construction mutation moves the routing without
+    moving the pin. Recomputing ``content_hash`` over the mutated definition
+    DOES differ (``gate_routes`` carries ``ccf_hash_transparent: False``, a
+    generation boundary, so it is rendered into the hash) — nothing recomputes
+    it.
+
+    WHY THIS TEST FAILS ONLY FOR THAT REASON, which is the condition it was
+    written under. Each of the other outcomes leaves it GREEN rather than red:
+    if the mapping refused mutation, the route is unchanged and the compare
+    refuses the resume; if anything re-derived the hash at resume, the
+    definition-hash binding refuses it first. Only a mutation that both lands
+    and escapes the pin can carry a recorded rejection to the approving
+    terminal. The two facts are therefore reported in the failure message
+    rather than asserted, so a green result cannot be mistaken for the hole
+    being absent for a different reason.
+
+    Both the gate and the approving terminal are DERIVED — the gate from the
+    state the workflow actually suspended at, the terminal from where the
+    artifact routes its own ``approve`` verdict — so no step names a domain
+    value this test invented.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(
+        engine.execute(execute_as(workflow), workflow, execution_id="exec-1")
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    _resolve_gate(
+        registry, transport,
+        tenant=workflow.definition.tenant,
+        event_key=suspended.event_key,
+        action="reject", subject_id="officer-2",
+    )
+    record = registry.state_store.get(
+        WORKFLOW_STATE, f"{workflow.definition.tenant}/exec-1"
+    )
+    assert isinstance(record, WorkflowStateRecord)
+    gate = record.current_state
+
+    pinned = workflow.identity.definition_hash
+    routes = workflow.definition.gate_routes[gate]
+    approving = routes["approve"]
+    routes["reject"] = approving
+    landed = routes["reject"] == approving
+    pin_held = workflow.identity.definition_hash == pinned
+
+    outcome = asyncio.run(
+        engine.resume(
+            resume_as(workflow), workflow, execution_id="exec-1", decision=approving
+        )
+    )
+    after = registry.state_store.get(
+        WORKFLOW_STATE, f"{workflow.definition.tenant}/exec-1"
+    )
+    assert isinstance(after, WorkflowStateRecord)
+    assert isinstance(outcome, WorkflowResumeRefused), (
+        "a recorded rejection reached the approving terminal through an"
+        f" in-place mutation of gate_routes[{gate!r}]: mutation landed"
+        f"={landed}, definition-hash pin held={pin_held}, resulting status"
+        f"={after.status!r} at {after.current_state!r}"
+    )
+    assert after.current_state != approving, (
+        f"the workflow state advanced to the approving terminal {approving!r}"
+        f" on a recorded rejection: mutation landed={landed}, definition-hash"
+        f" pin held={pin_held}"
+    )
+
+
 def test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:
