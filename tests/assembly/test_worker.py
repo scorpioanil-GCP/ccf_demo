@@ -1087,3 +1087,80 @@ def test_the_genuine_string_none_is_stored_because_omission_is_by_identity() -> 
         envelope=envelope(payload={"lei": "L1", "jurisdiction": "None", "name": "x"})
     )
     assert resolved.attributes == {"jurisdiction": "None", "name": "x"}
+
+
+# --- SEC-007 residual: a rule declaring ZERO identity keys ----------------
+
+#: A third real-shape LEI, so the collapse is demonstrated over THREE records
+#: rather than two. Two would redden on a merge just as happily, but three is
+#: what rules out "the fabric paired them" and leaves only "the fabric
+#: identified all of them by nothing".
+THIRD_LEI = "213800WAVVOPS85N2205"
+
+
+def _zero_identity_key_spec() -> EntityResolutionSpec:
+    """One rule that declares NO identity keys at all.
+
+    ``EntityResolutionRule.identity_keys`` is ``tuple[str, ...]`` with no
+    ``min_length``, and the only validator on the class
+    (``EntityResolutionRule::_sources_remap_declared_identity_keys``) checks
+    that ``identity_sources`` is a SUBSET of ``identity_keys`` — which an
+    empty pair satisfies. So this rule constructs, and nothing between here
+    and the mint has an opinion about it.
+    """
+    return EntityResolutionSpec(
+        semver="1.0.0",
+        entity_rules=(
+            EntityResolutionRule(
+                match_key="lei", entity_class="owner", identity_keys=()
+            ),
+        ),
+        relationship_rules=(),
+    )
+
+
+def test_three_distinct_identifiers_do_not_collapse_onto_one_node(
+    spec_fabric: Callable[[EntityResolutionSpec], "FabricHandle"],
+) -> None:
+    """THE SEC-007 RESIDUAL the null-value guard does not cover.
+
+    ``SpecDrivenEntityResolution::resolve`` builds ``source_of`` from
+    ``rule.identity_keys`` and then fills ``identity`` inside ``for key, field
+    in source_of.items()``. At zero declared identity keys that loop never
+    runs: ``missing`` is empty so the partial-identity refusal does not fire,
+    ``_identity_text`` is never called so ``IdentityRefused`` cannot fire, and
+    ``identity`` reaches the mint as ``{}``. The URI is therefore
+    ``owner://<content_hash({})>`` for every envelope the rule matches — one
+    node, shared by records that have nothing in common but the rule.
+
+    THE PHANTOM URI IS A PUBLISHED CONSTANT, not a per-deployment accident:
+    ``content_hash({})`` is ``sha256(b"{}")``, so the node is derivable by
+    anyone who knows the entity class.
+
+    FIX-AGNOSTIC BY CONSTRUCTION, and deliberately so — the shape of the
+    repair is not this test's to choose. Refusing the rule and minting three
+    distinct nodes both satisfy it; only the merge fails it. Each ingest is
+    wrapped so that a repair which starts REFUSING does not abort the test
+    before the counts are read, which is the same discriminator
+    ``test_two_null_identity_envelopes_mint_nothing_and_no_edge`` uses and for
+    the same reason.
+    """
+    handle = spec_fabric(_zero_identity_key_spec())
+    for envelope_id, lei in (("z1", LEI), ("z2", PARENT_LEI), ("z3", THIRD_LEI)):
+        try:
+            handle.worker.ingest(
+                envelope(envelope_id=envelope_id, payload={"lei": lei})
+            )
+        except (IdentityRefused, ValueError):
+            pass
+    view = handle.reader.as_of(tenant_id=TENANT, at=INGESTED_AT)
+    minted = {record.claim.entity_uri for record in view.entities}
+    assert f"owner://{content_hash({})}" not in minted, (
+        "three distinct identifiers were identified by nothing and collapsed"
+        f" onto the shared empty-identity node; minted={sorted(minted)}"
+    )
+    assert len(minted) in (0, 3), (
+        "three records carrying three distinct identifiers must either be"
+        " refused (0) or stay distinguishable (3), never merged;"
+        f" minted={sorted(minted)}"
+    )
