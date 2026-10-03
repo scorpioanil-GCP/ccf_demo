@@ -55,7 +55,14 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   from the frozen baseline `docs/surface/v0.2-surface-baseline.json`, so the
   completeness gate places it in the `added` partition — the same reason
   `353-06-the-approval-record-is-server-attested.md` records it as added; this
-  entry carries the migration note for the keyword that commit did not have
+  entry carries the migration note for the keyword that commit did not have.
+  Comment 2026-10-03: this entry was not produced by the completeness gate.
+  That gate diffs the live surface against the frozen baseline, not the
+  previous commit. `principal_from_authorized` was already outside that
+  baseline and already claimed as `added` by `353-06`, so the new required
+  `action` keyword produced no unclaimed name. It is recorded here because a
+  reader of the earlier `added` entry would not learn that the call shape
+  changed.
 - Migration: any caller invoking this function directly must pass `action=`,
   equal to the action it submits. Both served doors already do — the HTTP door
   from `body.action`, the MCP door from its `action` parameter — so a
