@@ -52,9 +52,11 @@ from ccf.authz.capability import Authorized, HitlSubmit
 from ccf.controlplane.artifacts import ArtifactLoadError, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.identity_binding import (
+    AttestationInvalid,
     HitlActionClaims,
     SignedHitlAction,
     sign_hitl_action,
+    verify_hitl_action,
 )
 from ccf.hitl.principal import (
     ApproverIdentity,
@@ -784,6 +786,71 @@ def test_verifier_refuses_a_key_not_declared_for_the_claims_subject(
     this pins per-subject scoping rather than mere key existence."""
     with pytest.raises(SignedBindingMismatchRefused, match="not declared"):
         _enforce(_claims(), provider, ruled_policy, key_id=OTHER_KID)
+
+
+ROTATION_KID = "hitl-approver-rotation-key"
+
+
+def test_verifier_refuses_an_attestation_whose_key_id_is_not_the_signing_kid(
+    key_dir: Path,
+    provider: DetachedJwsIdentityProvider,
+    approver_key: ECKey,
+) -> None:
+    """The protected header's ``kid`` must equal the presented ``key_id``.
+
+    ``enforce_attestation`` judges the PRESENTED ``key_id`` against the pinned
+    policy's per-subject map, while the provider verifies the signature under
+    the key the PROTECTED HEADER names. ``verify_hitl_action`` is what ties the
+    two together, and the close panel measured that nothing pinned it
+    (`D-IMPL-363` CR-363-10): with the comparison removed, a holder of one of an
+    approver's keys could sign with it and present another of that approver's
+    keys as ``key_id`` — admitted, and recorded in dimension 2 under a key that
+    did not make the signature. Two keys for ONE approver is the routine
+    rotation shape, so both are declared for ``_SUBJECT`` here, and the
+    mislabelled attestation must refuse while the honestly labelled one is
+    admitted — so the refusal is the comparison's, not the key map's.
+    """
+    rotation_key = _write_key(key_dir, ROTATION_KID)
+    policy = _policy(
+        required=True,
+        trusted_keys={
+            _SUBJECT: {
+                APPROVER_KID: approver_key.as_dict(private=False),
+                ROTATION_KID: rotation_key.as_dict(private=False),
+            }
+        },
+    )
+    signed_with_rotation_key = _attest(_claims(), provider, key_id=ROTATION_KID)
+    mislabelled = SignedHitlAction(
+        claims=signed_with_rotation_key.claims,
+        signature=signed_with_rotation_key.signature,
+        key_id=APPROVER_KID,
+    )
+    # The verifier itself names the disagreement.
+    with pytest.raises(AttestationInvalid, match="declares kid"):
+        verify_hitl_action(
+            mislabelled,
+            provider=provider,
+            public_keys=policy.keys_for(_SUBJECT),
+        )
+    # And the shared verifier refuses it as an invalid attestation, before any
+    # claim is compared.
+    with pytest.raises(SignedBindingInvalidRefused):
+        enforce_attestation(
+            _authorized(_TENANT, _EVENT_KEY),
+            _submission(_binding(), mislabelled, action="approve"),
+            identity_provider=provider,
+            policy=policy,
+        )
+    # Positive control: the same signature, honestly labelled, is admitted —
+    # the rotation key IS declared for the approver.
+    admitted = enforce_attestation(
+        _authorized(_TENANT, _EVENT_KEY),
+        _submission(_binding(), signed_with_rotation_key, action="approve"),
+        identity_provider=provider,
+        policy=policy,
+    )
+    assert admitted == _claims()
 
 
 def test_verifier_refuses_an_expired_attestation(

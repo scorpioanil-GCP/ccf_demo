@@ -666,6 +666,130 @@ def test_escalation_required_and_valid_attestation_passes_both_layers(
     assert recorded[0].hitl_policy_ref == pinned_ref
 
 
+def _escalation_over_an_unverifying_transport(
+    tmp_path: Path, fixture: dict[str, Any]
+) -> tuple[Any, InMemoryHitlTransport, Any, str]:
+    """The primitive bound to the ruled policy, over a transport bound to NO
+    Control Plane — the transport resolves no policy and verifies nothing, so
+    whatever refuses here is the primitive's own verification (CR-363-09)."""
+    from ccf.controlplane.artifacts import parse_artifact
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.hitl.transport import HITL_POLICY
+
+    provider, kid, keys = _signing_env(tmp_path)
+    plane = ControlPlaneRegistry()
+    policy_key = "acme-bank/hitl/policy"
+    compose_register_typed(
+        plane,
+        policy_key,
+        parse_artifact(
+            _ruled_policy_document(subject_id=_subject(fixture), keys=keys),
+            HITL_POLICY,
+        ),
+        HITL_POLICY,
+    )
+    unverifying = InMemoryHitlTransport()
+    primitive = ExceptionEscalation(
+        transport=unverifying,
+        audit=AuditLog(),
+        clock=_clock(),
+        control_plane=plane,
+        hitl_policy_key=policy_key,
+        identity_provider=provider,
+    )
+    return primitive, unverifying, provider, kid
+
+
+def test_escalation_verifies_the_attestation_independently_of_the_transport(
+    tmp_path: Path,
+) -> None:
+    """D-13 / D-IMPL-69: the escalation's verification is its OWN, not the transport's.
+
+    Every other signed test here binds BOTH halves — the real deployment shape —
+    and that is exactly why none of them can say WHICH half refused: with the
+    escalation's own enforcement severed, the transport still refuses at ``submit``
+    and the escalation still raises. Measured at the close panel (`D-IMPL-363`
+    CR-363-09): disabling this primitive's enforcement branch left every test
+    green. So this control removes the OTHER half. The transport is bound to no
+    Control Plane and therefore verifies nothing; the escalation alone holds the
+    policy key. If it did not verify independently, an unsigned resolve would be
+    admitted and recorded, and a signature over the OTHER action would be
+    admitted — no trust marker crosses the layer seam in either direction
+    (D-13), so each layer has to do the work itself.
+    """
+    from ccf.hitl.transport import (
+        SignedBindingMismatchRefused,
+        SignedBindingRequiredRefused,
+    )
+
+    fixture = _hitl()
+    escalation, unverifying, provider, kid = (
+        _escalation_over_an_unverifying_transport(tmp_path, fixture)
+    )
+    trigger = ExplicitEscalation(
+        reason=fixture["escalation"]["explicit_reason"]
+    )
+    _hand_off(escalation, fixture, trigger)
+    document = _event_document(fixture)
+    principal = _principal(
+        fixture, product_content_hash=content_hash(document)
+    )
+    authorized = _authorized(document["tenant"], document["event_key"])
+    # Leg 1 — unsigned: only the escalation can refuse this.
+    with pytest.raises(SignedBindingRequiredRefused):
+        escalation.resolve(
+            authorized,
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+        )
+    # Leg 2 — a genuine signature over the OTHER verdict: only the escalation
+    # runs the verifier that compares the signed action with the presented one.
+    with pytest.raises(SignedBindingMismatchRefused):
+        escalation.resolve(
+            authorized,
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+            attestation=_attestation(
+                provider,
+                kid,
+                tenant=document["tenant"],
+                event_key=document["event_key"],
+                action="reject",
+                principal=principal,
+                subject_id=_subject(fixture),
+                nonce="escalation-independent-nonce-swapped",
+            ),
+        )
+    # Both refusals left the event pending and recorded nothing.
+    assert len(unverifying.pending(tenant=document["tenant"])) == 1
+    assert unverifying.submissions(tenant=document["tenant"]) == ()
+    # Positive control: the honest attestation is admitted by the same
+    # primitive and recorded by the unbound transport — with NO policy ref,
+    # because the transport resolved none; the escalation did the verifying.
+    resolution = escalation.resolve(
+        authorized,
+        event_key=document["event_key"],
+        action="approve",
+        principal=principal,
+        attestation=_attestation(
+            provider,
+            kid,
+            tenant=document["tenant"],
+            event_key=document["event_key"],
+            action="approve",
+            principal=principal,
+            subject_id=_subject(fixture),
+            nonce="escalation-independent-nonce-honest",
+        ),
+    )
+    assert isinstance(resolution, EscalationResolution)
+    recorded = unverifying.submissions(tenant=document["tenant"])
+    assert len(recorded) == 1
+    assert recorded[0].hitl_policy_ref is None
+
+
 def test_escalation_unbound_kwargs_behave_as_before() -> None:
     """No Control Plane bound: byte-identical pre-Phase-10 behavior."""
     fixture = _hitl()

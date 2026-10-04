@@ -215,9 +215,15 @@ class HitlPolicy(CCFContract):
     requires are the artifact's statements, never code constants
     (No-Hardcoding, CLAUDE.md §6.4). This is the schema behind the
     documented ``hitl.signed_binding_required`` surface examples set in
-    their ``artifacts/`` HITL policy YAML: a document like
-    ``{semver: "1.0.0", signed_binding_required: true}`` registered under
-    the deployment's chosen HITL-policy key.
+    their ``artifacts/`` HITL policy YAML, registered under the deployment's
+    chosen HITL-policy key. A policy that does not require signing is as
+    small as ``{semver: "1.0.0", signed_binding_required: false}``; one that
+    DOES require it must also state the window and the per-subject keys
+    (`D-IMPL-363` E3/E5) — ``{semver: "1.0.0", signed_binding_required: true,
+    signature_max_age_seconds: 300, permitted_clock_skew_seconds: 60,
+    trusted_keys: {"<approver subject_id>": {"<kid>": <public JWK>}}}`` —
+    and is refused at parse without them (the close-panel finding CR-363-04
+    on `D-IMPL-363`: the former example here omitted them).
 
     Attributes:
         semver: The artifact's own semver lane (whitepaper §6.3).
