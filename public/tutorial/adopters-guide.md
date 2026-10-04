@@ -326,6 +326,22 @@ to exactly what the approver saw, by content hash, and signed. The
 [HITL Protocols](../reference/protocols/hitl.md) and the
 [HTTP API reference](../reference/http-api.md) cover the door:
 
+> **Dated note, 2026-10-03 (`D-IMPL-363`, SEC-005).** The snippets that
+> follow are transcluded from the archived program
+> `archive/examples/05-workflow-hitl/run.py`, which signs the door-minted
+> binding with `sign_principal_binding` — an API replaced on this date,
+> because a signature over the server's own `action_time` could never be
+> produced under a wall clock. The archive is a dated reference surface
+> and is not repaired (`D-IMPL-351`), so the run command above no longer
+> imports, and the archived tests behind it error at setup. What the
+> current mechanism looks like — the human signs its own
+> `HitlActionClaims`, sends them as `attestation`, and the door refuses
+> `signed-binding-mismatch` and `signed-binding-stale` beside the four
+> refusals shown below — is pinned in tree by
+> `tests/http_api/test_sec005_attestation_door.py` and
+> `tests/mcp/test_sec005_attestation_door.py`; the key-and-policy posture
+> is on [manage keys and secrets](../how-to/security-and-deployment.md).
+
 ```py
 --8<-- "archive/examples/05-workflow-hitl/run.py:hitl-approval"
 ```

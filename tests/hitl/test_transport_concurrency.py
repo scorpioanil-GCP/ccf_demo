@@ -7,10 +7,13 @@ events, and no deadlock — the plain :class:`threading.Lock` synchronization
 Task 09-03-1 added discharges the ``HITLTransportProtocol`` docstring's
 requirement that all methods be safe for concurrent calls from multiple
 threads (the FastAPI-threadpool doors invoke it exactly that way). A second,
-shorter case hammers the submit path of a D-16-wired transport (signed
-binding required, Control Plane resolve + JWS verification per submission)
-to show the verification path — which runs outside the lock by design —
-introduces no lock-ordering hazard.
+shorter case hammers the submit path of a D-16-wired transport (an
+attestation required, Control Plane resolve + JWS verification per
+submission) to show the verification path — which runs outside the lock by
+design — introduces no lock-ordering hazard. A third case points the hammer
+at the one step that is INSIDE the lock: `D-IMPL-363` E4 / C11(a)'s
+single-admission nonce check, where N concurrent presentations of ONE
+attestation must admit exactly one and refuse the rest.
 
 Always-on per D-15: no markers, no slow/nightly tagging. Deadlock detection
 is bounded ``join(timeout=...)`` + ``pytest.fail`` — no third-party
@@ -35,7 +38,11 @@ from joserfc.jwk import ECKey
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.hitl.identity_binding import sign_principal_binding
+from ccf.hitl.identity_binding import (
+    HitlActionClaims,
+    SignedHitlAction,
+    sign_hitl_action,
+)
 from ccf.hitl.principal import (
     ApproverIdentity,
     AuthenticationContext,
@@ -47,6 +54,7 @@ from ccf.hitl.transport import (
     HitlPolicy,
     InMemoryHitlTransport,
     PendingHitlEvent,
+    SignedBindingStaleRefused,
 )
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
@@ -72,6 +80,14 @@ TENANTS = ("acme-bank", "globex", "initech")
 
 APPROVER_KID = "hitl-approver-signing-key"
 POLICY_KEY = "acme-bank/hitl/policy"
+
+#: The window this test-as-deployment states (CINV-01 — the SDK supplies no
+#: default, and a required policy without one is refused at parse). Wide
+#: enough that nothing here depends on execution speed: every ``issued_at``
+#: below is stated relative to the FIXED ``ACTION_TIME`` the bindings record,
+#: and the verifier reads no clock at all.
+MAX_AGE_SECONDS = 300
+SKEW_SECONDS = 60
 
 
 def _binding(subject_id: str = "approver-1") -> HumanPrincipalBinding:
@@ -287,16 +303,12 @@ def test_racing_removes_for_one_event_yield_exactly_one_claim() -> None:
 # --- the D-16-wired submit path under load ------------------------------------
 
 
-def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
-    tmp_path: Path,
-) -> None:
-    """Signed-binding verification per submission, hammered, no deadlock.
-
-    The verification path (Control Plane ``resolve_latest`` + JWS
-    verification) runs outside the queue lock by design (D-IMPL-69); this
-    case shows the composition holds under concurrent submits — every
-    verified submission is recorded exactly once and every join returns.
-    """
+def _attesting_fixture(tmp_path: Path) -> tuple[
+    InMemoryHitlTransport, DetachedJwsIdentityProvider, HumanPrincipalBinding
+]:
+    """A transport wired for required attestations, as `D-IMPL-363` E5 leaves
+    it: the per-subject trusted keys and the freshness window live INSIDE the
+    pinned policy, and the constructor takes no ``trusted_keys`` argument."""
     key_dir = tmp_path / "keys"
     key_dir.mkdir()
     key = ECKey.generate_key("P-256", parameters={"kid": APPROVER_KID})
@@ -306,12 +318,20 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
     provider = DetachedJwsIdentityProvider(
         key_source=FileBackedKeySource(directory=key_dir)
     )
-    trusted_keys: Mapping[str, JsonWebKey] = {
-        APPROVER_KID: key.as_dict(private=False)
+    binding = _binding()
+    trusted_keys: Mapping[str, Mapping[str, JsonWebKey]] = {
+        binding.approver.subject_id: {APPROVER_KID: key.as_dict(private=False)}
     }
     plane = ControlPlaneRegistry()
     policy = parse_artifact(
-        {"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY
+        {
+            "semver": "1.0.0",
+            "signed_binding_required": True,
+            "signature_max_age_seconds": MAX_AGE_SECONDS,
+            "permitted_clock_skew_seconds": SKEW_SECONDS,
+            "trusted_keys": trusted_keys,
+        },
+        HITL_POLICY,
     )
     assert isinstance(policy, HitlPolicy)
     compose_register_typed(plane, POLICY_KEY, policy, HITL_POLICY)
@@ -319,24 +339,72 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
         control_plane=plane,
         hitl_policy_key=POLICY_KEY,
         identity_provider=provider,
-        trusted_keys=trusted_keys,
+    )
+    return transport, provider, binding
+
+
+def _attestation(
+    provider: DetachedJwsIdentityProvider,
+    binding: HumanPrincipalBinding,
+    *,
+    event_key: str,
+    nonce: str,
+) -> SignedHitlAction:
+    """One signed statement about ONE action (`D-IMPL-363` E1).
+
+    ``issued_at`` is the binding's own recorded instant — dead centre of the
+    window — because the verifier compares the two and reads no clock; a
+    hammer that ran slowly could not move either value.
+    """
+    return sign_hitl_action(
+        HitlActionClaims(
+            tenant="acme-bank",
+            event_key=event_key,
+            action="approve",
+            product_content_hash=binding.product_content_hash,
+            subject_id=binding.approver.subject_id,
+            issued_at=binding.action_time,
+            nonce=nonce,
+        ),
+        provider=provider,
+        key_id=APPROVER_KID,
     )
 
-    binding = _binding()
-    signed = sign_principal_binding(
-        binding, provider=provider, key_id=APPROVER_KID
-    )
+
+def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
+    tmp_path: Path,
+) -> None:
+    """Attestation verification per submission, hammered, no deadlock.
+
+    The verification path (Control Plane ``resolve_latest`` + JWS
+    verification) runs outside the queue lock by design (D-IMPL-69); this
+    case shows the composition holds under concurrent submits — every
+    verified submission is recorded exactly once and every join returns.
+
+    Each submission carries its OWN signed statement with a FRESH nonce
+    (`D-IMPL-363` E4 / C11(a)): a signed attestation names its event and is
+    admitted once, so N submissions mean N attestations. Reuse is the
+    subject of the sibling case below, not an accident of this one.
+    """
+    transport, provider, binding = _attesting_fixture(tmp_path)
 
     thread_count = 8
     submits_per_thread = 25
     barrier = threading.Barrier(thread_count)
     errors: list[BaseException] = []
+    presented: list[list[SignedHitlAction]] = [[] for _ in range(thread_count)]
 
     def submit_hammer(index: int) -> None:
         try:
             barrier.wait(timeout=JOIN_TIMEOUT_SECONDS)
             for i in range(submits_per_thread):
                 key = f"acme-bank/hammer/{index}/{i}"
+                attestation = _attestation(
+                    provider,
+                    binding,
+                    event_key=key,
+                    nonce=f"nonce-{index}-{i}",
+                )
                 transport.submit(
                     submit_capability(
                         tenant="acme-bank",
@@ -346,9 +414,10 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
                     submission=_submission(
                         event_key=key,
                         principal=binding,
-                        signed_binding=signed,
+                        attestation=attestation,
                     ),
                 )
+                presented[index].append(attestation)
         except BaseException as error:  # noqa: BLE001
             errors.append(error)
 
@@ -365,4 +434,107 @@ def test_d16_wired_submit_path_hammers_without_lock_ordering_issues(
     assert errors == [], f"submit threads raised: {errors!r}"
     recorded = transport.submissions(tenant="acme-bank")
     assert len(recorded) == thread_count * submits_per_thread
-    assert all(entry.signed_binding == signed for entry in recorded)
+    # Every recorded submission carries the exact attestation presented for
+    # its own event — the exact set, not a count.
+    expected = {
+        (attestation.claims.event_key, attestation.claims.nonce)
+        for attestations in presented
+        for attestation in attestations
+    }
+    assert {
+        (entry.attestation.claims.event_key, entry.attestation.claims.nonce)
+        for entry in recorded
+        if entry.attestation is not None
+    } == expected
+    assert all(entry.attestation is not None for entry in recorded)
+
+
+# --- one attestation, N racing presentations: exactly one admission -----------
+
+
+def test_racing_presentations_of_one_attestation_admit_exactly_one(
+    tmp_path: Path,
+) -> None:
+    """`D-IMPL-363` E4 / C11(a): a signed statement is admitted ONCE.
+
+    The nonce check and its insert are one step under the transport's lock,
+    after verification and before anything is recorded — so N concurrent
+    presentations of the SAME attestation cannot both land. Exactly one
+    submission is recorded; every other presentation refuses
+    :class:`~ccf.hitl.transport.SignedBindingStaleRefused`, and nothing else
+    is raised. The replayed statement is identical bytes, not a near-copy:
+    the losers fail on the nonce, not on verification.
+    """
+    transport, provider, binding = _attesting_fixture(tmp_path)
+    event_key = "acme-bank/replay/one-attestation"
+    attestation = _attestation(
+        provider, binding, event_key=event_key, nonce="nonce-replayed-once"
+    )
+
+    thread_count = 16
+    barrier = threading.Barrier(thread_count)
+    admitted: list[HitlActionSubmission] = []
+    refused: list[BaseException] = []
+    unexpected: list[BaseException] = []
+    bookkeeping = threading.Lock()
+
+    def present(index: int) -> None:
+        try:
+            barrier.wait(timeout=JOIN_TIMEOUT_SECONDS)
+            recorded = transport.submit(
+                submit_capability(
+                    tenant="acme-bank",
+                    principal=binding.approver.subject_id,
+                    event_key=event_key,
+                ),
+                submission=_submission(
+                    event_key=event_key,
+                    principal=binding,
+                    attestation=attestation,
+                ),
+            )
+        except SignedBindingStaleRefused as error:
+            with bookkeeping:
+                refused.append(error)
+        except BaseException as error:  # noqa: BLE001
+            with bookkeeping:
+                unexpected.append(error)
+        else:
+            with bookkeeping:
+                admitted.append(recorded)
+
+    threads = [
+        threading.Thread(target=present, args=(index,), name=f"present-{index}")
+        for index in range(thread_count)
+    ]
+    for thread in threads:
+        thread.start()
+    _join_all(threads)
+
+    assert unexpected == [], f"unexpected failures: {unexpected!r}"
+    assert len(admitted) == 1, (
+        "exactly one presentation of one signed statement may be admitted"
+        f" (D-IMPL-363 E4); {len(admitted)} were"
+    )
+    assert len(refused) == thread_count - 1
+    # The queue agrees with the callers: one recorded action, carrying the
+    # attestation that was presented.
+    (only,) = transport.submissions(tenant="acme-bank")
+    assert only == admitted[0]
+    assert only.attestation == attestation
+    # And a LATER, serial presentation of the same statement is refused too —
+    # the seen-set is not a race-window artifact.
+    with pytest.raises(SignedBindingStaleRefused):
+        transport.submit(
+            submit_capability(
+                tenant="acme-bank",
+                principal=binding.approver.subject_id,
+                event_key=event_key,
+            ),
+            submission=_submission(
+                event_key=event_key,
+                principal=binding,
+                attestation=attestation,
+            ),
+        )
+    assert len(transport.submissions(tenant="acme-bank")) == 1

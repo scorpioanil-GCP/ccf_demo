@@ -58,7 +58,7 @@ from collections import deque
 from collections.abc import Mapping
 from typing import Literal, Protocol, runtime_checkable
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from ccf.artifacts.protocol import ArtifactStoreError, parse_artifact_uri
 from ccf.contracts.base import CCFContract
@@ -66,9 +66,10 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.hitl.identity_binding import (
-    PrincipalBindingInvalid,
-    SignedPrincipalBinding,
-    verify_principal_binding,
+    AttestationInvalid,
+    HitlActionClaims,
+    SignedHitlAction,
+    verify_hitl_action,
 )
 from ccf.hitl.principal import HumanPrincipalBinding, validate_content_hash
 from ccf.peering.identity import IdentityProvider, JsonWebKey
@@ -94,8 +95,11 @@ __all__ = [
     "PendingHitlEvent",
     "PrincipalMismatchRefused",
     "SignedBindingInvalidRefused",
+    "SignedBindingMismatchRefused",
     "SignedBindingRequiredRefused",
-    "enforce_signed_binding",
+    "SignedBindingStaleRefused",
+    "enforce_attestation",
+    "resolve_hitl_policy",
     "signed_binding_required",
 ]
 
@@ -161,13 +165,13 @@ class PendingHitlEvent(CCFContract):
 
 
 class SignedBindingRequiredRefused(PermissionError):
-    """Policy requires a signed principal binding and none was presented.
+    """Policy requires a signed attestation and none was presented.
 
     SDK-defined (CLAUDE.md §8.2); the D-16 composition (08-CONTEXT),
     designed within the D-IMPL-21/63/67 contract envelope. Raised at the
     transport authority path when the Control Plane HITL policy in force
     declares ``signed_binding_required: true`` and the submission carries
-    no :class:`~ccf.hitl.identity_binding.SignedPrincipalBinding`. A
+    no :class:`~ccf.hitl.identity_binding.SignedHitlAction`. A
     distinct class from :class:`SignedBindingInvalidRefused` so the
     Experience-Layer doors can map absence and invalidity to their own
     error-code constants (``ERROR_SIGNED_BINDING_REQUIRED``).
@@ -175,16 +179,16 @@ class SignedBindingRequiredRefused(PermissionError):
 
 
 class SignedBindingInvalidRefused(PermissionError):
-    """A signed principal binding was presented and does not hold.
+    """A signed attestation was presented and its signature does not hold.
 
     SDK-defined (CLAUDE.md §8.2); D-16 within D-IMPL-21/63/67. Raised when
-    the presented binding fails cryptographic verification
-    (:func:`~ccf.hitl.identity_binding.verify_principal_binding`, with the
-    typed identity error chained as the cause) or when the verified
-    binding's principal does not equal the submission's principal — a
-    validly signed binding over someone else's identity binds nothing
-    here (spoofing, T-08-06). Maps to ``ERROR_SIGNED_BINDING_INVALID``
-    at the doors.
+    the presented attestation fails cryptographic verification
+    (:func:`~ccf.hitl.identity_binding.verify_hitl_action`, with the
+    typed identity error chained as the cause) under the keys the pinned
+    policy declares for its subject. A signature that VERIFIES but whose
+    claims disagree with the capability, the request or the minted binding
+    is :class:`SignedBindingMismatchRefused` (`D-IMPL-363` E6), not this.
+    Maps to ``ERROR_SIGNED_BINDING_INVALID`` at the doors.
     """
 
 
@@ -211,15 +215,22 @@ class HitlPolicy(CCFContract):
     requires are the artifact's statements, never code constants
     (No-Hardcoding, CLAUDE.md §6.4). This is the schema behind the
     documented ``hitl.signed_binding_required`` surface examples set in
-    their ``artifacts/`` HITL policy YAML: a document like
-    ``{semver: "1.0.0", signed_binding_required: true}`` registered under
-    the deployment's chosen HITL-policy key.
+    their ``artifacts/`` HITL policy YAML, registered under the deployment's
+    chosen HITL-policy key. A policy that does not require signing is as
+    small as ``{semver: "1.0.0", signed_binding_required: false}``; one that
+    DOES require it must also state the window and the per-subject keys
+    (`D-IMPL-363` E3/E5) — ``{semver: "1.0.0", signed_binding_required: true,
+    signature_max_age_seconds: 300, permitted_clock_skew_seconds: 60,
+    trusted_keys: {"<approver subject_id>": {"<kid>": <public JWK>}}}`` —
+    and is refused at parse without them (the close-panel finding CR-363-04
+    on `D-IMPL-363`: the former example here omitted them).
 
     Attributes:
         semver: The artifact's own semver lane (whitepaper §6.3).
         signed_binding_required: Whether a submission at the authority
             path must carry a verifiable
-            :class:`~ccf.hitl.identity_binding.SignedPrincipalBinding`.
+            :class:`~ccf.hitl.identity_binding.SignedHitlAction` (the
+            ``attestation``; `D-IMPL-363`).
             Defaults to ``False`` when the key is absent from the
             document, so a missing key is well-defined rather than a
             ``KeyError`` — requiredness *true* can only ever come from a
@@ -228,11 +239,79 @@ class HitlPolicy(CCFContract):
 
     semver: str
     signed_binding_required: bool = False
+    #: `D-IMPL-363` E3 — the directional freshness window the shared verifier
+    #: applies to a signed attestation, against the RECORDED door-minted
+    #: ``action_time`` and never a verifier clock: ``issued_at`` may be at
+    #: most ``signature_max_age_seconds`` BEFORE the recorded instant and at
+    #: most ``permitted_clock_skew_seconds`` AFTER it. Both are REQUIRED
+    #: whenever ``signed_binding_required`` is true — no SDK default
+    #: (CINV-01) — and refused at parse when absent, so a required policy
+    #: never admits under an invented window. Hash-transparent at ``None``
+    #: (CINV-06; D-IMPL-243): a policy written before the window existed keeps
+    #: its content address.
+    signature_max_age_seconds: int | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    permitted_clock_skew_seconds: int | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: `D-IMPL-363` E5 / C6(a) — the ONE trust source: approver subject →
+    #: ``kid`` → public JWK. The verifier offers an attestation's verifier
+    #: exactly the keys declared for ``claims.subject_id``, so a key trusted
+    #: for one approver signs for no other; a ``kid`` not declared for the
+    #: subject refuses as a mismatch. Required with ``signed_binding_required``;
+    #: hash-transparent at ``None`` for the same reason as the window.
+    trusted_keys: Mapping[str, Mapping[str, JsonWebKey]] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("semver")
     @classmethod
     def _semver_is_well_formed(cls, value: str) -> str:
         return validate_semver(value)
+
+    @field_validator("signature_max_age_seconds")
+    @classmethod
+    def _max_age_is_positive(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("signature_max_age_seconds must be a positive number of seconds (D-IMPL-363 E3)")
+        return value
+
+    @field_validator("permitted_clock_skew_seconds")
+    @classmethod
+    def _skew_is_non_negative(cls, value: int | None) -> int | None:
+        if value is not None and value < 0:
+            raise ValueError("permitted_clock_skew_seconds cannot be negative (D-IMPL-363 E3)")
+        return value
+
+    @model_validator(mode="after")
+    def _a_required_policy_states_its_window_and_keys(self) -> "HitlPolicy":
+        """E3 / E5: ``signed_binding_required: true`` without the window or the
+        per-subject keys is refused at parse — never admitted with a default
+        the deployment did not write (CINV-01)."""
+        if not self.signed_binding_required:
+            return self
+        missing = [
+            name
+            for name in ("signature_max_age_seconds", "permitted_clock_skew_seconds", "trusted_keys")
+            if getattr(self, name) is None
+        ]
+        if missing:
+            raise ValueError(
+                "signed_binding_required is true but the policy does not state"
+                f" {missing}; a required attestation needs the window and the"
+                " per-subject trusted keys the verifier judges it against, and"
+                " the SDK supplies no default (D-IMPL-363 E3/E5; CINV-01)"
+            )
+        return self
+
+    def keys_for(self, subject_id: str) -> Mapping[str, JsonWebKey]:
+        """The public keys this policy declares for ``subject_id`` — possibly none."""
+        return {} if self.trusted_keys is None else self.trusted_keys.get(subject_id, {})
+
+    def pinned_ref(self, *, key: str, version: str) -> str:
+        """The ``key@version`` a submission records as the policy that admitted it (E3)."""
+        return f"{key}@{version}"
 
 
 #: The HITL policy artifact class (CLAUDE.md §8.2; D-16).
@@ -261,86 +340,185 @@ def signed_binding_required(
         TypeError: the key names a registered artifact that is not a
             :class:`HitlPolicy` — broken deployment wiring.
     """
+    resolved = resolve_hitl_policy(
+        control_plane=control_plane, hitl_policy_key=hitl_policy_key
+    )
+    return False if resolved is None else resolved[1].signed_binding_required
+
+
+def resolve_hitl_policy(
+    *,
+    control_plane: ControlPlaneProtocol | None,
+    hitl_policy_key: str | None,
+) -> tuple[str, HitlPolicy] | None:
+    """The HITL policy in force and its pinned version, or ``None`` when unbound.
+
+    One resolution for the three readers that need the policy itself rather
+    than its boolean — the shared verifier (the window and the per-subject
+    keys), the transport's ``hitl_policy_ref`` stamp, and
+    :func:`signed_binding_required`. Resolved latest per call, as before
+    (`D-IMPL-363` E3: the pin makes replay honest, not admission immutable).
+
+    Raises:
+        TypeError: the key names a registered artifact that is not a
+            :class:`HitlPolicy` — broken deployment wiring.
+    """
     if control_plane is None or hitl_policy_key is None:
-        return False
-    _, artifact = control_plane.resolve_latest(hitl_policy_key)
+        return None
+    version, artifact = control_plane.resolve_latest(hitl_policy_key)
     if not isinstance(artifact, HitlPolicy):
         raise TypeError(
             f"artifact under {hitl_policy_key!r} is not a HitlPolicy (got"
             f" {type(artifact).__name__}); the bound policy key must name a"
             " registered ccf.hitl-policy artifact"
         )
-    return artifact.signed_binding_required
+    return str(version), artifact
 
 
-def enforce_signed_binding(
+class SignedBindingMismatchRefused(PermissionError):
+    """A presented attestation verifies but a signed claim does not match the
+    capability or the request (`D-IMPL-363` E6; SEC-005): another tenant,
+    another event, a subject other than the capability's principal, a key not
+    declared for that subject in the pinned policy, a product hash other than
+    the one the door minted, or a verdict other than the one presented.
+    Maps to ``signed-binding-mismatch`` at both doors.
+    """
+
+
+class SignedBindingStaleRefused(PermissionError):
+    """A presented attestation verifies and matches but is not fresh
+    (`D-IMPL-363` E3/E4/E6; SEC-005): ``issued_at`` falls outside the pinned
+    window against the RECORDED door instant, or its nonce was already
+    presented for this event. Maps to ``signed-binding-stale`` at both doors.
+    """
+
+
+def enforce_attestation(
+    authorized: Authorized[HitlSubmit],
     submission: HitlActionSubmission,
     *,
     identity_provider: IdentityProvider | None,
-    trusted_keys: Mapping[str, JsonWebKey] | None,
-) -> None:
-    """Refuse the submission unless its signed binding holds.
+    policy: HitlPolicy,
+) -> HitlActionClaims:
+    """Refuse the submission unless its attestation holds; return the verified claims.
 
-    The shared verification helper (D-16; D-IMPL-69; D-IMPL-21;
-    CLAUDE.md §8.2): one implementation, invoked independently by the
+    The shared verification helper (D-16; D-IMPL-69; D-IMPL-21; `D-IMPL-363`
+    E2; CLAUDE.md §8.2): one implementation, invoked independently by the
     transport and by the HITL primitives — idempotent double verification
-    (D-13), never a trust marker crossing the layer seam.
+    (D-13), never a trust marker crossing the layer seam. **It reads no
+    clock.** Every comparison is between the signed claims, the capability,
+    the door-minted binding on the submission and the pinned policy, so the
+    transport site (which has no clock) and a replay re-verify identically.
+
+    In order, after the attestation is present and the wiring is whole:
+
+    1. **Subject ↔ key (E5 / C6(a)).** The envelope's ``key_id`` must be one
+       the pinned policy declares for ``claims.subject_id``; any other key
+       — trusted for someone else, or for no one — is a mismatch. The
+       signature is then verified against exactly those keys.
+    2. **Claims ↔ capability and request (E1, C1(a)).** ``tenant`` is the
+       capability's; ``event_key`` is the capability's resource;
+       ``subject_id`` is the capability's principal and the minted binding's
+       approver; ``action`` is the presented action and the minted binding's
+       verdict; ``product_content_hash`` is the minted binding's. Each a
+       mismatch.
+    3. **Freshness (E3), directional, against the RECORDED instant.**
+       ``issued_at <= action_time + permitted_clock_skew_seconds`` and
+       ``action_time − issued_at <= signature_max_age_seconds``, where
+       ``action_time`` is the door-minted ``submission.principal.action_time``
+       — never a verifier clock. An absolute delta would admit a claim issued
+       after the door recorded the action. Each a stale refusal.
+
+    The nonce is NOT consumed here: reuse is refused by the transport,
+    atomically under its lock, at :meth:`InMemoryHitlTransport.submit`
+    (E4 / C11(a)), so a verifier that runs twice does not burn it.
 
     Raises:
-        SignedBindingRequiredRefused: the policy requires a binding and
+        SignedBindingRequiredRefused: the policy requires an attestation and
             the submission carries none.
-        SignedBindingInvalidRefused: the binding fails verification, or
-            its verified principal is not the submission's.
-        RuntimeError: bindings are required but no identity provider or
-            trusted keys were supplied — broken deployment wiring, not an
-            expected refusal.
+        SignedBindingInvalidRefused: the attestation's signature does not
+            verify under the keys declared for its subject.
+        SignedBindingMismatchRefused: a signed claim disagrees with the
+            capability, the request, the minted binding, or the key map.
+        SignedBindingStaleRefused: ``issued_at`` is outside the window.
+        RuntimeError: attestations are required but no identity provider was
+            supplied, or the policy states no window — broken deployment
+            wiring, not an expected refusal.
     """
-    if submission.signed_binding is None:
+    signed = submission.attestation
+    if signed is None:
         raise SignedBindingRequiredRefused(
-            "the HITL policy in force requires a signed principal"
-            " binding and this submission carries none (D-16;"
-            " D-IMPL-21; D-IMPL-69; CLAUDE.md §8.2)"
+            "the HITL policy in force requires a signed attestation and this"
+            " submission carries none (D-16; D-IMPL-21; D-IMPL-69;"
+            " D-IMPL-363; CLAUDE.md §8.2)"
         )
-    if identity_provider is None or trusted_keys is None:
+    if identity_provider is None:
         raise RuntimeError(
-            "the HITL policy requires signed bindings but no identity"
-            " provider or trusted keys were supplied — broken"
-            " composition-root wiring"
+            "the HITL policy requires signed attestations but no identity"
+            " provider was supplied — broken composition-root wiring"
+        )
+    max_age = policy.signature_max_age_seconds
+    skew = policy.permitted_clock_skew_seconds
+    if max_age is None or skew is None:
+        raise RuntimeError(
+            "the HITL policy requires signed attestations but states no"
+            " freshness window — broken Control Plane wiring (D-IMPL-363 E3)"
+        )
+    claims = signed.claims
+    declared = policy.keys_for(claims.subject_id)
+    if signed.key_id not in declared:
+        raise SignedBindingMismatchRefused(
+            f"key {signed.key_id!r} is not declared for subject"
+            f" {claims.subject_id!r} in the HITL policy in force; a key trusted"
+            " for another approver, or for no one, signs for no one"
+            " (D-IMPL-363 E5)"
         )
     try:
-        verified = verify_principal_binding(
-            submission.signed_binding,
-            provider=identity_provider,
-            public_keys=trusted_keys,
+        verified = verify_hitl_action(
+            signed, provider=identity_provider, public_keys=declared
         )
-    except PrincipalBindingInvalid as error:
+    except AttestationInvalid as error:
         raise SignedBindingInvalidRefused(
-            "the presented signed principal binding does not verify"
-            " (D-16; D-IMPL-21; D-IMPL-69)"
+            "the presented signed attestation does not verify"
+            " (D-16; D-IMPL-21; D-IMPL-69; D-IMPL-363)"
         ) from error
-    if verified != submission.principal:
-        raise SignedBindingInvalidRefused(
-            "the verified signed binding's principal is not the"
-            " submission's principal; a valid signature over a"
-            " different identity binds nothing here (D-16; T-08-06)"
+    principal = submission.principal
+    mismatches: list[str] = []
+    if verified.tenant != authorized.tenant:
+        mismatches.append("tenant")
+    if verified.event_key != authorized.resource:
+        mismatches.append("event_key")
+    if (
+        verified.subject_id != authorized.principal
+        or verified.subject_id != principal.approver.subject_id
+    ):
+        mismatches.append("subject_id")
+    if verified.action != submission.action or verified.action != principal.verdict:
+        mismatches.append("action")
+    if verified.product_content_hash != principal.product_content_hash:
+        mismatches.append("product_content_hash")
+    if mismatches:
+        raise SignedBindingMismatchRefused(
+            f"the signed claims {mismatches} do not match the capability, the"
+            " request or the door-minted binding; a signature over one"
+            " statement does not authorize another (SEC-005; D-IMPL-363 E1)"
         )
-    if verified.verdict != submission.action:
-        # SEC-005. The verdict is a SIGNED claim (`HumanPrincipalBinding.
-        # verdict`), so a presented action that is not the one the approver
-        # signed is refused here rather than recorded as theirs. Before the
-        # verdict joined the claim set this comparison had nothing to read:
-        # the signature covered who acted, how, when and what they saw, and
-        # `submission.action` was never an input to any verification — so one
-        # valid signature authorized either decision, and a binding signed to
-        # reject completed a workflow at its approving terminal.
-        #
-        # Compared, not re-derived: the authority is the signed bytes, and
-        # this check only refuses a presentation that disagrees with them.
-        raise SignedBindingInvalidRefused(
-            "the verified signed binding's verdict is not the submission's"
-            " action; a signature over one decision does not authorize"
-            " another (SEC-005; D-16; D-IMPL-21)"
+    recorded_at = principal.action_time
+    ahead = (verified.issued_at - recorded_at).total_seconds()
+    behind = (recorded_at - verified.issued_at).total_seconds()
+    if ahead > skew:
+        raise SignedBindingStaleRefused(
+            f"the attestation is post-dated: issued_at is {ahead:.0f}s after"
+            f" the recorded action instant, beyond the permitted clock skew of"
+            f" {skew}s (D-IMPL-363 E3)"
         )
+    if behind > max_age:
+        raise SignedBindingStaleRefused(
+            f"the attestation is expired: issued_at is {behind:.0f}s before"
+            f" the recorded action instant, beyond the signature max age of"
+            f" {max_age}s (D-IMPL-363 E3)"
+        )
+    return verified
 
 
 class HitlActionRequest(CCFContract):
@@ -361,8 +539,12 @@ class HitlActionRequest(CCFContract):
 
     What remains is what only the human can state: which event, which
     action, the content hash of what they actually saw, an optional
-    annotation, and — where the HITL policy requires non-repudiation — a
-    signed copy of the binding the door will mint (D-16).
+    annotation, and — where the HITL policy requires non-repudiation — the
+    signed :class:`~ccf.hitl.identity_binding.HitlActionClaims` the human
+    made about this action (D-16; `D-IMPL-363` E1): the ``attestation``, one
+    object in one shape at both doors (C12(a)), replacing the former signed
+    copy of the door-minted binding whose ``action_time`` a signer had to
+    predict.
     """
 
     event_key: str
@@ -371,7 +553,7 @@ class HitlActionRequest(CCFContract):
     annotation: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
-    signed_binding: SignedPrincipalBinding | None = Field(
+    attestation: SignedHitlAction | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
@@ -411,13 +593,31 @@ class HitlActionSubmission(CCFContract):
     action: str
     principal: HumanPrincipalBinding
     annotation: str | None = None
-    #: The optional D-16 non-repudiation leg: a detached-JWS-signed copy of
-    #: the principal binding (D-IMPL-21 reference impl #2). Whether it is
-    #: required is the Control Plane HITL policy's statement
+    #: The optional D-16 non-repudiation leg (`D-IMPL-363` E1): the signer's
+    #: detached-JWS-signed :class:`~ccf.hitl.identity_binding.HitlActionClaims`.
+    #: Whether it is required is the Control Plane HITL policy's statement
     #: (:class:`HitlPolicy`), enforced at the transport authority path —
     #: never a code constant. When present it travels on the recorded
-    #: submission, so the audit/receipt surface carries it verbatim.
-    signed_binding: SignedPrincipalBinding | None = None
+    #: submission, so the audit/receipt surface and the dimension-2 block
+    #: carry it verbatim. Hash-transparent at ``None`` (CINV-06; D-IMPL-243):
+    #: an unsigned submission renders exactly as it did before the field
+    #: existed. Replaces ``signed_binding``, a base-roster field retired by
+    #: ruling under `D-IMPL-363` (replaced, not deprecated).
+    attestation: SignedHitlAction | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: **Transport-stamped, never caller-authored** (`D-IMPL-363` E3): the
+    #: pinned ``key@version`` of the :class:`HitlPolicy` that was in force
+    #: when this submission was admitted — so the recorded submission, which
+    #: the engine's authority join consumes later and the dimension-2 block
+    #: embeds, says which window and which keys decided its admission.
+    #: Stamped whenever a Control Plane and a policy key are bound; ``None``
+    #: on an unbound transport, hash-transparent at that sentinel. The pin
+    #: makes replay honest; it does not make admission immutable — the policy
+    #: is resolved latest at submit.
+    hitl_policy_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     #: **Transport-stamped, never caller-authored** (SEC-001 Tier 0; the
     #: 2026-09-24 follow-up read). The :data:`HITL_EVENT_CLASSES` member of
     #: the pending event this action was recorded as answering, and that
@@ -644,8 +844,9 @@ class InMemoryHitlTransport:
     D-IMPL-21/63/67).** When a Control Plane and an HITL-policy key are
     bound at construction, :meth:`submit` resolves the policy in force at
     submission time and — when it declares ``signed_binding_required`` —
-    verifies the submission's signed binding and enforces principal match
-    before recording. The policy is re-resolved per submission, so
+    verifies the submission's attestation through
+    :func:`enforce_attestation` and refuses a reused nonce under its lock
+    before recording (`D-IMPL-363`). The policy is re-resolved per submission, so
     registering a flipped value changes behavior with zero code change.
     All four D-16 arguments are optional together: an unconfigured
     transport behaves exactly as before this composition existed.
@@ -655,7 +856,7 @@ class InMemoryHitlTransport:
     — the Protocol's concurrency contract, discharged here. The lock
     scope is deliberately minimal: D-16 verification
     (:meth:`_signed_binding_required` — a Control Plane resolve — and
-    :meth:`_enforce_signed_binding` — JWS verification) runs *outside*
+    :func:`enforce_attestation` — JWS verification) runs *outside*
     the lock, per D-IMPL-69's "JWS verification stays outside any
     transport lock." A refused submission never touches the queues, so
     the refusal contract is unaffected; no locked method calls another
@@ -669,10 +870,10 @@ class InMemoryHitlTransport:
             its :class:`HitlPolicy` under — deployment vocabulary, no
             default (CINV-01).
         identity_provider: The D-IMPL-15 provider signatures verify
-            through when the policy requires them.
-        trusted_keys: The public keys this deployment accepts approver
-            signatures under — trust stays the composition root's
-            statement, outside the verification seam.
+            through when the policy requires them. The keys they verify
+            under are the pinned :class:`HitlPolicy`'s per-subject map —
+            the ONE trust source (`D-IMPL-363` E5 / C6(a)); there is no
+            constructor fallback.
     """
 
     def __init__(
@@ -681,11 +882,18 @@ class InMemoryHitlTransport:
         control_plane: ControlPlaneProtocol | None = None,
         hitl_policy_key: str | None = None,
         identity_provider: IdentityProvider | None = None,
-        trusted_keys: Mapping[str, JsonWebKey] | None = None,
     ) -> None:
         self._lock = threading.Lock()
         self._pending: dict[str, deque[PendingHitlEvent]] = {}
         self._submissions: dict[str, list[HitlActionSubmission]] = {}
+        #: Nonces already presented, keyed ``(tenant, event_key, nonce)`` —
+        #: the reference transport's seen-set (`D-IMPL-363` E4 / C11(a)).
+        #: Checked and inserted in ONE step under the lock, after
+        #: verification and before recording, so two racing presentations
+        #: of one attestation cannot both land. Retained for the transport's
+        #: lifetime; a user-implemented transport stays as replayable as
+        #: before until the Protocol amendment (1.0.3, its own entry).
+        self._seen_nonces: set[tuple[str, str, str]] = set()
         #: Events claimed through :meth:`remove` and not yet answered or
         #: given back, keyed ``(tenant, event_key)`` — the transport's own
         #: record of which primitive is resolving what (SEC-001 Tier 0).
@@ -694,7 +902,6 @@ class InMemoryHitlTransport:
         self._control_plane = control_plane
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
-        self._trusted_keys = trusted_keys
 
     def _signed_binding_required(self) -> bool:
         """Whether the policy in force requires a signed binding.
@@ -707,26 +914,6 @@ class InMemoryHitlTransport:
         return signed_binding_required(
             control_plane=self._control_plane,
             hitl_policy_key=self._hitl_policy_key,
-        )
-
-    def _enforce_signed_binding(
-        self, submission: HitlActionSubmission
-    ) -> None:
-        """Refuse the submission unless its signed binding holds (D-16).
-
-        Raises:
-            SignedBindingRequiredRefused: the policy requires a binding
-                and the submission carries none.
-            SignedBindingInvalidRefused: the binding fails verification,
-                or its verified principal is not the submission's.
-            RuntimeError: the policy requires bindings but the transport
-                was constructed without verification machinery — broken
-                deployment wiring, not an expected refusal.
-        """
-        enforce_signed_binding(
-            submission,
-            identity_provider=self._identity_provider,
-            trusted_keys=self._trusted_keys,
         )
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
@@ -814,11 +1001,16 @@ class InMemoryHitlTransport:
         be the capability's principal: the recorded actor has one source.
 
         When the Control Plane HITL policy in force requires a signed
-        principal binding, the submission is verified before anything is
-        recorded (D-16): a refused submission never lands on the queue.
-        Verification runs outside the lock and before the claim is
-        consumed, so a refusal leaves both the pending event and its claim
-        untouched (D-IMPL-69; Pitfall 4).
+        attestation, the submission is verified by
+        :func:`enforce_attestation` before anything is recorded (D-16): a
+        refused submission never lands on the queue. Verification runs
+        outside the lock and before the claim is consumed, so a refusal
+        leaves both the pending event and its claim untouched (D-IMPL-69;
+        Pitfall 4). The nonce is then checked and inserted in ONE step under
+        the lock, after verification and before recording (`D-IMPL-363` E4 /
+        C11(a)), and the recorded copy carries ``hitl_policy_ref`` — the
+        ``key@version`` of the policy that judged it, where ``version`` is
+        the Control Plane's version identifier for the pinned artifact.
 
         What is recorded is a copy stamped with the claim this submitter
         actually made — ``answered_event_class`` and
@@ -850,9 +1042,16 @@ class InMemoryHitlTransport:
                 ``Authorized[HitlSubmit]`` for ``submission.event_key``.
             PrincipalMismatchRefused: the binding's subject is not
                 ``authorized.principal``.
-            SignedBindingRequiredRefused: binding required and absent.
-            SignedBindingInvalidRefused: binding invalid or its verified
-                principal mismatches the submission's.
+            SignedBindingRequiredRefused: attestation required and absent.
+            SignedBindingInvalidRefused: the attestation's signature does
+                not verify under the keys declared for its subject.
+            SignedBindingMismatchRefused: a signed claim disagrees with the
+                capability, the request, the door-minted binding or the
+                per-subject key map (`D-IMPL-363` E6).
+            SignedBindingStaleRefused: ``issued_at`` is outside the policy's
+                window against the recorded ``action_time``, or the nonce
+                was already presented for this ``(tenant, event_key)``
+                (`D-IMPL-363` E3 / E4).
         """
         verify(authorized, kind=HitlSubmit, resource=submission.event_key)
         if submission.principal.approver.subject_id != authorized.principal:
@@ -863,10 +1062,39 @@ class InMemoryHitlTransport:
                 " binding over anyone else binds nothing here"
                 " (D-IMPL-353 §2 P6; D-IMPL-21)"
             )
-        if self._signed_binding_required():
-            self._enforce_signed_binding(submission)
+        resolved = resolve_hitl_policy(
+            control_plane=self._control_plane,
+            hitl_policy_key=self._hitl_policy_key,
+        )
+        policy_ref: str | None = None
+        verified: HitlActionClaims | None = None
+        if resolved is not None:
+            version, policy = resolved
+            assert self._hitl_policy_key is not None
+            policy_ref = policy.pinned_ref(key=self._hitl_policy_key, version=version)
+            if policy.signed_binding_required:
+                # Outside the lock, before the claim is consumed (D-IMPL-69).
+                verified = enforce_attestation(
+                    authorized,
+                    submission,
+                    identity_provider=self._identity_provider,
+                    policy=policy,
+                )
         tenant = authorized.tenant
         with self._lock:
+            if verified is not None:
+                # E4 / C11(a): the nonce check and insert are ONE step under
+                # the lock, after verification and before anything is
+                # recorded — a reuse refuses here and lands nothing, and two
+                # racing presentations cannot both pass.
+                nonce_key = (tenant, verified.event_key, verified.nonce)
+                if nonce_key in self._seen_nonces:
+                    raise SignedBindingStaleRefused(
+                        "the attestation's nonce was already presented for"
+                        f" event {verified.event_key!r}; a signed statement"
+                        " is admitted once (D-IMPL-363 E4)"
+                    )
+                self._seen_nonces.add(nonce_key)
             claimed = self._claims.pop((tenant, submission.event_key), None)
             recorded = submission.model_copy(
                 update={
@@ -877,6 +1105,7 @@ class InMemoryHitlTransport:
                         None if claimed is None else claimed.workflow_state_ref
                     ),
                     "authorizing_decision_id": authorized.decision_id,
+                    "hitl_policy_ref": policy_ref,
                 }
             )
             self._submissions.setdefault(tenant, []).append(recorded)

@@ -36,7 +36,7 @@ permissive, and an unattested credential mints no approval.
 The underlying contract validators are not laundered: a naive
 ``action_time`` or malformed content hash surfaces as the contract's own
 validation error. The companion reference implementation (#2) is the
-JWS-signed binding in :mod:`ccf.hitl.identity_binding`.
+JWS-signed action claims in :mod:`ccf.hitl.identity_binding` (`D-IMPL-363`).
 
 Algorithmic module (CINV-03).
 """

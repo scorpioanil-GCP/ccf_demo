@@ -71,6 +71,20 @@ BASE_COMMIT = "13bd250e7a9d9ea12daf596ef86597557aad702f"
 #: The committed roster the lint reads.
 ROSTER_PATH = pathlib.Path(__file__).with_name("hash_transparent_base_roster.json")
 
+#: Base-roster names a RULING retired: fields the roster measured at
+#: :data:`BASE_COMMIT` that a later decision removed from the tree outright.
+#: The roster file itself is never edited (it is a measurement, see above);
+#: a retirement is absorbed only here, by name and by the decision that made
+#: it, and ``tools/lints/tests/test_base_roster.py`` asserts each entry is
+#: both in the roster AND absent at HEAD — so a stale entry (a field that
+#: came back) is as red as an unexplained removal.
+RETIRED_BY_RULING: dict[str, str] = {
+    # `D-IMPL-363` E1 / C8 (SEC-005): `signed_binding` is REPLACED, not
+    # deprecated, by `attestation` (a `SignedHitlAction`), and Dave ruled the
+    # rename over keeping the stale name when the two collided (2026-10-03).
+    "ccf.hitl.transport.HitlActionSubmission.signed_binding": "D-IMPL-363",
+}
+
 #: The trees exported from the base commit — the lint's own scope, so the
 #: roster covers exactly the universe the lint walks.
 EXPORTED_TREES: tuple[str, ...] = hash_transparent_key.SCOPE_TREES

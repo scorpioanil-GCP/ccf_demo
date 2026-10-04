@@ -418,17 +418,25 @@ def test_the_tree_is_clean() -> None:
 
 def test_the_roster_fields_are_keyless_on_the_tree_and_silent() -> None:
     """The 130 pre-phase fields carry no key (the ``D-IMPL-89`` lineage) and
-    the lint names none of them — silence by construction, not by allowlist."""
+    the lint names none of them — silence by construction, not by allowlist.
+
+    Less the names a ruling retired (:data:`base_roster.RETIRED_BY_RULING`):
+    a retired field is in the measured roster and absent at HEAD, so it has
+    no key state to read and nothing for the unbounded lint to name; the
+    retirement roster's own proofs are in ``test_base_roster.py``."""
     at_head = _at_head()
     roster = base_roster.load()
-    keyless = {name for name in roster if at_head[name].declared is None}
-    assert keyless == roster
+    retired = set(base_roster.RETIRED_BY_RULING)
+    live = roster - retired
+    keyless = {name for name in live if at_head[name].declared is None}
+    assert keyless == live
     assert len(roster) == 130
+    assert retired <= roster
     # The positive control: with the roster taken away the lint names every
-    # one of the 130 — so their silence is the roster's doing and nothing else.
+    # live one — so their silence is the roster's doing and nothing else.
     unbounded = checker.check_tree(REPO, roster=frozenset())
-    assert len(unbounded) == 130
-    assert set(_qualified(unbounded)) == {".".join(n.rsplit(".", 2)[1:]) for n in roster}
+    assert len(unbounded) == len(live)
+    assert set(_qualified(unbounded)) == {".".join(n.rsplit(".", 2)[1:]) for n in live}
 
 
 def _imported_universe() -> dict[str, str]:

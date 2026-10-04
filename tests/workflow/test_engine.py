@@ -82,14 +82,14 @@ from ccf.hitl.principal import (
     AuthenticationContext,
     HumanPrincipalBinding,
 )
-from ccf.hitl.identity_binding import sign_principal_binding
+from ccf.hitl.identity_binding import HitlActionClaims, sign_hitl_action
 from ccf.hitl.transport import (
     HITL_POLICY,
     HitlActionSubmission,
     HitlPolicy,
     InMemoryHitlTransport,
-    SignedBindingInvalidRefused,
-    enforce_signed_binding,
+    SignedBindingMismatchRefused,
+    enforce_attestation,
 )
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
@@ -748,10 +748,12 @@ def _binding(
 ):
     """One approver's complete D-IMPL-21 binding over what they saw and decided.
 
-    ``verdict`` is a SIGNED claim (`SEC-005`), so it is a parameter rather than
-    a constant: a helper that pinned one verdict could not express an approver
-    who rejected, and `enforce_signed_binding` compares this value against the
-    submission's action.
+    ``verdict`` is a parameter rather than a constant: a helper that pinned one
+    verdict could not express an approver who rejected, and
+    `enforce_attestation` compares this value against both the submission's
+    action and the SIGNED ``action`` claim (`SEC-005`; `D-IMPL-363` E1) — the
+    verdict on this binding is the door-minted, UNSIGNED half, which is
+    exactly what T13 forges.
     """
     return HumanPrincipalBinding(
         verdict=verdict,
@@ -2113,19 +2115,28 @@ def test_a_conflicting_verdict_refusal_is_a_distinct_audited_record(
     assert type(caller_refusal) is AuditEvent
     assert caller_refusal.actor is None
 
-
-# --- SEC-005: the signed binding does not cover the verdict -------------------
+# --- SEC-005: the signed attestation covers the verdict (`D-IMPL-363`) --------
 
 #: This test-as-deployment's own vocabulary (CINV-01): the signing key it
-#: writes and the Control Plane key it binds its HITL policy under.
+#: writes, the Control Plane key it binds its HITL policy under, the approver
+#: whose subject the key is declared for, and the window the pinned policy
+#: states. The window values are the deployment's statement, never an SDK
+#: default — a required policy that omits them is refused at parse
+#: (`D-IMPL-363` E3).
 _SIGNING_KID = "hitl-approver-signing-key"
 _HITL_POLICY_KEY = "acme-bank/hitl/policy"
+_SIGNING_SUBJECT = "officer-2"
+_MAX_AGE_SECONDS = 300
+_SKEW_SECONDS = 60
 
 
 def _signed_path(
-    registry: ControlPlaneRegistry, tmp_path: Path
-) -> tuple[InMemoryHitlTransport, DetachedJwsIdentityProvider, Mapping[str, Any]]:
-    """A transport on the SIGNED path — the policy in force requires a binding.
+    registry: ControlPlaneRegistry,
+    tmp_path: Path,
+    *,
+    subject_id: str = _SIGNING_SUBJECT,
+) -> tuple[InMemoryHitlTransport, DetachedJwsIdentityProvider, HitlPolicy]:
+    """A transport on the SIGNED path — the policy in force requires an attestation.
 
     Requiredness is a Control Plane value and defaults to false
     (``HitlPolicy.signed_binding_required``), so a deployment that has NOT
@@ -2133,6 +2144,12 @@ def _signed_path(
     about it. This harness turns it ON, which is the only posture in which the
     finding bites: a deployment entitled to believe it obtained
     non-repudiation.
+
+    **The trust source is the pinned policy and nothing else** (`D-IMPL-363`
+    E5 / C6(a)): the window and the per-subject ``trusted_keys`` live INSIDE
+    the registered :class:`HitlPolicy` document, and the transport takes no
+    ``trusted_keys`` argument any more. The policy object is returned because
+    the shared verifier judges an attestation against it directly.
     """
     keys = tmp_path / "hitl-keys"
     keys.mkdir()
@@ -2141,56 +2158,67 @@ def _signed_path(
         json.dumps(key.as_dict(private=True)), encoding="utf-8"
     )
     policy = parse_artifact(
-        {"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY
+        {
+            "semver": "1.0.0",
+            "signed_binding_required": True,
+            "signature_max_age_seconds": _MAX_AGE_SECONDS,
+            "permitted_clock_skew_seconds": _SKEW_SECONDS,
+            "trusted_keys": {subject_id: {_SIGNING_KID: key.as_dict(private=False)}},
+        },
+        HITL_POLICY,
     )
     assert isinstance(policy, HitlPolicy)
     register_typed_at_composition(registry, _HITL_POLICY_KEY, policy, HITL_POLICY)
     provider = DetachedJwsIdentityProvider(
         key_source=FileBackedKeySource(directory=keys)
     )
-    trusted = {_SIGNING_KID: key.as_dict(private=False)}
     transport = InMemoryHitlTransport(
         control_plane=registry,
         hitl_policy_key=_HITL_POLICY_KEY,
         identity_provider=provider,
-        trusted_keys=trusted,
     )
-    return transport, provider, trusted
+    return transport, provider, policy
 
 
-def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
+def test_an_attestation_signed_to_reject_cannot_be_presented_as_an_approval(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:
-    """SEC-005. The signature proves WHO acted and WHAT THEY SAW, not WHAT THEY
-    DECIDED — so one valid signature authorizes either verdict.
+    """SEC-005, closed by `D-IMPL-363`: the signature covers WHAT THEY DECIDED,
+    so one valid signature authorizes exactly one verdict.
 
-    ``HumanPrincipalBinding`` carries exactly the four `D-IMPL-21` fields —
-    approver, authentication, action time, product content hash — and
-    ``sign_principal_binding`` signs ``canonical_bytes(binding)`` over
-    precisely those. The verdict is not among them: ``action`` travels beside
-    the binding on ``HitlActionSubmission`` and beside it again as
-    ``ApprovalGate.resolve``'s own parameter. ``enforce_signed_binding`` then
-    does two things and only two — verify the signature, and check that the
-    verified principal is the submission's. ``submission.action`` is never an
-    input to either.
+    The finding this replaces: ``HumanPrincipalBinding`` carries the four
+    `D-IMPL-21` fields — approver, authentication, action time, product content
+    hash — and the retired ``sign_principal_binding`` signed precisely those.
+    The verdict was not among them, so a signature made to REJECT verified
+    unchanged beside ``action="approve"``. Under `D-IMPL-363` the signed object
+    is :class:`HitlActionClaims`, whose ``action`` IS a signed claim, and
+    :func:`enforce_attestation` compares it to both the presented action and
+    the door-minted binding's ``verdict`` (E1, C1(a)).
 
-    WHY THE ROUTE FREEZE DOES NOT REACH THIS. `ece2ae2d` froze
-    ``gate_routes`` so a write cannot retarget a verdict. Here the map is
-    untouched and the VERDICT ITSELF is forged, so the route compare agrees
-    with it and the resume is regular. Wave 1's ``conflicting_verdicts``
-    cross-check does not reach it either: that refuses only when two DISTINCT
-    verdicts are recorded against one suspension, and here the genuine
-    rejection is never submitted — only the swap is.
+    THE STRONGEST FORGER, not a stub: the attacker swaps BOTH unsigned halves
+    — the presented ``action`` and the unsigned binding's ``verdict`` — so the
+    only thing still saying ``reject`` is the signed claim set. A verifier that
+    compared the two unsigned halves to each other would agree with the forgery.
+
+    WHY THE ROUTE FREEZE DOES NOT REACH THIS. `ece2ae2d` froze ``gate_routes``
+    so a write cannot retarget a verdict. Here the map is untouched and the
+    VERDICT ITSELF is forged, so the route compare agrees with it and the
+    resume would be regular. Wave 1's ``conflicting_verdicts`` cross-check does
+    not reach it either: that refuses only when two DISTINCT verdicts are
+    recorded against one suspension, and here the genuine rejection is never
+    submitted — only the swap is.
 
     BOTH FACTS ARE GATHERED BEFORE ANYTHING IS ASSERTED, so one failing run
     reports the whole chain rather than stopping at its first link. The
-    mechanism assertion comes first and pins the signature's scope directly:
-    the two outcome assertions alone would be satisfied by whichever guard in
-    ``resume`` happened to fire. ``verified_after_swap`` is asserted for the
-    reason ``landed`` is asserted in
-    ``test_mutating_gate_routes_cannot_route_a_recorded_rejection_to_the_approving_terminal``.
+    mechanism assertions come first and pin the signature's scope directly —
+    with a POSITIVE CONTROL (the same attestation presented honestly is
+    admitted) so the refusal cannot be an attestation that never verified at
+    all. The two outcome assertions alone would be satisfied by whichever
+    guard in ``resume`` happened to fire; they are kept because they are the
+    property the retired test pinned: a swapped verdict never reaches the
+    approving terminal.
     """
-    transport, provider, trusted = _signed_path(registry, tmp_path)
+    transport, provider, policy = _signed_path(registry, tmp_path)
     engine, _, _ = _engine(registry, tmp_path, transport=transport)
     workflow = _covenant(registry)
     tenant = workflow.definition.tenant
@@ -2204,53 +2232,98 @@ def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
         for event in transport.pending(tenant=tenant)
         if event.event_key == suspended.event_key
     )
-    binding = _binding(
-        pending.product_content_hash, subject_id="officer-2", verdict="reject"
+    # What the approver actually stated and signed: a REJECTION of exactly
+    # this event, at the instant the door went on to record (`_binding`'s
+    # ``action_time`` is fixed, so the freshness window is deterministic and
+    # no wall clock is read on this path).
+    honest_claims = HitlActionClaims(
+        tenant=tenant,
+        event_key=suspended.event_key,
+        action="reject",
+        product_content_hash=pending.product_content_hash,
+        subject_id=_SIGNING_SUBJECT,
+        issued_at=datetime(2026, 7, 30, 12, tzinfo=UTC),
+        nonce="t13-nonce-0001",
     )
-    signed = sign_principal_binding(
-        binding, provider=provider, key_id=_SIGNING_KID
+    signed = sign_hitl_action(
+        honest_claims, provider=provider, key_id=_SIGNING_KID
+    )
+    capability = submit_capability(
+        tenant=tenant,
+        principal=_SIGNING_SUBJECT,
+        event_key=suspended.event_key,
     )
 
-    # The approver signed intending to REJECT. The same signature is presented
-    # with the opposite verdict; nothing else about it is altered.
+    def _submission(verdict: str) -> HitlActionSubmission:
+        """The submission as a presenter composes it: the attestation verbatim,
+        beside an UNSIGNED binding and action the presenter chose."""
+        return HitlActionSubmission(
+            event_key=suspended.event_key,
+            action=verdict,
+            principal=_binding(
+                pending.product_content_hash,
+                subject_id=_SIGNING_SUBJECT,
+                verdict=verdict,
+            ),
+            attestation=signed,
+        )
+
+    # POSITIVE CONTROL: presented as signed, the attestation is admitted. The
+    # verifier consumes no nonce (`D-IMPL-363` E4), so this leaves the signed
+    # path and the pending event untouched for the swap below.
+    honest_verified: object
+    try:
+        honest_verified = enforce_attestation(
+            capability,
+            _submission("reject"),
+            identity_provider=provider,
+            policy=policy,
+        )
+    except PermissionError as refused:
+        honest_verified = refused
+
+    # THE SWAP: the approver signed intending to REJECT. Both unsigned halves
+    # now say "approve"; the signed claims are untouched.
     record = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-1")
     assert isinstance(record, WorkflowStateRecord)
     gate = record.current_state
     approving = workflow.definition.gate_routes[gate]["approve"]
+    swap_refusal: object = None
     try:
-        enforce_signed_binding(
-            HitlActionSubmission(
-                event_key=suspended.event_key,
-                action="approve",
-                principal=binding,
-                signed_binding=signed,
-            ),
+        enforce_attestation(
+            capability,
+            _submission("approve"),
             identity_provider=provider,
-            trusted_keys=trusted,
+            policy=policy,
         )
-    except SignedBindingInvalidRefused:
-        verified_after_swap = False
-    else:
-        verified_after_swap = True
+    except SignedBindingMismatchRefused as refused:
+        swap_refusal = refused
 
-    # Wrapped for the reason the null-identity control is wrapped: a repair
-    # that starts REFUSING must not abort before the assertions are reached.
-    # The gate invokes the same shared helper, so once the verdict is a signed
-    # claim the refusal surfaces here too, not only at `enforce_signed_binding`.
+    # Wrapped for the reason the null-identity control is wrapped: a regression
+    # that starts ADMITTING must not abort before the assertions are reached.
+    # The gate invokes the same shared helper, so the refusal surfaces here too
+    # and not only at `enforce_attestation`.
     swapped: object
     try:
         swapped = ApprovalGate(
-            transport=transport, audit=registry.audit_log, clock=_ticking_clock()
+            transport=transport,
+            audit=registry.audit_log,
+            clock=_ticking_clock(),
+            control_plane=registry,
+            hitl_policy_key=_HITL_POLICY_KEY,
+            identity_provider=provider,
         ).resolve(
-            submit_capability(
-                tenant=tenant, principal="officer-2", event_key=suspended.event_key
-            ),
+            capability,
             event_key=suspended.event_key,
             action="approve",
-            principal=binding,
-            signed_binding=signed,
+            principal=_binding(
+                pending.product_content_hash,
+                subject_id=_SIGNING_SUBJECT,
+                verdict="approve",
+            ),
+            attestation=signed,
         )
-    except SignedBindingInvalidRefused as refused:
+    except SignedBindingMismatchRefused as refused:
         swapped = refused
     outcome: object | None = None
     if isinstance(swapped, GateResolution):
@@ -2265,12 +2338,29 @@ def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
     after = registry.state_store.get(WORKFLOW_STATE, f"{tenant}/exec-1")
     assert isinstance(after, WorkflowStateRecord)
 
-    assert not verified_after_swap, (
-        "a binding signed over the four D-IMPL-21 fields still verified after"
-        " the verdict was swapped to 'approve', so the signature authorizes a"
-        f" decision the approver never made; the swapped resolution was"
-        f" {type(swapped).__name__} and the execution reached"
+    assert isinstance(honest_verified, HitlActionClaims), (
+        "the POSITIVE CONTROL failed: the attestation presented exactly as it"
+        " was signed was not admitted"
+        f" ({type(honest_verified).__name__}: {honest_verified}), so the"
+        " refusal below would prove nothing about the verdict"
+    )
+    assert honest_verified.action == "reject"
+    assert isinstance(swap_refusal, SignedBindingMismatchRefused), (
+        "an attestation signed over action='reject' was presented as"
+        " action='approve' and `enforce_attestation` did not refuse it as a"
+        f" mismatch (got {type(swap_refusal).__name__}), so the signature"
+        " authorizes a decision the approver never made; the swapped gate"
+        f" resolution was {type(swapped).__name__} and the execution reached"
         f" {after.status!r} at {after.current_state!r}"
+    )
+    assert isinstance(swapped, SignedBindingMismatchRefused), (
+        "`ApprovalGate.resolve` admitted the swapped verdict even though the"
+        " shared verifier refuses it; SOMEWHERE on the authority path the"
+        " refusal has to surface (the gate's own pre-consumption verification"
+        " or the transport's at submit — D-13's idempotent double"
+        f" verification, and this composition has both) (got {type(swapped).__name__}).\n"
+        " Which of the two fired is pinned separately by"
+        " `test_the_approval_gate_verifies_the_attestation_independently_of_the_transport`."
     )
     assert not isinstance(outcome, WorkflowCompleted), (
         "the workflow COMPLETED on a verdict carried by a signature that never"
@@ -2280,3 +2370,117 @@ def test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict(
         f"the execution advanced to the approving terminal {approving!r} on a"
         " swapped verdict"
     )
+    # The refused resolution consumed nothing: the event is still pending for
+    # a genuine rejection to answer (Pitfall 4 doctrine).
+    assert suspended.event_key in {
+        event.event_key for event in transport.pending(tenant=tenant)
+    }
+    assert transport.submissions(tenant=tenant) == ()
+
+
+def test_the_approval_gate_verifies_the_attestation_independently_of_the_transport(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """D-13 / D-IMPL-69: the gate's verification is its OWN, not the transport's.
+
+    T13 above runs with both halves bound, which is the real deployment shape
+    — and is exactly why it cannot say WHICH half refused: with the gate's
+    binding removed, the transport still refuses at ``submit`` and
+    ``resolve`` still raises. Measured: unbinding the gate left T13 green.
+
+    So this control removes the OTHER half. The transport is bound to no
+    Control Plane and so verifies nothing; the gate alone holds the policy
+    key. If the gate did not verify independently, the swap would be
+    admitted, recorded, and returned as a :class:`GateResolution` — no trust
+    marker crosses the layer seam in either direction (D-13), so each layer
+    has to do the work itself.
+    """
+    _, provider, policy = _signed_path(registry, tmp_path)
+    # Deliberately unbound: this transport resolves no policy and therefore
+    # performs no verification of its own.
+    unverifying = InMemoryHitlTransport()
+    engine, _, _ = _engine(registry, tmp_path, transport=unverifying)
+    workflow = _covenant(registry)
+    tenant = workflow.definition.tenant
+    suspended = asyncio.run(
+        engine.execute(execute_as(workflow), workflow, execution_id="exec-1")
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    pending = next(
+        event
+        for event in unverifying.pending(tenant=tenant)
+        if event.event_key == suspended.event_key
+    )
+    signed = sign_hitl_action(
+        HitlActionClaims(
+            tenant=tenant,
+            event_key=suspended.event_key,
+            action="reject",
+            product_content_hash=pending.product_content_hash,
+            subject_id=_SIGNING_SUBJECT,
+            issued_at=datetime(2026, 7, 30, 12, tzinfo=UTC),
+            nonce="t13-independent-nonce-0001",
+        ),
+        provider=provider,
+        key_id=_SIGNING_KID,
+    )
+    gate = ApprovalGate(
+        transport=unverifying,
+        audit=registry.audit_log,
+        clock=_ticking_clock(),
+        control_plane=registry,
+        hitl_policy_key=_HITL_POLICY_KEY,
+        identity_provider=provider,
+    )
+    resolved: object
+    try:
+        resolved = gate.resolve(
+            submit_capability(
+                tenant=tenant,
+                principal=_SIGNING_SUBJECT,
+                event_key=suspended.event_key,
+            ),
+            event_key=suspended.event_key,
+            action="approve",
+            principal=_binding(
+                pending.product_content_hash,
+                subject_id=_SIGNING_SUBJECT,
+                verdict="approve",
+            ),
+            attestation=signed,
+        )
+    except SignedBindingMismatchRefused as refused:
+        resolved = refused
+    assert isinstance(resolved, SignedBindingMismatchRefused), (
+        "the gate admitted a swapped verdict that only IT could have caught:"
+        " the transport beneath it is bound to no Control Plane and verifies"
+        f" nothing (got {type(resolved).__name__})"
+    )
+    # Pre-consumption, as D-IMPL-69 requires: nothing was claimed, nothing
+    # was recorded, the event is still answerable.
+    assert unverifying.submissions(tenant=tenant) == ()
+    assert suspended.event_key in {
+        event.event_key for event in unverifying.pending(tenant=tenant)
+    }
+    # The positive side of the same seam: the SAME attestation presented
+    # honestly passes the gate's verification, so the refusal above is the
+    # verdict and not the wiring.
+    honest = gate.resolve(
+        submit_capability(
+            tenant=tenant,
+            principal=_SIGNING_SUBJECT,
+            event_key=suspended.event_key,
+        ),
+        event_key=suspended.event_key,
+        action="reject",
+        principal=_binding(
+            pending.product_content_hash,
+            subject_id=_SIGNING_SUBJECT,
+            verdict="reject",
+        ),
+        attestation=signed,
+    )
+    assert isinstance(honest, GateResolution), honest
+    assert honest.outcome.approved is False
+    assert honest.record.submission.action == "reject"
+    assert honest.record.submission.attestation == signed

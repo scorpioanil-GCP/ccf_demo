@@ -26,6 +26,16 @@ approver directory. See
 [manage keys and secrets](security-and-deployment.md) for the signed-binding
 posture.
 
+> **Dated note, 2026-10-03 (`D-IMPL-363`, SEC-005).** The worked example
+> below is the archived program `archive/examples/05-workflow-hitl/run.py`,
+> which signs the door-minted binding with `sign_principal_binding`. That
+> API is replaced on this date by `HitlActionClaims` / `SignedHitlAction`
+> — the human signs its own statement, sent as `attestation` — and the
+> archived program no longer imports. The archive is a dated reference
+> surface and is not repaired (`D-IMPL-351`); the in-tree reference for
+> the signed leg at both doors is `tests/http_api/test_sec005_attestation_door.py`
+> and `tests/mcp/test_sec005_attestation_door.py`.
+
 Run the worked example with:
 
 ```sh

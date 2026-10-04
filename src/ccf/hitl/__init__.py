@@ -55,10 +55,11 @@ from ccf.hitl.override import (
     UnknownOverrideEventError,
 )
 from ccf.hitl.identity_binding import (
-    PrincipalBindingInvalid,
-    SignedPrincipalBinding,
-    sign_principal_binding,
-    verify_principal_binding,
+    AttestationInvalid,
+    HitlActionClaims,
+    SignedHitlAction,
+    sign_hitl_action,
+    verify_hitl_action,
 )
 from ccf.hitl.principal import (
     AUTHENTICATION_CLAIM,
@@ -151,8 +152,9 @@ __all__ = [
     "WebhookEndpoint",
     "WebhookEndpointConflict",
     "WebhookHitlNotifier",
-    "PrincipalBindingInvalid",
-    "SignedPrincipalBinding",
-    "sign_principal_binding",
-    "verify_principal_binding",
+    "AttestationInvalid",
+    "HitlActionClaims",
+    "SignedHitlAction",
+    "sign_hitl_action",
+    "verify_hitl_action",
 ]

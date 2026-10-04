@@ -387,6 +387,52 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HitlActionClaims": {
+        "additionalProperties": false,
+        "description": "What the human states and signs about ONE action (D-IMPL-363 E1).\n\nSDK-defined. Every member is something the signer can know from the\nserved queue view (:class:`~ccf.hitl.transport.PendingHitlEvent`:\n``event_key``, ``tenant``, ``product_content_hash``) plus its own\ndecision, identity, instant and nonce \u2014 and nothing the door mints.\n``action_time`` is deliberately absent: it is the door's statement,\nrecorded on the unsigned binding, and the window\n:func:`~ccf.hitl.transport.enforce_attestation` applies compares\n``issued_at`` against it (E2, E3).\n\nAttributes:\n    tenant: The tenant the action is filed under; must equal the\n        capability's tenant at verification.\n    event_key: The pending event acted on; must equal the capability's\n        resource.\n    action: The verdict (the :data:`~ccf.hitl.transport.HITL_ACTIONS`\n        vocabulary); must equal the presented action and the minted\n        binding's ``verdict`` (C1(a)).\n    product_content_hash: The content hash of what the human saw; must\n        equal the minted binding's.\n    subject_id: Who signs; must equal the capability's principal and the\n        minted binding's approver.\n    issued_at: The signer's own instant \u2014 timezone-aware, refused naive.\n    nonce: Non-empty and opaque. **Uniqueness per ``(tenant, event_key)``\n        is the signer's obligation** (C11(a)); the reference transport\n        refuses a reuse atomically. Neither length nor format is relied\n        on for that guarantee, and the SDK ships no generator (CINV-01).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "event_key": {
+            "title": "Event Key",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "nonce": {
+            "title": "Nonce",
+            "type": "string"
+          },
+          "product_content_hash": {
+            "title": "Product Content Hash",
+            "type": "string"
+          },
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "tenant": {
+            "title": "Tenant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant",
+          "event_key",
+          "action",
+          "product_content_hash",
+          "subject_id",
+          "issued_at",
+          "nonce"
+        ],
+        "title": "HitlActionClaims",
+        "type": "object"
+      },
       "HitlActionReceipt": {
         "additionalProperties": false,
         "description": "The honest submit-only receipt (D-IMPL-62).\n\nSDK-defined. D-IMPL-62 rules the HTTP/CLI HITL action door submit-only:\na submission enqueues on the typed transport and effects no state\ntransition and no authority action by itself \u2014 the owning primitive\nresolves it. This receipt is the ruled hardening of that contract:\n``status`` is the literal ``\"submitted\"`` (it cannot state or imply\n``resolved`` \u2014 the field is type-closed to the one honest word), and\nthe two disposition fields carry real queue state so the caller sees\nthe action's disposition rather than inferring it from an echo:\n``event_pending`` \u2014 whether the submission's event is still on the\ntenant's pending queue (it is, immediately after a submit; resolution\nis the primitive's act) \u2014 and ``submissions_for_event`` \u2014 how many\nactions the transport has recorded against this event key, this one\nincluded.",
@@ -419,7 +465,7 @@
       },
       "HitlActionRequest": {
         "additionalProperties": false,
-        "description": "What a caller may say about a human action at a served door (D-IMPL-353 \u00a72 P6).\n\nSDK-defined (CLAUDE.md \u00a78.2/\u00a78.3). The request half of the authority\npath \u2014 the HTTP ``POST /hitl/actions`` body, and the field set the MCP\n``submit_hitl_action`` tool takes as arguments. Deliberately **not** the\nsubmission: the :class:`~ccf.hitl.principal.HumanPrincipalBinding` is\nminted by the door from the capability, the verified credential's\n:class:`~ccf.hitl.principal.AuthenticationClaims` and the door's clock\n(:func:`ccf_runtime.identity_binding.principal_from_authorized`), so this\ncontract has no ``principal``, no ``subject_id``, no\n``identity_provider_ref``, no ``method``, no ``assurance_level``, no\n``session_ref``, no ``action_time`` and no ``tenant``. ``extra=forbid``\nmakes a body that still sends any of them a boundary refusal \u2014 and a\ncaller-typed step-up-MFA claim unrepresentable rather than refused.\n\nWhat remains is what only the human can state: which event, which\naction, the content hash of what they actually saw, an optional\nannotation, and \u2014 where the HITL policy requires non-repudiation \u2014 a\nsigned copy of the binding the door will mint (D-16).",
+        "description": "What a caller may say about a human action at a served door (D-IMPL-353 \u00a72 P6).\n\nSDK-defined (CLAUDE.md \u00a78.2/\u00a78.3). The request half of the authority\npath \u2014 the HTTP ``POST /hitl/actions`` body, and the field set the MCP\n``submit_hitl_action`` tool takes as arguments. Deliberately **not** the\nsubmission: the :class:`~ccf.hitl.principal.HumanPrincipalBinding` is\nminted by the door from the capability, the verified credential's\n:class:`~ccf.hitl.principal.AuthenticationClaims` and the door's clock\n(:func:`ccf_runtime.identity_binding.principal_from_authorized`), so this\ncontract has no ``principal``, no ``subject_id``, no\n``identity_provider_ref``, no ``method``, no ``assurance_level``, no\n``session_ref``, no ``action_time`` and no ``tenant``. ``extra=forbid``\nmakes a body that still sends any of them a boundary refusal \u2014 and a\ncaller-typed step-up-MFA claim unrepresentable rather than refused.\n\nWhat remains is what only the human can state: which event, which\naction, the content hash of what they actually saw, an optional\nannotation, and \u2014 where the HITL policy requires non-repudiation \u2014 the\nsigned :class:`~ccf.hitl.identity_binding.HitlActionClaims` the human\nmade about this action (D-16; `D-IMPL-363` E1): the ``attestation``, one\nobject in one shape at both doors (C12(a)), replacing the former signed\ncopy of the door-minted binding whose ``action_time`` a signer had to\npredict.",
         "properties": {
           "action": {
             "title": "Action",
@@ -437,6 +483,17 @@
             "ccf_hash_transparent": true,
             "title": "Annotation"
           },
+          "attestation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedHitlAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true
+          },
           "event_key": {
             "title": "Event Key",
             "type": "string"
@@ -444,17 +501,6 @@
           "product_content_hash": {
             "title": "Product Content Hash",
             "type": "string"
-          },
-          "signed_binding": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SignedPrincipalBinding"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "ccf_hash_transparent": true
           }
         },
         "required": [
@@ -508,6 +554,17 @@
             "ccf_hash_transparent": true,
             "title": "Answered Workflow State Ref"
           },
+          "attestation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SignedHitlAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true
+          },
           "authorizing_decision_id": {
             "anyOf": [
               {
@@ -524,18 +581,20 @@
             "title": "Event Key",
             "type": "string"
           },
-          "principal": {
-            "$ref": "#/components/schemas/HumanPrincipalBinding"
-          },
-          "signed_binding": {
+          "hitl_policy_ref": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SignedPrincipalBinding"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Hitl Policy Ref"
+          },
+          "principal": {
+            "$ref": "#/components/schemas/HumanPrincipalBinding"
           }
         },
         "required": [
@@ -762,12 +821,12 @@
         "title": "ProcedureBinding",
         "type": "object"
       },
-      "SignedPrincipalBinding": {
+      "SignedHitlAction": {
         "additionalProperties": false,
-        "description": "A principal binding together with its detached JWS (D-IMPL-21).\n\nSDK-defined (CLAUDE.md \u00a78.2); D-IMPL-66(a). The binding travels in the\nclear \u2014 audit consumers read it without keys \u2014 and the signature is the\ndetached compact JWS (``protected..signature``) exactly as\n:mod:`ccf.peering.identity` produced it over the binding's canonical\nbytes. A verifier recomputes those bytes from :attr:`binding`, so a\nsigned copy and a delivered copy cannot silently differ.\n\nAttributes:\n    binding: The human-principal binding that was signed.\n    signature: The detached compact JWS, ``{protected}..{signature}``.\n    key_id: The key identifier the signature was made under \u2014 the\n        claim the verifier holds against the protected header's ``kid``.",
+        "description": "The claims together with their detached JWS (D-IMPL-21; D-IMPL-363 E1).\n\nSDK-defined (CLAUDE.md \u00a78.2); D-IMPL-66(a). The claims travel in the\nclear \u2014 audit consumers read them without keys \u2014 and the signature is the\ndetached compact JWS (``protected..signature``) exactly as\n:mod:`ccf.peering.identity` produced it over the claims' canonical\nbytes. A verifier recomputes those bytes from :attr:`claims`, so a\nsigned copy and a delivered copy cannot silently differ. This is the\n``attestation`` a :class:`~ccf.hitl.transport.HitlActionRequest` and a\n:class:`~ccf.hitl.transport.HitlActionSubmission` carry, at both doors\nin one shape (C12(a)).\n\nAttributes:\n    claims: The signed claim set.\n    signature: The detached compact JWS, ``{protected}..{signature}``.\n    key_id: The key identifier the signature was made under \u2014 the\n        claim the verifier holds against the protected header's ``kid``\n        and against the pinned policy's per-subject key map (E5).",
         "properties": {
-          "binding": {
-            "$ref": "#/components/schemas/HumanPrincipalBinding"
+          "claims": {
+            "$ref": "#/components/schemas/HitlActionClaims"
           },
           "key_id": {
             "title": "Key Id",
@@ -779,11 +838,11 @@
           }
         },
         "required": [
-          "binding",
+          "claims",
           "signature",
           "key_id"
         ],
-        "title": "SignedPrincipalBinding",
+        "title": "SignedHitlAction",
         "type": "object"
       },
       "SkillArgumentElement": {

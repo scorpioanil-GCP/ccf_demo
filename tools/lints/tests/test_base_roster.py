@@ -76,17 +76,44 @@ def test_positive_controls_a_pre_phase_field_is_in_and_a_phase_field_is_out() ->
     assert "ccf.controlplane.artifacts.HalfLifeEntry.half_life_seconds" not in roster
 
 
+#: Base-roster fields RETIRED BY RULING — a named roster, never a count, each
+#: name cited to the entry that retired it. The base roster is a measurement
+#: of one immutable tree and is never edited; a field that a later ruling
+#: removes from HEAD is named here instead, so the removal is visible and
+#: attributable rather than silently tolerated. Every name here must be in
+#: the base roster AND absent at HEAD — both are asserted below, so a stale
+#: entry (a field that came back) is as red as an unexplained removal.
+RETIRED_BY_RULING: dict[str, str] = base_roster.RETIRED_BY_RULING
+
+
 def test_every_roster_name_is_still_a_defaulted_field_at_head() -> None:
-    """Nothing in the roster has been removed or lost its default since base.
+    """Nothing in the roster has been removed or lost its default since base —
+    except the names a ruling retired, which are listed by name and citation.
 
     Measured, not assumed: if a later phase renames or drops one, this names
-    it, and the roster is regenerated only by a ruling that moves the base.
+    it; the roster itself is regenerated only by a ruling that moves the base,
+    and a removal is absorbed only by an entry in :data:`RETIRED_BY_RULING`.
     """
     at_head = {
         hash_transparent_key.module_qualified(field, REPO)
         for field in hash_transparent_key.defaulted_fields(REPO)
     }
-    assert sorted(base_roster.load() - at_head) == []
+    roster = base_roster.load()
+    assert sorted(roster - at_head - set(RETIRED_BY_RULING)) == []
+
+
+def test_every_retired_name_was_in_the_roster_and_is_gone_at_head() -> None:
+    """The retirement roster cannot drift either way: a name it carries must
+    have been a base field, and must actually be absent at HEAD."""
+    at_head = {
+        hash_transparent_key.module_qualified(field, REPO)
+        for field in hash_transparent_key.defaulted_fields(REPO)
+    }
+    roster = base_roster.load()
+    for name, ruling in RETIRED_BY_RULING.items():
+        assert name in roster, f"{name} is not a base-roster field; retiring it ({ruling}) is meaningless"
+        assert name not in at_head, f"{name} is retired by {ruling} but is still a defaulted field at HEAD"
+        assert ruling.startswith("D-IMPL-"), ruling
 
 
 # --- the file IS the measurement -----------------------------------------------

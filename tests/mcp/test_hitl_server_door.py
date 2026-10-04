@@ -11,6 +11,12 @@
   than a refusal; a token carrying no claims is refused with the shared
   ``ERROR_AUTHENTICATION_UNATTESTED`` code; and the queue resource reads the
   capability's tenant.
+* **`D-IMPL-363`** — what the human signs is their own
+  :class:`~ccf.hitl.identity_binding.HitlActionClaims`, carried as ONE
+  ``attestation`` object parameter (C12(a)), which is what the tool's exact
+  wire schema is pinned to here. Verification itself is exercised against the
+  real transport in ``tests/mcp/test_sec005_attestation_door.py``; this suite
+  keeps its recording stub.
 
 The bodies are exercised through the guarded callables ``FastMCP`` holds
 (``tool.fn`` / ``template.fn``), with the verified token put in context the
@@ -154,6 +160,15 @@ def test_p4_the_builder_requires_the_authorizer_and_clock_and_the_bodies_have_no
 
 
 def test_the_tool_schema_carries_no_binding_field_and_no_capability() -> None:
+    """The wire schema is the `HitlActionRequest` field set plus the tenant
+    segment, and nothing else (P6; `D-IMPL-363` C12(a)).
+
+    Under `D-IMPL-363` the two detached-signature parameters
+    (``signed_binding_signature`` / ``signed_binding_key_id``) are replaced by
+    ONE ``attestation`` object in the same shape as the HTTP body's, so the
+    exact set changes while the property does not: no field the door mints is
+    a parameter a caller can supply.
+    """
     server = _server([], [])
     tool = server._tool_manager.get_tool(SUBMIT_HITL_ACTION_TOOL)
     assert tool is not None
@@ -164,8 +179,7 @@ def test_the_tool_schema_carries_no_binding_field_and_no_capability() -> None:
         "action",
         "product_content_hash",
         "annotation",
-        "signed_binding_signature",
-        "signed_binding_key_id",
+        "attestation",
     }
     for minted in (
         "authorized",
@@ -175,8 +189,22 @@ def test_the_tool_schema_carries_no_binding_field_and_no_capability() -> None:
         "assurance_level",
         "session_ref",
         "action_time",
+        # Replaced, not deprecated (`D-IMPL-363`): the two-parameter detached
+        # signature is gone from this surface rather than accepted beside the
+        # attestation.
+        "signed_binding_signature",
+        "signed_binding_key_id",
     ):
         assert minted not in properties
+    # The attestation is an optional OBJECT on the wire (C12(a)) — not the
+    # pair of strings it replaced, which is what makes the set change a shape
+    # change rather than a rename.
+    attestation = tool.parameters["properties"]["attestation"]
+    assert {"type": "object", "additionalProperties": True} in [
+        {key: arm[key] for key in ("type", "additionalProperties") if key in arm}
+        for arm in attestation["anyOf"]
+    ], attestation
+    assert {"type": "null"} in attestation["anyOf"], attestation
 
 
 # --- P6 -------------------------------------------------------------------------

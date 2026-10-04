@@ -153,7 +153,6 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
 from ccf.deployment.classes import SDK_VERSIONED_ARTIFACT_CLASSES
 from ccf.hitl.approval_gate import HitlActionRecord
-from ccf.hitl.identity_binding import verify_principal_binding
 from ccf.hitl.override import OverrideActionRecord
 from ccf.hitl.transport import HITL_POLICY, HitlPolicy
 from ccf.replay.engine import (
@@ -412,6 +411,16 @@ def test_dimension_2_carries_the_approval_verbatim(result: Any) -> None:
     reproduces is byte-identical to the recorded submission's, with the
     grant-derived subject the token table names.
     """
+    # Imported INSIDE the body, not at module scope (`D-IMPL-363`): this
+    # archived suite exercises `archive/examples/` programs written against
+    # the retired signed-principal-binding API, and `archive/` is a dated
+    # reference surface that is not repaired (D-IMPL-351). A module-level
+    # import of a removed name is a COLLECTION error, which would take the
+    # whole module — and every other archived assertion in it — out of
+    # collection. Deferred here, the module collects and the gap stays
+    # visible as a failing archived assertion rather than an invisible one.
+    from ccf.hitl.identity_binding import verify_principal_binding  # noqa: PLC0415
+
     action = HitlActionRecord.model_validate_json(
         _stored_record(result).policy_bindings.hitl_actions
     )
@@ -796,6 +805,16 @@ def test_the_override_record_reproduces_the_same_product(result: Any) -> None:
 def test_the_overriders_signature_verifies_from_the_record(result: Any) -> None:
     """Pre-rewrite :1206, :1212, :1213 (D-14/D-16)."""
     block = result.reproduced_override_record.policy_bindings.hitl_actions
+    # Imported INSIDE the body, not at module scope (`D-IMPL-363`): this
+    # archived suite exercises `archive/examples/` programs written against
+    # the retired signed-principal-binding API, and `archive/` is a dated
+    # reference surface that is not repaired (D-IMPL-351). A module-level
+    # import of a removed name is a COLLECTION error, which would take the
+    # whole module — and every other archived assertion in it — out of
+    # collection. Deferred here, the module collects and the gap stays
+    # visible as a failing archived assertion rather than an invisible one.
+    from ccf.hitl.identity_binding import verify_principal_binding  # noqa: PLC0415
+
     action = OverrideActionRecord[
         result.override_original.__class__
     ].model_validate_json(block)

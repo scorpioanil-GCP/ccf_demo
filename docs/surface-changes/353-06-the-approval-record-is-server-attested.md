@@ -493,7 +493,7 @@ recorded as prose so the join has them; each is real and each has a test.
   is in this lane's remit and neither was ruled. Recorded as a D-16 follow-up
   in the lane report. What the leg DOES prove today is stronger than before: a
   signature over a higher assurance than the verifier stated is *invalid*
-  (`tests/http_api/test_signed_binding_door.py::test_http_a_signed_binding_over_a_higher_assurance_than_the_tokens_is_invalid`)
+  (`tests/http_api/test_signed_binding_door.py::test_http_a_client_cannot_state_assurance_in_the_claims_or_the_body` — the C10 successor under `D-IMPL-363`, 2026-10-03, of the control this lane wrote as `test_http_a_signed_binding_over_a_higher_assurance_than_the_tokens_is_invalid`; the limit below is now closed by that ruling)
 - **In-process reads keep their tenant parameter** (What did NOT change). A
   door author who calls `transport.pending(tenant=...)` instead of
   `transport.view(authorized)` has reached inside the process; that is design
