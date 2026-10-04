@@ -17,7 +17,7 @@ provider, method, **assurance level**, session, action time — through to
 the audit record verbatim. That made step-up MFA a thing the approver typed.
 The body is now :class:`~ccf.hitl.transport.HitlActionRequest` — event key,
 action, the content hash of what the human saw, an optional annotation, an
-optional signed binding, and nothing else (``extra=forbid``: a body that
+optional ``attestation`` (`D-IMPL-363`), and nothing else (``extra=forbid``: a body that
 still sends ``assurance_level`` is a 422). The binding is minted here by
 :func:`~ccf_runtime.identity_binding.principal_from_authorized` from:
 

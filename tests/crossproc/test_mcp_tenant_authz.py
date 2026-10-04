@@ -571,7 +571,12 @@ def _http_submission(tenant: str) -> dict[str, Any]:
         "action": "approve",
         "product_content_hash": _VALID_HASH,
         "annotation": None,
-        "signed_binding": None,
+        # `D-IMPL-363`: the body's optional signed statement is the
+        # ``attestation`` object; this suite's policy requires none, and the
+        # field is named so the body stays a valid `HitlActionRequest`
+        # (``extra=forbid`` — a stale field name is a 422, not an authz
+        # outcome, which is exactly what it was measured as).
+        "attestation": None,
     }
 
 

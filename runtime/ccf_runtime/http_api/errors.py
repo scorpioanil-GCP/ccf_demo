@@ -161,12 +161,13 @@ ERROR_SUBJECT_CONFLICT: Final[str] = "subject-conflict"
 #: fallback (Codex fail-closed finding, 07-REVIEWS round 2).
 ERROR_INVALID_GRANT: Final[str] = "invalid-grant"
 
-#: A signed principal binding is required by the door and absent
-#: (reserved for 08-03's signed-binding door mapping).
+#: A signed attestation is required by the policy in force and absent
+#: (08-03's signed-binding door mapping; `D-IMPL-363`).
 ERROR_SIGNED_BINDING_REQUIRED: Final[str] = "signed-binding-required"
 
-#: A signed principal binding was presented and failed verification
-#: (reserved for 08-03's signed-binding door mapping).
+#: A signed attestation was presented and its signature failed
+#: verification under the keys declared for its subject (08-03's
+#: signed-binding door mapping; `D-IMPL-363`).
 ERROR_SIGNED_BINDING_INVALID: Final[str] = "signed-binding-invalid"
 
 #: A presented attestation verifies but one of its signed claims does not

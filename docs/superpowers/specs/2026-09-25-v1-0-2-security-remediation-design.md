@@ -143,7 +143,7 @@ set: `ccf.hitl.principal.HumanPrincipalBinding` carries a required `verdict`,
 rendered into `canonical_bytes(binding)` and marked a `D-IMPL-243` generation
 boundary, and `ccf.hitl.transport.enforce_signed_binding` refuses a presented
 action that disagrees with the signed one. The evidence is a test that was RED
-first: `tests/workflow/test_engine.py::test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict`,
+first: `tests/workflow/test_engine.py::test_an_attestation_signed_to_reject_cannot_be_presented_as_an_approval` (its successor under `D-IMPL-363` T13, 2026-10-03; the name cited when this was written was `test_a_signed_binding_cannot_be_presented_with_a_swapped_verdict`),
 committed red at `5819a764` — where a binding signed to reject was presented as
 an approval, admitted by `ApprovalGate.resolve`, and completed the workflow at
 its approving terminal — and green at `33c87718`. Severing the comparison
@@ -1416,7 +1416,7 @@ enqueued without `requested_by` now refuses at resolution, so the bound-plane
 fixtures set it.
 
 **Red when fixed (rewrite, never delete).**
-`tests/hitl/test_approval_gate.py::test_gate_required_and_valid_binding_passes_both_layers`
+`tests/hitl/test_approval_gate.py::test_gate_required_and_valid_attestation_passes_both_layers` (its successor under `D-IMPL-363`, 2026-10-03; cited here when written as `test_gate_required_and_valid_binding_passes_both_layers`)
 and its unsigned/tampered siblings (bound plane, unregistered policy ref);
 `tests/hitl/test_transport_concurrency.py::test_d16_wired_submit_path_hammers_without_lock_ordering_issues`;
 `tests/workflow/test_engine.py::test_reaching_a_hitl_gate_suspends_with_a_typed_handle`

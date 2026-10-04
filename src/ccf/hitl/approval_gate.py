@@ -300,9 +300,18 @@ class ApprovalGate:
                 outcome.
             GateActionError: ``action`` is not an approval-gate verdict.
             ccf.hitl.transport.SignedBindingRequiredRefused: the policy in
-                force requires a signed binding and none was presented.
+                force requires a signed attestation and none was presented.
             ccf.hitl.transport.SignedBindingInvalidRefused: the presented
-                binding fails verification or names another principal.
+                attestation's signature does not verify under the keys the
+                policy declares for its subject.
+            ccf.hitl.transport.SignedBindingMismatchRefused: the attestation
+                verifies but a signed claim disagrees with the capability,
+                the request, the door-minted binding or the per-subject key
+                map — the verdict included (`D-IMPL-363` E6).
+            ccf.hitl.transport.SignedBindingStaleRefused: the signer's
+                ``issued_at`` is outside the policy's window against the
+                recorded ``action_time`` (`D-IMPL-363` E3); a reused nonce
+                is refused by the transport at submit, not here.
         """
         verify(authorized, kind=HitlSubmit, resource=event_key)
         tenant = authorized.tenant

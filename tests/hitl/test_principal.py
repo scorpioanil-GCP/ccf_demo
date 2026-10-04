@@ -3,7 +3,8 @@
 Written before the implementation per the TDD discipline. The claims pinned
 here: all four D-IMPL-21 fields are required (approver identity,
 authentication context, action time, content hash of the product the
-approver saw); two distinct approvers produce distinguishable bindings
+approver saw), and so is the ``verdict`` the binding records; two distinct
+approvers produce distinguishable bindings
 (D-23 multi-principal); and the binding is frozen and canonically
 serializable, so it can land in the replay record byte for byte.
 """
@@ -58,7 +59,17 @@ def test_a_complete_binding_validates() -> None:
 
 @pytest.mark.parametrize(
     "omitted",
-    ["approver", "authentication", "action_time", "product_content_hash"],
+    [
+        "approver",
+        "authentication",
+        "action_time",
+        "product_content_hash",
+        # `verdict` joined the required set with the binding's own ruling
+        # (2026-10-03; `D-IMPL-363`): the recorded human action states its
+        # verdict, and the signed claims must equal it — a binding without one
+        # has nothing for the verifier to compare against.
+        "verdict",
+    ],
 )
 def test_omitting_any_d_impl_21_field_is_a_validation_error(
     omitted: str,

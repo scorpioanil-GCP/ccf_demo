@@ -83,12 +83,7 @@ def test_positive_controls_a_pre_phase_field_is_in_and_a_phase_field_is_out() ->
 #: attributable rather than silently tolerated. Every name here must be in
 #: the base roster AND absent at HEAD — both are asserted below, so a stale
 #: entry (a field that came back) is as red as an unexplained removal.
-RETIRED_BY_RULING: dict[str, str] = {
-    # `D-IMPL-363` E1 / C8 (SEC-005): `signed_binding` is REPLACED, not
-    # deprecated, by `attestation` (a `SignedHitlAction`), and Dave ruled the
-    # rename over keeping the stale name when the two collided (2026-10-03).
-    "ccf.hitl.transport.HitlActionSubmission.signed_binding": "D-IMPL-363",
-}
+RETIRED_BY_RULING: dict[str, str] = base_roster.RETIRED_BY_RULING
 
 
 def test_every_roster_name_is_still_a_defaulted_field_at_head() -> None:

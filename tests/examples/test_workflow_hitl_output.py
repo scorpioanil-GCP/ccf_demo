@@ -161,7 +161,6 @@ import pytest
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifacts import DeclaredArtifact
 from ccf.hitl.approval_gate import HitlActionRecord
-from ccf.hitl.identity_binding import verify_principal_binding
 from ccf.hitl.review_queue import ReviewActionRecord
 from ccf_runtime.http_api.errors import (
     ERROR_SIGNED_BINDING_INVALID,
@@ -418,6 +417,16 @@ def test_the_approvers_signature_verifies_from_the_record(result: Any) -> None:
     than through the live object: what a reader of the record has is the record
     and the public key set, and nothing the run held in memory.
     """
+    # Imported INSIDE the body, not at module scope (`D-IMPL-363`): this
+    # archived suite exercises `archive/examples/` programs written against
+    # the retired signed-principal-binding API, and `archive/` is a dated
+    # reference surface that is not repaired (D-IMPL-351). A module-level
+    # import of a removed name is a COLLECTION error, which would take the
+    # whole module — and every other archived assertion in it — out of
+    # collection. Deferred here, the module collects and the gap stays
+    # visible as a failing archived assertion rather than an invisible one.
+    from ccf.hitl.identity_binding import verify_principal_binding  # noqa: PLC0415
+
     restored = HitlActionRecord.model_validate_json(
         result.record.policy_bindings.hitl_actions
     )

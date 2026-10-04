@@ -50,19 +50,56 @@ key material and raises `KeyUnavailable` when it holds none.
   mechanism; a validly signed product from a key the consumer's Control
   Plane does not trust is refused at admission.
 
-### 1.2 SignedPrincipalBinding (D-IMPL-21, HITL identity)
+### 1.2 SignedHitlAction (D-IMPL-21 / D-IMPL-363, HITL identity)
 
-`SignedPrincipalBinding` (`src/ccf/hitl/identity_binding.py`) reuses the
-same D-IMPL-15 machinery — the joserfc-backed detached JWS envelope of
-the injected `IdentityProvider`. The module holds no key machinery, no
-JOSE registry, and no algorithm choice of its own: which keys exist and
-which provider signs are the deployment's Control Plane configuration.
-Verification (`verify_principal_binding`) takes its acceptable public
-keys from the caller, mirroring the A2A posture. Whether a HITL door
-*requires* a signed binding is the `ccf.hitl-policy` Control Plane
-artifact's statement (`signed_binding_required`, D-16 — default false),
-never a code constant. The typed decision values and the door surfaces are
-documented on the [HITL Protocols](../reference/protocols/hitl.md) page;
+> **Dated note, 2026-10-03 (`D-IMPL-363`, SEC-005).** This section
+> previously described `SignedPrincipalBinding` — a signature over the
+> binding the door itself mints, `action_time` included, which meant a
+> production signer had to predict the server's clock reading. That
+> mechanism is replaced, not deprecated: the human now signs its own
+> statement. The archived tutorial program under
+> `archive/examples/05-workflow-hitl/` still calls the replaced API and no
+> longer imports (`D-IMPL-351`: the archive is a dated reference surface
+> and is not repaired); the in-tree reference for the current mechanism is
+> `tests/http_api/test_sec005_attestation_door.py` (the HTTP door) and
+> `tests/mcp/test_sec005_attestation_door.py` (the MCP door).
+
+`SignedHitlAction` (`src/ccf/hitl/identity_binding.py`) carries the
+human's own signed statement about one action — `HitlActionClaims`:
+tenant, event key, the action, the content hash of what they saw, their
+subject id, their own `issued_at`, and a nonce — together with a detached
+JWS over the claims' canonical bytes. It reuses the same D-IMPL-15
+machinery as A2A, the joserfc-backed detached JWS envelope of the injected
+`IdentityProvider`. The module holds no key machinery, no JOSE registry,
+and no algorithm choice of its own: which keys exist and which provider
+signs are the deployment's Control Plane configuration.
+
+The binding the door records stays door-minted and unsigned. The shared
+verifier (`enforce_attestation`, `src/ccf/hitl/transport.py`) compares
+every signed claim with the capability, the request and the minted
+binding — the verdict included — and judges the signer's `issued_at`
+against the **recorded** `action_time` inside a directional window; it
+reads no clock of its own, so a replay re-verifies identically. Whether a
+HITL door *requires* an attestation, how wide the window is, and which
+public keys each approver may sign under are all statements of the
+`ccf.hitl-policy` Control Plane artifact (`signed_binding_required`,
+`signature_max_age_seconds`, `permitted_clock_skew_seconds`,
+`trusted_keys` — D-16 / `D-IMPL-363`), never code constants: a policy that
+requires signing without stating the other three is refused when it is
+registered, and the policy's per-subject key map is the **one** trust
+source — there is no deployment-wide key list in code. A signature that
+verifies but says something other than what is presented is refused as
+`signed-binding-mismatch`; one outside the window, or whose nonce was
+already presented, as `signed-binding-stale`.
+
+**The CLI door is unsigned-only.** `ccf hitl submit` posts the action
+document from the file you give it verbatim and has no signing of its
+own; under a policy that requires attestation, a document that carries
+none is refused. Attestation arguments for the CLI are a `D-IMPL-22`
+item.
+
+The typed decision values and the door surfaces are documented on the
+[HITL Protocols](../reference/protocols/hitl.md) page;
 [compose a workflow with HITL](compose-a-workflow-with-hitl.md) shows the
 setting being flipped and the behavior changing with no code edit.
 

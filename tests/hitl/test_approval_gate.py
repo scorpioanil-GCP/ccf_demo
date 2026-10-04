@@ -233,11 +233,28 @@ def test_the_resolution_carries_the_preserialized_dim_2_block() -> None:
     assert event.product_content_hash in block
 
 
-# --- 10-02 Task 2: resolve-surface signed-binding verification (D-IMPL-69) ---
+# --- 10-02 Task 2 / `D-IMPL-363`: resolve-surface attestation verification ---
+#
+# SEC-005's remaining leg (`D-IMPL-363`) replaced the signed door-minted
+# binding with signer-stated `HitlActionClaims` carried as an `attestation`,
+# and moved BOTH the trust map and the freshness window INSIDE the pinned
+# `HitlPolicy` (E3/E5) — there is no `trusted_keys` constructor argument on the
+# transport or on a primitive any more. What a signer can state is what the
+# served queue view shows plus its own decision, identity, instant and nonce,
+# so these tests sign `issued_at` equal to the binding's FIXED `action_time`:
+# that is the recorded instant the directional window is judged against (E2),
+# and neither the test, the verifier nor the transport reads a clock.
+
+#: Deployment vocabulary for this suite (CINV-01): the window the pinned policy
+#: declares. Both are REQUIRED whenever `signed_binding_required` is true —
+#: the SDK supplies no default, and a required policy without them is refused
+#: at parse.
+MAX_AGE_SECONDS = 300
+SKEW_SECONDS = 60
 
 
-def _signing_env(tmp_path: Path) -> tuple[Any, Any, dict[str, Any]]:
-    """A provider, its key id, and the trusted-keys mapping."""
+def _signing_env(tmp_path: Path) -> tuple[Any, str, dict[str, Any]]:
+    """A provider, its key id, and the public-JWK map for ONE approver subject."""
     import json as _json
 
     from joserfc.jwk import ECKey
@@ -260,34 +277,70 @@ def _signing_env(tmp_path: Path) -> tuple[Any, Any, dict[str, Any]]:
     return provider, kid, {kid: key.as_dict(private=False)}
 
 
-def _required_policy_plane() -> tuple[Any, str]:
+def _subject(fixture: dict[str, Any]) -> str:
+    """The approver every binding and every capability in this suite names."""
+    subject: str = fixture["approvers"]["credit_officer"]["identity"][
+        "subject_id"
+    ]
+    return subject
+
+
+def _ruled_policy_document(
+    *, subject_id: str, keys: dict[str, Any]
+) -> dict[str, Any]:
+    """The HITL policy `D-IMPL-363` E3/E5 rules: requiredness, the directional
+    freshness window, and the per-subject trusted keys — the ONE trust source."""
+    return {
+        "semver": "1.0.0",
+        "signed_binding_required": True,
+        "signature_max_age_seconds": MAX_AGE_SECONDS,
+        "permitted_clock_skew_seconds": SKEW_SECONDS,
+        "trusted_keys": {subject_id: keys},
+    }
+
+
+def _required_policy_plane(
+    *, subject_id: str, keys: dict[str, Any]
+) -> tuple[Any, str, str]:
+    """The plane, the policy key, and the ``key@version`` the transport will
+    stamp — derived from the registry's own resolution (`D-IMPL-363` E3), never
+    a literal, because the pinned version is the artifact's content address."""
     from ccf.controlplane.artifacts import parse_artifact
     from ccf.controlplane.registry import ControlPlaneRegistry
-    from ccf.hitl.transport import HITL_POLICY
+    from ccf.hitl.transport import HITL_POLICY, resolve_hitl_policy
 
     plane = ControlPlaneRegistry()
     policy_key = "acme-bank/hitl/policy"
-    compose_register_typed(plane,
+    compose_register_typed(
+        plane,
         policy_key,
         parse_artifact(
-            {"semver": "1.0.0", "signed_binding_required": True},
+            _ruled_policy_document(subject_id=subject_id, keys=keys),
             HITL_POLICY,
         ),
         HITL_POLICY,
     )
-    return plane, policy_key
+    resolved = resolve_hitl_policy(
+        control_plane=plane, hitl_policy_key=policy_key
+    )
+    assert resolved is not None
+    version, policy = resolved
+    return plane, policy_key, policy.pinned_ref(key=policy_key, version=version)
 
 
 def _bound_gate(
-    tmp_path: Path,
-) -> tuple[ApprovalGate, InMemoryHitlTransport, Any, str]:
-    provider, kid, trusted = _signing_env(tmp_path)
-    plane, policy_key = _required_policy_plane()
+    tmp_path: Path, fixture: dict[str, Any]
+) -> tuple[ApprovalGate, InMemoryHitlTransport, Any, str, str]:
+    """The gate, its transport, the signer's provider and key id, and the
+    ``key@version`` the transport stamps on an admitted submission."""
+    provider, kid, keys = _signing_env(tmp_path)
+    plane, policy_key, pinned_ref = _required_policy_plane(
+        subject_id=_subject(fixture), keys=keys
+    )
     transport = InMemoryHitlTransport(
         control_plane=plane,
         hitl_policy_key=policy_key,
         identity_provider=provider,
-        trusted_keys=trusted,
     )
     gate = ApprovalGate(
         transport=transport,
@@ -296,20 +349,54 @@ def _bound_gate(
         control_plane=plane,
         hitl_policy_key=policy_key,
         identity_provider=provider,
-        trusted_keys=trusted,
     )
-    return gate, transport, provider, kid
+    return gate, transport, provider, kid, pinned_ref
+
+
+def _attestation(
+    provider: Any,
+    kid: str,
+    *,
+    tenant: str,
+    event_key: str,
+    action: str,
+    principal: HumanPrincipalBinding,
+    subject_id: str,
+    nonce: str,
+) -> Any:
+    """A signed attestation over exactly what a signer can state (E1).
+
+    ``issued_at`` is the binding's own ``action_time`` — the fixed instant the
+    door recorded — so the directional window is satisfied exactly, without any
+    participant reading a clock (E2/E3).
+    """
+    from ccf.hitl.identity_binding import HitlActionClaims, sign_hitl_action
+
+    return sign_hitl_action(
+        HitlActionClaims(
+            tenant=tenant,
+            event_key=event_key,
+            action=action,
+            product_content_hash=principal.product_content_hash,
+            subject_id=subject_id,
+            issued_at=principal.action_time,
+            nonce=nonce,
+        ),
+        provider=provider,
+        key_id=kid,
+    )
 
 
 def test_gate_required_and_unsigned_resolve_is_refused_event_pending(
     tmp_path: Path,
 ) -> None:
     """Refusal at the primitive layer; the event survives (Pitfall 4)."""
-    from ccf.hitl.identity_binding import sign_principal_binding
     from ccf.hitl.transport import SignedBindingRequiredRefused
 
     fixture = _hitl()
-    gate, transport, provider, kid = _bound_gate(tmp_path)
+    gate, transport, provider, kid, pinned_ref = _bound_gate(
+        tmp_path, fixture
+    )
     event = _event(fixture)
     transport.enqueue(event=event)
     principal = _principal(
@@ -326,33 +413,59 @@ def test_gate_required_and_unsigned_resolve_is_refused_event_pending(
     assert transport.pending(tenant=event.tenant) == (event,)
     assert transport.submissions(tenant=event.tenant) == ()
     # A subsequent valid resolve of the SAME event succeeds.
-    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    attestation = _attestation(
+        provider,
+        kid,
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="approve",
+        principal=principal,
+        subject_id=_subject(fixture),
+        nonce="gate-nonce-after-unsigned",
+    )
     resolution = gate.resolve(
         _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=principal,
-        signed_binding=signed,
+        attestation=attestation,
     )
     assert isinstance(resolution, GateResolution)
 
 
-def test_gate_required_and_tampered_binding_is_refused_event_pending(
+def test_gate_required_and_tampered_attestation_is_refused_event_pending(
     tmp_path: Path,
 ) -> None:
-    from ccf.hitl.identity_binding import sign_principal_binding
+    """A tampered SIGNATURE refuses invalid and the event stays pending.
+
+    Successor to ``test_gate_required_and_tampered_binding_is_refused_event_pending``:
+    the same property — a presented-but-unverifiable signature refuses at the
+    primitive layer and consumes nothing — over the `D-IMPL-363` attestation
+    rather than the removed signed binding.
+    """
     from ccf.hitl.transport import SignedBindingInvalidRefused
 
     fixture = _hitl()
-    gate, transport, provider, kid = _bound_gate(tmp_path)
+    gate, transport, provider, kid, pinned_ref = _bound_gate(
+        tmp_path, fixture
+    )
     event = _event(fixture)
     transport.enqueue(event=event)
     principal = _principal(
         fixture, product_content_hash=event.product_content_hash
     )
-    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
-    tampered = signed.model_copy(
-        update={"signature": signed.signature[:-4] + "AAAA"}
+    attestation = _attestation(
+        provider,
+        kid,
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="approve",
+        principal=principal,
+        subject_id=_subject(fixture),
+        nonce="gate-nonce-tampered",
+    )
+    tampered = attestation.model_copy(
+        update={"signature": attestation.signature[:-4] + "AAAA"}
     )
     with pytest.raises(SignedBindingInvalidRefused):
         gate.resolve(
@@ -360,37 +473,99 @@ def test_gate_required_and_tampered_binding_is_refused_event_pending(
             event_key=event.event_key,
             action="approve",
             principal=principal,
-            signed_binding=tampered,
+            attestation=tampered,
         )
     assert transport.pending(tenant=event.tenant) == (event,)
     assert transport.submissions(tenant=event.tenant) == ()
 
 
-def test_gate_required_and_valid_binding_passes_both_layers(
+def test_gate_required_and_an_attestation_for_the_other_verdict_is_refused_event_pending(
     tmp_path: Path,
 ) -> None:
-    """The transport's own second verification also passes (D-13)."""
-    from ccf.hitl.identity_binding import sign_principal_binding
+    """`D-IMPL-363` C1(a): a verifying signature over ``reject`` does not
+    authorize an ``approve``.
+
+    The sibling of the tampered case, and the one a tampered signature cannot
+    reach: the envelope is genuine and the key is declared for this subject, so
+    the signature verifies — and the submission is still refused, as a
+    MISMATCH, because the signed verdict is not the verdict the gate submits.
+    The event stays pending (Pitfall 4).
+    """
+    from ccf.hitl.transport import SignedBindingMismatchRefused
 
     fixture = _hitl()
-    gate, transport, provider, kid = _bound_gate(tmp_path)
+    gate, transport, provider, kid, pinned_ref = _bound_gate(
+        tmp_path, fixture
+    )
     event = _event(fixture)
     transport.enqueue(event=event)
     principal = _principal(
         fixture, product_content_hash=event.product_content_hash
     )
-    signed = sign_principal_binding(principal, provider=provider, key_id=kid)
+    attestation = _attestation(
+        provider,
+        kid,
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="reject",  # signed for the opposite verdict
+        principal=principal,
+        subject_id=_subject(fixture),
+        nonce="gate-nonce-other-verdict",
+    )
+    with pytest.raises(SignedBindingMismatchRefused, match=r"\['action'\]"):
+        gate.resolve(
+            _authorized(event.tenant, event.event_key),
+            event_key=event.event_key,
+            action="approve",
+            principal=principal,
+            attestation=attestation,
+        )
+    assert transport.pending(tenant=event.tenant) == (event,)
+    assert transport.submissions(tenant=event.tenant) == ()
+
+
+def test_gate_required_and_valid_attestation_passes_both_layers(
+    tmp_path: Path,
+) -> None:
+    """The transport's own second verification also passes (D-13).
+
+    Successor to ``test_gate_required_and_valid_binding_passes_both_layers``:
+    the same property — one attestation satisfies the primitive's verification
+    AND the transport's independent re-verification, and the recorded
+    submission carries it — plus the `D-IMPL-363` E3 stamp, the pinned policy
+    ``key@version`` the submission was admitted under.
+    """
+    fixture = _hitl()
+    gate, transport, provider, kid, pinned_ref = _bound_gate(
+        tmp_path, fixture
+    )
+    event = _event(fixture)
+    transport.enqueue(event=event)
+    principal = _principal(
+        fixture, product_content_hash=event.product_content_hash
+    )
+    attestation = _attestation(
+        provider,
+        kid,
+        tenant=event.tenant,
+        event_key=event.event_key,
+        action="approve",
+        principal=principal,
+        subject_id=_subject(fixture),
+        nonce="gate-nonce-valid",
+    )
     resolution = gate.resolve(
         _authorized(event.tenant, event.event_key),
         event_key=event.event_key,
         action="approve",
         principal=principal,
-        signed_binding=signed,
+        attestation=attestation,
     )
     assert isinstance(resolution, GateResolution)
     recorded = transport.submissions(tenant=event.tenant)
     assert len(recorded) == 1
-    assert recorded[0].signed_binding == signed
+    assert recorded[0].attestation == attestation
+    assert recorded[0].hitl_policy_ref == pinned_ref
 
 
 def test_gate_unbound_kwargs_behave_as_before() -> None:

@@ -1,10 +1,18 @@
-"""Tests for the JWS-signed principal binding (D-IMPL-21 reference impl #2).
+"""Tests for the JWS-signed HITL action attestation (D-IMPL-21 reference impl #2).
 
-The binding reuses the D-IMPL-15 signing machinery (``ccf.peering.identity``)
-so a HITL approver identity carries cryptographic non-repudiation: a signed
-:class:`~ccf.hitl.principal.HumanPrincipalBinding` whose fields are altered
-after signing fails verification with a typed error. Keys are generated per
-test into a tmp directory via the same ``FileBackedKeySource`` fixture
+`D-IMPL-363` (SEC-005, the remaining leg) moved WHAT is signed: no longer the
+door-minted :class:`~ccf.hitl.principal.HumanPrincipalBinding` — whose
+``action_time`` the door stamps from its own clock, so a signer had to predict
+the server's clock reading — but the signer's own
+:class:`~ccf.hitl.identity_binding.HitlActionClaims`, carried as
+:class:`~ccf.hitl.identity_binding.SignedHitlAction`.
+
+The attestation reuses the D-IMPL-15 signing machinery
+(``ccf.peering.identity``) so a HITL approver identity carries cryptographic
+non-repudiation: claims whose subject, verdict or instant are altered after
+signing fail verification with a typed error
+(:class:`~ccf.hitl.identity_binding.AttestationInvalid`). Keys are generated
+per test into a tmp directory via the same ``FileBackedKeySource`` fixture
 pattern as ``tests/peering/test_identity.py``.
 """
 
@@ -22,15 +30,11 @@ from pydantic import ValidationError
 
 from ccf.contracts.base import CCFContract
 from ccf.hitl.identity_binding import (
-    PrincipalBindingInvalid,
-    SignedPrincipalBinding,
-    sign_principal_binding,
-    verify_principal_binding,
-)
-from ccf.hitl.principal import (
-    ApproverIdentity,
-    AuthenticationContext,
-    HumanPrincipalBinding,
+    AttestationInvalid,
+    HitlActionClaims,
+    SignedHitlAction,
+    sign_hitl_action,
+    verify_hitl_action,
 )
 from ccf.peering.identity import (
     DetachedJwsIdentityProvider,
@@ -41,6 +45,12 @@ from ccf.peering.identity import (
 )
 
 APPROVER_KID = "hitl-approver-signing-key"
+
+#: The signer's own instant. Fixed, because nothing in this module judges
+#: freshness — the window lives at the verifier
+#: (:func:`ccf.hitl.transport.enforce_attestation`), and these tests are about
+#: the signature over the claims.
+ISSUED_AT = datetime(2026, 7, 30, 12, 0, 0, tzinfo=UTC)
 
 
 def _write_key(directory: Path, key_id: str) -> ECKey:
@@ -57,20 +67,15 @@ def _public(key: ECKey) -> Mapping[str, JsonWebKey]:
     return {APPROVER_KID: public}
 
 
-def _binding(subject_id: str = "approver-1") -> HumanPrincipalBinding:
-    return HumanPrincipalBinding(
-        verdict="approve",
-        approver=ApproverIdentity(
-            subject_id=subject_id,
-            identity_provider_ref="test-idp",
-        ),
-        authentication=AuthenticationContext(
-            method="test-method",
-            assurance_level="test-level",
-            session_ref="test-session",
-        ),
-        action_time=datetime(2026, 7, 30, 12, 0, 0, tzinfo=UTC),
+def _claims(subject_id: str = "approver-1") -> HitlActionClaims:
+    return HitlActionClaims(
+        tenant="acme-bank",
+        event_key="event-1",
+        action="approve",
         product_content_hash=hashlib.sha256(b"fixture-product").hexdigest(),
+        subject_id=subject_id,
+        issued_at=ISSUED_AT,
+        nonce="nonce-identity-binding-1",
     )
 
 
@@ -96,37 +101,35 @@ def provider(key_dir: Path) -> DetachedJwsIdentityProvider:
 # --- Test 1: round trip -----------------------------------------------------
 
 
-def test_a_signed_binding_round_trips_to_the_identical_binding(
+def test_a_signed_attestation_round_trips_to_the_identical_claims(
     provider: DetachedJwsIdentityProvider, approver_key: ECKey
 ) -> None:
-    binding = _binding()
-    signed = sign_principal_binding(
-        binding, provider=provider, key_id=APPROVER_KID
-    )
+    claims = _claims()
+    signed = sign_hitl_action(claims, provider=provider, key_id=APPROVER_KID)
     assert signed.key_id == APPROVER_KID
-    verified = verify_principal_binding(
+    verified = verify_hitl_action(
         signed, provider=provider, public_keys=_public(approver_key)
     )
-    assert verified == binding
+    assert verified == claims
 
 
 # --- Test 2: tamper (the red counterfactual) --------------------------------
 
 
-def test_a_binding_with_a_substituted_approver_fails_verification(
+def test_claims_with_a_substituted_subject_fail_verification(
     provider: DetachedJwsIdentityProvider, approver_key: ECKey
 ) -> None:
-    """Re-bind the original signature to a different approver: typed failure."""
-    signed = sign_principal_binding(
-        _binding("approver-1"), provider=provider, key_id=APPROVER_KID
+    """Re-bind the original signature to a different subject: typed failure."""
+    signed = sign_hitl_action(
+        _claims("approver-1"), provider=provider, key_id=APPROVER_KID
     )
-    forged = SignedPrincipalBinding(
-        binding=_binding("attacker-substituted-approver"),
+    forged = SignedHitlAction(
+        claims=_claims("attacker-substituted-subject"),
         signature=signed.signature,
         key_id=signed.key_id,
     )
-    with pytest.raises(PrincipalBindingInvalid) as caught:
-        verify_principal_binding(
+    with pytest.raises(AttestationInvalid) as caught:
+        verify_hitl_action(
             forged, provider=provider, public_keys=_public(approver_key)
         )
     assert isinstance(caught.value.__cause__, SignatureInvalid)
@@ -138,28 +141,34 @@ def test_a_binding_with_a_substituted_approver_fails_verification(
 def test_verification_without_the_declared_key_fails_typed(
     provider: DetachedJwsIdentityProvider, approver_key: ECKey
 ) -> None:
-    signed = sign_principal_binding(
-        _binding(), provider=provider, key_id=APPROVER_KID
+    signed = sign_hitl_action(
+        _claims(), provider=provider, key_id=APPROVER_KID
     )
-    with pytest.raises(PrincipalBindingInvalid) as caught:
-        verify_principal_binding(signed, provider=provider, public_keys={})
+    with pytest.raises(AttestationInvalid) as caught:
+        verify_hitl_action(signed, provider=provider, public_keys={})
     assert isinstance(caught.value.__cause__, UnknownSigningKey)
 
 
 # --- Test 4: contract discipline --------------------------------------------
 
 
-def test_the_signed_binding_is_a_ccf_contract_and_rejects_extras(
+def test_the_signed_attestation_is_a_ccf_contract_and_rejects_extras(
     provider: DetachedJwsIdentityProvider, approver_key: ECKey
 ) -> None:
-    signed = sign_principal_binding(
-        _binding(), provider=provider, key_id=APPROVER_KID
+    signed = sign_hitl_action(
+        _claims(), provider=provider, key_id=APPROVER_KID
     )
     assert isinstance(signed, CCFContract)
+    assert isinstance(signed.claims, CCFContract)
     with pytest.raises(ValidationError):
-        SignedPrincipalBinding(
-            binding=signed.binding,
+        SignedHitlAction(
+            claims=signed.claims,
             signature=signed.signature,
             key_id=signed.key_id,
+            extra_field="forbidden",  # type: ignore[call-arg]
+        )
+    with pytest.raises(ValidationError):
+        HitlActionClaims(
+            **signed.claims.model_dump(),
             extra_field="forbidden",  # type: ignore[call-arg]
         )

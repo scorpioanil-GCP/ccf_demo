@@ -4005,6 +4005,7 @@
       "ApprovalGate",
       "ApprovalSinkAdapter",
       "ApproverIdentity",
+      "AttestationInvalid",
       "AuthenticationClaims",
       "AuthenticationContext",
       "ESCALATION_ACTIONS",
@@ -4024,6 +4025,7 @@
       "HITL_ACTIONS",
       "HITL_ACTION_ARTIFACT_CLASS",
       "HITL_EVENT_CLASSES",
+      "HitlActionClaims",
       "HitlActionReceipt",
       "HitlActionRecord",
       "HitlActionRequest",
@@ -4036,7 +4038,6 @@
       "OverrideResolution",
       "OverrideResolutionRefused",
       "PendingHitlEvent",
-      "PrincipalBindingInvalid",
       "PrincipalMismatchRefused",
       "RecordingWebhookDeliverer",
       "ReviewActionRecord",
@@ -4044,7 +4045,7 @@
       "ReviewQueueItem",
       "ReviewResolution",
       "ReviewResolutionRefused",
-      "SignedPrincipalBinding",
+      "SignedHitlAction",
       "UnboundDecisionError",
       "UnknownEscalationEventError",
       "UnknownGateEventError",
@@ -4055,8 +4056,8 @@
       "WebhookEndpoint",
       "WebhookEndpointConflict",
       "WebhookHitlNotifier",
-      "sign_principal_binding",
-      "verify_principal_binding"
+      "sign_hitl_action",
+      "verify_hitl_action"
     ],
     "exports": {
       "AUTHENTICATION_CLAIM": {
@@ -4065,7 +4066,7 @@
       },
       "ApprovalGate": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "ApprovalSinkAdapter": {
         "kind": "class",
@@ -4077,6 +4078,10 @@
           "identity_provider_ref": "<class 'str'>",
           "subject_id": "<class 'str'>"
         }
+      },
+      "AttestationInvalid": {
+        "kind": "class",
+        "shape": "type"
       },
       "AuthenticationClaims": {
         "kind": "contract",
@@ -4144,7 +4149,7 @@
       },
       "ExceptionEscalation": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "ExplicitEscalation": {
         "kind": "contract",
@@ -4192,6 +4197,18 @@
         "kind": "constant",
         "shape": "frozenset"
       },
+      "HitlActionClaims": {
+        "kind": "contract",
+        "shape": {
+          "action": "<class 'str'>",
+          "event_key": "<class 'str'>",
+          "issued_at": "<class 'datetime.datetime'>",
+          "nonce": "<class 'str'>",
+          "product_content_hash": "<class 'str'>",
+          "subject_id": "<class 'str'>",
+          "tenant": "<class 'str'>"
+        }
+      },
       "HitlActionReceipt": {
         "kind": "contract",
         "shape": {
@@ -4214,9 +4231,9 @@
         "shape": {
           "action": "<class 'str'>",
           "annotation": "str | None",
+          "attestation": "ccf.hitl.identity_binding.SignedHitlAction | None",
           "event_key": "<class 'str'>",
-          "product_content_hash": "<class 'str'>",
-          "signed_binding": "ccf.hitl.identity_binding.SignedPrincipalBinding | None"
+          "product_content_hash": "<class 'str'>"
         }
       },
       "HitlActionSubmission": {
@@ -4226,10 +4243,11 @@
           "annotation": "str | None",
           "answered_event_class": "str | None",
           "answered_workflow_state_ref": "str | None",
+          "attestation": "ccf.hitl.identity_binding.SignedHitlAction | None",
           "authorizing_decision_id": "str | None",
           "event_key": "<class 'str'>",
-          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>",
-          "signed_binding": "ccf.hitl.identity_binding.SignedPrincipalBinding | None"
+          "hitl_policy_ref": "str | None",
+          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>"
         }
       },
       "HitlEventNotification": {
@@ -4251,7 +4269,7 @@
       },
       "InMemoryHitlTransport": {
         "kind": "class",
-        "shape": "(*, control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "OverrideActionRecord": {
         "kind": "contract",
@@ -4265,7 +4283,7 @@
       },
       "OverrideBoundary": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "OverrideResolution": {
         "kind": "contract",
@@ -4293,10 +4311,6 @@
           "workflow_state_ref": "<class 'str'>"
         }
       },
-      "PrincipalBindingInvalid": {
-        "kind": "class",
-        "shape": "type"
-      },
       "PrincipalMismatchRefused": {
         "kind": "class",
         "shape": "type"
@@ -4316,7 +4330,7 @@
       },
       "ReviewQueue": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "ReviewQueueItem": {
         "kind": "contract",
@@ -4340,10 +4354,10 @@
           "tenant": "<class 'str'>"
         }
       },
-      "SignedPrincipalBinding": {
+      "SignedHitlAction": {
         "kind": "contract",
         "shape": {
-          "binding": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>",
+          "claims": "<class 'ccf.hitl.identity_binding.HitlActionClaims'>",
           "key_id": "<class 'str'>",
           "signature": "<class 'str'>"
         }
@@ -4396,13 +4410,13 @@
         "kind": "class",
         "shape": "(*, deliverer: 'WebhookDeliveryProtocol', endpoints: 'tuple[WebhookEndpoint, ...]') -> 'None'"
       },
-      "sign_principal_binding": {
+      "sign_hitl_action": {
         "kind": "function",
-        "shape": "(binding: 'HumanPrincipalBinding', *, provider: 'IdentityProvider', key_id: 'str') -> 'SignedPrincipalBinding'"
+        "shape": "(claims: 'HitlActionClaims', *, provider: 'IdentityProvider', key_id: 'str') -> 'SignedHitlAction'"
       },
-      "verify_principal_binding": {
+      "verify_hitl_action": {
         "kind": "function",
-        "shape": "(signed: 'SignedPrincipalBinding', *, provider: 'IdentityProvider', public_keys: 'Mapping[str, JsonWebKey]') -> 'HumanPrincipalBinding'"
+        "shape": "(signed: 'SignedHitlAction', *, provider: 'IdentityProvider', public_keys: 'Mapping[str, JsonWebKey]') -> 'HitlActionClaims'"
       }
     }
   },
@@ -4424,7 +4438,7 @@
     "exports": {
       "ApprovalGate": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "ApprovalSinkAdapter": {
         "kind": "class",
@@ -4552,7 +4566,7 @@
       },
       "ExceptionEscalation": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "ExplicitEscalation": {
         "kind": "contract",
@@ -4568,31 +4582,44 @@
   },
   "ccf.hitl.identity_binding": {
     "__all__": [
-      "PrincipalBindingInvalid",
-      "SignedPrincipalBinding",
-      "sign_principal_binding",
-      "verify_principal_binding"
+      "AttestationInvalid",
+      "HitlActionClaims",
+      "SignedHitlAction",
+      "sign_hitl_action",
+      "verify_hitl_action"
     ],
     "exports": {
-      "PrincipalBindingInvalid": {
+      "AttestationInvalid": {
         "kind": "class",
         "shape": "type"
       },
-      "SignedPrincipalBinding": {
+      "HitlActionClaims": {
         "kind": "contract",
         "shape": {
-          "binding": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>",
+          "action": "<class 'str'>",
+          "event_key": "<class 'str'>",
+          "issued_at": "<class 'datetime.datetime'>",
+          "nonce": "<class 'str'>",
+          "product_content_hash": "<class 'str'>",
+          "subject_id": "<class 'str'>",
+          "tenant": "<class 'str'>"
+        }
+      },
+      "SignedHitlAction": {
+        "kind": "contract",
+        "shape": {
+          "claims": "<class 'ccf.hitl.identity_binding.HitlActionClaims'>",
           "key_id": "<class 'str'>",
           "signature": "<class 'str'>"
         }
       },
-      "sign_principal_binding": {
+      "sign_hitl_action": {
         "kind": "function",
-        "shape": "(binding: 'HumanPrincipalBinding', *, provider: 'IdentityProvider', key_id: 'str') -> 'SignedPrincipalBinding'"
+        "shape": "(claims: 'HitlActionClaims', *, provider: 'IdentityProvider', key_id: 'str') -> 'SignedHitlAction'"
       },
-      "verify_principal_binding": {
+      "verify_hitl_action": {
         "kind": "function",
-        "shape": "(signed: 'SignedPrincipalBinding', *, provider: 'IdentityProvider', public_keys: 'Mapping[str, JsonWebKey]') -> 'HumanPrincipalBinding'"
+        "shape": "(signed: 'SignedHitlAction', *, provider: 'IdentityProvider', public_keys: 'Mapping[str, JsonWebKey]') -> 'HitlActionClaims'"
       }
     }
   },
@@ -4617,7 +4644,7 @@
       },
       "OverrideBoundary": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "OverrideResolution": {
         "kind": "contract",
@@ -4715,7 +4742,7 @@
       },
       "ReviewQueue": {
         "kind": "class",
-        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "ReviewQueueItem": {
         "kind": "contract",
@@ -4759,8 +4786,11 @@
       "PendingHitlEvent",
       "PrincipalMismatchRefused",
       "SignedBindingInvalidRefused",
+      "SignedBindingMismatchRefused",
       "SignedBindingRequiredRefused",
-      "enforce_signed_binding",
+      "SignedBindingStaleRefused",
+      "enforce_attestation",
+      "resolve_hitl_policy",
       "signed_binding_required"
     ],
     "exports": {
@@ -4794,9 +4824,9 @@
         "shape": {
           "action": "<class 'str'>",
           "annotation": "str | None",
+          "attestation": "ccf.hitl.identity_binding.SignedHitlAction | None",
           "event_key": "<class 'str'>",
-          "product_content_hash": "<class 'str'>",
-          "signed_binding": "ccf.hitl.identity_binding.SignedPrincipalBinding | None"
+          "product_content_hash": "<class 'str'>"
         }
       },
       "HitlActionSubmission": {
@@ -4806,22 +4836,26 @@
           "annotation": "str | None",
           "answered_event_class": "str | None",
           "answered_workflow_state_ref": "str | None",
+          "attestation": "ccf.hitl.identity_binding.SignedHitlAction | None",
           "authorizing_decision_id": "str | None",
           "event_key": "<class 'str'>",
-          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>",
-          "signed_binding": "ccf.hitl.identity_binding.SignedPrincipalBinding | None"
+          "hitl_policy_ref": "str | None",
+          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>"
         }
       },
       "HitlPolicy": {
         "kind": "contract",
         "shape": {
+          "permitted_clock_skew_seconds": "int | None",
           "semver": "<class 'str'>",
-          "signed_binding_required": "<class 'bool'>"
+          "signature_max_age_seconds": "int | None",
+          "signed_binding_required": "<class 'bool'>",
+          "trusted_keys": "collections.abc.Mapping[str, collections.abc.Mapping[str, collections.abc.Mapping[str, str]]] | None"
         }
       },
       "InMemoryHitlTransport": {
         "kind": "class",
-        "shape": "(*, control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None, trusted_keys: 'Mapping[str, JsonWebKey] | None' = None) -> 'None'"
+        "shape": "(*, control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
       },
       "PendingHitlEvent": {
         "kind": "contract",
@@ -4842,13 +4876,25 @@
         "kind": "class",
         "shape": "type"
       },
+      "SignedBindingMismatchRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
       "SignedBindingRequiredRefused": {
         "kind": "class",
         "shape": "type"
       },
-      "enforce_signed_binding": {
+      "SignedBindingStaleRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "enforce_attestation": {
         "kind": "function",
-        "shape": "(submission: 'HitlActionSubmission', *, identity_provider: 'IdentityProvider | None', trusted_keys: 'Mapping[str, JsonWebKey] | None') -> 'None'"
+        "shape": "(authorized: 'Authorized[HitlSubmit]', submission: 'HitlActionSubmission', *, identity_provider: 'IdentityProvider | None', policy: 'HitlPolicy') -> 'HitlActionClaims'"
+      },
+      "resolve_hitl_policy": {
+        "kind": "function",
+        "shape": "(*, control_plane: 'ControlPlaneProtocol | None', hitl_policy_key: 'str | None') -> 'tuple[str, HitlPolicy] | None'"
       },
       "signed_binding_required": {
         "kind": "function",
@@ -10388,7 +10434,9 @@
       "ERROR_REQUEST_UNAUTHORIZED",
       "ERROR_ROUTE_HANDLE_ABSENT",
       "ERROR_SIGNED_BINDING_INVALID",
+      "ERROR_SIGNED_BINDING_MISMATCH",
       "ERROR_SIGNED_BINDING_REQUIRED",
+      "ERROR_SIGNED_BINDING_STALE",
       "ERROR_SUBJECT_CONFLICT",
       "ERROR_TENANT_UNAUTHORIZED",
       "ERROR_UNAUTHENTICATED",
@@ -10468,7 +10516,15 @@
         "kind": "constant",
         "shape": "str"
       },
+      "ERROR_SIGNED_BINDING_MISMATCH": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "ERROR_SIGNED_BINDING_REQUIRED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_SIGNED_BINDING_STALE": {
         "kind": "constant",
         "shape": "str"
       },

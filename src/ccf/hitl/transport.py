@@ -165,7 +165,7 @@ class PendingHitlEvent(CCFContract):
 
 
 class SignedBindingRequiredRefused(PermissionError):
-    """Policy requires a signed principal binding and none was presented.
+    """Policy requires a signed attestation and none was presented.
 
     SDK-defined (CLAUDE.md §8.2); the D-16 composition (08-CONTEXT),
     designed within the D-IMPL-21/63/67 contract envelope. Raised at the
@@ -179,16 +179,16 @@ class SignedBindingRequiredRefused(PermissionError):
 
 
 class SignedBindingInvalidRefused(PermissionError):
-    """A signed principal binding was presented and does not hold.
+    """A signed attestation was presented and its signature does not hold.
 
     SDK-defined (CLAUDE.md §8.2); D-16 within D-IMPL-21/63/67. Raised when
-    the presented binding fails cryptographic verification
+    the presented attestation fails cryptographic verification
     (:func:`~ccf.hitl.identity_binding.verify_hitl_action`, with the
-    typed identity error chained as the cause) or when the verified
-    binding's principal does not equal the submission's principal — a
-    validly signed binding over someone else's identity binds nothing
-    here (spoofing, T-08-06). Maps to ``ERROR_SIGNED_BINDING_INVALID``
-    at the doors.
+    typed identity error chained as the cause) under the keys the pinned
+    policy declares for its subject. A signature that VERIFIES but whose
+    claims disagree with the capability, the request or the minted binding
+    is :class:`SignedBindingMismatchRefused` (`D-IMPL-363` E6), not this.
+    Maps to ``ERROR_SIGNED_BINDING_INVALID`` at the doors.
     """
 
 
@@ -838,8 +838,9 @@ class InMemoryHitlTransport:
     D-IMPL-21/63/67).** When a Control Plane and an HITL-policy key are
     bound at construction, :meth:`submit` resolves the policy in force at
     submission time and — when it declares ``signed_binding_required`` —
-    verifies the submission's signed binding and enforces principal match
-    before recording. The policy is re-resolved per submission, so
+    verifies the submission's attestation through
+    :func:`enforce_attestation` and refuses a reused nonce under its lock
+    before recording (`D-IMPL-363`). The policy is re-resolved per submission, so
     registering a flipped value changes behavior with zero code change.
     All four D-16 arguments are optional together: an unconfigured
     transport behaves exactly as before this composition existed.
@@ -994,11 +995,16 @@ class InMemoryHitlTransport:
         be the capability's principal: the recorded actor has one source.
 
         When the Control Plane HITL policy in force requires a signed
-        principal binding, the submission is verified before anything is
-        recorded (D-16): a refused submission never lands on the queue.
-        Verification runs outside the lock and before the claim is
-        consumed, so a refusal leaves both the pending event and its claim
-        untouched (D-IMPL-69; Pitfall 4).
+        attestation, the submission is verified by
+        :func:`enforce_attestation` before anything is recorded (D-16): a
+        refused submission never lands on the queue. Verification runs
+        outside the lock and before the claim is consumed, so a refusal
+        leaves both the pending event and its claim untouched (D-IMPL-69;
+        Pitfall 4). The nonce is then checked and inserted in ONE step under
+        the lock, after verification and before recording (`D-IMPL-363` E4 /
+        C11(a)), and the recorded copy carries ``hitl_policy_ref`` — the
+        ``key@version`` of the policy that judged it, where ``version`` is
+        the Control Plane's version identifier for the pinned artifact.
 
         What is recorded is a copy stamped with the claim this submitter
         actually made — ``answered_event_class`` and
@@ -1030,9 +1036,16 @@ class InMemoryHitlTransport:
                 ``Authorized[HitlSubmit]`` for ``submission.event_key``.
             PrincipalMismatchRefused: the binding's subject is not
                 ``authorized.principal``.
-            SignedBindingRequiredRefused: binding required and absent.
-            SignedBindingInvalidRefused: binding invalid or its verified
-                principal mismatches the submission's.
+            SignedBindingRequiredRefused: attestation required and absent.
+            SignedBindingInvalidRefused: the attestation's signature does
+                not verify under the keys declared for its subject.
+            SignedBindingMismatchRefused: a signed claim disagrees with the
+                capability, the request, the door-minted binding or the
+                per-subject key map (`D-IMPL-363` E6).
+            SignedBindingStaleRefused: ``issued_at`` is outside the policy's
+                window against the recorded ``action_time``, or the nonce
+                was already presented for this ``(tenant, event_key)``
+                (`D-IMPL-363` E3 / E4).
         """
         verify(authorized, kind=HitlSubmit, resource=submission.event_key)
         if submission.principal.approver.subject_id != authorized.principal:
