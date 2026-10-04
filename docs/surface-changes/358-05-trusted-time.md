@@ -20,9 +20,18 @@ is manifest-addressable and `ccf_config.yaml` gains a reserved
 refuses every undeclared deployment needs an authoring surface for the
 declaration, and the alternative was weakening the rule.
 
-**What is NOT true on this tree, stated so no reader infers it.** Nothing yet
-CALLS the temporal-bound judgment: Gate 3's comparand is unchanged, composite
-remaining validity is unchanged, and `PeeringAdmission.admit(now=)` is unchanged.
+**AMENDED 2026-10-04 (`D-IMPL-364` SEC-011 C4): the paragraph below was true at
+step 5 and is false after step 7.** Gate 3's comparand is now `served_at`,
+composite remaining validity is judged at `served_at`, and
+`PeeringAdmission.admit(now=)` is handed the fabric instant — see
+`docs/surface-changes/358-04-served-at.md` and
+`tests/products/test_served_at_severings.py::test_severing_Gate_the_comparand_returns_to_the_decision_instant`.
+The paragraph stands as historical text so the step record is not rewritten.
+
+**What is NOT true on this tree, stated so no reader infers it (AMENDED above;
+true at step 5 only).** Nothing yet CALLS the temporal-bound judgment: Gate 3's
+comparand is unchanged, composite remaining validity is unchanged, and
+`PeeringAdmission.admit(now=)` is unchanged.
 A deployment that declares the section registers a policy that **nothing reads
 yet**, and a deployment that omits it is not refused yet. Those are the remainder
 of step 5.

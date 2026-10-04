@@ -432,7 +432,12 @@ def audit_register(
 
     for name in sorted(tokens):
         value = tokens[name]
-        naming = [row for row in rows if value in row.raw]
+        # The token must be a CELL of the row — the row's own token column —
+        # not merely mentioned in another row's prose: measured 2026-10-04,
+        # deleting the shipped `ttl-bounds` row left this audit green because
+        # the consumer-side row's text cites that token. A code span that
+        # merely CONTAINS the token (`ttl-bounds-x`) does not count either.
+        naming = [row for row in rows if f"`{value}`" in row.cells]
         if not naming:
             problems.append(
                 f"no row names the gate token {value!r} ({name} in"

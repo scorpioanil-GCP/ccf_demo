@@ -50,14 +50,19 @@ that set it — never a substituted number, because a substituted number answers
 a question nobody asked. The single exception the ruling names is worked case 3
 and it is spelled out at :func:`resolve_effective_request`.
 
-Pure over its arguments: **no clock, no registry lookup, no I/O; the instant is
-a field of the request** (``request.asked_at``). A resolution that moved with
-the time of day, or with what was registered elsewhere, would not be
-reproducible at replay — which is the property every comparison in this package
-is required to have, and the reason ``D-IMPL-253`` Q6 puts constraint
-effectivity at ``asked_at``. The reference resolver that *reads* the Control
-Plane for the constraint set is a separate seam; it fetches, and then it calls
-this.
+Pure over its arguments: **no clock, no registry lookup, no I/O; every instant
+arrives as an argument.** Two instants, two jobs (`D-IMPL-358` step 5 ruling B,
+amending ``D-IMPL-253`` Q6; `D-IMPL-364` SEC-010 E1): policy EFFECTIVITY —
+which constraint is in force — is judged at ``served_at``, the trusted live
+instant the resolver read once for this serve and hands in as a required
+keyword; the AS-OF boundary of the graph read, and the base of a relative
+default, stays ``request.asked_at``. A resolution that moved with the time of
+day, or with what was registered elsewhere, would not be reproducible at
+replay — which is the property every comparison in this package is required to
+have, and the reason the record carries ``served_at`` (``D-IMPL-98``) rather
+than this module reading a clock. The reference resolver that *reads* the
+Control Plane for the constraint set is a separate seam; it fetches, and then
+it calls this.
 
 Algorithmic module (CINV-03).
 """
@@ -477,9 +482,9 @@ def _require_aware(asked_at: datetime) -> None:
     """
     if asked_at.tzinfo is None or asked_at.utcoffset() is None:
         raise TypeError(
-            "asked_at must be timezone-aware: constraint effectivity is"
-            " evaluated at the request's own instant and there is no implicit"
-            " UTC in this fabric (D-IMPL-98, D-IMPL-38)"
+            "the instant must be timezone-aware: constraint effectivity is"
+            " judged at served_at and the as-of boundary at asked_at, and"
+            " there is no implicit UTC in this fabric (D-IMPL-98, D-IMPL-38)"
         )
 
 
@@ -835,8 +840,9 @@ def resolve_effective_request(
     **Pure.** No clock, no registry, no I/O. ``constraints`` are already
     resolved artifacts and ``capabilities`` are already-read backend limits;
     the reference resolver that fetches both is a separate seam. Effectivity is
-    evaluated at ``request.asked_at``, and this function re-checks
-    :func:`applicable` over every constraint it is handed — so a caller cannot
+    evaluated at ``served_at`` (never ``request.asked_at``), and this function
+    re-checks :func:`applicable` over every constraint it is handed — so a
+    caller cannot
     smuggle in a constraint for another tenant, another class or another
     century by passing it directly.
 
@@ -873,8 +879,8 @@ def resolve_effective_request(
             second (``D-IMPL-325``).
         declared_source: The contract's own artifact pin — the provenance a
             defaulted value is recorded under.
-        constraints: The policy constraints applicable at ``request.asked_at``,
-            each with the pin it was resolved by. Re-checked here.
+        constraints: The policy constraints applicable at ``served_at``, each
+            with the pin it was resolved by. Re-checked here at ``served_at``.
         capabilities: The backend limits in force.
         capability_bindings: Parameter name to capability token. A binding
             naming a token no capability supplies is a wiring failure, not a
@@ -1442,9 +1448,14 @@ class PolicyConstraintResolver(Protocol):
     ) -> ResolutionOutcome:
         """Resolve ``request`` into its effective values, or refuse it.
 
-        The instant is ``request.asked_at`` and never a clock: a resolver that
-        read one would resolve a different policy at replay than at decision
-        time (``D-IMPL-253`` Q6, ``D-IMPL-98``).
+        The instant policy effectivity is judged at is ``served_at`` — the
+        trusted live instant the resolver read once for this serve and hands
+        in — and no longer ``request.asked_at`` (`D-IMPL-358` step 5 ruling B,
+        amending ``D-IMPL-253`` Q6; `D-IMPL-364` SEC-010 E1). ``asked_at``
+        remains the as-of boundary of the graph read. A resolver that read a
+        clock of its own would resolve a different policy at replay than at
+        decision time (``D-IMPL-98``); the one instant it may use is the
+        ``served_at`` it is handed, which the record carries.
 
         Args:
             product_class: The class the request addresses.

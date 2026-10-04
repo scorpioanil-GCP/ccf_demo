@@ -45,8 +45,8 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
    specimen's `deployment.effective_request`, which assembles the four inputs from the
    specimen's documents and hands them to the SDK's own resolution seam —
    `resolve_effective_request` at `src/ccf/products/constraints.py::resolve_effective_request`.
-5. That seam returns a `ResolutionOutcome` (`src/ccf/products/constraints.py:333`): a
-   `refusal` — here a `ConstraintRefusal` (`src/ccf/products/constraints.py:236`)
+5. That seam returns a `ResolutionOutcome` (`src/ccf/products/constraints.py::ResolutionOutcome`): a
+   `refusal` — here a `ConstraintRefusal` (`src/ccf/products/constraints.py::ConstraintRefusal`)
    carrying the bound and its authority (`policy`) — **paired with the partial
    `EffectiveRequest` evidence** (`D-IMPL-264` D-07/D-08: what resolution established
    on the way to a refusal is dimension-2 evidence and must not be erased).

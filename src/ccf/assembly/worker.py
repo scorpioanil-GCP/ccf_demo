@@ -689,6 +689,16 @@ class AssemblyWorker:
         fabric's own L1 — a Peering admission, a replayed snapshot — still enters
         L3 *through L2*, never by a direct write. Policy is bound here, on the
         way in, exactly as it is for locally-assembled state.
+
+        **Ingress surface (`D-IMPL-364` SEC-008 B1).** Internal to :meth:`ingest`
+        on every supported governed path — the only ``src``/``runtime`` callers
+        are this class's own methods — and outside the supported ingress surface
+        as a direct call: a claim handed in directly is not judged
+        against the tenant's temporal window (the worker owns no clock,
+        `D-IMPL-159`; the guard sits at the governed ingress that feeds
+        :meth:`ingest`) and produces no Decision Replay record, so its only
+        audit is the graph writer's lineage. The caller set is held by
+        ``tests/signal_layer/test_d364_writer_coverage.py``.
         """
         return self._writer.upsert_entity(
             tenant_id=tenant_id,
@@ -699,7 +709,15 @@ class AssemblyWorker:
     def admit_relationship_claim(
         self, *, tenant_id: str, claim: RelationshipClaim
     ) -> UpsertResult:
-        """Write an already-resolved relationship claim through L2."""
+        """Write an already-resolved relationship claim through L2.
+
+        **Ingress surface (`D-IMPL-364` SEC-008 B1).** As :meth:`admit_entity_claim`:
+        internal to :meth:`ingest` on every supported governed path and
+        **outside the supported ingress surface** as a direct call — unjudged
+        against the tenant's temporal window, no Decision Replay record, the
+        graph writer's lineage as its only audit. The caller set is held by
+        ``tests/signal_layer/test_d364_writer_coverage.py``.
+        """
         return self._writer.upsert_relationship(
             tenant_id=tenant_id,
             claim=claim,
@@ -888,6 +906,19 @@ class AssemblyWorker:
             ingested_at: When this fabric received the product. Supplied by the
                 caller for the same reason the gate takes ``now``: a write path
                 that read a clock would not replay.
+
+        **Ingress surface (`D-IMPL-364` SEC-008 B1).** This entry point is
+        **outside the supported ingress surface** at this release: no composition
+        root in ``src`` or ``runtime`` calls it, and
+        ``tests/signal_layer/test_d364_writer_coverage.py`` holds that caller set
+        at zero. ``ingested_at`` is caller-supplied and is NOT judged against the
+        tenant's temporal window here — the worker owns no clock (`D-IMPL-159`;
+        `D-IMPL-358` ruling 2). When a governed door is wired to this method,
+        that door composes the ``IngressTemporalBound`` and judges ``ingested_at``
+        before calling, exactly as the acquisition seam does for :meth:`ingest`.
+        Its audit mechanism is the Peering admission record the
+        ``AdmittedProduct`` carries plus the graph writer's lineage; a direct
+        call from outside a governed door produces no Decision Replay record.
 
         Returns:
             One :class:`IngestResult` per derived envelope, in payload order.

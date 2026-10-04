@@ -784,10 +784,13 @@ class PolicyConstraint(VersionedArtifact):
     ``priority``, which orders comparable constraints and, per Q4, *"must never
     erase an applicable hard constraint."*
 
-    **Effectivity is evaluated at the request's own instant, never at "now"**
-    (``D-IMPL-253`` Q6: *"otherwise replay of the same historical decision can
-    resolve a different policy"*). This class carries the window; the resolver
-    compares it against ``asked_at``. Both instants are timezone-aware because
+    **Effectivity is evaluated at ``served_at`` — the trusted live instant the
+    resolver read once for the serve and the record carries — never at a clock
+    this class or the resolver reads, and no longer at ``asked_at``**
+    (`D-IMPL-358` step 5 ruling B, amending ``D-IMPL-253`` Q6; `D-IMPL-364`
+    SEC-010 E1). ``asked_at`` remains the as-of boundary of the graph read.
+    This class carries the window; the resolver compares it against
+    ``served_at``. Both instants are timezone-aware because
     :func:`load_artifact` refuses a zone-less timestamp before this contract
     ever sees one (``D-IMPL-38``: no implicit UTC).
 
