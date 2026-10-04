@@ -175,6 +175,23 @@ def test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE(
     two earlier refusals already cover the ground. Its value is on ingress paths that
     do NOT sit behind the resolver's bound. That is asserted here rather than
     described, so a later change that removes either earlier refusal is visible.
+
+    **AMENDED (`D-IMPL-364` `SEC-008` B3). "Cannot fire" holds for a FIXED clock
+    only, and this test pins a fixed one** — ``clock=lambda: fixture.ASKED_AT``. It
+    is reason 2 above that is narrower than it reads: ``refuse_foreign_envelope``
+    requires ``ingestion_timestamp == asked_at``, and the write guard judges that
+    stamp against ``ingress_at`` — a SECOND reading of the fabric clock, taken in
+    ``OpenedProduct._acquisition_seam`` after the resolver already took ``served_at``
+    (close-panel finding 5, carried by name at `D-IMPL-364`). When the clock between
+    those two readings MOVES, a question that is in-window at ``served_at`` is
+    out-of-window at ``ingress_at``, and the guard fires on the paved road.
+
+    Measured, with the injected clock ticking once: the guard raises and the raw
+    ``TemporalWriteRefused`` escapes ``opened.answer``. That route is now exercised
+    by
+    ``test_on_the_paved_road_a_TICKING_clock_reaches_the_write_guard_and_it_is_governed``
+    below, which is B3's end-to-end control; this test keeps its own fixed-clock
+    claim and its assertions are unchanged.
     """
     import pathlib as _pathlib
 
@@ -209,6 +226,144 @@ def test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE(
     assert opened._acquire.contexts == [], (
         f"acquisition ran {len(opened._acquire.contexts)} time(s) for a question that"
         " was refused out of window — the refusal is on the wrong side of the seam"
+    )
+
+
+def test_on_the_paved_road_a_TICKING_clock_reaches_the_write_guard_and_it_is_governed(
+    tmp_path: "object",
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`D-IMPL-364` `SEC-008` B3, from the GUARD's side — and the route is real.
+
+    B3, quoted: *"The guard is exercised on the real governed route
+    (``OpenedProduct.answer`` → the acquisition seam → the writer) by at least one
+    in-tree control with an acquiring product class: the paved road's per-question
+    stamp is admitted because it is inside the window by construction, and an
+    acquired envelope stamped outside it is refused at that route, not only at the
+    unit."*
+
+    **The test above says the guard cannot fire here, and it is right about a FIXED
+    clock.** What makes it reachable is the SECOND fabric-clock reading: the resolver
+    takes ``served_at`` once, and ``OpenedProduct._acquisition_seam`` takes
+    ``ingress_at`` again before handing the envelope to the guard (close-panel finding
+    5). The envelope's stamp equals the question's ``asked_at`` — the paved road's own
+    rule — so the guard compares ``asked_at`` against the LATER instant. Move the
+    clock between the two readings and the comparison changes answer.
+
+    **Nothing is faked to arrange that.** The clock is INJECTED, with two declared
+    values and no wall clock. The window is the tenant's own declared
+    ``temporal_boundary``, 60 seconds, exactly as the test above declares it.
+    ``asked_at`` is one second before the FIRST reading, so the question is genuinely
+    in-window when the resolver admits it. The second reading is 61 seconds later,
+    one second past the tenant's reach. The only chosen thing is that time passed.
+
+    **Asserted from the guard's side, which is what makes this B3 rather than B2.**
+    `tests/products/test_d_impl_347_seam_refusals.py::test_the_sdks_own_temporal_write_refusal_is_a_governed_refusal_without_a_declaration`
+    asserts the CONVERSION — the seam name, the cause, the error code. This asserts
+    what the GUARD determined survived into the record: the envelope it refused by
+    id, the policy key it judged under, and the direction word ``outside``. A
+    conversion that carried a plausible governed "no" while losing the guard's own
+    sentence would pass there and fail here.
+
+    **The POSITIVE CONTROL is in this same test, deliberately.** With the clock NOT
+    ticking — both readings equal — the identical question SERVES, acquisition runs
+    once, and the writer is called once. Without it, a guard that refused every paved
+    serve would pass the refusal half, and the write counter below would read zero
+    for the uninteresting reason that nothing ever writes.
+
+    **RED today:** the raw ``TemporalWriteRefused`` escapes ``opened.answer`` as an
+    untyped error with no record at all. The production change that makes it green is
+    `D-IMPL-364` choice 1 — adding ``ccf.signal.envelope.TemporalWriteRefused`` to
+    ``src/ccf/products/resolver.py::SDK_SEAM_REFUSALS``.
+    """
+    import pathlib as _pathlib
+
+    from ccf.assembly.worker import AssemblyWorker
+    from ccf.products.refusal import RefusalEnvelope
+    from tests.products import paved_fixture as fixture
+    from tests.products.test_paved_road import _open, _question, _write_tree
+
+    root = _pathlib.Path(str(tmp_path))
+    writes: list[str] = []
+    unwrapped = AssemblyWorker.ingest
+
+    def counting_ingest(self: AssemblyWorker, envelope: object) -> object:
+        writes.append(envelope.envelope_id)  # type: ignore[attr-defined]
+        return unwrapped(self, envelope)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(AssemblyWorker, "ingest", counting_ingest)
+
+    served_at = fixture.ASKED_AT
+    ingress_at = served_at + timedelta(seconds=61)
+    asked_at = served_at - timedelta(seconds=1)
+
+    def _route(name: str, *, ticking: bool) -> tuple[object, object, list[datetime]]:
+        config = fixture.producer_config()
+        config["temporal_boundary"] = {
+            "max_past_seconds": 60,
+            "permitted_clock_skew_seconds": 60,
+        }
+        tree = _write_tree(root / name, config=config)
+        reads: list[datetime] = []
+
+        def clock() -> datetime:
+            instant = served_at if (not reads or not ticking) else ingress_at
+            reads.append(instant)
+            return instant
+
+        opened = _open(tree, root / name / "scratch", clock=clock)
+        question = _question(opened).model_copy(update={"asked_at": asked_at})
+        return opened, question, reads
+
+    # --- (1) THE POSITIVE CONTROL: the clock does not move, so the road serves.
+    writes.clear()
+    opened, question, reads = _route("fixed", ticking=False)
+    served = opened.answer(question)
+    assert not isinstance(served, RefusalEnvelope), (
+        "the paved road refuses this question even with a STILL clock, so the"
+        " refusal below would say nothing about the write guard"
+    )
+    assert len(opened._acquire.contexts) == 1, len(opened._acquire.contexts)
+    assert writes == ["envelope-paved-1"], (
+        f"the writer was called {writes} on a serve that should write exactly once;"
+        " the counter below would then read zero for the wrong reason"
+    )
+    assert reads == [served_at, served_at], reads
+
+    # --- (2) THE GUARD: the same question, the clock ticking once between the two
+    #         fabric reads. In window at `served_at`, out of window at `ingress_at`.
+    writes.clear()
+    opened, question, reads = _route("ticking", ticking=True)
+    outcome = opened.answer(question)
+
+    assert isinstance(outcome, RefusalEnvelope), (
+        "the write guard's `TemporalWriteRefused` escaped `opened.answer` as an"
+        " exception: a write the fabric refused inside a governed serve produced no"
+        f" record and no governed answer. Got {type(outcome).__name__}"
+    )
+    assert reads == [served_at, ingress_at], (
+        f"the injected clock was read {reads}; this control needs exactly the two"
+        " declared readings — the resolver's `served_at` and the seam's `ingress_at`"
+    )
+    assert writes == [], (
+        f"the writer was called {writes} for an out-of-window envelope; the guard"
+        " must refuse BEFORE any write"
+    )
+    assert len(opened._acquire.contexts) == 1, len(opened._acquire.contexts)
+
+    # The GUARD's own sentence, carried into the record rather than paraphrased.
+    block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+    assert "envelope-paved-1" in block, (
+        "the record does not name the envelope the guard refused; an operator"
+        f" reading it cannot say which write was stopped. Block: {block[:400]!r}"
+    )
+    assert temporal_boundary_policy_key(tenant_id=fixture.PRODUCER_TENANT) in block, (
+        "the record does not name the policy key the guard judged under, so the"
+        f" refusal cannot be acted on. Block: {block[:400]!r}"
+    )
+    assert "outside" in block, (
+        "the record does not say the instant was OUTSIDE the window; the direction"
+        f" is what distinguishes this from an undeclared policy. Block: {block[:400]!r}"
     )
 
 

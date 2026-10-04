@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pathlib
 import types
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -357,6 +357,20 @@ def test_a_deployment_may_narrow_the_class_map_but_never_widen_it() -> None:
 
 from ccf.assembly.worker import IdentityRefused
 
+#: The SDK's own seam-refusal roster, as `D-IMPL-364` `SEC-008` B2 rules it.
+#:
+#: `D-IMPL-357` B3 opened this map with one entry. `D-IMPL-364` choice 1 (Dave,
+#: 2026-10-04) adds the second, verbatim: *"Add ``TemporalWriteRefused`` to
+#: ``SDK_SEAM_REFUSALS`` for governed serves. Other write paths must name their
+#: actual audit mechanism."*
+#:
+#: Declared ONCE here and read by three controls below, because a roster written
+#: out three times is a roster that will one day disagree with itself.
+_SDK_SEAM_ROSTER = {
+    "ccf.assembly.worker.IdentityRefused",
+    "ccf.signal.envelope.TemporalWriteRefused",
+}
+
 
 def test_the_sdks_own_identity_refusal_is_a_governed_refusal_without_a_declaration(
     tmp_path: pathlib.Path,
@@ -380,15 +394,160 @@ def test_the_sdks_own_identity_refusal_is_a_governed_refusal_without_a_declarati
         assert "identity-refused" in block and "nonexistent" in block
 
 
+# --------------------------------------------------------------------------
+# `D-IMPL-364` `SEC-008` B2 + B3 — the SDK's own TEMPORAL WRITE refusal, on the
+# real route. Today it escapes `opened.answer` as an untyped error with no
+# record, which is the same shape `D-IMPL-357` B3 closed for `IdentityRefused`.
+# --------------------------------------------------------------------------
+
+
+def test_the_sdks_own_temporal_write_refusal_is_a_governed_refusal_without_a_declaration(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`D-IMPL-364` `SEC-008` B2 and B3, on the REAL governed route.
+
+    B2, quoted: *"An out-of-window write refuses as the typed ``TemporalWriteRefused``,
+    before any write, and the envelope is never restamped; where the refusal is
+    raised inside a governed serve — the acquisition seam — it converts through
+    ``src/ccf/products/resolver.py::SDK_SEAM_REFUSALS`` into a governed refusal whose
+    replay record names its cause and error code, as ``IdentityRefused`` does."*
+
+    B3, quoted: *"The guard is exercised on the real governed route
+    (``OpenedProduct.answer`` → the acquisition seam → the writer) by at least one
+    in-tree control with an acquiring product class."*
+
+    **How the guard is REACHED on the paved road, and why no fixture is faked to get
+    there.** Close-panel finding 5: a serve reads the fabric clock TWICE — once in
+    ``GovernedResolver.__call__`` for ``served_at``, and again in
+    ``OpenedProduct._acquisition_seam`` for ``ingress_at``, which is the instant the
+    write guard judges. With a ticking injected clock those two instants differ, so a
+    question that is comfortably in-window at ``served_at`` can be out-of-window at
+    ``ingress_at`` — and the guard fires on the paved road, which
+    ``tests/signal_layer/test_step8_temporal_write_guard.py::test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE``
+    correctly reports is impossible under a FIXED clock.
+
+    Nothing here is faked to arrange it. The clock is INJECTED and pinned — two
+    declared values, no wall clock — the window is the tenant's own declared
+    ``temporal_boundary``, and ``asked_at`` is one second before the first clock
+    reading, so the question is genuinely in-window when it is admitted. The second
+    reading is sixty-one seconds later, one second past the tenant's sixty-second
+    reach. Every instant is real; only the passage of time between the two reads is
+    chosen.
+
+    **What is asserted, and why each is necessary.**
+
+    1. ``opened.answer`` returns a :class:`RefusalEnvelope` — not a traceback. This
+       is the whole of B2's conversion requirement.
+    2. The seam dimension 5 recorded is ``"acquisition"``, read off the record by
+       the suite's ``_seam_of`` rather than asserted — the refusal must be
+       attributable to the seam that held it.
+    3. The record's assembly-refusal block names ``"temporal-write-refused"`` and
+       ``"nonexistent"`` — the error code and the cause, exactly as the identity
+       control above reads ``"identity-refused"`` and ``"nonexistent"``.
+    4. Acquisition ran EXACTLY ONCE. A conversion that retried the seam would make
+       the deployment's ``acquire`` run twice for one question.
+    5. **Nothing was written.** Measured at the only writer entry point this route
+       uses: ``AssemblyWorker.ingest`` is wrapped by a counting delegate and must be
+       called ZERO times. The positive control for that counter is
+       ``test_on_the_paved_road_a_TICKING_clock_reaches_the_write_guard_and_it_is_governed``'s
+       own served leg, where the same wrapper counts one.
+
+    **RED today.** Measured on the shipped tree: ``TemporalWriteRefused`` is not in
+    :data:`~ccf.products.resolver.SDK_SEAM_REFUSALS`, the class declares no
+    ``seam_refusals``, so ``_declared_seam_refusal`` returns ``None`` and the
+    acquisition seam's ``except Exception`` re-raises — the raw exception leaves
+    ``opened.answer`` with no record at all.
+    """
+    from ccf.assembly.worker import AssemblyWorker
+    from tests.products import paved_fixture as fixture
+    from tests.products.test_paved_road import _open as _open_paved
+    from tests.products.test_paved_road import _question as _question_paved
+    from tests.products.test_paved_road import _write_tree as _write_tree_paved
+
+    writes: list[str] = []
+    unwrapped = AssemblyWorker.ingest
+
+    def counting_ingest(self: AssemblyWorker, envelope: Any) -> Any:
+        writes.append(envelope.envelope_id)
+        return unwrapped(self, envelope)
+
+    monkeypatch.setattr(AssemblyWorker, "ingest", counting_ingest)
+
+    config = fixture.producer_config()
+    # The tenant's OWN declared window, exactly as the step-8 suite declares it.
+    config["temporal_boundary"] = {
+        "max_past_seconds": 60,
+        "permitted_clock_skew_seconds": 60,
+    }
+    root = _write_tree_paved(tmp_path / "b2temporal", config=config)
+
+    served_at = fixture.ASKED_AT
+    ingress_at = served_at + timedelta(seconds=61)  # one second past the reach
+    reads: list[datetime] = []
+
+    def ticking() -> datetime:
+        """An INJECTED clock with two declared values. No wall clock is read."""
+        instant = served_at if not reads else ingress_at
+        reads.append(instant)
+        return instant
+
+    opened = _open_paved(root, tmp_path / "b2temporal" / "scratch", clock=ticking)
+    asked_at = served_at - timedelta(seconds=1)  # in window at `served_at`
+    question = _question_paved(opened).model_copy(update={"asked_at": asked_at})
+
+    outcome = opened.answer(question)
+
+    assert isinstance(outcome, RefusalEnvelope), (
+        "the raw `TemporalWriteRefused` escaped `opened.answer`: a write the fabric"
+        " refused inside a governed serve left no record and no governed answer,"
+        f" which is what `D-IMPL-364` B2 closes. Got {type(outcome).__name__}"
+    )
+    assert _seam_of(opened, outcome) == "acquisition", _seam_of(opened, outcome)
+    block = str(opened.record_of(outcome).content_generation_path.assembly_refusal)
+    assert "temporal-write-refused" in block, block
+    assert "nonexistent" in block, block
+    assert len(opened._acquire.contexts) == 1, (
+        f"acquisition ran {len(opened._acquire.contexts)} time(s) for one question"
+    )
+    assert writes == [], (
+        f"the writer was called {len(writes)} time(s) for a refused envelope"
+        f" ({writes}); B2 requires the refusal BEFORE any write"
+    )
+    # ...and the clock was read twice, which is the mechanism this control depends
+    # on (close-panel finding 5). Pinned so a later repair that collapses the two
+    # reads into one makes this control's premise visibly false rather than
+    # silently unreachable.
+    assert reads == [served_at, ingress_at], reads
+
+
 def test_a_deployment_cannot_widen_the_sdk_seam_map_and_its_own_undeclared_types_still_propagate(
     tmp_path: pathlib.Path,
 ) -> None:
-    """The control that keeps the amendment narrow: only the SDK's own class
-    converts by mechanism; `test_an_UNdeclared_domain_exception_still_propagates`
-    above keeps proving the deployment half."""
+    """The control that keeps the amendment narrow — now at its ruled width.
+
+    `D-IMPL-364` `SEC-008` B2, quoted: *"where the refusal is raised inside a
+    governed serve — the acquisition seam — it converts through
+    ``src/ccf/products/resolver.py::SDK_SEAM_REFUSALS`` into a governed refusal whose
+    replay record names its cause and error code, as ``IdentityRefused`` does; every
+    other write path names its actual audit mechanism."*
+
+    So the map holds exactly TWO SDK-owned types and no more. An EXACT SET, never a
+    count and never a superset check: a map that gained a third entry nobody ruled
+    would be a conversion the SDK performs and nobody authorized, and the rest of
+    this module — which iterates the map — would keep passing.
+
+    **RED today:** the shipped map holds only ``IdentityRefused``, which is the state
+    `D-IMPL-364` records as *"B2 UNMET (``TemporalWriteRefused`` absent from
+    ``SDK_SEAM_REFUSALS``)"*.
+
+    The deployment half is unchanged and still proved by
+    ``test_an_UNdeclared_domain_exception_still_propagates`` above: only the SDK's own
+    classes convert by mechanism.
+    """
     from ccf.products.resolver import SDK_SEAM_REFUSALS
 
-    assert set(SDK_SEAM_REFUSALS) == {"ccf.assembly.worker.IdentityRefused"}
+    assert set(SDK_SEAM_REFUSALS) == _SDK_SEAM_ROSTER
 
 
 def test_the_sdk_seam_map_refuses_a_TYPED_WRITE_and_claims_nothing_wider() -> None:
@@ -440,16 +599,42 @@ def test_an_sdk_seam_binding_cannot_be_RETARGETED_IN_PLACE() -> None:
     Pinned because an unclaimed real defense is worth more than three claimed
     ones, and because nothing else in this module would redden if the contract
     base were unfrozen.
+
+    **Every entry, not the first one** (`D-IMPL-364` B2). The map now holds two
+    SDK-owned types, and a defense proved for one of them is a defense asserted for
+    the other: a binding added later could perfectly well be a mutable mapping or a
+    plain dataclass, and a test that read only ``IdentityRefused`` would never say
+    so. The loop runs over :data:`_SDK_SEAM_ROSTER` rather than over the map itself,
+    so a map that LOST an entry reddens here instead of making the loop vacuous.
     """
     from pydantic import ValidationError
 
     from ccf.products.resolver import SDK_SEAM_REFUSALS
 
-    binding = SDK_SEAM_REFUSALS["ccf.assembly.worker.IdentityRefused"]
-    for field, value in (("cause", "unauthorized"), ("error_code", "borrowed")):
-        with pytest.raises(ValidationError):
-            setattr(binding, field, value)
-    assert (binding.cause, binding.error_code) == ("nonexistent", "identity-refused")
+    for name in _SDK_SEAM_ROSTER:
+        assert name in SDK_SEAM_REFUSALS, (
+            f"{name!r} is not in the SDK's seam map, so its frozen-binding defense"
+            " is asserted rather than measured"
+        )
+        binding = SDK_SEAM_REFUSALS[name]
+        before = (binding.cause, binding.error_code)
+        for field, value in (("cause", "unauthorized"), ("error_code", "borrowed")):
+            with pytest.raises(ValidationError):
+                setattr(binding, field, value)
+        assert (binding.cause, binding.error_code) == before, name
+
+    identity = SDK_SEAM_REFUSALS["ccf.assembly.worker.IdentityRefused"]
+    assert (identity.cause, identity.error_code) == ("nonexistent", "identity-refused")
+    temporal = SDK_SEAM_REFUSALS["ccf.signal.envelope.TemporalWriteRefused"]
+    assert (temporal.cause, temporal.error_code) == (
+        "nonexistent",
+        "temporal-write-refused",
+    ), (
+        "`TemporalWriteRefused` must convert under the SDK's own meaning:"
+        " `RefusalCause` is a closed vocabulary and a write the fabric refused"
+        " leaves no subject resolved, so the cause is `nonexistent` and the typed"
+        " code is what tells an operator which determination it was"
+    )
 
 
 def test_rebinding_the_module_attribute_does_NOT_change_dispatch(
@@ -513,13 +698,22 @@ def test_every_sdk_seam_map_entry_names_a_REAL_exception_the_SDK_ITSELF_defines(
     from ccf.products.resolver import SDK_SEAM_REFUSALS
 
     assert SDK_SEAM_REFUSALS, "an empty mechanism map would pass every other check here"
+    # `D-IMPL-364` B2: the loop below must visit BOTH ruled entries. A loop over a
+    # map that quietly shrank to one entry passes every assertion inside it.
+    assert set(SDK_SEAM_REFUSALS) == _SDK_SEAM_ROSTER, (
+        "this control resolves whatever the map holds; the map must hold exactly the"
+        " ruled roster, or the resolution below is a statement about a subset"
+    )
+    visited: list[str] = []
     for name, binding in SDK_SEAM_REFUSALS.items():
+        visited.append(name)
         assert binding.exception == name, (name, binding.exception)
         module_name, _, qualname = name.rpartition(".")
         assert module_name.split(".")[0] == "ccf", name
         resolved = getattr(importlib.import_module(module_name), qualname)
         assert isinstance(resolved, type) and issubclass(resolved, BaseException), name
         assert f"{resolved.__module__}.{resolved.__qualname__}" == name, name
+    assert set(visited) == _SDK_SEAM_ROSTER, visited
 
 
 def test_a_class_declaring_an_SDK_OWNED_seam_type_is_REFUSED_at_registration(

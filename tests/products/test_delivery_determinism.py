@@ -1081,6 +1081,314 @@ def _constraint_pins(resolved: EffectiveRequest) -> tuple[tuple[str, str], ...]:
     )
 
 
+# --- `SEC-010` D1: the effectivity-boundary record, replayed ------------------
+#
+# `D-IMPL-364`, the criterion for `SEC-010`, clause D1, verbatim:
+#
+#     *D1 (per choice 4).* ONE control replays the record produced by a serve
+#     whose constraint effectivity fell between `asked_at` and `served_at` and
+#     proves BOTH its content address and its bindings — including the
+#     temporal-boundary binding and the `served_at` it carries.
+#
+# **Why this control is on the PAVED ROAD rather than on the Q6 fixture above.**
+# The Q6 control drives :class:`~ccf.products.resolver.GovernedResolver` directly,
+# and :class:`~ccf.replay.environment.RecordedEnvironment` — the SDK's own replay
+# environment, shipped by `D-IMPL-346` precisely so six example trees stop writing
+# their own — is built from an :class:`~ccf.products.product.OpenedProduct`, whose
+# ``build_arguments`` is the mapping the serve path itself hands the builder. A
+# hand-written environment over the seam fixture would have been a seventh copy of
+# the shape that decision deleted, and it would have proven replay against an
+# environment this test authored rather than against the one a deployment gets.
+# So the EFFECTIVITY SHAPE is Q6's — two adjacent constraint windows, a question
+# asked inside the first, a serve pinned inside the second — and the ROUTE is the
+# paved one, which is the route the clause's "a serve" actually means.
+
+
+class _PinnedResolveSpy:
+    """A Control Plane that records how replay asked for each artifact.
+
+    Delegates everything; records every exact ``(key, version)`` resolution and
+    every *latest* read. The distinction is the whole measurement:
+    :func:`~ccf.replay.engine.replay` is required to resolve each recorded
+    binding at the version the record pinned, and
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.resolve_latest`
+    exists as a separate method for exactly the reason its docstring gives —
+    *"replay paths must not use this method"*. A spy is needed because a later
+    version registered under the same key resolves perfectly well: asserting
+    only that replay SUCCEEDED could not tell a pinned read from a latest one.
+    """
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+        self.resolved: list[tuple[str, str]] = []
+        self.latest_reads: list[str] = []
+
+    def resolve(self, key: str, version: str) -> object:
+        self.resolved.append((key, version))
+        return self._inner.resolve(key, version)
+
+    def resolve_latest(self, key: str) -> tuple[str, object]:
+        self.latest_reads.append(key)
+        return self._inner.resolve_latest(key)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+#: The two ceilings the adjacent windows bound the paved question's threshold to.
+#: BOTH are above what the caller asks, deliberately: a bound that CLAMPED or
+#: REFUSED would make the serve a refusal and there would be no served product
+#: whose content address could be replayed. What differs between the two windows
+#: is therefore only WHICH artifact governed — which is exactly the thing D1 asks
+#: the record and the replay to agree about.
+D364_CEILING_EARLY = Decimal(5000)
+D364_CEILING_LATE = Decimal(2000)
+#: A third value, registered under the LATE key AFTER the serve, so the plane
+#: holds a genuinely different later version for replay to resolve INSTEAD.
+D364_CEILING_LATER = Decimal(3000)
+
+
+def test_the_effectivity_boundary_record_replays_to_its_address_and_its_bindings(
+    tmp_path: pathlib.Path,
+) -> None:
+    """D1: one record, crossed by an effectivity boundary, replayed whole.
+
+    The serve is arranged so the constraint in force at the question's instant
+    is NOT the one in force at the serve instant: ``asked_at`` sits inside the
+    early window, the injected fabric clock sits inside the late one, and the
+    boundary between them falls in the seven minutes between. Under
+    `D-IMPL-358` ruling B the LATE artifact governs, so this record is one whose
+    governance cannot be re-derived from the question alone — which is what
+    makes it the right subject for a replay control.
+
+    Four things are asserted about the reconstruction, because they are four
+    different claims and none implies another:
+
+    1. **The content address.** The reproduced product hashes to what the
+       record says was served.
+    2. **The bindings.** Every pin the record carries was resolved at the
+       version the record carries, including the LATE constraint and the
+       temporal-boundary policy — and the EARLY constraint, which governed
+       nothing, is pinned by nobody.
+    3. **The recorded instant.** The replayed record's ``served_at`` is the
+       pinned fabric instant the serve read, not the question's and not a new
+       one.
+    4. **The both-halves discipline.** A later version of the governing
+       constraint is registered under the same key before replay, and is
+       asserted to be present, different and resolvable — so "the recorded
+       version was resolved" is a measurement rather than the only thing that
+       was available. The spy makes the measurement directly: the exact pair is
+       in its resolution log and ``resolve_latest`` was never called at all.
+
+    Clocks are INJECTED and pinned at both ends — the serve's fabric clock and
+    the two effectivity windows — so the verdict cannot depend on the day the
+    suite runs.
+
+    **Expected GREEN today, and the severings that redden it, named.**
+    `src/ccf/replay/engine.py::_resolve_bindings` resolving a *latest*
+    registration instead of the pinned pair — ``control_plane.resolve_latest(
+    binding.key)`` in place of ``control_plane.resolve(binding.key,
+    binding.version)`` — reddens the spy's two bindings assertions and its
+    ``latest_reads == []``. And
+    `src/ccf/products/constraints.py::ReferencePolicyConstraintResolver.resolve`
+    returning the effectivity reading to the question's instant —
+    ``constraints_in_force(self.control_plane, served_at=request.asked_at)`` —
+    puts the EARLY artifact in force and reddens the pin and binding assertions
+    above, because the record would then pin the constraint that governed
+    nothing.
+    """
+    from ccf.controlplane.temporal_boundary import temporal_boundary_policy_key
+    from ccf.deployment import load_config_and_boot
+    from ccf.replay.engine import replay
+    from ccf.replay.environment import RecordedEnvironment
+
+    from tests.products.paved_fixture import granted_control_plane
+    from tests.products.test_paved_road import (
+        ASKED_AT as PAVED_ASKED_AT,
+    )
+    from tests.products.test_paved_road import (
+        TENANT as PAVED_TENANT,
+    )
+    from tests.products.test_paved_road import (
+        THRESHOLD_PARAMETER as PAVED_THRESHOLD,
+    )
+    from tests.products.test_paved_road import _open, _question, _write_tree
+
+    asked = PAVED_ASKED_AT
+    served_instant = asked + timedelta(minutes=7)
+    crossing = asked + timedelta(minutes=3)
+    assert asked < crossing < served_instant, (
+        "the effectivity boundary must fall BETWEEN the question and the serve,"
+        " or this control is about neither instant"
+    )
+
+    root = _write_tree(tmp_path)
+    scratch = tmp_path / "scratch"
+    control_plane = granted_control_plane(root)
+
+    version_early = register_typed_at_composition(
+        control_plane,
+        KEY_EARLY,
+        _constraint(
+            policy_id=POLICY_EARLY,
+            parameter=PAVED_THRESHOLD,
+            operator="maximum",
+            value=D364_CEILING_EARLY,
+            effective_from=asked - timedelta(days=1),
+            effective_until=crossing,
+        ),
+        POLICY_CONSTRAINT,
+    )
+    version_late = register_typed_at_composition(
+        control_plane,
+        KEY_LATE,
+        _constraint(
+            policy_id=POLICY_LATE,
+            parameter=PAVED_THRESHOLD,
+            operator="maximum",
+            value=D364_CEILING_LATE,
+            effective_from=crossing,
+            effective_until=None,
+        ),
+        POLICY_CONSTRAINT,
+    )
+    assert version_early != version_late
+
+    with _open(
+        root,
+        scratch,
+        clock=lambda: served_instant,
+        control_plane=control_plane,
+        constraint_resolver=ReferencePolicyConstraintResolver(
+            control_plane=control_plane,
+            entitlement_key=product_entitlement_key(tenant_id=PAVED_TENANT),
+        ),
+    ) as opened:
+        served = opened.answer(_question(opened))
+        assert isinstance(served, ServedProduct), served
+        record = opened.record_of(served)
+
+        # The serve read the pinned fabric instant, and the record says so.
+        assert record.content_generation_path.served_at == served_instant, (
+            "the record's served_at is not the injected fabric instant, so this"
+            " record is not the one the clause is about"
+        )
+        assert record.context_fabric_snapshot.temporal_boundary == asked, (
+            "the graph read moved off the question's own instant (D-IMPL-358"
+            " ruling B: graph reads stay at asked_at)"
+        )
+
+        # The LATE artifact governed, and it is the only constraint that did.
+        resolution = EffectiveRequest.model_validate_json(_resolution_of(record))
+        assert _constraint_pins(resolution) == ((KEY_LATE, version_late),), (
+            "the constraint in force at the SERVE instant did not govern:"
+            f" {_constraint_pins(resolution)}"
+        )
+
+        temporal_key = temporal_boundary_policy_key(tenant_id=PAVED_TENANT)
+        recorded = {(b.key, b.version) for b in record.policy_bindings.bindings}
+        assert (KEY_LATE, version_late) in recorded
+        assert (KEY_EARLY, version_early) not in recorded, (
+            "the record pins a constraint that was out of force at the serve"
+            " instant"
+        )
+        temporal_pins = tuple(
+            b.version for b in record.policy_bindings.bindings if b.key == temporal_key
+        )
+        assert len(temporal_pins) == 1, (
+            "the record does not pin exactly one temporal boundary, so the"
+            f" binding this clause names cannot be held: {temporal_pins}"
+        )
+        recorded_temporal_version = temporal_pins[0]
+
+        # Reopen the fabric the serve minted, BEFORE the later version is
+        # registered — reopening mints registration audit events and reads live
+        # time legitimately (`test_step6_recorded_time.py::_served_and_reopened`
+        # states the same reason), which is bookkeeping about the reopening and
+        # not a temporal evaluation of the historical determination.
+        minted = sorted(scratch.glob("paved_fixture*.sqlite3"))[-1]
+        fabric = load_config_and_boot(
+            opened.config_path,
+            registry=control_plane,
+            connection={"database_path": str(minted)},
+        )
+
+        # THE OTHER HALF: a genuinely different later version of the governing
+        # constraint, under the same key, sitting in the plane to be resolved
+        # INSTEAD. Asserting only that the recorded version still resolves would
+        # pass against a plane that held nothing else.
+        version_later = register_typed_at_composition(
+            control_plane,
+            KEY_LATE,
+            _constraint(
+                policy_id=POLICY_LATE,
+                parameter=PAVED_THRESHOLD,
+                operator="maximum",
+                value=D364_CEILING_LATER,
+                effective_from=crossing,
+                effective_until=None,
+            ),
+            POLICY_CONSTRAINT,
+        )
+        assert version_later != version_late, (
+            "the later registration produced the same version, so there is"
+            " nothing for reconstruction to resolve INSTEAD and the second half"
+            " of this control is vacuous"
+        )
+        assert control_plane.resolve(KEY_LATE, version_later) is not None
+        assert control_plane.resolve(KEY_LATE, version_late) is not None
+
+        spy = _PinnedResolveSpy(control_plane)
+        outcome = replay(
+            record_address=served.replay_ref.content_address,
+            store=opened.artifact_store,
+            reader=fabric.handle.reader,
+            control_plane=spy,
+            environment=RecordedEnvironment(
+                record=record, opened=opened, fabric=fabric
+            ),
+        )
+
+        # 1. The address.
+        assert outcome.product_content_address == content_hash(served.product)
+        assert outcome.product_content_address == (
+            record.content_generation_path.product_content_address
+        )
+
+        # 2. The bindings, each at the version the record pinned.
+        assert (KEY_LATE, version_late) in spy.resolved, (
+            "replay did not resolve the governing constraint at its recorded"
+            f" version: {spy.resolved}"
+        )
+        assert (temporal_key, recorded_temporal_version) in spy.resolved, (
+            "replay did not resolve the temporal-boundary binding at its"
+            f" recorded version: {spy.resolved}"
+        )
+        assert recorded <= set(spy.resolved), (
+            "a binding the record carries was never resolved by replay:"
+            f" {recorded - set(spy.resolved)}"
+        )
+        assert (KEY_LATE, version_later) not in spy.resolved, (
+            "replay resolved the LATER version of the governing constraint; the"
+            " decision was re-governed rather than reconstructed"
+        )
+        assert spy.latest_reads == [], (
+            "replay reached for a *latest* registration, which is the exact"
+            f" method a replay path must not use: {spy.latest_reads}"
+        )
+
+        # 3. The recorded instant survived reconstruction.
+        assert outcome.record.content_generation_path.served_at == served_instant
+        assert outcome.record.content_generation_path.served_at == (
+            record.content_generation_path.served_at
+        )
+
+        # 4. And the record's own pins were not mutated along the way.
+        assert {
+            (b.key, b.version) for b in outcome.record.policy_bindings.bindings
+        } == recorded
+
+
 def test_a_new_constraint_version_changes_the_determination_at_the_same_instant(
     tmp_path: pathlib.Path,
 ) -> None:
