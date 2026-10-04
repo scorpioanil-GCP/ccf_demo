@@ -14,6 +14,8 @@ recording stub — and its clock is a REAL wall clock.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -75,6 +77,7 @@ MAX_AGE_SECONDS = 300
 SKEW_SECONDS = 60
 CODE_MISMATCH = "signed-binding-mismatch"
 CODE_STALE = "signed-binding-stale"
+FIXED_CLOCK = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
 
 
 def _keypair(directory: Path, kid: str) -> JsonWebKey:
@@ -124,9 +127,8 @@ def transport(keys: tuple[Path, JsonWebKey, JsonWebKey], provider: DetachedJwsId
     )
 
 
-@pytest.fixture()
-def tool(transport: InMemoryHitlTransport, monkeypatch: pytest.MonkeyPatch) -> Any:
-    """The MCP submit tool over the REAL transport, under a REAL wall clock."""
+def _build_tool(transport: InMemoryHitlTransport, monkeypatch: pytest.MonkeyPatch, clock: Callable[[], datetime]) -> Any:
+    """The MCP submit tool over the REAL transport, under the given door clock."""
 
     def queue_view(authorized: Authorized[HitlQueueRead]) -> tuple[PendingHitlEvent, ...]:
         return transport.view(authorized)
@@ -146,10 +148,22 @@ def tool(transport: InMemoryHitlTransport, monkeypatch: pytest.MonkeyPatch) -> A
             required_scopes=[SCOPE],
         ),
         authorizer=wide_authorizer(tenant=TENANT, key="mcp-attestation/mapping"),
-        clock=lambda: datetime.now(UTC),  # a wall clock, deliberately
+        clock=clock,
     )
     _verified_as(monkeypatch, _token(claims=CLAIMS))
     return server._tool_manager.get_tool(SUBMIT_HITL_ACTION_TOOL).fn
+
+
+@pytest.fixture()
+def tool(transport: InMemoryHitlTransport, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A REAL wall clock at the door — the positives and the instant-independent negatives."""
+    return _build_tool(transport, monkeypatch, lambda: datetime.now(UTC))
+
+
+@pytest.fixture()
+def fixed_clock_tool(transport: InMemoryHitlTransport, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A deterministic door clock for the window and skew negatives."""
+    return _build_tool(transport, monkeypatch, lambda: FIXED_CLOCK)
 
 
 def _claims(
@@ -254,19 +268,19 @@ def test_mcp_an_attestation_signed_for_the_opposite_verdict_is_refused_mismatch(
 
 
 def test_mcp_an_attestation_issued_past_the_window_is_refused_stale(
-    tool: Any, transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
+    fixed_clock_tool: Any, transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
 ) -> None:
-    claims = _claims(issued_at=datetime.now(UTC) - timedelta(seconds=MAX_AGE_SECONDS + 1))
+    claims = _claims(issued_at=FIXED_CLOCK - timedelta(seconds=MAX_AGE_SECONDS + 1))
     attestation = _attest(claims, provider=provider, key_id=KID)
-    _assert_refused(tool, transport, _arguments(claims, attestation), code=CODE_STALE)
+    _assert_refused(fixed_clock_tool, transport, _arguments(claims, attestation), code=CODE_STALE)
 
 
 def test_mcp_an_attestation_post_dated_beyond_the_skew_is_refused_stale(
-    tool: Any, transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
+    fixed_clock_tool: Any, transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
 ) -> None:
-    claims = _claims(issued_at=datetime.now(UTC) + timedelta(seconds=SKEW_SECONDS + 1))
+    claims = _claims(issued_at=FIXED_CLOCK + timedelta(seconds=SKEW_SECONDS + 1))
     attestation = _attest(claims, provider=provider, key_id=KID)
-    _assert_refused(tool, transport, _arguments(claims, attestation), code=CODE_STALE)
+    _assert_refused(fixed_clock_tool, transport, _arguments(claims, attestation), code=CODE_STALE)
 
 
 def test_mcp_a_reused_nonce_is_refused_stale(
@@ -278,6 +292,23 @@ def test_mcp_a_reused_nonce_is_refused_stale(
     assert refusal is None, f"the first presentation must be admitted; refused: {refusal}"
     _, second = _submit(tool, _arguments(claims, attestation))
     assert second is not None and second["error_code"] == CODE_STALE, second
+    assert len(transport.submissions(tenant=TENANT)) == 1
+
+
+def test_mcp_a_nonce_presented_concurrently_is_admitted_exactly_once(
+    tool: Any, transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
+) -> None:
+    """C11(a) is ATOMIC: N identical presentations racing through the tool admit
+    exactly one; the rest refuse `-stale`; one is recorded."""
+    claims = _claims(nonce="nonce-raced")
+    attestation = _attest(claims, provider=provider, key_id=KID)
+    arguments = _arguments(claims, attestation)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        outcomes = list(pool.map(lambda _: _submit(tool, arguments), range(8)))
+    admitted = [receipt for receipt, refusal in outcomes if refusal is None]
+    refused = [refusal for receipt, refusal in outcomes if refusal is not None]
+    assert len(admitted) == 1, f"exactly one presentation may be admitted; admitted={len(admitted)} refused={len(refused)}"
+    assert all(refusal["error_code"] == CODE_STALE for refusal in refused), refused
     assert len(transport.submissions(tenant=TENANT)) == 1
 
 

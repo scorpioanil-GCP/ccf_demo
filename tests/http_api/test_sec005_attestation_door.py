@@ -23,7 +23,8 @@ Fixture vocabulary is deployment vocabulary (CINV-01), following
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -61,6 +62,10 @@ SKEW_SECONDS = 60
 #: nothing that does not exist yet.
 CODE_MISMATCH = "signed-binding-mismatch"
 CODE_STALE = "signed-binding-stale"
+#: The injected door clock the window and skew negatives are judged against — a
+#: fixed instant, so a slow run cannot slide a post-dated or expired claim into
+#: the window. The positives keep a REAL wall clock on purpose.
+FIXED_CLOCK = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
 
 
 # --- the ruled policy document, and the fixture that registers the widest policy the tree accepts ---
@@ -133,10 +138,8 @@ def attesting_transport(
     )
 
 
-@pytest.fixture()
-def wall_clock_app(fabric: Fabric, attesting_transport: InMemoryHitlTransport, tmp_path: Path) -> Any:
-    """The HTTP app over the attesting transport with a REAL wall clock — the posture
-    the 353-06 limit says the signed leg cannot work under."""
+def _build_app(fabric: Fabric, transport: InMemoryHitlTransport, tmp_path: Path, clock: Callable[[], datetime]) -> Any:
+    """The HTTP app over the attesting transport, with the given door clock."""
     from ccf.projection.plan import Perspective
     from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource
     from ccf_runtime.http_api.app import create_app
@@ -168,13 +171,28 @@ def wall_clock_app(fabric: Fabric, attesting_transport: InMemoryHitlTransport, t
             product_resolver=fabric.product_resolver,
             workflow_factory=fabric.factory,
             workflow_engine=fabric.engine,
-            hitl_transport=attesting_transport,
+            hitl_transport=transport,
             skill_catalog=fabric.catalog,
             grant_ledger=fabric.ledger,
-            clock=lambda: datetime.now(UTC),  # a wall clock, deliberately
+            clock=clock,
         ),
         **seams,
     )
+
+
+@pytest.fixture()
+def wall_clock_app(fabric: Fabric, attesting_transport: InMemoryHitlTransport, tmp_path: Path) -> Any:
+    """A REAL wall clock at the door — the posture the 353-06 limit says the signed
+    leg cannot work under. Used by the positives and by the negatives whose outcome
+    does not depend on the instant."""
+    return _build_app(fabric, attesting_transport, tmp_path, lambda: datetime.now(UTC))
+
+
+@pytest.fixture()
+def fixed_clock_app(fabric: Fabric, attesting_transport: InMemoryHitlTransport, tmp_path: Path) -> Any:
+    """A deterministic door clock for the window and skew negatives, so that the
+    margin past `max_age` / `skew` is exact rather than a race against execution."""
+    return _build_app(fabric, attesting_transport, tmp_path, lambda: FIXED_CLOCK)
 
 
 # --- the attestation on the wire ---
@@ -316,23 +334,25 @@ def test_http_an_attestation_signed_for_the_opposite_verdict_is_refused_mismatch
 
 
 def test_http_an_attestation_issued_past_the_window_is_refused_stale(
-    wall_clock_app: Any, attesting_transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
+    fixed_clock_app: Any, attesting_transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
 ) -> None:
+    """Judged against the RECORDED door instant (E2): `action_time − issued_at` is
+    one second over `max_age`, exactly, because the door clock is fixed."""
     tenant = _tenant("required")
-    claims = _claims(tenant=tenant, issued_at=datetime.now(UTC) - timedelta(seconds=MAX_AGE_SECONDS + 1))
+    claims = _claims(tenant=tenant, issued_at=FIXED_CLOCK - timedelta(seconds=MAX_AGE_SECONDS + 1))
     attestation = _attest(claims, provider=provider, key_id=APPROVER_KID)
-    _assert_refused(_post(wall_clock_app, tenant, _body(claims, attestation)), attesting_transport, tenant, code=CODE_STALE)
+    _assert_refused(_post(fixed_clock_app, tenant, _body(claims, attestation)), attesting_transport, tenant, code=CODE_STALE)
 
 
 def test_http_an_attestation_post_dated_beyond_the_skew_is_refused_stale(
-    wall_clock_app: Any, attesting_transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
+    fixed_clock_app: Any, attesting_transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
 ) -> None:
     """E3 is DIRECTIONAL: a claim issued after the door recorded the action, beyond
     the permitted skew, is refused — an absolute delta would admit it."""
     tenant = _tenant("invalid")
-    claims = _claims(tenant=tenant, issued_at=datetime.now(UTC) + timedelta(seconds=SKEW_SECONDS + 1))
+    claims = _claims(tenant=tenant, issued_at=FIXED_CLOCK + timedelta(seconds=SKEW_SECONDS + 1))
     attestation = _attest(claims, provider=provider, key_id=APPROVER_KID)
-    _assert_refused(_post(wall_clock_app, tenant, _body(claims, attestation)), attesting_transport, tenant, code=CODE_STALE)
+    _assert_refused(_post(fixed_clock_app, tenant, _body(claims, attestation)), attesting_transport, tenant, code=CODE_STALE)
 
 
 def test_http_a_reused_nonce_is_refused_stale(
@@ -348,6 +368,27 @@ def test_http_a_reused_nonce_is_refused_stale(
     second = _post(wall_clock_app, tenant, _body(claims, attestation))
     assert second.status_code == 403, f"the reused nonce must be refused; got {second.status_code}: {second.text[:300]}"
     assert second.json()["detail"]["error_code"] == CODE_STALE
+    assert len(attesting_transport.submissions(tenant=tenant)) == 1
+
+
+def test_http_a_nonce_presented_concurrently_is_admitted_exactly_once(
+    wall_clock_app: Any, attesting_transport: InMemoryHitlTransport, provider: DetachedJwsIdentityProvider
+) -> None:
+    """C11(a) is ATOMIC, not merely sequential: N identical presentations racing
+    through the door admit exactly one; every other refuses `-stale`; one is
+    recorded. A check-and-insert that is not one step under the lock admits two."""
+    tenant = _tenant("admitted")
+    claims = _claims(tenant=tenant, nonce="nonce-raced")
+    attestation = _attest(claims, provider=provider, key_id=APPROVER_KID)
+    body = _body(claims, attestation)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        responses = list(pool.map(lambda _: _post(wall_clock_app, tenant, body), range(8)))
+    statuses = sorted(response.status_code for response in responses)
+    assert statuses.count(200) == 1, f"exactly one presentation may be admitted; statuses={statuses}"
+    assert all(code == 403 for code in statuses if code != 200), statuses
+    assert all(
+        response.json()["detail"]["error_code"] == CODE_STALE for response in responses if response.status_code == 403
+    )
     assert len(attesting_transport.submissions(tenant=tenant)) == 1
 
 
