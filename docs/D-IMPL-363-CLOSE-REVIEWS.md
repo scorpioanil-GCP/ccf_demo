@@ -194,6 +194,7 @@ An adopter who copies the example gets a validator error. This is stale prose th
 sweep missed (it grepped for the removed names, not for the example). Disposition: production
 docstring + a generated artifact; ADVISORY, carried; **not fixed during review** by Dave's
 instruction. The repair is one sentence plus a `tools/dump_schemas.py` re-run.
+**REPAIRED on the branch at `b446e24f` under the post-panel repair GO — §9.**
 
 ### CR-363-05 — ADVISORY, CONFIRMED (RUN). The two doors answer a malformed attestation with different codes
 
@@ -260,6 +261,7 @@ the pin — the production code verifies at both layers — but for three primit
 it. Disposition: ADVISORY (no invariant is violated at HEAD; a test-coverage gap that a later
 "drop the duplicate read" refactor would walk through unnoticed); carried; the repair is three
 test-only siblings of the gate's control, one per primitive.
+**REPAIRED on the branch at `b446e24f` under the post-panel repair GO — §9.**
 
 ### CR-363-10 — ADVISORY, CONFIRMED (RUN, reproduced by the author). A tenth verifier condition is pinned by nothing: the protected header's `kid` against the claimed `key_id`
 
@@ -275,6 +277,8 @@ make it. The subject attribution stays right (both keys are the same approver's)
 attribution becomes a lie. Disposition: ADVISORY (the shipped tree refuses it; the gap is that
 no test would notice its loss); carried; the repair is one verifier-level negative and, where a
 second key per subject is cheap, one at each door.
+**REPAIRED on the branch at `b446e24f` under the post-panel repair GO (the verifier-level
+negative; the door siblings carried) — §9.**
 
 ### CR-363-11 — ADVISORY, NARROWED. "The CLI door is unsigned-only" needs its next clause to be read
 
@@ -558,10 +562,13 @@ primitives' own verification undiscriminated), CR-363-10 (the header-`kid` check
 CR-363-08 (the product-hash compare pinned at the verifier only); plus one optional polish
 item on the lint's suppression set (§3, OP-F-06). **No BLOCKING finding.** No retractions.
 Two gemini clearances were rejected; one Opus sub-claim was struck, one Opus inference
-rejected, one Opus finding re-classed as not a defect of this candidate. Nothing in this record
-merges, tags, releases, or closes `SEC-005`; the identifier's row stays OPEN and the merge
-decision is Dave's. The suite counts and the severing results in this record remain reported
-evidence to Dave; the ones he can re-run are the executor's commands in §4.
+rejected, one Opus finding re-classed as not a defect of this candidate. **After the panel, Dave gave a repair GO
+limited to CR-363-04, CR-363-09 and CR-363-10; §9 records that delta (`b446e24f`), its
+severing proof, its focused independent review, and one further advisory it raised
+(CR-363-15).** Nothing in this record merges, tags, releases, or closes `SEC-005`; the
+identifier's row stays OPEN and the merge decision is Dave's. The suite counts and the
+severing results in this record remain reported evidence to Dave; the ones he can re-run are
+the executor's commands in §4 and the Opus seat's in §9.
 
 ## 8. Provenance of the raw material (withheld from the tree, available on request)
 
@@ -572,3 +579,133 @@ executor's saved bytes and hashes, the review's eleven probe scripts, the workfl
 all eighteen subagents' structured returns, and the author's own verification outputs. They
 are not committed because they carry hundreds of line-number citations that would move the
 citation-coverage population; this record cites by `path::Symbol` only.
+
+## 9. Post-panel repair delta — CR-363-09, CR-363-10, CR-363-04 (repair GO, 2026-10-03)
+
+**The GO**, verbatim: *"Repair GO limited to CR-363-09, CR-363-10, and CR-363-04 on
+repair-sec005-attestation. Test additions plus the policy docstring/schema correction only; no
+enforcement changes. Prove each new control discriminates by severing its guard individually,
+restore byte-for-byte, and rerun green. Update the review record with exact evidence and
+obtain focused independent review of the delta. Commit, push, and stop. Carry the other
+advisories. No merge, tag, release, or SEC-005 closure."*
+
+**The delta:** one commit, `b446e24ff048ea0be7ac5fdc7a95cae77e5ec9a9` on top of this
+record's `ff120b46`, six files. Production changes only in prose: the `HitlPolicy` class
+docstring in `src/ccf/hitl/transport.py` and its regeneration into
+`docs/schemas/ccf.hitl-policy.json` by `tools/dump_schemas.py`; `openapi.json` is unchanged by
+regeneration. Four test files gain one control each. **The other eleven advisories
+(CR-363-01, -02, -03, -05, -06, -07, -08, -11, -12, -13, -14) are carried unchanged.**
+
+### What was added
+
+- **CR-363-09 →** `tests/hitl/test_escalation.py::test_escalation_verifies_the_attestation_independently_of_the_transport`,
+  `tests/hitl/test_override.py::test_override_verifies_the_attestation_independently_of_the_transport`,
+  `tests/hitl/test_review_queue.py::test_review_queue_verifies_the_attestation_independently_of_the_transport`.
+  Each binds the primitive to the ruled policy over a transport constructed bound to NO
+  Control Plane (`InMemoryHitlTransport()` — it resolves no policy and verifies nothing), so
+  whatever refuses is the primitive's own `enforce_attestation`: an unsigned action refuses
+  `SignedBindingRequiredRefused`; a genuine signature over the OTHER action (escalation
+  `reject` against a presented `approve`; override `override` against the derived `approve`;
+  review queue `reject` against the derived `approve`) refuses `SignedBindingMismatchRefused`;
+  after both refusals the event is still pending and nothing is recorded; the honest attestation
+  is then admitted and recorded with `hitl_policy_ref` `None` — the right expectation for a
+  transport that resolved nothing. Siblings of the `ApprovalGate` control in
+  `tests/workflow/test_engine.py`, which is untouched.
+- **CR-363-10 →** `tests/hitl/test_signed_binding_authority.py::test_verifier_refuses_an_attestation_whose_key_id_is_not_the_signing_kid`.
+  Two keys are declared for ONE approver (the rotation shape, so neither the key-declared check
+  nor the signature check can be what refuses); a signature made with the rotation key and
+  presented with `key_id` naming the other key is refused — `verify_hitl_action` names the
+  disagreement (`declares kid`) and `enforce_attestation` refuses `SignedBindingInvalidRefused`
+  before any claim is compared; the same signature honestly labelled is admitted, so the
+  refusal is the comparison's, not the key map's.
+- **CR-363-04 →** the `HitlPolicy` docstring now gives the not-required minimal document and
+  the full required shape (window + per-subject keys), cites the finding, and the schema
+  description is that docstring regenerated. The stale example occurs nowhere in the tree.
+
+### Proved by severing (the author; reported evidence)
+
+Each guard disabled alone — production bytes saved, one occurrence asserted, `__pycache__`
+purged, `tests/hitl tests/http_api tests/mcp tests/workflow/test_engine.py` run under `-B`,
+bytes restored, sha256 equal — baseline **880 passed**:
+
+| severed guard | red | the one red test |
+| --- | --- | --- |
+| escalation's own enforcement branch | 1 | `test_escalation_verifies_the_attestation_independently_of_the_transport` |
+| override's own enforcement branch | 1 | `test_override_verifies_the_attestation_independently_of_the_transport` |
+| review queue's own enforcement branch | 1 | `test_review_queue_verifies_the_attestation_independently_of_the_transport` |
+| `declared_key_id != signed.key_id` in `verify_hitl_action` | 1 | `test_verifier_refuses_an_attestation_whose_key_id_is_not_the_signing_kid` |
+
+Restored: **880 passed**. `tools.lints --all` rc 0; `tests/cli/test_schema_export.py` and the
+OpenAPI drift control green; mypy clean on 242 files; no `xfail`, `skip`, `sleep` or wall-clock
+read in the four test files; no assertion weakened or removed; no roster turned into a count.
+
+### Focused independent review of the delta
+
+| seat | subject | evidence | disposition | findings |
+| --- | --- | --- | --- | --- |
+| **codex** (codex-cli 0.137.0) | the whole delta diff inlined on stdin, with the gate control and `verify_hitl_action` for reference; token `MERLIN-363` carried | INSPECTED | **PROCEED** | 0 — R1–R6 each cleared |
+| **independent reviewer-executor** (Claude Opus 5 subagent, no session context) | its own detached worktree at `b446e24f` | INSPECTED + **INDEPENDENTLY EXECUTED** (baseline, the four severings with its own driver, the docstring probe) | **PROCEED** | 2 ADVISORY, both confirmed by a refuter |
+| **refuters** (2 × Claude Opus 5 subagents) | their own detached worktrees at `b446e24f` | INSPECTED + INDEPENDENTLY EXECUTED | per finding, below | — |
+
+**What the Opus seat established (RUN, in its worktree, HEAD verified equal to `b446e24f`,
+status empty before and after):**
+
+- **No behavior change in production — proved, not inspected.** Parsing both versions of
+  `src/ccf/hitl/transport.py` and normalizing every docstring to a constant gives IDENTICAL
+  ASTs; the four test files carry zero deletion lines; `tools/dump_schemas.py` leaves the
+  worktree clean and the committed schema `description` compares EQUAL to the shipped
+  docstring (1,470 characters). `tools.lints --all` rc 0; `tests/cli/test_schema_export.py`
+  49 passed.
+- **Baseline** on `tests/hitl tests/http_api tests/mcp tests/workflow/test_engine.py`:
+  **880 passed** (880 `PASSED` lines under `-rA`; imports resolved inside its worktree).
+- **The four severings, its own driver, one occurrence asserted each, bytes restored, sha256
+  equal (`00d0cc88…`, `066340be…`, `f8eaa5c9…`, `331cda50…`):** the escalation branch →
+  `1 failed, 879 passed`, exactly the escalation control; override → exactly the override
+  control; review queue → exactly the review-queue control; the `declared_key_id !=
+  signed.key_id` comparison → exactly the kid-vs-`key_id` negative. Deviation recorded: the
+  brief wrote the fourth target at four spaces of indentation and the tree carries it at
+  eight (inside a `try:`); the seat severed the real line. (The author's own driver matched
+  the same line by substring and reddened the same test.)
+- **The docstring probe:** the corrected not-required example parses; the corrected required
+  example parses with a real P-256 public JWK and `keys_for` returns its kid; the OLD example
+  `{semver: "1.0.0", signed_binding_required: true}` is refused with the validator's own
+  message — so CR-363-04 was real at `ff120b46` and is gone at `b446e24f`.
+- **Cleared:** the three transports are bound to nothing, so the refusals can only be the
+  primitives' own (corroborated by the severings); `hitl_policy_ref is None` is the sharper
+  expectation for an unbound transport; the kid-vs-`key_id` negative isolates the comparison
+  (`match="declares kid"` is load-bearing, and the honest positive control pins the key map);
+  a door-level sibling for CR-363-10 was NOT owed by the GO (a second key per door fixture is
+  not cheap at either door) and is carried as test-only backlog beside CR-363-08; no
+  weakened, deleted or count-ified assertion, no `xfail`/`skip`/`sleep`/wall-clock read; the
+  corrected docstring is a template with placeholders, not a code constant (CINV-01).
+
+**Its two findings, both ADVISORY, both confirmed by a refuter in its own worktree:**
+
+- **P3-F-01 — the record at `b446e24f` still dispositions the three findings as carried /
+  not fixed.** True at that pin by construction: the GO sequences the record update after
+  the focused review, and this section IS that update, committed on the same branch
+  immediately after. **Discharged by this commit.**
+- **P3-F-02 — the three siblings' positive control is a DIFFERENT attestation.** The gate
+  control they mirror mints ONE attestation over `reject`, refuses it when presented as
+  `approve`, then re-presents THE SAME signed object honestly — which is what lets it say the
+  refusal was the verdict and not the wiring. The three new siblings mint a second attestation
+  (another action, another nonce) for their positive leg, so that leg shows an honest
+  attestation is admitted but does not by itself isolate the verdict swap as the cause of the
+  mismatch refusal. The severings prove each primitive's own enforcement is load-bearing; the
+  isolation of the mismatch leg is the weaker half. **Carried as CR-363-15 (ADVISORY, test
+  polish): re-present the same swapped attestation honestly** — `reject` to the escalation,
+  `override` with a substitute to the boundary, `reject` to the queue — **rather than minting
+  a second one.** Not changed here: the delta under review is the delta that was reviewed.
+
+
+### Disposition of the three findings after the delta
+
+- **CR-363-09 — REPAIRED on the branch at `b446e24f`**, test-only; the three primitives' own
+  verification is now discriminated exactly as the gate's was.
+- **CR-363-10 — REPAIRED on the branch at `b446e24f`**, test-only, at the verifier level
+  (the GO asked for "a negative test"; a door-level sibling needs a second key per door
+  fixture and is not owed by the GO — the Opus seat read the GO the same way and carries the door siblings as test-only backlog beside CR-363-08).
+- **CR-363-04 — REPAIRED on the branch at `b446e24f`**, prose only, schema regenerated.
+
+Nothing here merges, tags, releases, or closes `SEC-005`; the row stays OPEN and the merge
+decision is Dave's.
