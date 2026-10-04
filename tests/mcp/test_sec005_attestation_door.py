@@ -24,7 +24,7 @@ import pytest
 from joserfc.jwk import ECKey
 from mcp.server.auth.settings import AnyHttpUrl, AuthSettings
 from ccf.authz.capability import Authorized, HitlQueueRead, HitlSubmit
-from ccf.controlplane.artifacts import ArtifactLoadError, parse_artifact
+from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.transport import HITL_POLICY, HitlActionSubmission, HitlPolicy, InMemoryHitlTransport, PendingHitlEvent
 from ccf.peering.identity import DetachedJwsIdentityProvider, FileBackedKeySource, JsonWebKey
@@ -109,21 +109,17 @@ def _ruled_policy_document(public: JsonWebKey, other_public: JsonWebKey) -> dict
 
 @pytest.fixture()
 def transport(keys: tuple[Path, JsonWebKey, JsonWebKey], provider: DetachedJwsIdentityProvider) -> InMemoryHitlTransport:
-    """The ruled policy, or today's two-field policy until the contract accepts the
-    ruled one (the gap is pinned at the HTTP twin); never a setup error."""
+    """The ruled policy — the window and the per-subject keys in the pinned
+    artifact, the one trust source (E3, E5, C6(a))."""
     _, public, other_public = keys
     registry = ControlPlaneRegistry()
-    try:
-        policy = parse_artifact(_ruled_policy_document(public, other_public), HITL_POLICY)
-    except ArtifactLoadError:
-        policy = parse_artifact({"semver": "1.0.0", "signed_binding_required": True}, HITL_POLICY)
+    policy = parse_artifact(_ruled_policy_document(public, other_public), HITL_POLICY)
     assert isinstance(policy, HitlPolicy)
     register_typed_at_composition(registry, POLICY_KEY, policy, HITL_POLICY)
     return InMemoryHitlTransport(
         control_plane=registry,
         hitl_policy_key=POLICY_KEY,
         identity_provider=provider,
-        trusted_keys={KID: public, OTHER_KID: other_public},
     )
 
 
@@ -166,6 +162,13 @@ def fixed_clock_tool(transport: InMemoryHitlTransport, monkeypatch: pytest.Monke
     return _build_tool(transport, monkeypatch, lambda: FIXED_CLOCK)
 
 
+def _canonical_instant(instant: datetime) -> str:
+    """The instant as the SDK's canonical serializer renders a datetime —
+    microseconds and a ``Z`` — so a wire client's signed bytes are the bytes the
+    verifier recomputes from the typed claims (one serialization in play)."""
+    return instant.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
 def _claims(
     *,
     tenant: str = TENANT,
@@ -182,7 +185,7 @@ def _claims(
         "action": action,
         "product_content_hash": product_content_hash,
         "subject_id": subject_id,
-        "issued_at": (issued_at or datetime.now(UTC)).isoformat(),
+        "issued_at": _canonical_instant(issued_at or datetime.now(UTC)),
         "nonce": nonce,
     }
 

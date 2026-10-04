@@ -71,14 +71,14 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.hitl.identity_binding import SignedPrincipalBinding
+from ccf.hitl.identity_binding import SignedHitlAction
 from ccf.hitl.principal import HumanPrincipalBinding
 from ccf.hitl.transport import (
     HITLTransportProtocol,
     HitlActionSubmission,
     PendingHitlEvent,
-    enforce_signed_binding,
-    signed_binding_required,
+    enforce_attestation,
+    resolve_hitl_policy,
 )
 from ccf.peering.identity import IdentityProvider, JsonWebKey
 from ccf.skills.grants import ApprovalOutcome, SkillGrant
@@ -228,8 +228,6 @@ class ApprovalGate:
             deployment vocabulary, no default (CINV-01).
         identity_provider: The D-IMPL-15 provider signatures verify
             through when the policy requires them.
-        trusted_keys: The public keys this deployment accepts approver
-            signatures under.
     """
 
     def __init__(
@@ -241,7 +239,6 @@ class ApprovalGate:
         control_plane: ControlPlaneProtocol | None = None,
         hitl_policy_key: str | None = None,
         identity_provider: IdentityProvider | None = None,
-        trusted_keys: Mapping[str, JsonWebKey] | None = None,
     ) -> None:
         self._transport = transport
         self._audit = audit
@@ -249,7 +246,6 @@ class ApprovalGate:
         self._control_plane = control_plane
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
-        self._trusted_keys = trusted_keys
 
     def resolve(
         self,
@@ -259,7 +255,7 @@ class ApprovalGate:
         action: str,
         principal: HumanPrincipalBinding,
         annotation: str | None = None,
-        signed_binding: SignedPrincipalBinding | None = None,
+        attestation: SignedHitlAction | None = None,
     ) -> GateResolution | GateResolutionRefused:
         """Resolve one pending gate event under a bound human decision.
 
@@ -283,7 +279,7 @@ class ApprovalGate:
         **Signed-binding verification (D-IMPL-69; SDK-defined, CLAUDE.md
         §8.2).** When a Control Plane is bound and the HitlPolicy in force
         declares ``signed_binding_required``, the resolution surface
-        verifies ``signed_binding`` before any queue consumption — a
+        verifies ``attestation`` before any queue consumption — a
         refused resolution leaves the event pending. Verification is
         read-only and holds no lock (D-IMPL-69 accepted consequence). The
         transport's own submission-time verification runs independently
@@ -356,18 +352,22 @@ class ApprovalGate:
             action=action,
             principal=principal,
             annotation=annotation,
-            signed_binding=signed_binding,
+            attestation=attestation,
         )
-        if signed_binding_required(
+        resolved_policy = resolve_hitl_policy(
             control_plane=self._control_plane,
             hitl_policy_key=self._hitl_policy_key,
-        ):
+        )
+        if resolved_policy is not None and resolved_policy[1].signed_binding_required:
             # Verify BEFORE any queue consumption: a refusal raises here
-            # and the pending event survives (D-IMPL-69; Pitfall 4).
-            enforce_signed_binding(
+            # and the pending event survives (D-IMPL-69; Pitfall 4). The
+            # nonce is not consumed here — the transport does that once,
+            # atomically, at submit (D-IMPL-363 E4).
+            enforce_attestation(
+                authorized,
                 submission,
                 identity_provider=self._identity_provider,
-                trusted_keys=self._trusted_keys,
+                policy=resolved_policy[1],
             )
         claimed = self._transport.remove(tenant=tenant, event_key=event_key)
         if claimed is None:

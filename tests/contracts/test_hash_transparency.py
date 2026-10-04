@@ -341,7 +341,7 @@ _MARKED_IN_THE_TREE = frozenset(
         # capability's evidence on the objects that predate it: the audit id
         # of the decision an `AuthzDecision` was minted from, the resource
         # axes a deny names on its `AuthzDecisionAuditEvent`, the annotation
-        # and signed binding an `HitlActionRequest` carries, and the decision
+        # an `HitlActionRequest` carries, and the decision
         # id an `HitlActionSubmission` was authorized under. Each is `None`
         # on every decision, event, request and submission recorded before
         # the capability existed, so an examiner's hash of an old record does
@@ -369,8 +369,24 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_verdict_integrity",
         "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_recorded_approver",
         "ccf.hitl.transport.HitlActionRequest.annotation",
-        "ccf.hitl.transport.HitlActionRequest.signed_binding",
         "ccf.hitl.transport.HitlActionSubmission.authorizing_decision_id",
+        # `D-IMPL-363` (SEC-005, the signed-claims / time-window repair) —
+        # six marks, ticked deliberately. `attestation` REPLACES
+        # `signed_binding` on both contracts (E1; the submission's old name is
+        # a base-roster field retired by ruling, see
+        # `tools/lints/tests/test_base_roster.py::RETIRED_BY_RULING`);
+        # `hitl_policy_ref` is transport-stamped (E3); and the policy's
+        # window and per-subject keys are `None` on every HITL policy
+        # authored before the decision. Each is `None` on every request,
+        # submission and policy recorded before the repair, so an examiner's
+        # hash of an old record or pin does not move; a real value is a real
+        # claim and is rendered.
+        "ccf.hitl.transport.HitlActionRequest.attestation",
+        "ccf.hitl.transport.HitlActionSubmission.attestation",
+        "ccf.hitl.transport.HitlActionSubmission.hitl_policy_ref",
+        "ccf.hitl.transport.HitlPolicy.signature_max_age_seconds",
+        "ccf.hitl.transport.HitlPolicy.permitted_clock_skew_seconds",
+        "ccf.hitl.transport.HitlPolicy.trusted_keys",
         "ccf.replay.record.ChildResolution.child_ttl_anchor_at",
         "ccf.controlplane.artifacts.DeploymentConfig.producers",
         # `D-IMPL-343` — nine marks, ticked deliberately. The four paved-road

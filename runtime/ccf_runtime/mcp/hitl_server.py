@@ -81,7 +81,9 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import datetime
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
+
+from pydantic import ValidationError
 
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import TokenVerifier
@@ -92,18 +94,22 @@ from ccf.authz.actions import ACTION_HITL_ACTION_SUBMIT, ACTION_HITL_QUEUE_READ
 from ccf.authz.capability import Authorized, HitlQueueRead, HitlSubmit
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
-from ccf.hitl.identity_binding import SignedPrincipalBinding
+from ccf.hitl.identity_binding import SignedHitlAction
 from ccf.hitl.principal import AuthenticationClaims
 from ccf.hitl.transport import (
     HitlActionSubmission,
     PendingHitlEvent,
     SignedBindingInvalidRefused,
+    SignedBindingMismatchRefused,
     SignedBindingRequiredRefused,
+    SignedBindingStaleRefused,
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.errors import (
     ERROR_SIGNED_BINDING_INVALID,
+    ERROR_SIGNED_BINDING_MISMATCH,
     ERROR_SIGNED_BINDING_REQUIRED,
+    ERROR_SIGNED_BINDING_STALE,
     refusal_detail,
 )
 from ccf_runtime.identity_binding import (
@@ -337,27 +343,34 @@ def build_hitl_server(
         action: str,
         product_content_hash: str,
         annotation: str | None = None,
-        signed_binding_signature: str | None = None,
-        signed_binding_key_id: str | None = None,
+        attestation: dict[str, Any] | None = None,
     ) -> str:
         """Submit one human action under a door-minted principal binding.
 
         The input schema is what only the human can state (D-IMPL-353 §2
-        P6): the event, the verdict, the content hash of what they saw, an
-        optional annotation and an optional detached signature. No binding
-        field is a parameter — ``subject_id``, ``identity_provider_ref``,
-        ``method``, ``assurance_level``, ``session_ref`` and ``action_time``
-        do not exist on this tool — so a caller cannot describe their own
-        authentication. The binding is minted from ``authorized.principal``,
-        the verified token's claims and the injected clock.
+        P6; `D-IMPL-363` C12(a)): the event, the verdict, the content hash of
+        what they saw, an optional annotation and — where the HITL policy
+        requires non-repudiation — ONE ``attestation`` object in the same
+        shape as the HTTP body's: the signer's
+        :class:`~ccf.hitl.identity_binding.SignedHitlAction` (``claims``,
+        ``signature``, ``key_id``). No binding field is a parameter —
+        ``subject_id``, ``identity_provider_ref``, ``method``,
+        ``assurance_level``, ``session_ref`` and ``action_time`` do not exist
+        on this tool — so a caller cannot describe their own authentication.
+        The binding is minted from ``authorized.principal``, the verified
+        token's claims and the injected clock; the signer's own instant
+        travels inside the attestation as ``issued_at`` and is judged against
+        the minted ``action_time`` by the shared verifier, never here.
 
         Raises:
             UnverifiedCallerRefused: no verified access token in context.
             ValueError: the credential states no authentication context
-                (``ERROR_AUTHENTICATION_UNATTESTED``), the signature pair is
-                half-presented, or the transport refused the signed binding
+                (``ERROR_AUTHENTICATION_UNATTESTED``), the attestation is
+                malformed or the transport refused it
                 (``ERROR_SIGNED_BINDING_REQUIRED`` /
-                ``ERROR_SIGNED_BINDING_INVALID``) — each carrying the one
+                ``ERROR_SIGNED_BINDING_INVALID`` /
+                ``ERROR_SIGNED_BINDING_MISMATCH`` /
+                ``ERROR_SIGNED_BINDING_STALE``) — each carrying the one
                 refusal-body shape (D-08).
         """
         authentication = _verified_authentication()
@@ -369,26 +382,28 @@ def build_hitl_server(
             # SEC-005: see the HTTP door — the verdict joins the signed claims.
             action=action,
         )
-        if (signed_binding_signature is None) != (signed_binding_key_id is None):
-            raise ValueError(
-                "signed_binding_signature and signed_binding_key_id are"
-                " presented together or not at all (D-16; D-IMPL-21)"
-            )
-        signed_binding: SignedPrincipalBinding | None = None
-        if signed_binding_signature is not None and signed_binding_key_id is not None:
-            # The signature is over the binding THIS door minted — a signer
-            # attests the server's statement of the action, not its own.
-            signed_binding = SignedPrincipalBinding(
-                binding=derived,
-                signature=signed_binding_signature,
-                key_id=signed_binding_key_id,
-            )
+        signed: SignedHitlAction | None = None
+        if attestation is not None:
+            try:
+                signed = SignedHitlAction.model_validate(attestation)
+            except ValidationError as error:
+                raise ValueError(
+                    json.dumps(
+                        refusal_detail(
+                            error_code=ERROR_SIGNED_BINDING_INVALID,
+                            message=(
+                                "the attestation is not a SignedHitlAction"
+                                " (claims, signature, key_id)"
+                            ),
+                        )
+                    )
+                ) from error
         submission = HitlActionSubmission(
             event_key=event_key,
             action=action,
             principal=derived,
             annotation=annotation,
-            signed_binding=signed_binding,
+            attestation=signed,
         )
         try:
             return action_route(authorized, submission=submission)
@@ -410,6 +425,24 @@ def build_hitl_server(
                 json.dumps(
                     refusal_detail(
                         error_code=ERROR_SIGNED_BINDING_INVALID,
+                        message=str(error),
+                    )
+                )
+            ) from error
+        except SignedBindingMismatchRefused as error:
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_SIGNED_BINDING_MISMATCH,
+                        message=str(error),
+                    )
+                )
+            ) from error
+        except SignedBindingStaleRefused as error:
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_SIGNED_BINDING_STALE,
                         message=str(error),
                     )
                 )

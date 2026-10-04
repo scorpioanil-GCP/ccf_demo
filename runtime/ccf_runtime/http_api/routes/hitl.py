@@ -66,13 +66,17 @@ from ccf.hitl.transport import (
     HitlActionSubmission,
     PendingHitlEvent,
     SignedBindingInvalidRefused,
+    SignedBindingMismatchRefused,
     SignedBindingRequiredRefused,
+    SignedBindingStaleRefused,
 )
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_SIGNED_BINDING_INVALID,
+    ERROR_SIGNED_BINDING_MISMATCH,
     ERROR_SIGNED_BINDING_REQUIRED,
+    ERROR_SIGNED_BINDING_STALE,
     refusal_detail,
 )
 from ccf_runtime.http_api.grants import authorized_from_request, grant_from_request
@@ -168,7 +172,7 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                 action=body.action,
             ),
             annotation=body.annotation,
-            signed_binding=body.signed_binding,
+            attestation=body.attestation,
         )
         try:
             recorded = transport.submit(authorized, submission=submission)
@@ -187,6 +191,25 @@ def build_router(deps: ApiDependencies) -> APIRouter:
                 status_code=403,
                 detail=refusal_detail(
                     error_code=ERROR_SIGNED_BINDING_INVALID,
+                    message=str(error),
+                ),
+            ) from error
+        except SignedBindingMismatchRefused as error:
+            # `D-IMPL-363` E6: a verified attestation whose signed claims
+            # disagree with the capability, the request or the minted binding.
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_SIGNED_BINDING_MISMATCH,
+                    message=str(error),
+                ),
+            ) from error
+        except SignedBindingStaleRefused as error:
+            # `D-IMPL-363` E3 / E4: outside the window, or a reused nonce.
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_SIGNED_BINDING_STALE,
                     message=str(error),
                 ),
             ) from error

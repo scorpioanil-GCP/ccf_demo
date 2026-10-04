@@ -23,7 +23,7 @@ Fixture vocabulary is deployment vocabulary (CINV-01), following
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -32,25 +32,58 @@ from typing import Any
 import pytest
 from joserfc.jwk import ECKey
 from ccf.controlplane.artifacts import ArtifactLoadError, parse_artifact
+from ccf.hitl.principal import AuthenticationClaims
 from ccf.hitl.transport import HITL_POLICY, HitlPolicy, InMemoryHitlTransport
 from ccf.peering.identity import DetachedJwsIdentityProvider, FileBackedKeySource, JsonWebKey
-from ccf_runtime.mcp.auth import StaticTokenSource
+from ccf_runtime.mcp.auth import StaticTokenSource, TokenGrant
 
 from .conftest import Fabric, call
-from .test_signed_binding_door import (  # noqa: F401 — fixtures by name
-    APPROVER_KID,
-    _CLIENT_ID,
-    _SCOPE,
-    _TENANTS,
-    _VALID_HASH,
-    _grants,
-    _tenant,
-    _token_for,
-    key_dir,
-    provider,
-    trusted_keys,
-)
 from http_api.composition_authority import register_typed_at_composition
+
+# Deployment vocabulary for this suite (CINV-01), restated rather than imported
+# from the signed-binding door suite so the two modules do not share a fate.
+APPROVER_KID = "attestation-approver-signing-key"
+_VALID_HASH = "c" * 64
+_CLIENT_ID = "attestation-auditor-1"
+_TENANT_BASE = "attestation-door-tenant"
+_SCOPE = "gate:everything"
+_TENANTS = ("required", "invalid", "admitted", "upgraded", "mcp")
+_CLAIMS = AuthenticationClaims(
+    identity_provider_ref="idp://acme-bank/dev-token-file",
+    method="bearer-token",
+    assurance_level="dev",
+    session_ref="attestation-session-1",
+)
+
+
+def _tenant(suffix: str) -> str:
+    return f"{_TENANT_BASE}-{suffix}"
+
+
+def _token_for(tenant: str) -> str:
+    return f"attestation-token-{tenant.rsplit('-', 1)[-1]}"
+
+
+def _grants() -> dict[str, TokenGrant]:
+    return {
+        _token_for(_tenant(suffix)): TokenGrant(
+            client_id=_CLIENT_ID, scopes=(_SCOPE,), tenants=frozenset({_tenant(suffix)}), authentication=_CLAIMS
+        )
+        for suffix in _TENANTS
+    }
+
+
+@pytest.fixture(scope="module")
+def key_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    directory = tmp_path_factory.mktemp("attestation-keys")
+    key = ECKey.generate_key("P-256", parameters={"kid": APPROVER_KID})
+    (directory / f"{APPROVER_KID}.jwk").write_text(json.dumps(key.as_dict(private=True)), encoding="utf-8")
+    return directory
+
+
+@pytest.fixture(scope="module")
+def provider(key_dir: Path) -> DetachedJwsIdentityProvider:
+    return DetachedJwsIdentityProvider(key_source=FileBackedKeySource(directory=key_dir))
 
 POLICY_KEY = "acme-bank/hitl/attestation-policy"
 OTHER_SUBJECT = "door-auditor-2"
@@ -115,26 +148,17 @@ def attesting_transport(
     key_dir: Path,
     other_key_dir: Path,
     provider: DetachedJwsIdentityProvider,
-    trusted_keys: Mapping[str, JsonWebKey],
 ) -> InMemoryHitlTransport:
-    """A fresh transport bound to the RULED policy — or, until the contract accepts
-    it, to today's two-field policy, so the door tests below fail on the DOOR and
-    not at fixture setup. The contract gap itself is pinned by
-    ``test_the_hitl_policy_carries_the_window_and_the_per_subject_keys``; this
-    fallback disappears the moment that test is green. Today's deployment-wide
-    ``trusted_keys`` argument is still passed because the constructor still
-    requires it (C6(a) removes it with the repair)."""
-    try:
-        policy = parse_artifact(_ruled_policy_document(key_dir, other_key_dir), HITL_POLICY)
-    except ArtifactLoadError:
-        policy = parse_artifact(_todays_policy_document(), HITL_POLICY)
+    """A fresh transport bound to the RULED policy: the window and the per-subject
+    keys live in the pinned policy and nowhere else (E3, E5, C6(a)) — there is no
+    deployment-wide ``trusted_keys`` argument any more."""
+    policy = parse_artifact(_ruled_policy_document(key_dir, other_key_dir), HITL_POLICY)
     assert isinstance(policy, HitlPolicy)
     register_typed_at_composition(fabric.registry, POLICY_KEY, policy, HITL_POLICY)
     return InMemoryHitlTransport(
         control_plane=fabric.registry,
         hitl_policy_key=POLICY_KEY,
         identity_provider=provider,
-        trusted_keys=trusted_keys,
     )
 
 
@@ -198,6 +222,13 @@ def fixed_clock_app(fabric: Fabric, attesting_transport: InMemoryHitlTransport, 
 # --- the attestation on the wire ---
 
 
+def _canonical_instant(instant: datetime) -> str:
+    """The instant as the SDK's canonical serializer renders a datetime —
+    microseconds and a ``Z`` — so a wire client's signed bytes are the bytes the
+    verifier recomputes from the typed claims (one serialization in play)."""
+    return instant.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
 def _claims(
     *,
     tenant: str,
@@ -214,7 +245,7 @@ def _claims(
         "action": action,
         "product_content_hash": product_content_hash,
         "subject_id": subject_id,
-        "issued_at": (issued_at or datetime.now(UTC)).isoformat(),
+        "issued_at": _canonical_instant(issued_at or datetime.now(UTC)),
         "nonce": nonce,
     }
 

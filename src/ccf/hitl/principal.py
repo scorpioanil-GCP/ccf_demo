@@ -205,7 +205,7 @@ class HumanPrincipalBinding(CCFContract):
     #:
     #: The vocabulary is the submission's, deliberately not re-declared here:
     #: this value is compared against ``HitlActionSubmission.action`` by
-    #: ``ccf.hitl.transport.enforce_signed_binding``, and a second enumeration
+    #: ``ccf.hitl.transport.enforce_attestation``, and a second enumeration
     #: would be a second place for the two to drift apart.
     verdict: str = Field(json_schema_extra={HASH_TRANSPARENT_KEY: False})
 

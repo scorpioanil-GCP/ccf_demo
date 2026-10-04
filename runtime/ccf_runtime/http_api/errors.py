@@ -43,7 +43,9 @@ __all__ = [
     "ERROR_REQUEST_UNAUTHORIZED",
     "ERROR_ROUTE_HANDLE_ABSENT",
     "ERROR_SIGNED_BINDING_INVALID",
+    "ERROR_SIGNED_BINDING_MISMATCH",
     "ERROR_SIGNED_BINDING_REQUIRED",
+    "ERROR_SIGNED_BINDING_STALE",
     "ERROR_SUBJECT_CONFLICT",
     "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
@@ -166,6 +168,19 @@ ERROR_SIGNED_BINDING_REQUIRED: Final[str] = "signed-binding-required"
 #: A signed principal binding was presented and failed verification
 #: (reserved for 08-03's signed-binding door mapping).
 ERROR_SIGNED_BINDING_INVALID: Final[str] = "signed-binding-invalid"
+
+#: A presented attestation verifies but one of its signed claims does not
+#: match the capability or the request — another tenant, another event, a
+#: subject or key not declared for it, or a verdict other than the one
+#: presented (403; `D-IMPL-363` E6 / C4(a); SEC-005). The verdict mismatch
+#: moved here from ``signed-binding-invalid`` under C4(a).
+ERROR_SIGNED_BINDING_MISMATCH: Final[str] = "signed-binding-mismatch"
+
+#: A presented attestation verifies and matches but is not FRESH: its
+#: ``issued_at`` falls outside the pinned policy's window against the
+#: recorded door instant, or its nonce was already presented (403;
+#: `D-IMPL-363` E3 / E4 / E6; SEC-005).
+ERROR_SIGNED_BINDING_STALE: Final[str] = "signed-binding-stale"
 
 #: The authenticated caller's grant does not authorize this tenant ×
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —

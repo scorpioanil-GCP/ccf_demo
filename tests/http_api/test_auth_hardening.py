@@ -239,17 +239,25 @@ class TestTypedErrorCodes:
         from ccf_runtime.http_api.errors import (
             ERROR_INVALID_GRANT,
             ERROR_SIGNED_BINDING_INVALID,
+            ERROR_SIGNED_BINDING_MISMATCH,
             ERROR_SIGNED_BINDING_REQUIRED,
+            ERROR_SIGNED_BINDING_STALE,
             ERROR_SUBJECT_CONFLICT,
             ERROR_UNAUTHENTICATED,
         )
 
+        # Extended BY HAND under `D-IMPL-363` C4(a) / E6 — this set is built
+        # from an import list and cannot self-redden when a code is added.
         codes = {
             ERROR_UNAUTHENTICATED,
             ERROR_SUBJECT_CONFLICT,
             ERROR_INVALID_GRANT,
             ERROR_SIGNED_BINDING_REQUIRED,
             ERROR_SIGNED_BINDING_INVALID,
+            ERROR_SIGNED_BINDING_MISMATCH,
+            ERROR_SIGNED_BINDING_STALE,
         }
-        assert len(codes) == 5
+        assert len(codes) == 7
+        assert ERROR_SIGNED_BINDING_MISMATCH == "signed-binding-mismatch"
+        assert ERROR_SIGNED_BINDING_STALE == "signed-binding-stale"
         assert all(isinstance(code, str) and code for code in codes)
