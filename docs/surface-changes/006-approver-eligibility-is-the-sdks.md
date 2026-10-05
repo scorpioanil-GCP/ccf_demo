@@ -34,11 +34,14 @@ assembler uses it only as a sort key.
 - Why: an approval policy nothing judges is documentation, not a control
   (`SEC-006`)
 - Migration: register one per gate (or share one) through `register_typed`
-  against `APPROVAL_POLICY` and pin it from `gate_policies`; the class is
+  against `APPROVAL_POLICY` under a NEW key, and pin it from a NEW workflow
+  definition version's `gate_policies` (a key bound to the pre-change
+  declared class cannot be rebound; ruled 2026-10-05); the class is
   adopter-registered only and not manifest-addressable (the
   `ccf.hitl-policy` precedent). An in-flight suspension persisted before
   this change carries no starter and REFUSES at resolution under a bound
-  plane (G5 (a), fail-closed): re-run such executions after upgrading
+  plane (G5 (a), fail-closed): pre-change executions do not resume; re-run
+  them under the new definition version after upgrading
 
 ## ccf.hitl.approval_policy.APPROVAL_POLICY
 
@@ -137,7 +140,9 @@ assembler uses it only as a sort key.
   vanished, an event that arrived where there was none. Nothing is consumed
   or recorded; the same attestation re-presented against the stable state is
   admitted once (`D-IMPL-366` §4b 6a; revision 2's nonce-first order is
-  withdrawn)
+  withdrawn). **Ratified (Dave, 2026-10-05, on the close panel's U1): it stays
+  a `ValueError` sibling of `GateActionError`, not a subclass and not a
+  `PermissionError`**
 - Why: a submission judged against one event must not be recorded against
   another, and a refusal must not burn a legitimate nonce
 - Migration: a door of your own maps it to a retryable refusal; the shipped
@@ -209,13 +214,15 @@ assembler uses it only as a sort key.
 - Change type: added
 - Before: absent — the condition did not exist
 - After: `"hitl-event-revalidation-refused"`, the HTTP door's 409 and the MCP
-  door's refusal-body code for `HitlEventRevalidationRefused`. An
-  implementer's mapping, not a ruled code: `D-IMPL-366` rules the
-  refusal and names no wire code for it, and a designed refusal that
-  reached the wire as a 500 would not be a door
+  door's refusal-body code for `HitlEventRevalidationRefused`. **Ratified
+  (Dave, 2026-10-05, on the close panel's U2)**: the code and the 409 stay
 - Why: the client re-presents against the current event; it needs to know
   nothing was consumed
-- Migration: clients treat it as retryable after re-reading the queue
+- Migration: clients treat it as retryable after re-reading the queue. A
+  retry can legitimately return 200 with a receipt whose
+  `submission.event_state_at_submit` is `"missing"` — the event was consumed
+  between the refusal and the retry — and that submission authorizes
+  nothing; read the receipt's field, not only the status
 
 ## ccf.hitl.transport.PendingHitlEvent
 
@@ -333,11 +340,25 @@ assembler uses it only as a sort key.
 - After: each `gate_policies` target must be a key the Control Plane binds to
   `ccf.approval-policy`, or construction is refused by name — every
   pre-change `DeclaredArtifact` approval policy included (§4 (5))
-- Why: fail-closed at the factory, so a workflow whose gate nothing can judge
-  never constructs
-- Migration: register the typed policy under the key the ref pins before
-  constructing; the banking fixtures show the shape
-  (`tests/fixtures/banking/approval_policies.yaml`)
+- Why: fail-closed at the factory for every gate that NAMES a policy, so a
+  workflow whose named gate policy nothing can judge never constructs.
+  **Disclosure (D-IMPL-366 close panel 3.2; ruled 2026-10-05):** a routed
+  `hitl-gate` with NO `gate_policies` entry still constructs; its event
+  carries `policy_ref=None`, and under a bound plane every approval of it is
+  refused, so that gate can never be passed. Fail-closed at runtime, not at
+  construction. A construction-time refusal of a policy-less routed gate is
+  carried as a follow-on, not widened into this repair
+- Migration: a typed policy is a NEW key and a NEW workflow definition
+  version (D-IMPL-366 close panel 3.3; ruled 2026-10-05). A Control Plane
+  key already bound to the pre-change `approval-policy` declared class cannot
+  be rebound to `ccf.approval-policy` — `register_typed` refuses the rebind —
+  so register the typed policy under a new key, publish a new definition
+  version whose `gate_policies` pins it, and start executions under that
+  version. Pre-change executions do not resume: their definition hash pins
+  the old policy and their state record carries no starter (G5 (a)). The
+  banking fixtures register their typed policies in a fresh plane
+  (`tests/fixtures/banking/approval_policies.yaml`), which is why they can
+  reuse the historical keys; a live deployment cannot
 
 ## ccf_runtime.workflow.engine.WorkflowEngine
 

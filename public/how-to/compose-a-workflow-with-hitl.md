@@ -47,7 +47,12 @@ posture.
 > (`approver-not-eligible` at both doors), and every gate event records its
 > requester — the STARTER of the execution. The archived program below
 > declares its approval policy as an untyped artifact and would not construct
-> today; the archive is not repaired (`D-IMPL-351`). The in-tree reference is
+> today; the archive is not repaired (`D-IMPL-351`). Migrating a live
+> deployment means a NEW policy key and a NEW workflow definition version
+> that pins it — a key already bound to the untyped class cannot be rebound —
+> and pre-change executions do not resume. A routed gate with no policy entry
+> still constructs and can never be passed (fail-closed at runtime; a
+> construction-time refusal is a carried follow-on). The in-tree reference is
 > `tests/fixtures/banking/approval_policies.yaml` with
 > `tests/workflow/test_sec006_engine_controls.py`.
 

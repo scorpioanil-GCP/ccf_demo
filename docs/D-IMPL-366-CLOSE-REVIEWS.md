@@ -249,3 +249,27 @@ section files, `launch-reviewers.sh`, `{codex,cursor,gemini}.{out,err,rc}`, and 
 output directory (`seat-controls`, `seat-sever` with its own driver and 37 diffs, `seat-preserve`
 with `sabm.py` and its diffs, `seat-reader` with its probes), plus the author's verification
 probes (`probe_ambiguous_pin.py`, `author-f1-*.txt`, `author_f1_probe.py`).
+
+## 9. RULINGS (Dave, 2026-10-05 06:52 MST) and the follow-on delta
+
+Dave, having checked the record and the three holds against the candidate (seats and severings
+not re-run by him): **(1)** 3.1 — add an eligible-but-stale-hash control BESIDE the existing one;
+the impostor control keeps proving the ineligible path and the second proves the hash term.
+**(2)** 3.2 — disclose the policy-less gate and correct the fragment's "never constructs" sentence;
+a construction-time refusal is NOT widened into this repair and is CARRIED as a follow-on.
+**(3)** 3.3 — correct the migration text: a typed policy is a new key and a new definition version;
+pre-change executions do not resume. **(4)** U1 and U2 RATIFIED: `HitlEventRevalidationRefused`
+stays a `ValueError` sibling; the wire code stays `hitl-event-revalidation-refused` at HTTP 409;
+the fragment says a retry can return 200 with a missing-state receipt that authorizes nothing.
+**(5)** A1–A10 carried by name, except A4 — the eligibility-before-attestation control is test-only
+and belongs in this follow-on.
+
+Follow-on GO: tests and docs only; no production change (a disclosure sentence in an existing
+fragment is docs); no merge, no closure; stop for a check of the delta. The delta:
+`tests/workflow/test_engine.py::test_an_eligible_approvers_stale_hash_verdict_is_not_authority`
+(added beside the impostor control, which is unmodified);
+`tests/hitl/test_sec006_eligibility_controls.py::test_t1d_eligibility_is_judged_before_attestation`;
+the fragment's `WorkflowFactory` and `ApprovalPolicy` entries (disclosure + migration), its two
+ratification notes and the retry sentence; the two dated notes; two controls-register rows and the
+S4 row's disclosure; `docs/SURFACE-CHANGES.md` reassembled. Carried by name: a construction-time
+refusal of a policy-less routed gate; A1, A2, A3, A5, A6, A7, A8, A9, A10; O-1.

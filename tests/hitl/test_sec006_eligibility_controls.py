@@ -291,6 +291,39 @@ def test_t1c_bound_transport_refuses_a_gate_event_with_no_requester() -> None:
     assert transport.submissions(tenant=event.tenant) == ()
 
 
+def test_t1d_eligibility_is_judged_before_attestation(tmp_path: Path) -> None:
+    """S1 ordering, G2 (a) — the control the close panel found missing
+    (D-IMPL-366 close panel A4; ruled into this follow-on by Dave, 2026-10-05).
+
+    A bound transport whose HITL policy REQUIRES a signed attestation and whose
+    gate event pins a typed approval policy. An INELIGIBLE principal submits
+    with NO attestation. Two refusals apply; the ruling orders them:
+    eligibility runs BEFORE ``enforce_attestation``, so the refusal is
+    ``ApproverNotEligible`` — never ``SignedBindingRequiredRefused``. Severing:
+    swap the eligibility block below the attestation block in
+    ``InMemoryHitlTransport.submit`` — this test reddens with the
+    signed-binding refusal.
+    """
+    fixture = gate_harness._hitl()
+    provider, _kid, keys = gate_harness._signing_env(tmp_path)
+    plane, policy_key, _ = gate_harness._required_policy_plane(
+        subject_id=gate_harness._subject(fixture), keys=keys
+    )
+    typed_uri = register_typed_policy(plane, TYPED_POLICY_KEY, eligible=frozenset({"officer-a"}))
+    transport = InMemoryHitlTransport(
+        control_plane=plane, hitl_policy_key=policy_key, identity_provider=provider
+    )
+    event = _gate_event(fixture, policy_ref=typed_uri, requested_by="starter-1")
+    transport.enqueue(event=event)
+    refusal = expect_eligibility_refusal(
+        lambda: submit_as(transport, event, subject_id="officer-z"),
+        site="S1 transport.submit (ineligible AND unsigned under a signed-required policy)",
+    )
+    assert "officer-a" not in str(refusal)
+    assert transport.submissions(tenant=event.tenant) == ()
+    assert transport_state(transport)["nonces"] == frozenset()
+
+
 # --- S2: the primitive refuses before the claim (T3) ---------------------------
 
 

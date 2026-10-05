@@ -1210,6 +1210,48 @@ def test_a_submission_that_never_saw_this_suspension_is_not_authority(
     assert isinstance(outcome, WorkflowResumeRefused)
 
 
+def test_an_eligible_approvers_stale_hash_verdict_is_not_authority(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001, the hash binding proved on its own — beside, not instead of, the
+    impostor control above (D-IMPL-366 close panel 3.1; ruled by Dave,
+    2026-10-05: "a second test must prove the hash term").
+
+    On the repaired engine the impostor above is refused by approver
+    eligibility BEFORE the hash term is consulted, so that test now proves the
+    ineligible path and no longer measures the binding of a verdict to the
+    suspension it saw. This control records the same stale-hash verdict from
+    an ELIGIBLE non-starter (`officer-3` is in the fixture's typed credit-officer
+    policy; the starter is the shared test principal), so eligibility admits
+    it and ONLY the hash term can refuse. Severing: replace
+    ``submission.principal.product_content_hash == suspension`` in
+    ``_gate_authority`` with ``True`` — this test reddens; the impostor control
+    stays green.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    transport.submit(
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal="officer-3",
+            event_key=suspended.event_key,
+        ),
+        submission=HitlActionSubmission(
+            event_key=suspended.event_key,
+            action="approve",
+            principal=_binding("0" * 64, subject_id="officer-3"),
+        ),
+    )
+    assert len(transport.submissions(tenant=workflow.definition.tenant)) == 1
+    outcome = asyncio.run(
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "no approval for this suspension has returned" in outcome.reason
+
+
 def test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node(
     registry: ControlPlaneRegistry, tmp_path: Path
 ) -> None:

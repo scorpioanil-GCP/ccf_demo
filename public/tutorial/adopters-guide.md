@@ -351,7 +351,9 @@ to exactly what the approver saw, by content hash, and signed. The
 > execution, is refused `approver-not-eligible` (HTTP 403) before the
 > attestation is even verified, and the engine judges the same rule again at
 > resumption. The archived program's untyped policy would not construct
-> today (`D-IMPL-351`: the archive is not repaired); the shape in tree is
+> today (`D-IMPL-351`: the archive is not repaired). Migrate with a NEW policy
+> key and a NEW workflow definition version — the old key cannot be rebound,
+> and pre-change executions do not resume. The shape in tree is
 > `tests/fixtures/banking/approval_policies.yaml`,
 > `tests/http_api/test_sec006_eligibility_door.py` and
 > `tests/mcp/test_sec006_eligibility_door.py`.
