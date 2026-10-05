@@ -14,10 +14,11 @@ SEC-010 A1.
 **Every reviewer and seat was told the SDK is destined for a BANK** and to be more conservative than
 for ordinary code. No seat or reviewer connected to `192.168.4.76`.
 
-**What this record does NOT do:** no merge, no tag, no release, no SEC closure. The one repair it
-records (section 4) is the two-cell register fix Dave authorized after reading the panel's report; it
-is a page edit, not a production change. The ledger stays 9 of 29 and SEC-008, SEC-010 and SEC-011
-stay OPEN.
+**What this record does NOT do:** no merge, no tag, no release, no SEC closure. The two repairs it
+records are docs: the two-cell register fix Dave authorized after reading the panel's report
+(section 4.1) and the docs completion the two SEC-008 rulings call for (section 4.2). Neither is a
+production behavior change. The ledger stays 9 of 29 and SEC-008, SEC-010 and SEC-011 stay OPEN;
+the sequence is finish → verify → merge decision → separate closure decision.
 
 ## 1. The first sitting is SUPERSEDED: its payload was missing the rulings and the diff
 
@@ -138,7 +139,8 @@ real-route instrumentation test is a candidate for promotion to a committed cont
   (0 occurrences; no refusal schema on the product route), not on any published page, and no
   `docs/surface-changes/` fragment records the new conversion — whereas the first map entry was
   recorded by fragment `007-empty-identity-declaration-refused-by-name.md`. Pre-existing for
-  `identity-refused`; the candidate adds a second undisclosed code.
+  `identity-refused`; the candidate added a second undisclosed code. **Discharged at `d136fdc5`**
+  by fragment `364-01-temporal-write-refused-converts-at-the-seam.md` (section 4.2).
 - `src/ccf/products/refusal.py::SubjectUnavailableRefusal`'s docstring says a shell below `full`
   carries `error_code` `None`; EXECUTED (b3 seat), it carries the string `"undisclosed"`.
   Pre-existing; that module is not in the GREEN diff.
@@ -178,8 +180,9 @@ real-route instrumentation test is a candidate for promotion to a committed cont
   module's superseded-reasoning block is unfinished. The ruled E1 text names only
   `src/ccf/products/constraints.py::PolicyConstraintResolver`'s `resolve` docstring, which is
   correct and whose severing reddens its control. The GREEN commit message's sentence "The
-  superseded 'effectivity at asked_at' reading is gone" is therefore false; the clause is met, the
-  message overclaims. Docs-only follow-up.
+  superseded 'effectivity at asked_at' reading is gone" was therefore false at `beb0c717`; the clause
+  was met, the message overclaimed. **Discharged at `d136fdc5`** (section 4.2): every listed site now
+  says `served_at` for effectivity and keeps `request.asked_at` for the graph read.
 - `tests/products/test_served_at_severings.py::test_severing_Peer_the_verdict_is_judged_at_the_callers_instant`'s
   docstring says the behavioral end-to-end control "does not exist and cannot yet"; the d364 module
   now is that control.
@@ -221,7 +224,9 @@ real-route instrumentation test is a candidate for promotion to a committed cont
   the right path. The ruling's citation is stale.
 - The ttl, attributability, attestation, dependency and obligations rows were not sabotage-checked.
 
-## 4. The repair this record carries: two register citation cells (INDEPENDENTLY EXECUTED by the executing model, baseline → sever → restore)
+## 4. The two docs repairs this record carries
+
+### 4.1 Two register citation cells (INDEPENDENTLY EXECUTED by the executing model, baseline → sever → restore)
 
 Dave's scoped GO (2026-10-04, after the panel's report): "Repair GO for the two controls-register
 citation cells only ... Verify each replacement against its actual production control with baseline →
@@ -252,6 +257,53 @@ and sha256 asserted; `git checkout` never used. Interpreter `qual-a4cf2fb7/.venv
 Gates on the edited tree: `tools.lints --all` rc 0 (`--report`: 5,116 citations matched, 3,751
 checked and passing, 0 findings); `mkdocs build --strict` clean; the citation ratchet at 365,
 unchanged. No replacement needed a new test; the gap the GO anticipated did not arise.
+
+### 4.2 The docs completion the two SEC-008 rulings call for (`d136fdc5`)
+
+Dave's instruction (2026-10-04, 17:17 MST): correct the stale `asked_at` descriptions, record the two
+existing rulings, complete the disclosures they require, verify, commit, push. No behavior change.
+Diff: nine files, docstrings and prose only — no code line changed (checked by diffing the production
+hunks for any non-prose line).
+
+- **SEC-010 E1 residue corrected**, in `src/ccf/products/constraints.py` only: the
+  `src/ccf/products/constraints.py::applicable` docstring's window sentence, its `Args` entry and its
+  `Raises` entry now name `served_at`; the
+  `src/ccf/products/constraints.py::ReferencePolicyConstraintResolver` class docstring reads "the
+  Control Plane in force at ``served_at``" and its `resolve` `Raises` names `served_at` for the
+  effectivity conflict and both instants for the zone-less `TypeError`; one truncated sentence in the
+  module's superseded-reasoning block is completed. At every site the distinction is kept: effectivity
+  at `served_at`, the graph read at `request.asked_at`. Line-count-neutral.
+- **SEC-008 B1 disclosure** (the ruling: the low road is outside B1, the guard there is the
+  adopter's): `src/ccf/assembly/worker.py::AssemblyWorker`'s `ingest` docstring now tells a direct
+  caller that the method judges no instant and reads no clock, that its one governed caller runs
+  `src/ccf/signal/envelope.py::IngressTemporalBound`'s `refuse_outside_window` first, and that a
+  low-road composition root composes that guard itself or accepts an unrefused out-of-window write;
+  the same statement at `src/ccf/deployment/manifest.py::load_and_boot`, in the module docstrings of
+  `runtime/ccf_runtime/cdc/adapter.py::CDCSourceAdapter` and
+  `src/ccf/signal/mcp_source.py::MCPSourceAdapter` (both stamp their own clock, so they can only
+  ingest on the low road), in `runtime/ccf_runtime/mcp/product_door.py::ProductDoor`'s low-road
+  sentence, and in `src/ccf/products/product.py`'s module docstring.
+- **SEC-008 B2 disclosure** (the ruling: the 404 mapping stays):
+  `docs/surface-changes/364-01-temporal-write-refused-converts-at-the-seam.md` records the
+  `src/ccf/products/resolver.py::SDK_SEAM_REFUSALS` entry as a `behavior` change (`Public surface:
+  false` — the map is not a manifest name): cause `nonexistent`, code `temporal-write-refused`, kind
+  `subject-unavailable`, 404 at every disclosure level, what `minimal`, `reasoned` and `full` show,
+  the replay record as the place the true reason lives, the migration note for a consumer keying on
+  `cause`, and the ruling. `docs/SURFACE-CHANGES.md` re-assembled; the assembler's `--check` rc 0.
+- **One re-cite:** the product door's docstring grew by three lines, which moved a line-anchored
+  citation in the dated design spec (`ProductDoor.serve_stdio`) off its lines — a `cite02` finding.
+  Re-cited by symbol, as `beb0c717` did for `docs/D-IMPL-304-DESIGN.md`.
+
+Verification at `d136fdc5` (INDEPENDENTLY EXECUTED by the executing model): `tools.lints --all` rc 0
+(5,185 citations matched, 3,820 checked and passing, 0 findings); `mypy src runtime` clean, 242
+files; `tools/dump_surface.py --report` 0/0/0 and `--check` rc 0; `mkdocs build --strict` clean;
+`tests/products signal_layer replay gates peering controlplane assembly agents contracts deployment`
+3,098 passed, 4 skipped, 0 failed; `tools/docs_tests` + surface drift, completeness, shape-capture,
+obligation-vocabulary and citation-coverage 428 passed with the two standing reds (the retirement
+sweep; the citation ratchet `365 <= 0`, population unchanged). Documentation consistency: every
+remaining `asked_at` in `constraints.py` names the graph read, the request field, the superseded
+reasoning quoted as such, or the relative-defaults anchor — none states effectivity at `asked_at`
+as current.
 
 ## 5. Independent execution — the owner's five verification items
 
@@ -335,9 +387,26 @@ row to a resolving but unrelated test stays green) and the prefilter shape of se
 Three reviewers agreeing is not evidence; every verdict in this record rests on a seat's or the
 executing model's execution.
 
-## 9. For ruling — presented, not decided
+## 9. SEC-008 dispositions — RULED (Dave, 2026-10-04), with the panel's presentation preserved
 
-### 9.1 SEC-008 B1: is the documented low road a "supported governed ingress"?
+The panel presented two choices. Dave's reply (17:17 MST, relayed verbatim): *"My previous
+recommendation reopened rulings you had already made. Withdraw it. The low road is outside B1, and
+the 404 stays."* Both are therefore recorded as **existing rulings**, not new ones — they follow
+`D-IMPL-358` ruling 2 (the worker owns no clock; the guard is a caller guard) and `D-IMPL-364`
+choice 1 as ruled. Neither is reopened here. The presentation that led to them is kept below as the
+history of the decision, headed as presented.
+
+### 9.1 SEC-008 B1 — RULED: the low road is OUTSIDE B1's scope
+
+**Disposition (2026-10-04).** B1 is met as built on `beb0c717`: the four writer entry points are
+guarded, or structurally unreachable, from every supported governed ingress, where "supported
+governed ingress" means the paved road and the SDK-owned doors onto it. A composition that calls the
+writer itself is on the low road, and the temporal guard there is the adopter's to compose. The
+obligation that followed — saying so where a low-road adopter will read it — is discharged at
+`d136fdc5` (section 4.2). SEC-008 stays OPEN pending the merge decision and the separate closure
+decision.
+
+**As presented (history):** *is the documented low road a "supported governed ingress"?*
 
 The b1 seat found no path in `src/` or `runtime/` that reaches the writer unguarded. The absence of
 SDK-owned callers is not treated here as proof that documented adopter ingress is excluded. The SDK's
@@ -386,9 +455,20 @@ any temporal guard between its envelopes and L3. The ruling asked for:
   low-road composition (not inside the worker, which stays tenant-free and clock-free by the K1
   ruling). That is a design question and a repair cycle of its own.
 
-SEC-008 stays OPEN either way until Dave's ruling and the resulting obligation are discharged.
+(The presentation ended here. Option A was the existing ruling; the obligation it named is the
+disclosure at `d136fdc5`.)
 
-### 9.2 SEC-008 B2: the write refusal's public meaning
+### 9.2 SEC-008 B2 — RULED: the 404 mapping STAYS
+
+**Disposition (2026-10-04).** The seam map's binding of `TemporalWriteRefused` to a
+`SubjectUnavailableRefusal` with cause `nonexistent` and code `temporal-write-refused` stands, and so
+does the door's 404 for that kind at every disclosure level: the status is taken from the disclosed
+kind so that no status tells a principal whether a subject exists, the record carries the true code,
+and the question-outside-the-window refusal (`TemporalBoundRefusal`, 400) remains a different fact.
+The obligation that followed — a surface-change fragment stating the code and its public meaning —
+is discharged at `d136fdc5` (section 4.2).
+
+**As presented (history):** *the write refusal's public meaning.*
 
 The map entry `src/ccf/products/resolver.py::SDK_SEAM_REFUSALS` binds
 `src/ccf/signal/envelope.py::TemporalWriteRefused` to a `SubjectUnavailableRefusal` with
@@ -428,10 +508,13 @@ reads as a temporal-bound refusal with a 400. The smallest compatible mappings:
   change and a repair cycle, with the suppression question (does a 400 tell a principal anything about
   the subject?) answered in the entry.
 
-### 9.3 SEC-010 closure
+(The presentation ended here. Option A was the existing ruling; the obligation it named is the
+fragment at `d136fdc5`.)
 
-The panel finds A1, B2, B3 (behavioral), C1, D1 and E1 pass on `beb0c717`, with the E1 residue and
-the commit-message overclaim carried as docs follow-ups. The ruling at `D-IMPL-364` lets SEC-010
+### 9.3 SEC-010 closure — still OPEN
+
+The panel finds A1, B2, B3 (behavioral), C1, D1 and E1 pass on `beb0c717`; the E1 residue is
+corrected at `d136fdc5`. The ruling at `D-IMPL-364` lets SEC-010
 close independently once those pass; this record preserves the PROCEED as review evidence for a
 separate closure decision after the reviewed changes are merged. Nothing is closed here.
 
