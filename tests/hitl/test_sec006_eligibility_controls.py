@@ -588,6 +588,31 @@ def _revalidation_arrangement(
     return transport, capability, submission, e1, e2
 
 
+def _assert_revalidation_refusal(error: BaseException) -> None:
+    """The 6a refusal is the RULED typed name and nothing else.
+
+    Brief §4b 6a: a disagreement between the re-read and the snapshot
+    "refuses ``GateActionError``-class" — a typed ``ValueError``-family
+    refusal, the class :class:`ccf.hitl.approval_gate.GateActionError`
+    belongs to, not a ``PermissionError`` (the eligibility and attestation
+    family). The name is a MISSING CONTRACT until the repair lands; any other
+    exception — the attestation family above all — is a wrong refusal, not an
+    accepted one.
+    """
+    expected = contract(
+        "ccf.hitl.transport",
+        "HitlEventRevalidationRefused",
+        ruling="D-IMPL-366 §4b 6a, GateActionError-class",
+    )
+    assert issubclass(expected, ValueError) and not issubclass(expected, PermissionError), (
+        f"{expected.__name__} is not GateActionError-class (a ValueError-family refusal)"
+    )
+    assert isinstance(error, expected), (
+        f"refused by {type(error).__name__}, not the ruled revalidation refusal"
+        f" {expected.__name__} (D-IMPL-366 §4b 6a): {error}"
+    )
+
+
 def test_t11_a_changed_queue_under_the_key_is_refused_and_mutates_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -608,11 +633,8 @@ def test_t11_a_changed_queue_under_the_key_is_refused_and_mutates_nothing(
     before = transport_state(transport)
     try:
         recorded = transport.submit(capability, submission=submission)
-    except Exception as error:  # noqa: BLE001 — the refusal's class is the design's
-        assert not type(error).__name__.startswith("SignedBinding"), (
-            "refused by the attestation family, not by the revalidation (D-IMPL-366"
-            f" ordering: event revalidation precedes nonce consumption): {error}"
-        )
+    except Exception as error:  # noqa: BLE001 — judged by class below, never accepted broadly
+        _assert_revalidation_refusal(error)
     else:
         pytest.fail(
             "BEHAVIORAL: transport.submit RECORDED a submission although the"
@@ -649,16 +671,22 @@ def test_t14_the_nonce_survives_the_refusal_and_is_admitted_once_stable(
 
     transport, capability, submission, e1, _ = _revalidation_arrangement(tmp_path, monkeypatch)
     try:
-        transport.submit(capability, submission=submission)
-    except Exception:  # noqa: BLE001 — T11 asserts this refusal; here it only precedes
-        pass
+        first = transport.submit(capability, submission=submission)
+    except Exception as error:  # noqa: BLE001 — judged by class below, never accepted broadly
+        _assert_revalidation_refusal(error)
+    else:
+        pytest.fail(
+            "BEHAVIORAL: the first presentation was RECORDED and its nonce consumed,"
+            " although the revalidation must refuse it before any nonce is spent"
+            f" (D-IMPL-366 §4b: revalidation precedes nonce consumption): {first.event_key!r}"
+        )
     try:
         recorded = transport.submit(capability, submission=submission)
     except SignedBindingStaleRefused as error:
         pytest.fail(
-            "BEHAVIORAL: the attestation's nonce was consumed by a presentation the"
-            " revalidation must refuse, so the legitimate re-presentation is refused"
-            f" as a reuse (D-IMPL-366 §4b: nonce single-use on success only): {error}"
+            "BEHAVIORAL: the attestation's nonce was consumed by the refused"
+            " presentation, so the legitimate re-presentation is refused as a reuse"
+            f" (D-IMPL-366 §4b: nonce single-use on success only): {error}"
         )
     assert recorded in transport.submissions(tenant=e1.tenant)
     assert any(nonce == "sec006-revalidation-nonce-1" for _, _, nonce in transport_state(transport)["nonces"])
