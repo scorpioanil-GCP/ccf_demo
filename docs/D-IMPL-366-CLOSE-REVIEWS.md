@@ -256,8 +256,10 @@ probes (`probe_ambiguous_pin.py`, `author-f1-*.txt`, `author_f1_probe.py`).
 
 ## 9. RULINGS (Dave, 2026-10-05 06:52 MST) and the follow-on delta
 
-Dave, having checked the record and the three holds against the candidate (seats and severings
-not re-run by him): **(1)** 3.1 — add an eligible-but-stale-hash control BESIDE the existing one;
+ChatGPT inspected the record and the three holds against the candidate and drafted the
+recommendation; Dave supplied the five rulings after receiving that review. Neither inspection
+re-ran the seats or the severings. (Attribution corrected 2026-10-05 11:12 MST on Dave's
+instruction; the earlier wording credited the inspection to Dave.) **(1)** 3.1 — add an eligible-but-stale-hash control BESIDE the existing one;
 the impostor control keeps proving the ineligible path and the second proves the hash term.
 **(2)** 3.2 — disclose the policy-less gate and correct the fragment's "never constructs" sentence;
 a construction-time refusal is NOT widened into this repair and is CARRIED as a follow-on.
