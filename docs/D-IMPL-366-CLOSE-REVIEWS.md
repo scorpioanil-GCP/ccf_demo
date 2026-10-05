@@ -277,3 +277,38 @@ the fragment's `WorkflowFactory` and `ApprovalPolicy` entries (disclosure + migr
 ratification notes and the retry sentence; the two dated notes; two controls-register rows and the
 S4 row's disclosure; `docs/SURFACE-CHANGES.md` reassembled. Carried by name: a construction-time
 refusal of a policy-less routed gate; A1, A2, A3, A5, A6, A7, A8, A9, A10; O-1.
+
+## 10. The follow-on delta, independently verified — DISPOSITION (2026-10-05 08:14 MST)
+
+**Correction first (Dave, 08:09 MST).** The first wording of 3.1 and of the new control's docstring
+said eligibility refuses the impostor "before the hash term is consulted". That is backwards: in
+`_gate_authority` the hash term is the second conjunct and `eligible()` the last, so for the
+impostor the hash refuses first and eligibility is never reached. The control was vacuous for the
+hash term by OVERLAP — with the hash severed, the eligibility conjunct still excluded the ineligible
+impostor. Corrected in both places at `82e1bb76`; the record keeps the dated note.
+
+**Independent verification (verify2 seat — Claude Opus subagent, no session context, its own
+worktree at `82e1bb76`, interpreter proven to import that worktree, INDEPENDENTLY EXECUTED):**
+
+| step | measured |
+| --- | --- |
+| the code against the corrected docstring | the conjunct order in `_gate_authority` is event key, hash, action, missing-state guard, stamped/unstamped leg, `eligible()` last — **matches the docstring**; `submit` runs snapshot → eligibility → `resolve_hitl_policy` → `enforce_attestation` → the 6a lock where the nonce is consumed — matches C2's claim |
+| unsevered | C1, the impostor control, C2 and the plain T1: all PASSED |
+| C1 severed (hash term → `True`, in `_gate_authority` only; `_recorded_gate_verdicts` untouched) | C1 **RED** (the stale-hash verdict was admitted); impostor **GREEN**; whole `test_engine.py`: 1 failed / 39 passed, C1 the only red; `tests/workflow` + `tests/hitl`: 1 failed / 339 passed, C1 the only red. Restored; sha256 equal; git status clean |
+| C2 severed (the eligibility block moved after `enforce_attestation`) | C2 **RED** — "refused, but by `SignedBindingRequiredRefused` rather than `ApproverNotEligible`"; plain T1 **GREEN**; `tests/hitl` + `tests/workflow`: 1 failed / 339 passed, C2 the only red. Restored; sha256 equal; git status clean |
+| the seat's own probes (6 passed) | C1: an eligible correct-hash verdict resumes (positive control); the impostor with the CORRECT hash is refused — eligibility alone; a stale eligible verdict is excluded, not blocking, when a correct one follows. C2: an eligible principal with a valid attestation is admitted and one nonce spent (the attestation genuinely verifies); the same valid attestation from an INELIGIBLE principal is refused `ApproverNotEligible` with nothing recorded and no nonce; an ELIGIBLE unsigned submission is refused `SignedBindingRequiredRefused` — attestation still runs once eligibility passes |
+| full suites unsevered | `tests/hitl` + `tests/workflow`: 340 passed |
+
+The seat's observation, recorded as the seat's: the eligibility-before-attestation order is
+visible only through the refusal TYPE on an unsigned submission, which is what C2 asserts; C2's
+no-nonce assertion is order-independent because the nonce is consumed only inside the 6a lock. The
+seat did not re-measure the author's "0 red in 1508 tests" figure for the pre-follow-on severing;
+its populations were 40 and 340, within which C1 was the only red.
+
+**Disposition.** The three blocking findings of this record are addressed by the follow-on as
+ruled: 3.1 by C1 (seat-verified red under its severing, the impostor control still proving the
+ineligible path), 3.2 and 3.3 by the fragment, the two dated notes and the register (docs). A4 is
+closed by C2 (seat-verified). U1 and U2 are ratified. Carried by name: a construction-time refusal
+of a policy-less routed gate; A1, A2, A3, A5, A6, A7, A8, A9, A10; O-1. **Nothing is merged, tagged,
+released or closed by this record; `SEC-006` stays OPEN and the ledger stays 12 of 29.** The branch
+tip at this disposition: the commit this section lands in, parent `82e1bb76`.
