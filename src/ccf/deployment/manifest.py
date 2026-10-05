@@ -839,6 +839,16 @@ def load_and_boot(
     part is deliberate: the TTL pin must stay an independently authored
     registration, or Gate 3 compares a ceiling against itself.
 
+    **No temporal write guard runs on that road.** The paved road composes
+    :class:`~ccf.signal.envelope.IngressTemporalBound` at its acquisition seam and
+    judges every envelope before L2's writer; an adopter ingesting through
+    ``booted.handle.worker`` composes its own with
+    :meth:`~ccf.signal.envelope.IngressTemporalBound.at_composition` and calls
+    :meth:`~ccf.signal.envelope.IngressTemporalBound.refuse_outside_window` before
+    each ``ingest``. Nothing in the SDK does it for a low-road ingest loop, and
+    nothing refuses the loop that omits it (ruled outside SEC-008 B1 — Dave,
+    2026-10-04, `D-IMPL-364`).
+
     **Handle lifecycle.** The returned ``handle`` owns a backend connection, and
     its disposal contract is unchanged from :func:`ccf.boot.boot`:
     :meth:`ccf.boot.FabricHandle.close` retires the writer and closes the store,

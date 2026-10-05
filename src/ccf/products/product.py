@@ -18,7 +18,9 @@ no second registry, no second recorder and no second replay store here; a
 deployment that needs one thing different reads :meth:`OpenedProduct
 .build_arguments` — the exact keyword mapping this object hands the builder —
 edits one entry, and calls the builder itself. The low road stays the low
-road (Dave: *"Do not make the paved road the only road."*).
+road (Dave: *"Do not make the paved road the only road."*). On the low road the
+temporal write guard this module composes at its acquisition seam is the
+adopter's to compose (`D-IMPL-364` SEC-008 B1, ruled outside scope).
 
 Who owns what — the ruled split
 ---------------------------------

@@ -22,6 +22,14 @@ place to put one (DESIGN.md §2A.2.2). Envelopes go to the caller, the caller
 hands them to the L2 :class:`~ccf.assembly.worker.AssemblyWorker`, and that is
 the only route into L3 (INV-CH7-10, INV-CH8-05, T-04-22).
 
+**That route carries no temporal write guard of its own.** This adapter stamps
+``ingestion_timestamp`` from its injected clock, so its envelopes cannot ride the
+paved road's per-question boundary; the caller that hands them to the writer
+composes :class:`~ccf.signal.envelope.IngressTemporalBound` at its composition
+root and judges each envelope before ``ingest``, or an envelope stamped outside
+the tenant's window reaches L3 unrefused. Ruled outside SEC-008 B1 (Dave,
+2026-10-04, `D-IMPL-364`): on the low road the guard is the adopter's.
+
 Algorithmic module (CINV-03).
 """
 

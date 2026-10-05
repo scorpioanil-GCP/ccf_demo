@@ -761,6 +761,19 @@ class AssemblyWorker:
         envelope's payload is interpreted here and nowhere earlier — L1's
         non-interpretation is what makes this the single point where source
         vocabulary becomes graph state.
+
+        **This method judges no instant and reads no clock** (`D-IMPL-159`;
+        `D-IMPL-358` ruling 2). Its one governed caller, the paved road's
+        :meth:`~ccf.products.product.OpenedProduct` acquisition seam, runs
+        :meth:`~ccf.signal.envelope.IngressTemporalBound.refuse_outside_window`
+        on every envelope before calling here. A composition root that calls
+        ``ingest`` itself — the low road: a hand-composed spine, ``load_and_boot``'s
+        ``booted.handle.worker``, the CDC and MCP L1 source adapters — is outside
+        that guard and composes its own
+        :class:`~ccf.signal.envelope.IngressTemporalBound` at its root, or accepts
+        that an envelope stamped outside the tenant's window reaches L3 unrefused.
+        Ruled (Dave, 2026-10-04, `D-IMPL-364` SEC-008 B1): the low road is outside
+        B1's scope and the guard there is the adopter's responsibility.
         """
         observed_at, valid_from = self._stitch(envelope)
         provenance = frozenset(

@@ -524,7 +524,7 @@ def applicable(
     **axes**: every member of ``applies_to`` that is not ``None`` must equal
     the corresponding input, conjunctively — ``None`` means *any*, and a
     constraint that narrows nothing applies to everything. The **window**:
-    ``effective_from <= asked_at`` and ``asked_at < effective_until`` when an
+    ``effective_from <= served_at`` and ``served_at < effective_until`` when an
     end is stated, half-open so a constraint that ends at the instant another
     begins never applies twice.
 
@@ -558,13 +558,13 @@ def applicable(
         tenant: The tenant the request is being resolved for.
         perspective_role: The Π role-conditioning in force.
         intent: The decision the product is being assembled for.
-        asked_at: The request's own instant. Timezone-aware, always.
+        served_at: The trusted serve instant, read once per serve. Timezone-aware.
 
     Returns:
         Whether the constraint applies.
 
     Raises:
-        TypeError: ``asked_at`` is zone-less. There is no implicit UTC in this
+        TypeError: ``served_at`` is zone-less. There is no implicit UTC in this
             fabric (``D-IMPL-98`` puts the instant on the request precisely so
             it is stated rather than assumed; ``D-IMPL-38`` refuses a zone-less
             timestamp at artifact load), and comparing a naive instant against
@@ -1316,7 +1316,7 @@ def constraints_in_force(
     `D-IMPL-358` step 5 ruling B: the TRUSTED serve instant, not the question's.
     See :func:`applicable` for why the instant moved and why replay is unaffected.
 
-    SDK-defined (CLAUDE.md §11); whitepaper §7.8, and ``D-IMPL-253`` Q6 in
+    SDK-defined (CLAUDE.md §11); whitepaper §7.8, and ``D-IMPL-253`` Q6 below.
     The superseded reasoning, kept because it names the risk that had to be
     answered before the instant could move — Dave's words: *"asked_at,
     absolutely. Otherwise replay of the same
@@ -1498,7 +1498,7 @@ _NO_CONSTRAINT_IN_FORCE: Final[str] = "no-constraint-in-force"
 
 @dataclass(frozen=True)
 class ReferencePolicyConstraintResolver:
-    """The SDK's reference resolver: the Control Plane, read at ``asked_at``.
+    """The SDK's reference resolver: the Control Plane in force at ``served_at``.
 
     SDK-defined (CLAUDE.md §11); ``D-IMPL-253`` Q6/Q7/Q8. Ships alongside the
     Protocol per CLAUDE.md §11, and is **the v0 default, not a placeholder for
@@ -1565,14 +1565,14 @@ class ReferencePolicyConstraintResolver:
 
         Raises:
             ConstraintEffectivityConflict: the Control Plane holds two
-                versions of one constraint key in force at ``request.asked_at``,
+                versions of one constraint key in force at ``served_at``,
                 or two versions of the entitlement policy under one key while
                 the request names an override.
             LookupError: ``declared.capability_bindings`` names a capability
                 token no member of ``capabilities`` supplies — a wiring
                 failure, raised by :func:`resolve_effective_request`.
-            TypeError: ``request.asked_at`` is zone-less, or a Control Plane
-                key holds an artifact of the wrong class.
+            TypeError: ``request.asked_at`` or ``served_at`` is zone-less, or a
+                Control Plane key holds an artifact of the wrong class.
         """
         # `D-IMPL-358` step 5 ruling B: effectivity at the TRUSTED serve instant.
         # The graph is still read at `request.asked_at` — the caller's question
