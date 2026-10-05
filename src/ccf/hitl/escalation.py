@@ -291,6 +291,7 @@ class ExceptionEscalation:
         product_content_hash: str,
         policy_ref: str | None,
         trigger: EscalationTrigger,
+        requested_by: str | None = None,
     ) -> EscalationHandOff | EscalationRefused:
         """Hand a workflow state to the designated role, if a condition holds.
 
@@ -306,6 +307,10 @@ class ExceptionEscalation:
             trigger: :class:`ExplicitEscalation`, or a
                 :class:`~ccf.halflife.debt.DebtAssessment` whose signal
                 must breach a DebtProfile-declared band.
+            requested_by: The requester the caller knows for this state
+                (SEC-006; `D-IMPL-366` G1/G6 (a)) — carried on the event as
+                data and NOT judged for this event class; the primitive holds
+                no execution, so the caller supplies it or leaves ``None``.
 
         Returns:
             :class:`EscalationHandOff` on acceptance, or
@@ -335,6 +340,7 @@ class ExceptionEscalation:
             workflow_state_ref=workflow_state_ref,
             product_content_hash=product_content_hash,
             policy_ref=policy_ref,
+            requested_by=requested_by,
         )
         self._transport.enqueue(event=event)
         with self._state_lock:

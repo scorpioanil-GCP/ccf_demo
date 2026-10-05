@@ -223,8 +223,12 @@ class ReviewQueue:
         workflow_state_ref: str,
         item: ReviewQueueItem,
         policy_ref: str | None = None,
+        requested_by: str | None = None,
     ) -> PendingHitlEvent:
         """Queue one output for asynchronous review pre-release.
+
+        ``requested_by`` (SEC-006; `D-IMPL-366` G6 (a)) is carried on the
+        event as data and NOT judged for this event class.
 
         The item's content hash — output ref and lineage together — is
         bound into the pending event at submission time; the reviewer's
@@ -239,6 +243,7 @@ class ReviewQueue:
             workflow_state_ref=workflow_state_ref,
             product_content_hash=content_hash(item),
             policy_ref=policy_ref,
+            requested_by=requested_by,
         )
         self._transport.enqueue(event=event)
         with self._state_lock:

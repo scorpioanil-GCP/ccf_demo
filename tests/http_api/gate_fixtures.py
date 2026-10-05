@@ -76,11 +76,17 @@ from http_api.composition_authority import (
 SCOPE_EVERYTHING = "gate:everything"
 SCOPE_NOTHING = "gate:nothing"
 TOKEN_EVERYTHING = "gate-token-everything"
+#: SEC-006 (D-IMPL-366 G1 (a)): the door client that APPROVES is not the one
+#: that started the execution — requester ≠ approver is unconditional under a
+#: bound approval policy. This token's client id is the banking fixture's
+#: credit officer, who is eligible under the fixture's typed policies.
+TOKEN_APPROVER = "gate-token-approver"
 TOKEN_NOTHING = "gate-token-nothing"
 TOKEN_OTHER_TENANT = "gate-token-other-tenant"
 TOKEN_UNTENANTED = "gate-token-untenanted"
 TOKEN_MULTI_TENANT = "gate-token-multi-tenant"
 CLIENT_ID = "gate-caller"
+APPROVER_CLIENT_ID = "credit-officer-11"
 OTHER_TENANT = "gate-other-tenant"
 MAPPING_KEY = "gate/scope-mapping"
 ROLE = "gate-role"
@@ -193,6 +199,7 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
     source: TokenSourceProtocol = StaticTokenSource(
         grants={
             TOKEN_EVERYTHING: grant(CLIENT_ID, (SCOPE_EVERYTHING,), (tenant,)),
+            TOKEN_APPROVER: grant(APPROVER_CLIENT_ID, (SCOPE_EVERYTHING,), (tenant,)),
             TOKEN_NOTHING: grant(CLIENT_ID, (SCOPE_NOTHING,), (tenant,)),
             TOKEN_OTHER_TENANT: grant(
                 CLIENT_ID, (SCOPE_EVERYTHING,), (OTHER_TENANT,)

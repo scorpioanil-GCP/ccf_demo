@@ -203,7 +203,7 @@ rejected}`, `{accepted, declined}` — so the mapping cannot live in code.
 
 1. **`gate_routes` on `WorkflowDefinition`** (`src/ccf/workflow/definitions.py`):
    `Mapping[str, Mapping[str, str]]`, gate step name → `{verdict → target}`,
-   verdict keys drawn from `GATE_ACTIONS` (`src/ccf/hitl/approval_gate.py:114`,
+   verdict keys drawn from `GATE_ACTIONS` (`src/ccf/hitl/approval_gate.py::GATE_ACTIONS`,
    the SDK's mechanism vocabulary `{approve, reject}`, importable into
    `definitions.py` without a cycle). Default `{}`,
    `json_schema_extra={HASH_TRANSPARENT_KEY: False}`: a **generation boundary**,

@@ -258,6 +258,12 @@ def test_a_bound_action_lands_on_replay_dimension_two(
                 answered_event_class=event.event_class,
                 answered_workflow_state_ref=event.workflow_state_ref,
                 authorizing_decision_id=decision_id,
+                # SEC-006 (D-IMPL-366 H3 (a) / H2): the gate claimed the event
+                # before submitting, so the transport found it `claimed` and
+                # stamped the event's own policy ref and requester.
+                approval_policy_ref=event.policy_ref,
+                requested_by=event.requested_by,
+                event_state_at_submit="claimed",
             ),
             approved=True,
         )

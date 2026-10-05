@@ -554,6 +554,18 @@
             "ccf_hash_transparent": true,
             "title": "Answered Workflow State Ref"
           },
+          "approval_policy_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Approval Policy Ref"
+          },
           "attestation": {
             "anyOf": [
               {
@@ -581,6 +593,23 @@
             "title": "Event Key",
             "type": "string"
           },
+          "event_state_at_submit": {
+            "anyOf": [
+              {
+                "enum": [
+                  "claimed",
+                  "pending",
+                  "missing"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Event State At Submit"
+          },
           "hitl_policy_ref": {
             "anyOf": [
               {
@@ -595,6 +624,18 @@
           },
           "principal": {
             "$ref": "#/components/schemas/HumanPrincipalBinding"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Requested By"
           }
         },
         "required": [
@@ -764,6 +805,18 @@
           "product_content_hash": {
             "title": "Product Content Hash",
             "type": "string"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Requested By"
           },
           "tenant": {
             "title": "Tenant",
@@ -1407,7 +1460,7 @@
       },
       "WorkflowStateRecord": {
         "additionalProperties": false,
-        "description": "One execution's live state on the Control Plane seam (D-IMPL-18/27).\n\nSDK-defined. The typed, opaque record the engine writes through the\naudited surface and validates on read (isinstance, foreign-record typed\nerror) \u2014 the ``GrantStateRecord`` discipline applied to workflows. Keyed\n``(tenant, execution_id)`` so two tenants running the same workflow\ndefinition concurrently never collide (D-23).\n\nAttributes:\n    tenant: Owning tenant of this execution.\n    execution_id: Caller-supplied execution identity within the tenant.\n    current_state: The node the machine is at.\n    status: Where the machine is in its lifecycle\n        (:data:`WORKFLOW_STATUSES`).\n    trace: Every transition recorded so far, in order.\n    workflow_definition_uri: The pinned versioned URI of the workflow\n        definition this execution runs (D-IMPL-26).\n    workflow_definition_hash: The content hash of that definition \u2014\n        what actually binds the execution to it. The URI alone does\n        not: it is built from the artifact's OWN declared tenant, name\n        and artifact_version, so a second definition registered under a\n        different Control Plane key carries an identical URI while\n        declaring different routing. Resume compares this, so an\n        execution never continues under a definition it was not started\n        with \u2014 the thing the URI check already claimed and could not\n        deliver (SEC-001, security review 2026-09-23).",
+        "description": "One execution's live state on the Control Plane seam (D-IMPL-18/27).\n\nSDK-defined. The typed, opaque record the engine writes through the\naudited surface and validates on read (isinstance, foreign-record typed\nerror) \u2014 the ``GrantStateRecord`` discipline applied to workflows. Keyed\n``(tenant, execution_id)`` so two tenants running the same workflow\ndefinition concurrently never collide (D-23).\n\nAttributes:\n    tenant: Owning tenant of this execution.\n    execution_id: Caller-supplied execution identity within the tenant.\n    current_state: The node the machine is at.\n    status: Where the machine is in its lifecycle\n        (:data:`WORKFLOW_STATUSES`).\n    trace: Every transition recorded so far, in order.\n    workflow_definition_uri: The pinned versioned URI of the workflow\n        definition this execution runs (D-IMPL-26).\n    started_by: The principal that started the execution (SEC-006;\n        `D-IMPL-366` G1 (a)); ``None`` on a pre-change record.\n    workflow_definition_hash: The content hash of that definition \u2014\n        what actually binds the execution to it. The URI alone does\n        not: it is built from the artifact's OWN declared tenant, name\n        and artifact_version, so a second definition registered under a\n        different Control Plane key carries an identical URI while\n        declaring different routing. Resume compares this, so an\n        execution never continues under a definition it was not started\n        with \u2014 the thing the URI check already claimed and could not\n        deliver (SEC-001, security review 2026-09-23).",
         "properties": {
           "current_state": {
             "title": "Current State",
@@ -1416,6 +1469,18 @@
           "execution_id": {
             "title": "Execution Id",
             "type": "string"
+          },
+          "started_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "ccf_hash_transparent": true,
+            "title": "Started By"
           },
           "status": {
             "title": "Status",

@@ -46,6 +46,8 @@ __all__ = [
     "ERROR_SIGNED_BINDING_MISMATCH",
     "ERROR_SIGNED_BINDING_REQUIRED",
     "ERROR_SIGNED_BINDING_STALE",
+    "ERROR_APPROVER_NOT_ELIGIBLE",
+    "ERROR_HITL_EVENT_REVALIDATION_REFUSED",
     "ERROR_SUBJECT_CONFLICT",
     "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
@@ -182,6 +184,19 @@ ERROR_SIGNED_BINDING_MISMATCH: Final[str] = "signed-binding-mismatch"
 #: recorded door instant, or its nonce was already presented (403;
 #: `D-IMPL-363` E3 / E4 / E6; SEC-005).
 ERROR_SIGNED_BINDING_STALE: Final[str] = "signed-binding-stale"
+
+#: The authenticated principal may not approve this gate under the pinned
+#: ``ccf.approval-policy`` — not among its eligible principals, or the
+#: requester approving their own gate — or the gate's policy is absent,
+#: unresolvable or of the wrong class (403; SEC-006; `D-IMPL-366` G3 (a)).
+#: Distinct from the signed-binding family and NON-ENUMERATING: the body
+#: never names who could have approved.
+ERROR_APPROVER_NOT_ELIGIBLE: Final[str] = "approver-not-eligible"
+
+#: The HITL event under the submission's key changed between the transport's
+#: snapshot and its record (409; `D-IMPL-366` §4b 6a). Nothing was consumed
+#: or recorded; the client re-presents against the current event.
+ERROR_HITL_EVENT_REVALIDATION_REFUSED: Final[str] = "hitl-event-revalidation-refused"
 
 #: The authenticated caller's grant does not authorize this tenant ×
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —

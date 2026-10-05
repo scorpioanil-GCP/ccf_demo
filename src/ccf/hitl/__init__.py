@@ -23,6 +23,7 @@ under a severed capture, not asserted absolutely here.
 
 from __future__ import annotations
 
+from ccf.hitl.approval_policy import APPROVAL_POLICY, ApprovalPolicy
 from ccf.hitl.approval_gate import (
     GATE_ACTIONS,
     HITL_ACTION_ARTIFACT_CLASS,
@@ -77,15 +78,19 @@ from ccf.hitl.review_queue import (
     UnknownReviewEventError,
 )
 from ccf.hitl.transport import (
+    APPROVAL_GATE_EVENT_CLASS,
     HITL_ACTIONS,
     HITL_EVENT_CLASSES,
+    ApproverNotEligible,
     HITLTransportProtocol,
     HitlActionReceipt,
     HitlActionRequest,
     HitlActionSubmission,
+    HitlEventRevalidationRefused,
     InMemoryHitlTransport,
     PendingHitlEvent,
     PrincipalMismatchRefused,
+    check_approver_eligibility,
 )
 from ccf.hitl.webhook import (
     HitlEventNotification,
@@ -100,6 +105,12 @@ from ccf.hitl.webhook import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "APPROVAL_GATE_EVENT_CLASS",
+    "APPROVAL_POLICY",
+    "ApprovalPolicy",
+    "ApproverNotEligible",
+    "HitlEventRevalidationRefused",
+    "check_approver_eligibility",
     "ESCALATION_ACTIONS",
     "GATE_ACTIONS",
     "HITL_ACTIONS",

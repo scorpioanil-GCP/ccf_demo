@@ -168,8 +168,14 @@ def test_t5_a_declared_artifact_gate_policy_is_refused_at_construction(
     against ``ccf.approval-policy`` and refuses by name (brief §4 (5); the
     task-ref precedent). Today the workflow constructs.
     """
+    # The AS-SHIPPED closure: the fixture's own DeclaredArtifact approval policy
+    # under the key the gate pins (the shared closure now registers the typed
+    # policy there, so this control builds the pre-change shape explicitly).
+    plane = ControlPlaneRegistry(clock=eh._ticking_clock())
+    eh._register_covenant_closure(plane, as_shipped=True)
+    eh._register_refresh_closure(plane)
     try:
-        workflow = eh._covenant(registry)
+        workflow = eh._covenant(plane)
     except WorkflowConstructionError:
         return
     pytest.fail(

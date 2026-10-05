@@ -57,6 +57,12 @@ from .capabilities import submit_capability
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
+#: The REQUESTER every gate event this suite enqueues records (SEC-006;
+#: `D-IMPL-366` G1 (a)) — a principal distinct from every approver below, so
+#: the requester ≠ approver rule never fires on an admitting case. Test
+#: vocabulary (CINV-01); the fixture file itself is untouched.
+REQUESTER = "covenant-requester-1"
+
 
 def _hitl() -> dict[str, Any]:
     loaded: dict[str, Any] = yaml.safe_load(
@@ -109,7 +115,9 @@ def _gate() -> tuple[ApprovalGate, InMemoryHitlTransport, AuditLog]:
 def _event(fixture: dict[str, Any]) -> PendingHitlEvent:
     document = dict(fixture["event"])
     return PendingHitlEvent(
-        **document, product_content_hash=content_hash(document)
+        **document,
+        product_content_hash=content_hash(document),
+        requested_by=REQUESTER,
     )
 
 
@@ -309,6 +317,8 @@ def _required_policy_plane(
     from ccf.controlplane.registry import ControlPlaneRegistry
     from ccf.hitl.transport import HITL_POLICY, resolve_hitl_policy
 
+    from tests.composition import register_fixture_approval_policies
+
     plane = ControlPlaneRegistry()
     policy_key = "acme-bank/hitl/policy"
     compose_register_typed(
@@ -320,6 +330,10 @@ def _required_policy_plane(
         ),
         HITL_POLICY,
     )
+    # SEC-006 (D-IMPL-366): the fixture event pins the credit-officer approval
+    # policy; a bound plane must hold it as the TYPED ccf.approval-policy or the
+    # approver is refused as ineligible before the signed leg is reached.
+    register_fixture_approval_policies(plane)
     resolved = resolve_hitl_policy(
         control_plane=plane, hitl_policy_key=policy_key
     )

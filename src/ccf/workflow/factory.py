@@ -63,6 +63,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
 from ccf.hitl.approval_gate import GATE_ACTIONS
+from ccf.hitl.approval_policy import APPROVAL_POLICY
 from ccf.workflow.definitions import WORKFLOW_DEFINITION, WorkflowDefinition
 from ccf.authz.capability import (
     ActionKind,
@@ -399,6 +400,28 @@ class WorkflowFactory:
                     " CLAUDE.md §8.1/§8.2)"
                 )
             self._resolve_bound_ref(policy_ref, ruling="D-12")
+            # SEC-006 (D-IMPL-366 §4 (5), RULED): the target of a gate-policy
+            # binding is a TYPED ccf.approval-policy, class-checked through the
+            # Control Plane's key binding exactly as the task ref is above. A
+            # DeclaredArtifact under an adopter class id — every pre-change
+            # fixture — is refused by name: an approval policy nothing judges
+            # is documentation, not a control.
+            policy_name = parse_artifact_uri(policy_ref)
+            policy_key = (
+                f"{policy_name.tenant_id}/{policy_name.artifact_class}/"
+                f"{policy_name.name}"
+            )
+            policy_class = self._control_plane.artifact_class_of(policy_key)
+            if policy_class != APPROVAL_POLICY.class_id:
+                raise WorkflowConstructionError(
+                    f"gate policy on step {gate_name!r} names {policy_ref!r},"
+                    f" a key the Control Plane binds to artifact class"
+                    f" {policy_class!r}, not {APPROVAL_POLICY.class_id!r}; a"
+                    " gate's approval policy is a typed ccf.approval-policy"
+                    " the SDK judges approver eligibility against, registered"
+                    " by adopter code against its real contract (SEC-006;"
+                    " D-IMPL-366 §4 (5); CLAUDE.md §8.2)"
+                )
 
         # Route bindings target hitl-gate-kind steps too — the same check,
         # symmetric to gate_policies above. Noted at A1's review: the wrapper

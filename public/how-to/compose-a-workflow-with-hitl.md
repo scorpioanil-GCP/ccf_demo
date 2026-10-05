@@ -36,6 +36,21 @@ posture.
 > the signed leg at both doors is `tests/http_api/test_sec005_attestation_door.py`
 > and `tests/mcp/test_sec005_attestation_door.py`.
 
+> **Dated note, 2026-10-05 (`D-IMPL-366`, SEC-006).** Who may approve a
+> gate is now the SDK's judgment, not the adopter's intent: a gate's
+> `gate_policies` target must be a typed `ccf.approval-policy`
+> (`ApprovalPolicy` in `ccf.hitl` — `eligible_principals`, principal-based,
+> quorum 1, no self-approval), registered by adopter code through
+> `register_typed` against `APPROVAL_POLICY`; the factory refuses any other
+> class at construction, the transport, the primitive and the engine each
+> refuse an ineligible approver or the requester approving their own gate
+> (`approver-not-eligible` at both doors), and every gate event records its
+> requester — the STARTER of the execution. The archived program below
+> declares its approval policy as an untyped artifact and would not construct
+> today; the archive is not repaired (`D-IMPL-351`). The in-tree reference is
+> `tests/fixtures/banking/approval_policies.yaml` with
+> `tests/workflow/test_sec006_engine_controls.py`.
+
 Run the worked example with:
 
 ```sh

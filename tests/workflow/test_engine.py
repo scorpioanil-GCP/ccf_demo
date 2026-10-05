@@ -126,7 +126,11 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
-from tests.composition import register_typed_at_composition
+from tests.composition import (
+    register_fixture_approval_policies,
+    register_typed_at_composition,
+    without_approval_policies,
+)
 from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
@@ -163,8 +167,18 @@ def _register_declared(
         register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
-def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
-    """Register everything the covenant-review workflow's refs resolve to."""
+def _register_covenant_closure(
+    plane: ControlPlaneRegistry, *, as_shipped: bool = False
+) -> None:
+    """Register everything the covenant-review workflow's refs resolve to.
+
+    SEC-006 (`D-IMPL-366`): the gate's approval policy is registered as the
+    TYPED ``ccf.approval-policy`` from ``approval_policies.yaml`` under the key
+    the fixture's ref pins — the fixture file itself is untouched. With
+    ``as_shipped=True`` the fixture's own PRE-CHANGE ``DeclaredArtifact``
+    policy is registered instead, which the factory now refuses by ruling
+    (§4 (5)): the shape the SEC-006 factory control exercises.
+    """
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
     register_typed_at_composition(plane, 
@@ -187,7 +201,13 @@ def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
-    _register_declared(plane, workflow_fixture["referenced_artifacts"])
+    if as_shipped:
+        _register_declared(plane, workflow_fixture["referenced_artifacts"])
+    else:
+        _register_declared(
+            plane, without_approval_policies(workflow_fixture["referenced_artifacts"])
+        )
+        register_fixture_approval_policies(plane)
 
 
 def _register_refresh_closure(plane: ControlPlaneRegistry) -> None:

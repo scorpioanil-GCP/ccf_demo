@@ -74,6 +74,7 @@ from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.hitl.identity_binding import SignedHitlAction
 from ccf.hitl.principal import HumanPrincipalBinding
 from ccf.hitl.transport import (
+    check_approver_eligibility,
     HITLTransportProtocol,
     HitlActionSubmission,
     PendingHitlEvent,
@@ -292,6 +293,13 @@ class ApprovalGate:
             ``resolved=False``, never an exception — or
             :class:`GateResolutionRefused` on a TOCTOU hash mismatch.
 
+        **Approver eligibility (SEC-006; `D-IMPL-366`).** With a Control
+        Plane bound, :func:`~ccf.hitl.transport.check_approver_eligibility`
+        judges the capability's principal against the event's pinned
+        ``ccf.approval-policy`` and its recorded requester, after the TOCTOU
+        equality and before the atomic claim — so an ineligible resolution
+        never takes ``remove`` and the event stays pending.
+
         Raises:
             ccf.authz.capability.CapabilityBypassError: ``authorized`` is
                 not a genuine ``Authorized[HitlSubmit]`` for ``event_key``.
@@ -299,6 +307,8 @@ class ApprovalGate:
                 the capability's tenant — broken wiring, not a governance
                 outcome.
             GateActionError: ``action`` is not an approval-gate verdict.
+            ccf.hitl.transport.ApproverNotEligible: the principal may not
+                approve this gate under its pinned policy (SEC-006).
             ccf.hitl.transport.SignedBindingRequiredRefused: the policy in
                 force requires a signed attestation and none was presented.
             ccf.hitl.transport.SignedBindingInvalidRefused: the presented
@@ -355,6 +365,18 @@ class ApprovalGate:
                     " (T-07-39). The event stays pending — re-review the"
                     " current version and act on its hash"
                 ),
+            )
+        if self._control_plane is not None:
+            # SEC-006 (D-IMPL-366 §4 (4)): approver eligibility at the primitive,
+            # after the TOCTOU equality and BEFORE the atomic claim, with the
+            # event in hand — a refusal raises here, `remove` is never called
+            # and the event stays pending. The transport re-judges against the
+            # claimed event at submit (idempotent double verification, D-13).
+            check_approver_eligibility(
+                policy_ref=event.policy_ref,
+                requested_by=event.requested_by,
+                subject_id=authorized.principal,
+                control_plane=self._control_plane,
             )
         submission = HitlActionSubmission(
             event_key=event_key,

@@ -72,7 +72,12 @@ from tests.workflow.capabilities import (
     execute_capability,
     resume_as,
 )
-from tests.composition import register_typed_at_composition, register_versioned_at_composition
+from tests.composition import (
+    register_fixture_approval_policies,
+    register_typed_at_composition,
+    register_versioned_at_composition,
+    without_approval_policies,
+)
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import Execute, Resume
 from ccf_runtime.workflow.engine import WORKFLOW_TRACE_ARTIFACT_CLASS
@@ -154,8 +159,12 @@ class World:
         register_versioned_at_composition(self.registry, workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
         )
         _register_declared(
-            self.registry, workflow_fixture["referenced_artifacts"]
+            self.registry,
+            without_approval_policies(workflow_fixture["referenced_artifacts"]),
         )
+        # SEC-006 (D-IMPL-366 §4 (5)): the typed gate policy under the
+        # fixture's own key; the pre-change DeclaredArtifact is not registered.
+        register_fixture_approval_policies(self.registry)
         self.transport = InMemoryHitlTransport()
         self.bindings = _Bindings()
         self.engine = WorkflowEngine(

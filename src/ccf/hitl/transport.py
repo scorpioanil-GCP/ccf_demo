@@ -65,6 +65,8 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.registry import ControlPlaneProtocol
+from ccf.controlplane.resolution import ControlPlaneResolution, resolve_pinned
+from ccf.hitl.approval_policy import APPROVAL_POLICY, ApprovalPolicy
 from ccf.hitl.identity_binding import (
     AttestationInvalid,
     HitlActionClaims,
@@ -83,13 +85,17 @@ from ccf.authz.capability import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "APPROVAL_GATE_EVENT_CLASS",
     "HITL_ACTIONS",
     "HITL_EVENT_CLASSES",
     "HITL_POLICY",
     "HITLTransportProtocol",
+    "ApproverNotEligible",
+    "EventStateAtSubmit",
     "HitlActionReceipt",
     "HitlActionRequest",
     "HitlActionSubmission",
+    "HitlEventRevalidationRefused",
     "HitlPolicy",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
@@ -98,6 +104,7 @@ __all__ = [
     "SignedBindingMismatchRefused",
     "SignedBindingRequiredRefused",
     "SignedBindingStaleRefused",
+    "check_approver_eligibility",
     "enforce_attestation",
     "resolve_hitl_policy",
     "signed_binding_required",
@@ -114,6 +121,21 @@ HITL_EVENT_CLASSES: frozenset[str] = frozenset(
         "review-queue",
     }
 )
+
+#: The approval-gate member of :data:`HITL_EVENT_CLASSES` — the ONE class
+#: approver eligibility is judged for (SEC-006; `D-IMPL-366`, RULED: approval
+#: gates only). Spelled here, beside the roster, because the transport
+#: dispatches on it and cannot import :mod:`ccf.hitl.approval_gate`, which
+#: imports this module; ``ccf.hitl.approval_gate.GATE_EVENT_CLASS`` is the
+#: same string.
+APPROVAL_GATE_EVENT_CLASS = "approval-gate"
+
+#: The state the transport found for a submission's event at ``submit``
+#: (`D-IMPL-366` H2; brief §4b): ``claimed`` (a primitive holds the atomic
+#: claim), ``pending`` (queued, no claim — a door submission) or ``missing``
+#: (nothing under the key). Stamped on the recorded submission and never
+#: rewritten; ``None`` only on a record written before the field existed.
+EventStateAtSubmit = Literal["claimed", "pending", "missing"]
 
 #: The action vocabulary D-IMPL-20 names (approve/reject/override/annotate).
 #: Mechanism identifiers: which actions a given gate *permits* is the
@@ -140,6 +162,20 @@ class PendingHitlEvent(CCFContract):
     workflow_state_ref: str
     product_content_hash: str
     policy_ref: str | None = None
+    #: The REQUESTER — the ``subject_id``-shaped principal string of whoever
+    #: STARTED the execution this event belongs to (`D-IMPL-366` G1 (a): the
+    #: starter, stamped by the engine from the ``Execute`` capability's
+    #: principal and copied onto every gate event of that execution — not the
+    #: principal who reached the gate, not every prior actor). Approver
+    #: eligibility refuses the requester approving their own gate (SPEC F3).
+    #: Carried as data and NOT judged on the other three event classes (G6
+    #: (a)). Hash-transparent at ``None`` (CINV-06; D-IMPL-243): an event
+    #: written before this field existed renders exactly as it did — and on a
+    #: bound approval-gate event ``None`` is a fail-closed refusal (G5 (a)),
+    #: never an unconstrained default.
+    requested_by: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("event_class")
     @classmethod
@@ -205,6 +241,40 @@ class PrincipalMismatchRefused(PermissionError):
     caller that built one for the wrong subject. Refused rather than
     rewritten, because a signed binding covers the subject and a transport
     that overwrote it would record a signature over someone else.
+    """
+
+
+class ApproverNotEligible(PermissionError):
+    """The capability's principal may not approve this gate (SEC-006; `D-IMPL-366`).
+
+    Raised by :func:`check_approver_eligibility` at the transport, the
+    primitive and the engine's authority predicate. **Non-enumerating by
+    ruling (G3 (a))**: the message names the reason class and the policy
+    reference, never an eligible principal, the requester or the refused
+    subject — the wire carries the distinct code ``approver-not-eligible`` and
+    nothing that would let a refused caller learn who could have approved.
+    A sibling of :class:`PrincipalMismatchRefused`, not of the attestation
+    family: eligibility is a policy judgment about a principal the fabric has
+    already identified.
+    """
+
+
+class HitlEventRevalidationRefused(ValueError):
+    """The event under the submission's key changed between snapshot and record.
+
+    `D-IMPL-366` §4b step 6a (RULED ordering: event revalidation precedes nonce
+    consumption; refused submissions introduce no state mutations). The
+    transport judged the submission against a snapshot of the SELECTED event
+    and its state (``claimed`` / ``pending`` / ``missing``); under the one
+    lock acquisition that records, it re-reads the same state and admits only
+    if the re-read agrees — the same frozen event in the same state, or
+    ``missing`` both times. A different event under the same key (the
+    second-suspension shape), a claim that appeared or vanished, or an event
+    that arrived where there was none refuses here, BEFORE the nonce is
+    consumed or anything is recorded, so the same attestation re-presented
+    against the now-stable state is admitted once. A ``GateActionError``-class
+    (``ValueError``-family) refusal, not a ``PermissionError``: nothing about
+    the human's authority was judged — the thing they were answering moved.
     """
 
 
@@ -373,6 +443,81 @@ def resolve_hitl_policy(
             " registered ccf.hitl-policy artifact"
         )
     return str(version), artifact
+
+
+def check_approver_eligibility(
+    *,
+    policy_ref: str | None,
+    requested_by: str | None,
+    subject_id: str,
+    control_plane: object | None,
+) -> None:
+    """Refuse unless ``subject_id`` may approve the gate ``policy_ref`` governs.
+
+    The ONE eligibility judgment (SEC-006; `D-IMPL-366` §4 (3)), shared by
+    :meth:`InMemoryHitlTransport.submit`, :meth:`ccf.hitl.approval_gate
+    .ApprovalGate.resolve` and the engine's ``_gate_authority`` so the three
+    sites cannot drift apart. The comparand is one string — the capability's
+    principal, which the D-16 check has already forced equal to the binding's
+    ``subject_id`` and, where a signature is required, to the signed subject.
+
+    **Reads no clock and no "latest".** ``policy_ref`` resolves through
+    :func:`~ccf.controlplane.resolution.resolve_pinned`, the same call the
+    workflow factory makes, so the version that judges is the version the
+    event pinned at suspension — replayable, which the deployment-wide
+    :class:`HitlPolicy` (resolved latest per call) is not.
+
+    **Fail-closed, by ruling.** With ``control_plane`` bound the judgment
+    refuses :class:`ApproverNotEligible` when: ``policy_ref`` is ``None``,
+    resolves to nothing, or resolves to anything other than an
+    :class:`~ccf.hitl.approval_policy.ApprovalPolicy` (every pre-change
+    ``DeclaredArtifact`` policy included — the wrong-class case); the Control
+    Plane does not offer the pinned-read surface; ``requested_by`` is ``None``
+    (an in-flight suspension persisted before the change — G5 (a), the
+    migration note); ``subject_id`` is not in ``eligible_principals``; or
+    ``subject_id == requested_by`` (requester ≠ approver, unconditional). An
+    unbound ``control_plane`` (``None``) performs no check — the
+    pre-composition posture :func:`signed_binding_required` keeps.
+
+    The refusal message is NON-ENUMERATING (G3 (a)): it names the reason class
+    and the policy reference only — never a principal.
+
+    Raises:
+        ApproverNotEligible: as above.
+        ccf.controlplane.registry.AmbiguousPinnedVersionError: two contents
+            under the policy's key declare the pinned version — broken
+            deployment wiring, surfaced rather than judged.
+    """
+    if control_plane is None:
+        return
+
+    def refuse(reason: str) -> ApproverNotEligible:
+        return ApproverNotEligible(
+            f"approver not eligible ({reason}) under approval policy"
+            f" {policy_ref!r}; who may approve a gate is the pinned"
+            " ccf.approval-policy's statement, the requester never approves"
+            " their own gate, and the refusal names no principal"
+            " (SEC-006; D-IMPL-366 G3 (a))"
+        )
+
+    if policy_ref is None:
+        raise refuse("no approval policy bound to the event")
+    if not isinstance(control_plane, ControlPlaneResolution):
+        raise refuse("the bound Control Plane offers no pinned-read surface")
+    policy = resolve_pinned(control_plane, policy_ref)
+    if policy is None:
+        raise refuse("the pinned approval policy resolves to nothing")
+    if not isinstance(policy, ApprovalPolicy):
+        raise refuse(
+            f"the pinned artifact is not a {APPROVAL_POLICY.class_id}"
+            f" (got {type(policy).__name__})"
+        )
+    if requested_by is None:
+        raise refuse("the event records no requester")
+    if subject_id not in policy.eligible_principals:
+        raise refuse("the principal is not among the policy's eligible principals")
+    if subject_id == requested_by:
+        raise refuse("the principal is the requester of the gate it is approving")
 
 
 class SignedBindingMismatchRefused(PermissionError):
@@ -667,6 +812,34 @@ class HitlActionSubmission(CCFContract):
     authorizing_decision_id: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    #: **Transport-stamped, never caller-authored** (SEC-006; `D-IMPL-366`
+    #: H3 (a)). The ``policy_ref`` of the event the transport found (and
+    #: revalidated) for this submission — the pinned ``ccf.approval-policy``
+    #: version the eligibility judgment used — and that event's
+    #: ``requested_by``, the requester the self-approval rule compared against.
+    #: Both ``None`` when no event was under the key (``event_state_at_submit
+    #: == "missing"``). A caller-supplied value is overwritten, as every stamp
+    #: above is. Hash-transparent at ``None`` (CINV-06; D-IMPL-243): a
+    #: submission recorded before these fields existed rehydrates unchanged.
+    approval_policy_ref: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    requested_by: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    #: **Transport-stamped, never caller-authored** (`D-IMPL-366` H2, the
+    #: RULED requirement). The state the transport found for this
+    #: submission's event under its lock and revalidated before recording:
+    #: ``claimed``, ``pending`` or ``missing`` (:data:`EventStateAtSubmit`).
+    #: A ``missing`` submission is recorded UNJUDGED and can never become
+    #: authority — including after a later enqueue or re-enqueue of an event
+    #: under its key — because the engine's authority predicate excludes it
+    #: structurally and nothing rewrites a recorded submission. ``None`` only
+    #: on a record written before the field existed, which keeps today's
+    #: semantics (the fixture rule). Hash-transparent at ``None``.
+    event_state_at_submit: EventStateAtSubmit | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("action")
     @classmethod
@@ -916,6 +1089,25 @@ class InMemoryHitlTransport:
             hitl_policy_key=self._hitl_policy_key,
         )
 
+    def _snapshot_locked(
+        self, tenant: str, event_key: str
+    ) -> tuple[PendingHitlEvent | None, EventStateAtSubmit]:
+        """The selected event under ``(tenant, event_key)`` and its state.
+
+        CALLER HOLDS THE LOCK. The claimed event when a primitive holds the
+        atomic claim; else the OLDEST pending event under the key — the same
+        order :meth:`remove` searches in; else ``None`` with state ``missing``
+        (`D-IMPL-366` §4b, the three states). Used twice per :meth:`submit`:
+        the snapshot (step 3) and the revalidation (step 6a).
+        """
+        claimed = self._claims.get((tenant, event_key))
+        if claimed is not None:
+            return claimed, "claimed"
+        for event in self._pending.get(tenant, ()):
+            if event.event_key == event_key:
+                return event, "pending"
+        return None, "missing"
+
     def enqueue(self, *, event: PendingHitlEvent) -> None:
         """Queue ``event`` for its tenant, preserving arrival order.
 
@@ -1037,11 +1229,33 @@ class InMemoryHitlTransport:
         submission that wins no race is still admitted by the engine's
         unstamped fallback leg today, with no race at all.
 
+        **Approver eligibility (SEC-006; `D-IMPL-366`).** With a Control Plane
+        bound, a submission against an APPROVAL-GATE event is judged by
+        :func:`check_approver_eligibility` — after the capability and the
+        principal check, BEFORE attestation (G2 (a)) — against a snapshot of
+        the selected event taken under the lock (§4b step 3). Other event
+        classes are not judged (G6 (a)); a ``missing`` event judges nothing
+        and is recorded as ``missing`` (H2). Under the one lock acquisition
+        that records, the event and its state are REVALIDATED against the
+        snapshot first (6a, :class:`HitlEventRevalidationRefused`), then the
+        nonce is consumed, then the claim is popped and the copy recorded with
+        ``approval_policy_ref``, ``requested_by`` and ``event_state_at_submit``
+        stamped from the snapshot (H3 (a)). A submission refused at ANY step
+        leaves ``_submissions``, ``_claims`` and ``_seen_nonces`` unchanged.
+
         Raises:
             CapabilityBypassError: ``authorized`` is not a genuine
                 ``Authorized[HitlSubmit]`` for ``submission.event_key``.
             PrincipalMismatchRefused: the binding's subject is not
                 ``authorized.principal``.
+            ApproverNotEligible: the Control Plane is bound, the event is an
+                approval gate, and the principal may not approve it under the
+                pinned ``ccf.approval-policy`` — including a missing, unresolvable
+                or wrong-class policy ref, a missing requester, or the requester
+                approving their own gate (SEC-006; `D-IMPL-366`).
+            HitlEventRevalidationRefused: the event under the key changed
+                between the snapshot and the record (`D-IMPL-366` §4b 6a);
+                nothing was consumed or recorded.
             SignedBindingRequiredRefused: attestation required and absent.
             SignedBindingInvalidRefused: the attestation's signature does
                 not verify under the keys declared for its subject.
@@ -1062,6 +1276,26 @@ class InMemoryHitlTransport:
                 " binding over anyone else binds nothing here"
                 " (D-IMPL-353 §2 P6; D-IMPL-21)"
             )
+        tenant = authorized.tenant
+        # Step 3 (D-IMPL-366 §4b): ONE snapshot of the selected event and its
+        # state, under the lock; the lock is released and the snapshot is a
+        # frozen event (or None) that every judgment below reads.
+        with self._lock:
+            event, state = self._snapshot_locked(tenant, submission.event_key)
+        # Step 4: eligibility, outside the lock, BEFORE attestation (G2 (a)),
+        # for approval-gate events only (RULED). Missing: nothing is judged,
+        # and the submission is recorded as such below (H2).
+        if (
+            self._control_plane is not None
+            and event is not None
+            and event.event_class == APPROVAL_GATE_EVENT_CLASS
+        ):
+            check_approver_eligibility(
+                policy_ref=event.policy_ref,
+                requested_by=event.requested_by,
+                subject_id=authorized.principal,
+                control_plane=self._control_plane,
+            )
         resolved = resolve_hitl_policy(
             control_plane=self._control_plane,
             hitl_policy_key=self._hitl_policy_key,
@@ -1080,8 +1314,23 @@ class InMemoryHitlTransport:
                     identity_provider=self._identity_provider,
                     policy=policy,
                 )
-        tenant = authorized.tenant
         with self._lock:
+            # Step 6a: revalidate the SELECTED event and its state against the
+            # snapshot — the same frozen event in the same state, or missing
+            # both times. Any disagreement refuses here and NOTHING below
+            # runs: no nonce is consumed, no claim popped, nothing recorded
+            # (D-IMPL-366 amendment: refused submissions introduce no state
+            # mutations; the attestation's nonce is single-use on SUCCESS only).
+            again, state_again = self._snapshot_locked(tenant, submission.event_key)
+            if state_again != state or again != event:
+                raise HitlEventRevalidationRefused(
+                    f"the HITL event under {submission.event_key!r} changed"
+                    f" between this submission's snapshot ({state}) and its"
+                    f" record ({state_again}); the submission was judged"
+                    " against a state that no longer holds and is refused"
+                    " before anything is consumed — re-present it against the"
+                    " current event (D-IMPL-366 §4b 6a)"
+                )
             if verified is not None:
                 # E4 / C11(a): the nonce check and insert are ONE step under
                 # the lock, after verification and before anything is
@@ -1106,6 +1355,10 @@ class InMemoryHitlTransport:
                     ),
                     "authorizing_decision_id": authorized.decision_id,
                     "hitl_policy_ref": policy_ref,
+                    # H3 (a) / H2: stamped from the revalidated snapshot.
+                    "approval_policy_ref": None if event is None else event.policy_ref,
+                    "requested_by": None if event is None else event.requested_by,
+                    "event_state_at_submit": state,
                 }
             )
             self._submissions.setdefault(tenant, []).append(recorded)

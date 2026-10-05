@@ -556,6 +556,14 @@ def _suspend_over_http(
     return body
 
 
+def _as_approver() -> dict[str, str]:
+    """The approver's credential at the door (SEC-006): the fixture credit
+    officer, eligible under the typed gate policy and not the starter."""
+    from .gate_fixtures import TOKEN_APPROVER
+
+    return {"Authorization": f"Bearer {TOKEN_APPROVER}"}
+
+
 def _approve_over_http(app: Any, fabric: Fabric, body: dict[str, Any]) -> None:
     """Put a human action on the authority path for this suspension."""
     pending = next(
@@ -565,8 +573,10 @@ def _approve_over_http(app: Any, fabric: Fabric, body: dict[str, Any]) -> None:
     )
     submission = _bound_submission(body["event_key"])
     submission["product_content_hash"] = pending.product_content_hash
+    # SEC-006 (D-IMPL-366): the approver is a different principal from the
+    # starter (the default token's client invoked the workflow).
     assert call(
-        app, "POST", "/hitl/actions", json=submission
+        app, "POST", "/hitl/actions", json=submission, headers=_as_approver()
     ).status_code == 200
 
 
@@ -1175,7 +1185,12 @@ def _verdict_over_http(
     submission = _bound_submission(body["event_key"])
     submission["product_content_hash"] = pending.product_content_hash
     submission["action"] = action
-    assert call(app, "POST", "/hitl/actions", json=submission).status_code == 200
+    # SEC-006 (D-IMPL-366): both verdicts come from ONE eligible principal who
+    # is not the starter — the conflict guard is about two verdicts, not two
+    # people, and the requester may not approve their own gate.
+    assert call(
+        app, "POST", "/hitl/actions", json=submission, headers=_as_approver()
+    ).status_code == 200
 
 
 def _resume_over_http(

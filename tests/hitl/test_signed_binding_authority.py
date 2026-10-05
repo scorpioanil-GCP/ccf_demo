@@ -281,7 +281,13 @@ def _policy(
 
 @pytest.fixture
 def plane() -> ControlPlaneRegistry:
-    return ControlPlaneRegistry()
+    from tests.composition import register_fixture_approval_policies
+
+    registry = ControlPlaneRegistry()
+    # SEC-006 (D-IMPL-366): the typed approval policy the bound gate event
+    # pins, so the attestation controls judge the signed leg, not eligibility.
+    register_fixture_approval_policies(registry)
+    return registry
 
 
 def _transport(
@@ -962,8 +968,14 @@ def test_approval_gate_double_verification_is_idempotent(
         "tenant": _TENANT,
         "workflow_state_ref": "acme-bank/exec-hitl",
     }
+    # SEC-006 (D-IMPL-366): a bound gate event names its typed approval policy
+    # and a requester other than the approver, or eligibility refuses it
+    # before the double verification this control is about.
     event = PendingHitlEvent(
-        **document, product_content_hash=content_hash(document)
+        **document,
+        product_content_hash=content_hash(document),
+        policy_ref="ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0",
+        requested_by="sba-requester-1",
     )
     transport.enqueue(event=event)
     # The binding's action_time is FIXED (C7): the gate's clock ticks, the
