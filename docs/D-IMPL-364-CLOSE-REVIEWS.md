@@ -69,7 +69,9 @@ its own worktree before any result, and left its worktree byte-clean afterwards.
 
 The executing model (Claude Fable 5.1, the author of the candidate) is excluded from every seat
 above; it assembled the corrected payload, verified every finding and every rejection against the
-pinned tree by execution (section 5), and wrote this record.
+pinned tree by execution, and wrote this record. Its own runs are labelled **AUTHOR-EXECUTED**
+throughout and are never counted as independent-seat evidence; where a seat reached the same result
+independently, the seat is named beside it.
 
 ## 3. Findings — verified against the pinned tree before being recorded
 
@@ -84,7 +86,7 @@ Two of its ten rows did not:
    and `tests/products/test_gate_two_call_shape.py::test_the_binder_tripwire_detects_a_projection_that_skips_it`,
    both AST tripwire meta-tests over synthesized source that never execute
    `src/ccf/deployment/binder.py::refuse_operator_set_divergence`. EXECUTED (s011 seat, sever seat,
-   and the executing model): with the binder's comparison severed to never refuse, the two cited
+   and author-executed): with the binder's comparison severed to never refuse, the two cited
    tests pass; `tests/deployment/test_binder.py::test_one_edited_operator_key_in_one_document_is_refused`,
    both parametrizations of `tests/deployment/test_binder.py::test_a_superset_and_a_subset_are_both_refused`,
    `tests/deployment/test_binder.py::test_a_plan_that_ignores_its_requirements_artifact_is_refused`
@@ -96,7 +98,7 @@ Two of its ten rows did not:
    `tests/products/test_d_impl_341_ttl_anchor.py::test_c6_evidence_older_than_the_window_refuses_ttl_bounds_naming_the_anchored_expiry`,
    whose assertions are that the refusal kind is `ttl-refusal`, the reason is `GATE_TTL_BOUNDS`,
    and the kind is NOT `ttl-anchor-refusal` — a Gate 3 control, the same test the ruling lists as
-   SEC-011 A1 evidence. EXECUTED (executing model; sever seat on one branch): with both
+   SEC-011 A1 evidence. EXECUTED (author-executed; the sever seat independently on one branch): with both
    `gate=GATE_TTL_ANCHOR` mint sites in `src/ccf/products/expiry.py::resolve_ttl_anchor` severed to
    the bounds token, the cited test passes and
    `tests/products/test_d_impl_341_ttl_anchor.py::test_c5_a_served_set_with_no_source_instant_refuses_by_its_own_reason`
@@ -115,8 +117,7 @@ drives `src/ccf/products/child_resolver.py::GrantBoundChildResolver` directly wi
 `admitted_at`, so it cannot by itself show that `src/ccf/products/resolver.py::GovernedResolver`
 passes its single clock read into that parameter. The structural observation is accurate. It is not
 a hole: on the tree the hop is the assignment `admitted_at = served_at` inside
-`GovernedResolver.__call__`, passed to both child-resolver call shapes. EXECUTED by the executing
-model: severing that assignment to `request.asked_at` reddens four recorded controls —
+`GovernedResolver.__call__`, passed to both child-resolver call shapes. AUTHOR-EXECUTED: severing that assignment to `request.asked_at` reddens four recorded controls —
 `tests/products/test_resolver_seam.py::test_o3_admission_is_judged_at_the_RUNTIME_clock_not_a_declared_instant`,
 `tests/products/test_resolver_seam.py::test_step4_the_composite_window_is_the_same_instant_as_served_at`,
 `tests/products/test_served_at_severings.py::test_V1_severing_hoist_reverted` and
@@ -158,7 +159,7 @@ real-route instrumentation test is a candidate for promotion to a committed cont
   controls (a multi-line or parenthesized call) reddened. All scratch files deleted, tree clean.
 - `tests/signal_layer/test_d364_writer_coverage.py::_seam_order` compares text offsets, so a dead
   branch around the guard call leaves all nine d364 tests green; the two B3 behavioral controls
-  redden (b1 seat, and the executing model's gutted-guard-body severing: 8 behavioral controls red,
+  redden (b1 seat, and the author-executed gutted-guard-body severing: 8 behavioral controls red,
   ordering tripwire green). The clause is met by the behavioral controls;
   `tests/signal_layer/test_d364_writer_coverage.py::B1_TRIPWIRE_SEVERINGS` points the clause at a
   test that does not bite on "guard disabled", and names one severing
@@ -226,7 +227,7 @@ real-route instrumentation test is a candidate for promotion to a committed cont
 
 ## 4. The two docs repairs this record carries
 
-### 4.1 Two register citation cells (INDEPENDENTLY EXECUTED by the executing model, baseline → sever → restore)
+### 4.1 Two register citation cells (AUTHOR-EXECUTED, baseline → sever → restore; the independent seats' confirmations are in 3.1)
 
 Dave's scoped GO (2026-10-04, after the panel's report): "Repair GO for the two controls-register
 citation cells only ... Verify each replacement against its actual production control with baseline →
@@ -260,8 +261,9 @@ unchanged. No replacement needed a new test; the gap the GO anticipated did not 
 
 ### 4.2 The docs completion the two SEC-008 rulings call for (`d136fdc5`)
 
-Dave's instruction (2026-10-04, 17:17 MST): correct the stale `asked_at` descriptions, record the two
-existing rulings, complete the disclosures they require, verify, commit, push. No behavior change.
+The instruction Dave sent (2026-10-04, 17:17 MST; its text drafted by the external reviewer): correct
+the stale `asked_at` descriptions, record the two existing rulings, complete the disclosures they
+require, verify, commit, push. No behavior change.
 Diff: nine files, docstrings and prose only — no code line changed (checked by diffing the production
 hunks for any non-prose line).
 
@@ -294,7 +296,7 @@ hunks for any non-prose line).
   citation in the dated design spec (`ProductDoor.serve_stdio`) off its lines — a `cite02` finding.
   Re-cited by symbol, as `beb0c717` did for `docs/D-IMPL-304-DESIGN.md`.
 
-Verification at `d136fdc5` (INDEPENDENTLY EXECUTED by the executing model): `tools.lints --all` rc 0
+Verification at `d136fdc5` (AUTHOR-EXECUTED; no independent seat ran this commit): `tools.lints --all` rc 0
 (5,185 citations matched, 3,820 checked and passing, 0 findings); `mypy src runtime` clean, 242
 files; `tools/dump_surface.py --report` 0/0/0 and `--check` rc 0; `mkdocs build --strict` clean;
 `tests/products signal_layer replay gates peering controlplane assembly agents contracts deployment`
@@ -311,7 +313,7 @@ as current.
 | --- | --- | --- |
 | V1 SEC-008 B1 (writer coverage) | VERIFIED for `src/` + `runtime/` static call sites; **the clause's scope needs a ruling** (section 9) | b1 seat: AST walk, `.ingest` referenced only at `src/ccf/products/product.py::OpenedProduct`'s acquisition seam, `.worker` read only there and set only in `src/ccf/boot.py::FabricHandle`, zero references to the other three entry points outside `src/ccf/assembly/worker.py::AssemblyWorker`; tripwire 9 passed; planted bypasses as in 3.3 |
 | V2 SEC-008 B3 (real route) | VERIFIED by execution | b3 seat: with the map entry deleted, a raw `src/ccf/signal/envelope.py::TemporalWriteRefused` escapes `OpenedProduct.answer`; with it present, a `RefusalEnvelope` whose record carries cause `nonexistent` and code `temporal-write-refused`; writer calls 0, all five graph tables 0 rows; a still clock serves and writes once (positive control); a second question refuses identically |
-| V3 SEC-010 B3 (peered child) | VERIFIED by execution; codex's hold rejected (3.2) | s010 seat real-route instrumentation; executing model's hop severing |
+| V3 SEC-010 B3 (peered child) | VERIFIED by execution; codex's hold rejected (3.2) | s010 seat real-route instrumentation; author-executed hop severing |
 | V4 SEC-010 D1 (replay address and bindings) | VERIFIED | s010 seat: all six elements asserted including the temporal-boundary binding pinned once and resolved at its recorded version; non-vacuous under three severings (replay→latest red; LATER registration removed → the both-halves assertion fires; effectivity→`asked_at` red) |
 | V5 SEC-011 C1–C4 | C1, C3, C4 VERIFIED; C2 NOT VERIFIED at `beb0c717` (3.1), repaired at `4279d827` (4) | s011 seat: `required_operator_keys` `min_length=1` on both `src/ccf/controlplane/artifacts.py::ProductClassDeclaration` and `src/ccf/controlplane/artifacts.py::ProjectionRequirements`, an empty set refused at validation by execution, the cited Gate 1 control reddens under a Gate 1 sabotage; the 358-05 body verbatim against the base with the dated amendment heading |
 
@@ -352,7 +354,7 @@ row to a resolving but unrelated test stays green) and the prefilter shape of se
 ## 7. Checked, not defects — consolidated
 
 - Cursor's "gut the guard body, keep the call order": the ordering tripwire stays green as predicted,
-  and eight behavioral controls go red (EXECUTED by the executing model); the guard is load-bearing.
+  and eight behavioral controls go red (author-executed); the guard is load-bearing.
 - Q1 cause honesty: a decision for Dave, not a defect finding (section 9.2).
 - Q2–Q3 (other write-handle shapes): the only exposures in `src/` and `runtime/` are
   `src/ccf/boot.py::FabricHandle` and the paved road's own read of it; no runtime composition root
@@ -384,14 +386,16 @@ row to a resolving but unrelated test stays green) and the prefilter shape of se
 | gemini, second | none | named a hoist absent from the GREEN diff as the intended behavior change | one |
 | reader seat | two register rows (BLOCKING) | both confirmed by execution | none |
 
-Three reviewers agreeing is not evidence; every verdict in this record rests on a seat's or the
-executing model's execution.
+Three reviewers agreeing is not evidence; every verdict in this record rests on a seat's independent execution or on an
+author-executed run labelled as such.
 
 ## 9. SEC-008 dispositions — RULED (Dave, 2026-10-04), with the panel's presentation preserved
 
-The panel presented two choices. Dave's reply (17:17 MST, relayed verbatim): *"My previous
-recommendation reopened rulings you had already made. Withdraw it. The low road is outside B1, and
-the 404 stays."* Both are therefore recorded as **existing rulings**, not new ones — they follow
+The panel presented two choices. Dave's reply (17:17 MST) relayed the external reviewer's
+(ChatGPT's) correction of its own earlier recommendation — *"My previous recommendation reopened
+rulings you had already made. Withdraw it."* — and Dave's ruling with it: **the low road is outside
+B1, and the 404 stays.** The quoted sentence is the reviewer's; the two dispositions are Dave's. Both
+are therefore recorded as **existing rulings**, not new ones — they follow
 `D-IMPL-358` ruling 2 (the worker owns no clock; the guard is a caller guard) and `D-IMPL-364`
 choice 1 as ruled. Neither is reopened here. The presentation that led to them is kept below as the
 history of the decision, headed as presented.
