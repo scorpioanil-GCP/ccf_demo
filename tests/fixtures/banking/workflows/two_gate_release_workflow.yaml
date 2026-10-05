@@ -1,0 +1,51 @@
+# Banking fixture workflow definition — the two-gate release wrapper (SEC-006,
+# D-IMPL-366 G1: the requester is the STARTER; T6: a second gate reached by a
+# DIFFERENT resumer still names the starter as the requester). Added beside the
+# historical fixtures (the D-IMPL-363 fixture rule).
+#
+# Both gates bind the SAME typed approval policy by pinned reference. The
+# policy artifact itself is registered by the test, never written into this
+# file: a `ccf.approval-policy` is adopter-registered against its real contract
+# and is not manifest-addressable (D-IMPL-366, ruled).
+
+keys:
+  workflow_definition: acme-bank/workflows/two-gate-release
+  task_definition: acme-bank/ccf.task-definition/two-gate-release
+
+workflow_definition:
+  schema_version: "2.0.0"
+  artifact_version: "1.0.0"
+  name: two-gate-release-workflow
+  tenant: acme-bank
+
+  task_definition_ref: "ccf-artifact://acme-bank/ccf.task-definition/two-gate-release@1.0.0"
+
+  start: fetch-certificates
+  transitions:
+    - source: fetch-certificates
+      target: first-approval
+    - source: first-approval
+      target: archive-certificates
+    - source: first-approval
+      target: rejected
+    - source: archive-certificates
+      target: second-approval
+    - source: second-approval
+      target: released
+    - source: second-approval
+      target: rejected
+  terminal_states: [released, rejected]
+
+  exception_refs: {}
+
+  gate_policies:
+    first-approval: "ccf-artifact://acme-bank/approval-policy/sec006-officers@1.0.0"
+    second-approval: "ccf-artifact://acme-bank/approval-policy/sec006-officers@1.0.0"
+
+  gate_routes:
+    first-approval:
+      approve: archive-certificates
+      reject: rejected
+    second-approval:
+      approve: released
+      reject: rejected
