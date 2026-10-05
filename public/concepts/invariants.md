@@ -79,16 +79,25 @@ operator.
 empty-operator guard, lineage strict equality, and TTL bounds.
 
 **Why the architecture forces it.** Each gate closes a way a product could be
-well-typed and still be a lie: derived from no operators at all, carrying a
-lineage set that does not match what actually contributed, or served past the
-freshness envelope it advertises.
+well-typed and still be a lie: derived from no operators at all, served past the
+freshness envelope it advertises, or — for a federated product — carrying a
+lineage its producer's signed bytes do not attribute. The lineage strict-equality
+gate on the governed path is **assembly-path integrity**, not an independent
+witness: the engine runs exactly the operators the class declaration names, so
+the gate verifies that the engine transcribed the plan faithfully and cannot
+catch a misdeclaration (`D-IMPL-86`). The control that can is the pre-execution
+binder, `refuse_operator_set_divergence`, which compares the class declaration
+with the projection's own requirements artifact before anything runs
+(`D-IMPL-300`). Which control can fail on which path, and the test that proves
+each one, is the [controls register](../reference/controls-register.md).
 
 **How it is enforced.** Gate execution is the only route to a servable product
 — the serving type cannot be constructed without passing through the gate
 runner, so bypassing the gates raises rather than silently succeeding. Each
 refusal is a typed object naming which gate refused and why, not a boolean.
 Federated products run an additional lineage-attributability check on the same
-path.
+path. The TTL gate's comparand is the fabric's own instant, read once per serve
+(`D-IMPL-358`).
 
 ## Algorithmic ⇄ Semantic Alternation
 

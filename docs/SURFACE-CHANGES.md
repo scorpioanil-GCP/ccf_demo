@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1825 entries**, of which **1562** name a public Python surface.
+**1826 entries**, of which **1562** name a public Python surface.
 
 ## Added
 
@@ -25536,7 +25536,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-227 entries — 196 public Python surface, 31 not public Python API.
+228 entries — 196 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -30297,3 +30297,15 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: derive the key through the builder; nothing persisted carries the old string (the register is a Control Plane artifact re-registered per boot)
 
 *Recorded by `353-07-the-composition-roots-mint-for-their-own-writes.md`.*
+
+#### ccf.products.resolver.SDK_SEAM_REFUSALS
+
+- Surface: ccf.products.resolver.SDK_SEAM_REFUSALS
+- Public surface: false
+- Change type: behavior
+- Before: one entry — `ccf.assembly.worker.IdentityRefused` → cause `nonexistent`, code `identity-refused`. A `ccf.signal.envelope.TemporalWriteRefused` raised inside the acquisition seam on a governed serve escaped `OpenedProduct.answer` as a traceback, and no replay record was written.
+- After: two entries — `ccf.signal.envelope.TemporalWriteRefused` → cause `nonexistent`, code `temporal-write-refused`. On a governed serve the refusal is minted by the resolver as a `SubjectUnavailableRefusal` at seam `acquisition`, recorded on dimension 5 (`assembly_refusal` carries the cause, the code and the guard's own detail, which names the envelope id, the policy key, both instants and the tenant's declared reach), and delivered through the ordinary disclosure step. At `minimal` (the default) and `reasoned` the consumer sees kind `subject-unavailable`, detail "the requested subject is not available to this principal under this product", and `cause` / `error_code` withheld as `undisclosed`; at `full` the shell carries `nonexistent` / `temporal-write-refused` and the guard's detail. The HTTP door answers 404 at every level. The writer is never reached: zero writes, no restamp.
+- Why: `D-IMPL-364` SEC-008 B2 — the seam's own write refusal on a governed serve is a recorded governed refusal, not an escaped exception; the record is where the true reason lives. Cause `nonexistent` is the closed `RefusalCause` reading `IdentityRefused` already carries and the map admits no other; the 404 is the kind's, chosen so that a timing refusal and an entitlement refusal are indistinguishable to a principal who is not entitled to know which. Ruled to stay (Dave, 2026-10-04).
+- Migration: none for a caller — the type still exists. The writer itself raises no `TemporalWriteRefused` (it judges no instant); a low-road composition that composes `IngressTemporalBound` and invokes `refuse_outside_window` before its own `ingest` receives the raw exception from that call, and one that does not compose the guard receives nothing. A consumer of the product doors that keys on `cause` alone cannot distinguish this refusal from a missing subject below `full`; a consumer entitled to `full` reads `error_code` `temporal-write-refused`. An operator reads the replay record. A deployment whose serves take longer than the tenant's declared past reach between `asked_at` and the seam's `ingress_at` will see this refusal on otherwise-sound questions; the remedy is the tenant's `TemporalBoundaryPolicy`, not the question.
+
+*Recorded by `364-01-temporal-write-refused-converts-at-the-seam.md`.*

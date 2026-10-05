@@ -466,7 +466,7 @@ the mechanism it lacks is a shape.
    inside the grammar. The tag map says "shape half", never
    "injection-complete".
 7. **stdio half:** not code in 1.0.2 (§7.3). The SDK door page discloses that
-   `ProductDoor.serve_stdio` (`runtime/ccf_runtime/mcp/product_door.py:240-268`)
+   `ProductDoor.serve_stdio` (`runtime/ccf_runtime/mcp/product_door.py::ProductDoor.serve_stdio`)
    serves one pre-set identity for every caller (`public/` has zero mentions
    today).
 

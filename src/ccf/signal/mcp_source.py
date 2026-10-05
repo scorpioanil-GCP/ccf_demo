@@ -23,7 +23,12 @@ nowhere to put one (see the argument in
 :mod:`ccf.signal.source`, which :class:`~ccf_runtime.cdc.adapter.CDCSourceAdapter`
 relies on identically). Envelopes go to the caller, the caller hands them to
 the L2 :class:`~ccf.assembly.worker.AssemblyWorker`, and that is the only
-route into L3 (INV-CH7-10, single-writer, CLAUDE.md §10).
+route into L3 (INV-CH7-10, single-writer, CLAUDE.md §10). That route carries no
+temporal write guard of its own: this adapter stamps ``ingestion_timestamp``
+from its injected clock, so the caller composes
+:class:`~ccf.signal.envelope.IngressTemporalBound` at its composition root and
+judges each envelope before ``ingest`` (ruled outside SEC-008 B1 — Dave,
+2026-10-04, `D-IMPL-364`: on the low road the guard is the adopter's).
 
 **The SSRF control (T-06-24).** Every address this adapter contacts is fixed
 at construction, from Control Plane configuration: the server endpoint lives

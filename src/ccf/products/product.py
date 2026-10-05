@@ -18,7 +18,9 @@ no second registry, no second recorder and no second replay store here; a
 deployment that needs one thing different reads :meth:`OpenedProduct
 .build_arguments` — the exact keyword mapping this object hands the builder —
 edits one entry, and calls the builder itself. The low road stays the low
-road (Dave: *"Do not make the paved road the only road."*).
+road (Dave: *"Do not make the paved road the only road."*). On the low road the
+temporal write guard this module composes at its acquisition seam is the
+adopter's to compose (`D-IMPL-364` SEC-008 B1, ruled outside scope).
 
 Who owns what — the ruled split
 ---------------------------------
@@ -244,10 +246,19 @@ class AcquisitionContext:
         tenant_id: The tenant every envelope must be stamped for.
         sources: Every source setting the environment document declared, by
             the deployment's own names, resolved to values ONCE at open.
-        instant: The question's ``asked_at`` — the instant every envelope's
-            ``ingestion_timestamp`` must carry, and the clock an SDK L1
-            adapter used inside ``acquire`` is constructed with
-            (``clock=lambda: context.instant``).
+        instant: The question's ``asked_at`` — the bounded as-of boundary,
+            not the fabric's clock. It is the instant every envelope's
+            ``ingestion_timestamp`` must carry on this road
+            (``refuse_foreign_envelope``) and what an SDK L1 adapter used
+            inside ``acquire`` is constructed with
+            (``clock=lambda: context.instant``); it reached ``acquire`` only
+            after the resolver judged it inside the tenant's declared temporal
+            window (`D-IMPL-358` D5). The fabric's own instants are read
+            elsewhere — ``served_at`` once per serve in the resolver, and the
+            write guard's ``ingress_at`` at the seam — and are never stamped
+            onto the envelope: the observation stamp stays the question's
+            bounded instant by ruling (`D-IMPL-364` SEC-008 B4; the bitemporal
+            as-of read is the open row `D-IMPL-365`).
     """
 
     request: ProductRequest
@@ -847,8 +858,11 @@ class OpenedProduct:
             for envelope in acquire(context):
                 refuse_foreign_envelope(envelope, tenant_id=tenant_id, asked_at=request.asked_at)
                 # BEFORE the single writer sees it. An out-of-window or undeclared
-                # envelope raises here, so no claim lands, nothing is restamped, and
-                # no replay record is fabricated for a write that did not happen.
+                # envelope raises here, so no claim lands and nothing is restamped.
+                # The raise is `TemporalWriteRefused`, which `SDK_SEAM_REFUSALS`
+                # converts into a governed refusal WITH a record at this seam
+                # (`D-IMPL-364` SEC-008 B2) — this is a governed serve, so the
+                # record is the serve's own, not one fabricated for a write.
                 temporal_bound.refuse_outside_window(envelope, now=ingress_at)
                 worker.ingest(envelope)
 

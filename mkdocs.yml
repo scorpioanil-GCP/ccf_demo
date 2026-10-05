@@ -192,6 +192,7 @@ nav:
           - How a spec is generated: reference/specifications/spec_generation.md
           - How an example is delivered: reference/specifications/example_delivery.md
       - HTTP API: reference/http-api.md
+      - Controls register: reference/controls-register.md
       - Performance: reference/performance.md
       # D-17 placement: the surface-record toolchain is maintainer-facing, so it
       # sits last in Reference rather than among the adopter-facing surfaces.

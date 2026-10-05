@@ -438,12 +438,37 @@ _SCORER_ONLY_INPUTS: Final[tuple[str, ...]] = (
 #: entity" as "you may not see it" and borrow the SDK's authority for it — and a
 #: class that declares one of these types is refused at registration rather than
 #: quietly overridden (:func:`_refuse_sdk_owned_seam_refusal`).
+#:
+#: **The second entry — `D-IMPL-364` SEC-008 B2, Dave's choice 1.**
+#: :class:`~ccf.signal.envelope.TemporalWriteRefused` is the `D-IMPL-358` step-8
+#: write guard's refusal: an acquired envelope whose instant lies outside the
+#: tenant's declared temporal window, refused at the acquisition seam BEFORE
+#: L2's one writer sees it. Measured before this entry existed, it escaped
+#: ``OpenedProduct.answer`` as an untyped error with no record whenever the
+#: fabric's second clock read (``ingress_at``, at the seam) had moved past the
+#: first (``served_at``) — close-panel finding 3. It is raised INSIDE a governed
+#: serve that otherwise produces a record, which is exactly the case
+#: `D-IMPL-358` ruling 5 reserves for *"audited through the existing
+#: write/admission mechanism where one exists"*: the mechanism is this map, and
+#: no record is fabricated for a write path that produces none (a direct caller
+#: of the writer is outside the supported ingress surface and gets the writer's
+#: own audit, as the writer's docstrings state). The cause is ``nonexistent`` —
+#: the fabric holds no admissible observation for this question at this
+#: instant — the same reading ``IdentityRefused`` carries, and the vocabulary is
+#: closed (:data:`~ccf.products.contract.RefusalCause`). The detail is the
+#: refusal's own message, which carries the envelope id, the policy key and the
+#: instant verbatim.
 SDK_SEAM_REFUSALS: Final[Mapping[str, SeamRefusalBinding]] = MappingProxyType(
     {
         "ccf.assembly.worker.IdentityRefused": SeamRefusalBinding(
             exception="ccf.assembly.worker.IdentityRefused",
             cause="nonexistent",
             error_code="identity-refused",
+        ),
+        "ccf.signal.envelope.TemporalWriteRefused": SeamRefusalBinding(
+            exception="ccf.signal.envelope.TemporalWriteRefused",
+            cause="nonexistent",
+            error_code="temporal-write-refused",
         ),
     }
 )

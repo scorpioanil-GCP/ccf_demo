@@ -21,7 +21,9 @@ class, so a deployment composed by hand on the low road (an hw1-shaped
 long-lived fabric with its own resolver) reaches the same door with the
 pieces it already holds. The paved road's
 :class:`~ccf.products.product.OpenedProduct` conforms; so does anything
-carrying the same nine attributes.
+carrying the same nine attributes. The door governs serving, not ingestion: a
+low-road fabric's temporal write guard is its own composition's to compose
+(`D-IMPL-364` SEC-008 B1, ruled outside scope).
 
 Identity over stdio, stated rather than smuggled
 --------------------------------------------------
