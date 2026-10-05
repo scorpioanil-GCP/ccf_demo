@@ -64,6 +64,19 @@ key material and raises `KeyUnavailable` when it holds none.
 > `tests/http_api/test_sec005_attestation_door.py` (the HTTP door) and
 > `tests/mcp/test_sec005_attestation_door.py` (the MCP door).
 
+> **Dated note, 2026-10-05 (`D-IMPL-366`, SEC-006).** Identity says WHO
+> acted; eligibility says whether that principal MAY approve this gate, and
+> the SDK now judges it. `ApprovalPolicy` (`src/ccf/hitl/approval_policy.py`)
+> carries the eligible `subject_id`s — the same axis `HitlPolicy.trusted_keys`
+> is keyed by — and never keys or secrets; the pinned policy version an event
+> names at suspension is the version that judges, resolved exactly, never
+> "latest". The judgment runs at the transport BEFORE attestation, at the
+> primitive before the claim, and at the engine before the conflict count;
+> the requester (the starter) never approves their own gate; a refusal names
+> no eligible principal on the wire. An execution suspended before this
+> change records no starter and REFUSES at resolution under a bound plane
+> (fail-closed): re-run it after upgrading.
+
 `SignedHitlAction` (`src/ccf/hitl/identity_binding.py`) carries the
 human's own signed statement about one action — `HitlActionClaims`:
 tenant, event key, the action, the content hash of what they saw, their

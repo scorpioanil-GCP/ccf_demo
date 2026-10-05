@@ -61,9 +61,11 @@ from ccf.authz.capability import (
     HitlSubmit,
 )
 from ccf.hitl.transport import (
+    ApproverNotEligible,
     HitlActionReceipt,
     HitlActionRequest,
     HitlActionSubmission,
+    HitlEventRevalidationRefused,
     PendingHitlEvent,
     SignedBindingInvalidRefused,
     SignedBindingMismatchRefused,
@@ -73,6 +75,8 @@ from ccf.hitl.transport import (
 from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
+    ERROR_APPROVER_NOT_ELIGIBLE,
+    ERROR_HITL_EVENT_REVALIDATION_REFUSED,
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_MISMATCH,
     ERROR_SIGNED_BINDING_REQUIRED,
@@ -176,6 +180,25 @@ def build_router(deps: ApiDependencies) -> APIRouter:
         )
         try:
             recorded = transport.submit(authorized, submission=submission)
+        except ApproverNotEligible as error:
+            # SEC-006 (D-IMPL-366 G3 (a)): a distinct 403 code; the message is
+            # the transport's non-enumerating one, so the wire names no
+            # eligible principal.
+            raise HTTPException(
+                status_code=403,
+                detail=refusal_detail(
+                    error_code=ERROR_APPROVER_NOT_ELIGIBLE,
+                    message=str(error),
+                ),
+            ) from error
+        except HitlEventRevalidationRefused as error:
+            raise HTTPException(
+                status_code=409,
+                detail=refusal_detail(
+                    error_code=ERROR_HITL_EVENT_REVALIDATION_REFUSED,
+                    message=str(error),
+                ),
+            ) from error
         except SignedBindingRequiredRefused as error:
             # D-16 door mapping (08-03): the transport's typed refusal
             # surfaces as the shared error-code constant, never prose-only.

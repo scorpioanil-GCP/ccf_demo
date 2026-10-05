@@ -342,6 +342,22 @@ to exactly what the approver saw, by content hash, and signed. The
 > `tests/mcp/test_sec005_attestation_door.py`; the key-and-policy posture
 > is on [manage keys and secrets](../how-to/security-and-deployment.md).
 
+> **Dated note, 2026-10-05 (`D-IMPL-366`, SEC-006).** The snippets below
+> also predate approver eligibility. A gate's approval policy is now a typed
+> `ccf.approval-policy` (`ccf.hitl.ApprovalPolicy`: a non-empty set of
+> eligible `subject_id`s, no roles, no quorum, no self-approval switch),
+> registered by adopter code and pinned from `gate_policies`; a door
+> submission by a principal outside it, or by the principal who started the
+> execution, is refused `approver-not-eligible` (HTTP 403) before the
+> attestation is even verified, and the engine judges the same rule again at
+> resumption. The archived program's untyped policy would not construct
+> today (`D-IMPL-351`: the archive is not repaired). Migrate with a NEW policy
+> key and a NEW workflow definition version — the old key cannot be rebound,
+> and pre-change executions do not resume. The shape in tree is
+> `tests/fixtures/banking/approval_policies.yaml`,
+> `tests/http_api/test_sec006_eligibility_door.py` and
+> `tests/mcp/test_sec006_eligibility_door.py`.
+
 ```py
 --8<-- "archive/examples/05-workflow-hitl/run.py:hitl-approval"
 ```

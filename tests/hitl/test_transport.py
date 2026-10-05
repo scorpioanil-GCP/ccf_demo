@@ -178,10 +178,18 @@ def test_submitted_actions_return_through_the_same_surface() -> None:
     transport.submit(_authorized(), submission=submission)
     recorded = transport.submissions(tenant="acme-bank")
     # Equal up to the transport's own stamps — the decision id it recorded
-    # is the capability's, never the caller's.
+    # is the capability's, never the caller's; and (SEC-006, D-IMPL-366 H3/H2)
+    # the event's policy ref, its requester and the state the transport found
+    # the event in, stamped from the snapshot it revalidated.
+    event = _event()
     assert recorded == (
         submission.model_copy(
-            update={"authorizing_decision_id": _authorized().decision_id}
+            update={
+                "authorizing_decision_id": _authorized().decision_id,
+                "approval_policy_ref": event.policy_ref,
+                "requested_by": event.requested_by,
+                "event_state_at_submit": "pending",
+            }
         ),
     )
     assert isinstance(recorded[0].principal, HumanPrincipalBinding)

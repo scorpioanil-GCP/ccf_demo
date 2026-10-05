@@ -1,0 +1,41 @@
+# Banking fixture approval policies — the TYPED `ccf.approval-policy` artifacts
+# the historical workflow fixtures' `gate_policies` refs resolve to (SEC-006,
+# D-IMPL-366; SDK-defined). Added BESIDE the historical fixtures, never produced
+# by rewriting one (the D-IMPL-363 fixture rule): `covenant_review_workflow.yaml`
+# and `payment_release_workflow.yaml` keep their refs as text, and the
+# `approval-policy` entries in their `referenced_artifacts` are the PRE-CHANGE
+# DeclaredArtifact shape — an `approver_role` and a `quorum` no code ever read,
+# which is the finding. The suites' closures no longer register those entries
+# (the factory refuses a DeclaredArtifact gate policy by ruling, §4 (5)); they
+# register these under the SAME keys, at the SAME declared semver, so every
+# pinned `…@1.0.0` ref resolves to the typed policy.
+#
+# `eligible_principals` is test vocabulary (CINV-01): the subjects the suites
+# use as gate approvers. Every suite's STARTER is a different principal
+# (`workflow-tests`, the door client ids) — requester ≠ approver is
+# unconditional under a bound policy. No key material lives here; keys stay in
+# the pinned HitlPolicy (D-IMPL-363 E5).
+
+policies:
+  credit_officer:
+    key: acme-bank/approval-policy/credit-officer
+    policy:
+      semver: "1.0.0"
+      eligible_principals:
+        - credit-officer-11
+        - credit-officer-7
+        - officer-1
+        - officer-2
+        - officer-3
+        - approver-1
+  treasury_officer:
+    key: acme-bank/approval-policy/treasury-officer
+    policy:
+      semver: "1.0.0"
+      # The payment-release suites (tests/workflow/test_slice.py,
+      # tests/conformance/test_orchestration.py) resolve the treasury gate with
+      # hitl.yaml's default approver, the credit officer, and the two-approver
+      # replay control uses both; both are therefore eligible here.
+      eligible_principals:
+        - treasury-officer-42
+        - credit-officer-11

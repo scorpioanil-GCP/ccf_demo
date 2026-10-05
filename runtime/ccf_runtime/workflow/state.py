@@ -28,9 +28,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 
 __ccf_mode__ = "algorithmic"
 
@@ -118,6 +119,8 @@ class WorkflowStateRecord(CCFContract):
         trace: Every transition recorded so far, in order.
         workflow_definition_uri: The pinned versioned URI of the workflow
             definition this execution runs (D-IMPL-26).
+        started_by: The principal that started the execution (SEC-006;
+            `D-IMPL-366` G1 (a)); ``None`` on a pre-change record.
         workflow_definition_hash: The content hash of that definition —
             what actually binds the execution to it. The URI alone does
             not: it is built from the artifact's OWN declared tenant, name
@@ -136,6 +139,19 @@ class WorkflowStateRecord(CCFContract):
     trace: tuple[TraceEntry, ...]
     workflow_definition_uri: str
     workflow_definition_hash: str
+    #: The STARTER — the ``Execute`` capability's principal, stamped once in
+    #: ``WorkflowEngine.execute`` and carried unchanged through every later
+    #: record of the execution (SEC-006; `D-IMPL-366` G1 (a)). The engine
+    #: copies it onto every gate event as ``requested_by`` and judges approver
+    #: eligibility against it at resumption, so the requester of a second gate
+    #: is still the starter, not the ``Resume`` holder who reached it.
+    #: Hash-transparent at ``None`` (CINV-06; D-IMPL-243): a record persisted
+    #: before this field existed rehydrates unchanged — and, under a bound
+    #: plane, such an in-flight suspension REFUSES at resolution (G5 (a),
+    #: fail-closed; see the migration note).
+    started_by: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("status")
     @classmethod

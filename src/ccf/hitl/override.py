@@ -196,8 +196,12 @@ class OverrideBoundary(Generic[ProductT]):
         workflow_state_ref: str,
         original: ProductT,
         policy_ref: str | None = None,
+        requested_by: str | None = None,
     ) -> PendingHitlEvent:
         """Surface the agent's output for a possible human substitution.
+
+        ``requested_by`` (SEC-006; `D-IMPL-366` G6 (a)) is carried on the
+        event as data and NOT judged for this event class.
 
         The original's content hash is bound into the pending event at
         proposal time — the value the overrider's binding must echo — and
@@ -212,6 +216,7 @@ class OverrideBoundary(Generic[ProductT]):
             workflow_state_ref=workflow_state_ref,
             product_content_hash=content_hash(original),
             policy_ref=policy_ref,
+            requested_by=requested_by,
         )
         self._transport.enqueue(event=event)
         with self._state_lock:

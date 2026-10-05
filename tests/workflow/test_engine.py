@@ -126,7 +126,11 @@ from ccf_runtime.workflow.engine import (
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 
-from tests.composition import register_typed_at_composition
+from tests.composition import (
+    register_fixture_approval_policies,
+    register_typed_at_composition,
+    without_approval_policies,
+)
 from tests.hitl.capabilities import submit_capability
 from tests.workflow.capabilities import (
     execute_as,
@@ -163,8 +167,18 @@ def _register_declared(
         register_typed_at_composition(registry, reference["key"], declared, artifact_class)
 
 
-def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
-    """Register everything the covenant-review workflow's refs resolve to."""
+def _register_covenant_closure(
+    plane: ControlPlaneRegistry, *, as_shipped: bool = False
+) -> None:
+    """Register everything the covenant-review workflow's refs resolve to.
+
+    SEC-006 (`D-IMPL-366`): the gate's approval policy is registered as the
+    TYPED ``ccf.approval-policy`` from ``approval_policies.yaml`` under the key
+    the fixture's ref pins — the fixture file itself is untouched. With
+    ``as_shipped=True`` the fixture's own PRE-CHANGE ``DeclaredArtifact``
+    policy is registered instead, which the factory now refuses by ruling
+    (§4 (5)): the shape the SEC-006 factory control exercises.
+    """
     prompt_fixture = _load("prompts/covenant_summary.yaml")
     prompt = parse_artifact(prompt_fixture["prompt_artifact"], PROMPT_ARTIFACT)
     register_typed_at_composition(plane, 
@@ -187,7 +201,13 @@ def _register_covenant_closure(plane: ControlPlaneRegistry) -> None:
     register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
-    _register_declared(plane, workflow_fixture["referenced_artifacts"])
+    if as_shipped:
+        _register_declared(plane, workflow_fixture["referenced_artifacts"])
+    else:
+        _register_declared(
+            plane, without_approval_policies(workflow_fixture["referenced_artifacts"])
+        )
+        register_fixture_approval_policies(plane)
 
 
 def _register_refresh_closure(plane: ControlPlaneRegistry) -> None:
@@ -1188,6 +1208,54 @@ def test_a_submission_that_never_saw_this_suspension_is_not_authority(
         engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="approved")
     )
     assert isinstance(outcome, WorkflowResumeRefused)
+
+
+def test_an_eligible_approvers_stale_hash_verdict_is_not_authority(
+    registry: ControlPlaneRegistry, tmp_path: Path
+) -> None:
+    """SEC-001, the hash binding proved on its own — beside, not instead of, the
+    impostor control above (D-IMPL-366 close panel 3.1; ruled by Dave,
+    2026-10-05: "a second test must prove the hash term").
+
+    In ``_gate_authority`` the hash term is evaluated BEFORE ``eligible()``
+    (it is the second conjunct; eligibility is the last), so for the impostor
+    the hash refuses first and eligibility is never reached. The impostor
+    control is nevertheless vacuous for the hash term on the repaired engine
+    because the two conditions OVERLAP for that fixture: ``impostor`` is not
+    in the typed credit-officer policy, so with the hash term severed the
+    eligibility conjunct still excludes the submission and the test stays
+    green. That test therefore proves the ineligible path and no longer
+    measures the binding of a verdict to the suspension it saw. This control
+    records the same stale-hash verdict from an ELIGIBLE non-starter
+    (`officer-3` is in the fixture's typed credit-officer policy; the starter
+    is the shared test principal), so eligibility admits it and ONLY the hash
+    term can refuse. Severing: replace
+    ``submission.principal.product_content_hash == suspension`` in
+    ``_gate_authority`` with ``True`` — this test reddens; the impostor control
+    stays green.
+    """
+    engine, transport, _ = _engine(registry, tmp_path)
+    workflow = _covenant(registry)
+    suspended = asyncio.run(engine.execute(execute_as(workflow), workflow, execution_id="exec-1"))
+    assert isinstance(suspended, WorkflowSuspended)
+    transport.submit(
+        submit_capability(
+            tenant=workflow.definition.tenant,
+            principal="officer-3",
+            event_key=suspended.event_key,
+        ),
+        submission=HitlActionSubmission(
+            event_key=suspended.event_key,
+            action="approve",
+            principal=_binding("0" * 64, subject_id="officer-3"),
+        ),
+    )
+    assert len(transport.submissions(tenant=workflow.definition.tenant)) == 1
+    outcome = asyncio.run(
+        engine.resume(resume_as(workflow), workflow, execution_id="exec-1", decision="approved")
+    )
+    assert isinstance(outcome, WorkflowResumeRefused)
+    assert "no approval for this suspension has returned" in outcome.reason
 
 
 def test_a_substituted_handle_cannot_turn_a_gate_into_an_ordinary_node(

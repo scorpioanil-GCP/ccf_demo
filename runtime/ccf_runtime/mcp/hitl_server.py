@@ -97,7 +97,9 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.hitl.identity_binding import SignedHitlAction
 from ccf.hitl.principal import AuthenticationClaims
 from ccf.hitl.transport import (
+    ApproverNotEligible,
     HitlActionSubmission,
+    HitlEventRevalidationRefused,
     PendingHitlEvent,
     SignedBindingInvalidRefused,
     SignedBindingMismatchRefused,
@@ -106,6 +108,8 @@ from ccf.hitl.transport import (
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.errors import (
+    ERROR_APPROVER_NOT_ELIGIBLE,
+    ERROR_HITL_EVENT_REVALIDATION_REFUSED,
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_MISMATCH,
     ERROR_SIGNED_BINDING_REQUIRED,
@@ -370,8 +374,11 @@ def build_hitl_server(
                 (``ERROR_SIGNED_BINDING_REQUIRED`` /
                 ``ERROR_SIGNED_BINDING_INVALID`` /
                 ``ERROR_SIGNED_BINDING_MISMATCH`` /
-                ``ERROR_SIGNED_BINDING_STALE``) — each carrying the one
-                refusal-body shape (D-08).
+                ``ERROR_SIGNED_BINDING_STALE``), the principal may not approve
+                the gate (``ERROR_APPROVER_NOT_ELIGIBLE``; SEC-006) or the event
+                changed under the submission
+                (``ERROR_HITL_EVENT_REVALIDATION_REFUSED``) — each carrying the
+                one refusal-body shape (D-08).
         """
         authentication = _verified_authentication()
         derived = principal_from_authorized(
@@ -407,6 +414,26 @@ def build_hitl_server(
         )
         try:
             return action_route(authorized, submission=submission)
+        except ApproverNotEligible as error:
+            # SEC-006 (D-IMPL-366 G3 (a)): the door's one refusal-body shape,
+            # the distinct code, the transport's non-enumerating message.
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_APPROVER_NOT_ELIGIBLE,
+                        message=str(error),
+                    )
+                )
+            ) from error
+        except HitlEventRevalidationRefused as error:
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_HITL_EVENT_REVALIDATION_REFUSED,
+                        message=str(error),
+                    )
+                )
+            ) from error
         except SignedBindingRequiredRefused as error:
             # D-16 door mapping (08-03): the MCP door carries the SAME
             # shared error-code constants as the HTTP door — single

@@ -85,6 +85,7 @@ from http_api.composition_authority import (
     register_typed_at_composition,
     register_versioned_at_composition,
 )
+from tests.composition import register_fixture_approval_policies, without_approval_policies
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "banking"
 
@@ -132,7 +133,13 @@ def registry() -> ControlPlaneRegistry:
     register_versioned_at_composition(plane, 
         workflow_fixture["keys"]["task_definition"], task, TASK_DEFINITION
     )
-    _register_declared(plane, workflow_fixture["referenced_artifacts"])
+    # SEC-006 (D-IMPL-366 §4 (5)): the gate's approval policy is the TYPED one
+    # from approval_policies.yaml under the fixture's own key; the fixture's
+    # pre-change DeclaredArtifact entry is not registered (the factory refuses it).
+    _register_declared(
+        plane, without_approval_policies(workflow_fixture["referenced_artifacts"])
+    )
+    register_fixture_approval_policies(plane)
     return plane
 
 

@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "description": "Who may approve a gate: a non-empty set of eligible ``subject_id``s.\n\nA deployment registers one per gate (or shares one across gates) and pins\nit from the workflow definition's ``gate_policies``:\n``{semver: \"1.0.0\", eligible_principals: [\"officer-a\", \"officer-b\"]}``.\n\nAttributes:\n    semver: The artifact's own semver lane (whitepaper \u00a76.3).\n    eligible_principals: The ``subject_id`` strings permitted to approve a\n        gate bound to this policy. Never empty (`D-IMPL-366` G7 (a)); never\n        compared against the requester's favor \u2014 the requester is refused\n        even when listed (SPEC F3, RULED).",
+  "properties": {
+    "eligible_principals": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Eligible Principals",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "eligible_principals"
+  ],
+  "title": "ApprovalPolicy",
+  "type": "object",
+  "x-ccf-class-id": "ccf.approval-policy"
+}

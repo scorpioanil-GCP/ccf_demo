@@ -89,6 +89,8 @@ from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.hitl.approval_gate import GATE_ACTIONS, GATE_EVENT_CLASS
 from ccf.hitl.escalation import ESCALATION_EVENT_CLASS
 from ccf.hitl.transport import (
+    ApproverNotEligible,
+    check_approver_eligibility,
     HITLTransportProtocol,
     HitlActionSubmission,
     PendingHitlEvent,
@@ -416,6 +418,10 @@ class WorkflowEngine:
             execution_id=execution_id,
             state=workflow.definition.start,
             trace=(),
+            # SEC-006 (D-IMPL-366 G1 (a)): the REQUESTER of every gate this
+            # execution reaches is the starter — the Execute capability's
+            # principal — stamped once here and carried on every record.
+            started_by=authorized.principal,
         )
 
     async def resume(
@@ -527,6 +533,7 @@ class WorkflowEngine:
                 key=key,
                 gate=record.current_state,
                 record=record,
+                workflow=workflow,
             )
             if not qualifying:
                 return self._refuse(
@@ -655,6 +662,7 @@ class WorkflowEngine:
                     execution_id=execution_id,
                     terminal_state=decision,
                     trace=trace,
+                    started_by=record.started_by,
                 )
             return await self._advance(
                 authorized,
@@ -662,6 +670,7 @@ class WorkflowEngine:
                 execution_id=execution_id,
                 state=decision,
                 trace=trace,
+                started_by=record.started_by,
             )
         # exception-routed: the handler handed the state back — retry the
         # node it was routed from.
@@ -716,6 +725,7 @@ class WorkflowEngine:
             execution_id=execution_id,
             state=record.current_state,
             trace=record.trace,
+            started_by=record.started_by,
         )
 
     # -- the machine ----------------------------------------------------------
@@ -728,8 +738,13 @@ class WorkflowEngine:
         execution_id: str,
         state: str,
         trace: tuple[TraceEntry, ...],
+        started_by: str | None,
     ) -> WorkflowOutcome:
         """Drive the machine from ``state`` until suspend or terminal.
+
+        ``started_by`` is the starter recorded for this execution (SEC-006;
+        `D-IMPL-366` G1 (a)), threaded unchanged into every record and every
+        gate event this drive produces.
 
         The tenant is read from the capability and nowhere else (§1.3).
         """
@@ -753,6 +768,7 @@ class WorkflowEngine:
                     execution_id=execution_id,
                     gate=state,
                     trace=trace,
+                    started_by=started_by,
                 )
             assert step.ref is not None  # non-gate steps carry refs by schema
             if resolve_pinned(self._control_plane, step.ref) is None:
@@ -788,6 +804,7 @@ class WorkflowEngine:
                         execution_id=execution_id,
                         node=state,
                         trace=trace,
+                        started_by=started_by,
                     )
             try:
                 if step.kind == "skill":
@@ -805,6 +822,7 @@ class WorkflowEngine:
                     execution_id=execution_id,
                     node=state,
                     trace=trace,
+                    started_by=started_by,
                 )
             targets = self._targets(workflow, state)
             if len(targets) != 1:
@@ -830,6 +848,7 @@ class WorkflowEngine:
                     execution_id=execution_id,
                     terminal_state=target,
                     trace=trace,
+                    started_by=started_by,
                 )
             state = target
 
@@ -841,6 +860,7 @@ class WorkflowEngine:
         execution_id: str,
         gate: str,
         trace: tuple[TraceEntry, ...],
+        started_by: str | None,
     ) -> WorkflowSuspended:
         """Suspend on a hitl-gate: persist, enqueue, return a typed handle.
 
@@ -857,6 +877,7 @@ class WorkflowEngine:
             current_state=gate,
             status="suspended",
             trace=trace,
+            started_by=started_by,
         )
         self._persist(
             authorized, workflow, key, record, action="workflow_suspended"
@@ -871,6 +892,8 @@ class WorkflowEngine:
                 workflow_state_ref=key,
                 product_content_hash=content_hash(record),
                 policy_ref=workflow.definition.gate_policies.get(gate),
+                # SEC-006 (D-IMPL-366 G1 (a)): the requester is the starter.
+                requested_by=started_by,
             )
         )
         return WorkflowSuspended(
@@ -889,6 +912,7 @@ class WorkflowEngine:
         execution_id: str,
         node: str,
         trace: tuple[TraceEntry, ...],
+        started_by: str | None,
     ) -> WorkflowOutcome:
         """Take ``node``'s exception path (D-13; D-IMPL-61 option-a)."""
         tenant = authorized.tenant
@@ -905,6 +929,7 @@ class WorkflowEngine:
                 current_state=node,
                 status="exception-routed",
                 trace=trace,
+                started_by=started_by,
             )
             self._persist(
                 authorized, workflow, key, record, action="workflow_exception"
@@ -937,6 +962,7 @@ class WorkflowEngine:
             execution_id=execution_id,
             terminal_state=WORKFLOW_FAILED_STATE,
             trace=trace,
+            started_by=started_by,
         )
 
     def _complete(
@@ -947,6 +973,7 @@ class WorkflowEngine:
         execution_id: str,
         terminal_state: str,
         trace: tuple[TraceEntry, ...],
+        started_by: str | None,
     ) -> WorkflowCompleted:
         """Reach a terminal condition: persist, write through, hand to replay."""
         tenant = authorized.tenant
@@ -958,6 +985,7 @@ class WorkflowEngine:
             current_state=terminal_state,
             status="terminal",
             trace=trace,
+            started_by=started_by,
         )
         self._persist(
             authorized, workflow, key, record, action="workflow_completed"
@@ -1020,6 +1048,7 @@ class WorkflowEngine:
         key: str,
         gate: str,
         record: WorkflowStateRecord,
+        workflow: Workflow,
     ) -> tuple[HitlActionSubmission, ...]:
         """Every recorded human verdict ELIGIBLE to authorize passage past ``gate``.
 
@@ -1235,18 +1264,48 @@ class WorkflowEngine:
             and event.event_class == GATE_EVENT_CLASS
             for event in self._hitl_transport.pending(tenant=tenant)
         )
+        # SEC-006 (D-IMPL-366 §4 (4)): the engine site is the BACKSTOP for
+        # every path — eligibility judged inside the per-submission predicate,
+        # before the conflict count in `resume`, against the definition's
+        # pinned gate policy and the RECORD's starter (the engine holds no
+        # event here). The engine's Control Plane is always bound, so a gate
+        # with no policy, an unresolvable or wrong-class policy, or a record
+        # with no starter (an in-flight pre-change suspension, G5 (a)) admits
+        # nothing: fail-closed by ruling.
+        policy_ref = workflow.definition.gate_policies.get(gate)
+
+        def eligible(submission: HitlActionSubmission) -> bool:
+            try:
+                check_approver_eligibility(
+                    policy_ref=policy_ref,
+                    requested_by=record.started_by,
+                    subject_id=submission.principal.approver.subject_id,
+                    control_plane=self._control_plane,
+                )
+            except ApproverNotEligible:
+                return False
+            return True
+
         return tuple(
             submission
             for submission in self._hitl_transport.submissions(tenant=tenant)
             if submission.event_key == event_key
             and submission.principal.product_content_hash == suspension
             and submission.action in GATE_ACTIONS
+            # D-IMPL-366 H2 (RULED): a submission recorded while NO event was
+            # under its key is never authority — whatever is pending now.
+            and submission.event_state_at_submit != "missing"
             and (
                 submission.answered_event_class == GATE_EVENT_CLASS
                 and submission.answered_workflow_state_ref == key
                 if submission.answered_event_class is not None
-                else gate_still_pending
+                # The unstamped leg: a door submission recorded against a
+                # PENDING event keeps today's semantics, and so does a
+                # pre-change record (None) — the fixture rule.
+                else submission.event_state_at_submit in (None, "pending")
+                and gate_still_pending
             )
+            and eligible(submission)
         )
 
     def _recorded_gate_verdicts(
@@ -1491,6 +1550,7 @@ class WorkflowEngine:
         current_state: str,
         status: str,
         trace: tuple[TraceEntry, ...],
+        started_by: str | None,
     ) -> WorkflowStateRecord:
         return WorkflowStateRecord(
             tenant=tenant,
@@ -1500,6 +1560,7 @@ class WorkflowEngine:
             trace=trace,
             workflow_definition_uri=workflow.identity.definition_uri,
             workflow_definition_hash=workflow.identity.definition_hash,
+            started_by=started_by,
         )
 
     def _persist(

@@ -42,9 +42,10 @@ constructs ``Authorized`` or names the sentinel.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import WriteKinds
@@ -74,6 +75,8 @@ __all__ = [
     "register_typed_at_composition",
     "register_versioned_at_composition",
     "tenant_of_key",
+    "register_fixture_approval_policies",
+    "without_approval_policies",
 ]
 
 
@@ -241,3 +244,50 @@ def register_skill_entry(
     composing its own catalog is doing.
     """
     return catalog.register(composition_register(registry, skill_catalog_key(entry)), entry)
+
+
+# --- SEC-006 (D-IMPL-366): the typed approval policies the fixtures pin -------
+
+APPROVAL_POLICY_FIXTURE = (
+    Path(__file__).resolve().parent / "fixtures" / "banking" / "approval_policies.yaml"
+)
+
+
+def without_approval_policies(references: Mapping[str, Any]) -> dict[str, Any]:
+    """``referenced_artifacts`` minus its PRE-CHANGE ``approval-policy`` entries.
+
+    The historical workflow fixtures still carry a DeclaredArtifact approval
+    policy in ``referenced_artifacts`` (the fixture rule: nothing is rewritten);
+    the factory now refuses that shape by ruling (`D-IMPL-366` §4 (5)), so a
+    closure registers everything else here and the typed policy through
+    :func:`register_fixture_approval_policies` under the same key.
+    """
+    return {
+        name: reference
+        for name, reference in references.items()
+        if reference["class_id"] != "approval-policy"
+    }
+
+
+def register_fixture_approval_policies(registry: ControlPlaneRegistry) -> dict[str, str]:
+    """Register every typed ``ccf.approval-policy`` in the banking fixture.
+
+    Returns ``{key: pinned ccf-artifact:// URI}`` for each policy registered —
+    the URIs the historical workflow fixtures' ``gate_policies`` already carry.
+    Registered through ``register_typed`` against the real contract (adopter
+    registration; the class is not manifest-addressable by ruling).
+    """
+    import yaml
+
+    from ccf.controlplane.artifacts import parse_artifact
+    from ccf.hitl.approval_policy import APPROVAL_POLICY
+
+    loaded: dict[str, Any] = yaml.safe_load(APPROVAL_POLICY_FIXTURE.read_text())
+    pinned: dict[str, str] = {}
+    for entry in loaded["policies"].values():
+        key = entry["key"]
+        policy = parse_artifact(entry["policy"], APPROVAL_POLICY)
+        register_typed_at_composition(registry, key, policy, APPROVAL_POLICY)
+        tenant, artifact_class, name = key.split("/")
+        pinned[key] = f"ccf-artifact://{tenant}/{artifact_class}/{name}@{entry['policy']['semver']}"
+    return pinned

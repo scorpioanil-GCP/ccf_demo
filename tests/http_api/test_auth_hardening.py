@@ -237,6 +237,8 @@ class TestTypedErrorCodes:
         self,
     ) -> None:
         from ccf_runtime.http_api.errors import (
+            ERROR_APPROVER_NOT_ELIGIBLE,
+            ERROR_HITL_EVENT_REVALIDATION_REFUSED,
             ERROR_INVALID_GRANT,
             ERROR_SIGNED_BINDING_INVALID,
             ERROR_SIGNED_BINDING_MISMATCH,
@@ -246,8 +248,9 @@ class TestTypedErrorCodes:
             ERROR_UNAUTHENTICATED,
         )
 
-        # Extended BY HAND under `D-IMPL-363` C4(a) / E6 — this set is built
-        # from an import list and cannot self-redden when a code is added.
+        # Extended BY HAND under `D-IMPL-363` C4(a) / E6, and again under
+        # `D-IMPL-366` (SEC-006) — this set is built from an import list and
+        # cannot self-redden when a code is added.
         codes = {
             ERROR_UNAUTHENTICATED,
             ERROR_SUBJECT_CONFLICT,
@@ -256,8 +259,13 @@ class TestTypedErrorCodes:
             ERROR_SIGNED_BINDING_INVALID,
             ERROR_SIGNED_BINDING_MISMATCH,
             ERROR_SIGNED_BINDING_STALE,
+            ERROR_APPROVER_NOT_ELIGIBLE,
+            ERROR_HITL_EVENT_REVALIDATION_REFUSED,
         }
-        assert len(codes) == 7
+        assert len(codes) == 9
         assert ERROR_SIGNED_BINDING_MISMATCH == "signed-binding-mismatch"
         assert ERROR_SIGNED_BINDING_STALE == "signed-binding-stale"
+        # SEC-006 (D-IMPL-366 G3 (a)): distinct from the signed-binding family.
+        assert ERROR_APPROVER_NOT_ELIGIBLE == "approver-not-eligible"
+        assert ERROR_HITL_EVENT_REVALIDATION_REFUSED == "hitl-event-revalidation-refused"
         assert all(isinstance(code, str) and code for code in codes)

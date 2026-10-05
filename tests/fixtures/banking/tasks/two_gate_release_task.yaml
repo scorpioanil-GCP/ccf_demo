@@ -1,0 +1,28 @@
+# Banking fixture task definition — a two-gate release (SEC-006, D-IMPL-366;
+# SDK-defined). Added BESIDE the historical fixtures, never produced by
+# re-pinning one (the D-IMPL-363 fixture rule): the covenant task carries one
+# hitl-gate step, and the second-gate / different-resumer control (T6) needs
+# two. Skills only, so the task's closure is the certificate-refresh task's own
+# two skill artifacts, already registered by that fixture's closure.
+#
+# No routing value and no approver lives here (No-Hardcoding Rule §6.4).
+
+keys:
+  task_definition: acme-bank/tasks/two-gate-release
+
+task_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: two-gate-release
+  tenant: acme-bank
+  steps:
+    - kind: skill
+      name: fetch-certificates
+      ref: "ccf-artifact://acme-bank/skill/fetch-covenant-certificates@1.0.0"
+    - kind: hitl-gate
+      name: first-approval
+    - kind: skill
+      name: archive-certificates
+      ref: "ccf-artifact://acme-bank/skill/archive-covenant-certificates@1.0.0"
+    - kind: hitl-gate
+      name: second-approval

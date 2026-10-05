@@ -143,10 +143,13 @@ def _ruled_policy_document(key_dir: Path) -> dict[str, Any]:
 
 @pytest.fixture
 def plane(key_dir: Path) -> ControlPlaneRegistry:
+    from tests.composition import register_fixture_approval_policies
+
     registry = ControlPlaneRegistry()
     policy = parse_artifact(_ruled_policy_document(key_dir), HITL_POLICY)
     assert isinstance(policy, HitlPolicy)
     compose_register_typed(registry, POLICY_KEY, policy, HITL_POLICY)
+    register_fixture_approval_policies(registry)  # SEC-006: the typed gate policy
     return registry
 
 
@@ -206,6 +209,14 @@ def _attest(
     return sign_hitl_action(claims, provider=provider, key_id=APPROVER_KID)
 
 
+#: SEC-006 (`D-IMPL-366`): a bound approval-gate event names its typed
+#: approval policy and its requester, or the approver is refused as
+#: ineligible before the attestation leg these controls are about is reached.
+#: The requester is a principal other than ``SUBJECT`` (test vocabulary).
+APPROVAL_POLICY_REF = "ccf-artifact://acme-bank/approval-policy/credit-officer@1.0.0"
+REQUESTER = "sec005-requester-1"
+
+
 def _pending_event() -> PendingHitlEvent:
     document = {
         "event_key": EVENT_KEY,
@@ -214,7 +225,10 @@ def _pending_event() -> PendingHitlEvent:
         "workflow_state_ref": "acme-bank/exec-hitl",
     }
     return PendingHitlEvent(
-        **document, product_content_hash=content_hash(document)
+        **document,
+        product_content_hash=content_hash(document),
+        policy_ref=APPROVAL_POLICY_REF,
+        requested_by=REQUESTER,
     )
 
 

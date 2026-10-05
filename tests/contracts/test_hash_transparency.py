@@ -691,6 +691,21 @@ _MARKED_IN_THE_TREE = frozenset(
         # arrival this set-equality test exists to report.
         "ccf.hitl.transport.HitlActionSubmission.answered_event_class",
         "ccf.hitl.transport.HitlActionSubmission.answered_workflow_state_ref",
+        # `SEC-006` (`D-IMPL-366` G1 (a), H3 (a), H2) — four marks, ticked
+        # deliberately. All ADDITIVE and all sentinel-silent (`None`), so an
+        # event or a submission recorded before approver eligibility existed
+        # canonicalizes exactly as it did (the fixture rule). The tick is
+        # correct rather than merely recorded because the sentinel is the
+        # RESTRICTIVE reading at every consumer: a bound approval-gate event
+        # with no `requested_by` REFUSES (G5 (a), fail-closed); a submission
+        # whose `event_state_at_submit` is `None` is admitted by the unstamped
+        # leg only while the gate is pending, exactly as before, and `missing`
+        # is excluded unconditionally; `approval_policy_ref` and
+        # `requested_by` on the submission are audit stamps nothing judges.
+        "ccf.hitl.transport.PendingHitlEvent.requested_by",
+        "ccf.hitl.transport.HitlActionSubmission.approval_policy_ref",
+        "ccf.hitl.transport.HitlActionSubmission.requested_by",
+        "ccf.hitl.transport.HitlActionSubmission.event_state_at_submit",
         # `D-IMPL-357` C4 — the THIRD exclusive domain shape (a grammar) and
         # the ninth declaration key (the subject's own further constraint).
         # Both ADDITIVE and both sentinel-silent at `None`, so every domain and

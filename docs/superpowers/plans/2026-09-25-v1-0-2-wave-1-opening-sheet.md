@@ -69,7 +69,7 @@ Lanes A (verdict→target), B (identity), C (subject shape) and D (version stamp
 - Test: `tests/workflow/test_definitions.py`
 
 **Interfaces:**
-- Consumes: `GATE_ACTIONS` (`src/ccf/hitl/approval_gate.py:114`, `frozenset({"approve", "reject"})`); `HASH_TRANSPARENT_KEY` (`ccf.contracts.canonical`).
+- Consumes: `GATE_ACTIONS` (`src/ccf/hitl/approval_gate.py::GATE_ACTIONS`, `frozenset({"approve", "reject"})`); `HASH_TRANSPARENT_KEY` (`ccf.contracts.canonical`).
 - Produces: `WorkflowDefinition.gate_routes: Mapping[str, Mapping[str, str]]` (gate step name → verdict → declared target), default `{}`, marked `False`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -417,7 +417,7 @@ Rewrite the `_gate_authority` docstring's "Known residual (D-IMPL-350)" paragrap
 - [ ] **Step 4: Run the suites**
 
 Run: `PYTHONPATH=src:runtime .venv/bin/python -m pytest tests/workflow tests/http_api/test_routes.py -q -p no:randomly`
-Expected: PASS, including `test_a_refused_gate_resume_does_not_enumerate_the_declared_targets` (:793), `test_workflow_resume_with_an_undeclared_decision_is_refused` (`tests/http_api/test_routes.py:631`, "declared transition" still in the reason because the new check is ordered after it) and the stateful machine.
+Expected: PASS, including `test_a_refused_gate_resume_does_not_enumerate_the_declared_targets` (:793), `test_workflow_resume_with_an_undeclared_decision_is_refused` (`tests/http_api/test_routes.py::test_workflow_resume_with_an_undeclared_decision_is_refused`, "declared transition" still in the reason because the new check is ordered after it) and the stateful machine.
 
 - [ ] **Step 5: Commit**
 
