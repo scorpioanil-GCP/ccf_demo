@@ -529,9 +529,16 @@ def _revalidation_arrangement(
     A signed-required policy for the fixture's credit officer; a bound
     transport; E1 pending under key K; a door-shaped signed submission for K.
     ``enforce_attestation`` is wrapped ONCE so that, between the transport's
-    snapshot and its record, a second event E2 (same key, different hash)
-    appears under K — the only concurrent change in the arrangement, made by
-    the test itself and accounted for explicitly. The event class is NOT the
+    snapshot (E1, ``pending``) and its record, the SELECTED event changes: E1
+    is drained and E2 — the same gate re-suspended under the same key with a
+    different ``product_content_hash`` — is pending in its place. That is the
+    brief's §4b 6a disagreement, "a different event under the same key": the
+    re-read of the state for ``(tenant, K)`` no longer finds the snapshot's
+    frozen event. It is the only concurrent change in the arrangement, made
+    by the test itself and accounted for explicitly. (Appending E2 BEHIND a
+    still-pending E1 would leave the selected event and its state unchanged
+    and is NOT a refusal under the ruling — whole-queue revalidation is a
+    broader requirement nobody ruled.) The event class is NOT the
     approval-gate class, so eligibility is not in play and the control reads
     the revalidation alone.
     """
@@ -572,6 +579,8 @@ def _revalidation_arrangement(
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         if armed["value"]:
             armed["value"] = False
+            drained = transport.dequeue(tenant=e1.tenant)
+            assert drained == e1, drained
             transport.enqueue(event=e2)
         return original(*args, **kwargs)
 
@@ -584,14 +593,15 @@ def test_t11_a_changed_queue_under_the_key_is_refused_and_mutates_nothing(
 ) -> None:
     """C, T11 — BEHAVIORAL today.
 
-    Between the snapshot and the record a second event appears under the same
-    key; ``submit`` refuses (6a), and ``_submissions``, ``_claims`` and
-    ``_seen_nonces`` are byte-for-byte what they were — asserted on the
-    transport's state, not on a return value. The ONLY difference permitted
-    in the after-state is the test's own concurrent enqueue of E2 on
-    ``pending`` (carried requirement (3): a legitimate concurrent change is
-    distinguished from a mutation by the refused submission). Today there is
-    no revalidation: the submission is recorded and the nonce consumed.
+    Between the snapshot and the record the selected event under the key
+    changes — E1 drained, E2 pending in its place; ``submit`` refuses (6a),
+    and ``_submissions``, ``_claims`` and ``_seen_nonces`` are byte-for-byte
+    what they were — asserted on the transport's state, not on a return
+    value. The ONLY difference permitted in the after-state is the test's own
+    concurrent E1→E2 replacement on ``pending`` (carried requirement (3): a
+    legitimate concurrent change is distinguished from a mutation by the
+    refused submission). Today there is no revalidation: the submission is
+    recorded and the nonce consumed.
     """
     transport, capability, submission, e1, e2 = _revalidation_arrangement(tmp_path, monkeypatch)
     tenant = e1.tenant
@@ -605,14 +615,17 @@ def test_t11_a_changed_queue_under_the_key_is_refused_and_mutates_nothing(
         )
     else:
         pytest.fail(
-            "BEHAVIORAL: transport.submit RECORDED a submission although a second"
-            " event appeared under its key between snapshot and record; the"
+            "BEHAVIORAL: transport.submit RECORDED a submission although the"
+            " selected event under its key changed between snapshot and record; the"
             " revalidation (D-IMPL-366 §4b step 6a) must refuse it:"
             f" {recorded.event_key!r} state={transport_state(transport)['nonces']!r}"
         )
     after = transport_state(transport)
     expected = dict(before)
-    expected["pending"] = {**before["pending"], tenant: before["pending"][tenant] + (e2,)}
+    expected["pending"] = {
+        **before["pending"],
+        tenant: tuple(e for e in before["pending"][tenant] if e != e1) + (e2,),
+    }
     assert after == expected, (
         "a refused submission mutated transport state beyond the accounted"
         f" concurrent enqueue:\n before={before!r}\n after={after!r}"
@@ -625,8 +638,8 @@ def test_t14_the_nonce_survives_the_refusal_and_is_admitted_once_stable(
     """C, T14 — BEHAVIORAL today.
 
     After the revalidation refusal the SAME signed attestation with the SAME
-    nonce, re-presented against the now-stable queue (E1 oldest both times),
-    is ADMITTED: the nonce is single-use on success only (D-IMPL-366
+    nonce, re-presented against the now-stable state (E2 pending at snapshot
+    and at record), is ADMITTED: the nonce is single-use on success only (D-IMPL-366
     amendment: "refused submissions introduce no state mutations"). Today the
     first presentation lands and consumes the nonce, so the re-presentation
     is refused as a reuse — the measured signature of the withdrawn order in
@@ -699,13 +712,16 @@ def test_carried_1_the_new_stamps_are_the_transports_not_the_callers() -> None:
     transport = InMemoryHitlTransport()
     event = _gate_event(fixture, requested_by="starter-7")
     transport.enqueue(event=event)
+    # Built as a document and validated, never as duplicate keywords: once the
+    # fields exist, ``model_dump()`` already carries them at their defaults.
+    document = door_submission(event, subject_id="credit-officer-11").model_dump()
+    document.update(
+        approval_policy_ref="ccf-artifact://acme-bank/approval-policy/forged@1.0.0",
+        requested_by="forged-requester",
+        event_state_at_submit="claimed",
+    )
     try:
-        forged = HitlActionSubmission(
-            **door_submission(event, subject_id="credit-officer-11").model_dump(),
-            approval_policy_ref="ccf-artifact://acme-bank/approval-policy/forged@1.0.0",
-            requested_by="forged-requester",
-            event_state_at_submit="claimed",
-        )
+        forged = HitlActionSubmission.model_validate(document)
     except ValidationError as error:
         pytest.fail(
             "MISSING CONTRACT: HitlActionSubmission.approval_policy_ref /"
