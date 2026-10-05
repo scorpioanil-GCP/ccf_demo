@@ -114,9 +114,13 @@ passes because of eligibility. Every test cited in the controls register's new t
 
 `tests/workflow/test_engine.py::test_a_submission_that_never_saw_this_suspension_is_not_authority`
 records a verdict from principal `impostor` with a wrong `product_content_hash` and asserts the
-resume refuses. On the candidate `impostor` is not in the typed fixture policy, so the new
-`eligible()` conjunct in `_gate_authority` refuses the submission before the hash term is consulted;
-the test passes for a reason it was not written to prove. Measured by the seat and reproduced
+resume refuses. In `_gate_authority` the hash term is the second conjunct and `eligible()` is the
+last, so for the impostor the hash refuses first and eligibility is never reached — the ORDER is
+not what makes the control vacuous. The two conditions OVERLAP for that fixture: `impostor` is not
+in the typed fixture policy, so with the hash term severed the new `eligible()` conjunct still
+excludes the submission and the test stays green. It passes for a reason it was not written to
+prove. (Corrected 2026-10-05 08:09 MST on Dave's instruction; the first wording, taken from the
+preserve seat's phrasing, inverted the order.) Measured by the seat and reproduced
 AUTHOR-EXECUTED on the pinned tree: with `submission.principal.product_content_hash == suspension`
 replaced by `True`, `tests/workflow/test_engine.py`, `tests/http_api/test_routes.py` and the SEC-006
 engine module run **88 passed, 0 red** (the seat: 0 reds across 1508 tests in six directories). The

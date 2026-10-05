@@ -1217,13 +1217,19 @@ def test_an_eligible_approvers_stale_hash_verdict_is_not_authority(
     impostor control above (D-IMPL-366 close panel 3.1; ruled by Dave,
     2026-10-05: "a second test must prove the hash term").
 
-    On the repaired engine the impostor above is refused by approver
-    eligibility BEFORE the hash term is consulted, so that test now proves the
-    ineligible path and no longer measures the binding of a verdict to the
-    suspension it saw. This control records the same stale-hash verdict from
-    an ELIGIBLE non-starter (`officer-3` is in the fixture's typed credit-officer
-    policy; the starter is the shared test principal), so eligibility admits
-    it and ONLY the hash term can refuse. Severing: replace
+    In ``_gate_authority`` the hash term is evaluated BEFORE ``eligible()``
+    (it is the second conjunct; eligibility is the last), so for the impostor
+    the hash refuses first and eligibility is never reached. The impostor
+    control is nevertheless vacuous for the hash term on the repaired engine
+    because the two conditions OVERLAP for that fixture: ``impostor`` is not
+    in the typed credit-officer policy, so with the hash term severed the
+    eligibility conjunct still excludes the submission and the test stays
+    green. That test therefore proves the ineligible path and no longer
+    measures the binding of a verdict to the suspension it saw. This control
+    records the same stale-hash verdict from an ELIGIBLE non-starter
+    (`officer-3` is in the fixture's typed credit-officer policy; the starter
+    is the shared test principal), so eligibility admits it and ONLY the hash
+    term can refuse. Severing: replace
     ``submission.principal.product_content_hash == suspension`` in
     ``_gate_authority`` with ``True`` — this test reddens; the impostor control
     stays green.
