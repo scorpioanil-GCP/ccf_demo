@@ -181,6 +181,12 @@ def test_typed_http_receive_queue_is_bounded_and_preserves_order() -> None:
     assert [r.status_code for r in accepted] == [202] * N
     accepted_ids = [r.headers[WIRE_MESSAGE_ID_HEADER] for r in accepted]
 
+    # Order before refusal: an evicting buffer refuses nobody, and the first
+    # thing it gets wrong is which N it kept.
+    assert _queued_ids(wire) == accepted_ids, (
+        "the queued carriages are not the first N, in order — an evicting"
+        " buffer drops the oldest to admit the newcomer"
+    )
     assert newcomer.status_code in (429, 503), (
         f"the carriage over the bound was answered {newcomer.status_code};"
         " the ruling refuses it as a capacity condition (429/503), not as"
@@ -190,11 +196,6 @@ def test_typed_http_receive_queue_is_bounded_and_preserves_order() -> None:
         f"the refusal is not named: body {newcomer.text!r}"
     )
     assert WIRE_MESSAGE_ID_HEADER not in newcomer.headers
-
-    assert _queued_ids(wire) == accepted_ids, (
-        "the queued carriages are not the first N, in order — an evicting"
-        " buffer drops the oldest to admit the newcomer"
-    )
     drained = list(wire.receive())
     assert [d.signed.content_address() for d in drained] == [
         _garbage_envelope(i).content_address() for i in range(N)
@@ -310,14 +311,15 @@ def test_lf_a2a_receive_queue_is_bounded_and_preserves_order() -> None:
 
     accepted_ids, refusal = asyncio.run(carry_all())
 
+    # Order before refusal, as on the typed leg.
+    assert _queued_ids(receiver) == accepted_ids[:N], (
+        "the queued carriages are not the first N, in order — an evicting"
+        " buffer drops the oldest to admit the newcomer"
+    )
     assert len(accepted_ids) == N
     assert refusal is not None, "the carriage over the bound was accepted"
     assert _REFUSAL_NAME in str(refusal), (
         f"the refusal is not named: {refusal!r}"
-    )
-    assert _queued_ids(receiver) == accepted_ids, (
-        "the queued carriages are not the first N, in order — an evicting"
-        " buffer drops the oldest to admit the newcomer"
     )
     drained = list(receiver.receive())
     assert [d.signed.content_address() for d in drained] == [

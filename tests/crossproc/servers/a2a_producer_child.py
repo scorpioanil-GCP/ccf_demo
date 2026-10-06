@@ -170,6 +170,7 @@ def main() -> None:
                 clock=lambda: assembled.servable.product.temporal_boundary,
                 receive_path=consumer_values["receive_path"],
                 max_request_bytes=consumer_values["max_request_bytes"],
+                max_pending=consumer_values["max_pending"],
             )
             wire.emit(peer=peer, signed=genuine)
             wire.emit(peer=peer, signed=_tampered(genuine, other))

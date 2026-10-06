@@ -64,8 +64,8 @@ put this transport in the business of base64url, and the signature is made over
 exactly those bytes.
 
 **Deployment values are the caller's.** The peer endpoint, the bind address,
-the port, the route path, the HTTP client and its timeouts, and the request-body
-ceiling are all supplied by the caller. This module holds no address, no port,
+the port, the route path, the HTTP client and its timeouts, the request-body
+ceiling and the receive-queue bound are all supplied by the caller. This module holds no address, no port,
 no scheme literal and no default ceiling (CINV-01, D-IMPL-38). Tenancy is a
 per-call argument carried on :class:`~ccf.peering.protocol.PeerRef`, never a
 constructor field, on the :class:`~ccf_runtime.cdc.adapter.CDCSourceAdapter`
@@ -110,6 +110,7 @@ __all__ = [
     "MalformedWireMessage",
     "PeerEndpointResolver",
     "PeerUnreachable",
+    "ReceiveQueueFull",
     "TypedHttpWire",
     "WireTransportError",
 ]
@@ -147,6 +148,11 @@ _MALFORMED_STATUS = 400
 #: Answered when the declared or streamed body exceeds this transport's limit.
 _TOO_LARGE_STATUS = 413
 
+#: Answered when the receive queue already holds ``max_pending`` messages
+#: (SEC-021, ``D-IMPL-369``). A capacity condition of *this* receiver, not a
+#: verdict on the frame: the same carriage may succeed once the caller drains.
+_QUEUE_FULL_STATUS = 503
+
 
 class WireTransportError(RuntimeError):
     """Base of the typed transport failures.
@@ -161,6 +167,41 @@ class WireTransportError(RuntimeError):
     Control Plane gate returns; a transport failure means no verdict was ever
     reached, and the two must not be reported through the same channel.
     """
+
+
+class ReceiveQueueFull(WireTransportError):
+    """The receive queue is at its declared bound; the newcomer is refused.
+
+    SEC-021 (``D-IMPL-369``, Q13 of
+    ``docs/superpowers/specs/2026-10-05-remaining-rows-rulings-batch.md``). Both
+    Peering transports queue what arrives *before* any signature is checked —
+    by design, since the transport frames and the Control Plane gate decides
+    (D-12) — so the queue is reachable by anyone who can reach the endpoint and
+    must be bounded. When it already holds ``max_pending`` messages the
+    **newcomer** is refused by this name, and the queued messages are kept
+    intact and in order: nothing is evicted, because evicting the oldest would
+    let an unauthenticated sender displace carriages a genuine peer already
+    delivered.
+
+    Not a :class:`MalformedWireMessage`: the frame may be perfectly good, and a
+    caller that treated a full queue as a protocol mismatch would stop retrying
+    a carriage that will succeed once the receiver drains.
+
+    Build it with :meth:`at_bound`, which puts the refusal's own name at the
+    head of its message: on the LF A2A leg ``a2a-sdk`` carries only the message
+    text to the sending peer, so the name has to travel inside it.
+    """
+
+    @classmethod
+    def at_bound(
+        cls, *, held: int, bound: int, peer_id: str
+    ) -> ReceiveQueueFull:
+        """The refusal for a newcomer from ``peer_id`` at a full queue."""
+        return cls(
+            f"{cls.__name__}: the receive queue holds {held} messages, its"
+            f" declared bound of {bound}; the carriage from {peer_id!r} is"
+            " refused and nothing queued was evicted"
+        )
 
 
 class PeerUnreachable(WireTransportError):
@@ -232,10 +273,17 @@ class TypedHttpWire:
             something only the deployment knows, and a limit nobody chose is
             either an availability hole or an outage. See the module docstring
             for why this is defence in depth and not the authoritative ceiling.
+        max_pending: The most received messages this endpoint will hold before
+            :meth:`receive` drains them (SEC-021, ``D-IMPL-369``). Required,
+            keyword-only, no default (Q13; D-IMPL-38): a buffer size is a
+            deployment's capacity decision. At the bound the newcomer is refused
+            with :class:`ReceiveQueueFull` (answered ``503``) and the queued
+            messages are preserved in order; nothing is evicted.
 
     Raises:
-        ValueError: ``max_request_bytes`` is not positive. A zero limit accepts
-            nothing and is far more likely a mistake than a policy.
+        ValueError: ``max_request_bytes`` or ``max_pending`` is not positive. A
+            zero limit accepts nothing and is far more likely a mistake than a
+            policy.
     """
 
     def __init__(
@@ -247,10 +295,16 @@ class TypedHttpWire:
         clock: Callable[[], datetime],
         receive_path: str,
         max_request_bytes: int,
+        max_pending: int,
     ) -> None:
         if max_request_bytes <= 0:
             raise ValueError(
                 "max_request_bytes must be positive; a zero body limit accepts"
+                " nothing"
+            )
+        if max_pending <= 0:
+            raise ValueError(
+                "max_pending must be positive; a zero queue bound accepts"
                 " nothing"
             )
         self._local_peer_id = local_peer_id
@@ -259,6 +313,7 @@ class TypedHttpWire:
         self._clock = clock
         self._receive_path = receive_path
         self._max_request_bytes = max_request_bytes
+        self._max_pending = max_pending
         self._received: deque[InboundProduct] = deque()
 
     @property
@@ -364,11 +419,19 @@ class TypedHttpWire:
     async def _handle_receive(self, request: Request) -> Response:
         """Frame one inbound message and queue it, or refuse the frame.
 
-        Four framing checks, and they are framing checks only — media type,
-        body size, the declared peer header, and whether the body parses as a
-        signed product. None of them inspects the signature, the trust policy,
+        Five framing checks, and they are framing checks only — media type,
+        body size, the declared peer header, whether the body parses as a
+        signed product, and whether its payload has a content address to name
+        the carriage by. None of them inspects the signature, the trust policy,
         or the peer's entitlements; those belong to the Control Plane gate the
         caller runs over what :meth:`receive` yields (D-12).
+
+        Then, and only then, the queue bound (SEC-021, ``D-IMPL-369``): the
+        carriage identifier is minted *before* anything is queued, so a payload
+        that cannot be named is refused as a frame (``400``) rather than queued
+        and answered ``500``; the bound is checked immediately before the
+        append, and at the bound the newcomer is answered ``503`` naming
+        :class:`ReceiveQueueFull` while the queued messages stay in order.
         """
         media_type = request.headers.get("content-type", "")
         if media_type.split(";")[0].strip() != SIGNED_PRODUCT_MEDIA_TYPE:
@@ -401,19 +464,46 @@ class TypedHttpWire:
         except ValidationError:
             return Response(status_code=_MALFORMED_STATUS)
 
+        try:
+            carriage_id = self._carriage_id(peer_id=peer_id, signed=signed)
+        except MalformedWireMessage:
+            return Response(status_code=_MALFORMED_STATUS)
+
         inbound = InboundProduct(
             observed_peer=PeerRef(tenant_id=tenant_id, peer_id=peer_id),
             signed=signed,
         )
-        self._received.append(inbound)
+        try:
+            self._enqueue(inbound)
+        except ReceiveQueueFull as refusal:
+            return Response(
+                content=str(refusal),
+                status_code=_QUEUE_FULL_STATUS,
+                media_type="text/plain",
+            )
         return Response(
             status_code=_ACCEPTED_STATUS,
-            headers={
-                WIRE_MESSAGE_ID_HEADER: self._carriage_id(
-                    peer_id=peer_id, signed=signed
-                )
-            },
+            headers={WIRE_MESSAGE_ID_HEADER: carriage_id},
         )
+
+    def _enqueue(self, inbound: InboundProduct) -> None:
+        """Queue one framed envelope, or refuse it at the declared bound.
+
+        The bound is checked immediately before the append, so the queue never
+        holds more than ``max_pending`` even momentarily, and a full queue
+        refuses the *newcomer*: the messages already queued are neither
+        evicted nor reordered (SEC-021, ``D-IMPL-369``).
+
+        Raises:
+            ReceiveQueueFull: the queue already holds ``max_pending`` messages.
+        """
+        if len(self._received) >= self._max_pending:
+            raise ReceiveQueueFull.at_bound(
+                held=len(self._received),
+                bound=self._max_pending,
+                peer_id=inbound.observed_peer.peer_id,
+            )
+        self._received.append(inbound)
 
     def _carriage_id(
         self, *, peer_id: str, signed: SignedContextProduct
