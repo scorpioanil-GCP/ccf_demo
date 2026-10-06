@@ -1,0 +1,11 @@
+# SEC-015 (D-IMPL-369, ruling Q9 of D-IMPL-368): every action in
+# .github/workflows/ is pinned to a full commit SHA with a trailing `# vN`
+# comment (enforced by tools/lints/ci_posture.py). Dependabot moves those
+# pins by pull request, so a bump is reviewed like any other change and a
+# tag that is moved upstream never reaches CI unreviewed.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1850 entries**, of which **1586** name a public Python surface.
+**1855 entries**, of which **1591** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1045 entries — 1001 public Python surface, 44 not public Python API.
+1047 entries — 1003 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16057,6 +16057,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-08-temporal-write-guard.md`.*
 
+#### ccf.artifacts.file_store.InsecureArtifactStoreRoot
+
+- Surface: ccf.artifacts.file_store.InsecureArtifactStoreRoot
+- Public surface: true
+- Change type: added
+- Before: absent — a pre-existing root was used whatever its mode and owner.
+- After: a `PermissionError` subclass raised by `FileArtifactStore(...)` when its root already existed and either carries any mode bit outside `0o700` or is not owned by the process's effective uid. The message names the path, the observed mode and the observed owner. The root is never chmodded: its permissions are unchanged by the refusal.
+- Why: `D-IMPL-369` — the store does not change permissions on a directory it did not create; the operator who made the root decides whether to tighten it or point the store elsewhere.
+- Migration: a deployment that pre-creates its artifact-store root with the default umask (`0o755`/`0o775`) must create it `0o700`, or let the store create it.
+
+*Recorded by `369-01-insecure-artifact-store-root-refused.md`.*
+
+#### ccf_runtime.peering.typed_http.ReceiveQueueFull
+
+- Surface: ccf_runtime.peering.typed_http.ReceiveQueueFull
+- Public surface: true
+- Change type: added
+- Before: absent. A full queue was not a reachable condition, because the queue had no bound.
+- After: a `WireTransportError` subclass, not a `MalformedWireMessage`, raised when a receive queue already holds `max_pending` messages. `ReceiveQueueFull.at_bound` builds it with its own name at the head of the message, because on the LF A2A leg `a2a-sdk` carries only the message text to the sending peer.
+- Why: SEC-021. A full queue is a capacity condition of the receiver, not a verdict on the frame, so it must not share a type with a framing failure. A caller that treated it as a protocol mismatch would stop retrying a carriage that will succeed once the receiver drains.
+- Migration: none for a caller that does not host a receive endpoint.
+
+*Recorded by `369-21-sec-021-receive-queue-bound.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16768,7 +16792,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-526 entries — 338 public Python surface, 188 not public Python API.
+528 entries — 340 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -22885,6 +22909,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `358-05-trusted-time.md`.*
 
+#### ccf_runtime.peering.typed_http.TypedHttpWire
+
+- Surface: ccf_runtime.peering.typed_http.TypedHttpWire
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, local_peer_id, endpoints, http_client, clock, receive_path, max_request_bytes)`. The receive queue was unbounded. The endpoint appended the inbound message and then minted the carriage identifier, so a payload that was not base64url was queued and answered `500`.
+- After: adds `max_pending: int`, which is required, keyword-only, has no default, and must be positive (`ValueError` otherwise). The endpoint mints the carriage identifier first and answers `400` for a payload that cannot be named; such a payload is never queued. It then checks the bound immediately before the append. At the bound it answers `503`, with a plain-text body naming `ReceiveQueueFull`, and the queued messages stay intact and in order.
+- Why: SEC-021 and Q13. A buffer size is a deployment's capacity decision, so the SDK ships no default (D-IMPL-38, D-IMPL-356).
+- Migration: every constructor call must now pass `max_pending`. A sending peer sees the `503` as `PeerUnreachable` from `emit` and may retry once the receiver drains.
+
+*Recorded by `369-21-sec-021-receive-queue-bound.md`.*
+
+#### ccf_runtime.peering.lf_a2a.LfA2AWire
+
+- Surface: ccf_runtime.peering.lf_a2a.LfA2AWire
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, local_peer_id, agent_card, cards, http_client_factory, clock, rpc_path, max_message_bytes)`. The receive queue was unbounded.
+- After: adds `max_pending: int`, which is required, keyword-only, has no default, and must be positive (`ValueError` otherwise). `_enqueue` checks the bound immediately before the append and raises `ReceiveQueueFull` at the bound. `a2a-sdk` returns that to the sending peer as a JSON-RPC error whose message begins `ReceiveQueueFull:`, and the queued messages stay intact and in order.
+- Why: SEC-021 and Q13, as for `TypedHttpWire`.
+- Migration: every constructor call must now pass `max_pending`. A sending peer sees the refusal as `PeerUnreachable` from `emit` / `emit_async`. Not covered here, and escalated separately: `a2a-sdk`'s JSON-RPC dispatcher reads the request body before this transport's checks run, so `max_message_bytes` bounds the carried envelope, not the bytes the process buffers.
+
+*Recorded by `369-21-sec-021-receive-queue-bound.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -25853,7 +25901,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-232 entries — 200 public Python surface, 32 not public Python API.
+233 entries — 201 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -29852,6 +29900,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a deployment: `admission_clock` already existed, already defaulted, and is already wired by `build_governed_resolver` and `open_product(clock=)`. **For a test that counts clock reads on a non-composite serve**, the count is now one rather than zero; that is the ruled change and the one in-tree control asserting zero is renamed and re-pointed
 
 *Recorded by `358-04-served-at.md`.*
+
+#### ccf.artifacts.file_store.FileArtifactStore
+
+- Surface: ccf.artifacts.file_store.FileArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: the root and any missing parents were created with `mkdir(parents=True, exist_ok=True)` and files written with `write_bytes`/`write_text`; every mode was the host umask's.
+- After: every directory the store creates (the root and any missing parents) is `0o700` and every file it writes (artifact, naming index, and their `.partial` staging files) is `0o600`, set explicitly after creation regardless of the process umask; no store-local `umask` is used. A pre-existing root is refused with `InsecureArtifactStoreRoot` unless it is `0o700` or narrower and owned by the process.
+- Why: SEC-014 — replay records and Control Plane artifacts are decision evidence (CLAUDE.md §7.4); the host's default umask is not a confidentiality posture for them. Fixed, not configurable (ruling Q8).
+- Migration: see `InsecureArtifactStoreRoot` above. Files an earlier store version wrote are not re-moded.
+
+*Recorded by `369-01-insecure-artifact-store-root-refused.md`.*
 
 ### Not public Python API
 

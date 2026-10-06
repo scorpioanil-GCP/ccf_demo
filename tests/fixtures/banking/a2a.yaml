@@ -21,6 +21,11 @@ consumer:
   # recommendations (D-IMPL-38: the SDK ships neither).
   inbound_payload_ceiling_bytes: 65536
   max_request_bytes: 262144
+  # How many received carriages either transport holds before the consumer
+  # drains them (SEC-021, D-IMPL-369). At the bound the newcomer is refused and
+  # nothing queued is evicted. This fixture's number, not a recommendation: the
+  # SDK ships no default (Q13).
+  max_pending: 64
   # The route this deployment mounts its federation endpoint at. A deployment's
   # URL space is the deployment's; the SDK holds no default.
   receive_path: /ccf/a2a/inbound

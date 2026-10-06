@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **330** across **108** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **175** across **63** files
+- Coupling rows: **331** across **109** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **176** across **64** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
 Rows by owning plan:
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 10 |
 | 17-08 | 111 |
-| 23-04 | 190 |
+| 23-04 | 191 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 12 |
-| `prose` | 102 |
+| `prose` | 103 |
 | `snippet-include` | 56 |
 | `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
@@ -54,21 +54,21 @@ Rows by coupling shape:
 | --- | ---: | --- | --- | --- | ---: | --- | --- | --- |
 | `.github/workflows/live-legs.yml` | 5 | `archive/examples/03-harness-portability` | `comment` | documentary | - | - | 23-04 |  |
 | `.gitignore` | 24 | `archive/examples/external/00-hello-context` | `config-token` | live | - | - | 23-04 |  |
-| `Makefile` | 274 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 338 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 342 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `Makefile` | 366 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `Makefile` | 370 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `README.md` | 42 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
-| `README.md` | 46 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
-| `README.md` | 67 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 68 | `archive/examples/01-agent-basics` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 69 | `archive/examples/02-skilling` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 70 | `archive/examples/03-harness-portability` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 71 | `archive/examples/04-cross-process` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 72 | `archive/examples/05-workflow-hitl` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 73 | `archive/examples/06-decision-replay` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 74 | `archive/examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 23-04 |  |
+| `Makefile` | 277 | `tests/examples/test_s1_01_output.py` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 351 | `examples/s1-01-hello-context-product` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 355 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `Makefile` | 379 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
+| `Makefile` | 383 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
+| `README.md` | 79 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
+| `README.md` | 83 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
+| `README.md` | 104 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 105 | `archive/examples/01-agent-basics` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 106 | `archive/examples/02-skilling` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 107 | `archive/examples/03-harness-portability` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 108 | `archive/examples/04-cross-process` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 109 | `archive/examples/05-workflow-hitl` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 110 | `archive/examples/06-decision-replay` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 111 | `archive/examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 23-04 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 342 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/06-decision-replay` | `prose` | documentary | - | - | 23-04 |  |
@@ -119,6 +119,7 @@ Rows by coupling shape:
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1240 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1272 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1273 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
+| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 241 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |

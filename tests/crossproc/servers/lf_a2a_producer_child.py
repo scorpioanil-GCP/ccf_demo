@@ -153,6 +153,7 @@ def main() -> None:
             clock=lambda: assembled.servable.product.temporal_boundary,
             rpc_path=lf_values["rpc_path"],
             max_message_bytes=consumer_values["max_request_bytes"],
+            max_pending=consumer_values["max_pending"],
         )
 
         peer = PeerRef(tenant_id=tenant_id, peer_id=consumer_values["peer_id"])

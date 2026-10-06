@@ -18,6 +18,19 @@ subclassing crosses files, so which classes are `CCFContract`s is a
 tree-level fact; its universe is bounded by a committed base roster
 (`tools/lints/hash_transparent_base_roster.json`, measured at `13bd250`)
 rather than by a tree scope.
+`makefile-credentials` (SEC-026, D-IMPL-368) is a whole-tree **text** checker
+over the repository-root ``Makefile``: no recipe may echo or print a
+DSN/URI/URL/PASSWORD variable and no default may bake URL userinfo
+(``tools/lints/makefile_credentials.py``).
+`ci-posture` (SEC-015, D-IMPL-369) is a whole-tree **YAML** checker over
+``.github/workflows/``: every workflow declares a restrictive top-level
+``permissions:`` block and pins every action to a full commit SHA with a
+trailing ``# vN`` comment (``tools/lints/ci_posture.py``).
+`dependency-lock` (SEC-028, D-IMPL-369) is a whole-tree **text** checker over
+``requirements.lock``, the workflows and the ``Makefile``: the lock exists,
+every entry is hashed, the build set is locked, every dependency install reads
+the lock with ``--require-hashes`` and every editable install is ``--no-deps
+--no-build-isolation`` (``tools/lints/dependency_lock.py``).
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -64,10 +77,13 @@ from tools.lints import (
     algorithmic,
     authorization_invariant,
     backend_imports,
+    ci_posture,
     citations,
+    dependency_lock,
     guarded_provenance,
     harness_imports,
     hash_transparent_key,
+    makefile_credentials,
     no_hardcoding,
     orchestration_imports,
     substrate_names,
@@ -219,6 +235,9 @@ WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "citations": citations.check_tree,
     "guarded-provenance": guarded_provenance.check_tree,
     "hash-transparent-key": hash_transparent_key.check_tree,
+    "makefile-credentials": makefile_credentials.check_tree,
+    "ci-posture": ci_posture.check_tree,
+    "dependency-lock": dependency_lock.check_tree,
 }
 
 
@@ -351,6 +370,36 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "CINV-06 every defaulted CCFContract field new since 13bd250"
             " declares ccf_hash_transparent (D-IMPL-243 amendments 1 and 2)"
+        ),
+    )
+    parser.add_argument(
+        "--makefile-credentials",
+        dest="selected",
+        action="append_const",
+        const="makefile-credentials",
+        help=(
+            "SEC-026 no make recipe echoes or prints a DSN/URI/URL/PASSWORD"
+            " variable, and no Makefile default bakes URL userinfo"
+        ),
+    )
+    parser.add_argument(
+        "--ci-posture",
+        dest="selected",
+        action="append_const",
+        const="ci-posture",
+        help=(
+            "SEC-015 every CI workflow declares a restrictive top-level"
+            " permissions block and pins every action to a commented commit SHA"
+        ),
+    )
+    parser.add_argument(
+        "--dependency-lock",
+        dest="selected",
+        action="append_const",
+        const="dependency-lock",
+        help=(
+            "SEC-028 a hashed requirements.lock carrying the build set; CI"
+            " installs only from it, and editable installs fetch nothing"
         ),
     )
     parser.add_argument(
