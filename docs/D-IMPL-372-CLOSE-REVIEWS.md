@@ -186,8 +186,7 @@ Twelve distinct failing names (`test_a_missing_threshold_is_refused_not_defaulte
 `test_two_thresholds_are_two_products`), failing on `UnpinnedArtifactError` (manifest key `policy`), `KeyError:
 'default_perspective'`, `KeyError: 'request_contract'` and `git merge-base HEAD main` exiting 128 in the hosted checkout
 — none names SEC-013's symbols. **They have no baseline**: `main`'s run shows the step `skipped`, so whether they are
-pre-existing cannot be stated from hosted evidence; recorded as **the Postgres leg's standing reds, invisible until
-now (CI-COVERAGE-01)**. **The lease test's own outcome is still not evidenced**: the leg runs `-q`, which prints
+pre-existing cannot be stated from hosted evidence; recorded as **newly observed failures with regression status UNDETERMINED (CI-COVERAGE-01)** — "standing" was premature with no measured `main` baseline (Dave, 15:47 MST). **The lease test's own outcome is still not evidenced**: the leg runs `-q`, which prints
 nothing for a pass, and the test's name does not appear in the leg's log; local collection confirms
 `tests/graph/test_single_writer_across_processes.py` selects under `-m postgres`. A **focused verbose step** running
 that file alone (`-v -rA`, `if: !cancelled()`) is added to `ci.yml` in this commit so the next run shows the result by
@@ -207,5 +206,10 @@ tests/graph/test_single_writer_across_processes.py::test_a_second_process_cannot
 run with `CCF_REQUIRE_POSTGRES=1` against the job's `postgres:16` service. **This is the Postgres execution evidence
 for SEC-013's lease mechanism**, in place of the withdrawn claim. It is evidence for the mechanism only; SEC-013 stays
 PARTIAL / OPEN for the persistent network stores. On the same run: the quick suite `15 failed, 9439 passed, 3 errors`
-(the 12 standing + the cp-05 three, plus the three cp-05 setup errors); the Postgres leg `failure` on its own standing
-reds (CI-COVERAGE-01, no baseline); the focused step ran independently of both, as designed.
+(the 12 standing + the cp-05 three, plus the three cp-05 setup errors); the Postgres leg `failure` on fourteen newly observed failures of undetermined regression status (CI-COVERAGE-01, no baseline); the focused step ran independently of both, as designed.
+
+**Z1 — two qualifications after Dave's verification of run 37528449701 (2026-10-06 15:47 MST).** (a) The fourteen
+Postgres-leg failures are **newly observed; their regression status is undetermined** until a `main` run of the leg
+exists — "standing reds" and "not new regressions" were premature and are withdrawn in X/Y4 above. (b) The
+shallow-checkout explanation for `git merge-base HEAD main` exiting 128 is **unsupported**: the tests job checks out
+with `fetch-depth: 0`. The logs establish the exit code, not the cause. The leg log carries no `fatal:` line naming the cause. (c) Harness conformance, Neo4j, MongoDB and Fluree legs remain **skipped** on this run (still gated on the quick suite); only the Postgres leg and the focused SEC-013 step were un-gated. The Postgres evidence gap is resolved; SEC-013 remains PARTIAL / OPEN; the merge HOLD stands.
