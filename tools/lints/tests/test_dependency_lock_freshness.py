@@ -176,8 +176,9 @@ def test_a_missing_file_is_a_finding_not_a_pass(tmp_path: pathlib.Path, name: st
     base = _copy(tmp_path)
     (base / name).unlink()
     if name == "pyproject.toml":
-        # a base with neither pyproject nor workflows is not a project
+        # a base with neither pyproject nor a workflow is not a project
         (base / ".github" / "workflows").mkdir(parents=True)
+        (base / ".github" / "workflows" / "ci.yml").write_text("on: push\n", encoding="utf-8")
     assert _rule_findings(_checker()(base)), name
 
 

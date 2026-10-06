@@ -31,6 +31,12 @@ trailing ``# vN`` comment (``tools/lints/ci_posture.py``).
 every entry is hashed, the build set is locked, every dependency install reads
 the lock with ``--require-hashes`` and every editable install is ``--no-deps
 --no-build-isolation`` (``tools/lints/dependency_lock.py``).
+`dependency-lock-freshness` (SEC-028-F1, D-IMPL-370) is a whole-tree **text**
+checker over ``pyproject.toml`` and ``requirements.lock``: the lock's compile
+header names the ruled extras and ``--all-build-deps``, and every declared
+requirement — dependencies, the ruled extras through self-references, and
+``[build-system].requires`` — is locked at a version its specifier admits
+(``tools/lints/dependency_lock_freshness.py``).
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -80,6 +86,7 @@ from tools.lints import (
     ci_posture,
     citations,
     dependency_lock,
+    dependency_lock_freshness,
     guarded_provenance,
     harness_imports,
     hash_transparent_key,
@@ -238,6 +245,7 @@ WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "makefile-credentials": makefile_credentials.check_tree,
     "ci-posture": ci_posture.check_tree,
     "dependency-lock": dependency_lock.check_tree,
+    "dependency-lock-freshness": dependency_lock_freshness.check_tree,
 }
 
 

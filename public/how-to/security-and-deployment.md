@@ -192,7 +192,12 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   `pip install -e <path> --no-deps --no-build-isolation`, so nothing is
   resolved or fetched unhashed at run time. The `dependency-lock` lint
   enforces it (`tools/lints/dependency_lock.py::check_tree`, `SEC-028`);
-  `README.md` gives the regeneration command.
+  `README.md` gives the regeneration command. The lock cannot drift from the
+  declaration: the `dependency-lock-freshness` lint
+  (`tools/lints/dependency_lock_freshness.py::check_tree`, `SEC-028-F1`)
+  refuses a lock that is missing a declared requirement (including the
+  `[build-system].requires` build set), pins a version the declared specifier
+  does not admit, or whose compile header does not name the ruled extras.
 
 ## 4. Deployment posture: what to decide before a surface is up
 
