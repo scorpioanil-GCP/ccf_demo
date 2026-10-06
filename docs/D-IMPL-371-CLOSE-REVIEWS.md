@@ -44,4 +44,14 @@ the measured leak is the acquisition seam (F1).
 
 ## Regression on the final candidate `91fd7965` (SEC-020 reverted, SEC-022 kept), measured once by the orchestrator
 
-(filled from the final run)
+| Suite | Result |
+| --- | --- |
+| artifacts, mcp, contracts, replay, peering, crossproc, products, projection, http_api, skills, graph, cli, surface, deployment, lints tests, invariants | **6743 passed, 2 failed, 25 skipped** |
+| the 2 failures | the two standing reds that predate every batch: `tests/invariants/test_citation_coverage.py` (the unanchored-citation ratchet at 365, ceiling 0) and `tests/contracts/test_canonical.py::test_the_child_resolves_the_same_ccf_this_test_is_running` (a worktree's child process resolves the main checkout's package) |
+| `python -m tools.lints --all` | rc=0 (eleven checkers) |
+| `python -m mypy` | no issues in 244 files |
+| `tests/examples` (no estate export) | 28 failed, 992 passed, 743 skipped — identical to the base, same ids |
+| `tools/docs_tests` | 320 passed after the retirement report was regenerated for the close record |
+
+The code tree of `91fd7965` is byte-identical to the branch tip's (the commits after it are docs only), so these
+numbers are the candidate's.
