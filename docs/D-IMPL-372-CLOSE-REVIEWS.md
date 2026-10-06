@@ -193,3 +193,19 @@ nothing for a pass, and the test's name does not appear in the leg's log; local 
 that file alone (`-v -rA`, `if: !cancelled()`) is added to `ci.yml` in this commit so the next run shows the result by
 name. The quick suite on this run: `15 failed, 9439 passed, 3 errors` (the surface-completeness red gone; the 12
 standing plus the cp-05 three remain, plus the three cp-05 setup errors).
+
+**Y4 result, final (run [37528449701](https://github.com/drcastillo/ccf_code/actions/runs/37528449701) @ `8d5f90b8`;
+tests job 112491349615).** The focused step **"SEC-013 Postgres lease, focused (service container)" — success.** Its
+verbose output, verbatim from the hosted log:
+
+```
+collected 7 items / 6 deselected / 1 selected
+tests/graph/test_single_writer_across_processes.py::test_a_second_process_cannot_mint_a_writer_for_a_held_postgres_graph PASSED [100%]
+1 passed, 6 deselected in 2.49s
+```
+
+run with `CCF_REQUIRE_POSTGRES=1` against the job's `postgres:16` service. **This is the Postgres execution evidence
+for SEC-013's lease mechanism**, in place of the withdrawn claim. It is evidence for the mechanism only; SEC-013 stays
+PARTIAL / OPEN for the persistent network stores. On the same run: the quick suite `15 failed, 9439 passed, 3 errors`
+(the 12 standing + the cp-05 three, plus the three cp-05 setup errors); the Postgres leg `failure` on its own standing
+reds (CI-COVERAGE-01, no baseline); the focused step ran independently of both, as designed.
