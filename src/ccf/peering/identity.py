@@ -52,6 +52,7 @@ import base64
 import hashlib
 import json
 import pathlib
+import re
 from collections.abc import Iterable, Mapping
 from typing import Any, Final, Protocol, runtime_checkable
 
@@ -421,12 +422,27 @@ class FileBackedKeySource:
     material, and no key identifier, is baked into this class: which keys exist
     is the deployment's statement (CINV-01).
 
+    **A key identifier is a name, never a path** (LOW-02, D-IMPL-372). A
+    ``key_id`` must fullmatch :attr:`KEY_ID_PATTERN` — an ASCII letter or digit
+    followed by letters, digits, ``.``, ``_`` or ``-`` — and anything else is
+    refused with :class:`KeyUnavailable` **before** a path is formed, so no
+    ``..`` traversal, absolute path, separator, NUL or empty id ever reaches
+    the filesystem. The check is total rather than a list of dangerous shapes,
+    the same design as ``src/ccf/artifacts/protocol.py::held_content_address``
+    (D-IMPL-345 S-02). Key identifiers are flat: :meth:`key_ids` lists only
+    files whose stem matches the same pattern, so listing and lookup agree.
+
     Args:
         directory: Where the JWK files live.
     """
 
     #: Filename suffix of a key document in the directory.
     SUFFIX = ".jwk"
+
+    #: The total grammar of a key identifier (LOW-02). Mechanism, not a
+    #: deployment value: it names what a file-stem identifier may be, not which
+    #: identifiers exist.
+    KEY_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 
     def __init__(self, *, directory: pathlib.Path) -> None:
         self._directory = directory
@@ -435,8 +451,14 @@ class FileBackedKeySource:
         """Return the private JWK stored as ``{key_id}.jwk``.
 
         Raises:
-            KeyUnavailable: no such file, or its content is not a JWK object.
+            KeyUnavailable: ``key_id`` is not a key identifier (refused before
+                any path is formed — LOW-02), no such file, or its content is
+                not a JWK object.
         """
+        if not isinstance(key_id, str) or not self.KEY_ID_PATTERN.match(key_id):
+            raise KeyUnavailable(
+                f"{key_id!r} is not a key identifier; no file was read"
+            )
         path = self._directory / f"{key_id}{self.SUFFIX}"
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
@@ -457,7 +479,11 @@ class FileBackedKeySource:
         return document
 
     def key_ids(self) -> tuple[str, ...]:
-        """Return every key identifier present in the directory, sorted."""
+        """Return every key identifier present in the directory, sorted.
+
+        Only stems matching :attr:`KEY_ID_PATTERN` are listed, so every listed
+        identifier is one :meth:`signing_key` accepts.
+        """
         if not self._directory.is_dir():
             return ()
         return tuple(
@@ -465,6 +491,7 @@ class FileBackedKeySource:
                 path.name[: -len(self.SUFFIX)]
                 for path in self._directory.iterdir()
                 if path.name.endswith(self.SUFFIX)
+                and self.KEY_ID_PATTERN.match(path.name[: -len(self.SUFFIX)])
             )
         )
 

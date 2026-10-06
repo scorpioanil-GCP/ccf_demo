@@ -128,7 +128,8 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
     a fourth by `makefile-credentials` (SEC-026, D-IMPL-368), likewise, and a
     fifth by `ci-posture` (SEC-015, D-IMPL-369) and a sixth by
     `dependency-lock` (SEC-028, D-IMPL-369) and a seventh by
-    `dependency-lock-freshness` (SEC-028-F1, D-IMPL-370).
+    `dependency-lock-freshness` (SEC-028-F1, D-IMPL-370) and an eighth by
+    `ignored-secrets` (LOW-04, D-IMPL-372).
     """
     assert set(CHECKERS) == {
         "no-hardcoding",
@@ -147,6 +148,7 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
         "ci-posture",
         "dependency-lock",
         "dependency-lock-freshness",
+        "ignored-secrets",
     }
 
 

@@ -28,7 +28,22 @@ archive/examples/external/*/.store/
 # Build output of `mkdocs build` — never committed (D-02 / 14-RESEARCH Pitfall 6);
 # `public/` and `openapi.json` are the committed halves.
 site/
+# Key material and credential files — never committed (CLAUDE.md §2.2, "never
+# a secret in the tree"; LOW-04, D-IMPL-372). `FileBackedKeySource` reads
+# `*.jwk`; `FileTokenSource` reads a `tokens.json`; PKCS#12 (`*.p12`, `*.pfx`)
+# and Java keystores (`*.jks`, `*.keystore`) are the other shapes a deployment
+# drops beside a checkout. `.env` is ignored above; `.env.*` covers its
+# per-environment variants. `python -m tools.lints --ignored-secrets`
+# (`tools/lints/ignored_secrets.py`) refuses this tree if any line goes.
 *.pem
+*.jwk
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+tokens.json
+.env.*
 node_modules/
 .DS_Store
 

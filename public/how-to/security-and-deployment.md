@@ -42,8 +42,13 @@ key material and raises `KeyUnavailable` when it holds none.
 - **Sourcing:** the deployment injects a `SigningKeySource` at the
   composition root. The shipped reference, `FileBackedKeySource`, reads
   JWK files from an operator-designated directory *outside* the tree —
-  it is the development reference, not a custody recommendation.
-  Production deployments implement the Protocol against their own key
+  it is the development reference, not a custody recommendation. A
+  `key_id` is a flat name, never a path: anything that does not fullmatch
+  `FileBackedKeySource.KEY_ID_PATTERN` (a letter or digit, then letters,
+  digits, `.`, `_` or `-`) is refused with `KeyUnavailable` before any path
+  is formed, so `..`, an absolute path, a separator or an empty id never
+  reaches the filesystem (`src/ccf/peering/identity.py::FileBackedKeySource`,
+  `LOW-02`). Production deployments implement the Protocol against their own key
   custody (KMS, HSM, vault); the SDK takes no dependency on any vendor.
 - **Verification:** verifiers take candidate *public* keys from the
   caller (trust-policy resolution, D-IMPL-16). No key is baked into
@@ -207,7 +212,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   sourced at review time from the operator-local homecams `.env` file,
   which is outside this repository and never committed here.
 - The `.gitignore` excludes environments and credentials as a standing
-  rule (CLAUDE.md §2.2: "never a secret in the tree"). Key files for
+  rule (CLAUDE.md §2.2: "never a secret in the tree"): `.env` and `.env.*`,
+  and the key-material shapes `*.pem`, `*.jwk`, `*.key`, `*.p12`, `*.pfx`,
+  `*.jks`, `*.keystore` and `tokens.json`. The `ignored-secrets` lint
+  (`tools/lints/ignored_secrets.py::check_tree`, `LOW-04`) refuses the tree
+  if any of those patterns is missing or re-opened by a `!` negation, or if a
+  tracked file matches one; outside a git checkout it reports that the
+  tracked-file half did not run rather than passing. Key files for
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
 - Every workflow under `.github/workflows/` runs with a read-only token
@@ -425,6 +436,34 @@ Authority is only as strong as your binding of `SourceIdentity.system_id` to
 a real system. The SDK does not attest source identity: the adapter declares
 it. A fabric composed by hand through `ccf.boot.boot` never sees operator
 parameters, so the boot check does not cover it.
+
+### 4.7 Two deployment limitations, disclosed rather than fixed
+
+Two behaviors are deliberate designs with recorded reasons, so they are stated
+here as limitations a deployment plans around rather than changed (`D-IMPL-372`,
+Q2 (a)).
+
+- **A reserved graph-backend name denies boot.** Any installed distribution
+  that declares a `ccf.graph_backends` entry point under a name the SDK's own
+  adapters hold refuses every backend resolution, by design, rather than
+  letting the adapter set depend on discovery order
+  (`src/ccf/graph/registry.py::ReservedBackendName`,
+  `src/ccf/graph/registry.py::declared_names`; the
+  [storage and graph Protocols page](../reference/protocols/storage-and-graph.md)
+  states the fail-closed rule). One misbehaving package in the environment is
+  therefore a boot outage, not a silently ignored adapter: control what is
+  installed beside the SDK, and treat a `ReservedBackendName` at boot as a
+  supply-chain finding.
+- **The stdio client adapter hands its child the whole parent environment.**
+  `src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter` spawns the
+  deployment's own server program with `env=dict(os.environ)`, deliberately: it
+  is the deployment's code, reaching the same substrate settings and the same
+  credentials, and the MCP library's filtered default environment would
+  silently run a different checkout. The consequence is that every secret in
+  the client process's environment is visible to the child. A process holding
+  credentials its child must not see should not use the stdio adapter from
+  that process; spawn the client from an environment that carries only what
+  the server needs, or use the loopback transport.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 
