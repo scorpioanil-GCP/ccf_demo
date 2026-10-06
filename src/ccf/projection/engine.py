@@ -243,32 +243,6 @@ class ExecutionResult(CCFContract):
         default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
-    def over_empty_view(self) -> "ExecutionResult":
-        """This execution as the same plan yields it over an EMPTY view.
-
-        SEC-020; ``D-IMPL-370`` Q12 (a) constant-fill (SDK-defined, CLAUDE.md
-        §11). Read by the governed resolver when Π raised the typed withheld
-        signal (``src/ccf/projection/plan.py::ProjectionOutput``) and by
-        nothing else: what the product's debt, empty finding and TTL anchor
-        are computed from must be what a subject that does not exist yields,
-        so the withheld subject's claims cannot move any of them.
-
-        Exactly two members change, and both are what an empty view would have
-        produced rather than a stand-in for it: ``view`` becomes the empty view
-        of the same tenant as of the same instant, and ``empty_results`` names
-        EVERY invoked operator, because an operator handed nothing returns
-        nothing. Everything else — the plan, the operator set and order, the
-        queries the execution issued, the source attestation, the store pin,
-        the projection's own output — is the execution that ran, unchanged, so
-        replay re-executes and pins the same reads it always did.
-        """
-        return self.model_copy(
-            update={
-                "view": GraphView(tenant_id=self.view.tenant_id, as_of=self.view.as_of),
-                "empty_results": frozenset(self.operators_invoked),
-            }
-        )
-
     def touched_entities(self) -> tuple[str, ...]:
         """Entity URIs the execution actually touched, sorted."""
         return tuple(sorted(record.claim.entity_uri for record in self.view.entities))
