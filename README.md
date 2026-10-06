@@ -69,6 +69,9 @@ would pull `chromadb` into every CI job. pip-compile leaves a `ccf.egg-info/`
 stamped `0.0.0` at the repository root (gitignored); delete it afterwards, or
 `importlib.metadata` run from the root reports that version instead of the
 installed one.
+A pin changed in `pyproject.toml` without regenerating the lock fails the
+`dependency-lock-freshness` lint
+(`tools/lints/dependency_lock_freshness.py::check_tree`, `SEC-028-F1`).
 
 ## Quickstart
 

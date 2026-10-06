@@ -127,7 +127,8 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
     time by `authorization-invariant` (D-IMPL-353 §4), on purpose and here, and
     a fourth by `makefile-credentials` (SEC-026, D-IMPL-368), likewise, and a
     fifth by `ci-posture` (SEC-015, D-IMPL-369) and a sixth by
-    `dependency-lock` (SEC-028, D-IMPL-369).
+    `dependency-lock` (SEC-028, D-IMPL-369) and a seventh by
+    `dependency-lock-freshness` (SEC-028-F1, D-IMPL-370).
     """
     assert set(CHECKERS) == {
         "no-hardcoding",
@@ -145,6 +146,7 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
         "makefile-credentials",
         "ci-posture",
         "dependency-lock",
+        "dependency-lock-freshness",
     }
 
 
