@@ -502,9 +502,23 @@ def test_the_resolver_threads_the_engines_emptiness_record() -> None:
     assert built.func.value.id == "ComputedEmptyFinding"
     # And it is built from the EXECUTION — the engine's own record, which is
     # the only source this finding is allowed to have (`D-IMPL-238` limb 3).
-    assert [
-        node.id for node in ast.walk(built) if isinstance(node, ast.Name)
-    ].count("execution") >= 1
+    # SEC-020 (`D-IMPL-370` Q12 (a)): the record is read as `rendered`, which
+    # IS the execution unless Π raised the typed withheld signal, and then is
+    # the same execution over an empty view — still the engine's record, never
+    # the payload. Both halves are measured: the finding reads `rendered`, and
+    # `rendered` is bound from `execution` and nothing else.
+    names = [node.id for node in ast.walk(built) if isinstance(node, ast.Name)]
+    assert "rendered" in names, names
+    bindings = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "rendered" for t in node.targets)
+    ]
+    assert len(bindings) == 1, "`rendered` is bound exactly once"
+    assert {
+        node.id for node in ast.walk(bindings[0].value) if isinstance(node, ast.Name)
+    } == {"execution"}, ast.unparse(bindings[0].value)
 
 
 # --- the sabotages, on scratch copies -------------------------------------------

@@ -201,7 +201,7 @@ def _withhold(*, plan_id: str) -> ProjectionOutput:
     The payload is exactly the one it returns for a subject it cannot see —
     the empty mapping — and the output carries the typed withheld signal.
     """
-    return ProjectionOutput(plan_id=plan_id, payload={})
+    return ProjectionOutput(plan_id=plan_id, payload={}, withheld=True)
 
 
 class _SubjectScopedProjection:
@@ -474,6 +474,11 @@ def test_a_withheld_subject_reads_exactly_as_a_nonexistent_one(
         if anchor == FROM_DECISION:
             leaked = _diff_paths(_vessel(withheld), _vessel(nonexistent))
         else:
+            for outcome in (withheld, nonexistent):
+                assert isinstance(outcome, RefusalEnvelope) and outcome.kind == "ttl-anchor-refusal", (
+                    f"[{anchor}, {shape} fabric] expected the empty view's own refusal"
+                    f" (`D-IMPL-341` R-3), got {outcome!r}"
+                )
             leaked = _diff_paths(_refusal(withheld), _refusal(nonexistent))
         assert not leaked, (
             f"[{anchor}, {shape} fabric] a Π-withheld subject is distinguishable"

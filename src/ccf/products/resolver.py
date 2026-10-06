@@ -3013,6 +3013,31 @@ class GovernedResolver:
             seeds=request_seeds(request),
         )
 
+        # --- SEC-020: A WITHHELD SUBJECT RENDERS AS A NONEXISTENT ONE --------
+        # `D-IMPL-370` Q12 (a), constant-fill (SDK-defined, CLAUDE.md §11). A
+        # projection conditioned on the perspective may withhold the subject
+        # from this principal; it says so with the typed signal on
+        # `src/ccf/projection/plan.py::ProjectionOutput`, and the signal is the
+        # ONLY key into this branch — an empty payload without it is a
+        # legitimately empty answer and keeps what its real view earned
+        # (`D-IMPL-242` amendment 1). Under the signal, everything the product
+        # states ABOUT ITS EVIDENCE — the debt, the empty finding, the TTL
+        # anchor, the touched set the staleness gate reads, the evidence a
+        # declared product gate is shown — is computed from `rendered`: the
+        # same plan's execution over an EMPTY view, which is exactly what a
+        # subject that does not exist yields. Measured before this existed: the
+        # withheld vessel differed from a nonexistent one at `computed_empty`,
+        # `debt.debt`, `debt.factors.freshness` and `debt.scorers`, and an
+        # evidence-anchored class SERVED it where the nonexistent one refused.
+        #
+        # `execution` itself is NOT replaced. The replay record is the audit
+        # plane (whitepaper §7.8.2) and keeps what was actually read, so a
+        # re-execution pins the same reads; the recorded debt is `rendered`'s,
+        # which is what replay rehydrates.
+        rendered = (
+            execution.over_empty_view() if execution.projection.withheld else execution
+        )
+
         # `24.10-F-09` / `D-IMPL-308`. `decided_at` is bound ONCE — far above,
         # beside the temporal bound that judges it — and read FIVE times: the
         # product's expiry, the gate instant, the record's `recorded_at`, the
@@ -3042,20 +3067,20 @@ class GovernedResolver:
         # assessment per request; every other scorer is asked as before.
         if isinstance(self.debt_scorer, InstantAwareDebtScorerProtocol):
             assessed = self.debt_scorer.score_at(
-                view=execution.view,
-                evidence=ExecutionEvidence.of(execution),
+                view=rendered.view,
+                evidence=ExecutionEvidence.of(rendered),
                 decided_at=decided_at,
                 children=children,
             )
         elif children is not None and isinstance(self.debt_scorer, ChildAwareDebtScorerProtocol):
             assessed = self.debt_scorer.score_with_children(
-                view=execution.view,
-                evidence=ExecutionEvidence.of(execution),
+                view=rendered.view,
+                evidence=ExecutionEvidence.of(rendered),
                 children=children,
             )
         else:
             assessed = self.debt_scorer(
-                view=execution.view, evidence=ExecutionEvidence.of(execution)
+                view=rendered.view, evidence=ExecutionEvidence.of(rendered)
             )
 
         # --- composite assembly (`D-IMPL-336` Amendment 3, F0) -------------
@@ -3090,7 +3115,7 @@ class GovernedResolver:
         # child rows a composite already resolved.
         anchor = resolve_ttl_anchor(
             ttl_anchor=registered.ttl_anchor,
-            view=execution.view,
+            view=rendered.view,
             table=self._half_life_table(),
             decided_at=decided_at,
             product_class=registered.schema_name,
@@ -3183,8 +3208,8 @@ class GovernedResolver:
                         plan_id=execution.plan_id,
                         debt=assessed,
                         computed_empty=ComputedEmptyFinding.of(
-                            execution,
-                            emptiness=emptiness_of(ExecutionEvidence.of(execution)),
+                            rendered,
+                            emptiness=emptiness_of(ExecutionEvidence.of(rendered)),
                         ),
                     ),
                     provenance=effective,
@@ -3256,8 +3281,8 @@ class GovernedResolver:
             # cardinality. `None` when no operator returned empty — the claim
             # every product made before this field existed.
             computed_empty=ComputedEmptyFinding.of(
-                execution,
-                emptiness=emptiness_of(ExecutionEvidence.of(execution)),
+                rendered,
+                emptiness=emptiness_of(ExecutionEvidence.of(rendered)),
             ),
         )
 
@@ -3357,7 +3382,7 @@ class GovernedResolver:
                 # `D-IMPL-334`: the entities this execution actually read — the same
                 # value replay dimension 1 records. The gate asks whether any of
                 # them moved after the snapshot this product was built at.
-                touched_entities=execution.touched_entities(),
+                touched_entities=rendered.touched_entities(),
             )
         # 24.6-03/24.6-07: every source the resolution consulted, by exact
         # `(key, version)`. Derived ONCE and shared by the served record and
@@ -3451,7 +3476,7 @@ class GovernedResolver:
             # previously a traceback, now data attributable to `product_gate`.
             try:
                 gate_violation = self.product_gate(
-                    candidate=gated.product, evidence=ExecutionEvidence.of(execution)
+                    candidate=gated.product, evidence=ExecutionEvidence.of(rendered)
                 )
             except GovernedRefusalRaised as raised:
                 return self._refuse_raised_at_seam(

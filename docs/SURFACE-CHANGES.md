@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1855 entries**, of which **1591** name a public Python surface.
+**1857 entries**, of which **1593** name a public Python surface.
 
 ## Added
 
@@ -16792,7 +16792,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-528 entries — 340 public Python surface, 188 not public Python API.
+530 entries — 342 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -22932,6 +22932,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: every constructor call must now pass `max_pending`. A sending peer sees the refusal as `PeerUnreachable` from `emit` / `emit_async`. Not covered here, and escalated separately: `a2a-sdk`'s JSON-RPC dispatcher reads the request body before this transport's checks run, so `max_message_bytes` bounds the carried envelope, not the bytes the process buffers.
 
 *Recorded by `369-21-sec-021-receive-queue-bound.md`.*
+
+#### ccf.projection.plan.ProjectionOutput
+
+- Surface: ccf.projection.plan.ProjectionOutput
+- Public surface: true
+- Change type: reshaped
+- Before: `plan_id: str`, `payload: Mapping[str, Any]`. A projection that withheld a subject could only do so silently.
+- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from `ExecutionResult.over_empty_view()`. The replay record keeps the execution that ran.
+- Why: SEC-020 and Q12 (a). The withheld subject's claims must not move any member a consumer reads. A withhold is never inferred from an empty payload (`D-IMPL-242` amendment 1).
+- Migration: none for a projection that does not withhold. A projection that withholds today by returning an empty payload should set `withheld=True` to get the constant-fill rendering.
+
+*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
+
+#### ccf.projection.engine.ExecutionResult
+
+- Surface: ccf.projection.engine.ExecutionResult
+- Public surface: true
+- Change type: reshaped
+- Before: no way to express the execution the same plan would have produced over an empty view.
+- After: adds the method `over_empty_view()`. It returns a copy whose `view` is the empty view of the same tenant as of the same instant, and whose `empty_results` names every invoked operator. Every other member (plan, operators, steps, queries, attestation, store pin, projection) is the execution that ran.
+- Why: SEC-020. This is the one definition of "the plan over an empty view" that the resolver's constant-fill branch reads.
+- Migration: none. The method is additive.
+
+*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 
 ### Not public Python API
 
