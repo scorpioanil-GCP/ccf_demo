@@ -248,8 +248,8 @@ Rows by coupling shape:
 | `public/reference/artifacts/task-definitions.md` | 16 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 22 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 513 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/egress.py` | 515 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 514 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/egress.py` | 516 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 386 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 388 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 547 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
