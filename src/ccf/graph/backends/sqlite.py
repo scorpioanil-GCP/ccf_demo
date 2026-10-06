@@ -56,6 +56,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import os
 import re
 import sqlite3
 from collections.abc import Iterable, Sequence
@@ -64,7 +65,17 @@ from types import TracebackType
 from typing import ClassVar
 
 from ccf.contracts.canonical import canonical_timestamp
-from ccf.graph.protocols import GraphQuery
+from ccf.graph.protocols import (
+    GraphQuery,
+    WriterLease,
+    WriterLeaseHeld,
+    WriterLeaseScope,
+)
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - a platform without flock (Windows)
+    _fcntl = None  # type: ignore[assignment]
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
@@ -142,6 +153,88 @@ _SCHEMA = (
 )
 
 
+#: Appended to the resolved database path to name the writer-lease sidecar.
+#: Not ``.lock``: SQLite's own ``unix-dotfile`` VFS uses ``<db>.lock``.
+WRITER_LEASE_SUFFIX = ".ccf-writer.lock"
+
+
+class SqliteWriterLease:
+    """The SQLite writer lease: an exclusive ``flock`` on a sidecar file.
+
+    SEC-013 (D-IMPL-372); whitepaper §7.3 / INV-CH7-10, CLAUDE.md §10. Scope
+    ``"cross-process"``. ``fcntl.flock(LOCK_EX | LOCK_NB)`` on
+    ``<resolved database path>.ccf-writer.lock``, opened ``O_RDWR | O_CREAT |
+    O_CLOEXEC`` with mode ``0o600``, and the descriptor kept open for the
+    lease's life:
+
+    * **``flock``, never ``lockf``.** A ``flock`` belongs to an open file
+      description, so a second descriptor — in another process *or this one* —
+      is refused. POSIX record locks (``lockf``/``fcntl``) are per process: a
+      second descriptor in the holding process is granted, and closing *any*
+      descriptor on the file drops them.
+    * **An OS lock, never a file-existence check.** The kernel drops the lock
+      when the holder dies, however it dies; the sidecar file persists and is
+      harmless. A crashed holder therefore never wedges a later boot.
+    * **Keyed on the inode, via the resolved path.** Two spellings of one
+      database file land on one sidecar, so they are one graph to the lease.
+    * **Never blocks.** A held lease raises
+      ``src/ccf/graph/protocols.py::WriterLeaseHeld`` at once.
+
+    Filesystem caveat: the lease is as good as the filesystem's ``flock``.
+    WAL-mode SQLite (this store's mode) is already unsupported on network
+    filesystems, so the sidecar adds no new constraint; a process ``fork``-ed
+    while holding the lease shares it until that child exits.
+    """
+
+    def __init__(self, *, sidecar: Path) -> None:
+        if _fcntl is None:  # pragma: no cover - a platform without flock
+            raise RuntimeError(
+                "the SQLite writer lease requires fcntl.flock, which this"
+                " platform lacks; refusing to boot a writer unleased (SEC-013)"
+            )
+        fd = os.open(sidecar, os.O_RDWR | os.O_CREAT | os.O_CLOEXEC, 0o600)
+        try:
+            _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(fd)
+            raise WriterLeaseHeld(f"flock on {str(sidecar)!r} is held") from None
+        except BaseException:
+            os.close(fd)
+            raise
+        self._fd: int | None = fd
+        self._sidecar = sidecar
+
+    @property
+    def scope(self) -> WriterLeaseScope:
+        return "cross-process"
+
+    @property
+    def mechanism(self) -> str:
+        return f"flock on {str(self._sidecar)!r}"
+
+    def release(self) -> None:
+        """Unlock and close the sidecar descriptor. Idempotent."""
+        fd, self._fd = self._fd, None
+        if fd is None:
+            return
+        try:
+            if _fcntl is not None:
+                _fcntl.flock(fd, _fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+    def __enter__(self) -> SqliteWriterLease:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.release()
+
+
 class SqliteGraphStore:
     """Connection and schema owner for the SQLite reference backend.
 
@@ -174,6 +267,18 @@ class SqliteGraphStore:
         database are the violation.
         """
         return self._database_path
+
+    def writer_lease(self) -> WriterLease:
+        """Acquire the cross-process writer lease (SEC-013): see :class:`SqliteWriterLease`.
+
+        Called by the mint only, never at open: a second, read-only store over
+        a live fabric's file is legitimate and takes no lease.
+
+        Raises:
+            WriterLeaseHeld: another holder — in any process — has the lease.
+        """
+        resolved = Path(self._database_path).resolve()
+        return SqliteWriterLease(sidecar=Path(f"{resolved}{WRITER_LEASE_SUFFIX}"))
 
     @property
     def reader(self) -> SqliteGraphReader:

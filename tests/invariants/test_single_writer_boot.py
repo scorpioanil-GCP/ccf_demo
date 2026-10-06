@@ -66,7 +66,7 @@ def test_a_token_authorizes_exactly_one_writer(tmp_path: Path) -> None:
     from ccf.graph._writer import mint_boot_token
 
     store = SqliteGraphStore(database_path=tmp_path / "once.sqlite3")
-    token = mint_boot_token(graph_identity=store.graph_identity)
+    token = mint_boot_token(store=store)
     writer = SqliteGraphWriter(store=store, token=token)
 
     try:

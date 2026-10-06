@@ -52,8 +52,10 @@ from ccf.graph.protocols import (
     EntityRecord,
     GraphQuery,
     GraphView,
+    ProcessScopedWriterLease,
     RelationshipRecord,
     SourceAttestation,
+    WriterLease,
 )
 from ccf.graph.reader import (
     ENTITY_KIND,
@@ -250,6 +252,18 @@ class DemoGraphStore:
         honest claim is the SDK's own: no unforced path exists.
         """
         return self._state
+
+    def writer_lease(self) -> WriterLease:
+        """Declare ``"process"`` writer-lease scope (SEC-013, D-IMPL-372).
+
+        A **disclosure, not enforcement**: acquiring it does nothing, and the
+        only exclusion is the composition root's in-process live-writer table
+        (``src/ccf/graph/_writer.py::mint_boot_token``). The single-writer
+        invariant (INV-CH7-10) is NOT enforced across processes on this
+        substrate. The fixture's graph is a dict owned by one process, so no second process
+        can share it; the declaration is exact rather than a gap here.
+        """
+        return ProcessScopedWriterLease(substrate="demo")
 
     @property
     def reader(self) -> DemoGraphReader:

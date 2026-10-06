@@ -55,8 +55,10 @@ from ccf.graph.protocols import (
     EntityRecord,
     GraphQuery,
     GraphView,
+    ProcessScopedWriterLease,
     RelationshipRecord,
     SourceAttestation,
+    WriterLease,
 )
 from ccf.graph.reader import (
     Row,
@@ -215,7 +217,7 @@ class MemoryGraphStore:
         """Stable synthetic identity of this in-memory graph, minted at construction.
 
         The single-writer boot check keys on this via
-        ``mint_boot_token(graph_identity=...)``: two writers over one store
+        ``mint_boot_token(store=...)``: two writers over one store
         *instance* are the violation; two instances are two fabrics. The
         per-instance UUID already makes the identity globally unique, exactly
         as SQLite keys on its database path and Postgres on
@@ -242,6 +244,18 @@ class MemoryGraphStore:
             state = TenantState()
             self._tenants[tenant_id] = state
         return state
+
+    def writer_lease(self) -> WriterLease:
+        """Declare ``"process"`` writer-lease scope (SEC-013, D-IMPL-372).
+
+        A **disclosure, not enforcement**: acquiring it does nothing, and the
+        only exclusion is the composition root's in-process live-writer table
+        (``src/ccf/graph/_writer.py::mint_boot_token``). The single-writer
+        invariant (INV-CH7-10) is NOT enforced across processes on this
+        substrate. Each instance is its own ``memory://<uuid>`` graph, so no second process can
+        share it at all; the declaration is exact rather than a gap here.
+        """
+        return ProcessScopedWriterLease(substrate="memory")
 
     @property
     def reader(self) -> MemoryGraphReader:

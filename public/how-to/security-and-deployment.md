@@ -233,12 +233,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Four decisions have to be made explicitly. None of them has a safe default
-the SDK could pick for you, which is why each of them is a construction-time
-argument rather than a setting buried in configuration. The first three
-concern the HTTP surface, whose endpoint-by-endpoint contract is on the
-[HTTP API page](../reference/http-api.md); the fourth concerns which transport
-the MCP product door serves on.
+Five decisions have to be made explicitly. None of the first four has a safe
+default the SDK could pick for you, which is why each of them is a
+construction-time argument rather than a setting buried in configuration. The
+first three concern the HTTP surface, whose endpoint-by-endpoint contract is on
+the [HTTP API page](../reference/http-api.md); the fourth concerns which
+transport the MCP product door serves on; the fifth is how many processes may
+boot one graph, which depends on the graph store.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -337,6 +338,47 @@ is for, and it is a legitimate posture. Anything that has to tell two callers
 apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
+
+### 4.5 Decide how many processes share a graph (SEC-013)
+
+The fabric permits exactly one writer per graph (INV-CH7-10). Inside one
+process the boot refuses a second writer from its own live-writer table. Across
+processes the exclusion is the graph store's **writer lease**, and what it
+covers depends on the store. Each lease declares its scope by name, and the
+boot token records it.
+
+| Store | Lease scope | What enforces it |
+| --- | --- | --- |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
+| In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
+| Fluree, MongoDB, Neo4j | `process` | **Nothing across processes. The single-writer invariant is not enforced there.** |
+
+**The last row is an open gap, not a guarantee.** On those persistent network
+stores a second process booting the same graph is *not* refused. SEC-013 is
+recorded as partial for that reason: run one writing process per graph on
+those stores until a native lease is ruled and built.
+
+Consequences for a deployment on the stores that do lease:
+
+- **Two processes that each boot the same deployment are mutually exclusive.**
+  For example, two in-process client adapters or two MCP egress servers on one
+  deployment root over one SQLite file or one Postgres schema. The second is
+  refused at boot with `SingleWriterViolation`, naming the lease it could not
+  take. A holder that dies, however it dies, gives the lease back (the kernel
+  drops the `flock`; the server ends the session), so a crash never wedges a
+  later boot.
+- **SQLite.** The lease is only as good as the filesystem's `flock`. WAL-mode
+  SQLite is already unsupported on network filesystems, so keep the database
+  file and its sidecar on a local filesystem. A process forked while holding
+  the lease shares it until that child exits.
+- **Postgres.** Connect directly or through a *session*-pooled connection. A
+  transaction- or statement-pooled connection (PgBouncer in those modes)
+  cannot carry a session lock. A dropped connection loses the lease silently:
+  the writer fails on its next statement, but a competing boot may already
+  have succeeded. The lease is visible to an operator in `pg_locks` with
+  `locktype = 'advisory'`, and it shares the database's advisory-lock key
+  space with anything else using it.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 
