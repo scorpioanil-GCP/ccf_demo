@@ -220,7 +220,9 @@ def test_typed_http_queues_nothing_it_cannot_name() -> None:
             max_request_bytes=CONSUMER["max_request_bytes"],
         )
         bad = SignedContextProduct(
-            payload="***not base64url***",
+            # Not ASCII, so not base64url under any decoder leniency: the
+            # payload has no content address and the carriage cannot be named.
+            payload="\u00e9t\u00e9",
             protected=_b64url(b"x"),
             signature=_b64url(b"y"),
         )
