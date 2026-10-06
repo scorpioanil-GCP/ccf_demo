@@ -14,12 +14,24 @@ on its observation instant, where the nonexistent subject was refused
 resolver could not tell a withhold from a legitimately empty answer. The exploit
 test is `tests/products/test_withheld_is_indistinguishable_from_absent.py`.
 
-**Constant-fill, ruled:** when the signal is raised, the product is the vessel
-the same plan yields over an EMPTY view. That means the same empty finding
-naming every operator, the same debt, scorers and signal, and the same anchor.
-For an evidence-anchored class that anchor is the empty view's own refusal. The
-vessel is never `None`/zero. The signal is the only key into that branch. An
-empty payload without it keeps the debt and finding its real view earned.
+**Constant-fill, as corrected in the corrective round:** when the signal is
+raised, the product's debt, empty finding and TTL anchor are those of the same
+plan RE-EXECUTED over the same fabric with the subject masked out: its entity,
+its claims, and anything reachable only through it. Siblings stay. That is what
+a never-ingested subject reads there, because walk starts are the union of the
+seed classes and the request seed (`GQ-11`, unchanged). On a per-request fabric
+holding only the subject, the masked fabric is empty, so the product carries the
+finding naming every operator, and an evidence-anchored class refuses. The first
+version rendered an EMPTY view on every fabric. The close panel measured that it
+created a serve-versus-refuse existence oracle on one shared fabric. The signal
+is the only key into the branch. An empty payload without it keeps the debt and
+finding its real view earned.
+
+**Measured residual, not closed.** On one shared fabric where the withheld
+subject's own evidence is fresher or staler than its siblings', the masked
+rendering still differs from a nonexistent subject's. The difference is in
+`debt`, and on an evidence-anchored class also in the anchor. It is held as a
+strict expected failure in the exploit module and escalated for a ruling.
 
 ## ccf.projection.plan.ProjectionOutput
 
@@ -31,12 +43,22 @@ empty payload without it keeps the debt and finding its real view earned.
 - Why: SEC-020 and Q12 (a). The withheld subject's claims must not move any member a consumer reads. A withhold is never inferred from an empty payload (`D-IMPL-242` amendment 1).
 - Migration: none for a projection that does not withhold. A projection that withholds today by returning an empty payload should set `withheld=True` to get the constant-fill rendering.
 
-## ccf.projection.engine.ExecutionResult
+## ccf.projection.engine.ProjectionEngine
 
-- Surface: ccf.projection.engine.ExecutionResult
+- Surface: ccf.projection.engine.ProjectionEngine
 - Public surface: true
 - Change type: reshaped
-- Before: no way to express the execution the same plan would have produced over an empty view.
-- After: adds the method `over_empty_view()`. It returns a copy whose `view` is the empty view of the same tenant as of the same instant, and whose `empty_results` names every invoked operator. Every other member (plan, operators, steps, queries, attestation, store pin, projection) is the execution that ran.
-- Why: SEC-020. This is the one definition of "the plan over an empty view" that the resolver's constant-fill branch reads.
+- Before: no way to execute a plan as if some entities had never been ingested.
+- After: adds the method `execute_with_entities_masked(*, masked, executed, plan, perspective, tenant_id, temporal_boundary, seeds=None)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap. Every query is answered by the reference semantics (`ccf.graph.fallback.answer`) over one as-of read of the real store, with the masked entities' records and every relationship touching them removed. The read is pinned to `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
+- Why: SEC-020, corrective round. This is the one definition of "this fabric without the subject" that the resolver's constant-fill branch reads.
 - Migration: none. The method is additive.
+
+## ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
+- After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes the pre-existing divergence for every empty-finding product.
+- Migration: none for records. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.

@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1857 entries**, of which **1593** name a public Python surface.
+**1858 entries**, of which **1594** name a public Python surface.
 
 ## Added
 
@@ -16792,7 +16792,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-530 entries — 342 public Python surface, 188 not public Python API.
+531 entries — 343 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -22945,15 +22945,27 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 
-#### ccf.projection.engine.ExecutionResult
+#### ccf.projection.engine.ProjectionEngine
 
-- Surface: ccf.projection.engine.ExecutionResult
+- Surface: ccf.projection.engine.ProjectionEngine
 - Public surface: true
 - Change type: reshaped
-- Before: no way to express the execution the same plan would have produced over an empty view.
-- After: adds the method `over_empty_view()`. It returns a copy whose `view` is the empty view of the same tenant as of the same instant, and whose `empty_results` names every invoked operator. Every other member (plan, operators, steps, queries, attestation, store pin, projection) is the execution that ran.
-- Why: SEC-020. This is the one definition of "the plan over an empty view" that the resolver's constant-fill branch reads.
+- Before: no way to execute a plan as if some entities had never been ingested.
+- After: adds the method `execute_with_entities_masked(*, masked, executed, plan, perspective, tenant_id, temporal_boundary, seeds=None)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap. Every query is answered by the reference semantics (`ccf.graph.fallback.answer`) over one as-of read of the real store, with the masked entities' records and every relationship touching them removed. The read is pinned to `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
+- Why: SEC-020, corrective round. This is the one definition of "this fabric without the subject" that the resolver's constant-fill branch reads.
 - Migration: none. The method is additive.
+
+*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
+- After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes the pre-existing divergence for every empty-finding product.
+- Migration: none for records. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
 
 *Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 

@@ -90,11 +90,12 @@ class ProjectionOutput(CCFContract):
     may decide that the principal asking must not be told about the subject at
     all. It says so with ``withheld=True`` and returns, as ``payload``, exactly
     what it returns for a subject it cannot see. The governed resolver then
-    renders the product as the SAME plan renders over an EMPTY view — the
-    same debt, the same empty finding, the same TTL anchor — so a withheld
-    subject is indistinguishable from a nonexistent one
+    renders the product's debt, empty finding and TTL anchor from the SAME
+    plan re-executed over the same fabric with the subject masked out — its
+    entity, its claims, and anything reachable only through it — which is what
+    a subject that was never ingested reads there, siblings included
     (``src/ccf/products/resolver.py::GovernedResolver``,
-    ``src/ccf/projection/engine.py::ExecutionResult.over_empty_view``).
+    ``src/ccf/projection/engine.py::ProjectionEngine.execute_with_entities_masked``).
 
     The signal is the ONLY way into that branch. An empty payload without it
     is a legitimately empty answer and keeps the debt and the finding its real
@@ -150,7 +151,7 @@ class ProjectionPlan(Protocol):
         A projection that must not tell ``perspective`` about the subject at
         all returns ``ProjectionOutput(withheld=True)`` with the payload it
         returns for a subject it cannot see; the product is then rendered as
-        the same plan renders over an empty view (SEC-020, ``D-IMPL-370``
+        the same plan renders with the subject masked out of the fabric (SEC-020, ``D-IMPL-370``
         Q12 (a); :class:`ProjectionOutput`). Returning an empty payload
         without the signal is a legitimately empty answer, never a withhold.
         """

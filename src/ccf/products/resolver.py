@@ -2980,9 +2980,10 @@ class GovernedResolver:
         # deployment's own claim contradicts. Refusing here is what keeps that
         # assembly from happening at all.
         refuse_operator_set_divergence(declared=declaration, plan=plan)
-        execution = ProjectionEngine(
+        engine = ProjectionEngine(
             reader=self.fabric.handle.reader, registry=operators
-        ).execute(
+        )
+        execution = engine.execute(
             plan=plan,
             perspective=perspective,
             tenant_id=self.fabric.tenant_id,
@@ -3014,28 +3015,48 @@ class GovernedResolver:
         )
 
         # --- SEC-020: A WITHHELD SUBJECT RENDERS AS A NONEXISTENT ONE --------
-        # `D-IMPL-370` Q12 (a), constant-fill (SDK-defined, CLAUDE.md §11). A
-        # projection conditioned on the perspective may withhold the subject
-        # from this principal; it says so with the typed signal on
-        # `src/ccf/projection/plan.py::ProjectionOutput`, and the signal is the
-        # ONLY key into this branch — an empty payload without it is a
-        # legitimately empty answer and keeps what its real view earned
-        # (`D-IMPL-242` amendment 1). Under the signal, everything the product
-        # states ABOUT ITS EVIDENCE — the debt, the empty finding, the TTL
-        # anchor, the touched set the staleness gate reads, the evidence a
-        # declared product gate is shown — is computed from `rendered`: the
-        # same plan's execution over an EMPTY view, which is exactly what a
-        # subject that does not exist yields. Measured before this existed: the
-        # withheld vessel differed from a nonexistent one at `computed_empty`,
-        # `debt.debt`, `debt.factors.freshness` and `debt.scorers`, and an
-        # evidence-anchored class SERVED it where the nonexistent one refused.
+        # `D-IMPL-370` Q12 (a), constant-fill, as corrected in its corrective
+        # round (SDK-defined, CLAUDE.md §11). A projection conditioned on the
+        # perspective may withhold the subject from this principal; it says so
+        # with the typed signal on `src/ccf/projection/plan.py::ProjectionOutput`,
+        # and the signal is the ONLY key into this branch — an empty payload
+        # without it is a legitimately empty answer and keeps what its real view
+        # earned (`D-IMPL-242` amendment 1).
+        #
+        # THE BASELINE IS THIS FABRIC WITHOUT THE SUBJECT, NOT AN EMPTY VIEW.
+        # Walk starts are the union of the plan's seed classes and the request
+        # seed (`GQ-11`), so a never-ingested identifier still reads every
+        # in-scope sibling and earns their debt, anchor and finding. The first
+        # version of this block rendered an EMPTY view instead, and the close
+        # panel measured the consequence on one shared fabric: the withheld
+        # subject read debt 0 against the nonexistent subject's real debt, and
+        # on an evidence-anchored class it was REFUSED where the nonexistent one
+        # was SERVED — an existence oracle the silent pre-fix path did not
+        # have. So the plan is RE-EXECUTED with the subject's entity, its
+        # claims, and anything reachable only through it masked out
+        # (`src/ccf/projection/engine.py::ProjectionEngine.execute_with_entities_masked`),
+        # and everything the product states ABOUT ITS EVIDENCE — the debt, the
+        # empty finding, the TTL anchor, the touched set the staleness gate
+        # reads, the evidence a declared product gate is shown — is computed
+        # from that masked execution. The subject is read once, by
+        # `request_seeds`, the same reading that seeded the walk.
         #
         # `execution` itself is NOT replaced. The replay record is the audit
         # plane (whitepaper §7.8.2) and keeps what was actually read, so a
-        # re-execution pins the same reads; the recorded debt is `rendered`'s,
-        # which is what replay rehydrates.
+        # re-execution pins the same reads; the recorded debt and finding are
+        # `rendered`'s, carried in dimension 5, which is what replay rehydrates.
         rendered = (
-            execution.over_empty_view() if execution.projection.withheld else execution
+            engine.execute_with_entities_masked(
+                masked=request_seeds(request) or frozenset(),
+                executed=execution,
+                plan=plan,
+                perspective=perspective,
+                tenant_id=self.fabric.tenant_id,
+                temporal_boundary=request.asked_at,
+                seeds=request_seeds(request),
+            )
+            if execution.projection.withheld
+            else execution
         )
 
         # `24.10-F-09` / `D-IMPL-308`. `decided_at` is bound ONCE — far above,

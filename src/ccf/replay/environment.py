@@ -159,10 +159,10 @@ class RecordedEnvironment:
         """The served contract, rebuilt with every recorded member copied verbatim.
 
         The payload and the plan id come from the re-executed projection; the
-        anchor instant, the debt and its evidence, the refresh recency and the
-        obligation come off dimension 5 unchanged. That split is the contract
-        this method keeps: what the operators produced is reproduced, and what
-        the fabric decided is retained.
+        anchor instant, the debt and its evidence, the refresh recency, the
+        obligation and the empty finding come off dimension 5 unchanged. That
+        split is the contract this method keeps: what the operators produced is
+        reproduced, and what the fabric decided is retained.
         """
         path, snapshot = record.content_generation_path, record.context_fabric_snapshot
         policy_versions = frozenset(
@@ -190,4 +190,8 @@ class RecordedEnvironment:
             debt_evidence=path.debt_evidence,
             source_refresh_recency=path.source_refresh_recency,
             obligation_in_force=path.obligation_in_force,
+            # SEC-020: the served product's empty finding, recorded on
+            # dimension 5 and copied — never re-derived from the re-execution,
+            # which for a withheld subject is the real read, not the masked one.
+            computed_empty=path.computed_empty,
         )
