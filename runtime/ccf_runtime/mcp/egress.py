@@ -148,6 +148,7 @@ import base64
 import binascii
 import logging
 import re
+import traceback
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final, Protocol, runtime_checkable
@@ -757,15 +758,18 @@ def _opaque_failure(exc: BaseException) -> ToolError:
     string-parse a server's prose has no channel at all, and the prose is
     exactly where a store path, a query, a tenant or a principal leaks
     (``T-24.6-34``). The id is a join: it is written to this module's logger
-    beside the full traceback, so an operator asked about
-    ``ccf-runtime-failure:2f1c…`` finds the one failure it names.
+    beside the chain's type names and frames, so an operator asked about
+    ``ccf-runtime-failure:2f1c…`` finds the one failure it names. The log
+    carries types and frames, never values (``SEC-024``, ``D-IMPL-369``
+    choice C): see :func:`_types_and_frames`.
 
     **The id is not deterministic and does not need to be.** It identifies an
     *occurrence*, not a decision — a decision's identity is its replay record,
     which a failure by definition does not have.
 
     Args:
-        exc: What the fabric raised. Never rendered to the caller.
+        exc: What the fabric raised. Never rendered to the caller; its text
+            never rendered to the log.
 
     Returns:
         The ``ToolError`` the handler raises. Returned rather than raised so
@@ -773,9 +777,9 @@ def _opaque_failure(exc: BaseException) -> ToolError:
         the server-side chain.
     """
     failure_id = uuid4().hex
-    _LOGGER.exception(
-        "the L6 egress door failed: %s:%s", CCF_FAILURE_PREFIX, failure_id,
-        exc_info=exc,
+    _LOGGER.error(
+        "the L6 egress door failed: %s:%s\n%s",
+        CCF_FAILURE_PREFIX, failure_id, _types_and_frames(exc),
     )
     return ToolError(f"{CCF_FAILURE_PREFIX}:{failure_id}")
 
@@ -1756,3 +1760,33 @@ def build_egress_server(
             ).decode("utf-8")
 
     return door.build()
+
+
+def _types_and_frames(exc: BaseException) -> str:
+    """Render an exception chain as type names and frames only (``SEC-024``).
+
+    ``D-IMPL-368``/``D-IMPL-369`` choice C (*"Logs and CCFContract only"*);
+    CLAUDE.md §11. What :func:`_opaque_failure` writes to the log: for each
+    link of the ``__cause__`` (else ``__context__``) chain, outward from
+    ``exc`` and once per exception, its qualified **type name** and
+    ``traceback.format_tb`` of its traceback — what failed and where.
+
+    No ``str()`` or ``repr()`` of any exception is taken, and the record is
+    not logged with ``exc_info``: a rendered traceback's last line *is* the
+    exception text, and that text is where a caller's value, a store path or
+    a credential lands. Same rule as
+    ``src/ccf/graph/registry.py::_connection_refusal``.
+
+    Lives below :func:`build_egress_server` deliberately: a ``cite02`` anchor
+    in ``docs/D-IMPL-343-DESIGN.md`` pins that function's signature lines.
+    """
+    seen: set[int] = set()
+    parts: list[str] = []
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        kind = type(current)
+        parts.append(f"{kind.__module__}.{kind.__qualname__}\n")
+        parts.extend(traceback.format_tb(current.__traceback__))
+        current = current.__cause__ or current.__context__
+    return "".join(parts)
