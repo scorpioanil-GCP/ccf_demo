@@ -121,6 +121,7 @@ from ccf.halflife.assessment import DebtAssessment
 from ccf.peering.admission import (
     AdmissionRefusal,
     ContractRefusal,
+    IssuanceRefusal,
     LineageContinuityRefusal,
     PayloadTooLargeRefusal,
     PolicyBindingRefusal,
@@ -828,6 +829,8 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     AdmissionRefusal: "admission-refusal",
     PayloadTooLargeRefusal: "payload-too-large-refusal",
     SignatureRefusal: "signature-refusal",
+    # `SEC-022`: the issuance check and the replay consult.
+    IssuanceRefusal: "issuance-refusal",
     ContractRefusal: "contract-refusal",
     PolicyBindingRefusal: "policy-binding-refusal",
     LineageContinuityRefusal: "lineage-continuity-refusal",

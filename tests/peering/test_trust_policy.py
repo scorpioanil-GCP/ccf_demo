@@ -36,6 +36,7 @@ from ccf.peering.trust_policy import (
 )
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.registry import ControlPlaneRegistry
+from tests.peering.issuance_fixture import window
 from tests.composition import register_typed_at_composition
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
@@ -104,6 +105,7 @@ def grant(
         permitted_policy_regimes=(
             regimes if regimes is not None else frozenset({_policy_regime()})
         ),
+        **window(),
     )
 
 
@@ -201,6 +203,8 @@ def test_an_unknown_field_on_a_peer_grant_is_rejected() -> None:
             permitted_producer_hashes=frozenset(),
             permitted_schema_names=frozenset(),
             permitted_policy_regimes=frozenset(),
+            # The window is present, so the unknown field is the only defect.
+            **window(),
             skip_verification=True,  # type: ignore[call-arg]
         )
 
@@ -266,6 +270,7 @@ def test_an_empty_grant_permits_nothing_rather_than_everything() -> None:
         permitted_producer_hashes=frozenset(),
         permitted_schema_names=frozenset(),
         permitted_policy_regimes=frozenset(),
+        **window(),
     )
     with pytest.raises(TrustPolicyViolation):
         entry.require_schema(schema_name=_schema_name())
@@ -321,3 +326,39 @@ def test_two_tenant_policies_never_share_a_control_plane_key() -> None:
     assert trust_policy_key(tenant_id=TENANT_ONE) != trust_policy_key(
         tenant_id=TENANT_TWO
     )
+
+
+# --- `SEC-022`: the issuance window --------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("member", "value"),
+    [
+        ("signature_max_age_seconds", 0),
+        ("signature_max_age_seconds", -1),
+        ("permitted_clock_skew_seconds", -1),
+    ],
+)
+def test_an_issuance_window_outside_its_domain_is_refused(member: str, value: int) -> None:
+    """Max age is positive and skew non-negative (the `HitlPolicy` validators)."""
+    with pytest.raises(ValidationError) as refused:
+        PeerTrustGrant(
+            signing_keys={},
+            permitted_producer_hashes=frozenset(),
+            permitted_schema_names=frozenset(),
+            permitted_policy_regimes=frozenset(),
+            **{**window(), member: value},
+        )
+    assert member in str(refused.value)
+
+
+def test_a_zero_skew_is_a_legitimate_window() -> None:
+    """Zero skew means "not post-dated at all" — a policy, not a mistake."""
+    entry = PeerTrustGrant(
+        signing_keys={},
+        permitted_producer_hashes=frozenset(),
+        permitted_schema_names=frozenset(),
+        permitted_policy_regimes=frozenset(),
+        **{**window(), "permitted_clock_skew_seconds": 0},
+    )
+    assert entry.permitted_clock_skew_seconds == 0

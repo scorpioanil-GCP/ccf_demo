@@ -381,6 +381,36 @@ class ChildAdmissionRefusal(GateRefusal):
     )
 
 
+def signed_question(
+    admission: AdmittedProduct | None,
+) -> tuple["WireRequest | None", "AnsweredQuestion | None"]:
+    """The question a peered producer SIGNED it answered, as the door's own types.
+
+    `SEC-022` (``D-IMPL-371``), closing SEC-025-U1. Read from
+    :attr:`~ccf.peering.admission.AdmittedProduct.issuance` — the claims the
+    peering gate decoded from the authenticated protected header — and
+    converted to :class:`~ccf.products.door.WireRequest` and
+    :class:`~ccf.products.door.AnsweredQuestion`, so the door's validators run
+    on them exactly as on any other leg's echo. No admission, no claims, or
+    anything that does not convert yields ``(None, None)``, which
+    :meth:`CompositeAdmissionGate.hold_answer_to_question` refuses
+    ``question-mismatch``: fails closed, never composed unbound.
+    """
+    # Imported here: the door imports the refusal module, which imports this
+    # one (see the TYPE_CHECKING import above).
+    from ccf.products.door import AnsweredQuestion, WireRequest
+
+    issuance = admission.issuance if admission is not None else None
+    if issuance is None:
+        return None, None
+    try:
+        echo = WireRequest.model_validate(issuance.echo.model_dump())
+        answered = AnsweredQuestion.model_validate(issuance.answered.model_dump())
+    except ValueError:
+        return None, None
+    return echo, answered
+
+
 class ProvenanceForgeryError(TypeError):
     """Provenance evidence was constructed outside its minting authority."""
 
@@ -403,13 +433,16 @@ ChildAcquisition = Literal["local-dispatch", "mcp", "mcp-product", "peered"]
 #: `SEC-025` (Q16): the legs whose answered subject
 #: :meth:`CompositeAdmissionGate.admit` holds to the asked question directly.
 #: ``mcp-product`` is held by the SAME check, reached through
-#: :meth:`CompositeAdmissionGate.hold_producer_claims`. ``peered`` is absent by
-#: disclosure, not by oversight — **SEC-025-U1**: the A2A envelope
-#: (``ccf.peering.protocol::InboundProduct``) carries no question to echo, so a
-#: peered child is admitted without subject binding until SEC-022's signed
-#: claim set carries the question.
+#: :meth:`CompositeAdmissionGate.hold_producer_claims`. ``peered`` joined with
+#: `SEC-022` (``D-IMPL-371``), closing **SEC-025-U1**: the envelope's signed
+#: issuance claims (``src/ccf/peering/issuance.py::IssuanceClaims``) carry the
+#: question the producer answered, decoded once by the peering gate and carried
+#: onto the candidate, so a peered child is held to the asked subject by the
+#: same comparison. The binding is by SUBJECT; the question ADDRESS is not
+#: minted for a peered leg, because the leg is a pull and nothing the consumer
+#: built is echoed back.
 _ANSWER_BOUND_IN_ADMIT: Final[frozenset[ChildAcquisition]] = frozenset(
-    {"local-dispatch", "mcp"}
+    {"local-dispatch", "mcp", "peered"}
 )
 
 #: What each acquisition kind is evidenced by, and what it may therefore claim.
@@ -1239,12 +1272,31 @@ class CompositeAdmissionGate:
             # `SEC-025` (Q16): the answered subject, held to the asked question
             # by the one check every bound leg shares.
             asked = candidate.asked_question
+            echo, answered = candidate.question_echo, candidate.answered_question
+            if invocation.acquisition == "peered":
+                if candidate.admission is None:
+                    # Refused by its prior defect, by name: with no peering
+                    # admission there is no verified envelope, so there is no
+                    # signed question to hold either (D-IMPL-336 Amendment 5).
+                    return refuse(
+                        "provenance-unverified",
+                        "this child was acquired over a peering endpoint and"
+                        " carries no PeeringAdmissionGate result, so its"
+                        " signature, its entitlement and the question it"
+                        " answered are all unverified; composition does not"
+                        " admit on the transport's word (SEC-022)",
+                    )
+                # `SEC-022`: a peered child's answer is the question its
+                # producer SIGNED, read from the verified admission — never the
+                # candidate's own echo, which a caller building the candidate
+                # could fill with anything.
+                echo, answered = signed_question(candidate.admission)
             held = self.hold_answer_to_question(
                 leg=invocation.acquisition,
                 asked_subject=asked.subject if asked is not None else None,
                 question_address=None,
-                echo=candidate.question_echo,
-                answered=candidate.answered_question,
+                echo=echo,
+                answered=answered,
                 refuse=refuse,
             )
             if held is not None:
@@ -1438,8 +1490,9 @@ class CompositeAdmissionGate:
         legs in ``_ANSWER_BOUND_IN_ADMIT`` and :meth:`hold_producer_claims`
         reaches it for ``mcp-product`` (`D-IMPL-340`), on the served and the
         refused path alike — so the subject binding exists once, and severing
-        it here unbinds every leg at once. ``peered`` does not reach it
-        (SEC-025-U1, disclosed on ``_ANSWER_BOUND_IN_ADMIT``).
+        it here unbinds every leg at once. ``peered`` reaches it through
+        :meth:`admit` since `SEC-022` (``D-IMPL-371``), with the echo and the
+        answered axes taken from the envelope's signed issuance claims.
 
         The refusal is always ``question-mismatch`` — the name D-IMPL-340
         already gave a subject mismatch on the producer leg — and its detail

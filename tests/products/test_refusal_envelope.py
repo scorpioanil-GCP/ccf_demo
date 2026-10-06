@@ -707,6 +707,31 @@ def test_envelope_for_payload_too_large_refusal(
     assert envelope.fields["ceiling_bytes"] == "1024"
 
 
+def test_envelope_for_issuance_refusal(request_identity: RequestIdentity) -> None:
+    """`SEC-022`: the issuance refusal renders its failure and both window members."""
+    from datetime import UTC, datetime
+
+    from ccf.peering.admission import IssuanceRefusal
+
+    refusal = IssuanceRefusal(
+        gate="peering-issuance",
+        detail="the envelope's issuance was not admitted",
+        tenant_id="t-1",
+        peer_id="peer-1",
+        failure="stale-issuance",
+        issued_at=datetime(2026, 3, 2, 11, 59, tzinfo=UTC),
+        max_age_seconds=900,
+        skew_seconds=60,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+
+    assert envelope.kind == REFUSAL_KINDS[IssuanceRefusal] == "issuance-refusal"
+    assert envelope.fields["failure"] == '"stale-issuance"'
+    assert envelope.fields["max_age_seconds"] == "900"
+    assert envelope.fields["skew_seconds"] == "60"
+    assert envelope.fields["peer_id"] == '"peer-1"'
+
+
 def test_envelope_for_signature_refusal(request_identity: RequestIdentity) -> None:
     """Three inheritance levels, none collapsed.
 

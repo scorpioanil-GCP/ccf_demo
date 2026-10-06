@@ -51,6 +51,13 @@ from ccf.products.composite import (
 )
 from ccf.skills.dispatch import PeeringInvocation
 
+from ccf.products.child_resolver import ChildQuestion
+from tests.peering.issuance_fixture import (
+    FIXTURE_FRESHNESS,
+    FIXTURE_INTENT,
+    FIXTURE_SUBJECT,
+    issuance_member,
+)
 from tests.composition import register_skill_entry, register_typed_at_composition
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.peering.test_admission_attributability import (  # noqa: F401
@@ -117,6 +124,12 @@ def _assertion_header(
     return {
         PRODUCER_ASSERTION_HEADER: PEER_PRODUCER,
         ELIGIBILITY_ASSERTION_HEADER: encode_eligibility_assertion(assertion),
+        # `SEC-022`: the issuance claims, issued at the product's own boundary
+        # (independent of `checked_at`, which the eligibility tests vary).
+        **issuance_member(
+            product=product,
+            issued_at=product.temporal_boundary,  # type: ignore[attr-defined]
+        ),
     }
 
 
@@ -209,6 +222,14 @@ def test_r1_an_honest_signed_envelope_reaches_COMPOSITION(
                 ),
             ),
             admission=admitted,
+            # `SEC-025`/`SEC-022`: the question this composition asked; the
+            # gate holds the peered answer to it from the SIGNED claims.
+            asked_question=ChildQuestion(
+                subject=FIXTURE_SUBJECT,
+                intent=FIXTURE_INTENT,
+                freshness=FIXTURE_FRESHNESS,
+                parameters={},
+            ),
         ),
         asked_at=admitted.product.temporal_boundary,
         admitted_at=now,
@@ -220,6 +241,104 @@ def test_r1_an_honest_signed_envelope_reaches_COMPOSITION(
     assert outcome.eligibility_basis == ELIGIBILITY_PRODUCER_ATTESTED
     assert outcome.eligibility_evidence is not None
     assert outcome.eligibility_evidence.producer == PEER_PRODUCER
+
+
+def test_sec022_a_hand_built_peered_candidate_cannot_substitute_its_own_echo(
+    provider: DetachedJwsIdentityProvider,
+    gate: object,
+    registry: object,
+) -> None:
+    """`SEC-022`: the composite holds a peered child to the question it SIGNED.
+
+    The envelope's signed claims name another subject; the hand-built candidate
+    supplies an echo and answered axes claiming the asked one. The gate reads
+    the verified admission's claims, not the candidate's word, and refuses.
+    """
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.products.composite import ChildAdmissionRefusal
+    from ccf.products.contract import ChildRequirement
+    from ccf.products.door import AnsweredQuestion, WireRequest
+
+    assert isinstance(registry, ControlPlaneRegistry)
+    now = _now()
+    product = peered_child()
+    signed = provider.sign(
+        product=product,
+        key_id=PEER_KID,
+        assertions={
+            **_assertion_header(product, checked_at=now),
+            **issuance_member(
+                product=product,
+                issued_at=product.temporal_boundary,  # type: ignore[attr-defined]
+                subject="acct-OTHER",
+            ),
+        },
+    )
+    admitted = gate.admit(  # type: ignore[attr-defined]
+        inbound=InboundProduct(
+            observed_peer=PeerRef(tenant_id=TENANT, peer_id=PEER), signed=signed
+        ),
+        consumer_lineage=consumer_lineage(),
+        now=now,
+    )
+    assert isinstance(admitted, AdmittedProduct), admitted
+    register_typed_at_composition(registry, eligibility_evidence_policy_key(tenant_id=TENANT),
+        EligibilityEvidencePolicy(
+            max_evidence_age_seconds=3600, permitted_clock_skew_seconds=60
+        ),
+        ELIGIBILITY_EVIDENCE_POLICY,
+    )
+    requirement = ChildRequirement(
+        product_class=admitted.product.schema_name,
+        required=True,
+        compatible_from=admitted.product.schema_version,
+    )
+    producer = _granted_producer(registry, requirement)
+    boundary = admitted.product.temporal_boundary
+    outcome = CompositeAdmissionGate(
+        tenant_id=TENANT, consumer_scope=CONSUMER_SCOPE, registry=registry
+    ).admit(
+        candidate=ChildCandidate(
+            requirement=requirement,
+            contract=admitted.product,
+            content_address=admitted.content_address or "",
+            invocation=invocation_from_dispatch(
+                producer,
+                PeeringInvocation(
+                    skill_name=producer.entry.name,
+                    skill_type="peering",
+                    endpoint="fixture-endpoint",
+                    products=(),
+                    arguments={},
+                ),
+            ),
+            admission=admitted,
+            asked_question=ChildQuestion(
+                subject=FIXTURE_SUBJECT,
+                intent=FIXTURE_INTENT,
+                freshness=FIXTURE_FRESHNESS,
+                parameters={},
+            ),
+            # The caller's claim: "it answered the asked subject". Not signed.
+            question_echo=WireRequest(
+                product_id=requirement.product_class,
+                parameters={"subject": FIXTURE_SUBJECT},
+                temporal_boundary=boundary,
+            ),
+            answered_question=AnsweredQuestion(
+                subject=FIXTURE_SUBJECT,
+                intent=FIXTURE_INTENT,
+                freshness=FIXTURE_FRESHNESS,
+                asked_at=boundary,
+            ),
+        ),
+        asked_at=boundary,
+        admitted_at=now,
+        composition_invocation=INVOCATION,
+    )
+    assert isinstance(outcome, ChildAdmissionRefusal), outcome
+    assert outcome.reason == "question-mismatch", outcome
+    assert "answered a different subject" in outcome.detail, outcome.detail
 
 
 def test_r1_the_declared_bound_is_ENFORCED_not_merely_raised(
@@ -354,6 +473,14 @@ def test_r1_a_stale_producer_check_still_refuses_on_the_real_envelope(
                 ),
             ),
             admission=admitted,
+            # `SEC-025`/`SEC-022`: the question this composition asked; the
+            # gate holds the peered answer to it from the SIGNED claims.
+            asked_question=ChildQuestion(
+                subject=FIXTURE_SUBJECT,
+                intent=FIXTURE_INTENT,
+                freshness=FIXTURE_FRESHNESS,
+                parameters={},
+            ),
         ),
         asked_at=admitted.product.temporal_boundary,
         admitted_at=now,

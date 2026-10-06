@@ -21,12 +21,11 @@ mismatch subcase each:
   SHARED-CHECK control. The repair routes every leg through one comparison, so
   severing that comparison must redden this subcase AND
   ``tests/products/test_d_impl_340_producer_admission.py::test_an_echo_of_a_different_question_refuses``;
-* ``peered`` — ``xfail(strict=True)`` as **SEC-025-U1**: the A2A envelope
-  (``ccf.peering.protocol::InboundProduct``) carries no question, so a peered
-  child cannot echo one until SEC-022's signed claim set adds it. Strict, so
-  the day it is fixed this goes red and the marker must be removed.
+* ``peered`` — formerly ``xfail(strict=True)`` as **SEC-025-U1**; closed by
+  SEC-022 (``D-IMPL-371``), whose signed issuance claims carry the question the
+  producer answered. Its own positive control sits beside it.
 
-And the positive control: every child answers the asked subject, and the
+And the positive controls: every child answers the asked subject, and the
 composite serves.
 
 The refusal name is the EXISTING ``question-mismatch``
@@ -211,26 +210,48 @@ def test_an_mcp_product_child_answering_another_subject_is_refused_by_name(
         _assert_refused_by_name(booted, ask(resolver), spy, leg="mcp-product")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "SEC-025-U1: a peered child is admitted without subject binding until"
-        " SEC-022's envelope carries the question — the A2A envelope"
-        " (ccf.peering.protocol::InboundProduct) carries no question to echo"
-    ),
-)
-def test_a_peered_child_answering_another_subject_is_refused_by_name(
+def _peered_verdict(
     tmp_path: pathlib.Path,
     provider: Any,
     public_key: Mapping[str, str],
-) -> None:
+    *,
+    answered_subject: str,
+) -> Any:
+    """Drive ONE peered child, whose signed claims name ``answered_subject``, under a parent asking ``ASKED``.
+
+    The shipped :class:`~ccf.peering.admission.PeeringAdmissionGate` and the
+    shipped :class:`~ccf.products.composite.CompositeAdmissionGate`, through
+    ``GrantBoundChildResolver.resolve_for``; the envelope is the `SEC-010` B3
+    fixture's honest one plus the `SEC-022` issuance member naming the subject
+    the producer says it answered (``tests/peering/issuance_fixture.py``).
+    """
+    from tests.peering.issuance_fixture import issuance_member
+    from tests.peering.test_admission_attributability import PEER, PEER_KID
     from tests.products import test_d364_peered_child_served_at as peered
+    from ccf.peering.protocol import InboundProduct, PeerRef
 
     with _deployment(tmp_path) as booted:
         gate = peered._peering_gate(booted, provider, public_key, tmp_path)
+        product = peered._peered_product(expires_after=peered._VALID_FOR)
+        signed = provider.sign(
+            product=product,
+            key_id=PEER_KID,
+            assertions={
+                **peered._assertion_header(
+                    product, checked_at=peered.ASKED_AT, invocation=peered.INVOCATION
+                ),
+                **issuance_member(
+                    product=product,
+                    issued_at=peered.ASKED_AT,
+                    subject=answered_subject,
+                ),
+            },
+        )
         transport = peered._OnePeerTransport(
-            peered._inbound(provider, peered._peered_product(expires_after=peered._VALID_FOR))
+            InboundProduct(
+                observed_peer=PeerRef(tenant_id=peered.TENANT, peer_id=PEER),
+                signed=signed,
+            )
         )
         resolver = peered._resolver_over_two_legs(
             booted, peering_gate=gate, transport=transport
@@ -254,11 +275,44 @@ def test_a_peered_child_answering_another_subject_is_refused_by_name(
             consumer_lineage=peered.consumer_lineage(),
         )
         assert transport.receives == 1, "the peered leg did not execute"
-        verdict = outcomes[peered.PEERED_CLASS]
-        # The peered product names no subject at all, so it cannot be shown to
-        # have answered the one asked; binding would refuse it by name.
-        assert isinstance(verdict, ChildAdmissionRefusal), verdict
-        assert verdict.reason == "question-mismatch", verdict
+        return outcomes[peered.PEERED_CLASS]
+
+
+def test_a_peered_child_answering_another_subject_is_refused_by_name(
+    tmp_path: pathlib.Path,
+    provider: Any,
+    public_key: Mapping[str, str],
+) -> None:
+    """SEC-025-U1, closed by SEC-022: the peered child's SIGNED question names B; the parent asked A.
+
+    Formerly ``xfail(strict=True)`` — the envelope carried no question. The
+    refusal must be the composite's subject comparison, by name, and not the
+    absence of an echo: a resolver that dropped the signed question would still
+    refuse ``question-mismatch`` for the wrong reason, which the detail
+    assertion below tells apart.
+    """
+    verdict = _peered_verdict(tmp_path, provider, public_key, answered_subject=OTHER)
+    assert isinstance(verdict, ChildAdmissionRefusal), verdict
+    assert verdict.reason == "question-mismatch", verdict
+    assert "peered" in verdict.detail, verdict.detail
+    assert "answered a different subject" in verdict.detail, verdict.detail
+    assert OTHER not in verdict.detail, verdict.detail
+
+
+def test_a_peered_child_answering_the_asked_subject_serves(
+    tmp_path: pathlib.Path,
+    provider: Any,
+    public_key: Mapping[str, str],
+) -> None:
+    """The peered POSITIVE control: the signed question names A, the parent asked A → admitted.
+
+    Without it the case above passes vacuously — an envelope whose question is
+    dropped is refused ``question-mismatch`` too.
+    """
+    from ccf.products.composite import AdmittedChild
+
+    verdict = _peered_verdict(tmp_path, provider, public_key, answered_subject=ASKED)
+    assert isinstance(verdict, AdmittedChild), verdict
 
 
 def test_every_child_answering_the_asked_subject_serves(
@@ -278,7 +332,7 @@ def test_every_child_answering_the_asked_subject_serves(
         assert isinstance(outcome, ServedProduct), getattr(outcome, "detail", outcome)
 
 
-# The peering fixtures the xfail subcase reads (banking fixture values, CINV-01).
+# The peering fixtures the peered subcases read (banking fixture values, CINV-01).
 from tests.peering.test_admission_attributability import (  # noqa: E402,F401
     key_dir,
     provider,

@@ -97,7 +97,7 @@ class PeerNotTrusted(TrustPolicyViolation):
 class PeerTrustGrant(CCFContract):
     """What one peer is entitled to assert, per D-IMPL-16.
 
-    Four declared sets, none with a default. Empty is expressible and means
+    Four declared sets and one declared issuance window, none with a default. Empty is expressible and means
     exactly what it says — this peer may assert nothing of that kind — because
     a grant that quietly defaulted to "anything" would be the fast path this
     contract exists to make unreachable.
@@ -113,12 +113,48 @@ class PeerTrustGrant(CCFContract):
             values this peer may claim to have produced under.
         permitted_schema_names: The Context Product classes it may send.
         permitted_policy_regimes: The policy-regime identifiers it may claim.
+        signature_max_age_seconds: How long before the admission instant this
+            peer's envelope may have been issued (`SEC-022`). Positive.
+        permitted_clock_skew_seconds: How far after the admission instant this
+            peer's envelope may claim to have been issued — its clock running
+            ahead (`SEC-022`). Non-negative.
+
+    **The issuance window has no default** (Q14-3 (a), ``D-IMPL-356``,
+    ``D-IMPL-38``): both members are required, so a grant whose author never
+    stated how stale or how post-dated this peer's envelopes may be cannot be
+    constructed. Per peer rather than per policy, because *what this peer may
+    assert* is this contract's one question, and a federation can tolerate a
+    slow peer without widening every peer. Named after the HITL pair
+    (``src/ccf/hitl/transport.py::HitlPolicy``), with the same validators.
+    The window is an entitlement checked after signature verification, never
+    instead of it.
     """
 
     signing_keys: Mapping[str, JsonWebKey]
     permitted_producer_hashes: frozenset[str]
     permitted_schema_names: frozenset[str]
     permitted_policy_regimes: frozenset[str]
+    signature_max_age_seconds: int
+    permitted_clock_skew_seconds: int
+
+    @field_validator("signature_max_age_seconds")
+    @classmethod
+    def _max_age_is_positive(cls, value: int) -> int:
+        if value <= 0:
+            raise ValueError(
+                "signature_max_age_seconds must be a positive number of"
+                " seconds (SEC-022)"
+            )
+        return value
+
+    @field_validator("permitted_clock_skew_seconds")
+    @classmethod
+    def _skew_is_non_negative(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError(
+                "permitted_clock_skew_seconds cannot be negative (SEC-022)"
+            )
+        return value
 
     def signing_key(self, *, key_id: str) -> JsonWebKey:
         """Return the public JWK this peer may sign with under ``key_id``.

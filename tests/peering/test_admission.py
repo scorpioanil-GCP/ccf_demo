@@ -82,6 +82,7 @@ from ccf.products.gates import TTLRefusal
 from tests.composition import register_at_composition, register_typed_at_composition
 from tests.composition import composition_replay_mint, declaring_store
 from ccf.peering.admission import ADMISSION_RECORD
+from tests.peering.issuance_fixture import issuance_member, window
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "banking"
 
@@ -201,6 +202,8 @@ def _grant(
         permitted_producer_hashes=frozenset({producer}),
         permitted_schema_names=frozenset({schema_name}),
         permitted_policy_regimes=regimes,
+        # `SEC-022`: this fixture's declared issuance window (no SDK default).
+        **window(),
     )
 
 
@@ -324,10 +327,17 @@ def _inbound(
     product: ContextProductContract | None = None,
     tenant_id: str = TENANT,
 ) -> InboundProduct:
+    body = product if product is not None else banking_product()
     signed = provider.sign(
-        product=product if product is not None else banking_product(),
+        product=body,
         key_id=kid,
-        assertions={PRODUCER_ASSERTION_HEADER: producer},
+        # `SEC-022`: every honest envelope carries its issuance claims, issued
+        # at the fixture's boundary (one second before `_now()`), with a fresh
+        # nonce per signing.
+        assertions={
+            PRODUCER_ASSERTION_HEADER: producer,
+            **issuance_member(product=body, issued_at=BOUNDARY),
+        },
     )
     return InboundProduct(
         observed_peer=PeerRef(tenant_id=tenant_id, peer_id=peer_id), signed=signed
@@ -485,7 +495,10 @@ def test_a_tampered_payload_is_refused_by_the_signature_check(
     other = provider.sign(
         product=banking_product(operators=frozenset({"traversal.neighborhood"})),
         key_id=PEER_A_KID,
-        assertions={PRODUCER_ASSERTION_HEADER: PEER_A_PRODUCER},
+        assertions={
+            PRODUCER_ASSERTION_HEADER: PEER_A_PRODUCER,
+            **issuance_member(product=banking_product(), issued_at=BOUNDARY),
+        },
     )
     tampered = InboundProduct(
         observed_peer=inbound.observed_peer,
@@ -514,7 +527,11 @@ def test_a_payload_that_is_not_a_context_product_is_refused(
             signed=provider.sign(
                 product={"schema_name": PRODUCT_CLASS["schema_name"]},
                 key_id=PEER_A_KID,
-                assertions={PRODUCER_ASSERTION_HEADER: PEER_A_PRODUCER},
+                # Claims present, so the refusal is the contract check's.
+                assertions={
+                    PRODUCER_ASSERTION_HEADER: PEER_A_PRODUCER,
+                    **issuance_member(product=banking_product(), issued_at=BOUNDARY),
+                },
             ),
         ),
         consumer_lineage=consumer_lineage(),
@@ -726,7 +743,12 @@ def test_a_product_whose_signed_header_asserts_no_producer_is_refused(
     outcome = two_peer_gate.admit(
         inbound=InboundProduct(
             observed_peer=PeerRef(tenant_id=TENANT, peer_id=PEER_A),
-            signed=provider.sign(product=banking_product(), key_id=PEER_A_KID),
+            # Claims present and no producer: the refusal is check 4's.
+            signed=provider.sign(
+                product=banking_product(),
+                key_id=PEER_A_KID,
+                assertions=issuance_member(product=banking_product(), issued_at=BOUNDARY),
+            ),
         ),
         consumer_lineage=consumer_lineage(),
         now=_now(),
@@ -800,7 +822,40 @@ def test_every_refusal_lands_in_the_audit_journal_as_unresolved(
             producer=PEER_A_PRODUCER,
             product=banking_product(expires_at=BOUNDARY - timedelta(seconds=1)),
         ),
+        # `SEC-022`: claims-missing and stale-issuance (the replay is below).
+        InboundProduct(
+            observed_peer=PeerRef(tenant_id=TENANT, peer_id=PEER_A),
+            signed=provider.sign(
+                product=banking_product(),
+                key_id=PEER_A_KID,
+                assertions={PRODUCER_ASSERTION_HEADER: PEER_A_PRODUCER},
+            ),
+        ),
+        InboundProduct(
+            observed_peer=PeerRef(tenant_id=TENANT, peer_id=PEER_A),
+            signed=provider.sign(
+                product=banking_product(),
+                key_id=PEER_A_KID,
+                assertions={
+                    PRODUCER_ASSERTION_HEADER: PEER_A_PRODUCER,
+                    **issuance_member(
+                        product=banking_product(),
+                        issued_at=_now() + timedelta(days=1),
+                    ),
+                },
+            ),
+        ),
     )
+    admitted_once = _inbound(
+        provider, peer_id=PEER_A, kid=PEER_A_KID, producer=PEER_A_PRODUCER
+    )
+    assert isinstance(
+        two_peer_gate.admit(
+            inbound=admitted_once, consumer_lineage=consumer_lineage(), now=_now()
+        ),
+        AdmittedProduct,
+    )
+    refusals = (*refusals, admitted_once)
     for inbound in refusals:
         assert not isinstance(
             two_peer_gate.admit(

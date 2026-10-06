@@ -51,15 +51,24 @@ lf_a2a:
 # not one, because a single-principal proof passes against a gate that checks
 # signatures over every key it holds — which is exactly the defect the two-peer
 # case exists to catch.
+#
+# Each peer's issuance window (SEC-022): how long before the consumer's
+# admission instant its envelope may have been issued, and how far after. This
+# fixture's numbers, not recommendations: the SDK ships no default (Q14).
+# Different per peer on purpose — the window is a per-peer entitlement.
 peers:
   first:
     peer_id: zenith-bank
     key_id: zenith-bank-a2a-1
     producer_hash: "sha256:zenith-exposure-assembler"
+    signature_max_age_seconds: 300
+    permitted_clock_skew_seconds: 30
   second:
     peer_id: northwind-trust
     key_id: northwind-trust-a2a-1
     producer_hash: "sha256:northwind-exposure-assembler"
+    signature_max_age_seconds: 600
+    permitted_clock_skew_seconds: 60
 
 # How an admitted federated product becomes L1 signal on the consumer's side.
 #

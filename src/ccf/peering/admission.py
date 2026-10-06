@@ -38,6 +38,19 @@ The six checks, **in this order, and the order is load-bearing**:
    *from the peer's own trust-policy entry*, so the key that proves the
    signature is one that peer was entitled to sign with. A header naming a key
    belonging to a different peer therefore fails here, not later (T-06-37).
+   **2b. Issuance — `SEC-022`.** Immediately after verification, before the
+   payload is parsed: the protected header must carry the
+   :data:`~ccf.peering.issuance.ISSUANCE_CLAIMS_HEADER` member (refused
+   ``claims-missing`` otherwise), and its ``issued_at`` must lie inside the
+   window the peer's grant declares, judged against the ``now`` this call
+   receives and directionally (refused ``stale-issuance``). The claims' nonce
+   is spent only by an ADMISSION — consulted and recorded in one atomic step
+   through :class:`~ccf.peering.issuance.SeenNonceSetProtocol` immediately
+   before the :class:`AdmissionRecord` is persisted — so a second presentation
+   of admitted bytes is refused ``replayed`` and writes no second record, while
+   a presentation refused for any other reason leaves its nonce unspent.
+   Freshness is judged once, at live admission; no replay path runs this gate,
+   so a replayed decision is never re-windowed against a later instant.
 3. **Contract validation.** The verified canonical bytes are parsed and
    validated as a :class:`~ccf.products.contract.ContextProductContract` with
    ``extra=forbid``. **CCF's own validation is the typed boundary — never the
@@ -143,7 +156,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import cast
+from typing import Literal, cast
 from types import MappingProxyType
 
 from pydantic import Field, ValidationError, field_validator
@@ -160,6 +173,15 @@ from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.peering.identity import IdentityError, IdentityProvider
+from ccf.peering.issuance import (
+    ISSUANCE_CLAIMS_HEADER,
+    InProcessSeenNonceSet,
+    IssuanceClaims,
+    IssuanceClaimsMalformed,
+    SeenNonceSetProtocol,
+    decode_issuance_claims,
+    issuance_staleness,
+)
 from ccf.peering.protocol import InboundProduct, PeerRef
 from ccf.peering.trust_policy import (
     PEERING_TRUST_POLICY,
@@ -180,6 +202,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ADMISSION_RECORD",
     "GATE_CONTRACT",
+    "GATE_ISSUANCE",
     "GATE_LINEAGE_CONTINUITY",
     "GATE_PAYLOAD_CEILING",
     "GATE_POLICY_BINDING",
@@ -195,6 +218,7 @@ __all__ = [
     "verify_admission_provenance",
     "ContractRefusal",
     "InboundPayloadCeiling",
+    "IssuanceRefusal",
     "LineageContinuityRefusal",
     "PayloadTooLargeRefusal",
     "PolicyBindingRefusal",
@@ -210,6 +234,8 @@ __all__ = [
 #: a refusal an operator reads must not suggest a per-protocol check.
 GATE_PAYLOAD_CEILING = "peering-payload-ceiling"
 GATE_SIGNATURE = "peering-signature"
+#: `SEC-022`: the issuance check (2b) and the replay consult share one token.
+GATE_ISSUANCE = "peering-issuance"
 GATE_CONTRACT = "peering-contract"
 GATE_POLICY_BINDING = "peering-policy-binding"
 GATE_LINEAGE_CONTINUITY = "peering-lineage-continuity"
@@ -315,6 +341,28 @@ class SignatureRefusal(AdmissionRefusal):
     declared_key_id: str | None
     permitted_key_ids: frozenset[str]
     failure: str
+
+
+class IssuanceRefusal(AdmissionRefusal):
+    """Check 2b, or the replay consult: the envelope's issuance does not admit (`SEC-022`).
+
+    Attributes:
+        failure: ``claims-missing`` — the signed header carries no readable
+            issuance claims; ``stale-issuance`` — ``issued_at`` lies outside
+            the peer grant's declared window; ``replayed`` — the nonce was
+            already spent by an admission.
+        issued_at: The claimed issuance instant, or ``None`` when the claims
+            could not be read.
+        max_age_seconds: The grant's ``signature_max_age_seconds``.
+        skew_seconds: The grant's ``permitted_clock_skew_seconds``. Both
+            carried so an operator reading a ``stale-issuance`` sees both sides
+            without resolving the policy.
+    """
+
+    failure: Literal["claims-missing", "stale-issuance", "replayed"]
+    issued_at: datetime | None
+    max_age_seconds: int
+    skew_seconds: int
 
 
 class ContractRefusal(AdmissionRefusal):
@@ -450,6 +498,11 @@ class AdmissionRecord(CCFContract):
             CLAUDE.md §7.2's "extends, not replaces" commitment produced.
         admitted_at: The evaluation instant the gate was given. Supplied, never
             read from a clock, so the record is as deterministic as the verdict.
+            It is also the instant the issuance window was judged at.
+        issuance: The envelope's verified issuance claims (`SEC-022`) —
+            ``issued_at``, the nonce and the question answered — persisted
+            beside the instant they were judged at, so a replayed decision reads
+            what was checked rather than re-windowing it later.
 
     No value here is a deployment's: no peer id, no schema, no regime is
     authored in this module (CINV-01).
@@ -462,6 +515,7 @@ class AdmissionRecord(CCFContract):
     consumer_lineage: ProductLineage
     merged_lineage: ProductLineage
     admitted_at: datetime
+    issuance: IssuanceClaims
 
 
 #: The artifact class an admission record is filed under. Named for the **seam**
@@ -564,6 +618,7 @@ class AdmittedProduct:
         token: object,
         protected_header: Mapping[str, object] | None = None,
         content_address: str | None = None,
+        issuance: IssuanceClaims | None = None,
     ) -> None:
         if token is not _ADMISSION_TOKEN:
             raise AdmissionBypassError(
@@ -591,6 +646,7 @@ class AdmittedProduct:
             else None
         )
         self._content_address = content_address
+        self._issuance = issuance
 
     @property
     def product(self) -> ContextProductContract:
@@ -635,6 +691,18 @@ class AdmittedProduct:
         against something a peer could not choose.
         """
         return self._content_address
+
+    @property
+    def issuance(self) -> IssuanceClaims | None:
+        """The verified issuance claims (`SEC-022`), decoded once by the gate.
+
+        Carried on the same discipline as :attr:`protected_header`: the
+        question the producer says it answered reaches composition as the
+        value this gate decoded from the authenticated header, never as a
+        second decode. ``None`` only on a value built before this member
+        existed; the shipped gate always fills it.
+        """
+        return self._issuance
 
 
 class PeeringAdmissionGate:
@@ -686,6 +754,13 @@ class PeeringAdmissionGate:
         product_classes: The product classes this consumer serves, by
             ``schema_name``, carrying the pinned MAX_TTL the TTL check runs
             against. Supplied by the deployment; the SDK holds no class list.
+        seen: Where spent issuance nonces live (`SEC-022`, Q14-2 (a)).
+            ``None`` constructs a fresh
+            :class:`~ccf.peering.issuance.InProcessSeenNonceSet` for THIS gate
+            — never a shared mutable default — so a deployment running several
+            receivers passes one shared
+            :class:`~ccf.peering.issuance.SeenNonceSetProtocol` to each, or each
+            receiver refuses only the replays it saw itself.
     """
 
     def __init__(
@@ -699,6 +774,7 @@ class PeeringAdmissionGate:
         trust_policy_version: str,
         payload_ceiling_version: str,
         product_classes: Mapping[str, RegisteredProductClass],
+        seen: SeenNonceSetProtocol | None = None,
     ) -> None:
         # The capability first, before anything about this gate exists: the
         # kind, the mint and the resource — the admission-record class, which
@@ -716,6 +792,9 @@ class PeeringAdmissionGate:
         self._ceiling_key = payload_ceiling_key(tenant_id=tenant_id)
         self._payload_ceiling_version = payload_ceiling_version
         self._product_classes = dict(product_classes)
+        self._seen: SeenNonceSetProtocol = (
+            seen if seen is not None else InProcessSeenNonceSet()
+        )
 
     @property
     def tenant_id(self) -> str:
@@ -784,6 +863,7 @@ class PeeringAdmissionGate:
         consumer: ProductLineage,
         merged: ProductLineage,
         occurred_at: datetime,
+        issuance: IssuanceClaims,
     ) -> ArtifactRef:
         """Persist what crossed, before anything can be reported as admitted.
 
@@ -810,6 +890,7 @@ class PeeringAdmissionGate:
             consumer_lineage=consumer,
             merged_lineage=merged,
             admitted_at=occurred_at,
+            issuance=issuance,
         )
         try:
             # A derived write (D-IMPL-353 §1.2): the composition decision could
@@ -916,7 +997,8 @@ class PeeringAdmissionGate:
         Returns:
             An :class:`AdmittedProduct` when every check passes, otherwise the
             refusal of the *first* check that did not. Refusals from checks
-            1–4 and 6 are :class:`AdmissionRefusal` subclasses; check 5 returns
+            1–4, 2b, 6 and the replay consult are :class:`AdmissionRefusal`
+            subclasses; check 5 returns
             the federated contract gates' own refusal types unchanged, because
             it *is* the federated contract gates.
 
@@ -1003,6 +1085,55 @@ class PeeringAdmissionGate:
         # input, so a claim in it is the peer's claim rather than anyone's.
         content_address = inbound.signed.content_address()
         header = inbound.signed.declared_header()
+
+        # --- 2b. issuance: claims present, inside this peer's window -------
+        window = {
+            "max_age_seconds": grant.signature_max_age_seconds,
+            "skew_seconds": grant.permitted_clock_skew_seconds,
+        }
+        try:
+            issuance = decode_issuance_claims(header.get(ISSUANCE_CLAIMS_HEADER))
+        except IssuanceClaimsMalformed as unreadable:
+            return self._refuse(
+                IssuanceRefusal(
+                    gate=GATE_ISSUANCE,
+                    tenant_id=self._tenant_id,
+                    peer_id=peer.peer_id,
+                    failure="claims-missing",
+                    issued_at=None,
+                    **window,
+                    detail=str(unreadable),
+                ),
+                content_address=content_address,
+                occurred_at=now,
+            )
+        stale = issuance_staleness(
+            issued_at=issuance.issued_at,
+            now=now,
+            max_age_seconds=grant.signature_max_age_seconds,
+            skew_seconds=grant.permitted_clock_skew_seconds,
+        )
+        if stale is not None:
+            return self._refuse(
+                IssuanceRefusal(
+                    gate=GATE_ISSUANCE,
+                    tenant_id=self._tenant_id,
+                    peer_id=peer.peer_id,
+                    failure="stale-issuance",
+                    issued_at=issuance.issued_at,
+                    **window,
+                    detail=(
+                        f"the envelope is {stale}: issued at"
+                        f" {issuance.issued_at.isoformat()} against the"
+                        f" admission instant {now.isoformat()}, outside peer"
+                        f" {peer.peer_id!r}'s declared window of"
+                        f" {grant.signature_max_age_seconds}s before and"
+                        f" {grant.permitted_clock_skew_seconds}s after"
+                    ),
+                ),
+                content_address=content_address,
+                occurred_at=now,
+            )
 
         # --- 3. contract validation, over the verified canonical bytes ---
         try:
@@ -1101,6 +1232,32 @@ class PeeringAdmissionGate:
                     occurred_at=now,
                 )
 
+        # --- the replay consult: only an ADMISSION spends the nonce --------
+        # Check-and-insert in one atomic step, after every other check and
+        # immediately before the record: a presentation refused above leaves
+        # its nonce unspent, and a second presentation of admitted bytes is
+        # refused here and writes no second record (`SEC-022`).
+        if not self._seen.admit_once(
+            tenant_id=self._tenant_id, peer_id=peer.peer_id, nonce=issuance.nonce
+        ):
+            return self._refuse(
+                IssuanceRefusal(
+                    gate=GATE_ISSUANCE,
+                    tenant_id=self._tenant_id,
+                    peer_id=peer.peer_id,
+                    failure="replayed",
+                    issued_at=issuance.issued_at,
+                    **window,
+                    detail=(
+                        f"peer {peer.peer_id!r}'s envelope carries a nonce an"
+                        " earlier admission already spent; the same issuance"
+                        " is admitted once (SEC-022)"
+                    ),
+                ),
+                content_address=content_address,
+                occurred_at=now,
+            )
+
         # The crossing is recorded before it is reported. Nothing between this
         # call and the return can produce an admitted product without a record.
         admission_ref = self._persist_admission_record(
@@ -1110,6 +1267,7 @@ class PeeringAdmissionGate:
             consumer=consumer_lineage,
             merged=merged,
             occurred_at=now,
+            issuance=issuance,
         )
         self._record(
             action="peering_admitted",
@@ -1126,6 +1284,7 @@ class PeeringAdmissionGate:
             _ADMISSION_TOKEN,
             protected_header=header,
             content_address=content_address,
+            issuance=issuance,
         )
 
     def _check_policy_bindings(

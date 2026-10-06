@@ -282,6 +282,10 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
     "signature-refusal": (
         "the inbound product's signature was not accepted at this boundary"
     ),
+    # `SEC-022`.
+    "issuance-refusal": (
+        "the inbound product's issuance was not accepted at this boundary"
+    ),
     "contract-refusal": (
         "the inbound product does not satisfy the contract this boundary admits"
     ),
@@ -417,6 +421,10 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
         {"tenant_id", "peer_id", "observed_bytes", "ceiling_bytes"}
     ),
     "signature-refusal": frozenset({"tenant_id", "peer_id", "declared_key_id"}),
+    # `SEC-022`: which of the three issuance failures is what the peer must
+    # act on (re-issue, fix its clock, attach the claims); the declared window
+    # is the consumer's own governance state and stays withheld.
+    "issuance-refusal": frozenset({"tenant_id", "peer_id", "failure"}),
     "contract-refusal": frozenset({"tenant_id", "peer_id", "schema_name"}),
     "policy-binding-refusal": frozenset(
         {"tenant_id", "peer_id", "assertion", "asserted"}
