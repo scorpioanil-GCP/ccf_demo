@@ -26,6 +26,11 @@ DSN/URI/URL/PASSWORD variable and no default may bake URL userinfo
 ``.github/workflows/``: every workflow declares a restrictive top-level
 ``permissions:`` block and pins every action to a full commit SHA with a
 trailing ``# vN`` comment (``tools/lints/ci_posture.py``).
+`dependency-lock` (SEC-028, D-IMPL-369) is a whole-tree **text** checker over
+``requirements.lock``, the workflows and the ``Makefile``: the lock exists,
+every entry is hashed, the build set is locked, every dependency install reads
+the lock with ``--require-hashes`` and every editable install is ``--no-deps
+--no-build-isolation`` (``tools/lints/dependency_lock.py``).
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -74,6 +79,7 @@ from tools.lints import (
     backend_imports,
     ci_posture,
     citations,
+    dependency_lock,
     guarded_provenance,
     harness_imports,
     hash_transparent_key,
@@ -231,6 +237,7 @@ WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "hash-transparent-key": hash_transparent_key.check_tree,
     "makefile-credentials": makefile_credentials.check_tree,
     "ci-posture": ci_posture.check_tree,
+    "dependency-lock": dependency_lock.check_tree,
 }
 
 
@@ -383,6 +390,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "SEC-015 every CI workflow declares a restrictive top-level"
             " permissions block and pins every action to a commented commit SHA"
+        ),
+    )
+    parser.add_argument(
+        "--dependency-lock",
+        dest="selected",
+        action="append_const",
+        const="dependency-lock",
+        help=(
+            "SEC-028 a hashed requirements.lock carrying the build set; CI"
+            " installs only from it, and editable installs fetch nothing"
         ),
     )
     parser.add_argument(
