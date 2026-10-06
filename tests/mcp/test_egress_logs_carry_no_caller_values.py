@@ -1,36 +1,37 @@
-"""SEC-024: validation errors and egress door messages carry no caller values into logs.
+"""SEC-024: validation errors carry no caller values into logs (choice C).
 
-``D-IMPL-368``, row ``SEC-024`` of
-``docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md``. The ruled
-fix shape is *"log types and locations, not values"*:
+``D-IMPL-369`` choice C, executed under ``D-IMPL-370``; row ``SEC-024`` of
+``docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md``. The
+ruling is *"Logs and CCFContract only. Preserve the client-refusal wire
+unchanged."* The fix shape:
 
 (i)   ``src/ccf/contracts/base.py::CCFContract`` sets ``hide_input_in_errors``,
       so a pydantic ``ValidationError``'s ``str()``/``repr()`` no longer carries
       ``input_value``;
 (ii)  ``runtime/ccf_runtime/mcp/egress.py::_opaque_failure`` renders, for the
       whole ``__cause__``/``__context__`` chain, only exception TYPE NAMES and
-      traceback FRAMES — never ``str()``/``repr()`` of an exception;
-(iii) the door's own ``ValueError`` messages carry keys and locations, never
-      values (the pattern ``src/ccf/graph/registry.py::_connection_refusal``
-      already uses).
+      traceback FRAMES — never ``str()``/``repr()`` of an exception, and never
+      through ``exc_info``.
+
+Out of scope by the ruling, and deliberately NOT asserted here: the door's
+C-01 refusal messages (parameters, ``product_id`` and temporal mismatches).
+They are client wire, raised before the ``try`` that reaches
+``_opaque_failure``, and ``tests/mcp/test_egress_parameters.py`` pins their
+values on the wire; those tests are this row's regression guard.
 
 Every canary is placed in a field **value**, never in a key: ``extra_forbidden``
 reports the key in ``loc``, which hiding does not touch, so a canary-as-key
 would be a false red.
 
-Case 2b is an addition beyond the row's three named cases: it drives
-``_opaque_failure`` through the one path that reaches it on this tree (a
-resolver failure inside ``_answer_question``'s guarded block), with a canary in
-the exception TEXT, so severing (b) — restoring ``exc_info=exc`` rendering —
-has a test that measures exactly that rendering.
+Records named ``mcp.client.*`` are excluded from the per-record check: they
+are the in-process test client echoing its own outbound request, which no code
+in ``src/`` or ``runtime/`` emits or can change.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +42,6 @@ from pydantic import AnyHttpUrl, ValidationError
 from ccf.contracts.base import CCFContract
 from ccf.projection.plan import Perspective
 from ccf.products.request import ProductRequest
-from ccf_runtime.mcp import tenancy
 from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
 from ccf_runtime.mcp.egress import (
     CCF_FAILURE_PREFIX,
@@ -55,11 +55,9 @@ from tests.mcp.test_egress_parameters import (  # noqa: F401 - `assembled` is a 
     ROLE,
     SCOPE,
     SERVER_NAME,
-    TOKEN,
     TOOL_DESCRIPTION,
     _drive_mcp,
     _entitlement,
-    _mcp_server,
     _recorder,
     _token_file,
     _tool_arguments,
@@ -69,8 +67,7 @@ from tests.mcp.test_egress_parameters import (  # noqa: F401 - `assembled` is a 
 
 #: One distinct canary per case, so a red names the case that leaked.
 CANARY_CONTRACT = "CANARY-SEC024-CONTRACT-VALUE"
-CANARY_MISMATCH = "CANARY-SEC024-MISMATCH-VALUE"
-CANARY_DIRECT = "CANARY-SEC024-DIRECT-VALUE"
+CANARY_RESOLVER_CONTRACT = "CANARY-SEC024-RESOLVER-CONTRACT-VALUE"
 CANARY_FABRIC = "CANARY-SEC024-FABRIC-FAILURE-TEXT"
 
 #: FastMCP's own wrapper on a tool error is the transport's; what follows it is
@@ -78,6 +75,7 @@ CANARY_FABRIC = "CANARY-SEC024-FABRIC-FAILURE-TEXT"
 #: (see ``tests/mcp/test_egress_refusal_channels.py::test_a_raised_failure_is_a_tool_error_with_an_opaque_id``).
 _FASTMCP_PREFIX = f"Error executing tool {PRODUCT_REQUEST_TOOL}: "
 _OPAQUE = re.compile(rf"^{CCF_FAILURE_PREFIX}:[0-9a-f]{{32}}$")
+_EGRESS_LOGGER = "ccf_runtime.mcp.egress"
 
 
 class _CountProbe(CCFContract):
@@ -86,19 +84,12 @@ class _CountProbe(CCFContract):
     count: int
 
 
-def _chain(exc: BaseException) -> list[BaseException]:
-    seen: list[BaseException] = []
-    current: BaseException | None = exc
-    while current is not None and current not in seen:
-        seen.append(current)
-        current = current.__cause__ or current.__context__
-    return seen
-
-
 def _assert_no_canary_logged(caplog: pytest.LogCaptureFixture, canary: str) -> None:
     assert canary not in caplog.text, caplog.text
     formatter = logging.Formatter()
     for record in caplog.records:
+        if record.name.startswith("mcp.client"):
+            continue
         rendered = formatter.format(record)
         assert canary not in rendered, (record.name, rendered)
 
@@ -106,6 +97,40 @@ def _assert_no_canary_logged(caplog: pytest.LogCaptureFixture, canary: str) -> N
 def _assert_opaque_wire(text: str) -> None:
     assert text.startswith(_FASTMCP_PREFIX), text
     assert _OPAQUE.match(text[len(_FASTMCP_PREFIX) :]), text
+
+
+def _egress_failure_record(caplog: pytest.LogCaptureFixture) -> str:
+    """The door's own failure record, formatted — non-vacuity for the log cases."""
+    failures = [r for r in caplog.records if r.name == _EGRESS_LOGGER]
+    assert failures, caplog.text
+    return logging.Formatter().format(failures[-1])
+
+
+def _server_over(resolver: Any, assembled: Any, tmp_path: Path) -> Any:
+    return build_egress_server(
+        server_name=SERVER_NAME,
+        resolver=resolver,
+        token_verifier=SourceBackedTokenVerifier(
+            source=FileTokenSource(
+                path=_token_file(tmp_path, tenant=assembled.address.tenant)
+            )
+        ),
+        auth_settings=AuthSettings(
+            issuer_url=AnyHttpUrl("https://issuer.invalid"),
+            resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
+            required_scopes=[SCOPE],
+        ),
+        authorizer=wide_authorizer(scopes=(SCOPE,)),
+        entitlement_source=_entitlement(assembled.address),
+        perspective_resolver=(
+            lambda *, grant, tenant, requested_role: Perspective(
+                principal_id=grant.client_id, role=ROLE
+            )
+        ),
+        refusal_recorder=_recorder(tmp_path, tenant=assembled.address.tenant),
+        expose_product_tool=True,
+        product_tool_description=TOOL_DESCRIPTION,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -123,25 +148,43 @@ def test_a_contract_validation_error_hides_the_rejected_value() -> None:
 
 
 # ---------------------------------------------------------------------------
-# (2) Through the egress door: a parameters mismatch logs no caller value.
+# (2) A CCFContract ValidationError raised INSIDE the resolver leaves no value
+#     in the log, and the client sees only the opaque id.
 # ---------------------------------------------------------------------------
 
 
-def test_the_egress_door_logs_no_caller_value_on_a_parameters_mismatch(
+def _contract_refusing_resolver(value: str) -> Any:
+    def resolve(
+        *,
+        tenant: str,
+        product_class: str,
+        version: str,
+        perspective: Perspective,
+        request: ProductRequest | None,
+    ) -> object:
+        return _CountProbe(count=value)  # type: ignore[arg-type]
+
+    return resolve
+
+
+def test_a_contract_validation_error_inside_the_resolver_logs_no_caller_value(
     assembled: Any, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG, logger="")
-    server = _mcp_server(
-        tmp_path, servable=assembled.served, address=assembled.address, carried=[]
+    server = _server_over(
+        _contract_refusing_resolver(CANARY_RESOLVER_CONTRACT), assembled, tmp_path
     )
     arguments = _tool_arguments(assembled.address, {REQUIRED_PARAMETER: 11})
-    arguments["parameters"] = {REQUIRED_PARAMETER: CANARY_MISMATCH}
 
     is_error, text = _drive_mcp(server, _tool_operation(arguments))
 
     assert is_error is True, text
-    _assert_no_canary_logged(caplog, CANARY_MISMATCH)
     _assert_opaque_wire(text)
+    _assert_no_canary_logged(caplog, CANARY_RESOLVER_CONTRACT)
+    # Non-vacuity: the failure WAS logged, naming the type and a frame.
+    rendered = _egress_failure_record(caplog)
+    assert "ValidationError" in rendered, rendered
+    assert "_contract_refusing_resolver" in rendered or "resolve" in rendered, rendered
 
 
 # ---------------------------------------------------------------------------
@@ -170,30 +213,7 @@ def test_the_opaque_failure_log_renders_types_and_frames_not_exception_text(
     assembled: Any, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG, logger="")
-    server = build_egress_server(
-        server_name=SERVER_NAME,
-        resolver=_failing_resolver(CANARY_FABRIC),
-        token_verifier=SourceBackedTokenVerifier(
-            source=FileTokenSource(
-                path=_token_file(tmp_path, tenant=assembled.address.tenant)
-            )
-        ),
-        auth_settings=AuthSettings(
-            issuer_url=AnyHttpUrl("https://issuer.invalid"),
-            resource_server_url=AnyHttpUrl(f"{IN_PROCESS_BASE_URL}/mcp"),
-            required_scopes=[SCOPE],
-        ),
-        authorizer=wide_authorizer(scopes=(SCOPE,)),
-        entitlement_source=_entitlement(assembled.address),
-        perspective_resolver=(
-            lambda *, grant, tenant, requested_role: Perspective(
-                principal_id=grant.client_id, role=ROLE
-            )
-        ),
-        refusal_recorder=_recorder(tmp_path, tenant=assembled.address.tenant),
-        expose_product_tool=True,
-        product_tool_description=TOOL_DESCRIPTION,
-    )
+    server = _server_over(_failing_resolver(CANARY_FABRIC), assembled, tmp_path)
     arguments = _tool_arguments(assembled.address, {REQUIRED_PARAMETER: 11})
 
     is_error, text = _drive_mcp(server, _tool_operation(arguments))
@@ -203,41 +223,6 @@ def test_the_opaque_failure_log_renders_types_and_frames_not_exception_text(
     _assert_no_canary_logged(caplog, CANARY_FABRIC)
     # Non-vacuity: the failure WAS logged, with the type names of the whole
     # chain and the frames — an operator still finds what failed and where.
-    failures = [r for r in caplog.records if r.name == "ccf_runtime.mcp.egress"]
-    assert failures, caplog.text
-    rendered = logging.Formatter().format(failures[-1])
+    rendered = _egress_failure_record(caplog)
     assert "ValueError" in rendered and "LookupError" in rendered, rendered
     assert "_failing_resolver" in rendered or "resolve" in rendered, rendered
-
-
-# ---------------------------------------------------------------------------
-# (3) The mismatch error itself carries no values.
-# ---------------------------------------------------------------------------
-
-
-def test_the_mismatch_error_itself_carries_no_values(
-    assembled: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    server = _mcp_server(
-        tmp_path, servable=assembled.served, address=assembled.address, carried=[]
-    )
-    verifier = SourceBackedTokenVerifier(
-        source=FileTokenSource(
-            path=_token_file(tmp_path, tenant=assembled.address.tenant)
-        )
-    )
-    token = asyncio.run(verifier.verify_token(TOKEN))
-    monkeypatch.setattr(tenancy, "get_access_token", lambda: token)
-    arguments = _tool_arguments(assembled.address, {REQUIRED_PARAMETER: 11})
-    arguments["parameters"] = {REQUIRED_PARAMETER: CANARY_DIRECT}
-    arguments["asked_at"] = datetime.fromisoformat(arguments["asked_at"])
-    tool = server._tool_manager.get_tool(PRODUCT_REQUEST_TOOL).fn
-
-    with pytest.raises(ValueError) as refused:
-        tool(**arguments)
-
-    for link in _chain(refused.value):
-        assert CANARY_DIRECT not in str(link), (type(link).__name__, str(link))
-    # The location survives: the refusal still names the axis and the key.
-    assert "parameters" in str(refused.value)
-    assert REQUIRED_PARAMETER in str(refused.value)
