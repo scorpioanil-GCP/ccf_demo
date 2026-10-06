@@ -145,6 +145,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: entity_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-15-kyc-beneficial-ownership]}
       entity_class: entity
       identity_keys: [entity_uri]
       attribute_keys: [entity_id, entity_kind, chain_id, depth, jurisdiction_path,
@@ -152,26 +154,31 @@ resolution:
                        threshold_basis, min_confidence, policy_version, intent,
                        refresh_state_json, ledger_t]
     - match_key: person_node
+      attribute_authorities: {classification: [cp-15-kyc-beneficial-ownership]}
       entity_class: person
       identity_keys: [entity_uri]
       attribute_keys: [person_key, nationality, country_of_residence, is_eu_resident,
                        dob_year, effective_pct, depth, reportable, classification]
     - match_key: resolution_node
+      attribute_authorities: {classification: [cp-15-kyc-beneficial-ownership]}
       entity_class: resolution
       identity_keys: [entity_uri]
       attribute_keys: [person_key, source_system, source_name, match_score, match_band,
                        below_floor, classification]
     - match_key: screening_node
+      attribute_authorities: {classification: [cp-15-kyc-beneficial-ownership]}
       entity_class: screening
       identity_keys: [entity_uri]
       attribute_keys: [person_key, entry_id, listed_name, score, disposition,
                        in_review_band, classification]
     - match_key: hop_node
+      attribute_authorities: {classification: [cp-15-kyc-beneficial-ownership]}
       entity_class: hop
       identity_keys: [entity_uri]
       attribute_keys: [hop_index, owner_id, owner_kind, owned_id, owned_kind,
                        stake_pct, classification]
     - match_key: declaration_node
+      attribute_authorities: {classification: [cp-15-kyc-beneficial-ownership]}
       entity_class: declaration
       identity_keys: [entity_uri]
       attribute_keys: [document_id, kind, text, declared_pct, declared_owner_person_key,

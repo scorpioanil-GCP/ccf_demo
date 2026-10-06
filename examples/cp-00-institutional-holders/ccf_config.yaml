@@ -177,6 +177,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: issuer_ref
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {provenance_class: [institutional_holder]}
       entity_class: issuer
       # §C.3: the identity authority for the anchor is the LEI as carried by
       # the filing — a publicly resolvable identifier, never an internal
@@ -189,6 +191,7 @@ resolution:
         - provenance_class
 
     - match_key: manager_ref
+      attribute_authorities: {provenance_class: [institutional_holder]}
       entity_class: institutional_manager
       # THE COMPOSITE THE SOURCE'S PRIMARY KEY IMPLIES — §C.3's second
       # correlation key, `(lei, manager_cik, cusip, report_period)`.

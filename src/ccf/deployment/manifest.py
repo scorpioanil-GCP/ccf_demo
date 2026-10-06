@@ -83,6 +83,7 @@ from ccf.authz.capability import (
     Register,
     mint_at_composition,
 )
+from ccf.assembly.worker import EntityResolutionSpec
 from ccf.boot import FabricHandle, boot
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -90,6 +91,7 @@ from ccf.controlplane.artifacts import (
     DEPLOYMENT_MANIFEST,
     DeploymentManifest,
     ManifestEntry,
+    PolicyFilterParametersArtifact,
     load_artifact,
 )
 from ccf.controlplane.registry import (
@@ -116,7 +118,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -554,6 +556,89 @@ def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> 
     )
 
 
+class UngovernedClassificationAttribute(ValueError):
+    """A deployment's Policy operator reads an attribute no source authority governs.
+
+    SEC-023 (``D-IMPL-372``, ruling Q15 (a); Dave's correction of 2026-10-06:
+    *completion requires fail-closed enforcement wherever classification
+    controls access*). Whitepaper §7.4 (the Policy operator admits on the
+    attribute a Control Plane document names) and §7.3 (L2 is the only
+    writer, so the only place an assertion can be refused).
+
+    Raised at boot, by name, before anything is registered or minted, when a
+    ``PolicyFilterParametersArtifact`` in the deployment names
+    ``classification_attribute_by_class: {entity_class: attribute}`` and the
+    resolution spec in force has a rule of that class that writes the
+    attribute (``attribute_keys``) while declaring no
+    ``attribute_authorities`` for it. Without the declaration, ANY source
+    relabels the attribute that decides access merely by speaking later
+    (``src/ccf/graph/_writer.py::BaseGraphWriter._restitch_chain``). There is
+    no default to fall back on: the deployment names the sources, or it does
+    not boot.
+
+    **What it does not cover, stated so it is not over-read.** A class no rule
+    writes the attribute for is not refused — nothing source-asserts it, and
+    the Policy operator admits such an entity to nobody. A fabric composed by
+    hand through ``ccf.boot.boot``, which never sees operator parameters, is
+    outside this check (the low road; ``D-IMPL-364``), as is a custom
+    ``EntityResolutionStrategy`` that exposes no spec.
+
+    Attributes:
+        operator_key: The manifest key of the policy-parameters artifact.
+        entity_class: The class whose classification attribute is ungoverned.
+        attribute: The attribute.
+    """
+
+    def __init__(self, *, operator_key: str, entity_class: str, attribute: str) -> None:
+        self.operator_key, self.entity_class, self.attribute = (
+            operator_key, entity_class, attribute
+        )
+        super().__init__(
+            f"UngovernedClassificationAttribute: policy parameters {operator_key!r}"
+            f" admit {entity_class!r} on attribute {attribute!r}, which the"
+            " resolution spec in force writes from the source payload with no"
+            " attribute_authorities declaration; any source could relabel it."
+            f" Declare attribute_authorities: {{{attribute}: [<system id>, ...]}}"
+            f" on every {entity_class!r} rule that carries it (SEC-023)"
+        )
+
+
+def _refuse_ungoverned_classification(
+    manifest: DeploymentManifest, parsed: Mapping[str, CCFContract]
+) -> None:
+    """Refuse a deployment whose access-deciding attribute is source-asserted (SEC-023).
+
+    Reads the resolution spec at ``manifest.resolution_spec_key`` and every
+    parsed :class:`~ccf.controlplane.artifacts.PolicyFilterParametersArtifact`.
+    Static only: two declarations compared before anything is materialized,
+    on the R-10 precedent (``src/ccf/deployment/config.py::_refuse_unproducible_seed_classes``).
+    A spec key that does not resolve to an
+    :class:`~ccf.assembly.worker.EntityResolutionSpec` is left to
+    :func:`ccf.boot.boot`, which refuses it by type.
+    """
+    spec = parsed.get(manifest.resolution_spec_key)
+    if not isinstance(spec, EntityResolutionSpec):
+        return
+    governed = spec.governed_attributes()
+    written = {
+        (rule.entity_class, attribute)
+        for rule in spec.entity_rules
+        for attribute in rule.attribute_keys
+    }
+    for key, artifact in sorted(parsed.items()):
+        if not isinstance(artifact, PolicyFilterParametersArtifact):
+            continue
+        for entity_class, attribute in sorted(
+            artifact.classification_attribute_by_class.items()
+        ):
+            if (entity_class, attribute) not in written:
+                continue
+            if attribute not in governed.get(entity_class, {}):
+                raise UngovernedClassificationAttribute(
+                    operator_key=key, entity_class=entity_class, attribute=attribute
+                )
+
+
 def _register_and_boot(
     manifest: DeploymentManifest,
     parsed: Mapping[str, CCFContract],
@@ -589,6 +674,10 @@ def _register_and_boot(
     # refused here, before minting. The registry's tenant-segment check
     # (§1.3) then holds for the manifest root as a real check.
     manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
+    # SEC-023 (`D-IMPL-372`): before anything is registered or minted, a
+    # deployment whose Policy operator admits on a source-asserted attribute
+    # with no declared authority refuses to boot, by name.
+    _refuse_ungoverned_classification(manifest, parsed)
     # Phase two: register the ones the manifest marks `role: register`.
     pinned = register_manifest_entries(manifest, parsed, registry=registry, tenant=resolved_tenant)
     pins = ResolvedPins(entries=pinned)

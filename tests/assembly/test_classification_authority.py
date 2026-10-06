@@ -33,6 +33,7 @@ import pytest
 from pydantic import ValidationError
 
 from ccf.assembly.worker import EntityResolutionSpec
+from ccf.controlplane.artifacts import RESOLUTION_SPEC
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.graph.protocols import GraphQuery
 from ccf.operators.categories import PolicyFilter
@@ -205,40 +206,8 @@ def test_an_unauthorized_source_cannot_relabel_sensitivity(
     # Recorded, not raised: `ingest` returns normally.
     second = handle.worker.ingest(_envelope("env-b", UNAUTHORIZED, T2, "public"))
 
-    # Refused WHOLE: nothing from B's envelope reached the entity.
-    assert second.entities == ()
-    assert len(second.refused_assertions) == 1
-    refused = second.refused_assertions[0]
-    assert refused.entity_uri == first.entities[0].entity_uri
-    assert refused.entity_class == "counterparty"
-    assert refused.attribute == "classification"
-    assert refused.source_system_id == UNAUTHORIZED
-    assert refused.envelope_id == "env-b"
-
-    view = handle.reader.query(GraphQuery(tenant_id=TENANT, as_of=AS_OF))
-    assert len(view.entities) == 1
-    current = view.entities[0].claim
-    assert current.attributes["classification"] == "restricted"
-    assert {entry.source.system_id for entry in current.lineage} == {AUTHORITATIVE}
-
-    # Audited on the Control Plane audit plane, at the envelope's own instant.
-    events = _refusals(registry)
-    assert len(events) == 1
-    event = events[0]
-    assert event.resolved is False
-    assert event.occurred_at == T2
-    assert event.key == refused.entity_uri
-    assert event.artifact_class == "ccf.resolution-spec"
-    dumped = event.model_dump(mode="json")
-    assert dumped["refused_attribute"] == "classification"
-    assert dumped["refused_source_system_id"] == UNAUTHORIZED
-    assert dumped["refused_envelope_id"] == "env-b"
-    assert dumped["refused_entity_class"] == "counterparty"
-    assert dumped["refused_value_present"] is True
-    # The refused VALUE is never copied into the audit plane (SEC-024 discipline).
-    assert "public" not in {str(value) for value in dumped.values()}
-
-    # The read side: the public-only principal is not served the entity.
+    # The read side FIRST, so a severing reddens on the exploit itself: the
+    # public-only principal is not served the entity.
     assert _served(handle, policy_version, "public") == 0
     assert _served(handle, policy_version, "restricted") == 1
     pushed = handle.reader.query(
@@ -251,6 +220,39 @@ def test_an_unauthorized_source_cannot_relabel_sensitivity(
         )
     )
     assert len(pushed.entities) == 0
+    view = handle.reader.query(GraphQuery(tenant_id=TENANT, as_of=AS_OF))
+    assert len(view.entities) == 1
+    current = view.entities[0].claim
+    assert current.attributes["classification"] == "restricted"
+    assert {entry.source.system_id for entry in current.lineage} == {AUTHORITATIVE}
+
+    # Refused WHOLE: nothing from B's envelope reached the entity.
+    assert second.entities == ()
+    assert len(second.refused_assertions) == 1
+    refused = second.refused_assertions[0]
+    assert refused.entity_uri == first.entities[0].node_key
+    assert refused.entity_class == "counterparty"
+    assert refused.attribute == "classification"
+    assert refused.source_system_id == UNAUTHORIZED
+    assert refused.envelope_id == "env-b"
+
+    # Audited on the Control Plane audit plane, at the envelope's own instant.
+    events = _refusals(registry)
+    assert len(events) == 1
+    event = events[0]
+    assert event.resolved is False
+    assert event.occurred_at == T2
+    assert event.key == refused.entity_uri
+    assert event.artifact_class == RESOLUTION_SPEC.class_id
+    dumped = event.model_dump(mode="json")
+    assert dumped["refused_attribute"] == "classification"
+    assert dumped["refused_source_system_id"] == UNAUTHORIZED
+    assert dumped["refused_envelope_id"] == "env-b"
+    assert dumped["refused_entity_class"] == "counterparty"
+    assert dumped["refused_value_present"] is True
+    # The refused VALUE is never copied into the audit plane (SEC-024 discipline).
+    assert "public" not in {str(value) for value in dumped.values()}
+
 
 
 def test_an_authoritative_source_moves_the_label_in_either_direction(
@@ -299,7 +301,7 @@ def test_a_refused_entity_mints_no_relationship(
     result = handle.worker.ingest(
         _envelope("env-b", UNAUTHORIZED, T1, "public", extra={"facility_id": "RCF-1"})
     )
-    assert [e.entity_uri.split("://")[0] for e in result.entities] == ["facility"]
+    assert [e.node_key.split("://")[0] for e in result.entities] == ["facility"]
     assert result.relationships == ()
     assert len(result.refused_assertions) == 1
 

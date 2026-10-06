@@ -219,6 +219,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: counterparty_ref
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {legal_jurisdiction: [internal_client, legal_entity]}
       entity_class: counterparty
 
       # §C.3's identity authority hierarchy, expressed as a resolution rule.

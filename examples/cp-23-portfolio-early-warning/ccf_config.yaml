@@ -139,6 +139,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: book_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-23-portfolio-early-warning]}
       entity_class: book
       identity_keys: [entity_uri]
       attribute_keys: [banker_id, banker_name, banker_role, banker_desk, perspective,
@@ -150,16 +152,19 @@ resolution:
     # settling Gate 0's Q16), so per-member supersession reaches the
     # invalidation register.
     - match_key: member_node
+      attribute_authorities: {classification: [cp-23-portfolio-early-warning]}
       entity_class: member
       identity_keys: [entity_uri]
       attribute_keys: [lei, legal_name, sic, sic_description, in_book, is_primary,
                        assigned_date, classification]
     - match_key: facility_node
+      attribute_authorities: {classification: [cp-23-portfolio-early-warning]}
       entity_class: facility
       identity_keys: [entity_uri]
       attribute_keys: [facility_id, lei, facility_type, commitment_amount, drawn_amount,
                        drawdown_count, maturity_date, classification]
     - match_key: covenant_node
+      attribute_authorities: {classification: [cp-23-portfolio-early-warning]}
       entity_class: covenant
       identity_keys: [entity_uri]
       attribute_keys: [facility_id, lei, covenant_type, breach_date, observed_value,
@@ -171,19 +176,24 @@ resolution:
     # which is exactly what the ruling forbids.
     - {match_key: adverse_media_node, entity_class: signal_adverse_media,
        identity_keys: [entity_uri],
-       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification],
+       attribute_authorities: {classification: [cp-23-portfolio-early-warning]}}
     - {match_key: eightk_node, entity_class: signal_8k_event,
        identity_keys: [entity_uri],
-       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification],
+       attribute_authorities: {classification: [cp-23-portfolio-early-warning]}}
     - {match_key: trend_node, entity_class: signal_trend_delta,
        identity_keys: [entity_uri],
-       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification],
+       attribute_authorities: {classification: [cp-23-portfolio-early-warning]}}
     - {match_key: spread_node, entity_class: signal_spread_widening,
        identity_keys: [entity_uri],
-       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification],
+       attribute_authorities: {classification: [cp-23-portfolio-early-warning]}}
     - {match_key: warn_node, entity_class: signal_warn_notice,
        identity_keys: [entity_uri],
-       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification]}
+       attribute_keys: [signal_id, lei, signal_type, severity, observed_at, source_ref, classification],
+       attribute_authorities: {classification: [cp-23-portfolio-early-warning]}}
 
     # Endpoint rules. NO attribute keys (`D-IMPL-316`).
     - {match_key: book_subject, entity_class: book,
