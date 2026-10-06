@@ -150,3 +150,78 @@ def test_the_gate_runs_the_rule_from_the_cli(tmp_path: pathlib.Path) -> None:
     )
     assert result.returncode == 1, result.stdout + result.stderr
     assert "makefile-credentials" in result.stdout
+
+
+# --- corrective round: tab-prefixed directive-looking lines are recipe lines --
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "\tifdef $(CCF_TEST_POSTGRES_DSN)\n",
+        "\texport CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN); cmd\n",
+        "\tinclude $(CCF_TEST_POSTGRES_DSN)\n",
+    ],
+)
+def test_a_tab_prefixed_directive_word_in_a_rule_is_a_recipe_line(line: str) -> None:
+    """GNU make echoes these (measured: ``ifdef CANARY`` printed under
+    ``SHELL=/bin/true``); the first word earns no exemption."""
+    found = _findings("t:\n" + line)
+    assert len(found) == 1 and "expands CCF_TEST_POSTGRES_DSN" in found[0], found
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "ifneq ($(strip $(CCF_TEST_POSTGRES_DSN)),)\nX := 1\nendif\n",
+        "export CCF_TEST_POSTGRES_DSN\n",
+        "export CCF_TEST_POSTGRES_DSN := $(CCF_TEST_POSTGRES_DSN)\n",
+    ],
+)
+def test_a_top_level_directive_is_not_flagged(source: str) -> None:
+    assert _findings(source) == []
+
+
+# --- corrective round, optional (a): make's own printers and other expansions -
+
+
+@pytest.mark.parametrize("fn", ["info", "warning", "error"])
+def test_a_make_printer_of_a_credential_is_refused_behind_at(fn: str) -> None:
+    found = _findings(f"t:\n\t@$({fn} dsn is $(CCF_TEST_POSTGRES_DSN))\n")
+    assert any("$(info/warning/error) prints CCF_TEST_POSTGRES_DSN" in f for f in found), found
+
+
+def test_a_top_level_make_printer_of_a_credential_is_refused() -> None:
+    assert _findings("$(info $(CCF_TEST_POSTGRES_DSN))\n")
+
+
+def test_a_make_printer_naming_the_variable_without_its_value_is_allowed() -> None:
+    source = "t:\n\t@$(if $(strip $(CCF_TEST_NEO4J_URI)),,$(error CCF_TEST_NEO4J_URI is unset))\n"
+    assert _findings(source) == []
+
+
+@pytest.mark.parametrize(
+    "ref", ["$(value CCF_TEST_POSTGRES_DSN)", "$(shell printenv CCF_TEST_POSTGRES_DSN)"]
+)
+def test_value_and_printenv_are_expansions(ref: str) -> None:
+    found = _findings(f"t:\n\tcmd {ref}\n")
+    assert len(found) == 1 and "expands CCF_TEST_POSTGRES_DSN" in found[0], found
+    assert _findings(f"t:\n\t@cmd {ref}\n") == []
+
+
+# --- corrective round, optional (b): wider baked-default shapes ---------------
+
+
+def test_a_literal_password_default_is_refused() -> None:
+    found = _findings("DB_PASSWORD ?= hunter2\n")
+    assert len(found) == 1 and "DB_PASSWORD bakes a literal password" in found[0]
+
+
+@pytest.mark.parametrize("value", ["", "$(SECRET_FROM_ENV)"])
+def test_a_password_without_a_literal_is_not_refused(value: str) -> None:
+    assert _findings(f"DB_PASSWORD ?= {value}\n") == []
+
+
+def test_colon_less_token_userinfo_is_refused() -> None:
+    found = _findings("API_URL ?= https://ghp_token@example.invalid/x\n")
+    assert len(found) == 1 and "API_URL bakes a credential default" in found[0]
