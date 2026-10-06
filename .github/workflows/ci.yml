@@ -273,7 +273,13 @@ jobs:
       # on SQLite, run again on the service container through the `postgres`
       # param of the `graph_backend` fixture (D-11/D-16). `-rs` surfaces any
       # skip in the log; CCF_REQUIRE_POSTGRES above makes one fail the job.
+      # D-IMPL-372 (Dave, 2026-10-06): this leg runs even when the quick suite is red.
+      # Every substrate leg used to be gated on the quick suite's success, and the quick
+      # suite has carried standing reds, so the Postgres-marked tests (SEC-013's lease
+      # among them) were being skipped on every push while the job still showed a
+      # postgres service and CCF_REQUIRE_POSTGRES=1 — a success signal nothing ran.
       - name: Postgres leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-postgres
 
       # The substrate differential suite against a real graph-native engine

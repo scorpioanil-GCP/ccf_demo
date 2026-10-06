@@ -41,6 +41,12 @@ reverts, F13) and `d3f39126` (the LOW-05 corrective round, F2). The code tree of
 
 F1 (Codex, LOW-04), by probe.
 
+> **SUPERSEDED (2026-10-06 12:51 and 13:09 MST).** The regression table and the "Hosted CI" table below carry two
+> statements that were FALSE when written and are corrected in X1/X2 and Y1–Y3 at the end of this record: (i) that the
+> Postgres lease "ran on the hosted leg" — the Postgres leg step was SKIPPED; (ii) that the hosted tests job fails on
+> "the same single pre-existing node as `main`" — `main`'s hosted baseline is **12 failed**. Read the tables as the
+> local measurements they were, not as hosted evidence.
+
 ## Regression on the final candidate `d3f39126`, measured by the orchestrator
 
 | Check | Result |
@@ -59,7 +65,7 @@ F1 (Codex, LOW-04), by probe.
 | `d3f39126` (final code) — run [37512501630](https://github.com/drcastillo/ccf_code/actions/runs/37512501630) | success | success | **failure: the baseline perf node PLUS three NEW errors** — `ERROR at setup` of `tests/products/test_cp05_canonical_path.py::test_cp05s_declarations_boot_and_populate_offline`, `::test_the_canonical_path_serves_cp05s_declared_family`, `::test_the_gate_seam_is_live_on_cp05s_path` (`UngovernedClassificationAttribute` booting the frozen cp-05 specimen) | the standing hw1 failure |
 | `05dcfcce` (docs tip) — run [37514536308](https://github.com/drcastillo/ccf_code/actions/runs/37514536308) | success | success | the same (code identical to `d3f39126`) | the same |
 
-**The Postgres lease ran on the hosted leg.** The tests job binds a `postgres:16` service and sets
+**~~The Postgres lease ran on the hosted leg.~~ WITHDRAWN — see X1.** (Original text follows for the record.) The tests job binds a `postgres:16` service and sets
 `CCF_REQUIRE_POSTGRES=1`, under which a `postgres`-marked test **fails** rather than skips when no server answers;
 the job's failing set at `80d3b223` is exactly the baseline's single perf node, so SEC-013's Postgres twin
 (`tests/graph/test_single_writer_across_processes.py`, the `postgres` case) executed against a live server and passed.
@@ -142,3 +148,29 @@ established from here.
 
 **X4 — SEC-023's omission defect is supported by code:** `_judge_authority` runs only when the governed attribute is
 present in the claim, so an omitting claim supersedes without a refusal event (SEC-023-C-01 stands, high).
+
+## Corrections after Dave's second direct check of `38a9a9b6` (2026-10-06 13:09 MST)
+
+**Y1 — X2 miscounted the cp-05 failures.** The candidate's added unsuccessful tests are **3 errors + 3 failures** from the
+frozen cp-05 specimen, plus the surface-completeness failure: seven in all. The three failures, all in
+`tests/signal_layer/test_cp05_acquisition_boundary.py`, are `test_the_admission_half_expresses_exactly_the_acquired_edges`,
+`test_the_fixture_replays_to_the_same_77_and_100` and **`test_the_resolution_half_cannot_express_an_edge_between_existing_entities`**
+(omitted in X2 because its failure header carries two leading underscores and the extraction pattern required three).
+The "two names / four parametrized failures" description in X2 is **withdrawn**; each name is one test.
+
+**Y2 — "at any commit" is unproven and withdrawn.** The Postgres leg step was skipped **in the inspected runs** (`main`
+@ `29a3c5a4`; `80d3b223`; `d3f39126`; `05dcfcce`). A statement about every historical commit would need a complete
+run-history check, which was not made.
+
+**Y3 — the fragment's `AuditLog` entry.** Changing `reshaped` to `behavior` made the completeness test green but was not
+justified by what changed: `AuditLog.append` **gained five keyword arguments — a real public method-signature change**.
+The surface manifest records class shapes and names, not method signatures, so it cannot produce the line the
+completeness test demands for a `reshaped` claim. The entry now carries the only type the tool admits **and** states the
+method-level change and the limitation inline (`SURFACE-TOOLING-01`): *the surface manifest and the completeness test
+cannot see method-signature changes*. Carried as a tooling finding; the label does not resolve it.
+
+**Y4 — Postgres execution evidence, the route Dave recommended.** `ci.yml`'s "Postgres leg (service container)" step now
+carries `if: ${{ !cancelled() }}`, so it runs independently of the quick suite's outcome; the other substrate legs are
+unchanged (the smallest focused change). The push of this commit triggers the first hosted run in which the
+`postgres`-marked tests — SEC-013's lease among them — can execute; its result is recorded in the batch report when the
+run completes, and nothing about the lease is claimed until then.
