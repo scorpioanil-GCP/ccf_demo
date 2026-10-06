@@ -119,7 +119,7 @@ Rows by coupling shape:
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1240 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1272 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1273 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
-| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 241 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 264 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
@@ -258,7 +258,7 @@ Rows by coupling shape:
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 2985 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/resolver.py` | 1867 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 4505 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 4530 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
