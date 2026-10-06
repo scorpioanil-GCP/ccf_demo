@@ -839,11 +839,17 @@ def test_a_literal_address_or_secret_is_refused_at_parse_and_no_question_member_
 
 
 def test_the_legacy_resolver_takes_the_legacy_call(booted: _Booted) -> None:
-    """`GrantBoundChildResolver` does not declare the capability and is served by
-    the byte-identical legacy call; `QuestionBoundChildResolver` declares it
-    and implements no legacy call at all."""
+    """`QuestionBoundChildResolver` declares the capability and implements no
+    legacy call at all.
+
+    **`SEC-025` (Q16) changed the other half.** `GrantBoundChildResolver` now
+    ALSO declares the capability — a composite can only bind a child to the
+    question it asked if the question is minted from the composite's request
+    — and it keeps the legacy call, which mints no question. This assertion
+    read `not isinstance(...)` until then."""
     legacy, children = build_composite(booted)
-    assert not isinstance(children, RequestAwareChildResolverProtocol)
+    assert isinstance(children, RequestAwareChildResolverProtocol)
+    assert callable(children)
     assert isinstance(children, GrantBoundChildResolver)
     assert isinstance(ask_composite(legacy), ServedProduct)
     ledger, agent_hash = ledger_for_product_ask(booted, grant=False)
@@ -910,6 +916,10 @@ def test_every_new_refusal_reason_is_emitted_exactly_where_declared() -> None:
         "producer-tenant-mismatch": 3,
         "producer-mismatch": 1,
         "producer-unasserted": 1,
-        "question-mismatch": 3,  # no wire echo; no answered axes; an echo of another question
+        # `SEC-025` added two, in the ONE check every bound leg shares
+        # (`CompositeAdmissionGate.hold_answer_to_question`): no question
+        # minted; no wire echo; no answered axes; another subject answered; an
+        # echo of another question.
+        "question-mismatch": 5,
         "producer-unavailable": 2,  # could not answer; answered with no door outcome
     }, emitted

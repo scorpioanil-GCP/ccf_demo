@@ -74,7 +74,7 @@ from ccf.products.contract import (
     ContextProductContract,
     ProductLineage,
 )
-from ccf.products.door import DoorOutcome, ProducerAssertion, WireRequest
+from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, WireRequest
 from ccf.products.request import ProductRequest
 from ccf.replay.record import DecisionReplayRecord
 from ccf.skills.callables import CallableRegistry
@@ -209,6 +209,22 @@ class GrantBoundChildResolver:
             bytes on it before dispatch (`D-IMPL-342` / `CP14-F-35`). Never
             used to reach a remote provider's store — Dave's ruling forbids
             requiring that.
+        child_questions: `SEC-025` (Q16). The deployment's mapping from a
+            requirement and the composite's EFFECTIVE request to the question
+            the composite asks that child. The composite holds every
+            ``local-dispatch`` and ``mcp`` child's answered subject to the
+            question this mints, so a child answering about another subject
+            is refused ``question-mismatch``. ``None`` — or a call through the
+            request-less legacy ``__call__`` — mints no question, and every
+            such child is then refused rather than admitted unbound.
+            Deployment configuration, never SDK knowledge (`D-IMPL-38`): which
+            subject a child is asked about is the deployment's to state.
+
+    **Request-aware (`SEC-025`).** :meth:`resolve_for` is what
+    :class:`~ccf.products.resolver.GovernedResolver` calls, with the
+    composite's effective request, because the question a child is bound to
+    can only be minted from that request. The legacy ``__call__`` remains and
+    mints no question.
     """
 
     def __init__(
@@ -223,6 +239,7 @@ class GrantBoundChildResolver:
         mcp_skills: McpSkillRegistry | None = None,
         peering_skills: PeeringSkillRegistry | None = None,
         peering_gate: PeeringAdmissionGate | None = None,
+        child_questions: ChildQuestions | None = None,
     ) -> None:
         self._ledger = ledger
         self._agent = agent_definition_hash
@@ -233,6 +250,33 @@ class GrantBoundChildResolver:
         self._mcp = mcp_skills
         self._peering = peering_skills
         self._peering_gate = peering_gate
+        self._child_questions = child_questions
+
+    def resolve_for(
+        self,
+        *,
+        requirements: Sequence[ChildRequirement],
+        request: ProductRequest,
+        asked_at: datetime,
+        admitted_at: datetime,
+        composition_invocation: str,
+        consumer_lineage: ProductLineage,
+    ) -> dict[str, object]:
+        """Resolve every requirement, binding each child to the question asked.
+
+        `SEC-025` (Q16): conforms to
+        :class:`~ccf.products.composite.RequestAwareChildResolverProtocol`, so
+        the composite hands over its effective request and each child's
+        question is minted from it through ``child_questions``.
+        """
+        return self._resolve(
+            requirements=tuple(requirements),
+            request=request,
+            asked_at=asked_at,
+            admitted_at=admitted_at,
+            composition_invocation=composition_invocation,
+            consumer_lineage=consumer_lineage,
+        )
 
     def __call__(
         self,
@@ -253,7 +297,31 @@ class GrantBoundChildResolver:
         **This method decides nothing about admissibility.** ``None`` is not a
         decision that the composite may proceed — `F1` is the composition's:
         a required slot refuses, an optional one takes its declared treatment.
+
+        **Request-less, so question-less (`SEC-025`).** Without the
+        composite's request no question can be minted, and the gate refuses a
+        ``local-dispatch`` or ``mcp`` child ``question-mismatch``; a composite
+        reaches :meth:`resolve_for` instead.
         """
+        return self._resolve(
+            requirements=requirements,
+            request=None,
+            asked_at=asked_at,
+            admitted_at=admitted_at,
+            composition_invocation=composition_invocation,
+            consumer_lineage=consumer_lineage,
+        )
+
+    def _resolve(
+        self,
+        *,
+        requirements: tuple[ChildRequirement, ...],
+        request: ProductRequest | None,
+        asked_at: datetime,
+        admitted_at: datetime,
+        composition_invocation: str,
+        consumer_lineage: ProductLineage,
+    ) -> dict[str, object]:
         view = self._ledger.bound_view(self._agent)
         outcomes: dict[str, object] = {}
         for requirement in requirements:
@@ -263,6 +331,13 @@ class GrantBoundChildResolver:
                 # refused is a refusal, never an omission (`F1`).
                 outcomes[requirement.product_class] = None
                 continue
+            # `SEC-025`: the question the composite asks THIS child, minted from
+            # its own request — never read back off the skill's arguments.
+            asked = (
+                self._child_questions(requirement, request)
+                if self._child_questions is not None and request is not None
+                else None
+            )
             dispatched = dispatch_skill(
                 producer.entry,
                 arguments=self._child_arguments(requirement, asked_at),
@@ -278,6 +353,7 @@ class GrantBoundChildResolver:
                 admitted_at=admitted_at,
                 composition_invocation=composition_invocation,
                 consumer_lineage=consumer_lineage,
+                asked_question=asked,
             )
         return outcomes
 
@@ -292,8 +368,15 @@ class GrantBoundChildResolver:
         composition_invocation: str,
         consumer_lineage: ProductLineage,
         question_ref: str | None = None,
+        asked_question: ChildQuestion | None = None,
     ) -> object:
         """Turn one dispatch result into an admitted child or a refusal.
+
+        ``asked_question`` (`SEC-025`) is the question the composite minted for this
+        child; it rides onto the candidate for every leg so the gate holds the
+        child's answered subject to it, and the door's echo and answered axes
+        ride beside it — no longer discarded on the ``local-dispatch`` and
+        ``mcp`` legs.
 
         ``question_ref`` (`D-IMPL-342`) is the URI the parent's store returned
         when the question-bound resolver retained the question's identity
@@ -304,19 +387,21 @@ class GrantBoundChildResolver:
         refuse = _refusal_for(requirement)
         admission: AdmittedProduct | None = None
         touched: tuple[str, ...] | None = None
+        echo: WireRequest | None = None
+        answered: AnsweredQuestion | None = None
 
         if isinstance(dispatched, SkillInvocation):
             answer = _door_outcome(dispatched.output)
             if isinstance(answer, str):
                 return refuse("ineligible", answer)
-            contract, address, replay_ref = answer
+            contract, address, replay_ref, echo, answered = answer
             # The ONE store read, and only for a child this fabric produced.
             touched = self._touched_entities(replay_ref, contract)
         elif isinstance(dispatched, McpInvocation):
             answer = _door_outcome({"outcome": dispatched.contents})
             if isinstance(answer, str):
                 return refuse("ineligible", answer)
-            contract, address, _replay_ref = answer
+            contract, address, _replay_ref, echo, answered = answer
             # Deliberately no store read: this fabric does not hold the
             # provider's execution record and the ruling forbids requiring it.
         elif isinstance(dispatched, McpProductFailure):
@@ -454,6 +539,7 @@ class GrantBoundChildResolver:
                     question_echo=asked.request,
                     answered_question=asked.answered,
                     child_replay_ref=asked.replay_ref,
+                    asked_question=asked_question,
                 ),
                 asked_at=asked_at,
                 admitted_at=admitted_at,
@@ -487,6 +573,9 @@ class GrantBoundChildResolver:
                     touched_entities=touched,
                 ),
                 admission=admission,
+                question_echo=echo,
+                answered_question=answered,
+                asked_question=asked_question,
             ),
             asked_at=asked_at,
             admitted_at=admitted_at,
@@ -627,8 +716,22 @@ def _door_answer(output: Mapping[str, str]) -> DoorOutcome:
 
 def _door_outcome(
     output: Mapping[str, str],
-) -> tuple[ContextProductContract, str, str | None] | str:
+) -> (
+    tuple[
+        ContextProductContract,
+        str,
+        str | None,
+        WireRequest,
+        AnsweredQuestion | None,
+    ]
+    | str
+):
     """Decode a door answer, or say why it is not one.
+
+    `SEC-025`: the door's echo of the wire request and the axes it answered
+    are returned with the vessel. They were parsed and DISCARDED here before,
+    which is how a local or ``mcp`` child answering another subject composed
+    silently: the subject was on the wire and nothing read it.
 
     **The wire boundary is the point.** A skill returns the product class by
     emitting :func:`~ccf.products.door.door_answer` bytes, so an in-process
@@ -650,6 +753,8 @@ def _door_outcome(
         ContextProductContract.model_validate_json(answer.product_json),
         answer.content_address,
         answer.replay_ref,
+        answer.request,
+        answer.answered,
     )
 
 
@@ -760,8 +865,10 @@ class QuestionBoundChildResolver:
                 continue
             binding = producer.entry.binding
             question_ref: str | None = None
+            # `SEC-025` (Q16): the question is minted for EVERY leg, not only
+            # an `mcp_product` one, so every child's answer is held to it.
+            question = self._questions(requirement, request)
             if isinstance(binding, McpProductBinding):
-                question = self._questions(requirement, request)
                 wire = WireRequest(
                     product_id=binding.product_class,
                     parameters=dict(question.parameters),
@@ -816,6 +923,7 @@ class QuestionBoundChildResolver:
                 composition_invocation=composition_invocation,
                 consumer_lineage=consumer_lineage,
                 question_ref=question_ref,
+                asked_question=question,
             )
         return outcomes
 

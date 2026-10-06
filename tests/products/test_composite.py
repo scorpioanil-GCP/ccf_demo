@@ -104,6 +104,7 @@ from tests.composition import composition_register
 from ccf.controlplane.invalidation import register_key
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
+from tests.products.bound_answer import answered_as_asked
 
 TENANT = "tenant-composite"
 CONSUMER_SCOPE = "consumer://memo-desk"
@@ -494,6 +495,12 @@ def candidate(
             touched_entities=touched if kind == "local" else None,
         ),
         admission=admission,  # type: ignore[arg-type]
+        # `SEC-025`: a bound leg's child answered the question it was asked.
+        **(
+            answered_as_asked(requirement.product_class, contract.temporal_boundary)
+            if kind in ("local", "mcp")
+            else {}
+        ),
     )
 
 
@@ -1108,6 +1115,7 @@ def test_positive_control_producer_substitution_leaves_the_contract_alone(
                 invocation=invocation_from_dispatch(
                     resolved, dispatched(name), touched_entities=(ENTITY_OBLIGOR,)
                 ),
+                **answered_as_asked(req.product_class, child.temporal_boundary),
             ),
         )
         assert isinstance(out, AdmittedChild)

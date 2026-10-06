@@ -142,6 +142,7 @@ from ccf.skills.dispatch import question_identity, verify_mcp_product_invocation
 from ccf.skills.grants import BoundSkillView
 
 if TYPE_CHECKING:  # the door imports the refusal module, which imports this one
+    from ccf.products.child_resolver import ChildQuestion
     from ccf.products.door import AnsweredQuestion, WireRequest
 
 __ccf_mode__ = "algorithmic"
@@ -398,6 +399,18 @@ _INVOCATION_TOKEN = object()
 #: must still pass peering verification, regardless of how the skill retrieves
 #: it."*
 ChildAcquisition = Literal["local-dispatch", "mcp", "mcp-product", "peered"]
+
+#: `SEC-025` (Q16): the legs whose answered subject
+#: :meth:`CompositeAdmissionGate.admit` holds to the asked question directly.
+#: ``mcp-product`` is held by the SAME check, reached through
+#: :meth:`CompositeAdmissionGate.hold_producer_claims`. ``peered`` is absent by
+#: disclosure, not by oversight — **SEC-025-U1**: the A2A envelope
+#: (``ccf.peering.protocol::InboundProduct``) carries no question to echo, so a
+#: peered child is admitted without subject binding until SEC-022's signed
+#: claim set carries the question.
+_ANSWER_BOUND_IN_ADMIT: Final[frozenset[ChildAcquisition]] = frozenset(
+    {"local-dispatch", "mcp"}
+)
 
 #: What each acquisition kind is evidenced by, and what it may therefore claim.
 #:
@@ -865,9 +878,23 @@ class ChildCandidate:
     #: the invocation (the registration) by the producer admission leg and
     #: none of them an authority. ``None`` on every other acquisition kind.
     producer_assertion: ProducerAssertion | None = None
+    #: `D-IMPL-340` for the producer leg; `SEC-025` (Q16) for every leg. The
+    #: child door's echo of the wire request and the axes it says it answered —
+    #: CLAIMS, held by :meth:`CompositeAdmissionGate.hold_answer_to_question`
+    #: to the question the composite asked. Before `SEC-025` they were carried
+    #: on the ``mcp-product`` leg only and discarded on every other.
     question_echo: "WireRequest | None" = None
     answered_question: "AnsweredQuestion | None" = None
     child_replay_ref: str | None = None
+    #: `SEC-025` (Q16). The question the COMPOSITE asked this child, minted
+    #: by the child resolver from the composite's own effective request through
+    #: the deployment's ``child_questions`` mapping — for every leg, not only
+    #: ``mcp-product``. ``None`` means no question was minted, and the gate
+    #: then refuses a ``local-dispatch`` or ``mcp`` child ``question-mismatch``
+    #: rather than admitting an answer nothing binds to what was asked. Never
+    #: a deployment's ``child_arguments`` value: that is what the skill was
+    #: handed, not the composite's request.
+    asked_question: "ChildQuestion | None" = None
 
 
 _CHILD_ADMISSION_TOKEN = object()
@@ -1208,6 +1235,21 @@ class CompositeAdmissionGate:
                 " escape this fabric's invalidation register entirely",
             )
 
+        if invocation.acquisition in _ANSWER_BOUND_IN_ADMIT:
+            # `SEC-025` (Q16): the answered subject, held to the asked question
+            # by the one check every bound leg shares.
+            asked = candidate.asked_question
+            held = self.hold_answer_to_question(
+                leg=invocation.acquisition,
+                asked_subject=asked.subject if asked is not None else None,
+                question_address=None,
+                echo=candidate.question_echo,
+                answered=candidate.answered_question,
+                refuse=refuse,
+            )
+            if held is not None:
+                return held
+
         if contract.schema_name != requirement.product_class:
             return refuse(
                 "class-mismatch",
@@ -1368,44 +1410,107 @@ class CompositeAdmissionGate:
                 f" producer {expected_producer!r} and the registration expects"
                 f" {expected_tenant!r} (D-IMPL-340)",
             )
+        return self.hold_answer_to_question(
+            leg=invocation.acquisition,
+            asked_subject=None,
+            question_address=invocation.question_address,
+            echo=echo,
+            answered=answered,
+            refuse=refuse,
+        )
+
+    def hold_answer_to_question(
+        self,
+        *,
+        leg: ChildAcquisition,
+        asked_subject: str | None,
+        question_address: str | None,
+        echo: "WireRequest | None",
+        answered: "AnsweredQuestion | None",
+        refuse: Callable[[ChildRefusalReason, str], ChildAdmissionRefusal],
+    ) -> ChildAdmissionRefusal | None:
+        """Hold a child's answer to the question its composite asked — the ONE check.
+
+        `SEC-025`, ruled at Q16 (a) under `D-IMPL-368` / `D-IMPL-370`: *every
+        child leg returns the subject it answered; the composite refuses by
+        name on any mismatch, and the refusal names the leg, not the subject.*
+        Shared by every bound leg: :meth:`admit` reaches it directly for the
+        legs in ``_ANSWER_BOUND_IN_ADMIT`` and :meth:`hold_producer_claims`
+        reaches it for ``mcp-product`` (`D-IMPL-340`), on the served and the
+        refused path alike — so the subject binding exists once, and severing
+        it here unbinds every leg at once. ``peered`` does not reach it
+        (SEC-025-U1, disclosed on ``_ANSWER_BOUND_IN_ADMIT``).
+
+        The refusal is always ``question-mismatch`` — the name D-IMPL-340
+        already gave a subject mismatch on the producer leg — and its detail
+        names the leg and never a subject: neither the one asked nor the one
+        answered is a value this record may carry into a log.
+
+        Args:
+            leg: The acquisition kind, from the invocation (never declared).
+            asked_subject: The subject of the question the composite minted
+                for this child, or ``None`` where the address binds it.
+            question_address: For ``mcp-product``: the identity of the
+                question sent, which binds every axis and the wire request.
+            echo: The child door's echo of the wire request.
+            answered: The axes the child door says it answered.
+            refuse: The caller's refusal factory.
+        """
+        if asked_subject is None and question_address is None:
+            return refuse(
+                "question-mismatch",
+                f"this composition minted no question for its {leg} child, so"
+                " nothing binds the child's answer to what the composite"
+                " asked; a child is composed only as the answer to its"
+                " composite's own question — supply the deployment's"
+                " child_questions mapping (SEC-025)",
+            )
         if echo is None:
             return refuse(
                 "question-mismatch",
-                "the producer's answer echoes no wire request, so nothing binds"
-                f" it to the question this composition sent"
-                f" ({invocation.question_address!r}) (D-IMPL-340)",
+                f"the {leg} child's answer echoes no wire request, so nothing"
+                " binds it to the question this composition sent"
+                f" ({question_address!r}) (D-IMPL-340, SEC-025)",
             )
         if answered is None:
             # A door from before `D-IMPL-340` echoes the wire request and
             # nothing else. That is not enough to bind subject, intent and
-            # freshness, so an `mcp_product` acquisition requires a door that
-            # states the axes it answered — by design, not by accident: the
-            # producer assertion is required on the same grounds.
+            # freshness, so a bound leg requires a door that states the axes
+            # it answered — by design, not by accident: the producer
+            # assertion is required on the same grounds.
             return refuse(
                 "question-mismatch",
-                "the producer's answer echoes the wire request but states no"
-                " answered axes (subject, intent, freshness, asked_at); a"
-                " door that predates D-IMPL-340 cannot be composed as a"
-                " registered producer until it is upgraded, because three of"
-                f" the four question axes would be unbound"
-                f" ({invocation.question_address!r})",
+                f"the {leg} child's answer echoes the wire request but states"
+                " no answered axes (subject, intent, freshness, asked_at); a"
+                " door that predates D-IMPL-340 cannot be composed until it is"
+                " upgraded, because the subject it answered would be unbound"
+                f" ({question_address!r}) (SEC-025)",
             )
-        echoed = question_identity(
-            request_json=canonical_bytes(echo).decode("utf-8"),
-            subject=answered.subject,
-            intent=answered.intent,
-            freshness=answered.freshness,
-            asked_at=answered.asked_at,
-        )
-        if echoed != invocation.question_address:
+        if asked_subject is not None and answered.subject != asked_subject:
             return refuse(
                 "question-mismatch",
-                "the producer's echo of the question — its wire request and"
-                " the four axes it says it answered — does not match the"
-                " question this composition sent"
-                f" ({invocation.question_address!r}); an answer to a different"
-                " question is not this child (D-IMPL-340)",
+                f"the {leg} child answered a different subject than the"
+                " question this composition asked; an answer about another"
+                " subject is not this child, and composing it would serve one"
+                " subject's facts under another's name (SEC-025)",
             )
+        if question_address is not None:
+            echoed = question_identity(
+                request_json=canonical_bytes(echo).decode("utf-8"),
+                subject=answered.subject,
+                intent=answered.intent,
+                freshness=answered.freshness,
+                asked_at=answered.asked_at,
+            )
+            if echoed != question_address:
+                return refuse(
+                    "question-mismatch",
+                    f"the {leg} child's echo of the question — its wire request"
+                    " and the four axes it says it answered — does not match"
+                    " the question this composition sent"
+                    f" ({question_address!r}); an answer to a different"
+                    " question is not this child (D-IMPL-340)",
+                )
         return None
 
     def _establish_eligibility(
