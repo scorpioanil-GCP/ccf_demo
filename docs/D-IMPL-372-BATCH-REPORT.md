@@ -8,7 +8,7 @@ No main merge, identifier closure, tag or release. Ledger stays **13 of 29**.
 
 | Row | Outcome | Rounds | Branch | Evidence |
 | --- | --- | --- | --- | --- |
-| **SEC-023** classification authority | **INTEGRATED** (complete against Q15 + Dave's construction-time correction) | 1 of 2 | `row5-sec-023` @ `5ca07a58` | 7 exploit cases + 2 boot cases red→green; 4 severings red; orchestrator's boot-check severing red; 706 regression tests; 29 example configs + banking fixture declare authority (artifacts only) |
+| **SEC-023** classification authority | **INTEGRATED as PARTIAL; the row stays OPEN** (the boot guard covers only parsed `PolicyFilterParametersArtifact` objects; see the close record's R1 and proposal SEC-023-P2) | 1 of 2 | `row5-sec-023` @ `5ca07a58` | 7 exploit cases + 2 boot cases red→green; 4 severings red; orchestrator's boot-check severing red; 706 regression tests; 29 example configs + banking fixture declare authority (artifacts only) |
 | **SEC-013** single-writer lease | **INTEGRATED as PARTIAL; the row stays OPEN** | 1 of 2 | `row5-sec-013` @ `279be0b6` | two-process SQLite reproduction red→green; 3 severings red; orchestrator's flock→lockf severing red; Postgres lease **proven on the hosted CI leg**, not locally; network stores (fluree, mongo, neo4j) **declare** process scope — a disclosure, **not enforcement** (Dave's correction) |
 | **LOW-01** non-ASCII bearer → 500 | **INTEGRATED** | 1 of 2 | `row5-lows` | both token sources, both doors; the stored-token outage closed; 401 byte-identical; 3 severings red |
 | **LOW-02** key_id traversal | **INTEGRATED** | 2 of 2 (corrective: a stale generated report) | `row5-lows` | total allowlist before the join; 4 severings red |
@@ -17,7 +17,7 @@ No main merge, identifier closure, tag or release. Ledger stays **13 of 29**.
 | **LOW-05** endpoint-string lint | **INTEGRATED** | 2 of 2 (corrective: split literals folded) | `row5-lows` @ `a7e392ce` | fragments + hosts; `_fold` over `+` chains, f-strings and straight-line assignments; 211 tagged modules clean; severing red |
 | two disclosures | added to the security page | — | `row5-lows` | reserved entry-point denial; stdio `os.environ` pass-through |
 
-**Parked rows:** none this batch. **Partial:** SEC-013 (above).
+**Parked rows:** none this batch. **Partial / OPEN:** SEC-013 and SEC-023 (above; corrected after Dave's reading).
 
 ## 2. Scope decisions consolidated here (Dave's instruction)
 
@@ -53,7 +53,7 @@ baseline had hidden (the frozen-specimen pins) and fixed them by revert.
 | broad set on `80d3b223` (21 directories, `-m "not postgres"`) | **7372 passed, 2 failed** — the two standing reds |
 | targeted re-runs on `d3f39126` (changed areas) | lints tests + hash-transparency + surface **911 passed**; `tests/examples` **28 / 992 / 743 — identical to the base**; docs tests **320**; lint rc=0; mypy clean (244) |
 | hosted CI at `80d3b223` | lint **green**, docs gate **green**, tests job **the same single pre-existing node as `main`**, examples job the standing hw1 failure; the Postgres-marked SEC-013 test ran under `CCF_REQUIRE_POSTGRES=1` against the `postgres:16` service and passed |
-| hosted CI at `d3f39126` | in progress at the time of writing (lint-only code delta since `80d3b223`) |
+| hosted CI at `d3f39126` — [run 37512501630](https://github.com/drcastillo/ccf_code/actions/runs/37512501630) | lint **green**, docs gate **green**, examples the standing hw1 failure, tests job: the baseline perf node **plus three NEW `ERROR at setup`** in `tests/products/test_cp05_canonical_path.py` — the frozen cp-05 specimen refuses to boot under SEC-023 after its config revert (reproduced locally). **A candidate regression introduced by the orchestrator's revert**, not by an executor; see the close record's R2 for the three end-states, which are Dave's to choose |
 
 ## 5. Severings, by the numbers
 
@@ -84,6 +84,4 @@ LOW-01's `str` comparison, LOW-02's guard, LOW-05's `_fold`; every one red.
 
 ## 7. Candidate for a main-merge decision
 
-**Code tree `d3f39126`** on `integration-batch5` (docs tip above it). Ready for your decision on SEC-023, LOW-01…05
-and the two disclosures; SEC-013 only as the partial it is recorded as, with the row open. **No further run is
-authorized by this report.**
+**Code tree `d3f39126`** on `integration-batch5` (docs tip above it). **Not ready as a whole:** SEC-023 is partial (R1) and the candidate carries three new hosted errors from the frozen-specimen revert (R2) that only Dave's ruling among (a)/(b)/(c) can resolve. Ready as they stand: LOW-01…05 and the two disclosures; SEC-013 only as the partial it is recorded as. **No further run is authorized by this report.**
