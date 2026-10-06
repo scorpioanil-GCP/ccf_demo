@@ -47,4 +47,16 @@ None.
 
 ## Reopen — SEC-015 and SEC-028 corrective rounds
 
-(filled after re-verification)
+Dispatched to the SEC-015/028 executor as each row's one corrective round with the two probe fixtures, the
+required grammar, fixtures and severings. Result: `row-sec-015-028` @ `0ac58e62`; only the two lints and
+their tests changed. `dependency_lock` now recognizes `pip`, `pip3`, `pip3.N`, `python -m pip`, `uv pip`
+with global options before `install`, refuses `uv sync`/`run`/`add`/`tool`, `uvx`, poetry, pdm, pipenv,
+pipx, conda, mamba, `easy_install`, `pip-sync` and `setup.py install`/`develop` by name, and requires an
+in-repo editable operand; `ci_posture` refuses every non-mapping job-level `permissions:` value and lists
+job write grants by name. The executor measured 37 of 121 new-fixture cases red against the previous lints.
+**Re-verified by the orchestrator:** the five-step bypass fixture draws **4** findings and the ruled shape
+none; a job-level `read-all` draws **1**; `python -m tools.lints --all` rc=0 on the real tree;
+`tools/lints/tests` **777 passed, 0 failed, 0 errors** (723 before); re-allowing `read-all` by hand →
+**1 failed, 38 passed in 0.17s**, restore sha-matched. Re-integrated `--no-ff` at **`77a1ae47`**. B1 and B2 CLOSED. Still carried as
+**SEC-028-C-02**: the installer list is a fixed set (hatch, rye, pixi, `py -m pip` would pass) and installs
+hidden inside `$(…)`, backticks or `bash -c` are not seen. Both rows have now used both rounds.
