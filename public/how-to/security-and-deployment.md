@@ -305,3 +305,14 @@ is for, and it is a legitimate posture. Anything that has to tell two callers
 apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
+
+## Validation-error text and caller values (SEC-024, choice C)
+
+Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value
+therefore never appears in the error's `str()`/`repr()`, in the egress door's failure log (which renders exception
+type names and traceback frames, never exception text), or in any traceback a deployment captures. **One
+consequence is accepted and documented (`D-IMPL-371`):** the text of a validation error that a door returns to the
+caller — the MCP egress `door_question` and `parse_product_address` paths, and the HTTP product route's 400
+detail — no longer echoes the rejected value. The field location and the message remain; the value does not. The
+caller's own parameters in a governed refusal (the C-01 refusals) are unchanged: those are the caller's values
+returned to that caller, not a disclosure. Nothing outside logs and `CCFContract` was changed for this finding.
