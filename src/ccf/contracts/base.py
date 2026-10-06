@@ -20,6 +20,14 @@ than per-model:
     content-addressed (D-IMPL-26) with the guarantee that the bytes still
     describe the object that was validated.
 
+``hide_input_in_errors=True``
+    A ``ValidationError`` names the field and the reason, never the value it
+    refused (``SEC-024``, ``D-IMPL-368``/``D-IMPL-369`` choice C; CLAUDE.md
+    §11 "typed contracts at every boundary"). Its ``str()`` and ``repr()`` are what reaches a log or a
+    transport's error text, and a refused value is exactly where a credential,
+    a subject or a caller's parameter lands. ``.errors()`` still carries the
+    input; nothing may render it to a log.
+
 This module is algorithmic (CINV-03): it performs no semantic work and must
 never acquire an LLM dependency.
 """
@@ -44,4 +52,6 @@ class CCFContract(BaseModel):
     ``extra`` or unfreezes the model is a contract defect.
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, hide_input_in_errors=True
+    )
