@@ -349,6 +349,34 @@ apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
 
+### 4.5 Two deployment limitations, disclosed rather than fixed
+
+Two behaviors are deliberate designs with recorded reasons, so they are stated
+here as limitations a deployment plans around rather than changed (`D-IMPL-372`,
+Q2 (a)).
+
+- **A reserved graph-backend name denies boot.** Any installed distribution
+  that declares a `ccf.graph_backends` entry point under a name the SDK's own
+  adapters hold refuses every backend resolution, by design, rather than
+  letting the adapter set depend on discovery order
+  (`src/ccf/graph/registry.py::ReservedBackendName`,
+  `src/ccf/graph/registry.py::declared_names`; the
+  [storage and graph Protocols page](../reference/protocols/storage-and-graph.md)
+  states the fail-closed rule). One misbehaving package in the environment is
+  therefore a boot outage, not a silently ignored adapter: control what is
+  installed beside the SDK, and treat a `ReservedBackendName` at boot as a
+  supply-chain finding.
+- **The stdio client adapter hands its child the whole parent environment.**
+  `src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter` spawns the
+  deployment's own server program with `env=dict(os.environ)`, deliberately: it
+  is the deployment's code, reaching the same substrate settings and the same
+  credentials, and the MCP library's filtered default environment would
+  silently run a different checkout. The consequence is that every secret in
+  the client process's environment is visible to the child. A process holding
+  credentials its child must not see should not use the stdio adapter from
+  that process; spawn the client from an environment that carries only what
+  the server needs, or use the loopback transport.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value
