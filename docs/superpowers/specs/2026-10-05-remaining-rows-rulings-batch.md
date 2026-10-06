@@ -1,8 +1,10 @@
 # The remaining security rows: every ruling the run needs, asked once
 
-**Status: PROPOSED, awaiting Dave's rulings.** Date: 2026-10-05. Base: `main` @ `1f6179c5`.
+**Status: RULED.** Dave, 2026-10-05 17:27 MST, on this document @ `dbf11764`: *"Adopt all recommended
+process and row choices"* with three overrides, recorded at `D-IMPL-368` and applied in place below
+(each override is marked **OVERRIDE**). Date: 2026-10-05. Base: `main` @ `1f6179c5`.
 Companion: `2026-10-05-remaining-rows-exploit-tests.md` (the definition of done per row).
-Next free decision id: `D-IMPL-368` (reserved for the entry that records these rulings).
+Recorded at `D-IMPL-368`; next free decision id `D-IMPL-369`.
 
 ## 0. What this is
 
@@ -26,8 +28,10 @@ records.
 - (b) A panel per row, as today.
 - (c) A panel per three rows.
 
-**Recommendation: (a).** The pre-run panel reviews the definition of done, which is where the
-defects have landed; the close panel reviews what shipped. `D-IMPL-352`'s reason ("I don't want to
+**Recommendation: (a). RULED (a), with the ordering fixed by Dave:** integration follows passing
+acceptance tests, severings and regression checks; **the batch-close panel follows integration.**
+The pre-run panel reviews the definition of done, which is where the defects have landed; the
+close panel reviews what was integrated. `D-IMPL-352`'s reason ("I don't want to
 get to the end to discover we missed a critical item") is preserved because every row has a
 sabotage-confirmed test before the panel sees it, and the CRITICAL and HIGHs are already closed
 under the per-wave regime.
@@ -76,11 +80,11 @@ its own GO for the panel, the tests and the build.
   the build.
 - (c) Rule U1–U12 now and include the build.
 
-**Recommendation: (a).** Erasure touches the artifact store, the graph and replay. It is the one
-remaining row where a wrong choice is expensive to unwind, and it has no exploit test in the sense
-the other rows do. It deserves its own attention, not a slot in a mechanical batch.
+**Recommendation: (a). RULED (a), OVERRIDE wording from Dave:** *"SEC-009 is parked. D-IMPL-367
+already records its entry. Do not rule its remaining choices in this batch."* The table below is
+carried for reference only and **rules nothing**.
 
-If Dave prefers (b) or (c), the twelve, with the design's own recommendations:
+For reference, the twelve, with the design's own recommendations:
 
 | # | Choice | Design's recommendation |
 | --- | --- | --- |
@@ -139,9 +143,9 @@ sentence "population unchanged at 365" was false when written. Docs only.
 - (b) Each row's merge to `main` needs Dave's GO.
 - (c) Rows merge to `main` without a GO; Dave reviews at batch close.
 
-**Recommendation: (a).** It is the only option that is both unattended between rows and keeps
-`main` as the approved-state branch (CLAUDE.md §2.2). If three rows come in clean, this is also
-the shape a later continuous run would use.
+**Recommendation: (a). RULED (a), OVERRIDE wording from Dave:** *"Passing rows may merge to the
+integration branch without another GO. Failed rows may not. Main receives no implementation merge
+without my batch-close GO."* It keeps `main` as the approved-state branch (CLAUDE.md §2.2).
 
 ## 2. Row design rulings
 
@@ -192,7 +196,8 @@ The rider shipped in wave 2 (`required-absent` in `src/ccf/products/constraints.
 - (a) **Record SEC-019 CLOSED** after the sabotage check reddens the three cases.
 - (b) Keep it open pending something else Dave names.
 
-**Recommendation: (a).** This moves the ledger to 14 of 29 with no new code.
+**Recommendation: (a). OVERRIDE, Dave:** *"SEC-019 is not closed by this ruling. Run its sabotage
+check before proposing closure in a separate entry."* The ledger stays 13 of 29 under this entry.
 
 ### Q12 — SEC-020: how a withheld subject becomes indistinguishable
 
@@ -259,9 +264,11 @@ tool to the install story at the moment the install story is being audited.
 1. The `D-IMPL-368` entry records every ruling with its date and this document's commit.
 2. The pre-run panel (Q1) reads both companion documents; blocking findings are fixed in the
    documents before any code.
-3. The run starts with the three rows that need no design ruling (SEC-014, SEC-024, SEC-026) so the
-   model is exercised on the cheapest rows first. If all three come in inside the cap and the
-   sabotage reddens each, the run continues to the rest. If not, it stops there, having spent
-   three rows' worth.
-4. No continuous run is authorized by this document. That is a separate GO after step 3's first
-   three rows are measured.
+3. **The pilot**: the three rows that need no design ruling (SEC-014, SEC-024, SEC-026), each
+   through red tests, repair, severings, regression checks, documentation, commit, push and
+   integration; two rounds per row; a row not integrated after round two is parked with its
+   failing criterion and evidence. **The pilot does not automatically authorize the remaining
+   rows.** It ends in one consolidated report, with no per-row approval loop.
+4. No continuous run and no further rows are authorized by this document. The longer run requires
+   Dave's GO after the pilot report. No tag, release, identifier closure or implementation merge
+   to `main` under this entry.
