@@ -92,6 +92,8 @@ from ccf.replay.engine import (
     resolve_artifact,
     resolve_artifact_at_uri,
 )
+from ccf.peering.issuance import ISSUANCE_CLAIMS_HEADER, decode_issuance_claims
+from tests.peering.issuance_fixture import issuance_member, window
 from tests.composition import register_at_composition, register_typed_at_composition
 from tests.composition import composition_replay_mint, declaring_store
 
@@ -163,6 +165,13 @@ def _record() -> AdmissionRecord:
             graph_snapshot_at=producer.graph_snapshot_at,
         ),
         admitted_at=BOUNDARY + timedelta(seconds=1),
+        # `SEC-022`: the verified issuance claims, persisted beside the instant
+        # they were judged at. A fixed nonce, so the record's address is stable.
+        issuance=decode_issuance_claims(
+            issuance_member(
+                product=banking_product(), issued_at=BOUNDARY, nonce="fixture-nonce-0001"
+            )[ISSUANCE_CLAIMS_HEADER]
+        ),
     )
 
 
@@ -313,6 +322,8 @@ def _build_gate(
                         {PRODUCT_CLASS["schema_name"]}
                     ),
                     permitted_policy_regimes=frozenset({POLICY_REGIME}),
+                    # `SEC-022`: this fixture's issuance window (no SDK default).
+                    **window(),
                 )
             },
         ),
@@ -361,7 +372,12 @@ def _sign(
     return provider.sign(
         product=product,
         key_id=PEER_KID,
-        assertions={PRODUCER_ASSERTION_HEADER: PEER_PRODUCER},
+        # `SEC-022`: the issuance claims, about the fixture product's question,
+        # issued at the boundary, with a fresh nonce per signing.
+        assertions={
+            PRODUCER_ASSERTION_HEADER: PEER_PRODUCER,
+            **issuance_member(product=banking_product(), issued_at=BOUNDARY),
+        },
     )
 
 

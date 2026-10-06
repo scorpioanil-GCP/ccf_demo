@@ -68,6 +68,15 @@ covers versioning:
 --8<-- "archive/examples/04-cross-process/artifacts/peering-trust.yaml"
 ```
 
+> **Dated note, 2026-10-06 (`D-IMPL-371`, SEC-022).** Every peer's grant now
+> also declares its **issuance window** — `signature_max_age_seconds` (positive)
+> and `permitted_clock_skew_seconds` (non-negative), both required, with no SDK
+> default (`src/ccf/peering/trust_policy.py::PeerTrustGrant`). The archived
+> trust policy transcluded above predates that and no longer validates; the
+> archive is a dated reference surface and is not repaired (`D-IMPL-351`). The
+> in-tree reference is `tests/fixtures/banking/a2a.yaml`, whose window values
+> are that fixture's numbers, not recommendations.
+
 Note what is *not* in that document: key material. Signing keys are generated
 per run and never committed, so what an artifact can carry is the trust-policy
 request — which identifier the peer may sign under, which producing agent it may
@@ -129,6 +138,18 @@ extends the consumer's; it never replaces it:
 ```py
 --8<-- "archive/examples/04-cross-process/run.py:peer-admit"
 ```
+
+> **Dated note, 2026-10-06 (`D-IMPL-371`, SEC-022).** Admission now also
+> refuses an envelope whose signed protected header carries no issuance claims
+> (`claims-missing`), one issued outside the peer's declared window judged
+> against the instant `admit()` is given (`stale-issuance`), and a second
+> presentation of an envelope already admitted (`replayed`) — see
+> `src/ccf/peering/issuance.py::IssuanceClaims` and
+> `src/ccf/peering/admission.py::IssuanceRefusal`. The producer signs the
+> claims: an `issued_at`, a nonce of its own, and the question it answered. The
+> seen-nonce set is per gate by default; a deployment with several receivers
+> passes one shared `src/ccf/peering/issuance.py::SeenNonceSetProtocol` to each.
+> The archived producer above signs no claims, so its envelopes are now refused.
 
 Before anything is reported admitted, an immutable admission record is
 persisted at an exact content address, and the audit verdict points at it by

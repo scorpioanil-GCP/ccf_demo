@@ -87,6 +87,7 @@ from ccf.graph.product_source import ProductMountRefusal
 from ccf.peering.admission import (
     AdmissionRefusal,
     ContractRefusal,
+    IssuanceRefusal,
     LineageContinuityRefusal,
     PayloadTooLargeRefusal,
     PolicyBindingRefusal,
@@ -204,6 +205,7 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         AdmissionRefusal: STATUS_FULFILLMENT_WITHHELD,
         PayloadTooLargeRefusal: STATUS_FULFILLMENT_WITHHELD,
         SignatureRefusal: STATUS_FULFILLMENT_WITHHELD,
+        IssuanceRefusal: STATUS_FULFILLMENT_WITHHELD,
         ContractRefusal: STATUS_FULFILLMENT_WITHHELD,
         PolicyBindingRefusal: STATUS_FULFILLMENT_WITHHELD,
         LineageContinuityRefusal: STATUS_FULFILLMENT_WITHHELD,

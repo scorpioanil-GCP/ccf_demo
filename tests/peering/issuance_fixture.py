@@ -15,15 +15,20 @@ seven minutes (420 s) apart
 
 from __future__ import annotations
 
-import json
 import uuid
 from collections.abc import Mapping
 from datetime import datetime
 
-#: The protected-header member name (red-commit plumbing; the repair binds it
-#: to the SDK constant).
-ISSUANCE_HEADER = "ccf-issuance"
-SCHEMA_VERSION = "1.0.0"
+from ccf.peering.issuance import (
+    ISSUANCE_CLAIMS_HEADER,
+    IssuedAnswer,
+    IssuedRequest,
+    encode_issuance_claims,
+    mint_issuance_claims,
+)
+
+#: The protected-header member name — the SDK's constant.
+ISSUANCE_HEADER = ISSUANCE_CLAIMS_HEADER
 
 #: This fixture's declared window. Not a recommendation.
 WINDOW_MAX_AGE_SECONDS = 900
@@ -40,6 +45,14 @@ def fresh_nonce() -> str:
     return uuid.uuid4().hex
 
 
+def window() -> dict[str, int]:
+    """The two grant members, for a ``PeerTrustGrant(**..., **window())``."""
+    return {
+        "signature_max_age_seconds": WINDOW_MAX_AGE_SECONDS,
+        "permitted_clock_skew_seconds": WINDOW_SKEW_SECONDS,
+    }
+
+
 def issuance_member(
     *,
     product: object,
@@ -50,22 +63,19 @@ def issuance_member(
 ) -> dict[str, str]:
     """The one header member: ``{ISSUANCE_HEADER: <canonical JSON claims>}``."""
     boundary: datetime = product.temporal_boundary  # type: ignore[attr-defined]
-    claims = {
-        "schema_version": SCHEMA_VERSION,
-        "issued_at": issued_at.isoformat(),
-        "nonce": nonce if nonce is not None else fresh_nonce(),
-        "answered": {
-            "subject": subject,
-            "intent": FIXTURE_INTENT,
-            "freshness": FIXTURE_FRESHNESS,
-            "asked_at": boundary.isoformat(),
-        },
-        "echo": {
-            "product_id": product.schema_name,  # type: ignore[attr-defined]
-            "parameters": dict(parameters or {"subject": subject}),
-            "temporal_boundary": boundary.isoformat(),
-        },
-    }
-    return {
-        ISSUANCE_HEADER: json.dumps(claims, sort_keys=True, separators=(",", ":"))
-    }
+    claims = mint_issuance_claims(
+        issued_at=issued_at,
+        nonce=nonce if nonce is not None else fresh_nonce(),
+        answered=IssuedAnswer(
+            subject=subject,
+            intent=FIXTURE_INTENT,
+            freshness=FIXTURE_FRESHNESS,
+            asked_at=boundary,
+        ),
+        echo=IssuedRequest(
+            product_id=product.schema_name,  # type: ignore[attr-defined]
+            parameters=dict(parameters or {"subject": subject}),
+            temporal_boundary=boundary,
+        ),
+    )
+    return {ISSUANCE_HEADER: encode_issuance_claims(claims)}

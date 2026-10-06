@@ -368,3 +368,21 @@ def test_d_a_refused_presentation_does_not_spend_the_nonce(
         inbound=inbound, consumer_lineage=consumer_lineage(), now=_now()
     )
     assert isinstance(early, AdmittedProduct), early
+
+
+# --- the claim set's question types mirror the door's --------------------------
+
+
+def test_the_issued_question_types_mirror_the_door_types_member_for_member() -> None:
+    """``IssuedAnswer``/``IssuedRequest`` exist only to break an import cycle.
+
+    ``src/ccf/peering/issuance.py`` cannot use the door's types as field types
+    (the door imports this package's gate). The shapes must not drift, or
+    composition's conversion (``src/ccf/products/composite.py::signed_question``)
+    would start failing closed on honest envelopes — or, worse, drop a member.
+    """
+    from ccf.peering.issuance import IssuedAnswer, IssuedRequest
+    from ccf.products.door import AnsweredQuestion, WireRequest
+
+    assert set(IssuedAnswer.model_fields) == set(AnsweredQuestion.model_fields)
+    assert set(IssuedRequest.model_fields) == set(WireRequest.model_fields)

@@ -1,5 +1,104 @@
 {
   "$defs": {
+    "IssuanceClaims": {
+      "additionalProperties": false,
+      "description": "What a producer states about one envelope it issued (`SEC-022`).\n\nAttributes:\n    schema_version: This contract's lane\n        (:data:`ISSUANCE_CLAIMS_SCHEMA_VERSION`).\n    issued_at: When the producer issued the envelope. **Timezone-aware**;\n        a naive instant is refused, because the window comparison would\n        otherwise be made in whatever zone the reader assumed.\n    nonce: An opaque value the producer chose, unique per\n        ``(tenant, peer)``. Non-empty. What makes a second presentation of\n        the same bytes detectable.\n    answered: The four question axes the producer says it answered \u2014\n        subject, intent, freshness and ``asked_at``.\n    echo: The request the producer answered. Required beside ``answered``\n        because the composite's shared answer check\n        (``src/ccf/products/composite.py::CompositeAdmissionGate.hold_answer_to_question``)\n        refuses an answer that echoes no request.",
+      "properties": {
+        "answered": {
+          "$ref": "#/$defs/IssuedAnswer"
+        },
+        "echo": {
+          "$ref": "#/$defs/IssuedRequest"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "nonce": {
+          "title": "Nonce",
+          "type": "string"
+        },
+        "schema_version": {
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "issued_at",
+        "nonce",
+        "answered",
+        "echo"
+      ],
+      "title": "IssuanceClaims",
+      "type": "object"
+    },
+    "IssuedAnswer": {
+      "additionalProperties": false,
+      "description": "The four question axes a producer signed that it answered.\n\nMember for member the shape of :class:`~ccf.products.door.AnsweredQuestion`\n(see the module docstring for why it is not that type).",
+      "properties": {
+        "asked_at": {
+          "format": "date-time",
+          "title": "Asked At",
+          "type": "string"
+        },
+        "freshness": {
+          "title": "Freshness",
+          "type": "string"
+        },
+        "intent": {
+          "title": "Intent",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "intent",
+        "freshness",
+        "asked_at"
+      ],
+      "title": "IssuedAnswer",
+      "type": "object"
+    },
+    "IssuedRequest": {
+      "additionalProperties": false,
+      "description": "The request a producer signed that it answered.\n\nMember for member the shape of :class:`~ccf.products.door.WireRequest`;\ncomposition converts it to that type, whose own parameter guard then runs.",
+      "properties": {
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "product_id": {
+          "title": "Product Id",
+          "type": "string"
+        },
+        "temporal_boundary": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Temporal Boundary"
+        }
+      },
+      "required": [
+        "product_id",
+        "parameters",
+        "temporal_boundary"
+      ],
+      "title": "IssuedRequest",
+      "type": "object"
+    },
     "ProductLineage": {
       "additionalProperties": false,
       "description": "The L axis as it appears on a delivered product (INV-CH7-47).\n\nAttributes:\n    operators_invoked: The operator set the *producer declares* it ran.\n        Declared, not observed \u2014 the L6 lineage gate compares it against\n        the engine's independent record, and a field the engine filled in\n        would make that comparison vacuous.\n    policy_bundle_versions: Every Control Plane policy-bundle version bound\n        into the state this product was assembled from. A set, because\n        state assembled under two bundle versions has two bindings and\n        collapsing them would lose the one that mattered.\n    graph_snapshot_at: The temporal anchor of the graph state read.\n\n**The substrate's transaction-time head is NOT here** (``D-IMPL-309``).\nIt was, from ledger row ``24.5-L-02`` until `MOD-05`, and it made the same\ngoverned question seal to two addresses when a ledger advanced between two\nruns for reasons unrelated to the question. Dave's ruling: *\"Logical\ndetermination identity is addressed. Physical store furniture is\nrecorded.\"* The head is execution provenance \u2014 recorded authoritatively in\n:class:`~ccf.replay.record.ContextFabricSnapshot`, derived there from the\nexecution rather than from this lineage, compared at replay, and reached\nthrough the product's replay reference. It is **absent** here rather than\nmerely excluded from the hash because\n:func:`~ccf.contracts.canonical.canonical_bytes` is at once this model's\naddress, its stored form and its wire form: a field omitted from it is not\nexcluded from identity but erased, and read back as the sentinel \u2014 a\npositive claim that the substrate exposes no head, which would be a false\nfact the fabric manufactured about its own evidence. This changes where\nthe evidence lives, not whether it exists. A snapshot the caller\n*declared* is a different thing: a semantic input to the determination,\naddressed like any other declared context.",
@@ -36,7 +135,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "What crossed a Peering, persisted at the boundary (D-IMPL-58 reading (d)).\n\nSDK-defined extension (CLAUDE.md \u00a77.2, \u00a77.4). Dave's ruling of 2026-07-27\nresolves D-IMPL-58 as **reading (d)**: the merged :class:`\n~ccf.products.contract.ProductLineage` is persisted *at the admission\nboundary* rather than in graph state, and\n``ccf.contracts.claims.LineageEntry`` is not extended. The defect being\nclosed is that :meth:`PeeringAdmissionGate.admit` computed the union into\n:attr:`AdmittedProduct.lineage` and nothing read it \u2014 ``ingest_admitted``\nreads ``admitted.product`` and never ``admitted.lineage`` \u2014 so lineage\ncontinuity was a property of a wrapper L2 discards. Under (d) the property\nbecomes true *and* correctly located: continuity is a property of the\nfederation boundary, which is what CLAUDE.md \u00a77.2 actually describes.\n\n**Why this is an ArtifactStore artifact and not Control Plane state\n(D-IMPL-27).** D-IMPL-27 splits substrates by mutability, and this record is\nimmutable, versioned and replay-relevant: it describes one crossing that\nalready happened, so there is nothing about it to update. Content addressing\n(D-IMPL-26) then makes immutability structural rather than procedural \u2014 the\nsame bytes yield the same address, so no overwrite path is needed or\noffered, and replay resolves an exact version rather than \"latest\".\n\n**What the audit log does and does not carry \u2014 stated here so the next\nreader does not repeat the false premise D-IMPL-58's correction paragraph\nrecords.** :meth:`~ccf.controlplane.audit.AuditLog.append` carries *scalars\nonly* (``action, key, version, resolved, occurred_at, actor,\nartifact_class``); there is no payload field, and an\n:class:`~ccf.controlplane.audit.AuditEvent` cannot hold a ``ProductLineage``.\nSo the audit plane answers *was this admitted, by whom, when* \u2014 a verdict \u2014\nand this artifact answers *what was admitted*. The verdict points at the\nrecord through the reference triple, and neither structure pretends to be\nthe other.\n\n**Producer and consumer are carried alongside the merge, not only the\nmerge.** A union that cannot be decomposed cannot be audited: an examiner\nhanded only ``merged_lineage`` cannot say which side contributed which\noperator, and reconstructing it from the peer's product later depends on\nthat product still being available. All three are recorded so the crossing\nis legible from this artifact alone.\n\nAttributes:\n    tenant_id: The consuming tenant whose Control Plane admitted (D-IMPL-05).\n    peer_id: The peer whose signature and entitlements were verified.\n    product_content_address: Address of the admitted product \u2014 the bytes\n        whose signature verified, which is the same witness the\n        attributability gate used. This is what ties the record to a\n        specific crossing rather than to a schema.\n    producer_lineage: The inbound product's declared lineage.\n    consumer_lineage: The consuming fabric's own lineage at admission.\n    merged_lineage: The union :func:`union_lineage` computed \u2014 what\n        CLAUDE.md \u00a77.2's \"extends, not replaces\" commitment produced.\n    admitted_at: The evaluation instant the gate was given. Supplied, never\n        read from a clock, so the record is as deterministic as the verdict.\n\nNo value here is a deployment's: no peer id, no schema, no regime is\nauthored in this module (CINV-01).",
+  "description": "What crossed a Peering, persisted at the boundary (D-IMPL-58 reading (d)).\n\nSDK-defined extension (CLAUDE.md \u00a77.2, \u00a77.4). Dave's ruling of 2026-07-27\nresolves D-IMPL-58 as **reading (d)**: the merged :class:`\n~ccf.products.contract.ProductLineage` is persisted *at the admission\nboundary* rather than in graph state, and\n``ccf.contracts.claims.LineageEntry`` is not extended. The defect being\nclosed is that :meth:`PeeringAdmissionGate.admit` computed the union into\n:attr:`AdmittedProduct.lineage` and nothing read it \u2014 ``ingest_admitted``\nreads ``admitted.product`` and never ``admitted.lineage`` \u2014 so lineage\ncontinuity was a property of a wrapper L2 discards. Under (d) the property\nbecomes true *and* correctly located: continuity is a property of the\nfederation boundary, which is what CLAUDE.md \u00a77.2 actually describes.\n\n**Why this is an ArtifactStore artifact and not Control Plane state\n(D-IMPL-27).** D-IMPL-27 splits substrates by mutability, and this record is\nimmutable, versioned and replay-relevant: it describes one crossing that\nalready happened, so there is nothing about it to update. Content addressing\n(D-IMPL-26) then makes immutability structural rather than procedural \u2014 the\nsame bytes yield the same address, so no overwrite path is needed or\noffered, and replay resolves an exact version rather than \"latest\".\n\n**What the audit log does and does not carry \u2014 stated here so the next\nreader does not repeat the false premise D-IMPL-58's correction paragraph\nrecords.** :meth:`~ccf.controlplane.audit.AuditLog.append` carries *scalars\nonly* (``action, key, version, resolved, occurred_at, actor,\nartifact_class``); there is no payload field, and an\n:class:`~ccf.controlplane.audit.AuditEvent` cannot hold a ``ProductLineage``.\nSo the audit plane answers *was this admitted, by whom, when* \u2014 a verdict \u2014\nand this artifact answers *what was admitted*. The verdict points at the\nrecord through the reference triple, and neither structure pretends to be\nthe other.\n\n**Producer and consumer are carried alongside the merge, not only the\nmerge.** A union that cannot be decomposed cannot be audited: an examiner\nhanded only ``merged_lineage`` cannot say which side contributed which\noperator, and reconstructing it from the peer's product later depends on\nthat product still being available. All three are recorded so the crossing\nis legible from this artifact alone.\n\nAttributes:\n    tenant_id: The consuming tenant whose Control Plane admitted (D-IMPL-05).\n    peer_id: The peer whose signature and entitlements were verified.\n    product_content_address: Address of the admitted product \u2014 the bytes\n        whose signature verified, which is the same witness the\n        attributability gate used. This is what ties the record to a\n        specific crossing rather than to a schema.\n    producer_lineage: The inbound product's declared lineage.\n    consumer_lineage: The consuming fabric's own lineage at admission.\n    merged_lineage: The union :func:`union_lineage` computed \u2014 what\n        CLAUDE.md \u00a77.2's \"extends, not replaces\" commitment produced.\n    admitted_at: The evaluation instant the gate was given. Supplied, never\n        read from a clock, so the record is as deterministic as the verdict.\n        It is also the instant the issuance window was judged at.\n    issuance: The envelope's verified issuance claims (`SEC-022`) \u2014\n        ``issued_at``, the nonce and the question answered \u2014 persisted\n        beside the instant they were judged at, so a replayed decision reads\n        what was checked rather than re-windowing it later.\n\nNo value here is a deployment's: no peer id, no schema, no regime is\nauthored in this module (CINV-01).",
   "properties": {
     "admitted_at": {
       "format": "date-time",
@@ -45,6 +144,9 @@
     },
     "consumer_lineage": {
       "$ref": "#/$defs/ProductLineage"
+    },
+    "issuance": {
+      "$ref": "#/$defs/IssuanceClaims"
     },
     "merged_lineage": {
       "$ref": "#/$defs/ProductLineage"
@@ -72,7 +174,8 @@
     "producer_lineage",
     "consumer_lineage",
     "merged_lineage",
-    "admitted_at"
+    "admitted_at",
+    "issuance"
   ],
   "title": "AdmissionRecord",
   "type": "object",

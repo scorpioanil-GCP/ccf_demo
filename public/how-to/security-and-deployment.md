@@ -50,6 +50,38 @@ key material and raises `KeyUnavailable` when it holds none.
   mechanism; a validly signed product from a key the consumer's Control
   Plane does not trust is refused at admission.
 
+### 1.1a A2A replay defense and the signed question (SEC-022, D-IMPL-371)
+
+A signature proves who produced an envelope; it says nothing about when, or how
+often, the envelope is presented. Every inbound Peering envelope therefore
+carries **issuance claims** in one signed protected-header member
+(`src/ccf/peering/issuance.py::IssuanceClaims`): the instant the producer issued
+it, a nonce the producer chose, and the question it answered. The payload is
+unchanged, so a product's content address is unchanged.
+
+- **Absent claims are refused** (`claims-missing`), never admitted with a
+  warning.
+- **The window is the peer's entitlement.** Each `PeerTrustGrant` declares
+  `signature_max_age_seconds` and `permitted_clock_skew_seconds`, both
+  required; the SDK ships no default. The comparison is directional — at most
+  the skew after the admission instant, at most the max age before it — and is
+  judged against the `now` the gate is handed, never a clock of its own
+  (`stale-issuance`).
+- **Replays are refused** (`replayed`) and write no second admission record.
+  Only an admission spends a nonce, so a presentation refused for any other
+  reason can be admitted later. The reference seen-set
+  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`) covers one gate in one
+  process and is not pruned; **a deployment running more than one receiver
+  must share one** through `src/ccf/peering/issuance.py::SeenNonceSetProtocol`,
+  or each receiver refuses only the replays it saw itself. Nonce uniqueness per
+  peer is the producer's obligation; the SDK ships no generator.
+- **A peered composite child is held to the subject its composite asked**,
+  from the question its producer signed (closing SEC-025-U1), by the same check
+  every other child leg passes.
+
+What this does not do: it does not bound the bytes a request body may occupy
+before parsing on the LF leg (`SEC-021-U1`, open).
+
 ### 1.2 SignedHitlAction (D-IMPL-21 / D-IMPL-363, HITL identity)
 
 > **Dated note, 2026-10-03 (`D-IMPL-363`, SEC-005).** This section

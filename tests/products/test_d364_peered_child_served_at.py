@@ -146,6 +146,7 @@ from tests.peering.test_admission_attributability import (  # noqa: F401
     provider,
     public_key,
 )
+from tests.peering.issuance_fixture import window
 from tests.peering.test_peered_child_envelope import (
     CONSUMER_SCOPE,
     _assertion_header,
@@ -329,6 +330,10 @@ def _peering_gate(
                     permitted_producer_hashes=frozenset({PEER_PRODUCER}),
                     permitted_schema_names=frozenset({PEERED_CLASS}),
                     permitted_policy_regimes=frozenset({POLICY_REGIME}),
+                    # `SEC-022`: this fixture's issuance window. Its max age
+                    # (900 s) covers the seven minutes between `ASKED_AT`,
+                    # when the envelope is issued, and `ADMITTED_AT`.
+                    **window(),
                 )
             },
         ),

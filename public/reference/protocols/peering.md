@@ -10,3 +10,5 @@ Identity and signing are pluggable because a deployment's PKI is its own.
 ::: ccf.peering.identity.IdentityProvider
 
 ::: ccf.peering.identity.SigningKeySource
+
+::: ccf.peering.issuance.SeenNonceSetProtocol

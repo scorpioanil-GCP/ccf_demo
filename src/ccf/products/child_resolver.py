@@ -59,6 +59,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.peering.admission import AdmittedProduct, PeeringAdmissionGate
 from ccf.products.composite import (
+    signed_question,
     CHILD_QUESTION_CLASS,
     GATE_CHILD_ADMISSION,
     ChildRefusalReason,
@@ -555,6 +556,11 @@ class GrantBoundChildResolver:
             if isinstance(verified, str):
                 return refuse("provenance-unverified", verified)
             admission, contract, address = verified
+            # `SEC-022` (``D-IMPL-371``): the question the producer SIGNED it
+            # answered, as the peering gate decoded it from the authenticated
+            # header — so the composite holds a peered child to the asked
+            # subject by the same check as every other leg (closes SEC-025-U1).
+            echo, answered = signed_question(admission)
         else:
             return refuse(
                 "unsupported-outcome",
