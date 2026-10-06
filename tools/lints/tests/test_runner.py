@@ -124,7 +124,8 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
     never touched this test, and the release qualification of `f0656746`
     found it red. The name stays because records cite it by node id; the
     count in it is history, the set below is the contract. Widened a third
-    time by `authorization-invariant` (D-IMPL-353 §4), on purpose and here.
+    time by `authorization-invariant` (D-IMPL-353 §4), on purpose and here, and
+    a fourth by `makefile-credentials` (SEC-026, D-IMPL-368), likewise.
     """
     assert set(CHECKERS) == {
         "no-hardcoding",
@@ -139,6 +140,7 @@ def test_the_registered_rule_set_is_exactly_these_seven() -> None:
         "citations",
         "hash-transparent-key",
         "guarded-provenance",
+        "makefile-credentials",
     }
 
 
