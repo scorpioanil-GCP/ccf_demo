@@ -120,7 +120,7 @@ Rows by coupling shape:
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1240 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1272 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1273 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
-| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 261 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 324 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |

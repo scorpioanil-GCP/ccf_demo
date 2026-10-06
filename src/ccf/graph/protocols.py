@@ -52,6 +52,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
+from types import TracebackType
 from typing import Final, Literal, Protocol, runtime_checkable
 
 from pydantic import Field, model_validator
@@ -66,6 +67,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "NO_STORE_SNAPSHOT_PIN",
     "TEMPORAL_AXES",
+    "WRITER_LEASE_SCOPES",
     "EntityRecord",
     "GraphQuery",
     "GraphReader",
@@ -73,6 +75,7 @@ __all__ = [
     "GraphWriter",
     "LineageMode",
     "PolicyBindingMode",
+    "ProcessScopedWriterLease",
     "QueryFragment",
     "RelationshipRecord",
     "SnapshotPinnable",
@@ -83,6 +86,9 @@ __all__ = [
     "TraversalDirection",
     "TraversalSpec",
     "UpsertResult",
+    "WriterLease",
+    "WriterLeaseHeld",
+    "WriterLeaseScope",
 ]
 
 #: The three time axes a graph read can be bounded on — closed vocabulary,
@@ -876,3 +882,131 @@ class GraphWriter(Protocol):
         is the implementation of this method every adapter inherits.
         """
         ...
+
+
+# --- The writer lease (SEC-013, D-IMPL-372) ----------------------------------
+#
+# Why the lease type lives HERE rather than beside the live-writer table in
+# ``ccf.graph._writer``: a backend store returns it, and the CINV-02 lint
+# (``tools/lints/harness_imports.py::WRITER_OK_MODULES``) forbids a backend's
+# reader-side store module from importing ``_writer``, while ``cinv02-backend-
+# import`` forbids ``_writer`` from importing a backend. This module is the one
+# both sides may already import, so the seam's vocabulary is defined once here
+# and ``_writer`` reaches the store's lease structurally.
+
+#: What a writer lease's exclusion covers, by name. A closed vocabulary.
+#:
+#: ``"cross-process"`` — the substrate itself refuses a second holder, whichever
+#: process asks (the SQLite ``flock`` sidecar, the Postgres session advisory
+#: lock). ``"process"`` — a **disclosure, not enforcement**: the only exclusion
+#: is the composition root's in-process live-writer table, so the single-writer
+#: invariant (INV-CH7-10) is NOT enforced across processes on that substrate.
+WriterLeaseScope = Literal["cross-process", "process"]
+
+#: The two :data:`WriterLeaseScope` values, for a refusal that names them.
+WRITER_LEASE_SCOPES: Final[tuple[WriterLeaseScope, ...]] = (
+    "cross-process",
+    "process",
+)
+
+
+class WriterLeaseHeld(RuntimeError):
+    """The substrate refused the writer lease: another holder has the graph.
+
+    SEC-013 (D-IMPL-372); an SDK extension of whitepaper §7.3 / INV-CH7-10.
+    Raised by a store's ``writer_lease()`` and translated by the composition
+    root's mint (``src/ccf/graph/_writer.py::mint_boot_token``) into the same
+    ``SingleWriterViolation`` an in-process second boot raises. It is a
+    separate type only because a backend store may not import ``_writer``.
+    The message names the lease kind and the resource, never a credential.
+    """
+
+
+class WriterLease(Protocol):
+    """A held, exclusive claim on a graph's single writer — or a declaration.
+
+    SEC-013 (D-IMPL-372); SDK extension of whitepaper §7.3 and INV-CH7-10,
+    CLAUDE.md §10 ("the single-writer invariant ... is architectural, not
+    advisory"). Returned by ``BackendStore.writer_lease()``
+    (``src/ccf/graph/registry.py::BackendStore``), acquired by the mint and
+    held for the writer's life; never acquired at store open, because a
+    read-only store over a live graph is legitimate.
+
+    :attr:`scope` says what the exclusion covers. A ``"process"`` lease is a
+    disclosure, not enforcement — the invariant is not enforced across
+    processes on that substrate, and SEC-013 remains open for it.
+
+    :meth:`release` must be idempotent. The lease is also a context manager
+    whose exit releases it.
+    """
+
+    @property
+    def scope(self) -> WriterLeaseScope:
+        """What the exclusion covers: ``"cross-process"`` or ``"process"``."""
+        ...
+
+    @property
+    def mechanism(self) -> str:
+        """The lease kind and resource, credential-free, for refusals and audit."""
+        ...
+
+    def release(self) -> None:
+        """Give the lease back. **Must be idempotent.**"""
+        ...
+
+    def __enter__(self) -> WriterLease: ...
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None: ...
+
+
+class ProcessScopedWriterLease:
+    """The ``"process"``-scope declaration a store without a substrate lease returns.
+
+    SEC-013 (D-IMPL-372). **A disclosure, not enforcement.** Acquiring and
+    releasing it do nothing; the only exclusion on such a substrate is the
+    composition root's in-process live-writer table, so two *processes* over
+    one graph on this substrate are NOT refused. Exact for a store whose graph
+    no second process can reach (an in-process dict); for a persistent network
+    store it is a gap, not a guarantee, and SEC-013 remains open for every
+    such store until a native cross-process lease is ruled and built. Each
+    store's ``writer_lease`` docstring says which case it is.
+
+    Args:
+        substrate: The adapter's name, so the declaration says whose it is.
+    """
+
+    def __init__(self, *, substrate: str) -> None:
+        self._substrate = substrate
+
+    @property
+    def scope(self) -> WriterLeaseScope:
+        return "process"
+
+    @property
+    def mechanism(self) -> str:
+        return (
+            f"{self._substrate}: process scope only (declared, not enforced"
+            " across processes)"
+        )
+
+    def release(self) -> None:
+        return None
+
+    def __enter__(self) -> ProcessScopedWriterLease:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.release()
+
+    def __repr__(self) -> str:
+        return f"ProcessScopedWriterLease(substrate={self._substrate!r})"

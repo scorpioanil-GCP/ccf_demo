@@ -3343,6 +3343,7 @@
       "LineageMode",
       "NO_STORE_SNAPSHOT_PIN",
       "PolicyBindingMode",
+      "ProcessScopedWriterLease",
       "QueryFragment",
       "RelationshipRecord",
       "SnapshotPinnable",
@@ -3353,7 +3354,11 @@
       "TraversalDepthCapability",
       "TraversalDirection",
       "TraversalSpec",
-      "UpsertResult"
+      "UpsertResult",
+      "WRITER_LEASE_SCOPES",
+      "WriterLease",
+      "WriterLeaseHeld",
+      "WriterLeaseScope"
     ],
     "exports": {
       "EntityRecord": {
@@ -3408,6 +3413,10 @@
       "PolicyBindingMode": {
         "kind": "function",
         "shape": "typing.Literal['assembly-stamped', 'admission-verified', 'none']"
+      },
+      "ProcessScopedWriterLease": {
+        "kind": "class",
+        "shape": "(*, substrate: 'str') -> 'None'"
       },
       "QueryFragment": {
         "kind": "contract",
@@ -3484,6 +3493,22 @@
           "node_key": "<class 'str'>",
           "superseded_claim_id": "str | None"
         }
+      },
+      "WRITER_LEASE_SCOPES": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "WriterLease": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "WriterLeaseHeld": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "WriterLeaseScope": {
+        "kind": "function",
+        "shape": "typing.Literal['cross-process', 'process']"
       }
     }
   },

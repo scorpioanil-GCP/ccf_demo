@@ -27,7 +27,7 @@ Six things, and no base class you must inherit from except one.
 
 | # | What | Shape |
 | --- | --- | --- |
-| 1 | A **store** | Satisfies the `BackendStore` Protocol: a `graph_identity` property, a `reader` property, and `close()` |
+| 1 | A **store** | Satisfies the `BackendStore` Protocol: a `graph_identity` property, a `reader` property, a `writer_lease()` method, and `close()` |
 | 2 | A **reader** | Satisfies the `GraphReader` Protocol — the read seam the operators run against |
 | 3 | A **transaction** | Implements the nine typed write operations |
 | 4 | A **writer** | Subclasses the SDK's neutral `BaseGraphWriter`, contributing the transaction and nothing else |
@@ -47,6 +47,34 @@ releases the graph for the next boot, and only `BaseGraphWriter.close` does
 that. A duck-typed writer with the two upserts and no `close` would boot
 successfully once and then leave the graph unbootable for the life of the
 process.
+
+**The writer lease is required, and it declares its scope (SEC-013).**
+`writer_lease()` is called by the boot mint only — after the in-process
+"already has a writer" check passes, before a boot token exists — and never
+when the store is opened, because a second read-only store over a live graph
+is legitimate. The lease is held for the writer's life and released by
+`BaseGraphWriter.close` (or by boot's failure path), always before your
+store's `close()`. Return one of two things:
+
+- **A cross-process lease** whose `scope` is `"cross-process"`: your substrate
+  itself refuses a second holder, whichever process asks. Raise
+  `WriterLeaseHeld` (from `ccf.graph.protocols`) at once when another holder
+  has it; never block waiting. Boot turns that into the same
+  `SingleWriterViolation` ("already exists") a second boot in one process
+  raises. The SQLite reference store takes an `flock` on a sidecar beside the
+  database file; the Postgres reference store takes a session advisory lock
+  keyed server-side on the schema.
+- **`ProcessScopedWriterLease(substrate="<your adapter name>")`**, whose scope
+  is `"process"`. This is a **disclosure, not enforcement**: the only exclusion
+  is the boot's in-process table, so two *processes* over one graph on your
+  substrate are not refused. It is exact for a store no second process can
+  reach (an in-process dict); for a persistent network store it is a gap you
+  should state in your adapter's own documentation.
+
+A store with no `writer_lease()` is refused at boot by name. The scope is
+recorded on the boot token. See
+[deployment posture](security-and-deployment.md#45-decide-how-many-processes-share-a-graph-sec-013)
+for what each reference store's scope means for a deployment.
 
 The nine transaction operations are `upsert_entity_node`,
 `insert_entity_claim`, `select_entity_chain`, `update_entity_supersession`, the

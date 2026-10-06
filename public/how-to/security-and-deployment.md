@@ -233,12 +233,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Four decisions have to be made explicitly. None of them has a safe default
-the SDK could pick for you, which is why each of them is a construction-time
-argument rather than a setting buried in configuration. The first three
-concern the HTTP surface, whose endpoint-by-endpoint contract is on the
-[HTTP API page](../reference/http-api.md); the fourth concerns which transport
-the MCP product door serves on.
+Five decisions have to be made explicitly. None of the first four has a safe
+default the SDK could pick for you, which is why each of them is a
+construction-time argument rather than a setting buried in configuration. The
+first three concern the HTTP surface, whose endpoint-by-endpoint contract is on
+the [HTTP API page](../reference/http-api.md); the fourth concerns which
+transport the MCP product door serves on; the fifth is how many processes may
+boot one graph, which depends on the graph store.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -338,51 +339,46 @@ apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
 
-### 4.5 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
+### 4.5 Decide how many processes share a graph (SEC-013)
 
-The Policy operator admits an entity by the value of one attribute, the one
-`classification_attribute_by_class` names. That attribute comes from source
-payloads like any other attribute. For each entity, the claim with the latest
-ingestion timestamp replaces the whole attribute set, so without a declaration
-any source can relabel a `restricted` entity as `public` simply by sending a
-later record.
+The fabric permits exactly one writer per graph (INV-CH7-10). Inside one
+process the boot refuses a second writer from its own live-writer table. Across
+processes the exclusion is the graph store's **writer lease**, and what it
+covers depends on the store. Each lease declares its scope by name, and the
+boot token records it.
 
-Name the sources that may assert the attribute on every resolution rule that
-writes it:
+| Store | Lease scope | What enforces it |
+| --- | --- | --- |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
+| In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
+| Fluree, MongoDB, Neo4j | `process` | **Nothing across processes. The single-writer invariant is not enforced there.** |
 
-```yaml
-resolution:
-  entity_rules:
-    - match_key: counterparty_lei
-      entity_class: counterparty
-      identity_keys: [counterparty_lei]
-      attribute_keys: [counterparty_name, classification]
-      attribute_authorities: {classification: [core-banking]}
-```
+**The last row is an open gap, not a guarantee.** On those persistent network
+stores a second process booting the same graph is *not* refused. SEC-013 is
+recorded as partial for that reason: run one writing process per graph on
+those stores until a native lease is ruled and built.
 
-Three things follow, and all three are mechanism:
+Consequences for a deployment on the stores that do lease:
 
-- **A claim from any other source is refused whole and recorded.** The L2
-  worker writes nothing from that envelope for that entity. It does not strip
-  the attribute, and it does not merge the attribute with the authoritative
-  value. It appends an `attribute_assertion_refused` event to the Control
-  Plane audit log, and it lists the refusal on `IngestResult`
-  (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). The refused value is
-  not copied anywhere. The refusal is never raised, so a source without
-  authority cannot block your serves. An authorized source may move the label
-  in either direction.
-- **An empty source set means no source may assert the attribute.**
-- **A deployment that omits the declaration does not boot.** If a Policy
-  operator admits on an attribute that a rule writes with no
-  `attribute_authorities`, `load_and_boot` and `load_config_and_boot` refuse
-  with `UngovernedClassificationAttribute`
-  (`src/ccf/deployment/manifest.py::UngovernedClassificationAttribute`)
-  before anything is registered.
-
-Authority is only as strong as your binding of `SourceIdentity.system_id` to
-a real system. The SDK does not attest source identity: the adapter declares
-it. A fabric composed by hand through `ccf.boot.boot` never sees operator
-parameters, so the boot check does not cover it.
+- **Two processes that each boot the same deployment are mutually exclusive.**
+  For example, two in-process client adapters or two MCP egress servers on one
+  deployment root over one SQLite file or one Postgres schema. The second is
+  refused at boot with `SingleWriterViolation`, naming the lease it could not
+  take. A holder that dies, however it dies, gives the lease back (the kernel
+  drops the `flock`; the server ends the session), so a crash never wedges a
+  later boot.
+- **SQLite.** The lease is only as good as the filesystem's `flock`. WAL-mode
+  SQLite is already unsupported on network filesystems, so keep the database
+  file and its sidecar on a local filesystem. A process forked while holding
+  the lease shares it until that child exits.
+- **Postgres.** Connect directly or through a *session*-pooled connection. A
+  transaction- or statement-pooled connection (PgBouncer in those modes)
+  cannot carry a session lock. A dropped connection loses the lease silently:
+  the writer fails on its next statement, but a competing boot may already
+  have succeeded. The lease is visible to an operator in `pg_locks` with
+  `locktype = 'advisory'`, and it shares the database's advisory-lock key
+  space with anything else using it.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

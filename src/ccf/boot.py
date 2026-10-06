@@ -422,7 +422,7 @@ def boot(
         {field: secret.value for field, secret in resolved_secrets.items()},
     )
     try:
-        token = mint_boot_token(graph_identity=store.graph_identity)
+        token = mint_boot_token(store=store)
     except BaseException:
         store.close()
         raise
