@@ -39,4 +39,16 @@ Opus, excluded. **Date:** 2026-10-05. **Ordering:** integration first, panel aft
 
 ## Reopen — SEC-026 corrective round
 
-(filled after re-verification)
+Dispatched to the SEC-026 executor as its one corrective round with the measured finding, the required
+fixtures, the required severing, the optional same-class extensions (C8), and the rejected C2 claim marked
+do-not-act. Result: `row-sec-026` @ `579f8f04`, the Makefile unchanged, `tools/lints/makefile_credentials.py`
+and its tests changed. The `_DIRECTIVE` exemption is gone for recipe lines and the docstring corrected; three
+new fixtures (tab-prefixed `ifdef`, `export …; cmd`, `include` inside a rule) are refused while top-level
+`ifneq`/`export` lines are not; both optional extensions landed with fixtures (`$(info|warning|error …)`
+with a credential name refused regardless of prefix; `$(value NAME)` and `$(shell printenv NAME)` counted as
+expansions; colon-less `://token@` userinfo and literal `*PASSWORD` defaults refused). **Re-verified by the
+orchestrator before re-integration:** the probe Makefile's `	ifdef $(DSN)` line now reported; `python -m
+tools.lints --all` rc=0 on the real Makefile; `tools/lints/tests` **656 passed, 0 failed, 0 errors** (639 after
+round 1); re-introducing a directive skip by hand → **3 failed, 43 passed**, restore sha-matched. Re-integrated
+`--no-ff` at **`d17c62c8`**. C1 CLOSED; C8 CLOSED except the one-level-indirection limit and the fixed target list,
+which stay carried as **SEC-026-C-01**. SEC-026 has now used both of its rounds.
