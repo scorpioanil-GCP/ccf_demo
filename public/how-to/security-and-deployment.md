@@ -42,8 +42,13 @@ key material and raises `KeyUnavailable` when it holds none.
 - **Sourcing:** the deployment injects a `SigningKeySource` at the
   composition root. The shipped reference, `FileBackedKeySource`, reads
   JWK files from an operator-designated directory *outside* the tree —
-  it is the development reference, not a custody recommendation.
-  Production deployments implement the Protocol against their own key
+  it is the development reference, not a custody recommendation. A
+  `key_id` is a flat name, never a path: anything that does not fullmatch
+  `FileBackedKeySource.KEY_ID_PATTERN` (a letter or digit, then letters,
+  digits, `.`, `_` or `-`) is refused with `KeyUnavailable` before any path
+  is formed, so `..`, an absolute path, a separator or an empty id never
+  reaches the filesystem (`src/ccf/peering/identity.py::FileBackedKeySource`,
+  `LOW-02`). Production deployments implement the Protocol against their own key
   custody (KMS, HSM, vault); the SDK takes no dependency on any vendor.
 - **Verification:** verifiers take candidate *public* keys from the
   caller (trust-policy resolution, D-IMPL-16). No key is baked into
