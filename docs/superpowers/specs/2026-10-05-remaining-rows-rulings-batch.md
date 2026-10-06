@@ -138,7 +138,7 @@ sentence "population unchanged at 365" was false when written. Docs only.
 
 ### Q20 — Merge authority inside the run
 
-- (a) **Rows merge to a batch integration branch without a GO** when their four conditions hold;
+- (a) **Rows merge to a batch integration branch without a GO** when their three conditions hold;
   **one GO from Dave at batch close** merges the integration branch to `main` after the panel.
 - (b) Each row's merge to `main` needs Dave's GO.
 - (c) Rows merge to `main` without a GO; Dave reviews at batch close.
@@ -186,7 +186,14 @@ the tenancy question.
   name, record `D-IMPL-129` superseded.
 - (b) Leave as ruled.
 
-**Recommendation: (a).** The premise of `D-IMPL-129` no longer holds.
+**Recommendation: (a). RULED (a) — then found, by the pre-run panel (Cursor seat, verified on
+`933ef91f`), to rest on a FALSE PREMISE:** the three tools are already tenant-guarded by
+`runtime/ccf_runtime/mcp/tenancy.py::_select_tenant` and pinned by
+`tests/mcp/test_tenant_guard.py::test_the_three_agent_and_replay_tools_are_tenant_guarded`. The
+remaining `D-IMPL-129` pin is about **product entitlement within a tenant**, a different gap.
+**ESCALATED to Dave; not executed in the batch** until he rules whether SEC-017 closes on the
+existing tenant evidence (leaving product entitlement under `D-IMPL-129`) or is redefined to the
+product-entitlement gap. See `docs/D-IMPL-368-PRERUN-REVIEWS.md`.
 
 ### Q11 — SEC-019: close on the evidence
 
