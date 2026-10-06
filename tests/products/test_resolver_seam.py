@@ -134,6 +134,7 @@ from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.artifacts.protocol import WriteKinds
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
+from tests.products.bound_answer import answered_as_asked
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -2656,6 +2657,8 @@ def _real_child(
             ),
             touched_entities=(),
         ),
+        # `SEC-025`: the child answered the question it was asked.
+        **answered_as_asked(requirement.product_class, gated.product.temporal_boundary),
     )
     admitted = CompositeAdmissionGate(
         tenant_id=TENANT, consumer_scope="consumer://seam", registry=registry

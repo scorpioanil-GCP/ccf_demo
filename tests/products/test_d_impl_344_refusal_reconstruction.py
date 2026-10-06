@@ -722,8 +722,10 @@ class _WithAnUndeclaredOutcome:
     def __init__(self, inner: Any) -> None:
         self._inner = inner
 
-    def __call__(self, **kw: Any) -> Mapping[str, object]:
-        outcomes = dict(self._inner(**kw))
+    def resolve_for(self, **kw: Any) -> Mapping[str, object]:
+        # `SEC-025`: request-aware, so the wrapped resolver mints each child's
+        # question from the composite's request and the child stays bound.
+        outcomes = dict(self._inner.resolve_for(**kw))
         outcomes["fixture.undeclared-product"] = object()
         return outcomes
 
@@ -763,8 +765,10 @@ class _UnderTheWrongSlot:
     def __init__(self, inner: Any) -> None:
         self._inner = inner
 
-    def __call__(self, **kw: Any) -> Mapping[str, object]:
-        outcomes = dict(self._inner(**kw))
+    def resolve_for(self, **kw: Any) -> Mapping[str, object]:
+        # `SEC-025`: request-aware, so the wrapped resolver mints each child's
+        # question from the composite's request and the child stays bound.
+        outcomes = dict(self._inner.resolve_for(**kw))
         outcomes[SIBLING_CLASS] = outcomes.pop(CHILD_CLASS)
         return outcomes
 
