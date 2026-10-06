@@ -207,7 +207,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   sourced at review time from the operator-local homecams `.env` file,
   which is outside this repository and never committed here.
 - The `.gitignore` excludes environments and credentials as a standing
-  rule (CLAUDE.md §2.2: "never a secret in the tree"). Key files for
+  rule (CLAUDE.md §2.2: "never a secret in the tree"): `.env` and `.env.*`,
+  and the key-material shapes `*.pem`, `*.jwk`, `*.key`, `*.p12`, `*.pfx`,
+  `*.jks`, `*.keystore` and `tokens.json`. The `ignored-secrets` lint
+  (`tools/lints/ignored_secrets.py::check_tree`, `LOW-04`) refuses the tree
+  if any of those patterns is missing or re-opened by a `!` negation, or if a
+  tracked file matches one; outside a git checkout it reports that the
+  tracked-file half did not run rather than passing. Key files for
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
 - Every workflow under `.github/workflows/` runs with a read-only token

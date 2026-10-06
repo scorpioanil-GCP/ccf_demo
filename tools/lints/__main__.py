@@ -37,6 +37,11 @@ header names the ruled extras and ``--all-build-deps``, and every declared
 requirement — dependencies, the ruled extras through self-references, and
 ``[build-system].requires`` — is locked at a version its specifier admits
 (``tools/lints/dependency_lock_freshness.py``).
+`ignored-secrets` (LOW-04, D-IMPL-372) is a whole-tree **text** checker over
+``.gitignore`` and ``git ls-files``: every key-material pattern is ignored, no
+negation re-includes one, and no tracked file is key material; outside a git
+checkout it says the tracked-file half did not run
+(``tools/lints/ignored_secrets.py``).
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -90,6 +95,7 @@ from tools.lints import (
     guarded_provenance,
     harness_imports,
     hash_transparent_key,
+    ignored_secrets,
     makefile_credentials,
     no_hardcoding,
     orchestration_imports,
@@ -246,6 +252,7 @@ WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "ci-posture": ci_posture.check_tree,
     "dependency-lock": dependency_lock.check_tree,
     "dependency-lock-freshness": dependency_lock_freshness.check_tree,
+    "ignored-secrets": ignored_secrets.check_tree,
 }
 
 
@@ -408,6 +415,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "SEC-028 a hashed requirements.lock carrying the build set; CI"
             " installs only from it, and editable installs fetch nothing"
+        ),
+    )
+    parser.add_argument(
+        "--ignored-secrets",
+        dest="selected",
+        action="append_const",
+        const="ignored-secrets",
+        help=(
+            "LOW-04 .gitignore ignores every key-material pattern and no"
+            " tracked file is key material"
         ),
     )
     parser.add_argument(

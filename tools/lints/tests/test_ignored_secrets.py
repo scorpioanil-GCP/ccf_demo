@@ -94,7 +94,8 @@ def test_a_commented_or_negated_pattern_does_not_count() -> None:
     others = [p for p in lint.REQUIRED_PATTERNS if p != "*.jwk"]
     for spoiled in ("# *.jwk", "!*.jwk", "  # *.jwk"):
         text = "\n".join([*others, spoiled]) + "\n"
-        assert len(lint.check_patterns(text, ".gitignore")) == 1, spoiled
+        found = lint.check_patterns(text, ".gitignore")
+        assert any("'*.jwk' is not ignored" in f for f in found), (spoiled, found)
 
 
 def test_a_later_negation_reopens_the_pattern() -> None:
@@ -134,7 +135,9 @@ def test_outside_git_the_patterns_are_still_checked_and_the_gap_is_said(
     assert any("not a git checkout" in f for f in found)
 
 
-def test_a_missing_gitignore_is_a_finding(tmp_path: pathlib.Path) -> None:
+def test_a_project_with_no_gitignore_is_a_finding(tmp_path: pathlib.Path) -> None:
     lint = _lint()
+    assert lint.check_tree(tmp_path) == []  # not a project: nothing to guard
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n", encoding="utf-8")
     found = lint.check_tree(tmp_path)
-    assert found and ".gitignore" in found[0]
+    assert found and "no .gitignore" in found[0]
