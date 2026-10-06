@@ -103,13 +103,16 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.lock
 
-      # Deliberately UNCHANGED from ci.yml's install line, and deliberately
-      # without a fluree extra: httpx is a core pin, so this substrate needs
-      # no packaging accommodation at all (SUBQ-14 evidence, visible here as
-      # an absence).
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev,neo4j,mongo]"
+      # The same two lines as ci.yml's install step (SEC-028, D-IMPL-369), and
+      # deliberately without a fluree extra: httpx is a core pin, so this
+      # substrate needs no packaging accommodation at all (SUBQ-14 evidence,
+      # visible here as an absence).
+      - name: Install the locked dependency set, then the package
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -e . --no-deps --no-build-isolation
 
       - name: Fluree leg against the floating 4.1 tag
         run: pytest tests -q -m fluree -rs

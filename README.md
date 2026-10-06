@@ -33,6 +33,43 @@ The `dev` extra installs the test toolchain **and all three harness legs**
 (Google ADK, Claude Agent SDK, LangGraph). To install a single harness leg
 only: `pip install -e ".[langgraph]"` (likewise `adk`, `claude-agent`).
 
+### Hash-verified install (what CI and `make install` run)
+
+CI never resolves a dependency at run time. Every workflow and the Makefile's
+`install` target install the committed, hash-pinned `requirements.lock` (the
+`dev`, `neo4j` and `mongo` extras plus the build set, `setuptools` and
+`setuptools-scm`), then install the project editable with nothing fetched:
+
+```sh
+python -m venv .venv
+.venv/bin/pip install --require-hashes -r requirements.lock
+.venv/bin/pip install -e . --no-deps --no-build-isolation
+```
+
+`--no-build-isolation` is load-bearing: without it pip fetches the build
+dependencies unhashed into a temporary environment. The `dependency-lock` lint
+(`tools/lints/dependency_lock.py::check_tree`, `SEC-028`) refuses any other
+install form.
+
+### Regenerating the lock
+
+After changing a dependency pin in `pyproject.toml`, regenerate the lock with
+pip-tools (in the `dev` extra) and commit it with the change:
+
+```sh
+SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 .venv/bin/pip-compile --generate-hashes \
+  --all-build-deps --unsafe-package ccf --no-strip-extras \
+  --extra dev --extra neo4j --extra mongo -o requirements.lock pyproject.toml
+```
+
+`--all-build-deps` puts the build set in the lock; `--unsafe-package ccf` keeps
+the project's own self-referencing extras out of it (an unhashable
+`file://` entry `--require-hashes` would refuse). Do not use `--all-extras`: it
+would pull `chromadb` into every CI job. pip-compile leaves a `ccf.egg-info/`
+stamped `0.0.0` at the repository root (gitignored); delete it afterwards, or
+`importlib.metadata` run from the root reports that version instead of the
+installed one.
+
 ## Quickstart
 
 The smallest possible fabric — register an ontology, ingest events through

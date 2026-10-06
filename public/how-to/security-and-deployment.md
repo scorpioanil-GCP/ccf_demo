@@ -185,6 +185,14 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   `.github/dependabot.yml` proposes pin bumps weekly as pull requests. The
   `ci-posture` lint enforces both (`tools/lints/ci_posture.py::check_tree`,
   `SEC-015`).
+- CI installs only from the committed, hash-pinned `requirements.lock`
+  (`pip install --require-hashes -r requirements.lock`), which carries the
+  build set (`setuptools`, `setuptools-scm`) as well as the runtime and test
+  dependencies; every editable project install is
+  `pip install -e <path> --no-deps --no-build-isolation`, so nothing is
+  resolved or fetched unhashed at run time. The `dependency-lock` lint
+  enforces it (`tools/lints/dependency_lock.py::check_tree`, `SEC-028`);
+  `README.md` gives the regeneration command.
 
 ## 4. Deployment posture: what to decide before a surface is up
 

@@ -38,9 +38,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.lock
 
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
+      # SEC-028 (D-IMPL-369): every dependency, build set included, comes from
+      # the hash-verified lock; the editable install then fetches nothing.
+      - name: Install the locked dependency set, then the package
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -e . --no-deps --no-build-isolation
 
       # The checkers are the enforcement mechanism for three named invariants,
       # so they are themselves tested in CI. `pytest tests` in the test job does
@@ -214,13 +219,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+          cache-dependency-path: requirements.lock
 
-      # The neo4j and mongo extras join dev here because this job RUNS both
-      # legs against the service containers above; the lint job stays dev-only
-      # (the extras are absent there, closed by the pyproject mypy overrides —
-      # the chromadb posture).
-      - name: Install package with dev extras + the neo4j and mongo drivers
-        run: python -m pip install -e ".[dev,neo4j,mongo]"
+      # The lock carries the neo4j and mongo drivers (SEC-028, D-IMPL-369), so
+      # this job RUNS both legs against the service containers above with the
+      # same installed set as every other job; the lint job's mypy therefore
+      # checks the driver boundaries against the drivers' own hints.
+      - name: Install the locked dependency set, then the package
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -e . --no-deps --no-build-isolation
 
       # The out-of-tree adapter fixture (plan 15.4-10), mirroring `make
       # install` command-for-command. It is NOT optional here: entry points
@@ -235,7 +243,7 @@ jobs:
       # mypy's `files` covers `src` and `runtime` only, and the lint checker
       # unit tests do not touch the registry.
       - name: Install the out-of-tree demo adapter fixture
-        run: python -m pip install -e ./tests/fixtures/ccf-demo-adapter
+        run: python -m pip install -e ./tests/fixtures/ccf-demo-adapter --no-deps --no-build-isolation
 
       # Every pytest step below CALLS the Makefile target rather than restating
       # its command. The Makefile header promises this file is mirrored
@@ -326,9 +334,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.lock
 
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
+      # SEC-028 (D-IMPL-369): every dependency, build set included, comes from
+      # the hash-verified lock; the editable install then fetches nothing.
+      - name: Install the locked dependency set, then the package
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -e . --no-deps --no-build-isolation
 
       # The Makefile targets use .venv/bin/python; provide the venv the same
       # editable install the job already has, so CI and local runs execute the
@@ -336,7 +349,8 @@ jobs:
       - name: Provision .venv for the Makefile command surface
         run: |
           python -m venv .venv
-          .venv/bin/pip install -e ".[dev]"
+          .venv/bin/pip install --require-hashes -r requirements.lock
+          .venv/bin/pip install -e . --no-deps --no-build-isolation
 
       - name: Run the network-free examples suite (make examples)
         run: make examples
@@ -381,9 +395,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.lock
 
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
+      # SEC-028 (D-IMPL-369): every dependency, build set included, comes from
+      # the hash-verified lock; the editable install then fetches nothing.
+      - name: Install the locked dependency set, then the package
+        run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -e . --no-deps --no-build-isolation
 
       # The Makefile targets use .venv/bin/python; provide the venv the same
       # editable install the job already has, so CI and local runs execute the
@@ -391,7 +410,8 @@ jobs:
       - name: Provision .venv for the Makefile command surface
         run: |
           python -m venv .venv
-          .venv/bin/pip install -e ".[dev]"
+          .venv/bin/pip install --require-hashes -r requirements.lock
+          .venv/bin/pip install -e . --no-deps --no-build-isolation
 
       # The docs checkers are the enforcement mechanism for the publish gate,
       # so they are themselves tested in CI. `pytest tests` in the test job does

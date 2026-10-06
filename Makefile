@@ -86,7 +86,7 @@ venv: ## Create .venv if missing and install into it — the first command in a 
 		|| { echo "ccf requires Python >= 3.12; .venv has $$(.venv/bin/python -V 2>&1)"; exit 1; }
 	@$(MAKE) --no-print-directory install
 
-# The second line installs the out-of-tree adapter fixture (plan 15.4-10). It
+# The third line installs the out-of-tree adapter fixture (plan 15.4-10). It
 # is ALWAYS-ON rather than opt-in, and the ruling is recorded rather than left
 # as a silence: plan 15.4-11 asserts that the conformance parameter lists and
 # `declared_names()` agree in BOTH directions, so under an opt-in target a
@@ -100,9 +100,10 @@ venv: ## Create .venv if missing and install into it — the first command in a 
 # developer bootstrap, not an adopter's install path.
 #
 # Order matters: the fixture imports `ccf`, so the SDK's own install goes first.
-install: ## Refresh the editable install with dev extras (pip install -e ".[dev]")
-	.venv/bin/pip install -e ".[dev]"
-	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter
+install: ## Install the hash-verified lock, then the SDK and the demo adapter editable with nothing fetched (SEC-028)
+	.venv/bin/pip install --require-hashes -r requirements.lock
+	.venv/bin/pip install -e . --no-deps --no-build-isolation
+	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter --no-deps --no-build-isolation
 
 lint: ## CCF invariant lints — CINV-01/02/03/04/06 + orchestration split + citations + D-IMPL-353 authorization (blocking, D-07)
 	$(ENV) $(PYTHON) -m tools.lints --all
