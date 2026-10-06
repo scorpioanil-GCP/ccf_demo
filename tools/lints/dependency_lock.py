@@ -29,11 +29,19 @@ The refusals, over the repository's ``requirements.lock``, every
    *"Installing build dependencies"*).
 
 A workflow ``run:`` block and a ``Makefile`` recipe are split into commands
-before matching — newlines, backslash continuations, ``&&``, ``||`` and ``;``
-— so a multi-line ``run: |`` cannot hide a second install behind a first. A
-pip invocation is any command whose words contain ``pip`` (or ``pip3``) followed
-by ``install``, which covers ``python -m pip``, ``.venv/bin/pip`` and
-``uv pip``.
+before matching — newlines, backslash continuations, ``&&``, ``||``, ``;``,
+``|`` and ``&`` — so a multi-line ``run: |`` cannot hide a second install
+behind a first. A pip invocation is ``pip``, ``pip3``, ``pip3.N`` (any path),
+``python[3[.N]] [-opts] -m pip`` or ``uv pip``, with any global options
+(``-q``, ``--no-cache-dir``, ``--log FILE``, ...) between the program and
+``install``; leading ``NAME=value`` assignments are skipped. Every OTHER
+installer — ``uv sync``/``add``/``run``/``tool``, ``uvx``, ``uv pip sync``,
+``poetry``, ``pdm``, ``pipenv``, ``pipx``, ``conda``/``mamba``,
+``easy_install``, ``pip-sync``, ``setup.py install`` — is refused by name as an
+unhashed install path (``tools/lints/dependency_lock.py::OTHER_INSTALLERS``).
+An editable operand must be in-tree: ``.``, ``./...`` or a relative path with
+no scheme, VCS prefix, absolute root or ``..`` escape (SEC-028 corrective
+round).
 
 The rule applies to a base that is a project — one that has a
 ``pyproject.toml`` or a ``.github/workflows`` directory — so the runner's
@@ -65,7 +73,7 @@ REQUIRED_PINS: tuple[str, ...] = ("setuptools", "setuptools-scm", "pip-tools")
 
 _HASH = re.compile(r"--hash=sha256:([0-9a-f]+)")
 _PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._\-]*)(\[[^\]]*\])?==\S+")
-_SPLIT = re.compile(r"\s*(?:&&|\|\||;)\s*")
+_SPLIT = re.compile(r"\s*(?:&&|\|\||;|\|&?|(?<![<>&])&(?![>&]))\s*")
 
 #: The one accepted form of a dependency install, as a set of argument words.
 LOCKED_INSTALL = frozenset({"--require-hashes", "-r", LOCK})
@@ -135,38 +143,164 @@ def commands(script: str) -> list[str]:
     return out
 
 
-def _pip_install_args(command: str) -> list[str] | None:
-    """The words after ``pip install`` if ``command`` is a pip install."""
+#: ``pip``, ``pip3``, ``pip3.12`` — any pip console script, by basename.
+_PIP_PROGRAM = re.compile(r"^pip(?:\d+(?:\.\d+)*)?$")
+#: ``python``, ``python3``, ``python3.12`` — an interpreter that may run ``-m pip``.
+_PYTHON_PROGRAM = re.compile(r"^python(?:\d+(?:\.\d+)*)?$")
+#: A leading ``NAME=value`` environment assignment before the program.
+_ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+#: pip and uv global options that consume the NEXT word as their value, so the
+#: subcommand search does not mistake that value for the subcommand.
+_VALUED_GLOBAL_OPTIONS = frozenset({
+    "--log", "--log-file", "--proxy", "--retries", "--timeout", "--exists-action",
+    "--trusted-host", "--cert", "--client-cert", "--cache-dir", "--python",
+    "--keyring-provider", "--use-feature", "--use-deprecated", "--directory",
+    "--project", "--config-file", "--color",
+})
+#: Dependency installers that are not the ruled pip form, by program, and the
+#: subcommands of each that install (``None``: every invocation installs).
+#: Each is an unhashed install path: none of them reads ``requirements.lock``
+#: with ``--require-hashes``.
+OTHER_INSTALLERS: dict[str, frozenset[str] | None] = {
+    "uv": frozenset({"sync", "add", "run", "tool"}),
+    "uvx": None,
+    "poetry": frozenset({"install", "add", "update", "sync"}),
+    "pdm": frozenset({"install", "add", "update", "sync"}),
+    "pipenv": frozenset({"install", "sync", "update"}),
+    "pipx": None,
+    "conda": frozenset({"install", "create", "update", "env"}),
+    "mamba": frozenset({"install", "create", "update", "env"}),
+    "micromamba": frozenset({"install", "create", "update", "env"}),
+    "easy_install": None,
+    "pip-sync": None,
+}
+
+
+def _words(command: str) -> list[str]:
     try:
         words = shlex.split(command)
     except ValueError:
         words = command.split()
-    for i in range(len(words) - 1):
-        if pathlib.PurePosixPath(words[i]).name in {"pip", "pip3"} and words[i + 1] == "install":
-            return words[i + 2 :]
+    while words and _ENV_ASSIGNMENT.match(words[0]):
+        words = words[1:]
+    return words
+
+
+def _subcommand(words: list[str], start: int) -> int | None:
+    """Index of the first non-option word at or after ``start``, skipping
+    global options (``-q``, ``--no-cache-dir``, ``--log FILE``, ...)."""
+    i = start
+    while i < len(words):
+        word = words[i]
+        if not word.startswith("-"):
+            return i
+        i += 2 if word in _VALUED_GLOBAL_OPTIONS else 1
     return None
+
+
+def _pip_entry(words: list[str]) -> int | None:
+    """Index just past the pip program if ``words`` invokes pip: ``pip``,
+    ``pip3.N``, ``python -m pip``, ``python3 -I -m pip``, ``uv pip``."""
+    if not words:
+        return None
+    program = pathlib.PurePosixPath(words[0]).name
+    if _PIP_PROGRAM.match(program):
+        return 1
+    if _PYTHON_PROGRAM.match(program):
+        for i in range(1, len(words)):
+            if words[i] == "-m" and i + 1 < len(words):
+                return i + 2 if words[i + 1] == "pip" else None
+            if words[i] == "-mpip":
+                return i + 1
+            if not words[i].startswith("-"):
+                return None
+        return None
+    if program == "uv":
+        sub = _subcommand(words, 1)
+        if sub is not None and words[sub] == "pip":
+            return sub + 1
+    return None
+
+
+def _pip_install_args(command: str) -> list[str] | None:
+    """The words after ``install`` if ``command`` is a pip install, in any of
+    the spellings ``_pip_entry`` recognizes, global options tolerated between
+    the program and ``install``."""
+    words = _words(command)
+    entry = _pip_entry(words)
+    if entry is None:
+        return None
+    sub = _subcommand(words, entry)
+    if sub is None or words[sub] != "install":
+        return None
+    return words[sub + 1 :]
+
+
+def _other_installer(command: str) -> str | None:
+    """The name of a non-pip installer invocation, or None."""
+    words = _words(command)
+    if not words:
+        return None
+    program = pathlib.PurePosixPath(words[0]).name
+    if program not in OTHER_INSTALLERS:
+        if _PYTHON_PROGRAM.match(program) and len(words) > 2 and words[1].endswith("setup.py"):
+            if words[2] in {"install", "develop"}:
+                return f"setup.py {words[2]}"
+        return None
+    subs = OTHER_INSTALLERS[program]
+    if subs is None:
+        return program
+    sub = _subcommand(words, 1)
+    if program == "uv" and sub is not None and words[sub] == "pip":
+        second = _subcommand(words, sub + 1)
+        if second is not None and words[second] == "sync":
+            return "uv pip sync"
+        return None
+    if sub is not None and words[sub] in subs:
+        return f"{program} {words[sub]}"
+    return None
+
+
+def _in_tree(operand: str) -> bool:
+    """An editable operand is in-tree: ``.``, ``./...`` or a relative path with
+    no scheme, no VCS prefix, no absolute root and no ``..`` escape."""
+    if "://" in operand or re.match(r"^[A-Za-z][A-Za-z0-9+.\-]*:", operand):
+        return False
+    path = pathlib.PurePosixPath(operand)
+    return not path.is_absolute() and ".." not in path.parts
 
 
 def check_command(command: str, where: str) -> list[str]:
     """Findings for one shell command."""
+    other = _other_installer(command)
+    if other is not None:
+        return [
+            f"{where} {RULE} `{command}` uses `{other}`, an unhashed install"
+            f" path; the only dependency install is `pip install --require-hashes"
+            f" -r {LOCK}`"
+        ]
     args = _pip_install_args(command)
     if args is None:
         return []
     if "-e" in args or "--editable" in args or any(a.startswith("--editable=") for a in args):
         flags = {a for a in args if a.startswith("-")}
         operands = [a for a in args if not a.startswith("-")]
+        operands += [a.split("=", 1)[1] for a in args if a.startswith("--editable=")]
+        flags = {f.split("=", 1)[0] for f in flags}
         problems = []
         if "--no-deps" not in flags:
             problems.append("`--no-deps`")
         if "--no-build-isolation" not in flags:
             problems.append("`--no-build-isolation`")
         extra = flags - {"-e", "--editable", "--no-deps", "--no-build-isolation"}
-        if problems or extra or len(operands) != 1 or "[" in operands[0]:
+        bad_operand = len(operands) != 1 or "[" in operands[0] or not _in_tree(operands[0])
+        if problems or extra or bad_operand:
             return [
                 f"{where} {RULE} `{command}` must be exactly `pip install -e <path>"
-                " --no-deps --no-build-isolation`"
+                " --no-deps --no-build-isolation` with an in-tree path"
                 + (f" (missing {', '.join(problems)})" if problems else "")
                 + (f" (unexpected {', '.join(sorted(extra))})" if extra else "")
+                + (f" (operand {operands!r} is not one in-tree path)" if bad_operand else "")
             ]
         return []
     if set(args) != LOCKED_INSTALL or len(args) != len(LOCKED_INSTALL):
