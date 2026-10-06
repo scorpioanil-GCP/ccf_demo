@@ -824,6 +824,16 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.http_api.grants.authorized_from_request": (
         "353-09-the-join.md"
     ),
+    # `SEC-021` (`D-IMPL-369`, Q13) — both Peering transports gain a required
+    # keyword-only `max_pending` with no SDK default, bounding the receive
+    # queue that fills before any signature check. Required rather than
+    # defaulted because a buffer size is a deployment's capacity decision.
+    "ccf_runtime.peering.lf_a2a.LfA2AWire": (
+        "369-21-sec-021-receive-queue-bound.md"
+    ),
+    "ccf_runtime.peering.typed_http.TypedHttpWire": (
+        "369-21-sec-021-receive-queue-bound.md"
+    ),
 }
 
 

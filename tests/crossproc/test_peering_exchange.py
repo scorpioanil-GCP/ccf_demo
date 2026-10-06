@@ -216,6 +216,7 @@ def _typed_http_leg() -> TransportLeg:
             clock=lambda: now,
             receive_path=CONSUMER["receive_path"],
             max_request_bytes=CONSUMER["max_request_bytes"],
+            max_pending=CONSUMER["max_pending"],
         )
         return wire, wire.asgi_app()
 
@@ -252,6 +253,7 @@ def _lf_a2a_leg() -> TransportLeg:
             clock=lambda: now,
             rpc_path=LF_A2A["rpc_path"],
             max_message_bytes=CONSUMER["max_request_bytes"],
+            max_pending=CONSUMER["max_pending"],
         )
         app = FastAPI()
         for route in wire.routes():

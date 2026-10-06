@@ -96,6 +96,13 @@ HANDSHAKE_TIMEOUT_SECONDS = 60
 #: values, not domain values.
 CALL_TIMEOUT_SECONDS = 20.0
 
+#: The receive-queue bound ``TypedHttpWire`` requires (SEC-021, D-IMPL-369; Q13
+#: rules no SDK default). Supplied here rather than read from example 04's
+#: ``peering-trust.yaml``, which is a FROZEN archive artifact (D-IMPL-351) and
+#: declares none. This wire only emits — it never hosts its receive endpoint —
+#: so the bound is never reached; any positive value is honest.
+PEERING_MAX_PENDING = 1
+
 
 def _load(name: str) -> Any:
     return yaml.safe_load(
@@ -243,6 +250,7 @@ def crossproc_endpoints() -> Iterator[CrossProcessEndpoints]:
                     clock=lambda: now,
                     receive_path=consumer_values["receive_path"],
                     max_request_bytes=consumer_values["max_request_bytes"],
+                    max_pending=PEERING_MAX_PENDING,
                 )
                 peer = PeerRef(
                     tenant_id=tenant_id, peer_id=producer_values["peer_id"]
