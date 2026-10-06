@@ -174,3 +174,22 @@ carries `if: ${{ !cancelled() }}`, so it runs independently of the quick suite's
 unchanged (the smallest focused change). The push of this commit triggers the first hosted run in which the
 `postgres`-marked tests — SEC-013's lease among them — can execute; its result is recorded in the batch report when the
 run completes, and nothing about the lease is claimed until then.
+
+**Y4 result, first reading (run [37525121800](https://github.com/drcastillo/ccf_code/actions/runs/37525121800) @
+`4ca0fd19`).** With the step un-gated, the Postgres leg **executed for the first time in any inspected run**:
+`14 failed, 241 passed, 599 skipped, 9948 deselected, 81 xfailed` (the leg selects `-m postgres` over all of `tests`).
+Twelve distinct failing names (`test_a_missing_threshold_is_refused_not_defaulted`, `test_an_unresolvable_anchor_fails_closed`,
+`test_debt_is_driven_by_last_updated`, `test_debt_rides_the_product`, `test_one_operator_and_the_gates_agree`,
+`test_the_answer_is_the_select_plus_four_things_it_cannot_return`,
+`test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal`, `test_the_record_is_written_before_delivery`,
+`test_the_same_question_is_stable`, `test_the_specimen_is_untouched`, `test_the_threshold_selects`,
+`test_two_thresholds_are_two_products`), failing on `UnpinnedArtifactError` (manifest key `policy`), `KeyError:
+'default_perspective'`, `KeyError: 'request_contract'` and `git merge-base HEAD main` exiting 128 in the hosted checkout
+— none names SEC-013's symbols. **They have no baseline**: `main`'s run shows the step `skipped`, so whether they are
+pre-existing cannot be stated from hosted evidence; recorded as **the Postgres leg's standing reds, invisible until
+now (CI-COVERAGE-01)**. **The lease test's own outcome is still not evidenced**: the leg runs `-q`, which prints
+nothing for a pass, and the test's name does not appear in the leg's log; local collection confirms
+`tests/graph/test_single_writer_across_processes.py` selects under `-m postgres`. A **focused verbose step** running
+that file alone (`-v -rA`, `if: !cancelled()`) is added to `ci.yml` in this commit so the next run shows the result by
+name. The quick suite on this run: `15 failed, 9439 passed, 3 errors` (the surface-completeness red gone; the 12
+standing plus the cp-05 three remain, plus the three cp-05 setup errors).
