@@ -18,6 +18,10 @@ subclassing crosses files, so which classes are `CCFContract`s is a
 tree-level fact; its universe is bounded by a committed base roster
 (`tools/lints/hash_transparent_base_roster.json`, measured at `13bd250`)
 rather than by a tree scope.
+`makefile-credentials` (SEC-026, D-IMPL-368) is a whole-tree **text** checker
+over the repository-root ``Makefile``: no recipe may echo or print a
+DSN/URI/URL/PASSWORD variable and no default may bake URL userinfo
+(``tools/lints/makefile_credentials.py``).
 
 Exit code is the only gate signal. There is deliberately no report-only,
 warning-only, or `--exit-zero` mode: D-07 requires the lints to block from the
@@ -68,6 +72,7 @@ from tools.lints import (
     guarded_provenance,
     harness_imports,
     hash_transparent_key,
+    makefile_credentials,
     no_hardcoding,
     orchestration_imports,
     substrate_names,
@@ -219,6 +224,7 @@ WHOLE_TREE_CHECKERS: dict[str, TreeChecker] = {
     "citations": citations.check_tree,
     "guarded-provenance": guarded_provenance.check_tree,
     "hash-transparent-key": hash_transparent_key.check_tree,
+    "makefile-credentials": makefile_credentials.check_tree,
 }
 
 
@@ -351,6 +357,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "CINV-06 every defaulted CCFContract field new since 13bd250"
             " declares ccf_hash_transparent (D-IMPL-243 amendments 1 and 2)"
+        ),
+    )
+    parser.add_argument(
+        "--makefile-credentials",
+        dest="selected",
+        action="append_const",
+        const="makefile-credentials",
+        help=(
+            "SEC-026 no make recipe echoes or prints a DSN/URI/URL/PASSWORD"
+            " variable, and no Makefile default bakes URL userinfo"
         ),
     )
     parser.add_argument(
