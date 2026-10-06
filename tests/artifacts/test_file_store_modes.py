@@ -44,9 +44,21 @@ INDEX_FILENAME = ".artifact-names.json"
 
 @contextmanager
 def _umask(mask: int) -> Iterator[None]:
+    """Run the body under ``mask``; fail if the body left a different umask.
+
+    The row declares a store-local ``umask`` non-conforming (it is process-wide
+    and leaks to every thread), and such a store would otherwise pass every
+    mode assertion here. Measured: with every ``chmod``/``fchmod`` severed and
+    ``os.umask(0o077)`` added to the constructor, the four cases were green
+    until this check existed.
+    """
     previous = os.umask(mask)
     try:
         yield
+        leaked = os.umask(mask)
+        assert leaked == mask, (
+            f"the store changed the process umask to {oct(leaked)} (set {oct(mask)})"
+        )
     finally:
         os.umask(previous)
 
