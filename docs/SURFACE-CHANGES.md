@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1850 entries**, of which **1586** name a public Python surface.
+**1852 entries**, of which **1588** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1045 entries — 1001 public Python surface, 44 not public Python API.
+1046 entries — 1002 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16057,6 +16057,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-08-temporal-write-guard.md`.*
 
+#### ccf.artifacts.file_store.InsecureArtifactStoreRoot
+
+- Surface: ccf.artifacts.file_store.InsecureArtifactStoreRoot
+- Public surface: true
+- Change type: added
+- Before: absent — a pre-existing root was used whatever its mode and owner.
+- After: a `PermissionError` subclass raised by `FileArtifactStore(...)` when its root already existed and either carries any mode bit outside `0o700` or is not owned by the process's effective uid. The message names the path, the observed mode and the observed owner. The root is never chmodded: its permissions are unchanged by the refusal.
+- Why: `D-IMPL-369` — the store does not change permissions on a directory it did not create; the operator who made the root decides whether to tighten it or point the store elsewhere.
+- Migration: a deployment that pre-creates its artifact-store root with the default umask (`0o755`/`0o775`) must create it `0o700`, or let the store create it.
+
+*Recorded by `369-01-insecure-artifact-store-root-refused.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -25853,7 +25865,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-232 entries — 200 public Python surface, 32 not public Python API.
+233 entries — 201 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -29852,6 +29864,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a deployment: `admission_clock` already existed, already defaulted, and is already wired by `build_governed_resolver` and `open_product(clock=)`. **For a test that counts clock reads on a non-composite serve**, the count is now one rather than zero; that is the ruled change and the one in-tree control asserting zero is renamed and re-pointed
 
 *Recorded by `358-04-served-at.md`.*
+
+#### ccf.artifacts.file_store.FileArtifactStore
+
+- Surface: ccf.artifacts.file_store.FileArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: the root and any missing parents were created with `mkdir(parents=True, exist_ok=True)` and files written with `write_bytes`/`write_text`; every mode was the host umask's.
+- After: every directory the store creates (the root and any missing parents) is `0o700` and every file it writes (artifact, naming index, and their `.partial` staging files) is `0o600`, set explicitly after creation regardless of the process umask; no store-local `umask` is used. A pre-existing root is refused with `InsecureArtifactStoreRoot` unless it is `0o700` or narrower and owned by the process.
+- Why: SEC-014 — replay records and Control Plane artifacts are decision evidence (CLAUDE.md §7.4); the host's default umask is not a confidentiality posture for them. Fixed, not configurable (ruling Q8).
+- Migration: see `InsecureArtifactStoreRoot` above. Files an earlier store version wrote are not re-moded.
+
+*Recorded by `369-01-insecure-artifact-store-root-refused.md`.*
 
 ### Not public Python API
 

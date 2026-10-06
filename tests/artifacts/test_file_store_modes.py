@@ -4,8 +4,10 @@ Ruled behavior (``docs/superpowers/specs/2026-10-05-remaining-rows-rulings-batch
 Q8, fixed modes, no knob): every regular file
 ``src/ccf/artifacts/file_store.py::FileArtifactStore`` creates is ``0o600`` and
 every directory it creates, intermediate parents included, is ``0o700``,
-**regardless of the process umask**. A pre-existing root is tightened to
-``0o700`` on construction; pre-existing parents are not the store's.
+**regardless of the process umask**. ``D-IMPL-369`` replaces the pilot's
+tighten reading: an insecure pre-existing root (any mode wider than ``0o700``,
+or not owned by the process) is REFUSED BY NAME, without ``chmod``, and its
+permissions are left unchanged; pre-existing parents are not the store's.
 
 Every case runs under ``os.umask(0o000)``: that is the umask under which a store
 that leaves modes to the host writes ``0o666`` files and ``0o777`` directories,
@@ -31,6 +33,7 @@ from pathlib import Path
 
 import pytest
 
+from ccf.artifacts import file_store as file_store_module
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ArtifactWrite
@@ -61,6 +64,16 @@ def _umask(mask: int) -> Iterator[None]:
         )
     finally:
         os.umask(previous)
+
+
+def _refusal() -> type[Exception]:
+    """The typed refusal, read off the module at call time.
+
+    Looked up lazily so that a tree WITHOUT the refusal fails case 2 alone,
+    at the case, rather than failing collection for every case in the file.
+    """
+    refusal: type[Exception] = file_store_module.InsecureArtifactStoreRoot
+    return refusal
 
 
 def _mode(path: Path) -> int:
@@ -111,13 +124,58 @@ def test_a_store_created_at_a_new_root_is_private_to_the_owner(tmp_path: Path) -
     _assert_private_tree(tmp_path / "a", root, address)
 
 
-def test_a_pre_existing_root_is_tightened(tmp_path: Path) -> None:
-    root = tmp_path / "store"
-    with _umask(0o000):
-        root.mkdir(mode=0o777)
-        assert _mode(root) == 0o777  # the precondition the case is about
-        FileArtifactStore(root=root, write_kinds=WriteKinds.declare({}))
-    assert _mode(root) == 0o700, oct(_mode(root))
+class TestAnInsecurePreExistingRootIsRefusedWithoutChange:
+    """``test_an_insecure_pre_existing_root_is_refused_without_change`` (D-IMPL-369).
+
+    Dave, 2026-10-05: "SDK-created roots are owner-only. An insecure
+    pre-existing root is refused by name, without chmod. Verify that refusal
+    leaves its permissions unchanged."
+    """
+
+    def test_an_insecure_pre_existing_root_is_refused_without_change(
+        self, tmp_path: Path
+    ) -> None:
+        root = tmp_path / "store"
+        with _umask(0o000):
+            root.mkdir(mode=0o777)
+            assert _mode(root) == 0o777  # the precondition the case is about
+            with pytest.raises(_refusal()) as refused:
+                FileArtifactStore(root=root, write_kinds=WriteKinds.declare({}))
+        assert _mode(root) == 0o777, f"the refusal changed the root: {oct(_mode(root))}"
+        assert str(root) in str(refused.value)
+        assert "0o777" in str(refused.value)
+        assert list(root.iterdir()) == []  # nothing written into a refused root
+
+    def test_a_root_owned_by_another_uid_is_refused_without_change(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Executor addition: the not-owned branch of the ruling.
+
+        A non-root test cannot ``chown``, so the process's effective uid is
+        made to differ from the root's owner instead.
+        """
+        root = tmp_path / "store"
+        with _umask(0o000):
+            root.mkdir(mode=0o700)
+            os.chmod(root, 0o700)
+            owner = root.stat().st_uid
+            monkeypatch.setattr(os, "geteuid", lambda: owner + 1)
+            with pytest.raises(_refusal()) as refused:
+                FileArtifactStore(root=root, write_kinds=WriteKinds.declare({}))
+        assert _mode(root) == 0o700
+        assert str(root) in str(refused.value)
+
+    def test_a_pre_existing_owner_only_root_constructs_normally(
+        self, tmp_path: Path
+    ) -> None:
+        root = tmp_path / "store"
+        with _umask(0o000):
+            root.mkdir(mode=0o700)
+            os.chmod(root, 0o700)
+            store = FileArtifactStore(root=root, write_kinds=WriteKinds.declare({}))
+            address = _put_one(store)
+        assert _mode(root) == 0o700
+        assert _mode(root / address) == 0o600
 
 
 def test_the_staging_file_is_never_wider_than_its_target(
