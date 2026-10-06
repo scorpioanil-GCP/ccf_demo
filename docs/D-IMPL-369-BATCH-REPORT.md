@@ -50,13 +50,27 @@ that path. **Which artifact "entitled" means for these three is a ruling, not a 
 | the 2 failures | the same two standing reds as the pilot (citation ratchet at 365; the worktree child-process test) |
 | `python -m tools.lints --all` | rc=0 (now ten checkers, three of them new this day) |
 | `python -m mypy` | no issues in 243 files |
-| `tools/docs_tests` | 319 passed, **1 failed** — `test_retirement_sweep::test_the_committed_report_is_current`, **red on the base `5f1dbfd6` before any batch-2 code** (measured) |
+| `tools/docs_tests` | 319 passed, **1 failed** — `test_retirement_sweep::test_the_committed_report_is_current`. **CORRECTED 2026-10-06 (`D-IMPL-370`):** this was reported as pre-existing because it was red on the batch-2 base `5f1dbfd6`; GitHub's docs-gate job shows it went red at **`0d0be21b`, the SEC-026 integration** (green at `f49228fd` and on `main` @ `933ef91f`). It is a **pilot regression**: the Makefile change moved the generated `docs/surface/examples/RETIREMENT-COUPLINGS.md`. Fixed by regenerating the report (`python tools/retirement_sweep.py --report`); 59 passed locally. |
 | `tests/examples` (no estate export) | **28 failed, 992 passed, 743 skipped — identical to the base**, same ids |
 | extra suites Fable ran (client, cli, hitl, conformance) | 1157 passed, 0 errors |
 
 **Disclosed, unchanged from the pilot:** the 743 estate-gated example nodes are skipped; no estate export
-exists; the `D-IMPL-356` wave-close commitment has never been met. The pinned workflows have not been run on
-GitHub; a `main` merge is the first thing that would show their hosted-runner behavior.
+exists; the `D-IMPL-356` wave-close commitment has never been met.
+
+### 3.1 GitHub CI at `bad6ee01` versus the baseline `933ef91f` (added 2026-10-06, `D-IMPL-370`)
+
+`ci.yml` runs on every push, so the pinned, hash-locked workflows **have** run on the hosted runner for every
+integration commit. Per job, same environment, run 37421403121 against run 37394729851:
+
+| Job | `main` @ `933ef91f` | `bad6ee01` | Verdict |
+| --- | --- | --- | --- |
+| lint + strict types | success | success | the pinned actions, the `permissions: {contents: read}` block and the `--require-hashes` install from the lock all ran on the hosted runner |
+| tests (python 3.12) | failure: exactly one node, `perf/suites/micro/test_factory.py::test_task_factory_construct` | failure: the same single node | **pre-existing, identical** |
+| examples suite (hw1-harness-clients) | failure: `AssertionError: the reference client exited 1` at `make example-hw1-harness-clients` | the same | **pre-existing, identical** (the standing red since 2026-08-26) |
+| docs gate (strict build + publish scan) | **success** | **failure**: `test_retirement_sweep::test_the_committed_report_is_current` | **REGRESSION**, introduced at `0d0be21b` (SEC-026); fixed by regenerating the report in this pass |
+
+The wording "the workflows have not been run on GitHub" in the earlier reports was wrong: they ran on every
+push; what had not been done was reading the results.
 
 ## 4. Behavior changes for Dave to confirm
 
