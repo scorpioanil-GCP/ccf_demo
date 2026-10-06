@@ -23,9 +23,10 @@ base, each file parsed with ``yaml.safe_load``:
    comment on the same source line recording the tag the SHA was resolved
    from (the comment is what a reviewer and Dependabot read). A local action
    (``./path``) is in-tree and exempt; a ``docker://`` reference must carry an
-   ``@sha256:`` digest. The comment is not in the parsed YAML, so each parsed
-   reference is matched against the raw source lines; a reference with no
-   matching ``uses: <ref>  # vN`` line is refused rather than assumed.
+   ``@sha256:`` digest. The comment is not in the parsed YAML, so the parsed
+   references are paired one to one, in document order, with the raw
+   ``uses:`` source lines; a workflow whose two populations do not pair is
+   refused rather than half-checked.
 
 PyYAML (YAML 1.1) parses the bare key ``on:`` as the boolean ``True``; the rule
 never reads that key and never sorts mixed-type keys, so a workflow's trigger
@@ -44,7 +45,6 @@ from __future__ import annotations
 
 import pathlib
 import re
-from collections import Counter
 from typing import Any, Iterator
 
 import yaml
@@ -143,16 +143,20 @@ def _permission_findings(doc: dict[Any, Any], path: str) -> list[str]:
 
 
 def _pin_findings(doc: dict[Any, Any], text: str, path: str) -> list[str]:
+    """Pin refusals. Parsed sites and raw ``uses:`` lines are both in document
+    order, so they are paired one to one; a workflow whose two populations do
+    not pair (a flow-style ``{uses: ...}``, a ``uses:`` inside a block scalar)
+    is refused as unreadable rather than half-checked."""
     findings: list[str] = []
     raw = _raw_uses_lines(text)
-    commented: Counter[str] = Counter(
-        ref for _, ref, comment in raw if comment is not None and _TAG_COMMENT.match(comment)
-    )
-    line_of: dict[str, int] = {}
-    for lineno, ref, _ in raw:
-        line_of.setdefault(ref, lineno)
-    for where, ref in _uses_sites(doc):
-        lineno = line_of.get(ref, 1)
+    sites = list(_uses_sites(doc))
+    if [ref for _, ref, _ in raw] != [ref for _, ref in sites]:
+        return [
+            f"{path}:1 {RULE} the parsed `uses:` references {[r for _, r in sites]!r}"
+            f" do not pair one to one with the source lines"
+            f" {[r for _, r, _ in raw]!r}; write each `uses:` on its own block line"
+        ]
+    for (where, ref), (lineno, _, comment) in zip(sites, raw):
         if ref.startswith("./"):
             continue
         if ref.startswith("docker://"):
@@ -168,14 +172,11 @@ def _pin_findings(doc: dict[Any, Any], text: str, path: str) -> list[str]:
                 f"{path}:{lineno} {RULE} {where} `uses: {ref}` is on a mutable"
                 " ref; pin the full 40-hex commit SHA with a trailing `# vN`"
             )
-            continue
-        if commented[ref] <= 0:
+        elif comment is None or not _TAG_COMMENT.match(comment):
             findings.append(
                 f"{path}:{lineno} {RULE} {where} `uses: {ref}` has no trailing"
                 " `# vN` comment on its source line naming the tag it pins"
             )
-            continue
-        commented[ref] -= 1
     return findings
 
 

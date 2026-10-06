@@ -12,6 +12,11 @@ on:
     branches: ["**"]
   pull_request:
 
+# SEC-015 (D-IMPL-369): the token is read-only for every job. No job here
+# needs a write grant; one that ever does names it on the job, never here.
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: lint (CINV-01..04, 06) + strict types
@@ -25,11 +30,11 @@ jobs:
       # than skipping — a check that cannot read its subject must not report
       # clean. Deepening the clone is the fix; a skip would retire the drift
       # check the moment CI ran it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -201,11 +206,11 @@ jobs:
       # check-that-cannot-fail shape this project keeps finding. Deepening the
       # clone is the fix; softening the assertion would retire the only
       # mechanical evidence for Criterion 7.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -315,9 +320,9 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -368,11 +373,11 @@ jobs:
       # correctly: that is the check-that-cannot-fail shape this project keeps
       # finding. Deepening the clone is the fix; softening the assertion would
       # retire the only mechanical evidence for criteria 11 and 12.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -401,7 +406,7 @@ jobs:
 
       # D-05 default retention. The upload runs only after the gate passes: a
       # nonzero exit from the step above fails the job and nothing ships.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: ccf-docs-site
           path: site/

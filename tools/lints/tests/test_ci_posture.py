@@ -171,6 +171,20 @@ def test_two_uses_of_one_sha_need_two_commented_lines() -> None:
     assert len(found) == 1 and "`# vN`" in found[0]
 
 
+def test_the_finding_names_the_step_whose_comment_is_missing() -> None:
+    text = CONFORMING.replace(
+        "      - run: echo ok\n", f"      - uses: actions/checkout@{SHA}  # v4\n      - run: echo ok\n"
+    ).replace("@" + SHA + "  # v4\n      - uses", "@" + SHA + "\n      - uses", 1)
+    found = _findings(text)
+    assert len(found) == 1 and "w.yml:10 ci-posture jobs.build.steps[0] " in found[0]
+
+
+def test_a_flow_style_uses_that_cannot_be_paired_is_refused() -> None:
+    text = CONFORMING.replace("      - run: echo ok\n", "      - {uses: actions/checkout@v4}\n")
+    found = _findings(text)
+    assert len(found) == 1 and "do not pair" in found[0]
+
+
 def test_an_unparseable_workflow_is_a_finding_not_a_skip() -> None:
     assert _findings("jobs: [\n")
 

@@ -178,6 +178,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   rule (CLAUDE.md §2.2: "never a secret in the tree"). Key files for
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
+- Every workflow under `.github/workflows/` runs with a read-only token
+  (top-level `permissions: {contents: read}`), and every action is pinned
+  to a full commit SHA with a trailing `# vN` comment naming the tag it was
+  resolved from, so a moved upstream tag never reaches CI unreviewed.
+  `.github/dependabot.yml` proposes pin bumps weekly as pull requests. The
+  `ci-posture` lint enforces both (`tools/lints/ci_posture.py::check_tree`,
+  `SEC-015`).
 
 ## 4. Deployment posture: what to decide before a surface is up
 
