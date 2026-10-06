@@ -824,6 +824,26 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.http_api.grants.authorized_from_request": (
         "353-09-the-join.md"
     ),
+    # `SEC-021` (`D-IMPL-369`, Q13) — both Peering transports gain a required
+    # keyword-only `max_pending` with no SDK default, bounding the receive
+    # queue that fills before any signature check. Required rather than
+    # defaulted because a buffer size is a deployment's capacity decision.
+    "ccf_runtime.peering.lf_a2a.LfA2AWire": (
+        "369-21-sec-021-receive-queue-bound.md"
+    ),
+    "ccf_runtime.peering.typed_http.TypedHttpWire": (
+        "369-21-sec-021-receive-queue-bound.md"
+    ),
+    # `SEC-025` (`D-IMPL-370`, Q16) — every composite child leg is bound to the
+    # question its composite asked: the grant-bound resolver gains an optional
+    # `child_questions` and becomes request-aware, and the candidate gains the
+    # `asked_question` the gate holds the answered subject to.
+    "ccf.products.child_resolver.GrantBoundChildResolver": (
+        "370-25-sec-025-child-subject-binding.md"
+    ),
+    "ccf.products.composite.ChildCandidate": (
+        "370-25-sec-025-child-subject-binding.md"
+    ),
 }
 
 

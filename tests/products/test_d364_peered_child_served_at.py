@@ -29,8 +29,9 @@ FIXTURES, not about the mechanism, and this module is the fixture that was
 missing: a real grant ledger holding two grants, a real `PeeringSkillRegistry`
 over a transport that hands back one honestly signed envelope, a real
 `PeeringAdmissionGate`, and a real `CompositeAdmissionGate` — driven through
-`GrantBoundChildResolver.__call__` with the question's instant and the fabric's
-instant pinned SEVEN MINUTES APART.
+`GrantBoundChildResolver.resolve_for` (the request-aware call `SEC-025` made it
+take) with the question's instant and the fabric's instant pinned SEVEN MINUTES
+APART.
 
 **Nothing here is a stub that ignores `now`.** The admission gate is the shipped
 :class:`~ccf.peering.admission.PeeringAdmissionGate`; the only wrapper is a spy
@@ -97,6 +98,7 @@ from ccf.products.contract import (
     ProductLineage,
     register_product_class,
 )
+from ccf.products.request import ProductRequest
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import (
     PeeringBinding,
@@ -121,6 +123,7 @@ from tests.products.composite_fixture import (
     CHILD_SKILL,
     _child_door,
     _ledger,
+    asks_its_own_subject,
     boot_composite,
 )
 from tests.products.test_resolver_seam import ADMITTED_AT, ASKED_AT, _Booted
@@ -143,6 +146,7 @@ from tests.peering.test_admission_attributability import (  # noqa: F401
     provider,
     public_key,
 )
+from tests.peering.issuance_fixture import window
 from tests.peering.test_peered_child_envelope import (
     CONSUMER_SCOPE,
     _assertion_header,
@@ -326,6 +330,10 @@ def _peering_gate(
                     permitted_producer_hashes=frozenset({PEER_PRODUCER}),
                     permitted_schema_names=frozenset({PEERED_CLASS}),
                     permitted_policy_regimes=frozenset({POLICY_REGIME}),
+                    # `SEC-022`: this fixture's issuance window. Its max age
+                    # (900 s) covers the seven minutes between `ASKED_AT`,
+                    # when the envelope is issued, and `ADMITTED_AT`.
+                    **window(),
                 )
             },
         ),
@@ -447,10 +455,26 @@ def _resolver_over_two_legs(
             registry=booted.control_plane,
         ),
         child_arguments=_child_arguments,
+        # `SEC-025`: what the composite asks each child, so the in-process
+        # leg's answered subject is bound to it.
+        child_questions=asks_its_own_subject,
         callable_registry=callables,
         artifact_store=booted.store,
         peering_skills=peering_skills,
         peering_gate=peering_gate,  # type: ignore[arg-type]
+    )
+
+
+def _request() -> ProductRequest:
+    """The composite's request — what each child's question is minted from (`SEC-025`)."""
+    return ProductRequest(
+        schema_name="fixture.manifest-product",
+        schema_version="1.0.0",
+        subject="acct-1",
+        intent="fixture-intent",
+        freshness="fixture-freshness",
+        asked_at=ASKED_AT,
+        parameters={},
     )
 
 
@@ -537,8 +561,9 @@ def test_a_peered_child_and_an_in_process_child_are_judged_at_the_same_served_at
             " can distinguish the question's instant from the fabric's"
         )
 
-        outcomes = resolver(
+        outcomes = resolver.resolve_for(
             requirements=_requirements(),
+            request=_request(),
             asked_at=ASKED_AT,
             admitted_at=ADMITTED_AT,
             composition_invocation=INVOCATION,
@@ -619,8 +644,9 @@ def test_the_peered_verdict_itself_moves_when_the_instant_moves(
             booted, peering_gate=spy, transport=_OnePeerTransport(inbound)
         )
 
-        outcomes = resolver(
+        outcomes = resolver.resolve_for(
             requirements=_requirements(),
+            request=_request(),
             asked_at=ASKED_AT,
             admitted_at=ADMITTED_AT,
             composition_invocation=INVOCATION,

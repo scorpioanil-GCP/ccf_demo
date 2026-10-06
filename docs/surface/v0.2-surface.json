@@ -630,12 +630,17 @@
   },
   "ccf.artifacts.file_store": {
     "__all__": [
-      "FileArtifactStore"
+      "FileArtifactStore",
+      "InsecureArtifactStoreRoot"
     ],
     "exports": {
       "FileArtifactStore": {
         "kind": "class",
         "shape": "(*, root: 'Path | str', write_kinds: 'WriteKinds') -> 'None'"
+      },
+      "InsecureArtifactStoreRoot": {
+        "kind": "class",
+        "shape": "(*, root: 'Path', mode: 'int', owner_uid: 'int', process_uid: 'int') -> 'None'"
       }
     }
   },
@@ -4001,10 +4006,14 @@
   },
   "ccf.hitl": {
     "__all__": [
+      "APPROVAL_GATE_EVENT_CLASS",
+      "APPROVAL_POLICY",
       "AUTHENTICATION_CLAIM",
       "ApprovalGate",
+      "ApprovalPolicy",
       "ApprovalSinkAdapter",
       "ApproverIdentity",
+      "ApproverNotEligible",
       "AttestationInvalid",
       "AuthenticationClaims",
       "AuthenticationContext",
@@ -4031,6 +4040,7 @@
       "HitlActionRequest",
       "HitlActionSubmission",
       "HitlEventNotification",
+      "HitlEventRevalidationRefused",
       "HumanPrincipalBinding",
       "InMemoryHitlTransport",
       "OverrideActionRecord",
@@ -4056,10 +4066,19 @@
       "WebhookEndpoint",
       "WebhookEndpointConflict",
       "WebhookHitlNotifier",
+      "check_approver_eligibility",
       "sign_hitl_action",
       "verify_hitl_action"
     ],
     "exports": {
+      "APPROVAL_GATE_EVENT_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "APPROVAL_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "AUTHENTICATION_CLAIM": {
         "kind": "constant",
         "shape": "str"
@@ -4067,6 +4086,13 @@
       "ApprovalGate": {
         "kind": "class",
         "shape": "(*, transport: 'HITLTransportProtocol', audit: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'ControlPlaneProtocol | None' = None, hitl_policy_key: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'None'"
+      },
+      "ApprovalPolicy": {
+        "kind": "contract",
+        "shape": {
+          "eligible_principals": "frozenset[str]",
+          "semver": "<class 'str'>"
+        }
       },
       "ApprovalSinkAdapter": {
         "kind": "class",
@@ -4078,6 +4104,10 @@
           "identity_provider_ref": "<class 'str'>",
           "subject_id": "<class 'str'>"
         }
+      },
+      "ApproverNotEligible": {
+        "kind": "class",
+        "shape": "type"
       },
       "AttestationInvalid": {
         "kind": "class",
@@ -4243,11 +4273,14 @@
           "annotation": "str | None",
           "answered_event_class": "str | None",
           "answered_workflow_state_ref": "str | None",
+          "approval_policy_ref": "str | None",
           "attestation": "ccf.hitl.identity_binding.SignedHitlAction | None",
           "authorizing_decision_id": "str | None",
           "event_key": "<class 'str'>",
+          "event_state_at_submit": "typing.Optional[typing.Literal['claimed', 'pending', 'missing']]",
           "hitl_policy_ref": "str | None",
-          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>"
+          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>",
+          "requested_by": "str | None"
         }
       },
       "HitlEventNotification": {
@@ -4256,6 +4289,10 @@
           "endpoint_key": "<class 'str'>",
           "event": "<class 'ccf.hitl.transport.PendingHitlEvent'>"
         }
+      },
+      "HitlEventRevalidationRefused": {
+        "kind": "class",
+        "shape": "type"
       },
       "HumanPrincipalBinding": {
         "kind": "contract",
@@ -4307,6 +4344,7 @@
           "event_key": "<class 'str'>",
           "policy_ref": "str | None",
           "product_content_hash": "<class 'str'>",
+          "requested_by": "str | None",
           "tenant": "<class 'str'>",
           "workflow_state_ref": "<class 'str'>"
         }
@@ -4410,6 +4448,10 @@
         "kind": "class",
         "shape": "(*, deliverer: 'WebhookDeliveryProtocol', endpoints: 'tuple[WebhookEndpoint, ...]') -> 'None'"
       },
+      "check_approver_eligibility": {
+        "kind": "function",
+        "shape": "(*, policy_ref: 'str | None', requested_by: 'str | None', subject_id: 'str', control_plane: 'object | None') -> 'None'"
+      },
       "sign_hitl_action": {
         "kind": "function",
         "shape": "(claims: 'HitlActionClaims', *, provider: 'IdentityProvider', key_id: 'str') -> 'SignedHitlAction'"
@@ -4495,6 +4537,25 @@
       "UnknownGateEventError": {
         "kind": "class",
         "shape": "type"
+      }
+    }
+  },
+  "ccf.hitl.approval_policy": {
+    "__all__": [
+      "APPROVAL_POLICY",
+      "ApprovalPolicy"
+    ],
+    "exports": {
+      "APPROVAL_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "ApprovalPolicy": {
+        "kind": "contract",
+        "shape": {
+          "eligible_principals": "frozenset[str]",
+          "semver": "<class 'str'>"
+        }
       }
     }
   },
@@ -4774,6 +4835,9 @@
   },
   "ccf.hitl.transport": {
     "__all__": [
+      "APPROVAL_GATE_EVENT_CLASS",
+      "ApproverNotEligible",
+      "EventStateAtSubmit",
       "HITLTransportProtocol",
       "HITL_ACTIONS",
       "HITL_EVENT_CLASSES",
@@ -4781,6 +4845,7 @@
       "HitlActionReceipt",
       "HitlActionRequest",
       "HitlActionSubmission",
+      "HitlEventRevalidationRefused",
       "HitlPolicy",
       "InMemoryHitlTransport",
       "PendingHitlEvent",
@@ -4789,11 +4854,24 @@
       "SignedBindingMismatchRefused",
       "SignedBindingRequiredRefused",
       "SignedBindingStaleRefused",
+      "check_approver_eligibility",
       "enforce_attestation",
       "resolve_hitl_policy",
       "signed_binding_required"
     ],
     "exports": {
+      "APPROVAL_GATE_EVENT_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ApproverNotEligible": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "EventStateAtSubmit": {
+        "kind": "function",
+        "shape": "typing.Literal['claimed', 'pending', 'missing']"
+      },
       "HITLTransportProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
@@ -4836,12 +4914,19 @@
           "annotation": "str | None",
           "answered_event_class": "str | None",
           "answered_workflow_state_ref": "str | None",
+          "approval_policy_ref": "str | None",
           "attestation": "ccf.hitl.identity_binding.SignedHitlAction | None",
           "authorizing_decision_id": "str | None",
           "event_key": "<class 'str'>",
+          "event_state_at_submit": "typing.Optional[typing.Literal['claimed', 'pending', 'missing']]",
           "hitl_policy_ref": "str | None",
-          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>"
+          "principal": "<class 'ccf.hitl.principal.HumanPrincipalBinding'>",
+          "requested_by": "str | None"
         }
+      },
+      "HitlEventRevalidationRefused": {
+        "kind": "class",
+        "shape": "type"
       },
       "HitlPolicy": {
         "kind": "contract",
@@ -4864,6 +4949,7 @@
           "event_key": "<class 'str'>",
           "policy_ref": "str | None",
           "product_content_hash": "<class 'str'>",
+          "requested_by": "str | None",
           "tenant": "<class 'str'>",
           "workflow_state_ref": "<class 'str'>"
         }
@@ -4887,6 +4973,10 @@
       "SignedBindingStaleRefused": {
         "kind": "class",
         "shape": "type"
+      },
+      "check_approver_eligibility": {
+        "kind": "function",
+        "shape": "(*, policy_ref: 'str | None', requested_by: 'str | None', subject_id: 'str', control_plane: 'object | None') -> 'None'"
       },
       "enforce_attestation": {
         "kind": "function",
@@ -5329,12 +5419,14 @@
       "AdmittedProduct",
       "ContractRefusal",
       "GATE_CONTRACT",
+      "GATE_ISSUANCE",
       "GATE_LINEAGE_CONTINUITY",
       "GATE_PAYLOAD_CEILING",
       "GATE_POLICY_BINDING",
       "GATE_SIGNATURE",
       "INBOUND_PAYLOAD_CEILING",
       "InboundPayloadCeiling",
+      "IssuanceRefusal",
       "LineageContinuityRefusal",
       "PRODUCER_ASSERTION_HEADER",
       "PayloadTooLargeRefusal",
@@ -5363,6 +5455,7 @@
         "shape": {
           "admitted_at": "<class 'datetime.datetime'>",
           "consumer_lineage": "<class 'ccf.products.contract.ProductLineage'>",
+          "issuance": "<class 'ccf.peering.issuance.IssuanceClaims'>",
           "merged_lineage": "<class 'ccf.products.contract.ProductLineage'>",
           "peer_id": "<class 'str'>",
           "producer_lineage": "<class 'ccf.products.contract.ProductLineage'>",
@@ -5381,7 +5474,7 @@
       },
       "AdmittedProduct": {
         "kind": "class",
-        "shape": "(product: 'ContextProductContract', lineage: 'ProductLineage', peer: 'PeerRef', token: 'object', protected_header: 'Mapping[str, object] | None' = None, content_address: 'str | None' = None) -> 'None'"
+        "shape": "(product: 'ContextProductContract', lineage: 'ProductLineage', peer: 'PeerRef', token: 'object', protected_header: 'Mapping[str, object] | None' = None, content_address: 'str | None' = None, issuance: 'IssuanceClaims | None' = None) -> 'None'"
       },
       "ContractRefusal": {
         "kind": "contract",
@@ -5395,6 +5488,10 @@
         }
       },
       "GATE_CONTRACT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "GATE_ISSUANCE": {
         "kind": "constant",
         "shape": "str"
       },
@@ -5423,6 +5520,19 @@
         "shape": {
           "max_payload_bytes": "<class 'int'>",
           "semver": "<class 'str'>"
+        }
+      },
+      "IssuanceRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "failure": "typing.Literal['claims-missing', 'stale-issuance', 'replayed']",
+          "gate": "<class 'str'>",
+          "issued_at": "datetime.datetime | None",
+          "max_age_seconds": "<class 'int'>",
+          "peer_id": "<class 'str'>",
+          "skew_seconds": "<class 'int'>",
+          "tenant_id": "<class 'str'>"
         }
       },
       "LineageContinuityRefusal": {
@@ -5454,7 +5564,7 @@
       },
       "PeeringAdmissionGate": {
         "kind": "class",
-        "shape": "(*, identity: 'IdentityProvider', control_plane: 'ControlPlaneProtocol', audit_log: 'AuditLog', artifact_store: 'ArtifactStoreProtocol', authorized: 'Authorized[ReplayMint]', trust_policy_version: 'str', payload_ceiling_version: 'str', product_classes: 'Mapping[str, RegisteredProductClass]') -> 'None'"
+        "shape": "(*, identity: 'IdentityProvider', control_plane: 'ControlPlaneProtocol', audit_log: 'AuditLog', artifact_store: 'ArtifactStoreProtocol', authorized: 'Authorized[ReplayMint]', trust_policy_version: 'str', payload_ceiling_version: 'str', product_classes: 'Mapping[str, RegisteredProductClass]', seen: 'SeenNonceSetProtocol | None' = None) -> 'None'"
       },
       "PolicyBindingRefusal": {
         "kind": "contract",
@@ -5629,6 +5739,87 @@
       }
     }
   },
+  "ccf.peering.issuance": {
+    "__all__": [
+      "ISSUANCE_CLAIMS_HEADER",
+      "ISSUANCE_CLAIMS_SCHEMA_VERSION",
+      "InProcessSeenNonceSet",
+      "IssuanceClaims",
+      "IssuanceClaimsMalformed",
+      "IssuedAnswer",
+      "IssuedRequest",
+      "SeenNonceSetProtocol",
+      "decode_issuance_claims",
+      "encode_issuance_claims",
+      "issuance_staleness",
+      "mint_issuance_claims"
+    ],
+    "exports": {
+      "ISSUANCE_CLAIMS_HEADER": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ISSUANCE_CLAIMS_SCHEMA_VERSION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "InProcessSeenNonceSet": {
+        "kind": "class",
+        "shape": "() -> 'None'"
+      },
+      "IssuanceClaims": {
+        "kind": "contract",
+        "shape": {
+          "answered": "<class 'ccf.peering.issuance.IssuedAnswer'>",
+          "echo": "<class 'ccf.peering.issuance.IssuedRequest'>",
+          "issued_at": "<class 'datetime.datetime'>",
+          "nonce": "<class 'str'>",
+          "schema_version": "<class 'str'>"
+        }
+      },
+      "IssuanceClaimsMalformed": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "IssuedAnswer": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "subject": "<class 'str'>"
+        }
+      },
+      "IssuedRequest": {
+        "kind": "contract",
+        "shape": {
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "product_id": "<class 'str'>",
+          "temporal_boundary": "datetime.datetime | None"
+        }
+      },
+      "SeenNonceSetProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "decode_issuance_claims": {
+        "kind": "function",
+        "shape": "(claim: 'object') -> 'IssuanceClaims'"
+      },
+      "encode_issuance_claims": {
+        "kind": "function",
+        "shape": "(claims: 'IssuanceClaims') -> 'str'"
+      },
+      "issuance_staleness": {
+        "kind": "function",
+        "shape": "(*, issued_at: 'datetime', now: 'datetime', max_age_seconds: 'int', skew_seconds: 'int') -> \"Literal['post-dated', 'expired'] | None\""
+      },
+      "mint_issuance_claims": {
+        "kind": "function",
+        "shape": "(*, issued_at: 'datetime', nonce: 'str', answered: 'IssuedAnswer', echo: 'IssuedRequest') -> 'IssuanceClaims'"
+      }
+    }
+  },
   "ccf.peering.protocol": {
     "__all__": [
       "EmitReceipt",
@@ -5686,9 +5877,11 @@
       "PeerTrustGrant": {
         "kind": "contract",
         "shape": {
+          "permitted_clock_skew_seconds": "<class 'int'>",
           "permitted_policy_regimes": "frozenset[str]",
           "permitted_producer_hashes": "frozenset[str]",
           "permitted_schema_names": "frozenset[str]",
+          "signature_max_age_seconds": "<class 'int'>",
           "signing_keys": "collections.abc.Mapping[str, collections.abc.Mapping[str, str]]"
         }
       },
@@ -5761,7 +5954,7 @@
       },
       "GrantBoundChildResolver": {
         "kind": "class",
-        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None) -> 'None'"
+        "shape": "(*, ledger: 'GrantLedger', agent_definition_hash: 'str', gate: 'CompositeAdmissionGate', child_arguments: 'ChildArguments', callable_registry: 'CallableRegistry', artifact_store: 'ArtifactStoreProtocol', mcp_skills: 'McpSkillRegistry | None' = None, peering_skills: 'PeeringSkillRegistry | None' = None, peering_gate: 'PeeringAdmissionGate | None' = None, child_questions: 'ChildQuestions | None' = None) -> 'None'"
       },
       "MalformedDoorAnswer": {
         "kind": "class",
@@ -5861,7 +6054,7 @@
       },
       "ChildCandidate": {
         "kind": "class",
-        "shape": "(requirement: 'ChildRequirement', contract: 'ContextProductContract', content_address: 'str', invocation: \"'ChildInvocation'\", admission: 'AdmittedProduct | None' = None, producer_assertion: 'ProducerAssertion | None' = None, question_echo: \"'WireRequest | None'\" = None, answered_question: \"'AnsweredQuestion | None'\" = None, child_replay_ref: 'str | None' = None) -> None"
+        "shape": "(requirement: 'ChildRequirement', contract: 'ContextProductContract', content_address: 'str', invocation: \"'ChildInvocation'\", admission: 'AdmittedProduct | None' = None, producer_assertion: 'ProducerAssertion | None' = None, question_echo: \"'WireRequest | None'\" = None, answered_question: \"'AnsweredQuestion | None'\" = None, child_replay_ref: 'str | None' = None, asked_question: \"'ChildQuestion | None'\" = None) -> None"
       },
       "ChildContractView": {
         "kind": "class",
@@ -10417,11 +10610,13 @@
   "ccf_runtime.http_api.errors": {
     "__all__": [
       "ERROR_AMBIGUOUS_TENANT",
+      "ERROR_APPROVER_NOT_ELIGIBLE",
       "ERROR_DECISION_UNMINTABLE",
       "ERROR_EVIDENCE_ABSENT",
       "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
       "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
       "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
+      "ERROR_HITL_EVENT_REVALIDATION_REFUSED",
       "ERROR_INVALID_GRANT",
       "ERROR_NO_CAPABILITY",
       "ERROR_PRINCIPAL_NOT_ENTITLED",
@@ -10448,6 +10643,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "ERROR_APPROVER_NOT_ELIGIBLE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "ERROR_DECISION_UNMINTABLE": {
         "kind": "constant",
         "shape": "str"
@@ -10465,6 +10664,10 @@
         "shape": "str"
       },
       "ERROR_EVIDENCE_PRINCIPAL_MISMATCH": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_HITL_EVENT_REVALIDATION_REFUSED": {
         "kind": "constant",
         "shape": "str"
       },
@@ -11639,7 +11842,7 @@
       },
       "LfA2AWire": {
         "kind": "class",
-        "shape": "(*, local_peer_id: 'str', agent_card: 'AgentCard', cards: 'PeerCardResolver', http_client_factory: 'Callable[[], httpx.AsyncClient]', clock: 'Callable[[], datetime]', rpc_path: 'str', max_message_bytes: 'int') -> 'None'"
+        "shape": "(*, local_peer_id: 'str', agent_card: 'AgentCard', cards: 'PeerCardResolver', http_client_factory: 'Callable[[], httpx.AsyncClient]', clock: 'Callable[[], datetime]', rpc_path: 'str', max_message_bytes: 'int', max_pending: 'int') -> 'None'"
       },
       "PEER_ID_METADATA": {
         "kind": "constant",
@@ -11674,6 +11877,7 @@
       "PEER_TENANT_HEADER",
       "PeerEndpointResolver",
       "PeerUnreachable",
+      "ReceiveQueueFull",
       "SIGNED_PRODUCT_MEDIA_TYPE",
       "TypedHttpWire",
       "WIRE_MESSAGE_ID_HEADER",
@@ -11700,13 +11904,17 @@
         "kind": "class",
         "shape": "type"
       },
+      "ReceiveQueueFull": {
+        "kind": "class",
+        "shape": "type"
+      },
       "SIGNED_PRODUCT_MEDIA_TYPE": {
         "kind": "constant",
         "shape": "str"
       },
       "TypedHttpWire": {
         "kind": "class",
-        "shape": "(*, local_peer_id: 'str', endpoints: 'PeerEndpointResolver', http_client: 'httpx.Client', clock: 'Callable[[], datetime]', receive_path: 'str', max_request_bytes: 'int') -> 'None'"
+        "shape": "(*, local_peer_id: 'str', endpoints: 'PeerEndpointResolver', http_client: 'httpx.Client', clock: 'Callable[[], datetime]', receive_path: 'str', max_request_bytes: 'int', max_pending: 'int') -> 'None'"
       },
       "WIRE_MESSAGE_ID_HEADER": {
         "kind": "constant",
@@ -11853,6 +12061,7 @@
         "shape": {
           "current_state": "<class 'str'>",
           "execution_id": "<class 'str'>",
+          "started_by": "str | None",
           "status": "<class 'str'>",
           "tenant": "<class 'str'>",
           "trace": "tuple[ccf_runtime.workflow.state.TraceEntry, ...]",

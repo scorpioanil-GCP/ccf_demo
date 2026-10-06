@@ -2,8 +2,12 @@
   "$defs": {
     "PeerTrustGrant": {
       "additionalProperties": false,
-      "description": "What one peer is entitled to assert, per D-IMPL-16.\n\nFour declared sets, none with a default. Empty is expressible and means\nexactly what it says \u2014 this peer may assert nothing of that kind \u2014 because\na grant that quietly defaulted to \"anything\" would be the fast path this\ncontract exists to make unreachable.\n\nAttributes:\n    signing_keys: Public JWKs this peer may sign with, keyed by the ``kid``\n        its protected header will declare. The admission gate hands this\n        mapping to :meth:`~ccf.peering.identity.IdentityProvider.verify`, which\n        is how a peer's identity is bound to its entitlements: a product\n        signed by a key outside this mapping is not this peer's, whatever\n        the header claims.\n    permitted_producer_hashes: The ``producer_agent_definition_hash``\n        values this peer may claim to have produced under.\n    permitted_schema_names: The Context Product classes it may send.\n    permitted_policy_regimes: The policy-regime identifiers it may claim.",
+      "description": "What one peer is entitled to assert, per D-IMPL-16.\n\nFour declared sets and one declared issuance window, none with a default. Empty is expressible and means\nexactly what it says \u2014 this peer may assert nothing of that kind \u2014 because\na grant that quietly defaulted to \"anything\" would be the fast path this\ncontract exists to make unreachable.\n\nAttributes:\n    signing_keys: Public JWKs this peer may sign with, keyed by the ``kid``\n        its protected header will declare. The admission gate hands this\n        mapping to :meth:`~ccf.peering.identity.IdentityProvider.verify`, which\n        is how a peer's identity is bound to its entitlements: a product\n        signed by a key outside this mapping is not this peer's, whatever\n        the header claims.\n    permitted_producer_hashes: The ``producer_agent_definition_hash``\n        values this peer may claim to have produced under.\n    permitted_schema_names: The Context Product classes it may send.\n    permitted_policy_regimes: The policy-regime identifiers it may claim.\n    signature_max_age_seconds: How long before the admission instant this\n        peer's envelope may have been issued (`SEC-022`). Positive.\n    permitted_clock_skew_seconds: How far after the admission instant this\n        peer's envelope may claim to have been issued \u2014 its clock running\n        ahead (`SEC-022`). Non-negative.\n\n**The issuance window has no default** (Q14-3 (a), ``D-IMPL-356``,\n``D-IMPL-38``): both members are required, so a grant whose author never\nstated how stale or how post-dated this peer's envelopes may be cannot be\nconstructed. Per peer rather than per policy, because *what this peer may\nassert* is this contract's one question, and a federation can tolerate a\nslow peer without widening every peer. Named after the HITL pair\n(``src/ccf/hitl/transport.py::HitlPolicy``), with the same validators.\nThe window is an entitlement checked after signature verification, never\ninstead of it.",
       "properties": {
+        "permitted_clock_skew_seconds": {
+          "title": "Permitted Clock Skew Seconds",
+          "type": "integer"
+        },
         "permitted_policy_regimes": {
           "items": {
             "type": "string"
@@ -28,6 +32,10 @@
           "type": "array",
           "uniqueItems": true
         },
+        "signature_max_age_seconds": {
+          "title": "Signature Max Age Seconds",
+          "type": "integer"
+        },
         "signing_keys": {
           "additionalProperties": {
             "additionalProperties": {
@@ -43,7 +51,9 @@
         "signing_keys",
         "permitted_producer_hashes",
         "permitted_schema_names",
-        "permitted_policy_regimes"
+        "permitted_policy_regimes",
+        "signature_max_age_seconds",
+        "permitted_clock_skew_seconds"
       ],
       "title": "PeerTrustGrant",
       "type": "object"

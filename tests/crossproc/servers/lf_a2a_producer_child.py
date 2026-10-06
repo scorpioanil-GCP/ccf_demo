@@ -119,10 +119,19 @@ def main() -> None:
         provider = DetachedJwsIdentityProvider(
             key_source=FileBackedKeySource(directory=key_dir)
         )
+        # `SEC-022`: every envelope carries its issuance claims, issued at the
+        # fixture's PINNED decision instant — the one the consumer admits at —
+        # and never `datetime.now()`, which would refuse every admission as
+        # `stale-issuance`. Each signing mints its own nonce.
+        from tests.peering.issuance_fixture import issuance_member
+
         genuine = provider.sign(
             product=product,
             key_id=key_id,
-            assertions={PRODUCER_ASSERTION_HEADER: producer_hash},
+            assertions={
+                PRODUCER_ASSERTION_HEADER: producer_hash,
+                **issuance_member(product=product, issued_at=assembled.now),
+            },
         )
         # A second, genuinely different product, signed the same way, purely so
         # its payload member exists to be spliced onto the genuine signature.
@@ -131,7 +140,10 @@ def main() -> None:
                 update={"payload": {**product.payload, "entity_count": -1}}
             ),
             key_id=key_id,
-            assertions={PRODUCER_ASSERTION_HEADER: producer_hash},
+            assertions={
+                PRODUCER_ASSERTION_HEADER: producer_hash,
+                **issuance_member(product=product, issued_at=assembled.now),
+            },
         )
 
         bound = socket.socket()
@@ -153,6 +165,7 @@ def main() -> None:
             clock=lambda: assembled.servable.product.temporal_boundary,
             rpc_path=lf_values["rpc_path"],
             max_message_bytes=consumer_values["max_request_bytes"],
+            max_pending=consumer_values["max_pending"],
         )
 
         peer = PeerRef(tenant_id=tenant_id, peer_id=consumer_values["peer_id"])

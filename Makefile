@@ -86,7 +86,7 @@ venv: ## Create .venv if missing and install into it — the first command in a 
 		|| { echo "ccf requires Python >= 3.12; .venv has $$(.venv/bin/python -V 2>&1)"; exit 1; }
 	@$(MAKE) --no-print-directory install
 
-# The second line installs the out-of-tree adapter fixture (plan 15.4-10). It
+# The third line installs the out-of-tree adapter fixture (plan 15.4-10). It
 # is ALWAYS-ON rather than opt-in, and the ruling is recorded rather than left
 # as a silence: plan 15.4-11 asserts that the conformance parameter lists and
 # `declared_names()` agree in BOTH directions, so under an opt-in target a
@@ -100,9 +100,10 @@ venv: ## Create .venv if missing and install into it — the first command in a 
 # developer bootstrap, not an adopter's install path.
 #
 # Order matters: the fixture imports `ccf`, so the SDK's own install goes first.
-install: ## Refresh the editable install with dev extras (pip install -e ".[dev]")
-	.venv/bin/pip install -e ".[dev]"
-	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter
+install: ## Install the hash-verified lock, then the SDK and the demo adapter editable with nothing fetched (SEC-028)
+	.venv/bin/pip install --require-hashes -r requirements.lock
+	.venv/bin/pip install -e . --no-deps --no-build-isolation
+	.venv/bin/pip install -e ./tests/fixtures/ccf-demo-adapter --no-deps --no-build-isolation
 
 lint: ## CCF invariant lints — CINV-01/02/03/04/06 + orchestration split + citations + D-IMPL-353 authorization (blocking, D-07)
 	$(ENV) $(PYTHON) -m tools.lints --all
@@ -132,8 +133,10 @@ test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 # The four substrate legs are NOT restated here — `leg-postgres`, `leg-neo4j`,
 # `leg-mongo` and `leg-fluree` already existed, already used the `-m` form, and
 # already set their own CCF_REQUIRE_*; ci.yml now calls those. Their `?=` URI
-# defaults match the values ci.yml puts in the job env, and an environment
-# value wins over `?=`, so the two agree by construction rather than by luck.
+# defaults (Mongo, Fluree) match the values ci.yml puts in the job env, and an
+# environment value wins over `?=`, so the two agree by construction rather
+# than by luck. Neo4j's URI carries a credential and so has no default at all
+# (SEC-026): ci.yml's job env is its only source in CI.
 # ---------------------------------------------------------------------------
 
 ci-quick-suite: ## CI: the no-external-substrate suite (mirrors the ci.yml step by calling it)
@@ -290,9 +293,18 @@ examples: example-hw1-harness-clients ## Run the network-free examples suite (on
 #
 # Postgres carries no default on purpose: `postgres_dsn` starts a `postgres:16`
 # testcontainer when CCF_TEST_POSTGRES_DSN is unset, and baking in a DSN would
-# disable that and hang against a server nobody started. Neo4j and Mongo have
-# no auto-start path, so they default to the ci.yml service-container URIs.
-CCF_TEST_NEO4J_URI ?= neo4j://neo4j:ccf_test_password@localhost:7687
+# disable that and hang against a server nobody started. Mongo and Fluree have
+# no auto-start path, so they default to the ci.yml service-container URIs,
+# which carry no credential.
+#
+# NO CREDENTIAL IN THE TREE, AND NONE IN THE LOG (SEC-026, D-IMPL-368; CLAUDE.md
+# §2.2). Neo4j's URI carries a password, so it has NO default: `leg-neo4j`
+# refuses by name when CCF_TEST_NEO4J_URI is unset (ci.yml sets it in the job
+# `env`). Every recipe line that expands a credential-bearing variable begins
+# with `@`, so make does not echo it; `@` must sit on the FIRST physical line of
+# a backslash-continued recipe, because make decides on the joined logical line.
+# Guarded by `tools/lints/makefile_credentials.py` (in `make lint`) and by
+# `tools/lints/tests/test_makefile_credential_echo.py`.
 CCF_TEST_MONGO_URI ?= mongodb://localhost:27017/ccf_test
 CCF_TEST_FLUREE_URL ?= http://localhost:8090
 
@@ -303,19 +315,20 @@ endif
 legs: leg-postgres leg-neo4j leg-mongo leg-fluree ## Run all four container-gated substrate legs (DI-15.2-04)
 
 leg-postgres: ## Postgres leg against a real server — GraphStore conformance + differential (D-11/D-16)
-	$(ENV) CCF_REQUIRE_POSTGRES=1 $(PG_DSN_ENV) \
+	@$(ENV) CCF_REQUIRE_POSTGRES=1 $(PG_DSN_ENV) \
 		$(PYTHON) -m pytest tests -q -m postgres -rs
 
-leg-neo4j: ## Neo4j leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.2-12)
-	$(ENV) CCF_REQUIRE_NEO4J=1 CCF_TEST_NEO4J_URI=$(CCF_TEST_NEO4J_URI) \
+leg-neo4j: ## Neo4j leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.2-12; needs CCF_TEST_NEO4J_URI)
+	@$(if $(strip $(CCF_TEST_NEO4J_URI)),,$(error leg-neo4j: CCF_TEST_NEO4J_URI is unset; export the Neo4j URI (it carries a credential, so the Makefile bakes no default)))
+	@$(ENV) CCF_REQUIRE_NEO4J=1 CCF_TEST_NEO4J_URI=$(CCF_TEST_NEO4J_URI) \
 		$(PYTHON) -m pytest tests -q -m neo4j -rs
 
 leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown (plan 15.2-13)
-	$(ENV) CCF_REQUIRE_MONGO=1 CCF_TEST_MONGO_URI=$(CCF_TEST_MONGO_URI) \
+	@$(ENV) CCF_REQUIRE_MONGO=1 CCF_TEST_MONGO_URI=$(CCF_TEST_MONGO_URI) \
 		$(PYTHON) -m pytest tests -q -m mongo -rs
 
 leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.3)
-	$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+	@$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) -m pytest tests -q -m fluree -rs
 
 # Section 1's reference example, run as a program rather than as a test — which
@@ -336,9 +349,9 @@ leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identic
 # has to be on the path. The variable is passed to the gate as well as to the run,
 # because fencing a value the run will not use would prove nothing.
 example-s1-01: ## Run examples/s1-01-hello-context-product (three declared questions; needs a Fluree server)
-	$(ENV_DOCS) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+	@$(ENV_DOCS) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) -m tools.estate_fence --label "example-s1-01 (writes Fluree transactions)"
-	$(ENV) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
+	@$(ENV) CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
 		$(PYTHON) examples/s1-01-hello-context-product/run.py
 
 # HW-1 — the first example a newcomer runs. Same reasoning as `example-s1-01`
@@ -364,9 +377,9 @@ example-s1-01: ## Run examples/s1-01-hello-context-product (three declared quest
 # has to be on the path. The variable is passed to the gate as well as to the run,
 # because fencing a value the run will not use would prove nothing.
 example-s1-00: ## Run examples/s1-00-companies-over-revenue (MIN_REVENUE=<n> optional; needs Docker or CCF_TEST_POSTGRES_DSN)
-	$(ENV_DOCS) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
+	@$(ENV_DOCS) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
 		$(PYTHON) -m tools.estate_fence --label "example-s1-00 (writes DDL and rows)"
-	$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
+	@$(ENV) CCF_TEST_POSTGRES_DSN=$(CCF_TEST_POSTGRES_DSN) \
 		$(PYTHON) examples/s1-00-companies-over-revenue/consume.py \
 		$(if $(MIN_REVENUE),--min-revenue $(MIN_REVENUE))
 

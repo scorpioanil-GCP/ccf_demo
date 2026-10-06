@@ -50,6 +50,38 @@ key material and raises `KeyUnavailable` when it holds none.
   mechanism; a validly signed product from a key the consumer's Control
   Plane does not trust is refused at admission.
 
+### 1.1a A2A replay defense and the signed question (SEC-022, D-IMPL-371)
+
+A signature proves who produced an envelope; it says nothing about when, or how
+often, the envelope is presented. Every inbound Peering envelope therefore
+carries **issuance claims** in one signed protected-header member
+(`src/ccf/peering/issuance.py::IssuanceClaims`): the instant the producer issued
+it, a nonce the producer chose, and the question it answered. The payload is
+unchanged, so a product's content address is unchanged.
+
+- **Absent claims are refused** (`claims-missing`), never admitted with a
+  warning.
+- **The window is the peer's entitlement.** Each `PeerTrustGrant` declares
+  `signature_max_age_seconds` and `permitted_clock_skew_seconds`, both
+  required; the SDK ships no default. The comparison is directional — at most
+  the skew after the admission instant, at most the max age before it — and is
+  judged against the `now` the gate is handed, never a clock of its own
+  (`stale-issuance`).
+- **Replays are refused** (`replayed`) and write no second admission record.
+  Only an admission spends a nonce, so a presentation refused for any other
+  reason can be admitted later. The reference seen-set
+  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`) covers one gate in one
+  process and is not pruned; **a deployment running more than one receiver
+  must share one** through `src/ccf/peering/issuance.py::SeenNonceSetProtocol`,
+  or each receiver refuses only the replays it saw itself. Nonce uniqueness per
+  peer is the producer's obligation; the SDK ships no generator.
+- **A peered composite child is held to the subject its composite asked**,
+  from the question its producer signed (closing SEC-025-U1), by the same check
+  every other child leg passes.
+
+What this does not do: it does not bound the bytes a request body may occupy
+before parsing on the LF leg (`SEC-021-U1`, open).
+
 ### 1.2 SignedHitlAction (D-IMPL-21 / D-IMPL-363, HITL identity)
 
 > **Dated note, 2026-10-03 (`D-IMPL-363`, SEC-005).** This section
@@ -178,6 +210,26 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   rule (CLAUDE.md §2.2: "never a secret in the tree"). Key files for
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
+- Every workflow under `.github/workflows/` runs with a read-only token
+  (top-level `permissions: {contents: read}`), and every action is pinned
+  to a full commit SHA with a trailing `# vN` comment naming the tag it was
+  resolved from, so a moved upstream tag never reaches CI unreviewed.
+  `.github/dependabot.yml` proposes pin bumps weekly as pull requests. The
+  `ci-posture` lint enforces both (`tools/lints/ci_posture.py::check_tree`,
+  `SEC-015`).
+- CI installs only from the committed, hash-pinned `requirements.lock`
+  (`pip install --require-hashes -r requirements.lock`), which carries the
+  build set (`setuptools`, `setuptools-scm`) as well as the runtime and test
+  dependencies; every editable project install is
+  `pip install -e <path> --no-deps --no-build-isolation`, so nothing is
+  resolved or fetched unhashed at run time. The `dependency-lock` lint
+  enforces it (`tools/lints/dependency_lock.py::check_tree`, `SEC-028`);
+  `README.md` gives the regeneration command. The lock cannot drift from the
+  declaration: the `dependency-lock-freshness` lint
+  (`tools/lints/dependency_lock_freshness.py::check_tree`, `SEC-028-F1`)
+  refuses a lock that is missing a declared requirement (including the
+  `[build-system].requires` build set), pins a version the declared specifier
+  does not admit, or whose compile header does not name the ruled extras.
 
 ## 4. Deployment posture: what to decide before a surface is up
 
@@ -285,3 +337,14 @@ is for, and it is a legitimate posture. Anything that has to tell two callers
 apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
+
+## Validation-error text and caller values (SEC-024, choice C)
+
+Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value
+therefore never appears in the error's `str()`/`repr()`, in the egress door's failure log (which renders exception
+type names and traceback frames, never exception text), or in any traceback a deployment captures. **One
+consequence is accepted and documented (`D-IMPL-371`):** the text of a validation error that a door returns to the
+caller — the MCP egress `door_question` and `parse_product_address` paths, and the HTTP product route's 400
+detail — no longer echoes the rejected value. The field location and the message remain; the value does not. The
+caller's own parameters in a governed refusal (the C-01 refusals) are unchanged: those are the caller's values
+returned to that caller, not a disclosure. Nothing outside logs and `CCFContract` was changed for this finding.

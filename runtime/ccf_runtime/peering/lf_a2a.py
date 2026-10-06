@@ -159,6 +159,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf_runtime.peering.typed_http import (
     MalformedWireMessage,
     PeerUnreachable,
+    ReceiveQueueFull,
     WireTransportError,
 )
 
@@ -384,10 +385,18 @@ class LfA2AWire:
             nobody chose is either an availability hole or an outage. Defence in
             depth, not the rule — the authoritative ceiling is the Control
             Plane's, applied by the gate before anything canonicalizes.
+        max_pending: The most received messages this endpoint will hold before
+            :meth:`receive` drains them (SEC-021, ``D-IMPL-369``). Required,
+            keyword-only, no default (Q13; D-IMPL-38): a buffer size is a
+            deployment's capacity decision. At the bound the newcomer is refused
+            with :class:`~ccf_runtime.peering.typed_http.ReceiveQueueFull`, which
+            ``a2a-sdk`` returns to the sending peer as a JSON-RPC error, and the
+            queued messages are preserved in order; nothing is evicted.
 
     Raises:
-        ValueError: ``max_message_bytes`` is not positive. A zero limit accepts
-            nothing and is far more likely a mistake than a policy.
+        ValueError: ``max_message_bytes`` or ``max_pending`` is not positive. A
+            zero limit accepts nothing and is far more likely a mistake than a
+            policy.
     """
 
     def __init__(
@@ -400,11 +409,17 @@ class LfA2AWire:
         clock: Callable[[], datetime],
         rpc_path: str,
         max_message_bytes: int,
+        max_pending: int,
     ) -> None:
         if max_message_bytes <= 0:
             raise ValueError(
                 "max_message_bytes must be positive; a zero message limit"
                 " accepts nothing"
+            )
+        if max_pending <= 0:
+            raise ValueError(
+                "max_pending must be positive; a zero queue bound accepts"
+                " nothing"
             )
         self._local_peer_id = local_peer_id
         self._agent_card = agent_card
@@ -413,6 +428,7 @@ class LfA2AWire:
         self._clock = clock
         self._rpc_path = rpc_path
         self._max_message_bytes = max_message_bytes
+        self._max_pending = max_pending
         self._received: deque[InboundProduct] = deque()
 
     @property
@@ -628,7 +644,24 @@ class LfA2AWire:
         ]
 
     def _enqueue(self, inbound: InboundProduct) -> None:
-        """Queue one framed envelope for :meth:`receive` to yield."""
+        """Queue one framed envelope for :meth:`receive` to yield, or refuse it.
+
+        Called only after :meth:`_accept` has framed the message and minted its
+        carriage identifier. The bound is checked immediately before the
+        append, so the queue never holds more than ``max_pending`` even
+        momentarily, and a full queue refuses the *newcomer*: the messages
+        already queued are neither evicted nor reordered (SEC-021,
+        ``D-IMPL-369``).
+
+        Raises:
+            ReceiveQueueFull: the queue already holds ``max_pending`` messages.
+        """
+        if len(self._received) >= self._max_pending:
+            raise ReceiveQueueFull.at_bound(
+                held=len(self._received),
+                bound=self._max_pending,
+                peer_id=inbound.observed_peer.peer_id,
+            )
         self._received.append(inbound)
 
     def _accept(self, message: Message) -> tuple[InboundProduct, str]:

@@ -21,6 +21,11 @@ consumer:
   # recommendations (D-IMPL-38: the SDK ships neither).
   inbound_payload_ceiling_bytes: 65536
   max_request_bytes: 262144
+  # How many received carriages either transport holds before the consumer
+  # drains them (SEC-021, D-IMPL-369). At the bound the newcomer is refused and
+  # nothing queued is evicted. This fixture's number, not a recommendation: the
+  # SDK ships no default (Q13).
+  max_pending: 64
   # The route this deployment mounts its federation endpoint at. A deployment's
   # URL space is the deployment's; the SDK holds no default.
   receive_path: /ccf/a2a/inbound
@@ -46,15 +51,24 @@ lf_a2a:
 # not one, because a single-principal proof passes against a gate that checks
 # signatures over every key it holds — which is exactly the defect the two-peer
 # case exists to catch.
+#
+# Each peer's issuance window (SEC-022): how long before the consumer's
+# admission instant its envelope may have been issued, and how far after. This
+# fixture's numbers, not recommendations: the SDK ships no default (Q14).
+# Different per peer on purpose — the window is a per-peer entitlement.
 peers:
   first:
     peer_id: zenith-bank
     key_id: zenith-bank-a2a-1
     producer_hash: "sha256:zenith-exposure-assembler"
+    signature_max_age_seconds: 300
+    permitted_clock_skew_seconds: 30
   second:
     peer_id: northwind-trust
     key_id: northwind-trust-a2a-1
     producer_hash: "sha256:northwind-exposure-assembler"
+    signature_max_age_seconds: 600
+    permitted_clock_skew_seconds: 60
 
 # How an admitted federated product becomes L1 signal on the consumer's side.
 #

@@ -81,6 +81,7 @@ from ccf.products.gates import (
     GATE_LINEAGE_ATTRIBUTABILITY,
     LineageAttributionRefusal,
 )
+from tests.peering.issuance_fixture import issuance_member, window
 from tests.composition import register_at_composition, register_typed_at_composition
 from tests.composition import composition_replay_mint, declaring_store
 from ccf.peering.admission import ADMISSION_RECORD
@@ -226,6 +227,8 @@ def gate(
                         {PRODUCT_CLASS["schema_name"]}
                     ),
                     permitted_policy_regimes=frozenset({POLICY_REGIME}),
+                    # `SEC-022`: this fixture's issuance window (no SDK default).
+                    **window(),
                 )
             },
         ),
@@ -257,7 +260,12 @@ def _sign(
     return provider.sign(
         product=product,
         key_id=PEER_KID,
-        assertions={PRODUCER_ASSERTION_HEADER: PEER_PRODUCER},
+        # `SEC-022`: the issuance claims, about the fixture product's question,
+        # issued at the boundary, with a fresh nonce per signing.
+        assertions={
+            PRODUCER_ASSERTION_HEADER: PEER_PRODUCER,
+            **issuance_member(product=banking_product(), issued_at=BOUNDARY),
+        },
     )
 
 

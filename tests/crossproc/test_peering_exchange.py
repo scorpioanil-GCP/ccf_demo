@@ -216,6 +216,7 @@ def _typed_http_leg() -> TransportLeg:
             clock=lambda: now,
             receive_path=CONSUMER["receive_path"],
             max_request_bytes=CONSUMER["max_request_bytes"],
+            max_pending=CONSUMER["max_pending"],
         )
         return wire, wire.asgi_app()
 
@@ -252,6 +253,7 @@ def _lf_a2a_leg() -> TransportLeg:
             clock=lambda: now,
             rpc_path=LF_A2A["rpc_path"],
             max_message_bytes=CONSUMER["max_request_bytes"],
+            max_pending=CONSUMER["max_pending"],
         )
         app = FastAPI()
         for route in wire.routes():
@@ -364,6 +366,9 @@ def _grant(key: ECKey, declared: Any) -> PeerTrustGrant:
         permitted_producer_hashes=frozenset({declared["producer_hash"]}),
         permitted_schema_names=frozenset({PRODUCT_CLASS["schema_name"]}),
         permitted_policy_regimes=frozenset({PRODUCER_POLICY_VERSION}),
+        # `SEC-022`: the issuance window this fixture declares for the peer.
+        signature_max_age_seconds=declared["signature_max_age_seconds"],
+        permitted_clock_skew_seconds=declared["permitted_clock_skew_seconds"],
     )
 
 
