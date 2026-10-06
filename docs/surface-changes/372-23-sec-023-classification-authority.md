@@ -96,14 +96,10 @@ writes without an authority declaration now **refuses to boot** with
 
 - Surface: ccf.controlplane.audit.AuditLog
 - Public surface: true
-- Change type: behavior  <!-- SURFACE-TOOLING-01: this IS a public method-signature change — `AuditLog.append` gained five
-  keyword arguments — i.e. `reshaped` in substance. The surface manifest (`docs/surface/v0.2-surface.json`) records class
-  shapes and names, not method signatures, so it produces no line for it and `tests/test_surface_completeness.py`
-  cannot accept a `reshaped` claim here. Recorded under the only type the tool admits, with the limitation named
-  (D-IMPL-372 close record, X2/Y3); the tooling gap is carried as a finding, not resolved by this label. -->
+- Change type: behavior
 - Before: `append` accepted the authz and verdict-integrity keywords.
 - After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
-- Why: SEC-023.
+- Why: SEC-023. SURFACE-TOOLING-01: this is a real public method-signature change (`AuditLog.append` gained five keyword arguments, `reshaped` in substance); the surface manifest records class shapes and names, not method signatures, so it yields no line for it and the completeness test cannot accept `reshaped` here; recorded under the only type the tool admits, with the limitation named and carried as a tooling finding (D-IMPL-372 close record, Y3).
 - Migration: none.
 
 ## ccf.deployment.manifest.UngovernedClassificationAttribute

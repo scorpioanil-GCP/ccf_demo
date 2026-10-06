@@ -30400,7 +30400,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Change type: behavior
 - Before: `append` accepted the authz and verdict-integrity keywords.
 - After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
-- Why: SEC-023.
+- Why: SEC-023. SURFACE-TOOLING-01: this is a real public method-signature change (`AuditLog.append` gained five keyword arguments, `reshaped` in substance); the surface manifest records class shapes and names, not method signatures, so it yields no line for it and the completeness test cannot accept `reshaped` here; recorded under the only type the tool admits, with the limitation named and carried as a tooling finding (D-IMPL-372 close record, Y3).
 - Migration: none.
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
