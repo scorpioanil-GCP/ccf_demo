@@ -157,3 +157,70 @@ def test_the_shipped_algorithmic_roster_stays_clean() -> None:
             findings.extend(algorithmic.check_source(source, path, module_name_for(path, root)))
     assert set(HTTP_IMPORTING_TAGGED) <= set(tagged), "the walk did not see the HTTP importers"
     assert findings == []
+
+
+# --- corrective round: split literals and straight-line assignments -----------
+#
+# The close panel, confirmed by probe, found the per-constant rule blind to an
+# endpoint built from literals none of which is a fragment on its own. The lint
+# now constant-folds ``+`` chains of str/bytes literals, joins an f-string's
+# literal parts across the whole f-string, and follows one level of simple
+# straight-line ``NAME = <foldable>`` / ``NAME = NAME + "<lit>"`` assignment.
+
+SPLIT_LITERAL = TAG + '''import httpx
+
+URL = "https://" + "api." + "anthropic.com" + "/v1/" + "messages"
+
+
+def ask(payload: dict) -> object:
+    return httpx.post(URL, json=payload)
+'''
+
+TWO_ASSIGNMENTS = TAG + '''import httpx
+
+
+def ask(payload: dict) -> object:
+    host = "https://api." + "anthropic"
+    path = "/v1/" + "mess"
+    path = path + "ages"
+    url = host + ".com" + path
+    return httpx.post(url, json=payload)
+'''
+
+MODULE_NAMES_USED_IN_FUNCTION = TAG + '''import httpx
+
+HOST = "https://api." + "openai"
+PATH = "/v1/chat/" + "complet"
+
+
+def ask(payload: dict) -> object:
+    return httpx.post(HOST + ".com" + PATH + "ions", json=payload)
+'''
+
+FSTRING_SPLIT = TAG + '''def url(version):
+    return f"https://api.{'anthropic'}.com/{version}/mess" "ages"
+'''
+
+
+def test_a_split_literal_endpoint_is_flagged() -> None:
+    found = _endpoint_findings(SPLIT_LITERAL)
+    assert found, "split-literal endpoint passed CINV-03"
+    assert found[0].startswith(f"{SRC}:4 {ENDPOINT_RULE} ")
+
+
+def test_host_and_path_joined_in_separate_assignments_are_flagged() -> None:
+    assert _endpoint_findings(TWO_ASSIGNMENTS), "two-assignment endpoint passed CINV-03"
+
+
+def test_module_constants_concatenated_inside_a_function_are_flagged() -> None:
+    assert _endpoint_findings(MODULE_NAMES_USED_IN_FUNCTION)
+
+
+def test_f_string_literal_parts_are_joined_across_the_whole_f_string() -> None:
+    assert _endpoint_findings(FSTRING_SPLIT)
+
+
+def test_split_literals_of_a_non_model_url_are_not_flagged() -> None:
+    source = TAG + 'import httpx\nBASE = "https://" + "graph." + "internal"\n'
+    source += 'def f():\n    return httpx.get(BASE + "/v1/" + "health")\n'
+    assert algorithmic.check_source(source, SRC, MOD) == []
