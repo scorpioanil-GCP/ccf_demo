@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1855 entries**, of which **1591** name a public Python surface.
+**1859 entries**, of which **1595** name a public Python surface.
 
 ## Added
 
@@ -16792,7 +16792,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-528 entries — 340 public Python surface, 188 not public Python API.
+530 entries — 342 public Python surface, 188 not public Python API.
 
 ### Public Python surface
 
@@ -22933,6 +22933,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `369-21-sec-021-receive-queue-bound.md`.*
 
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: reshaped
+- Before: the legacy `CompositeChildResolverProtocol` call only; it handed each skill the deployment's `child_arguments` and never knew the subject the composite asked
+- After: a new optional `child_questions: ChildQuestions | None` constructor argument and a `resolve_for(...)` method, so it now conforms to `RequestAwareChildResolverProtocol` and `GovernedResolver` hands it the composite's effective request. Each child's question is minted from that request through `child_questions`, and the child's answered subject is held to it. The legacy `__call__` remains and mints no question
+- Why: a composite can only refuse a child that answered another subject if it knows the subject it asked, and that subject comes from the composite's request through the deployment's mapping — never from `child_arguments`, which is what the skill was handed
+- Migration: supply `child_questions` (the same `ChildQuestions` mapping `QuestionBoundChildResolver` takes). Without it, or through the request-less `__call__`, every `local-dispatch` and `mcp` child is refused `question-mismatch` rather than admitted unbound. A wrapper that implements only `__call__` around this resolver must add `resolve_for` and delegate to it.
+
+*Recorded by `370-25-sec-025-child-subject-binding.md`.*
+
+#### ccf.products.composite.ChildCandidate
+
+- Surface: ccf.products.composite.ChildCandidate
+- Public surface: true
+- Change type: reshaped
+- Before: `question_echo` and `answered_question` were populated on the `mcp-product` leg only; nothing carried the question the composite asked
+- After: a new `asked_question: ChildQuestion | None = None` member — the question the composite minted for this child. `question_echo` and `answered_question` now carry the child door's echo and answered axes on the `local-dispatch` and `mcp` legs too
+- Why: the gate compares the answered subject to the asked one; both halves must reach it
+- Migration: a deployment that builds a `ChildCandidate` by hand for a `local-dispatch` or `mcp` child sets `asked_question`, `question_echo` and `answered_question`, or the gate refuses it `question-mismatch`
+
+*Recorded by `370-25-sec-025-child-subject-binding.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -25901,7 +25925,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-233 entries — 201 public Python surface, 32 not public Python API.
+235 entries — 203 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -29912,6 +29936,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: see `InsecureArtifactStoreRoot` above. Files an earlier store version wrote are not re-moded.
 
 *Recorded by `369-01-insecure-artifact-store-root-refused.md`.*
+
+#### ccf.products.composite.CompositeAdmissionGate
+
+- Surface: ccf.products.composite.CompositeAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: the subject/question binding was inline in `hold_producer_claims` and ran for `mcp-product` only
+- After: one check, `CompositeAdmissionGate.hold_answer_to_question`, shared by every bound leg — `admit` calls it for `local-dispatch` and `mcp`, `hold_producer_claims` calls it for `mcp-product`. A mismatch refuses with the EXISTING reason `question-mismatch` (no new reason is added), and the refusal detail names the leg and never a subject
+- Why: one binding, not one per leg, so it cannot be fixed on one leg and missed on another — severing it unbinds every leg at once, which the row's severing (c) proves
+- Migration: none for a served answer to the question asked. A consumer counting `question-mismatch` refusals will now see them on the `local-dispatch` and `mcp` legs as well
+
+*Recorded by `370-25-sec-025-child-subject-binding.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: a `ChildQuestion` was minted only for an `McpProductBinding` entry; any other entry was dispatched with `child_arguments` and its answer was unbound
+- After: the `ChildQuestion` is minted for every entry, and every non-peered child's answer is held to it
+- Why: Q16 (a) — every leg
+- Migration: a `child_questions` mapping must return a question for every requirement the agent may acquire, not only its `mcp_product` ones
+
+*Recorded by `370-25-sec-025-child-subject-binding.md`.*
 
 ### Not public Python API
 

@@ -834,6 +834,16 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf_runtime.peering.typed_http.TypedHttpWire": (
         "369-21-sec-021-receive-queue-bound.md"
     ),
+    # `SEC-025` (`D-IMPL-370`, Q16) — every composite child leg is bound to the
+    # question its composite asked: the grant-bound resolver gains an optional
+    # `child_questions` and becomes request-aware, and the candidate gains the
+    # `asked_question` the gate holds the answered subject to.
+    "ccf.products.child_resolver.GrantBoundChildResolver": (
+        "370-25-sec-025-child-subject-binding.md"
+    ),
+    "ccf.products.composite.ChildCandidate": (
+        "370-25-sec-025-child-subject-binding.md"
+    ),
 }
 
 

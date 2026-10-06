@@ -26,8 +26,14 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import declared_artifact_class, parse_artifact
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
-from ccf.products.child_resolver import ChildArguments, GrantBoundChildResolver
+from ccf.products.child_resolver import (
+    ChildArguments,
+    ChildQuestion,
+    ChildQuestions,
+    GrantBoundChildResolver,
+)
 from ccf.products.composite import CompositeAdmissionGate
+from ccf.products.contract import ChildRequirement
 from ccf.products.door import WireRequest, door_answer
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver
@@ -427,6 +433,23 @@ def _ledger(
     return ledger, content_hash(definition), definition, catalog
 
 
+def asks_its_own_subject(
+    requirement: ChildRequirement, request: ProductRequest
+) -> ChildQuestion:
+    """The fixture deployment's statement of what it asks each child (`SEC-025`).
+
+    Every child is asked about the composite's own subject, under the
+    composite's own intent and freshness. Deployment configuration, stated by
+    the fixture: the SDK holds no default for it (`D-IMPL-38`).
+    """
+    return ChildQuestion(
+        subject=request.subject,
+        intent=request.intent,
+        freshness=request.freshness,
+        parameters={},
+    )
+
+
 def build_composite(
     booted: _Booted,
     *,
@@ -436,6 +459,7 @@ def build_composite(
     resource: str | None = None,
     child_arguments: ChildArguments | None = None,
     child_door: Any | None = None,
+    child_questions: ChildQuestions | None = None,
 ) -> tuple[GovernedResolver, GrantBoundChildResolver]:
     """The composite, wired. **Only ``binding`` changes between the two proofs.**
 
@@ -459,6 +483,9 @@ def build_composite(
         child_door: The callable the grant dispatches (`D-IMPL-339`). Defaulted
             to the real door over the child; a test proving the child is
             acquired ONCE, or that no provider is reached on replay, wraps it.
+        child_questions: What the composite ASKS each child (`SEC-025`), from
+            its effective request; every child's answered subject is held to
+            it. Defaulted to :func:`asks_its_own_subject`.
     """
     ledger, agent_hash, definition, catalog = _ledger(booted, binding=binding, resource=resource)
     if grant:
@@ -500,6 +527,7 @@ def build_composite(
         callable_registry=callables,
         artifact_store=booted.store,
         mcp_skills=mcp_skills,
+        child_questions=child_questions or asks_its_own_subject,
     )
     arguments.update(composite_children=children)
     return GovernedResolver(**arguments), children
@@ -722,6 +750,7 @@ def build_higher_composite(
         },
         callable_registry=callables,
         artifact_store=booted.store,
+        child_questions=asks_its_own_subject,
     )
     arguments = _arguments(booted)
     arguments.update(
