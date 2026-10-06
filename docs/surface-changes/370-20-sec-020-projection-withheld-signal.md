@@ -14,24 +14,32 @@ on its observation instant, where the nonexistent subject was refused
 resolver could not tell a withhold from a legitimately empty answer. The exploit
 test is `tests/products/test_withheld_is_indistinguishable_from_absent.py`.
 
-**Constant-fill, as corrected in the corrective round:** when the signal is
+**Constant-fill, as finally ruled (`D-IMPL-371`):** when the signal is
 raised, the product's debt, empty finding and TTL anchor are those of the same
-plan RE-EXECUTED over the same fabric with the subject masked out: its entity,
-its claims, and anything reachable only through it. Siblings stay. That is what
-a never-ingested subject reads there, because walk starts are the union of the
-seed classes and the request seed (`GQ-11`, unchanged). On a per-request fabric
-holding only the subject, the masked fabric is empty, so the product carries the
-finding naming every operator, and an evidence-anchored class refuses. The first
-version rendered an EMPTY view on every fabric. The close panel measured that it
-created a serve-versus-refuse existence oracle on one shared fabric. The signal
-is the only key into the branch. An empty payload without it keeps the debt and
-finding its real view earned.
+plan RE-EXECUTED WITHOUT THE REQUEST SEED. That is the walk an identifier that
+names nothing gets by construction: walk starts are the union of the plan's
+seed classes and the request seed (`GQ-11`, unchanged), and a nonexistent
+identifier's seed matches nothing. The withheld subject's own records stay in
+that view if and only if a class seed reaches them, exactly as for the
+nonexistent identifier. No record is masked.
 
-**Measured residual, not closed.** On one shared fabric where the withheld
-subject's own evidence is fresher or staler than its siblings', the masked
-rendering still differs from a nonexistent subject's. The difference is in
-`debt`, and on an evidence-anchored class also in the anchor. It is held as a
-strict expected failure in the exploit module and escalated for a ruling.
+The two earlier versions are kept here as measured history:
+- Round 1 rendered an EMPTY view. On a class-seeded fabric that created a
+  serve-versus-refuse existence oracle.
+- Round 2 MASKED the subject's records. That left a residual whenever the
+  subject's evidence was fresher or staler than its siblings', because the
+  nonexistent identifier's walk reads those records.
+
+The signal is the only key into the branch. An empty payload without it keeps
+the debt and finding its real view earned.
+
+**Scope the rule states rather than hides.** Equality is with a nonexistent
+subject asked on the SAME fabric. On a class-seeded plan, a per-request fabric
+that acquisition populated with the subject's claims still reads them, exactly
+as a nonexistent subject asked on that fabric would. Compared with the EMPTY
+fabric a nonexistent subject's own question gets, it differs. That difference is
+made by acquisition, which put the claims there, not by Π, and this row does
+not change it.
 
 ## ccf.projection.plan.ProjectionOutput
 
@@ -48,9 +56,9 @@ strict expected failure in the exploit module and escalated for a ruling.
 - Surface: ccf.projection.engine.ProjectionEngine
 - Public surface: true
 - Change type: reshaped
-- Before: no way to execute a plan as if some entities had never been ingested.
-- After: adds the method `execute_with_entities_masked(*, masked, executed, plan, perspective, tenant_id, temporal_boundary, seeds=None)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap. Every query is answered by the reference semantics (`ccf.graph.fallback.answer`) over one as-of read of the real store, with the masked entities' records and every relationship touching them removed. The read is pinned to `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
-- Why: SEC-020, corrective round. This is the one definition of "this fabric without the subject" that the resolver's constant-fill branch reads.
+- Before: no way to re-execute a plan as a question naming nothing would execute it.
+- After: adds the method `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap and with `seeds=None`. That is the only difference from the real execution. Every query is answered at `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
+- Why: SEC-020, `D-IMPL-371`. This is the one definition of "what a subject that names nothing reads" that the resolver's constant-fill branch reads.
 - Migration: none. The method is additive.
 
 ## ccf.replay.record.ContentGenerationPath

@@ -502,15 +502,15 @@ def test_the_resolver_threads_the_engines_emptiness_record() -> None:
     assert built.func.value.id == "ComputedEmptyFinding"
     # And it is built from the EXECUTION — the engine's own record, which is
     # the only source this finding is allowed to have (`D-IMPL-238` limb 3).
-    # SEC-020 (`D-IMPL-370` Q12 (a) and its corrective round): the record is
+    # SEC-020 (`D-IMPL-370` Q12 (a), final rule `D-IMPL-371`): the record is
     # read as `rendered`, which IS the execution unless Π raised the typed
-    # withheld signal, and then is the engine's re-execution with the subject
-    # masked out — still the engine's record, never the payload. Measured, not
-    # assumed: the finding reads `rendered`; `rendered` is bound exactly once,
-    # to a conditional whose TEST is the typed signal
+    # withheld signal, and then is the engine's re-execution without the
+    # request seed — still the engine's record, never the payload. Measured,
+    # not assumed: the finding reads `rendered`; `rendered` is bound exactly
+    # once, to a conditional whose TEST is the typed signal
     # (`execution.projection.withheld`, never the payload), whose withheld
-    # branch is the engine's masked re-execution over `executed=execution`, and
-    # whose other branch is `execution` itself.
+    # branch is the engine's unseeded re-execution over `executed=execution`,
+    # and whose other branch is `execution` itself.
     names = [node.id for node in ast.walk(built) if isinstance(node, ast.Name)]
     assert "rendered" in names, names
     bindings = [
@@ -526,7 +526,7 @@ def test_the_resolver_threads_the_engines_emptiness_record() -> None:
     assert isinstance(bound.orelse, ast.Name) and bound.orelse.id == "execution"
     assert isinstance(bound.body, ast.Call), ast.unparse(bound.body)
     assert isinstance(bound.body.func, ast.Attribute)
-    assert bound.body.func.attr == "execute_with_entities_masked", ast.unparse(bound.body)
+    assert bound.body.func.attr == "execute_without_request_seed", ast.unparse(bound.body)
     keywords_of_mask = {kw.arg: kw.value for kw in bound.body.keywords}
     assert ast.unparse(keywords_of_mask["executed"]) == "execution"
 

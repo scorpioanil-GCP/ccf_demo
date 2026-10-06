@@ -25,16 +25,18 @@ The standard
 Equality, path for path, of ``ServedProduct.product.model_dump(mode="json")``
 (the sibling's ``_diff_paths``), with nothing removed: the vessel carries no
 subject echo (the sibling module measures that), so no path is legitimately
-subject-caused. Constant-fill means the withheld vessel is EXACTLY the vessel
-the same plan yields over the SAME fabric with the subject masked out — its
-entity, its claims, and anything reachable only through it — which is what a
-never-ingested subject reads there, siblings included (walk starts are the
-union of seed classes and the request seed, `GQ-11`). On a per-request fabric
-that holds only the subject, the masked fabric is empty and the vessel carries
-the finding naming every operator. The first version of the repair rendered an
-empty view on every fabric, and the close panel measured the existence oracle
-that created on one shared fabric (corrective round, ``D-IMPL-370``); both
-shapes are asked here, for both anchors.
+subject-caused.
+
+The rule, as finally ruled (``D-IMPL-371``): the withheld vessel is EXACTLY the
+vessel the same plan yields re-executed WITHOUT THE REQUEST SEED — the walk an
+identifier that names nothing gets by construction (walk starts are the union
+of the plan's seed classes and the request seed, `GQ-11`, and a nonexistent
+identifier's seed matches nothing). The withheld subject's own records stay in
+that view if and only if a class seed reaches them. Measured history: an EMPTY
+view (round 1) created a serve-versus-refuse oracle on a class-seeded fabric;
+MASKING the subject's records (round 2) left a residual whenever the subject's
+evidence was fresher or staler than its siblings'. The five controls Dave set
+as preconditions of integration are named in the test docstrings, (1)–(5).
 
 The control the mechanism must not over-reach into
 --------------------------------------------------
@@ -80,6 +82,7 @@ from tests.composition import (
 from tests.deployment.conftest import (
     ARTIFACT_SET,
     HALF_LIFE_KEY,
+    RESOLUTION_SPEC_KEY,
     POLICY_BUNDLE_KEY,
     POLICY_PARAMS_KEY,
     PRODUCT_CLASS_KEY,
@@ -265,6 +268,22 @@ class _SubjectScopedProjection:
 
 # --- the booted fixture ----------------------------------------------------------
 
+#: How the plan's walk starts. ``class``: the fixture's own traversal, seeded on
+#: the account class, so every account in the fabric is a walk start whatever
+#: the question names (a CLASS-SEEDED plan). ``subject``: the traversal is
+#: seeded on a class this fabric never holds, so the only walk start is the
+#: request seed (a SUBJECT-SEEDED plan). The second class is declared in the
+#: resolution spec so the boot-time producibility check (R-10) accepts it.
+CLASS_SEEDED = "class"
+SUBJECT_SEEDED = "subject"
+UNHELD_CLASS = "fixture-branch"
+_UNHELD_RULE = {
+    "match_key": "branch_ref",
+    "entity_class": UNHELD_CLASS,
+    "identity_keys": ["branch_ref"],
+    "attribute_keys": ["label"],
+}
+
 
 def _boot(
     tmp_path: pathlib.Path,
@@ -272,8 +291,9 @@ def _boot(
     name: str,
     ttl_anchor: str,
     envelopes: Sequence[SignalEnvelope],
+    seeding: str = CLASS_SEEDED,
 ) -> Any:
-    """The sibling's boot, with the class's anchor and the λ_c table stated.
+    """The sibling's boot, with the class's anchor, the λ_c table and the seeding stated.
 
     Single-writer ingestion (``fabric.handle.worker.ingest``) is the only way
     anything reaches the graph. Test-side document variants only (CINV-01).
@@ -289,6 +309,10 @@ def _boot(
             }
         if key == HALF_LIFE_KEY:
             document = _table_document()
+        if seeding == SUBJECT_SEEDED and key == RESOLUTION_SPEC_KEY:
+            document = {**document, "entity_rules": [*document["entity_rules"], _UNHELD_RULE]}
+        if seeding == SUBJECT_SEEDED and key == TRAVERSAL_KEY:
+            document = {**document, "seed_entity_classes": [UNHELD_CLASS]}
         write_artifact(root, filename, document)
     write_artifact(root, "request-contract.yaml", REQUEST_CONTRACT_DOCUMENT)
     body = manifest_document()
@@ -393,47 +417,66 @@ def _serve(
     )
 
 
-def _fabrics(tmp_path: pathlib.Path, ttl_anchor: str) -> dict[str, Any]:
-    """The three fabric shapes, booted under one anchor.
 
-    ``withheld`` — the per-request fabric for a question about the withheld
-    subject: it holds that subject's admitted claim. ``shared`` — a long-lived
-    fabric holding it beside two other admitted subjects. ``empty`` — the
-    per-request fabric for a subject that does not exist.
-    """
-    return {
-        "withheld": _boot(
-            tmp_path, name=f"withheld-{ttl_anchor}", ttl_anchor=ttl_anchor,
-            envelopes=(_envelope(WITHHELD_REF),),
-        ),
-        "shared": _boot(
-            tmp_path, name=f"shared-{ttl_anchor}", ttl_anchor=ttl_anchor,
-            envelopes=(_envelope(WITHHELD_REF), _envelope(BLANK_REF), _envelope(OTHER_REF)),
-        ),
-        "empty": _boot(
-            tmp_path, name=f"empty-{ttl_anchor}", ttl_anchor=ttl_anchor, envelopes=(),
-        ),
-    }
+
+#: The withheld subject's source observed it LATER than its siblings — round
+#: 2's residual case, now control (1).
+FRESHER_AT = datetime(2026, 3, 2, 11, 55, tzinfo=UTC)
+
+
+def _observed_at(account_ref: str, at: datetime) -> SignalEnvelope:
+    document = _envelope(account_ref).model_dump(mode="json")
+    document["observed_time"] = at.isoformat().replace("+00:00", "Z")
+    return SignalEnvelope.model_validate(document)
+
+
+class _World:
+    """Every fabric shape the controls ask on, under one anchor; closed together."""
+
+    def __init__(self, tmp_path: pathlib.Path, anchor: str) -> None:
+        self.anchor = anchor
+        self._booted: list[Any] = []
+        siblings = (_envelope(BLANK_REF), _envelope(OTHER_REF))
+        self.shared_equal = self._boot(tmp_path, "shared-equal", (_envelope(WITHHELD_REF), *siblings))
+        self.shared_fresher = self._boot(
+            tmp_path, "shared-fresher", (_observed_at(WITHHELD_REF, FRESHER_AT), *siblings)
+        )
+        self.class_alone = self._boot(tmp_path, "class-alone", (_envelope(WITHHELD_REF),))
+        self.class_empty = self._boot(tmp_path, "class-empty", ())
+        self.subject_alone = self._boot(
+            tmp_path, "subject-alone", (_envelope(WITHHELD_REF),), seeding=SUBJECT_SEEDED
+        )
+        self.subject_empty = self._boot(tmp_path, "subject-empty", (), seeding=SUBJECT_SEEDED)
+
+    def _boot(self, tmp_path: pathlib.Path, name: str, envelopes: Sequence[SignalEnvelope], *, seeding: str = CLASS_SEEDED) -> Any:
+        booted = _boot(
+            tmp_path, name=f"{name}-{self.anchor}", ttl_anchor=self.anchor,
+            envelopes=envelopes, seeding=seeding,
+        )
+        self._booted.append(booted)
+        return booted
+
+    def close(self) -> None:
+        for booted in self._booted:
+            booted[0].handle.close()
 
 
 @pytest.fixture(params=[FROM_DECISION, FROM_ENTITY_FRESHNESS])
-def fabrics(request: pytest.FixtureRequest, tmp_path: pathlib.Path) -> Iterator[tuple[str, dict[str, Any]]]:
-    booted = _fabrics(tmp_path, request.param)
+def world(request: pytest.FixtureRequest, tmp_path: pathlib.Path) -> Iterator[_World]:
+    built = _World(tmp_path, request.param)
     try:
-        yield request.param, booted
+        yield built
     finally:
-        for value in booted.values():
-            value[0].handle.close()
+        built.close()
 
 
 @pytest.fixture()
-def decision_fabrics(tmp_path: pathlib.Path) -> Iterator[dict[str, Any]]:
-    booted = _fabrics(tmp_path, FROM_DECISION)
+def decision_world(tmp_path: pathlib.Path) -> Iterator[_World]:
+    built = _World(tmp_path, FROM_DECISION)
     try:
-        yield booted
+        yield built
     finally:
-        for value in booted.values():
-            value[0].handle.close()
+        built.close()
 
 
 def _vessel(outcome: Any) -> dict[str, Any]:
@@ -484,80 +527,90 @@ def _assert_indistinguishable(withheld: Any, nonexistent: Any, *, case: str) -> 
     )
 
 
-def test_on_one_shared_fabric_a_withheld_subject_reads_as_a_nonexistent_one(
-    fabrics: tuple[str, dict[str, Any]],
-) -> None:
-    """The row's shape: ONE fabric, the withheld subject admitted, the other never ingested.
 
-    Walk starts are the union of the plan's seed classes and the request seed
-    (`GQ-11`), so the nonexistent subject reads every in-scope sibling and
-    earns their debt, anchor and finding. The withheld subject must read
-    exactly that: the fabric with itself masked out — not an empty view, which
-    the close panel measured as debt 0 against the nonexistent subject's real
-    debt, and as a REFUSAL against its serve on an evidence-anchored class.
+
+# --- the five controls (`D-IMPL-371`: all green, or the row PARKS) -------------
+
+
+@pytest.mark.parametrize("fabric", ["shared_fresher", "shared_equal"])
+def test_control_1_same_class_seeded_fabric_unequal_freshness(world: _World, fabric: str) -> None:
+    """(1) ONE class-seeded fabric; the withheld subject and a never-ingested one asked on it.
+
+    ``shared_fresher`` is round 2's residual: the withheld subject was observed
+    at 11:55 and its siblings at 11:30. The nonexistent identifier's walk
+    starts at the class seeds and so READS the withheld subject's claims; the
+    withheld subject, re-executed without its request seed, reads exactly the
+    same. Required, both anchors (promoted from round 2's strict xfail).
     """
-    anchor, booted = fabrics
-    shared = booted["shared"]
-    withheld = _serve(shared, WITHHELD, withhold=frozenset({WITHHELD}))
-    nonexistent = _serve(shared, MISSING)
+    booted = getattr(world, fabric)
+    withheld = _serve(booted, WITHHELD, withhold=frozenset({WITHHELD}))
+    nonexistent = _serve(booted, MISSING)
     assert isinstance(nonexistent, ServedProduct), (
-        f"[{anchor}] the shared fabric's siblings should serve a nonexistent"
-        f" subject; the case under measurement was not constructed: {nonexistent!r}"
+        f"[{world.anchor}] the class-seeded fabric's accounts should serve a"
+        f" nonexistent subject; the case was not constructed: {nonexistent!r}"
     )
-    _assert_indistinguishable(withheld, nonexistent, case=f"{anchor}, one shared fabric")
+    _assert_indistinguishable(withheld, nonexistent, case=f"{world.anchor}, {fabric}")
 
 
-def test_on_a_per_request_fabric_a_withheld_subject_reads_as_a_nonexistent_one(
-    fabrics: tuple[str, dict[str, Any]],
-) -> None:
-    """The paved road's shape: each question's fabric holds what acquisition put in it.
+def test_control_2_subject_seeded_per_request_shape(world: _World) -> None:
+    """(2) A SUBJECT-SEEDED plan over the per-request fabric holding only the subject.
 
-    The fabric for a question about the withheld subject holds its claim and
-    nothing else; masked out, that fabric is empty — exactly the fabric a
-    question about a nonexistent subject gets. ``from_decision`` serves both
-    identically; ``from_entity_freshness`` refuses both ``ttl-anchor-refusal``
-    (an empty view has no evidence instant, `D-IMPL-341` R-3).
+    The request seed is the only walk start, so a nonexistent identifier reads
+    nothing — on this same fabric, and on the empty fabric its own question
+    would get — and the withheld subject, unseeded, reads nothing too.
+    ``from_decision`` serves all three identically; ``from_entity_freshness``
+    refuses all three ``ttl-anchor-refusal`` (an empty view has no evidence
+    instant, `D-IMPL-341` R-3).
     """
-    anchor, booted = fabrics
-    withheld = _serve(booted["withheld"], WITHHELD, withhold=frozenset({WITHHELD}))
-    nonexistent = _serve(booted["empty"], MISSING)
-    if anchor == FROM_ENTITY_FRESHNESS:
-        for outcome in (withheld, nonexistent):
-            assert isinstance(outcome, RefusalEnvelope) and outcome.kind == "ttl-anchor-refusal", (
-                f"[{anchor}] expected the empty view's own refusal (`D-IMPL-341`"
-                f" R-3), got {outcome!r}"
-            )
-    _assert_indistinguishable(withheld, nonexistent, case=f"{anchor}, per-request fabrics")
+    withheld = _serve(world.subject_alone, WITHHELD, withhold=frozenset({WITHHELD}))
+    for name, booted in (("same fabric", world.subject_alone), ("empty fabric", world.subject_empty)):
+        nonexistent = _serve(booted, MISSING)
+        if world.anchor == FROM_ENTITY_FRESHNESS:
+            for outcome in (withheld, nonexistent):
+                assert isinstance(outcome, RefusalEnvelope) and outcome.kind == "ttl-anchor-refusal", (
+                    f"[{world.anchor}, {name}] expected the empty view's own refusal, got {outcome!r}"
+                )
+        _assert_indistinguishable(withheld, nonexistent, case=f"{world.anchor}, subject-seeded, {name}")
+    if world.anchor == FROM_DECISION:
+        assert isinstance(withheld, ServedProduct)
+        finding = withheld.product.computed_empty
+        assert finding is not None and set(finding.operators_returned_empty) == set(REQUIRED_OPERATORS), (
+            f"the unseeded walk found nothing, so the finding names every operator: {finding}"
+        )
 
 
-def test_the_masked_vessel_carries_the_finding_its_masked_fabric_earns(
-    decision_fabrics: dict[str, Any],
-) -> None:
-    """On a per-request fabric the masked fabric is empty: a finding naming every operator, never ``None``."""
-    withheld = _serve(decision_fabrics["withheld"], WITHHELD, withhold=frozenset({WITHHELD}))
-    assert isinstance(withheld, ServedProduct)
-    finding = withheld.product.computed_empty
-    assert finding is not None, "the withheld vessel carries no empty finding"
-    assert set(finding.operators_returned_empty) == set(REQUIRED_OPERATORS)
-    assert withheld.product.payload == {}
+@pytest.mark.parametrize("seeding", [CLASS_SEEDED, SUBJECT_SEEDED])
+def test_control_3_empty_fabric_shape(world: _World, seeding: str) -> None:
+    """(3) The fabric that holds nothing: a withheld and a nonexistent subject asked on it.
 
-
-def test_a_legitimately_empty_answer_keeps_its_real_debt_and_finding(
-    decision_fabrics: dict[str, Any],
-) -> None:
-    """The control: an admitted subject Π answers EMPTY for, with no signal.
-
-    Its view holds what it holds, so its debt and its finding are the ones the
-    same fabric yields for a subject Π answers in full — never the constant.
-    A mechanism that inferred a withhold from an empty payload fails here.
-
-    Asked on the fabric that holds ONLY this subject, so that masking it out
-    would change everything the vessel states (its fabric would be empty):
-    on the shared fabric a mis-keyed mask is invisible whenever the siblings
-    are as fresh as the subject, and the first version of this control was
-    measured to stay green under exactly that severing.
+    Nothing exists, so nothing may differ — on either seeding, both anchors.
     """
-    alone = decision_fabrics["withheld"]
+    booted = world.class_empty if seeding == CLASS_SEEDED else world.subject_empty
+    withheld = _serve(booted, WITHHELD, withhold=frozenset({WITHHELD}))
+    nonexistent = _serve(booted, MISSING)
+    _assert_indistinguishable(withheld, nonexistent, case=f"{world.anchor}, {seeding}-seeded empty fabric")
+
+
+#: The two operators, by key, as a finding names them.
+POLICY_OPERATOR = "policy.principal-subgraph"
+TRAVERSAL_OPERATOR = "traversal.typed-neighborhood"
+
+
+def test_control_5_a_legitimately_empty_answer_keeps_its_real_debt_and_finding(
+    decision_world: _World,
+) -> None:
+    """(5) An admitted subject Π answers EMPTY for, with NO signal, keeps what its view earned.
+
+    Two shapes. On the class-seeded fabric holding only this subject, its debt
+    and finding are those the same fabric yields for the same subject answered
+    in full. On the SUBJECT-SEEDED fabric holding only this subject, its own
+    request seed is what admits it past the Policy operator, so its REAL
+    finding names the traversal alone — a positive statement about its real
+    view that the unseeded re-execution (where Policy returns nothing too)
+    would contradict. A mechanism that inferred a withhold from an empty
+    payload fails the second shape.
+    """
+    alone = decision_world.class_alone
     blank = _serve(alone, WITHHELD, blank=frozenset({WITHHELD}))
     answered = _serve(alone, WITHHELD)
     assert isinstance(blank, ServedProduct) and isinstance(answered, ServedProduct)
@@ -572,50 +625,24 @@ def test_a_legitimately_empty_answer_keeps_its_real_debt_and_finding(
         f" {blank.product.debt} vs {answered.product.debt}"
     )
 
+    seeded = _serve(decision_world.subject_alone, WITHHELD, blank=frozenset({WITHHELD}))
+    assert isinstance(seeded, ServedProduct) and seeded.product.payload == {}
+    finding = seeded.product.computed_empty
+    assert finding is not None and set(finding.operators_returned_empty) == {TRAVERSAL_OPERATOR}, (
+        "a legitimately empty answer on the subject-seeded fabric lost its real"
+        " finding — its request seed admits it past Policy, so only the"
+        f" traversal returned empty: {finding}"
+    )
 
-def test_the_instrument_can_see_a_difference(decision_fabrics: dict[str, Any]) -> None:
+
+def test_the_instrument_can_see_a_difference(decision_world: _World) -> None:
     """Positive control: an answered subject differs from a nonexistent one."""
-    answered = _vessel(_serve(decision_fabrics["withheld"], WITHHELD))
-    nonexistent = _vessel(_serve(decision_fabrics["empty"], MISSING))
+    answered = _vessel(_serve(decision_world.class_alone, WITHHELD))
+    nonexistent = _vessel(_serve(decision_world.class_empty, MISSING))
     differing = _diff_paths(answered, nonexistent)
     assert any(path.startswith("payload") for path in differing), sorted(differing)
     assert any(path.startswith("debt") for path in differing), sorted(differing)
     assert any(path.startswith("computed_empty") for path in differing), sorted(differing)
-
-
-#: The withheld subject's source observed it LATER than its siblings — the
-#: one ingredient the shared-fabric case above holds equal.
-FRESHER_AT = datetime(2026, 3, 2, 11, 55, tzinfo=UTC)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "SEC-020 residual, measured in the corrective round and NOT closed: on one"
-        " shared fabric a nonexistent subject's walk (seed classes ∪ request seed,"
-        " GQ-11) reads the withheld subject's own claims, so the masked rendering"
-        " differs whenever those claims are fresher or staler than the siblings'."
-        " No rendering keyed on the fabric alone satisfies both this shape and the"
-        " per-request shape; escalated for a ruling."
-    ),
-)
-@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
-def test_residual_on_one_shared_fabric_a_fresher_withheld_subject_is_distinguishable(
-    tmp_path: pathlib.Path, anchor: str
-) -> None:
-    """Strict expected failure: the evidence the residual is real, kept executable."""
-    fresher = _envelope(WITHHELD_REF).model_dump(mode="json")
-    fresher["observed_time"] = FRESHER_AT.isoformat().replace("+00:00", "Z")
-    booted = _boot(
-        tmp_path, name=f"residual-{anchor}", ttl_anchor=anchor,
-        envelopes=(SignalEnvelope.model_validate(fresher), _envelope(BLANK_REF), _envelope(OTHER_REF)),
-    )
-    try:
-        withheld = _serve(booted, WITHHELD, withhold=frozenset({WITHHELD}))
-        nonexistent = _serve(booted, MISSING)
-        _assert_indistinguishable(withheld, nonexistent, case=f"{anchor}, residual")
-    finally:
-        booted[0].handle.close()
 
 
 # --- replay of a withheld decision (corrective round, Finding 2) ------------------
@@ -709,6 +736,24 @@ class _AcquireForSubject:
         )
 
 
+def _subject_seeded_paved_config() -> dict[str, Any]:
+    """The paved fixture's config with its walk seeded on a class it never holds.
+
+    So the only walk start is the request seed, and a withheld subject's
+    unseeded re-execution reads nothing — its vessel carries the finding that
+    replay must rehydrate. Test-side variant only (CINV-01).
+    """
+    import copy  # noqa: PLC0415
+
+    from tests.products.test_paved_road import _config  # noqa: PLC0415
+
+    document = copy.deepcopy(_config())
+    for operator in document["operators"].values():
+        operator["seed_entity_classes"] = [UNHELD_CLASS]
+    document["resolution"]["entity_rules"].append(dict(_UNHELD_RULE))
+    return document
+
+
 def _replay_once(tmp_path: pathlib.Path, subject: str) -> tuple[Any, Any, str]:
     """Serve ``subject`` on the paved road, reopen its fabric, replay through ``RecordedEnvironment``."""
     from ccf.deployment import load_config_and_boot  # noqa: PLC0415
@@ -718,7 +763,7 @@ def _replay_once(tmp_path: pathlib.Path, subject: str) -> tuple[Any, Any, str]:
     from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
     from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER as PAVED_THRESHOLD  # noqa: PLC0415
 
-    root = _write_tree(tmp_path)
+    root = _write_tree(tmp_path, config=_subject_seeded_paved_config())
     scratch = tmp_path / "scratch"
     with _open(root, scratch, acquire=_AcquireForSubject(), project=_paved_withholding_project) as opened:
         served = opened.answer(
@@ -747,21 +792,23 @@ def _replay_once(tmp_path: pathlib.Path, subject: str) -> tuple[Any, Any, str]:
     return served, outcome, record.content_generation_path.product_content_address
 
 
-def test_a_withheld_decision_replays_to_its_own_address(tmp_path: pathlib.Path) -> None:
-    """The withheld vessel carries a finding; replay rehydrates it from dimension 5."""
+
+
+def test_control_4_a_withheld_decision_replays_to_its_own_address(tmp_path: pathlib.Path) -> None:
+    """(4) A withheld decision with a finding replays through the shipped RecordedEnvironment."""
     served, outcome, recorded = _replay_once(tmp_path, PAVED_WITHHELD)
     assert served.product.computed_empty is not None, (
-        "the withheld subject's masked fabric is empty, so its vessel carries the"
-        " finding — the case under measurement was not constructed"
+        "under the subject-seeded paved plan the unseeded walk reads nothing, so"
+        " the withheld vessel carries the finding — the case was not constructed"
     )
     assert content_hash(outcome.product) == recorded == content_hash(served.product)
     assert outcome.product.computed_empty == served.product.computed_empty
 
 
-def test_a_nonexistent_subject_on_an_empty_fabric_replays_to_its_own_address(
+def test_control_4_a_nonexistent_subject_on_an_empty_fabric_replays_to_its_own_address(
     tmp_path: pathlib.Path,
 ) -> None:
-    """The control: the same defect on a product nobody withheld, closed by the same change."""
+    """(4) The control: the same defect on a product nobody withheld, closed by the same change."""
     served, outcome, recorded = _replay_once(tmp_path, PAVED_ABSENT)
     assert served.product.computed_empty is not None
     assert content_hash(outcome.product) == recorded == content_hash(served.product)

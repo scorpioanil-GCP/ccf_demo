@@ -1464,7 +1464,7 @@ class ContentGenerationPath(CCFContract):
     ttl_anchor_at: datetime | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
-    # SEC-020 (`D-IMPL-370` Q12 (a), its corrective round): the served
+    # SEC-020 (`D-IMPL-370` Q12 (a), its final rule `D-IMPL-371`): the served
     # product's EMPTY FINDING, copied from the product exactly as
     # `ttl_anchor_at` is, so replay rehydrates it rather than re-deriving it.
     # It is inside the product's address whenever it is not `None`, and before
@@ -1472,7 +1472,7 @@ class ContentGenerationPath(CCFContract):
     # finding — a computed-empty answer, and every withheld subject — rebuilt
     # without one and failed replay with `ReplayDivergence` on its content
     # address. It is the governed resolver's finding, which for a withheld
-    # subject is the masked execution's, never the re-execution's.
+    # subject is the unseeded re-execution's (`D-IMPL-371`), never replay's.
     # Hash-transparent at `None`, so every record written before this member
     # existed keeps its bytes and address.
     computed_empty: ComputedEmptyFinding | None = Field(

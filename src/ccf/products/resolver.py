@@ -3015,45 +3015,42 @@ class GovernedResolver:
         )
 
         # --- SEC-020: A WITHHELD SUBJECT RENDERS AS A NONEXISTENT ONE --------
-        # `D-IMPL-370` Q12 (a), constant-fill, as corrected in its corrective
-        # round (SDK-defined, CLAUDE.md §11). A projection conditioned on the
+        # `D-IMPL-370` Q12 (a), constant-fill, as finally ruled at `D-IMPL-371`
+        # (SDK-defined, CLAUDE.md §11). A projection conditioned on the
         # perspective may withhold the subject from this principal; it says so
         # with the typed signal on `src/ccf/projection/plan.py::ProjectionOutput`,
         # and the signal is the ONLY key into this branch — an empty payload
         # without it is a legitimately empty answer and keeps what its real view
         # earned (`D-IMPL-242` amendment 1).
         #
-        # THE BASELINE IS THIS FABRIC WITHOUT THE SUBJECT, NOT AN EMPTY VIEW.
-        # Walk starts are the union of the plan's seed classes and the request
-        # seed (`GQ-11`), so a never-ingested identifier still reads every
-        # in-scope sibling and earns their debt, anchor and finding. The first
-        # version of this block rendered an EMPTY view instead, and the close
-        # panel measured the consequence on one shared fabric: the withheld
-        # subject read debt 0 against the nonexistent subject's real debt, and
-        # on an evidence-anchored class it was REFUSED where the nonexistent one
-        # was SERVED — an existence oracle the silent pre-fix path did not
-        # have. So the plan is RE-EXECUTED with the subject's entity, its
-        # claims, and anything reachable only through it masked out
-        # (`src/ccf/projection/engine.py::ProjectionEngine.execute_with_entities_masked`),
+        # THE BASELINE IS WHAT A SUBJECT THAT NAMES NOTHING GETS, BY
+        # CONSTRUCTION. Walk starts are the union of the plan's seed classes and
+        # the request seed (`GQ-11`); for an identifier that names nothing the
+        # request seed matches no record, so its walk starts at the class seeds
+        # alone. The plan is therefore RE-EXECUTED WITHOUT THE REQUEST SEED
+        # (`src/ccf/projection/engine.py::ProjectionEngine.execute_without_request_seed`)
         # and everything the product states ABOUT ITS EVIDENCE — the debt, the
         # empty finding, the TTL anchor, the touched set the staleness gate
         # reads, the evidence a declared product gate is shown — is computed
-        # from that masked execution. The subject is read once, by
-        # `request_seeds`, the same reading that seeded the walk.
+        # from that run. The withheld subject's own records stay in that view if
+        # and only if a class seed reaches them, exactly as for the nonexistent
+        # identifier. Measured history: an EMPTY view (round 1) created a
+        # serve-versus-refuse oracle on a class-seeded fabric; MASKING the
+        # subject's records (round 2) left a residual whenever the subject's
+        # evidence was fresher or staler than its siblings', because the
+        # nonexistent identifier's walk reads those records.
         #
         # `execution` itself is NOT replaced. The replay record is the audit
         # plane (whitepaper §7.8.2) and keeps what was actually read, so a
         # re-execution pins the same reads; the recorded debt and finding are
         # `rendered`'s, carried in dimension 5, which is what replay rehydrates.
         rendered = (
-            engine.execute_with_entities_masked(
-                masked=request_seeds(request) or frozenset(),
+            engine.execute_without_request_seed(
                 executed=execution,
                 plan=plan,
                 perspective=perspective,
                 tenant_id=self.fabric.tenant_id,
                 temporal_boundary=request.asked_at,
-                seeds=request_seeds(request),
             )
             if execution.projection.withheld
             else execution

@@ -57,7 +57,6 @@ from pydantic import Field
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
-from ccf.graph import fallback
 from ccf.graph.protocols import (
     NO_STORE_SNAPSHOT_PIN,
     EntityRecord,
@@ -264,77 +263,37 @@ class ExecutionResult(CCFContract):
         return content_hash(self.view)
 
 
-class _EntitiesMaskedReader:
-    """The graph as it would read if some entities had never been ingested.
+class _PinnedReader:
+    """The real reader, answering every query at one pinned store state.
 
-    SEC-020; ``D-IMPL-370`` Q12 (a), as corrected in its corrective round
-    (SDK-defined, CLAUDE.md §11). Private to this module and reached only
-    through :meth:`ProjectionEngine.execute_with_entities_masked`.
-
-    Every query is answered over ONE as-of read of the real store — pinned to
-    ``pin`` when the store can pin and the pin is real, so the masked read sees
-    the state the real execution saw — with the masked entities' records and
-    every relationship touching them removed, and the query then answered by
-    the reference semantics (:func:`ccf.graph.fallback.answer`, the oracle
-    every adapter agrees with). Because the walk is re-run over the masked
-    records rather than filtered afterwards, anything reachable ONLY through a
-    masked entity is unreachable too, while siblings stay exactly where they
-    were. Nothing about seeding changes (`GQ-11`): a masked seed simply matches
-    no record, exactly as a never-ingested identifier does.
-
-    Read-only by construction: it holds the reader it wraps and nothing else.
+    SEC-020; ``D-IMPL-371`` (SDK-defined, CLAUDE.md §11). Private to this
+    module and reached only through
+    :meth:`ProjectionEngine.execute_without_request_seed`. It changes NOTHING
+    about what is read — no record is added, removed or masked — except that,
+    where the store can pin and the pin is real, every query is answered as of
+    ``pin`` (the state the real execution read), so the re-execution and the
+    execution it shadows read the same committed state. A store that cannot
+    pin is read as it is. Read-only by construction: it holds the reader it
+    wraps and nothing else.
     """
 
-    def __init__(
-        self,
-        *,
-        inner: GraphReader,
-        masked: frozenset[str],
-        pin: StoreSnapshotPin,
-    ) -> None:
+    def __init__(self, *, inner: GraphReader, pin: StoreSnapshotPin) -> None:
         self._inner = inner
-        self._masked = masked
         self._pin = pin
 
     @property
     def attestation(self) -> SourceAttestation:
-        """The real source's attestation: masking removes records, not provenance."""
+        """The real source's attestation."""
         return self._inner.attestation
 
     def snapshot_pin(self) -> StoreSnapshotPin:
-        """The real execution's pin: the masked read is a read of that state."""
+        """The pin the shadowed execution read under."""
         return self._pin
 
     def query(self, q: GraphQuery) -> GraphView:
-        everything = GraphQuery(tenant_id=q.tenant_id, as_of=q.as_of)
         if isinstance(self._inner, SnapshotPinnable) and self._pin != NO_STORE_SNAPSHOT_PIN:
-            whole = self._inner.query_pinned(everything, pin=self._pin)
-        else:
-            whole = self._inner.query(everything)
-        entities = tuple(
-            record
-            for record in whole.entities
-            if record.claim.entity_uri not in self._masked
-        )
-        relationships = tuple(
-            edge
-            for edge in whole.relationships
-            if edge.claim.subject_uri not in self._masked
-            and edge.claim.object_uri not in self._masked
-        )
-        answered_entities, answered_relationships = fallback.answer(
-            entities, relationships, query=q
-        )
-        return GraphView(
-            tenant_id=q.tenant_id,
-            as_of=q.as_of,
-            entities=tuple(
-                sorted(answered_entities, key=lambda record: record.claim.entity_uri)
-            ),
-            relationships=tuple(
-                sorted(answered_relationships, key=lambda record: record.relationship_key)
-            ),
-        )
+            return self._inner.query_pinned(q, pin=self._pin)
+        return self._inner.query(q)
 
     def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
         return self.query(GraphQuery(tenant_id=tenant_id, as_of=at))
@@ -342,20 +301,13 @@ class _EntitiesMaskedReader:
     def entity_history(
         self, *, tenant_id: str, entity_uri: str
     ) -> tuple[EntityRecord, ...]:
-        if entity_uri in self._masked:
-            return ()
         return self._inner.entity_history(tenant_id=tenant_id, entity_uri=entity_uri)
 
     def relationship_history(
         self, *, tenant_id: str, relationship_key: str
     ) -> tuple[RelationshipRecord, ...]:
-        return tuple(
-            edge
-            for edge in self._inner.relationship_history(
-                tenant_id=tenant_id, relationship_key=relationship_key
-            )
-            if edge.claim.subject_uri not in self._masked
-            and edge.claim.object_uri not in self._masked
+        return self._inner.relationship_history(
+            tenant_id=tenant_id, relationship_key=relationship_key
         )
 
 
@@ -469,61 +421,56 @@ class ProjectionEngine:
             return self._reader.snapshot_pin()
         return NO_STORE_SNAPSHOT_PIN
 
-    def execute_with_entities_masked(
+    def execute_without_request_seed(
         self,
         *,
-        masked: frozenset[str],
         executed: ExecutionResult,
         plan: ProjectionPlan | ContentAcquiringPlan,
         perspective: Perspective,
         tenant_id: str,
         temporal_boundary: datetime,
-        seeds: frozenset[str] | None = None,
     ) -> ExecutionResult:
-        """Re-execute ``plan`` as if the ``masked`` entities were NOT in the graph.
+        """Re-execute ``plan`` exactly as ``executed`` ran, minus the request seed.
 
-        SEC-020; ``D-IMPL-370`` Q12 (a) constant-fill, corrected (SDK-defined,
-        CLAUDE.md §11). Read by the governed resolver when Π raised the typed
-        withheld signal (``src/ccf/projection/plan.py::ProjectionOutput``):
-        the baseline a withheld subject must render as is the SAME fabric with
-        that subject absent — its entity, its claims, and whatever was
-        reachable only through it masked out, and every sibling still present.
-        That is what a subject that was never ingested reads on this fabric.
+        SEC-020; ``D-IMPL-371`` (SDK-defined, CLAUDE.md §11). Read by the
+        governed resolver when Π raised the typed withheld signal
+        (``src/ccf/projection/plan.py::ProjectionOutput``). A withheld subject
+        must render as a subject that names nothing renders, and the ONLY way a
+        question's subject reaches the operator stage is the request seed
+        (`GQ-11`: walk starts are the union of the plan's seed classes and the
+        request seed). So the walk here starts exactly where a never-ingested
+        identifier's starts — the class seeds and nothing else — and the
+        withheld subject's own records are in the view if and only if a class
+        seed reaches them, exactly as they are for that identifier. No record
+        is masked; seeding semantics are untouched.
 
-        The operator plan is re-executed in full over
-        :class:`_EntitiesMaskedReader`, on a fresh engine sharing this one's
-        registry and survivor cap (so this engine's telemetry is not
-        replaced), with the same seeds, boundary and perspective. Content the
-        real execution acquired is RE-FED rather than re-acquired — the replay
-        posture (INV-CH7-31) — so the masked run reaches nothing outside the
-        graph. The masked read sees the state ``executed`` saw: it is pinned
-        to ``executed.store_snapshot_pin`` where the store can pin, and the
-        result carries the real execution's attestation and pin.
+        Every other input is the shadowed execution's: the same plan, boundary
+        and perspective, on a fresh engine sharing this one's registry and
+        survivor cap (so this engine's telemetry is not replaced), reading the
+        store at ``executed.store_snapshot_pin`` where the store can pin.
+        Content the real execution acquired is RE-FED rather than re-acquired
+        (the replay posture, INV-CH7-31). The result carries the real
+        execution's attestation and pin.
 
         Args:
-            masked: Entity URIs to treat as never ingested.
             executed: The real execution of the same plan, already run.
         """
-        masked_engine = ProjectionEngine(
-            reader=_EntitiesMaskedReader(
-                inner=self._reader,
-                masked=masked,
-                pin=executed.store_snapshot_pin,
-            ),
+        unseeded_engine = ProjectionEngine(
+            reader=_PinnedReader(inner=self._reader, pin=executed.store_snapshot_pin),
             registry=self._registry,
             survivor_cap=self._survivor_cap,
         )
-        masked_execution = masked_engine.execute(
+        unseeded = unseeded_engine.execute(
             plan=plan,
             perspective=perspective,
             tenant_id=tenant_id,
             temporal_boundary=temporal_boundary,
-            seeds=seeds,
+            seeds=None,
             recorded_acquisitions=(
                 executed.acquisitions if isinstance(plan, ContentAcquiringPlan) else None
             ),
         )
-        return masked_execution.model_copy(
+        return unseeded.model_copy(
             update={
                 "source_attestation": executed.source_attestation,
                 "store_snapshot_pin": executed.store_snapshot_pin,

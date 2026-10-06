@@ -22950,9 +22950,9 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf.projection.engine.ProjectionEngine
 - Public surface: true
 - Change type: reshaped
-- Before: no way to execute a plan as if some entities had never been ingested.
-- After: adds the method `execute_with_entities_masked(*, masked, executed, plan, perspective, tenant_id, temporal_boundary, seeds=None)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap. Every query is answered by the reference semantics (`ccf.graph.fallback.answer`) over one as-of read of the real store, with the masked entities' records and every relationship touching them removed. The read is pinned to `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
-- Why: SEC-020, corrective round. This is the one definition of "this fabric without the subject" that the resolver's constant-fill branch reads.
+- Before: no way to re-execute a plan as a question naming nothing would execute it.
+- After: adds the method `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap and with `seeds=None`. That is the only difference from the real execution. Every query is answered at `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
+- Why: SEC-020, `D-IMPL-371`. This is the one definition of "what a subject that names nothing reads" that the resolver's constant-fill branch reads.
 - Migration: none. The method is additive.
 
 *Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
