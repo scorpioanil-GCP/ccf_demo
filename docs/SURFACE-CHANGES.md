@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1880 entries**, of which **1614** name a public Python surface.
+**1889 entries**, of which **1623** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1061 entries — 1017 public Python surface, 44 not public Python API.
+1064 entries — 1020 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16249,6 +16249,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.assembly.worker.RefusedAssertion
+
+- Surface: ccf.assembly.worker.RefusedAssertion
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a contract `(entity_uri, entity_class, attribute, source_system_id, envelope_id)`. It carries no value.
+- Why: lets the caller see a refusal. The record of truth is the audit event.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+
+- Surface: ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a derived `AuditEvent` with `refused_entity_class`, `refused_attribute`, `refused_source_system_id`, `refused_envelope_id` and `refused_value_present`. Each field is hash-transparent at `None`. `AuditLog.append` builds this event when it receives `refused_attribute`. The refused value is never recorded (SEC-024 discipline).
+- Why: an examiner can ask which source tried to relabel which entity, without the audit plane holding a copy of the data the label protects.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.deployment.manifest.UngovernedClassificationAttribute
+
+- Surface: ccf.deployment.manifest.UngovernedClassificationAttribute
+- Public surface: true
+- Change type: added
+- Before: absent. A deployment could admit on an attribute that any source could relabel.
+- After: a `ValueError` subclass carrying `operator_key`, `entity_class` and `attribute`. `_register_and_boot` raises it before anything is registered, which covers both `load_and_boot` and `load_config_and_boot`. It is raised when a `PolicyFilterParametersArtifact` names `classification_attribute_by_class: {class: attribute}` and the resolution spec in force has a rule of that class that writes the attribute without `attribute_authorities` for it. A class that no rule writes the attribute for is not refused. Nothing source-asserts that attribute, and `PolicyFilter` admits such an entity to nobody.
+- Why: SEC-023, Dave's correction of 2026-10-06. The L2 refusal governs only what a deployment declares. This check makes the declaration mandatory wherever classification controls access.
+- Migration: a deployment whose `PolicyFilter` names a classification attribute declares `attribute_authorities` for it on every rule that writes it. Every shipped example config and the banking fixtures were updated. A fabric composed by hand through `ccf.boot.boot` never sees operator parameters, so this check does not cover it (the low road, `D-IMPL-364`).
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -16960,7 +16996,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-534 entries — 344 public Python surface, 190 not public Python API.
+538 entries — 348 public Python surface, 190 not public Python API.
 
 ### Public Python surface
 
@@ -23149,6 +23185,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.assembly.worker.EntityResolutionRule
+
+- Surface: ccf.assembly.worker.EntityResolutionRule
+- Public surface: true
+- Change type: reshaped
+- Before: no way to say which source may assert an attribute. Every attribute in `attribute_keys` was source-asserted.
+- After: adds `attribute_authorities: Mapping[str, frozenset[str]]`, which maps a governed attribute to the `SourceIdentity.system_id` values allowed to assert it. It defaults to empty and is hash-transparent when empty (`D-IMPL-243`), so every existing rule keeps its content hash. An empty source set is fail-closed: no source may assert that attribute. A key that is not one of `attribute_keys` is refused at construction (`ValueError` naming `attribute_authorities`).
+- Why: SEC-023. This is the only SDK-typed Control Plane artifact the L2 worker holds when it writes a claim.
+- Migration: none for existing artifacts. To govern an attribute, declare `attribute_authorities: {<attribute>: [<system id>, ...]}` on every rule that carries it.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.assembly.worker.IngestResult
+
+- Surface: ccf.assembly.worker.IngestResult
+- Public surface: true
+- Change type: reshaped
+- Before: `entities` and `relationships` only.
+- After: adds `refused_assertions: tuple[RefusedAssertion, ...]`, which defaults to `()` and is hash-transparent when empty.
+- Why: SEC-023. A refusal is an outcome that `ingest` returns. It is never an exception.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: 22 members ending in `composition`.
+- After: adds `attribute_assertion_refused`, which is always `resolved=False`.
+- Why: none of the existing members can describe a refused L2 write without making the log say something untrue.
+- Migration: a consumer that matches exhaustively on the action vocabulary adds the member.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditLog
+
+- Surface: ccf.controlplane.audit.AuditLog
+- Public surface: true
+- Change type: reshaped
+- Before: `append` accepted the authz and verdict-integrity keywords.
+- After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
+- Why: SEC-023.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -26141,7 +26225,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-238 entries — 206 public Python surface, 32 not public Python API.
+240 entries — 208 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -30212,6 +30296,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a peered child must carry issuance claims whose `answered.subject` is the subject the composite asked, or it is refused `question-mismatch`; a hand-built peered candidate's own echo fields are disregarded
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
+
+#### ccf.assembly.worker.EntityResolutionSpec
+
+- Surface: ccf.assembly.worker.EntityResolutionSpec
+- Public surface: true
+- Change type: behavior
+- Before: no cross-rule check.
+- After: if any rule of an entity class governs an attribute, every rule of that class that carries the attribute must declare the identical source set. Otherwise the spec is refused at construction. Adds `governed_attributes()`, which returns class -> attribute -> authorized sources.
+- Why: the source's payload decides which rule fires. Without this check, a source could present the match key of a second rule that does not govern the attribute and assert it there.
+- Migration: none unless a spec already governs an attribute.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: `ingest` wrote every resolved entity's claim, whatever its source.
+- After: `ingest` writes no claim for an entity whose source is outside the declared set for a governed attribute it asserts. It derives no relationship from that entity in the same envelope. For each refused attribute it appends one `attribute_assertion_refused` event to the Control Plane audit log, with `occurred_at` set to the envelope's ingestion timestamp. It returns normally.
+- Why: if the refusal were raised, a non-authoritative source could refuse every serve whose acquisition touched it, through `src/ccf/products/resolver.py::SDK_SEAM_REFUSALS`.
+- Migration: none for ungoverned attributes.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
 
 ### Not public Python API
 

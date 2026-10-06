@@ -796,6 +796,7 @@
       "IdentityRefused",
       "IngestResult",
       "NO_RESOLVING_RULE",
+      "RefusedAssertion",
       "RelationshipResolutionRule",
       "ResolvedEntity",
       "SpecDrivenEntityResolution"
@@ -808,6 +809,7 @@
       "EntityResolutionRule": {
         "kind": "contract",
         "shape": {
+          "attribute_authorities": "collections.abc.Mapping[str, frozenset[str]]",
           "attribute_keys": "tuple[str, ...]",
           "entity_class": "<class 'str'>",
           "identity_keys": "tuple[str, ...]",
@@ -845,6 +847,7 @@
           "entities": "tuple[ccf.graph.protocols.UpsertResult, ...]",
           "envelope_id": "<class 'str'>",
           "policy_bundle_version": "<class 'str'>",
+          "refused_assertions": "tuple[ccf.assembly.worker.RefusedAssertion, ...]",
           "relationships": "tuple[ccf.graph.protocols.UpsertResult, ...]",
           "tenant_id": "<class 'str'>"
         }
@@ -852,6 +855,16 @@
       "NO_RESOLVING_RULE": {
         "kind": "constant",
         "shape": "str"
+      },
+      "RefusedAssertion": {
+        "kind": "contract",
+        "shape": {
+          "attribute": "<class 'str'>",
+          "entity_class": "<class 'str'>",
+          "entity_uri": "<class 'str'>",
+          "envelope_id": "<class 'str'>",
+          "source_system_id": "<class 'str'>"
+        }
       },
       "RelationshipResolutionRule": {
         "kind": "contract",
@@ -2249,6 +2262,7 @@
   },
   "ccf.controlplane.audit": {
     "__all__": [
+      "AttributeAssertionRefusedAuditEvent",
       "AuditAction",
       "AuditEvent",
       "AuditLog",
@@ -2258,14 +2272,32 @@
       "WorkflowVerdictIntegrityFailure"
     ],
     "exports": {
+      "AttributeAssertionRefusedAuditEvent": {
+        "kind": "contract",
+        "shape": {
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
+          "actor": "str | None",
+          "artifact_class": "str | None",
+          "key": "<class 'str'>",
+          "occurred_at": "<class 'datetime.datetime'>",
+          "refused_attribute": "str | None",
+          "refused_entity_class": "str | None",
+          "refused_envelope_id": "str | None",
+          "refused_source_system_id": "str | None",
+          "refused_value_present": "bool | None",
+          "resolved": "<class 'bool'>",
+          "sequence": "<class 'int'>",
+          "version": "<class 'str'>"
+        }
+      },
       "AuditAction": {
         "kind": "function",
-        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition']"
+        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']"
       },
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2282,7 +2314,7 @@
       "AuthzDecisionAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "authz_action_id": "str | None",
@@ -2304,7 +2336,7 @@
       "WorkflowVerdictIntegrityAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2348,7 +2380,7 @@
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2875,6 +2907,7 @@
   "ccf.deployment.manifest": {
     "__all__": [
       "BootedFabric",
+      "UngovernedClassificationAttribute",
       "keys_under_tenant",
       "load_and_boot",
       "manifest_under_tenant",
@@ -2884,6 +2917,10 @@
       "BootedFabric": {
         "kind": "class",
         "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None) -> None"
+      },
+      "UngovernedClassificationAttribute": {
+        "kind": "class",
+        "shape": "(*, operator_key: 'str', entity_class: 'str', attribute: 'str') -> 'None'"
       },
       "keys_under_tenant": {
         "kind": "function",

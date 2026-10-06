@@ -114,6 +114,8 @@ def _resolution_spec(ontology: Any) -> EntityResolutionSpec:
                 entity_class=rule["entity_class"],
                 identity_keys=tuple(rule["identity_keys"]),
                 attribute_keys=(*rule.get("attribute_keys", ()), CHANGE_OP_KEY),
+                # SEC-023: the fixture's declared classification authority.
+                attribute_authorities=rule.get("attribute_authorities", {}),
             )
             for rule in ontology["entity_rules"]
         ),

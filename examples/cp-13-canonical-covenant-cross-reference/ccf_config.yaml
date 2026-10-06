@@ -116,6 +116,8 @@ resolution:
   # which is the shape the 2026-09-13 URI collision violated upstream.
   entity_rules:
     - match_key: anchor_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {source_uri: [covenant_cross_reference]}
       entity_class: cxr_anchor
       identity_keys: [entity_uri]
       # THE ANCHOR CARRIES ITS EVIDENCE AS CLAIMS (`CP-SPEC-013C` §0.1,
@@ -126,6 +128,7 @@ resolution:
       attribute_keys: [source_uri, node_kind, covenant_type, label, payload_json,
                        source_json, envelope_json, governing_json, seeded_on]
     - match_key: chain_node
+      attribute_authorities: {source_uri: [covenant_cross_reference]}
       entity_class: cxr_node
       identity_keys: [entity_uri]
       # `node_kind` stays a first-class claim attribute even though this

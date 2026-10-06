@@ -56,6 +56,10 @@ ARTIFACT_SET: tuple[tuple[str, str, str, str, str, dict[str, Any]], ...] = (
                     "entity_class": "account",
                     "identity_keys": ["account_ref"],
                     "attribute_keys": ["classification", "label"],
+                    # SEC-023 (`D-IMPL-372`): the Policy operator below admits
+                    # `account` on `classification`, so the deployment names
+                    # the one source that may assert it, or it does not boot.
+                    "attribute_authorities": {"classification": ["fixture-system"]},
                 }
             ],
         },

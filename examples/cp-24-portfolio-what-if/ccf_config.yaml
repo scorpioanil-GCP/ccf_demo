@@ -160,6 +160,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: book_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-24-portfolio-what-if]}
       entity_class: book
       identity_keys: [entity_uri]
       attribute_keys: [banker_id, banker_name, banker_role, banker_desk, perspective,
@@ -170,11 +172,13 @@ resolution:
                        base_rate_series, base_rate_pct, base_rate_observed_at,
                        records_materialized, classification]
     - match_key: member_node
+      attribute_authorities: {classification: [cp-24-portfolio-what-if]}
       entity_class: member
       identity_keys: [entity_uri]
       attribute_keys: [lei, legal_name, sic, sic_description, in_book, is_primary,
                        assigned_date, classification]
     - match_key: facility_node
+      attribute_authorities: {classification: [cp-24-portfolio-what-if]}
       entity_class: facility
       identity_keys: [entity_uri]
       attribute_keys: [facility_id, lei, facility_type, commitment_amount, drawn_amount,
@@ -182,6 +186,7 @@ resolution:
     # THE OBSERVED COLLATERAL. Its `valuation_date` and age travel into every
     # derived figure and are never reset by arithmetic (`WIF-G11`/`WIF-G12`).
     - match_key: collateral_node
+      attribute_authorities: {classification: [cp-24-portfolio-what-if]}
       entity_class: collateral
       identity_keys: [entity_uri]
       attribute_keys: [asset_id, lei, category, valuation, valuation_date,
@@ -189,6 +194,7 @@ resolution:
     # THE OBSERVED BASE RATE — a claim with source lineage. The SHIFT is not
     # here and never becomes a claim (`WIF-G06`).
     - match_key: rate_node
+      attribute_authorities: {classification: [cp-24-portfolio-what-if]}
       entity_class: rate
       identity_keys: [entity_uri]
       attribute_keys: [series_id, obs_date, value_pct, unit, label, classification]

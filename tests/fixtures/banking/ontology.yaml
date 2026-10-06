@@ -18,6 +18,12 @@ tenant_id: acme-bank
 # on one node without either system knowing about the other.
 entity_rules:
   - match_key: counterparty_lei
+    # SEC-023 (D-IMPL-372): only the named source systems may assert the
+    # attribute `classification_attribute_by_class` below admits on. A claim
+    # from any other source is refused and audited at L2. The fixture MCP
+    # ingress source (`mcp_source.yaml`) republishes every event below, so it
+    # is named on every class.
+    attribute_authorities: {counterparty_classification: [acme-bank-document-mcp, core-banking, kyc-registry]}
     entity_class: counterparty
     identity_keys: [counterparty_lei]
     attribute_keys:
@@ -26,6 +32,7 @@ entity_rules:
       - counterparty_classification
 
   - match_key: facility_id
+    attribute_authorities: {facility_classification: [acme-bank-document-mcp, collateral-system, core-banking, covenant-monitor]}
     entity_class: facility
     identity_keys: [facility_id]
     attribute_keys:
@@ -35,6 +42,7 @@ entity_rules:
       - facility_classification
 
   - match_key: guarantee_id
+    attribute_authorities: {guarantee_classification: [acme-bank-document-mcp, collateral-system]}
     entity_class: guarantee
     identity_keys: [guarantee_id]
     attribute_keys:
@@ -43,6 +51,7 @@ entity_rules:
       - guarantee_classification
 
   - match_key: covenant_id
+    attribute_authorities: {covenant_classification: [acme-bank-document-mcp, covenant-monitor]}
     entity_class: covenant
     identity_keys: [covenant_id]
     attribute_keys:

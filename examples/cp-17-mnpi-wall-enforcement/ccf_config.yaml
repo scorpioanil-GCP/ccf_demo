@@ -165,6 +165,8 @@ resolution:
   # `classification`; a class that lost it would be inadmissible.
   entity_rules:
     - match_key: issuer_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-17-mnpi-wall]}
       entity_class: issuer
       identity_keys: [entity_uri]
       # `plan_json` is the served principal's OWN plan (it is entitled to
@@ -174,22 +176,27 @@ resolution:
       attribute_keys: [lei, legal_name, legal_jurisdiction, entity_status,
                        classification, reg_fd_disclosure_json, plan_json, ledger_t]
     - match_key: family_node
+      attribute_authorities: {classification: [cp-17-mnpi-wall]}
       entity_class: family_member
       identity_keys: [entity_uri]
       attribute_keys: [lei, legal_name, relation, classification]
     - match_key: deal_node
+      attribute_authorities: {classification: [cp-17-mnpi-wall]}
       entity_class: deal_engagement
       identity_keys: [entity_uri]
       attribute_keys: [deal_id, deal_type, stage, opened_date, mnpi_bearing, classification]
     - match_key: interaction_node
+      attribute_authorities: {classification: [cp-17-mnpi-wall]}
       entity_class: interaction
       identity_keys: [entity_uri]
       attribute_keys: [interaction_id, interaction_type, interaction_date, deal_id, classification]
     - match_key: research_node
+      attribute_authorities: {classification: [cp-17-mnpi-wall]}
       entity_class: research_note
       identity_keys: [entity_uri]
       attribute_keys: [note_id, title, authored_date, status, classification, body, content_hash]
     - match_key: position_node
+      attribute_authorities: {classification: [cp-17-mnpi-wall]}
       entity_class: position
       identity_keys: [entity_uri]
       attribute_keys: [position_id, book, quantity, as_of, classification]

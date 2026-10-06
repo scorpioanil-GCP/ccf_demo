@@ -338,6 +338,52 @@ apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
 
+### 4.5 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
+
+The Policy operator admits an entity by the value of one attribute, the one
+`classification_attribute_by_class` names. That attribute comes from source
+payloads like any other attribute. For each entity, the claim with the latest
+ingestion timestamp replaces the whole attribute set, so without a declaration
+any source can relabel a `restricted` entity as `public` simply by sending a
+later record.
+
+Name the sources that may assert the attribute on every resolution rule that
+writes it:
+
+```yaml
+resolution:
+  entity_rules:
+    - match_key: counterparty_lei
+      entity_class: counterparty
+      identity_keys: [counterparty_lei]
+      attribute_keys: [counterparty_name, classification]
+      attribute_authorities: {classification: [core-banking]}
+```
+
+Three things follow, and all three are mechanism:
+
+- **A claim from any other source is refused whole and recorded.** The L2
+  worker writes nothing from that envelope for that entity. It does not strip
+  the attribute, and it does not merge the attribute with the authoritative
+  value. It appends an `attribute_assertion_refused` event to the Control
+  Plane audit log, and it lists the refusal on `IngestResult`
+  (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). The refused value is
+  not copied anywhere. The refusal is never raised, so a source without
+  authority cannot block your serves. An authorized source may move the label
+  in either direction.
+- **An empty source set means no source may assert the attribute.**
+- **A deployment that omits the declaration does not boot.** If a Policy
+  operator admits on an attribute that a rule writes with no
+  `attribute_authorities`, `load_and_boot` and `load_config_and_boot` refuse
+  with `UngovernedClassificationAttribute`
+  (`src/ccf/deployment/manifest.py::UngovernedClassificationAttribute`)
+  before anything is registered.
+
+Authority is only as strong as your binding of `SourceIdentity.system_id` to
+a real system. The SDK does not attest source identity: the adapter declares
+it. A fabric composed by hand through `ccf.boot.boot` never sees operator
+parameters, so the boot check does not cover it.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value
