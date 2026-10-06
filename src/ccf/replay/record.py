@@ -92,7 +92,7 @@ from ccf.halflife.assessment import (
     ObligationInForce,
     SourceRefreshRecency,
 )
-from ccf.products.contract import AssemblyMode, ComputedEmptyFinding, ContextProductContract
+from ccf.products.contract import AssemblyMode, ContextProductContract
 from ccf.projection.engine import ExecutionResult, ExecutionStep
 from ccf.projection.plan import Perspective
 
@@ -1464,20 +1464,6 @@ class ContentGenerationPath(CCFContract):
     ttl_anchor_at: datetime | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
-    # SEC-020 (`D-IMPL-370` Q12 (a), its final rule `D-IMPL-371`): the served
-    # product's EMPTY FINDING, copied from the product exactly as
-    # `ttl_anchor_at` is, so replay rehydrates it rather than re-deriving it.
-    # It is inside the product's address whenever it is not `None`, and before
-    # this member existed no record carried it, so every product served WITH a
-    # finding — a computed-empty answer, and every withheld subject — rebuilt
-    # without one and failed replay with `ReplayDivergence` on its content
-    # address. It is the governed resolver's finding, which for a withheld
-    # subject is the unseeded re-execution's (`D-IMPL-371`), never replay's.
-    # Hash-transparent at `None`, so every record written before this member
-    # existed keeps its bytes and address.
-    computed_empty: ComputedEmptyFinding | None = Field(
-        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
-    )
     # `D-IMPL-358` ruling 1 — WHEN THE ANSWER WAS SERVED, read once from the
     # fabric-controlled clock at `GovernedResolver.__call__` entry. A third
     # instant, distinct from both of the two this dimension already relates:
@@ -2156,8 +2142,6 @@ def build_replay_record(
             # recorded with no evidence that any child was ever admitted.
             child_resolutions=child_resolutions,
             ttl_anchor_at=product.ttl_anchor_at if product is not None else None,
-            # SEC-020: the empty finding, copied as `ttl_anchor_at` is.
-            computed_empty=product.computed_empty if product is not None else None,
             # `D-IMPL-358` step 4. Passed rather than derived: `ttl_anchor_at`
             # above can be read off the product because the product carries it,
             # and no artifact carries the instant the answer was handed over —

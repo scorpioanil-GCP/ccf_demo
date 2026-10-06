@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1883 entries**, of which **1617** name a public Python surface.
+**1880 entries**, of which **1614** name a public Python surface.
 
 ## Added
 
@@ -16960,7 +16960,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-537 entries — 347 public Python surface, 190 not public Python API.
+534 entries — 344 public Python surface, 190 not public Python API.
 
 ### Public Python surface
 
@@ -23100,42 +23100,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: every constructor call must now pass `max_pending`. A sending peer sees the refusal as `PeerUnreachable` from `emit` / `emit_async`. Not covered here, and escalated separately: `a2a-sdk`'s JSON-RPC dispatcher reads the request body before this transport's checks run, so `max_message_bytes` bounds the carried envelope, not the bytes the process buffers.
 
 *Recorded by `369-21-sec-021-receive-queue-bound.md`.*
-
-#### ccf.projection.plan.ProjectionOutput
-
-- Surface: ccf.projection.plan.ProjectionOutput
-- Public surface: true
-- Change type: reshaped
-- Before: `plan_id: str`, `payload: Mapping[str, Any]`. A projection that withheld a subject could only do so silently.
-- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from `ExecutionResult.over_empty_view()`. The replay record keeps the execution that ran.
-- Why: SEC-020 and Q12 (a). The withheld subject's claims must not move any member a consumer reads. A withhold is never inferred from an empty payload (`D-IMPL-242` amendment 1).
-- Migration: none for a projection that does not withhold. A projection that withholds today by returning an empty payload should set `withheld=True` to get the constant-fill rendering.
-
-*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
-
-#### ccf.projection.engine.ProjectionEngine
-
-- Surface: ccf.projection.engine.ProjectionEngine
-- Public surface: true
-- Change type: reshaped
-- Before: no way to re-execute a plan as a question naming nothing would execute it.
-- After: adds the method `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap and with `seeds=None`. That is the only difference from the real execution. Every query is answered at `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
-- Why: SEC-020, `D-IMPL-371`. This is the one definition of "what a subject that names nothing reads" that the resolver's constant-fill branch reads.
-- Migration: none. The method is additive.
-
-*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
-
-#### ccf.replay.record.ContentGenerationPath
-
-- Surface: ccf.replay.record.ContentGenerationPath
-- Public surface: true
-- Change type: reshaped
-- Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
-- After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
-- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes the pre-existing divergence for every empty-finding product.
-- Migration: none for records. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
-
-*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 
 #### ccf.products.child_resolver.GrantBoundChildResolver
 
