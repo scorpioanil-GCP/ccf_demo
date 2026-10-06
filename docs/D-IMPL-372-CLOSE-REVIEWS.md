@@ -49,4 +49,17 @@ F1 (Codex, LOW-04), by probe.
 | targeted re-runs on `d3f39126` (the only code change after `80d3b223` is the LOW-05 lint; the only other change is two example configs) | `tools/lints/tests` + hash-transparency + surface **911 passed**; `tests/examples` **28 failed, 992 passed, 743 skipped — identical to the base**; `tools/docs_tests` **320 passed**; `tools.lints --all` rc=0; `mypy` clean (244 files) |
 | the Postgres lease | **not run locally** (no server); the hosted CI Postgres leg is the proof — see the batch report |
 
-(filled: hosted CI)
+## Hosted CI (GitHub, `ci.yml` on every push), read per job
+
+| Commit | lint + strict types | docs gate | tests (python 3.12) | examples suite |
+| --- | --- | --- | --- | --- |
+| `main` @ `29a3c5a4` (baseline) | success | success | failure: one node, `perf/suites/micro/test_factory.py::test_task_factory_construct` | failure: the hw1 reference client exits 1 (standing) |
+| `ea966348` (SEC-023 integrated) | success | **failure** (retirement report stale between docs commits; regenerated at `0c407c83`) | failure: the same single node | the same |
+| `80d3b223` (all three rows) | success | success | failure: **the same single node** | the same |
+| `d3f39126` (final code) | in progress at the time of writing; the only code change after `80d3b223` is the LOW-05 lint, whose tests ran locally (911) | | | |
+
+**The Postgres lease ran on the hosted leg.** The tests job binds a `postgres:16` service and sets
+`CCF_REQUIRE_POSTGRES=1`, under which a `postgres`-marked test **fails** rather than skips when no server answers;
+the job's failing set at `80d3b223` is exactly the baseline's single perf node, so SEC-013's Postgres twin
+(`tests/graph/test_single_writer_across_processes.py`, the `postgres` case) executed against a live server and passed.
+It was not run locally (no disposable server).
