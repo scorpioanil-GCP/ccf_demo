@@ -126,7 +126,15 @@ class TestEntrySchema:
         with pytest.raises(ValueError) as excinfo:
             SkillCatalogEntry.model_validate(retired["entry"])
         message = str(excinfo.value)
-        assert retired["token"] in message
+        # SEC-024 (choice C, `D-IMPL-371`): `CCFContract` hides rejected input
+        # values from error text, so the retired token itself is no longer
+        # echoed. Refused-by-name is read from the structured error instead:
+        # a closed-world literal refusal on `skill_type`.
+        errors = excinfo.value.errors()  # type: ignore[attr-defined]
+        assert [(e["type"], tuple(e["loc"])) for e in errors] == [
+            ("literal_error", ("skill_type",))
+        ]
+        assert retired["token"] not in message
         # Refused against the enumerated closed world, naming the surviving
         # member the deployment should have re-declared under.
         assert "peering" in message
