@@ -131,6 +131,9 @@ dev = [
   # Phase 14 D-IMPL-71: the docs toolchain arrives with the same one command, so no
   # existing CI job's `pip install -e ".[dev]"` step changes to gain `make docs`.
   "ccf[docs]",
+  # SEC-028 (D-IMPL-369, ruling Q17 of D-IMPL-368): the lock tool, so the lock
+  # carries the tool that regenerates it. See README.md "Regenerating the lock".
+  "pip-tools==7.6.1",
 ]
 
 [tool.setuptools_scm]
