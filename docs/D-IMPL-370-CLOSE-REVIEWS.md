@@ -39,4 +39,29 @@ None.
 
 ## Reopen — SEC-020 corrective round
 
-(filled after re-verification)
+Dispatched as SEC-020's one corrective round with B1 (masked re-execution, same-fabric test), B2 (replay rehydration), B3
+(roster) and B4 (optional). Result on `row-sec-020` @ `1a2359e4` (pushed, kept as evidence): all four landed —
+`ProjectionEngine.execute_with_entities_masked`, a masked reader over one store read pinned to the real snapshot, the
+withheld subject and every relationship touching it removed before the walk, acquired content re-fed; `ContentGenerationPath.computed_empty`
+(hash-transparent at `None`) written by `build_replay_record` and copied back by `rehydrate_product`, with two paved-road replay
+tests (a withheld decision and the nonexistent-on-empty control, which was diverging before, now both replay to their own
+address); both new fields ticked in the `D-IMPL-243` roster; the AST check tightened. Exploit module **9 passed, 2 xfailed
+(strict)**; eight severings each reddened it with sha-checked restores; 595-address census 0 moved.
+
+**But the row is NOT resolved, and the executor measured why.** On one class-seeded fabric a nonexistent subject's walk
+(class seeds ∪ request seed) still **reads the withheld subject's own claims** — it is an in-scope entity — while the
+masked rendering excludes them. Whenever the withheld subject's observations are fresher or staler than its siblings'
+(measured: withheld at 11:55, siblings at 11:30), `from_decision` differs at `debt.debt` and `debt.factors.freshness`, and
+`from_entity_freshness` also at `expires_at` and `ttl_anchor_at`. In practice a withheld subject's freshness almost
+never equals its siblings', so on class-seeded plans the masked rendering is distinguishable in nearly every real case —
+a shape in which the **base tree did not leak** (both subjects read the same full view). The row's own test holds the
+residual as two strict xfails. **The correct rule is now identified and is not what either round built:** render the
+withheld subject from the plan re-executed **without the request seed** (the walk starts a nonexistent subject gets, by
+construction: class seeds only), not from the view with the subject's records masked. On a class-seeded plan that keeps
+the withheld subject's claims in the view exactly as a nonexistent subject sees them; on a subject-seeded plan it yields
+the empty view. That is a third round, which the cap forbids. **Disposition: SEC-020 PARKED.** The integration merge
+`01cb38a6` is **REVERTED** at `014f6e23` (assembled documents regenerated; `tests/contracts/test_hash_transparency.py`
+back to green), so the integration branch carries neither the round-1 leak nor the round-2 residual. The replay
+rehydration fix (B2), which also repaired a pre-existing divergence for empty-finding products, lives on the parked branch
+and is re-integrated with the row. **Proposal for Dave:** authorize one further SEC-020 round on the request-seed rule,
+with the same-fabric unequal-age case promoted from xfail to a required assertion.
