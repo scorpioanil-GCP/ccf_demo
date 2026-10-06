@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **331** across **109** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **176** across **64** files
+- Coupling rows: **332** across **110** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **177** across **65** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
 Rows by owning plan:
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 10 |
 | 17-08 | 111 |
-| 23-04 | 191 |
+| 23-04 | 192 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 12 |
-| `prose` | 103 |
+| `prose` | 104 |
 | `snippet-include` | 56 |
 | `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
@@ -86,6 +86,7 @@ Rows by coupling shape:
 | `docs/D-IMPL-363-CLOSE-REVIEWS.md` | 317 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/D-IMPL-363-CLOSE-REVIEWS.md` | 319 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/D-IMPL-363-CLOSE-REVIEWS.md` | 332 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
+| `docs/D-IMPL-371-CLOSE-REVIEWS.md` | 32 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 159 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 163 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 221 | `examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
