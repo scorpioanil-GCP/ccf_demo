@@ -123,7 +123,7 @@ async def _post(app: Any, authorization: bytes) -> httpx.Response:
         (b"content-type", b"application/json"),
     ]
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(transport=transport, base_url="http://guard.invalid") as c:
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as c:
         return await c.post("/mcp", content=json.dumps(_INIT).encode(), headers=headers)
 
 
