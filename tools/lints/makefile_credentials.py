@@ -11,8 +11,8 @@ beside the behavioral exploit test
 
 Three refusals, all over the repository-root ``Makefile``:
 
-1. **Echoed expansion.** A joined logical recipe line (tab-prefixed; never an
-   assignment or conditional directive) that expands a *credential variable*
+1. **Echoed expansion.** A joined logical recipe line that expands a
+   *credential variable*
    and does not begin with ``@``. A credential variable is one whose name ends
    in ``DSN``, ``URI``, ``URL`` or ``PASSWORD`` — by **name**, whatever today's
    value, so a Fluree ``URL`` with no userinfo is in scope — **or** one whose
@@ -22,9 +22,23 @@ Three refusals, all over the repository-root ``Makefile``:
 2. **Printed even behind ``@``.** ``@`` silences make's echo, not the
    command: an ``echo``/``printf`` of a credential variable prints it anyway,
    and ``set -x`` makes the shell echo everything. Both are refused on any
-   recipe line.
+   recipe line. Make's own ``$(info ...)``, ``$(warning ...)`` and
+   ``$(error ...)`` print their argument whatever the line's prefix, so a
+   credential variable inside one is refused on any line, recipe or not.
 3. **Baked credential default.** Any ``=``/``:=``/``?=`` assignment whose
-   value carries URL userinfo (``scheme://user:secret@``).
+   value carries URL userinfo — ``scheme://user:secret@`` or a colon-less
+   ``scheme://token@`` — and any ``*PASSWORD`` variable assigned a literal.
+
+**What a recipe line is.** Every tab-prefixed line is a recipe line, and
+nothing on it is exempt because its first word looks like a directive: in rule
+context GNU make hands a tab-prefixed ``ifdef``/``export``/``include`` line to
+the shell as a command and echoes it like any other (measured: ``t:`` then
+``<TAB>ifdef $(DSN)`` prints ``ifdef CANARY`` under ``SHELL=/bin/true``; the
+idiom ``<TAB>export X_DSN=$(X_DSN); cmd`` echoes the same way). Directives are
+recognized only on non-tab lines, which are read for definitions instead.
+
+Expansions are read in every form make evaluates: ``$(NAME)``, ``${NAME}``,
+``$(NAME:a=b)``, ``$(value NAME)``, and ``$(shell printenv NAME)``.
 
 ``$$NAME`` is a *shell* reference make does not expand, so rule 1 ignores it —
 make echoes the literal ``$NAME``. Rule 2 still refuses an ``echo $$NAME`` of a
@@ -59,7 +73,13 @@ _ASSIGNMENT = re.compile(
     r"(?P<name>[A-Za-z_][A-Za-z0-9_.\-]*)\s*"
     r"(?P<op>\?=|::=|:::=|:=|\+=|!=|=)\s*(?P<value>.*)$"
 )
-_DIRECTIVE = re.compile(r"^\s*(?:ifeq|ifneq|ifdef|ifndef|else|endif|define|endef|include|-include|sinclude|export|unexport|override|vpath)\b")
+_MAKE_PRINTER = re.compile(r"(?<!\$)\$[({](?:info|warning|error)[ \t]")
+_VALUE_REF = re.compile(r"(?<!\$)\$[({]value[ \t]+([A-Za-z_][A-Za-z0-9_.\-]*)[ \t]*[)}]")
+_PRINTENV_REF = re.compile(r"(?<!\$)\$[({]shell[ \t]+printenv[ \t]+([A-Za-z_][A-Za-z0-9_]*)")
+#: Colon-less userinfo, ``scheme://token@host``.
+TOKEN_USERINFO = re.compile(r"://[^/@\s:]+@")
+#: A make reference, removed to decide whether a value carries a literal.
+_ANY_REF = re.compile(r"\$[({][^)}]*[)}]")
 _PRINTER = re.compile(r"(?<![\w.\-/])(?:echo|printf)(?![\w.\-])")
 _SET_XTRACE = re.compile(r"\bset\s+(?:-[A-Za-z]*x[A-Za-z]*\b|-o\s+xtrace\b)")
 _SHELL_REF = re.compile(r"\$\$\{?([A-Za-z_][A-Za-z0-9_]*)")
@@ -118,7 +138,27 @@ def make_references(text: str) -> set[str]:
             i += 2
             continue
         i += 1
+    found |= set(_VALUE_REF.findall(text))
+    found |= set(_PRINTENV_REF.findall(text))
     return found
+
+
+def _make_printer_arguments(text: str) -> list[str]:
+    """The argument text of every ``$(info|warning|error ...)`` call in
+    ``text``, read to its balanced closing bracket."""
+    args: list[str] = []
+    for match in _MAKE_PRINTER.finditer(text):
+        opener = text[match.start() + 1]
+        closer = ")" if opener == "(" else "}"
+        depth, j = 1, match.end()
+        while j < len(text) and depth:
+            if text[j] == opener:
+                depth += 1
+            elif text[j] == closer:
+                depth -= 1
+            j += 1
+        args.append(text[match.end() : j - 1 if depth == 0 else j])
+    return args
 
 
 def _strip_comment(text: str) -> str:
@@ -184,20 +224,32 @@ def check_source(source: str, path: str = "Makefile") -> list[str]:
     defs = definitions(lines)
     referenced: set[str] = set()
     for line in lines:
-        if line.recipe:
-            referenced |= make_references(line.text)
+        referenced |= make_references(line.text)
     creds = credential_names(defs, referenced)
 
     findings: list[str] = []
     for lineno, name, value in defs:
-        if USERINFO.search(value):
+        if USERINFO.search(value) or TOKEN_USERINFO.search(value):
             findings.append(
                 f"{path}:{lineno} {RULE} {name} bakes a credential default"
                 " (URL userinfo `://user:secret@`); require the value from the"
                 " environment and refuse by name when it is unset"
             )
+        elif name.endswith("PASSWORD") and _ANY_REF.sub("", value).strip():
+            findings.append(
+                f"{path}:{lineno} {RULE} {name} bakes a literal password;"
+                " require it from the environment"
+            )
     for line in lines:
-        if not line.recipe or _DIRECTIVE.match(line.text.lstrip("\t")):
+        for arg in _make_printer_arguments(line.text):
+            printed = make_references(arg) & creds
+            if printed:
+                findings.append(
+                    f"{path}:{line.lineno} {RULE} $(info/warning/error) prints"
+                    f" {', '.join(sorted(printed))}; make writes it whatever the"
+                    " line's prefix"
+                )
+        if not line.recipe:
             continue
         refs = make_references(line.text) & creds
         if refs and not _silenced(line.text):
