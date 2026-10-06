@@ -59,9 +59,11 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.graph.protocols import (
     NO_STORE_SNAPSHOT_PIN,
+    EntityRecord,
     GraphQuery,
     GraphReader,
     GraphView,
+    RelationshipRecord,
     SnapshotPinnable,
     SourceAttestation,
     StoreSnapshotPin,
@@ -261,6 +263,54 @@ class ExecutionResult(CCFContract):
         return content_hash(self.view)
 
 
+class _PinnedReader:
+    """The real reader, answering every query at one pinned store state.
+
+    SEC-020; ``D-IMPL-371`` (SDK-defined, CLAUDE.md §11). Private to this
+    module and reached only through
+    :meth:`ProjectionEngine.execute_without_request_seed`. It changes NOTHING
+    about what is read — no record is added, removed or masked — except that,
+    where the store can pin and the pin is real, every query is answered as of
+    ``pin`` (the state the real execution read), so the re-execution and the
+    execution it shadows read the same committed state. A store that cannot
+    pin is read as it is. Read-only by construction: it holds the reader it
+    wraps and nothing else.
+    """
+
+    def __init__(self, *, inner: GraphReader, pin: StoreSnapshotPin) -> None:
+        self._inner = inner
+        self._pin = pin
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        """The real source's attestation."""
+        return self._inner.attestation
+
+    def snapshot_pin(self) -> StoreSnapshotPin:
+        """The pin the shadowed execution read under."""
+        return self._pin
+
+    def query(self, q: GraphQuery) -> GraphView:
+        if isinstance(self._inner, SnapshotPinnable) and self._pin != NO_STORE_SNAPSHOT_PIN:
+            return self._inner.query_pinned(q, pin=self._pin)
+        return self._inner.query(q)
+
+    def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
+        return self.query(GraphQuery(tenant_id=tenant_id, as_of=at))
+
+    def entity_history(
+        self, *, tenant_id: str, entity_uri: str
+    ) -> tuple[EntityRecord, ...]:
+        return self._inner.entity_history(tenant_id=tenant_id, entity_uri=entity_uri)
+
+    def relationship_history(
+        self, *, tenant_id: str, relationship_key: str
+    ) -> tuple[RelationshipRecord, ...]:
+        return self._inner.relationship_history(
+            tenant_id=tenant_id, relationship_key=relationship_key
+        )
+
+
 class ProjectionEngine:
     """Runs the operator plan, then decision-time acquisition, then Π.
 
@@ -370,6 +420,62 @@ class ProjectionEngine:
         if isinstance(self._reader, SnapshotPinnable):
             return self._reader.snapshot_pin()
         return NO_STORE_SNAPSHOT_PIN
+
+    def execute_without_request_seed(
+        self,
+        *,
+        executed: ExecutionResult,
+        plan: ProjectionPlan | ContentAcquiringPlan,
+        perspective: Perspective,
+        tenant_id: str,
+        temporal_boundary: datetime,
+    ) -> ExecutionResult:
+        """Re-execute ``plan`` exactly as ``executed`` ran, minus the request seed.
+
+        SEC-020; ``D-IMPL-371`` (SDK-defined, CLAUDE.md §11). Read by the
+        governed resolver when Π raised the typed withheld signal
+        (``src/ccf/projection/plan.py::ProjectionOutput``). A withheld subject
+        must render as a subject that names nothing renders, and the ONLY way a
+        question's subject reaches the operator stage is the request seed
+        (`GQ-11`: walk starts are the union of the plan's seed classes and the
+        request seed). So the walk here starts exactly where a never-ingested
+        identifier's starts — the class seeds and nothing else — and the
+        withheld subject's own records are in the view if and only if a class
+        seed reaches them, exactly as they are for that identifier. No record
+        is masked; seeding semantics are untouched.
+
+        Every other input is the shadowed execution's: the same plan, boundary
+        and perspective, on a fresh engine sharing this one's registry and
+        survivor cap (so this engine's telemetry is not replaced), reading the
+        store at ``executed.store_snapshot_pin`` where the store can pin.
+        Content the real execution acquired is RE-FED rather than re-acquired
+        (the replay posture, INV-CH7-31). The result carries the real
+        execution's attestation and pin.
+
+        Args:
+            executed: The real execution of the same plan, already run.
+        """
+        unseeded_engine = ProjectionEngine(
+            reader=_PinnedReader(inner=self._reader, pin=executed.store_snapshot_pin),
+            registry=self._registry,
+            survivor_cap=self._survivor_cap,
+        )
+        unseeded = unseeded_engine.execute(
+            plan=plan,
+            perspective=perspective,
+            tenant_id=tenant_id,
+            temporal_boundary=temporal_boundary,
+            seeds=None,
+            recorded_acquisitions=(
+                executed.acquisitions if isinstance(plan, ContentAcquiringPlan) else None
+            ),
+        )
+        return unseeded.model_copy(
+            update={
+                "source_attestation": executed.source_attestation,
+                "store_snapshot_pin": executed.store_snapshot_pin,
+            }
+        )
 
     def check_source_attestation(
         self, *, product_class: RegisteredProductClass
