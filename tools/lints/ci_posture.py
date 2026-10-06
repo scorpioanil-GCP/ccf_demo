@@ -15,8 +15,12 @@ base, each file parsed with ``yaml.safe_load``:
    that is *restrictive*: exactly ``{contents: read}``, or an empty mapping
    ``{}`` with every grant enumerated per job. A missing block, a string form
    (``write-all``, ``read-all``), or any other top-level grant is refused —
-   a write at the top level reaches every job. A job-level block may grant a
-   write by name (``contents: write``); a job-level ``write-all`` is refused,
+   a write at the top level reaches every job. A job-level override must be
+   an explicit mapping; it may grant a write by name (``contents: write``)
+   only beneath a restrictive top level, and
+   ``tools/lints/ci_posture.py::job_write_grants`` lists each such grant by
+   name. Every string form at job level (``read-all`` as much as ``write-all``)
+   is refused,
    because it enumerates nothing.
 2. **Pins.** Every ``uses:`` — on a step, or on a job that calls a reusable
    workflow — must name a full 40-hex commit SHA, with a trailing ``# vN``
@@ -108,8 +112,27 @@ def _raw_uses_lines(text: str) -> list[tuple[int, str, str | None]]:
     return found
 
 
+def job_write_grants(doc: dict[Any, Any]) -> list[str]:
+    """Every job-level write grant, by name: ``jobs.<id>: <scope>: write``.
+
+    A job-level write under a restrictive top level is ALLOWED — it is the
+    enumerated grant the rule asks for — so it is not a finding; this list is
+    how a reviewer (and the tests) see each one by name."""
+    grants: list[str] = []
+    jobs = doc.get("jobs")
+    if not isinstance(jobs, dict):
+        return grants
+    for job_id, job in jobs.items():
+        if isinstance(job, dict) and isinstance(job.get("permissions"), dict):
+            for scope, level in job["permissions"].items():
+                if level == "write":
+                    grants.append(f"jobs.{job_id}: {scope}: write")
+    return grants
+
+
 def _permission_findings(doc: dict[Any, Any], path: str) -> list[str]:
     findings: list[str] = []
+    restrictive = False
     if "permissions" not in doc:
         findings.append(
             f"{path}:1 {RULE} no top-level `permissions:` block; the token takes"
@@ -129,15 +152,35 @@ def _permission_findings(doc: dict[Any, Any], path: str) -> list[str]:
                 f" {dict(top)!r}; the top level may grant `contents: read` only"
                 " — enumerate any write on the job that needs it"
             )
+        else:
+            restrictive = True
     jobs = doc.get("jobs")
     if isinstance(jobs, dict):
         for job_id, job in jobs.items():
-            if isinstance(job, dict) and isinstance(job.get("permissions"), str):
-                if job["permissions"] != "read-all":
+            if not isinstance(job, dict) or "permissions" not in job:
+                continue
+            value = job["permissions"]
+            if not isinstance(value, dict):
+                # Every string form is refused — `read-all` as much as
+                # `write-all`: neither names a scope, so neither is the
+                # enumerated override the rule permits (SEC-015 corrective).
+                findings.append(
+                    f"{path}:1 {RULE} jobs.{job_id} `permissions: {value!r}` is"
+                    " not an explicit mapping; name each scope and level the job"
+                    " needs"
+                )
+                continue
+            for scope, level in value.items():
+                if level not in ("read", "write", "none"):
                     findings.append(
                         f"{path}:1 {RULE} jobs.{job_id} `permissions:"
-                        f" {job['permissions']}` enumerates nothing; name each"
-                        " grant the job needs"
+                        f" {scope}: {level!r}` is not read, write or none"
+                    )
+                elif level == "write" and not restrictive:
+                    findings.append(
+                        f"{path}:1 {RULE} jobs.{job_id} grants `{scope}: write`"
+                        " under a top level that is not restrictive; a job-level"
+                        " write is allowed only beneath `{contents: read}` or `{}`"
                     )
     return findings
 

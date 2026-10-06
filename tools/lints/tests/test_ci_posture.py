@@ -139,13 +139,51 @@ def test_an_empty_top_level_block_is_restrictive() -> None:
     assert _findings(CONFORMING.replace("permissions:\n  contents: read\n", "permissions: {}\n")) == []
 
 
+def _with_job_permissions(block: str) -> str:
+    return CONFORMING.replace(
+        "    runs-on: ubuntu-latest\n", f"    runs-on: ubuntu-latest\n    permissions:{block}\n"
+    )
+
+
+@pytest.mark.parametrize("form", [" read-all", " write-all", ""])
+def test_every_non_mapping_job_level_permissions_is_refused(form: str) -> None:
+    """Corrective round: `read-all` passed before; every string form, and an
+    empty value, is now refused — a job-level override names its scopes."""
+    found = _findings(_with_job_permissions(form))
+    assert len(found) == 1 and "not an explicit mapping" in found[0]
+
+
+def test_a_job_level_read_mapping_is_allowed() -> None:
+    assert _findings(_with_job_permissions("\n      contents: read")) == []
+
+
+def test_a_job_level_write_is_named_and_allowed_under_a_restrictive_top() -> None:
+    text = _with_job_permissions("\n      contents: write")
+    assert _findings(text) == []
+    assert lint.job_write_grants(yaml.safe_load(text)) == ["jobs.build: contents: write"]
+
+
+def test_a_job_level_write_under_a_wide_top_level_is_refused_by_name() -> None:
+    text = _with_job_permissions("\n      contents: write").replace(
+        "permissions:\n  contents: read\n", "permissions:\n  packages: write\n", 1
+    )
+    found = _findings(text)
+    assert len(found) == 2
+    assert any("jobs.build grants `contents: write`" in f for f in found)
+
+
+def test_an_unknown_job_level_level_is_refused() -> None:
+    found = _findings(_with_job_permissions("\n      contents: admin"))
+    assert len(found) == 1 and "not read, write or none" in found[0]
+
+
 def test_a_job_level_write_all_is_refused() -> None:
     text = CONFORMING.replace(
         "    runs-on: ubuntu-latest\n",
         "    runs-on: ubuntu-latest\n    permissions: write-all\n",
     )
     found = _findings(text)
-    assert len(found) == 1 and "enumerates nothing" in found[0]
+    assert len(found) == 1 and "not an explicit mapping" in found[0]
 
 
 def test_a_reusable_workflow_call_is_pinned_too() -> None:

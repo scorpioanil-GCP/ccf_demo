@@ -169,6 +169,110 @@ def test_nonconforming_commands_are_refused(command: str) -> None:
     assert len(lint.check_command(command, "w:1")) == 1
 
 
+# --- corrective round: every pip spelling, every other installer, in-tree -e --
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "pip -q install --require-hashes -r requirements.lock",
+        "pip3.12 --disable-pip-version-check install --require-hashes -r requirements.lock",
+        "python3 -m pip --no-cache-dir install -e . --no-deps --no-build-isolation",
+        "python3.12 -I -m pip install -e ./tests/fixtures/x --no-deps --no-build-isolation",
+        "/opt/py/bin/pip3 --log /tmp/l install --require-hashes -r requirements.lock",
+        "uv pip install --require-hashes -r requirements.lock",
+        "PIP_NO_INPUT=1 pip install --require-hashes -r requirements.lock",
+    ],
+)
+def test_every_pip_spelling_in_the_ruled_form_passes(command: str) -> None:
+    assert lint.check_command(command, "w:1") == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'pip -q install -e ".[dev]"',
+        "pip3.12 install -e .",
+        "pip3 --no-cache-dir install requests",
+        "python3 -m pip --disable-pip-version-check install -e . --no-deps",
+        "python -I -m pip install -r requirements.lock",
+        "/usr/bin/pip3.11 --log /tmp/x install -e .",
+        "uv pip install -e .",
+        "uv --quiet pip install requests",
+        "PIP_NO_INPUT=1 pip -q install -e .",
+    ],
+)
+def test_every_pip_spelling_outside_the_ruled_form_is_refused(command: str) -> None:
+    found = lint.check_command(command, "w:1")
+    assert len(found) == 1 and "dependency-lock" in found[0], command
+
+
+@pytest.mark.parametrize(
+    ("command", "named"),
+    [
+        ("uv sync", "uv sync"),
+        ("uv --quiet sync --frozen", "uv sync"),
+        ("uv run pytest", "uv run"),
+        ("uv add requests", "uv add"),
+        ("uv tool install ruff", "uv tool"),
+        ("uvx ruff check", "uvx"),
+        ("uv pip sync requirements.lock", "uv pip sync"),
+        ("poetry install", "poetry install"),
+        ("pdm sync", "pdm sync"),
+        ("pipenv install", "pipenv install"),
+        ("pipx install black", "pipx"),
+        ("conda install numpy", "conda install"),
+        ("mamba env create -f e.yml", "mamba env"),
+        ("easy_install foo", "easy_install"),
+        ("pip-sync requirements.lock", "pip-sync"),
+        ("python setup.py develop", "setup.py develop"),
+    ],
+)
+def test_every_other_installer_is_refused_by_name(command: str, named: str) -> None:
+    found = lint.check_command(command, "w:1")
+    assert len(found) == 1 and f"uses `{named}`, an unhashed install path" in found[0]
+
+
+@pytest.mark.parametrize("command", ["uv --version", "uv lock --check", "poetry --version", "conda info"])
+def test_a_non_installing_invocation_of_another_tool_is_not_refused(command: str) -> None:
+    assert lint.check_command(command, "w:1") == []
+
+
+@pytest.mark.parametrize(
+    "operand",
+    [
+        "git+https://example.com/x.git",
+        "https://example.com/x.tar.gz",
+        "file:///home/x",
+        "/abs/path",
+        "../outside",
+        "./sub/../../outside",
+    ],
+)
+def test_an_editable_operand_outside_the_tree_is_refused(operand: str) -> None:
+    found = lint.check_command(f"pip install -e {operand} --no-deps --no-build-isolation", "w:1")
+    assert len(found) == 1 and "is not one in-tree path" in found[0]
+
+
+@pytest.mark.parametrize("operand", [".", "./tests/fixtures/ccf-demo-adapter", "tests/fixtures/x"])
+def test_an_in_tree_editable_operand_passes(operand: str) -> None:
+    assert lint.check_command(f"pip install -e {operand} --no-deps --no-build-isolation", "w:1") == []
+
+
+def test_the_confirmed_probe_workflow_is_refused_on_all_three_steps() -> None:
+    text = (
+        "on: push\npermissions:\n  contents: read\njobs:\n  j:\n    runs-on: x\n    steps:\n"
+        "      - run: pip -q install -e \".[dev]\"\n"
+        "      - run: pip3.12 install -e .\n"
+        "      - run: uv sync\n"
+    )
+    assert len(lint.check_workflow(text, "w.yml")) == 3
+
+
+def test_a_redirection_does_not_split_a_command() -> None:
+    assert lint.commands("pip install x 2>&1 | tee log") == ["pip install x 2>&1", "tee log"]
+
+
 def test_a_multi_line_run_block_is_split_per_command() -> None:
     text = (
         "on: push\npermissions:\n  contents: read\njobs:\n  j:\n    runs-on: x\n    steps:\n"
