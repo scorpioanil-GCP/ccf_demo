@@ -9,7 +9,7 @@ No main merge, identifier closure, tag or release. Ledger stays **13 of 29**.
 | Row | Outcome | Rounds | Branch | Evidence |
 | --- | --- | --- | --- | --- |
 | **SEC-023** classification authority | **INTEGRATED as PARTIAL; the row stays OPEN** (the boot guard covers only parsed `PolicyFilterParametersArtifact` objects; see the close record's R1 and proposal SEC-023-P2) | 1 of 2 | `row5-sec-023` @ `5ca07a58` | 7 exploit cases + 2 boot cases red→green; 4 severings red; orchestrator's boot-check severing red; 706 regression tests; 29 example configs + banking fixture declare authority (artifacts only) |
-| **SEC-013** single-writer lease | **INTEGRATED as PARTIAL; the row stays OPEN** | 1 of 2 | `row5-sec-013` @ `279be0b6` | two-process SQLite reproduction red→green; 3 severings red; orchestrator's flock→lockf severing red; Postgres lease **proven on the hosted CI leg**, not locally; network stores (fluree, mongo, neo4j) **declare** process scope — a disclosure, **not enforcement** (Dave's correction) |
+| **SEC-013** single-writer lease | **INTEGRATED as PARTIAL; the row stays OPEN** | 1 of 2 | `row5-sec-013` @ `279be0b6` | two-process SQLite reproduction red→green; 3 severings red; orchestrator's flock→lockf severing red; **the Postgres lease has NOT been executed anywhere** (no local server; the hosted Postgres leg is skipped whenever the quick suite is red, which it always is — close record X1); network stores declare process scope — a disclosure, not enforcement |
 | **LOW-01** non-ASCII bearer → 500 | **INTEGRATED** | 1 of 2 | `row5-lows` | both token sources, both doors; the stored-token outage closed; 401 byte-identical; 3 severings red |
 | **LOW-02** key_id traversal | **INTEGRATED** | 2 of 2 (corrective: a stale generated report) | `row5-lows` | total allowlist before the join; 4 severings red |
 | **LOW-03** cache key tenant | **INTEGRATED** | 1 of 2 | `row5-lows` | the real red case (one view, two tenant arguments); D-IMPL-36's 5-tuple restored; 2 severings red |
@@ -50,10 +50,10 @@ baseline had hidden (the frozen-specimen pins) and fixed them by revert.
 
 | Check | Result |
 | --- | --- |
-| broad set on `80d3b223` (21 directories, `-m "not postgres"`) | **7372 passed, 2 failed** — the two standing reds |
+| broad set on `80d3b223` (21 directories, `-m "not postgres"`) | **7372 passed, 2 failed** — the two standing reds; note this local set is narrower than the hosted quick suite (which carries 12 standing reds on `main`) and excludes substrate-marked tests |
 | targeted re-runs on `d3f39126` (changed areas) | lints tests + hash-transparency + surface **911 passed**; `tests/examples` **28 / 992 / 743 — identical to the base**; docs tests **320**; lint rc=0; mypy clean (244) |
-| hosted CI at `80d3b223` | lint **green**, docs gate **green**, tests job **the same single pre-existing node as `main`**, examples job the standing hw1 failure; the Postgres-marked SEC-013 test ran under `CCF_REQUIRE_POSTGRES=1` against the `postgres:16` service and passed |
-| hosted CI at `d3f39126` — [run 37512501630](https://github.com/drcastillo/ccf_code/actions/runs/37512501630) | lint **green**, docs gate **green**, examples the standing hw1 failure, tests job: the baseline perf node **plus three NEW `ERROR at setup`** in `tests/products/test_cp05_canonical_path.py` — the frozen cp-05 specimen refuses to boot under SEC-023 after its config revert (reproduced locally). **A candidate regression introduced by the orchestrator's revert**, not by an executor; see the close record's R2 for the three end-states, which are Dave's to choose |
+| hosted CI at `80d3b223` | lint **green**, docs gate **green**; tests job: `main`'s 12 standing failures **plus** the surface-completeness red (fixed since); the Postgres leg **skipped** (close record X1) |
+| hosted CI at `d3f39126` — [run 37512501630](https://github.com/drcastillo/ccf_code/actions/runs/37512501630) | lint **green**, docs gate **green**, examples the standing hw1 failure; tests job **16 failed, 9438 passed, 3 errors** against `main`'s **12 failed, 9394 passed, 0 errors**: **seven added unsuccessful tests**, six from the frozen cp-05 specimen refusing to boot after its config revert (an orchestrator-introduced regression; three end-states for Dave, close record R2) and one surface-completeness red from a wrong fragment claim (fixed in this pass). Every substrate leg **skipped** (X1) |
 
 ## 5. Severings, by the numbers
 

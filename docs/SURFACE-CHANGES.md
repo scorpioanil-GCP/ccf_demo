@@ -17056,7 +17056,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-540 entries — 349 public Python surface, 191 not public Python API.
+539 entries — 348 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -23293,18 +23293,6 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
 
-#### ccf.controlplane.audit.AuditLog
-
-- Surface: ccf.controlplane.audit.AuditLog
-- Public surface: true
-- Change type: reshaped
-- Before: `append` accepted the authz and verdict-integrity keywords.
-- After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
-- Why: SEC-023.
-- Migration: none.
-
-*Recorded by `372-23-sec-023-classification-authority.md`.*
-
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -26309,7 +26297,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-240 entries — 208 public Python surface, 32 not public Python API.
+241 entries — 209 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -30402,6 +30390,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: `ingest` writes no claim for an entity whose source is outside the declared set for a governed attribute it asserts. It derives no relationship from that entity in the same envelope. For each refused attribute it appends one `attribute_assertion_refused` event to the Control Plane audit log, with `occurred_at` set to the envelope's ingestion timestamp. It returns normally.
 - Why: if the refusal were raised, a non-authoritative source could refuse every serve whose acquisition touched it, through `src/ccf/products/resolver.py::SDK_SEAM_REFUSALS`.
 - Migration: none for ungoverned attributes.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditLog
+
+- Surface: ccf.controlplane.audit.AuditLog
+- Public surface: true
+- Change type: behavior
+- Before: `append` accepted the authz and verdict-integrity keywords.
+- After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
+- Why: SEC-023.
+- Migration: none.
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
 

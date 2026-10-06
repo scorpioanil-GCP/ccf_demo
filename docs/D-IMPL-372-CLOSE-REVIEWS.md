@@ -101,3 +101,44 @@ same code and show the same results.
 
 **R4 — SEC-013 stays PARTIAL / OPEN** for the persistent network stores; every follow-on in this record (SEC-013-P1,
 SEC-023's two riders, SEC-023-P2) is an **unapproved proposal**.
+
+## Corrections after Dave's independent inspection of GitHub (2026-10-06 12:51 MST)
+
+**X1 — the hosted Postgres proof is WITHDRAWN.** The tests job's step list (read with `gh api .../actions/jobs/<id>`) at
+`d3f39126` is: "Quick suite (no external substrates)" **failure**, then "Harness adapter conformance", **"Postgres leg
+(service container)"**, "Neo4j leg", "MongoDB leg", "Fluree leg" and "Coverage" all **skipped**. The quick suite
+excludes substrate-marked tests; the Postgres leg runs only if the quick suite succeeds, and the quick suite has been red
+on every commit including `main` (the standing perf node). So SEC-013's `postgres`-marked lease test **has not executed on
+the hosted runner at any commit**. A running service and `CCF_REQUIRE_POSTGRES=1` prove nothing when the step that would
+read them is skipped. The mechanism exists; its hosted proof claim is false and removed from this record and the batch
+report. **Execution evidence still owed**: either a short-lived local `postgres:16` container stopped and removed in the
+same sitting (needs Dave's word under the 2026-09-19 no-local-databases rule) or a CI change that lets the substrate legs
+run when the quick suite is red (a workflow change, not authorized here). **CI finding (new):** gating every substrate leg
+on the quick suite's success turns any standing quick-suite red into a silent disabling of all substrate coverage —
+absence of a failure signal read as presence of a success signal.
+
+**X2 — the hosted baseline is 12 failed, not "a single pre-existing perf node".** The orchestrator's id extraction
+grepped `--log-failed` for `FAILED <path>` lines, which pytest's `-q` output does not print; it found one id and reported
+that as the whole set. Read from the summary lines and the failure section headers of the raw logs:
+
+| Tree | Summary | Distinct failing names |
+| --- | --- | --- |
+| `main` @ `29a3c5a4` | **12 failed, 9394 passed, 60 skipped, 0 errors** | 9: `test_both_documented_transports_return_the_same_answer`, `test_both_documented_transports_serve_a_computed_empty_fabric`, `test_legs_one_and_three_reach_the_door_with_no_egress_at_all`, `test_no_tolerance_is_declared_so_no_shell`, `test_suite_runs_untimed[micro]`, `test_the_readme_fence_is_the_in_process_commands_output`, `test_the_seeded_run_reports_the_demonstrated_signal`, `test_the_served_empty_product_carries_its_search_as_evidence`, `test_the_unanchored_python_citation_population_cannot_regrow` |
+| candidate `d3f39126` | **16 failed, 9438 passed, 60 skipped, 3 errors** | the nine above plus **six**: `ERROR at setup` ×3 in `tests/products/test_cp05_canonical_path.py`; `tests/signal_layer/test_cp05_acquisition_boundary.py::test_the_admission_half_expresses_exactly_the_acquired_edges` and `::test_the_fixture_replays_to_the_same_77_and_100` (parametrized; four failures); `tests/test_surface_completeness.py::test_every_public_log_entry_has_a_matching_diff_line` |
+
+**All seven added unsuccessful tests accounted for:** six (3 errors + 4 failures across two names) are the frozen cp-05
+specimen refusing to boot under SEC-023 after its config revert — `UngovernedClassificationAttribute: policy parameters
+'cp-05-demo/policy.principal-subgraph' admit 'exposure_anchor'` — reproduced locally for every one; the seventh is the
+surface-completeness test: fragment `372-23` claimed `reshaped` for `ccf.controlplane.audit.AuditLog`, but the surface
+manifest captures no method signatures, so the `append` keyword additions produce no manifest line; **fixed in this pass**
+by recording that entry as `behavior` (the manifest is unchanged for `AuditLog`); the completeness test is green locally.
+This red was already present at `80d3b223` and was missed because the orchestrator's targeted runs covered
+`test_surface_drift` and `test_surface_shape_capture` but not `test_surface_completeness`.
+
+**X3 — "the estate-gated examples have never run at any gate" is withdrawn as too broad.** `D-GATE-358` records a read-only
+estate census (298 baseline reds, 575 candidate reds, six bundles). What holds: the current CI skips the estate-gated
+tests, and no estate export was found **in this repository or on this host**; whether one exists elsewhere cannot be
+established from here.
+
+**X4 — SEC-023's omission defect is supported by code:** `_judge_authority` runs only when the governed attribute is
+present in the claim, so an omitting claim supersedes without a refusal event (SEC-023-C-01 stands, high).

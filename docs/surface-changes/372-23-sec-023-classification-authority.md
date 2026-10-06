@@ -96,7 +96,7 @@ writes without an authority declaration now **refuses to boot** with
 
 - Surface: ccf.controlplane.audit.AuditLog
 - Public surface: true
-- Change type: reshaped
+- Change type: behavior
 - Before: `append` accepted the authz and verdict-integrity keywords.
 - After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
 - Why: SEC-023.
