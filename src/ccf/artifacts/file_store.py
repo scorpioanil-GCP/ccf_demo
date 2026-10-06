@@ -35,9 +35,14 @@ parents included, is ``0o700`` — fixed mechanism, no configuration, and
 regardless of the process umask: the mode is set explicitly on the created
 object (``fchmod`` on the open descriptor, ``chmod`` on the created
 directory) rather than requested through ``mkdir(mode=...)`` or
-``os.open(..., mode)``, which the umask masks. The store owns its root, so a
-pre-existing root is tightened to ``0o700`` on construction; pre-existing
-parents are not the store's and are left as found. A store-local ``umask`` is
+``os.open(..., mode)``, which the umask masks. **A root the store did not
+create is never chmodded (D-IMPL-369, Dave, 2026-10-05):** a pre-existing root
+that is insecure — any mode bit outside ``0o700``, or an owner other than the
+process's effective uid — is refused by name with
+:class:`InsecureArtifactStoreRoot`, and the refusal leaves its permissions
+byte-for-byte unchanged; a pre-existing ``0o700`` root the process owns is
+used as found. Pre-existing parents are not the store's and are left as
+found. A store-local ``umask`` is
 deliberately not used: it is process-wide and leaks to every thread. Replay
 records and Control Plane artifacts are decision evidence (CLAUDE.md §7.4);
 the host's default umask is not a confidentiality posture for them.
@@ -72,7 +77,7 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["FileArtifactStore"]
+__all__ = ["FileArtifactStore", "InsecureArtifactStoreRoot"]
 
 #: Filename of the naming index. Leading dot so it never collides with a
 #: content address, which is always hexadecimal.
@@ -85,17 +90,62 @@ _FILE_MODE = 0o600
 _DIR_MODE = 0o700
 
 
+class InsecureArtifactStoreRoot(PermissionError):
+    """A pre-existing store root is wider than ``0o700`` or not the process's.
+
+    Refused by name, never repaired (D-IMPL-369, Dave, 2026-10-05: "SDK-created
+    roots are owner-only. An insecure pre-existing root is refused by name,
+    without chmod."). The store does not chmod a directory it did not create:
+    the operator who made the root decides whether to tighten it or to point
+    the store elsewhere. The message names the path, the observed mode and
+    the observed owner.
+    """
+
+    def __init__(self, *, root: Path, mode: int, owner_uid: int, process_uid: int) -> None:
+        self.root = root
+        self.mode = mode
+        self.owner_uid = owner_uid
+        self.process_uid = process_uid
+        reasons: list[str] = []
+        if mode & ~_DIR_MODE:
+            reasons.append(f"mode {oct(mode)} is wider than {oct(_DIR_MODE)}")
+        if owner_uid != process_uid:
+            reasons.append(f"owner uid {owner_uid} is not this process's uid {process_uid}")
+        super().__init__(
+            f"refusing pre-existing artifact store root {str(root)!r}: "
+            + "; ".join(reasons)
+            + " — the store does not change permissions it did not create (SEC-014, D-IMPL-369)"
+        )
+
+
+def _refuse_insecure_root(root: Path) -> None:
+    """Raise :class:`InsecureArtifactStoreRoot` unless ``root`` is owner-only and ours.
+
+    Reads the mode and owner only; never chmods (D-IMPL-369).
+    """
+    observed = root.stat()
+    mode = observed.st_mode & 0o7777
+    process_uid = os.geteuid()
+    if mode & ~_DIR_MODE or observed.st_uid != process_uid:
+        raise InsecureArtifactStoreRoot(
+            root=root, mode=mode, owner_uid=observed.st_uid, process_uid=process_uid
+        )
+
+
 def _make_private_dirs(root: Path) -> None:
     """Create ``root`` and any missing parents, each set to ``0o700``.
 
     Only directories this call actually creates are chmodded: a parent that
     already existed (or that another process created first) is not the
-    store's. ``root`` itself is then tightened to ``0o700`` whether or not it
-    pre-existed, because the store owns its root (SEC-014, ruling Q8).
+    store's. A ``root`` this call did not create is checked, never chmodded:
+    insecure, it is refused by name (D-IMPL-369).
 
     Raises:
         FileExistsError: ``root`` exists and is not a directory.
+        InsecureArtifactStoreRoot: ``root`` pre-existed and is wider than
+            ``0o700`` or not owned by the process's effective uid.
     """
+    created: set[Path] = set()
     missing: list[Path] = []
     probe = root
     while not probe.exists():
@@ -109,9 +159,11 @@ def _make_private_dirs(root: Path) -> None:
         except FileExistsError:
             continue
         os.chmod(directory, _DIR_MODE)
+        created.add(directory)
     if not root.is_dir():
         raise FileExistsError(f"artifact store root {root} exists and is not a directory")
-    os.chmod(root, _DIR_MODE)
+    if root not in created:
+        _refuse_insecure_root(root)
 
 
 def _write_private(path: Path, payload: bytes) -> None:
@@ -139,8 +191,11 @@ class FileArtifactStore:
         root: Directory the artifacts live in. Created if absent — a store
             that refused to initialize its own directory would push that
             concern into every caller's setup path for no gain. Created
-            (with any missing parents) ``0o700``, and tightened to ``0o700``
-            if it already existed (SEC-014; see the module docstring).
+            (with any missing parents) ``0o700``. A root that already
+            existed must be ``0o700`` (or narrower) and owned by the process,
+            or construction raises :class:`InsecureArtifactStoreRoot` and
+            leaves it unchanged (SEC-014, D-IMPL-369; see the module
+            docstring).
         write_kinds: The deployment's declaration of which artifact classes
             are mechanism-written and under which kinds (D-IMPL-353 §1.2).
             **Required, no default**: a store whose replay class is

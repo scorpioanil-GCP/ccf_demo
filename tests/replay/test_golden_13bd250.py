@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
@@ -107,9 +108,29 @@ class _Golden:
         )
 
 
+def _owner_only_copy(source: Path, destination: Path) -> None:
+    """Copy ``source`` to ``destination``, then make the COPY owner-only.
+
+    ``copytree`` leaves the copy's directories at the umask's mode
+    (typically ``0o775``), and the file-backed store refuses a pre-existing
+    root wider than ``0o700`` by name, without chmod (SEC-014, ``D-IMPL-369``).
+    The fixture is the operator here, so it is the fixture that tightens the
+    root it hands over — directories ``0o700``, files ``0o600``, set
+    explicitly so the umask cannot widen them. The committed fixture under
+    ``FIXTURE`` is never touched.
+    """
+    shutil.copytree(source, destination)
+    for here, subdirs, names in os.walk(destination):
+        os.chmod(here, 0o700)
+        for name in names:
+            os.chmod(os.path.join(here, name), 0o600)
+        for name in subdirs:
+            os.chmod(os.path.join(here, name), 0o700)
+
+
 @pytest.fixture
 def deployment(tmp_path: Path) -> Iterator[_Golden]:
-    shutil.copytree(FIXTURE, tmp_path / "golden")
+    _owner_only_copy(FIXTURE, tmp_path / "golden")
     booted = _Golden(tmp_path / "golden")
     try:
         yield booted
