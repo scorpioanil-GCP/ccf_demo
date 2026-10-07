@@ -2712,7 +2712,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Why: D-06 ships all five adapters; 15.2-12 is the pushdown proof — a
   graph-native engine used as one
 - Migration: new surface — none. `boot(neo4j_uri=…)` constructs the store;
-  install with `pip install "ccf-sdk[neo4j]"`
+  install the `neo4j` extra from the same source the SDK was installed
+  from (`pip install -e ".[neo4j]"` in a checkout, or `ccf-sdk[neo4j]`
+  against the deployment's private index), never by bare name from public PyPI
   (distribution renamed ccf-sdk 2026-10-07, D-IMPL-376 (4))
 
 *Recorded by `15.2-12-neo4j-backend.md`.*
@@ -2813,7 +2815,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   substrate family neither SQL nor Cypher represents — the proof that the
   read seam is not shaped like a query language
 - Migration: new surface — none. `boot(mongo_uri=…)` constructs the store;
-  install with `pip install "ccf-sdk[mongo]"`
+  install the `mongo` extra from the same source the SDK was installed
+  from (`pip install -e ".[mongo]"` in a checkout, or `ccf-sdk[mongo]`
+  against the deployment's private index), never by bare name from public PyPI
   (distribution renamed ccf-sdk 2026-10-07, D-IMPL-376 (4))
 
 *Recorded by `15.2-13-mongo-backend.md`.*
