@@ -32,6 +32,7 @@ block count never moved off 2 (`CP-SPEC-016` §A.2).
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
@@ -196,9 +197,10 @@ class _Relational:
 
     def rows(self, sql: str, args: tuple[Any, ...] = ()) -> list[Mapping[str, Any]]:
         from psycopg.rows import dict_row  # noqa: PLC0415
+        from psycopg.sql import SQL, Identifier  # noqa: PLC0415
 
         with self._connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(f"set search_path to {self._schema}")  # noqa: S608
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
             cursor.execute(sql, args)
             return [dict(row) for row in cursor.fetchall()]
 
@@ -213,9 +215,10 @@ class _Relational:
         README because explaining a statement runs it.
         """
         from psycopg.rows import dict_row  # noqa: PLC0415
+        from psycopg.sql import SQL, Identifier  # noqa: PLC0415
 
         with self._connect() as connection, connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(f"set search_path to {self._schema}")  # noqa: S608
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
             cursor.execute(sql, args)
             fetched = [dict(row) for row in cursor.fetchall()]
             scanned, blocks = _explain(cursor, sql, args)
@@ -239,6 +242,21 @@ def _explain(cursor: Any, sql: str, args: tuple[Any, ...]) -> tuple[int, int]:
 
     walk(plan)
     return max(totals["rows"], int(plan.get("Actual Rows", 0))), totals["blocks"]
+
+
+#: An absolute IRI as SPARQL 1.1 lets it stand between `<` and `>`: a scheme,
+#: then nothing `IRIREF` excludes — `<>"{}|^`, a backtick, a backslash, or any
+#: character up to U+0020. Matched WHOLE, so a trailing newline cannot slip
+#: past an end-of-line anchor. A deal IRI carries the caller's deal id, and the
+#: trigger read runs before the deal-existence check (`EX-01`).
+_IRI = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*:[^<>"{}|^`\\\x00-\x20]*')
+
+
+def _iri(value: str) -> str:
+    """`value` if it can stand in a SPARQL `<…>` position; refused before any read."""
+    if not _IRI.fullmatch(value):
+        raise ValueError(f"{value!r} is not an IRI and cannot be placed in a SPARQL <…> position")
+    return value
 
 
 class _Graph:
@@ -271,7 +289,7 @@ class _Graph:
         terms = vocabulary()["graph"]
         superseded = f"{terms['ex']}{terms['predicates']['superseded_by']}"
         return self._query(f"""SELECT ?t ?p ?o ?origin FROM <{self._ledger}> WHERE {{
-  <{deal_uri}> <{terms['specifies_trigger']}> ?orig .
+  <{_iri(deal_uri)}> <{terms['specifies_trigger']}> ?orig .
   {{ ?orig ?p ?o . BIND(?orig AS ?t) BIND("declared" AS ?origin) }}
   UNION
   {{ ?orig <{superseded}> ?amd . ?amd ?p ?o . BIND(?amd AS ?t) BIND(STR(?orig) AS ?origin) }}
