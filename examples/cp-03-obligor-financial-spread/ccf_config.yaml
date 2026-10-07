@@ -140,6 +140,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: obligor_ref
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {obligor_jurisdiction: [financial_fact]}
       entity_class: obligor
       identity_keys:
         - lei

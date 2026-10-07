@@ -51,6 +51,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+from tests.composition import declared_erasure_trust, no_erasures
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -494,7 +495,7 @@ def _governed(
     )
     return Governed(
         app=create_app(
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=resolver,  # type: ignore[arg-type]
@@ -506,6 +507,7 @@ def _governed(
             product_entitlement=source,
             perspective_resolver=_perspective,
             refusal_recorder=recorder,
+            replay_record_product_class=None,
         ),
         source=source,
         recorder=recorder,
@@ -813,10 +815,15 @@ def test_no_known_refusal_kind_reaches_served_answer(
         f" {type(answer.escaped).__name__} escaped instead of a response"
         f" ({answer.escaped}); no known governed refusal may become 500"
     )
-    assert answer.status == STATUS_BY_KIND[kind], answer.body
+    # SEC-009 I5 (D-IMPL-374 (4)): a kind TRANSLATED_AT_MINIMAL crosses at the
+    # door's default (minimal) level as its target kind's shell.
+    from ccf.products.disclosure import TRANSLATED_AT_MINIMAL
+
+    crossed = TRANSLATED_AT_MINIMAL.get(kind, kind)
+    assert answer.status == STATUS_BY_KIND[crossed], answer.body
     assert answer.status != 500
     assert set(answer.body) == {"kind", "refusal_type", "refusal"}
-    assert answer.body["kind"] == kind
+    assert answer.body["kind"] == crossed
 
 
 def test_the_existing_refusal_statuses_are_unchanged(

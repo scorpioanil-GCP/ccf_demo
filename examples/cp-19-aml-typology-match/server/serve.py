@@ -147,6 +147,10 @@ def http_app(opened: OpenedProduct):  # noqa: ANN201 — a FastAPI app; the type
         ApiDependencies(
             control_plane=opened.control_plane,
             artifact_store=opened.artifact_store,
+            # SEC-009 (D-IMPL-374 (4), C1): the product's declared durable
+            # erasure index — required wherever a store is composed.
+            erasure_trust=opened.erasure_trust,
+            erasure_index=opened.erasure_index,
             product_resolver=opened.resolve,
         ),
         auth=BearerTokenAuth(token_source=token_source(opened)),

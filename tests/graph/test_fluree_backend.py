@@ -30,6 +30,7 @@ import re
 import shutil
 import subprocess
 import uuid
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -1703,7 +1704,7 @@ def test_a_credentialed_url_authenticates_on_the_wire(
 
 
 def test_boot_threads_the_bearer_token_to_the_store(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """WR-03: `bearer_token` is reachable through the supported boot path.
 
@@ -1744,6 +1745,9 @@ def test_boot_threads_the_bearer_token_to_the_store(
             connection={
                 "url": "http://graph.example.com:8090",
                 "partition": "ccf_test",
+                # SEC-013 (D-IMPL-374): the mint needs a declared lease before
+                # boot reaches the Control Plane step this test relies on.
+                "writer_lease_lock_dir": str(tmp_path),
             },
             secrets={
                 BEARER_TOKEN_FIELD: ResolvedSecret(

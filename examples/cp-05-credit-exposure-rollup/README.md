@@ -9,6 +9,31 @@
 
 ---
 
+> **Specimen re-pin, 2026-10-06 (`D-IMPL-374`, executor ruling (b)).** This
+> frozen specimen changed in one place only: `ccf_config.yaml` now declares
+> `attribute_authorities: {family_id: [exposure_graph]}` on the `exposure_anchor` and
+> `exposure_member` resolution rules. SEC-023 refuses a deployment whose Policy
+> operator admits on an attribute any source could relabel, so without the
+> declaration this example no longer boots. `D-IMPL-261` allows a specimen
+> change when the SDK surface it consumes was deliberately changed, and
+> SEC-023 is that change. SEC-023 changed nothing else in this example.
+
+> **Specimen change, 2026-10-07 (`D-IMPL-374` (4) C1 and fix round 5,
+> SEC-009).** `produce.py`'s `_governed` gains one function-local import,
+> `from ccf.erasure import ErasureTrust, erasure_index_at` (local, so the line
+> numbers committed docs cite in this module do not move), and passes two new
+> arguments to `build_governed_resolver`:
+> `erasure_trust=ErasureTrust(authorities={})`, which declares no erasure
+> authority, and `erasure_index=erasure_index_at(store_root)`. SEC-009 requires
+> every store construction site to declare its durable erasure index and the
+> erasure authorities it trusts, and refuses a composition without either by
+> name, so without both arguments this example no longer runs. `D-IMPL-261`
+> allows a specimen change for the same reason. The index file sits beside the
+> declared store root; this example runs no erasure door and erases nothing.
+> Those lines are the whole of SEC-009's change to this example. The pin that
+> diffs this specimen against `main`'s merge base is red on the branch and
+> green once the change merges.
+
 ## What this demonstrates
 
 **That "total exposure" is not a sum.** A data product that adds facility

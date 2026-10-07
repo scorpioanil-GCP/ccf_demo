@@ -83,13 +83,16 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
-from ccf.products.disclosure import DISCLOSURE_FULL, DisclosureLevel
+from ccf.contracts.base import CCFContract
+from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
+from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
     GovernedRefusalRaised,
     ResolvedByTheResolver,
     RefusalEnvelope,
+    ErasedContentRefusal,
     RequestIdentity,
     ResourceRequestIdentity,
     SubjectUnavailableRefusal,
@@ -138,11 +141,13 @@ __all__ = [
     "DereferenceRequest",
     "DereferencedEvidence",
     "DisclosingRecorderProtocol",
+    "UnconsultedDeliveryBoundaryError",
     "UnrecordableDeliveryBoundaryError",
     "disclosing_boundary",
     "govern_absence",
     "govern_dereference",
     "govern_entitlement",
+    "govern_erasure",
     "recorded_boundary",
 ]
 
@@ -227,6 +232,20 @@ class UnrecordableDeliveryBoundaryError(ValueError):
     construction-refusal posture: a boot that cannot satisfy an invariant stops
     at construction rather than at the first request
     (*"Prefer fail-at-construction/boot where practical"*).
+    """
+
+
+class UnconsultedDeliveryBoundaryError(TypeError):
+    """A governed evidence read was handed a store that does not consult the erasure index (SEC-009; PM5, panel C5; `D-IMPL-374`).
+
+    U12: the erasure consult is composed ALWAYS, at every store construction
+    site (:func:`~ccf.erasure.compose_erasure_consult`).
+    :func:`govern_dereference` is public, and it read the consult only when its
+    store happened to be an :class:`~ccf.erasure.ErasureConsultingStore` — so a
+    door built outside the SDK over a store it never composed served erased
+    bytes with no refusal at all. Raised after the capability check and before
+    anything is read, recorded or clocked: a wiring defect, refused where an
+    operator sees it, never a determination about a caller.
     """
 
 
@@ -927,6 +946,7 @@ def govern_dereference(
     audit_log: AuditLog,
     surface: str,
     address: str,
+    erased_client_read: ErasedContentRefused | None = None,
 ) -> DereferencedEvidence | RefusalEnvelope:
     """Decide one dereference of governed evidence (``D-IMPL-345``).
 
@@ -968,6 +988,27 @@ def govern_dereference(
     a caller allowed to consult it before the holds could confirm those three
     facts about a record it may not read by varying the segments.
 
+    **An erased address** (SEC-009; ``D-IMPL-374`` (4), U11, ruling 1) is
+    decided AFTER holds 1 and 2 — authorization first: the holds read the
+    record through the unconsulted inner store — bytes read INTERNALLY for the
+    rights check only, which never leave the door — so a caller not entitled
+    to the record receives exactly the rendering it received before the
+    erasure.
+    An entitled caller then meets the consult: at ``minimal`` the same absence
+    as below; at ``reasoned`` and ``full`` an ``erased-content`` shell (410)
+    carrying the erasure's reason and instant, and its record address only at
+    ``full``. The consult reads through the view for the caller's verified tenant, so
+    an erasure withholds only within its tenant (fix round 1, I6). On the
+    by-URI path the erased reading is decided BEFORE the URI's naming check
+    (M7): an entitled caller naming an erased address under a wrong
+    ``(tenant, class, name)`` triple receives the erased reading where a
+    non-erased record would answer not-found — it learns nothing its
+    entitlement to the record did not already admit. The naming check itself
+    reads the SAME tenant view (FW-7, whole-branch review M-3;
+    ``D-IMPL-374``): another tenant's entry naming the address cannot make it
+    refuse what the view served, and an erasure it meets is the erased
+    reading at the caller's level, never recorded as ``nonexistent``.
+
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
     the door's recorder and returned disclosed. ``cause="unauthorized"``
@@ -997,7 +1038,9 @@ def govern_dereference(
         authorized: The capability for this read. Verified first.
         reference: What was asked for, verbatim — and the resource the
             capability is bound to.
-        store: The artifact store the door was built over.
+        store: The artifact store the door was built over — composed with
+            the erasure consult (:func:`~ccf.erasure.compose_erasure_consult`;
+            U12), or refused (PM5).
         entitlement_source: The deployment's entitlement seam and the holder
             of the determination clock.
         refusal_recorder: The ONE minting seam, which also states the level.
@@ -1009,6 +1052,14 @@ def govern_dereference(
         surface: :data:`SURFACE_HTTP_REPLAY_READ` or
             :data:`SURFACE_HTTP_ARTIFACT_READ`.
         address: The route path the caller asked, for the resource identity.
+        erased_client_read: SEC-009 (``D-IMPL-374`` (4), MCP ruling): the
+            erasure refusal a door met reading a CLIENT-LANE artifact it had
+            already decided the caller owns (the MCP artifact server's tenant
+            split). When given, no record is resolved and no record hold runs —
+            there is no record — and the caller receives the erased reading at
+            its disclosure level: the not-found shell at ``minimal``,
+            ``erased-content`` above it. It can only ever produce a refusal,
+            never bytes.
 
     Returns:
         The evidence, or the disclosed shell carrying its own record's address.
@@ -1018,6 +1069,10 @@ def govern_dereference(
             fabricated, retargeted, of a kind other than the two evidence-read
             kinds, or bound to a resource other than ``reference.reference``.
             Raised before the clock is read and before anything is recorded.
+        UnconsultedDeliveryBoundaryError: ``store`` is not an
+            :class:`~ccf.erasure.ErasureConsultingStore` (PM5, panel C5;
+            U12). Raised right after the capability check, before anything
+            is read, recorded or clocked.
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
             ``@latest``. A request-shape refusal raised by the shared parser
             before any lookup, which reveals nothing and which the route
@@ -1028,6 +1083,16 @@ def govern_dereference(
     kind = verify_any(
         authorized, kinds=EVIDENCE_READ_KINDS, resource=reference.reference
     )
+    if not isinstance(store, ErasureConsultingStore):
+        # PM5 (panel C5; `D-IMPL-374`): U12 composes the consult ALWAYS; a
+        # store that does not consult would serve erased bytes unrefused.
+        raise UnconsultedDeliveryBoundaryError(
+            f"govern_dereference was handed a {type(store).__name__}, which does not"
+            " consult the erasure index; compose it with"
+            " ccf.erasure.compose_erasure_consult first — a governed evidence read"
+            " over an unconsulted store would serve erased content (SEC-009; U12;"
+            " D-IMPL-374)"
+        )
     principal = authorized.principal
     # The one seam that still takes a grant: handed the capability's principal
     # and tenant, nothing the caller supplied.
@@ -1056,9 +1121,12 @@ def govern_dereference(
         error_code: str,
         detail: str,
         policy: ProvenanceSource | None = None,
+        refusal: CCFContract | None = None,
     ) -> RefusalEnvelope:
         envelope = envelope_for(
-            SubjectUnavailableRefusal(
+            refusal
+            if refusal is not None
+            else SubjectUnavailableRefusal(
                 cause=cause,  # type: ignore[arg-type]
                 detail=detail,
                 error_code=error_code,
@@ -1112,6 +1180,30 @@ def govern_dereference(
 
     absent = "the requested evidence is not available to this principal"
 
+    def erased_reading(erased: ErasedContentRefused) -> RefusalEnvelope:
+        # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.3, U11): the level
+        # in force for THIS principal decides what CROSSES — `minimal` is the
+        # not-found rendering, `reasoned`/`full` the `erased-content` shell
+        # (410 at HTTP) — and the disclosure step decides it.
+        # At every level the RECORDED determination is `erased-content` (I5);
+        # at `minimal` the disclosure step renders it as the not-found shell
+        # (`ccf.products.disclosure.TRANSLATED_AT_MINIMAL`), so the wire says
+        # nothing and the audit trail stays honest.
+        return refuse(
+            cause="nonexistent",
+            error_code=ERROR_EVIDENCE_ABSENT,
+            detail=absent,
+            refusal=ErasedContentRefusal(
+                detail="the requested content was erased by a recorded decision and is not served",
+                erasure_reason=erased.reason,
+                erased_at=erased.erased_at,
+                erasure_record_address=erased.erasure_record_address,
+            ),
+        )
+
+    if erased_client_read is not None:
+        return erased_reading(erased_client_read)
+
     # --- resolution: every failure below is the SAME absence -----------------
     if reference.by_uri:
         # `@latest` raises MovingTargetRefused here, before any lookup.
@@ -1119,10 +1211,17 @@ def govern_dereference(
         candidate = parsed.artifact_version
     else:
         candidate = reference.reference
+    # SEC-009 ruling 1 (`D-IMPL-374` (4)): AUTHORIZATION FIRST. The record the
+    # holds judge is read through the UNCONSULTED inner store, so an erased
+    # address is authorized exactly as it was before its erasure. Those bytes
+    # are read INTERNALLY for the rights check only and NEVER leave the door
+    # (accepted as recorded by the coordinator): what crosses comes from the
+    # consulted read below, after the holds.
+    authorization_store = store.inner
     try:
         content_address = held_content_address(candidate)
         record = resolve_artifact(
-            store=store,
+            store=authorization_store,
             content_address=content_address,
             contract=DecisionReplayRecord,
         )
@@ -1183,6 +1282,20 @@ def govern_dereference(
                 policy=refused.policy,
             )
 
+    # --- the erasure consult: after the holds, before disclosure -------------
+    # SEC-009 (`D-IMPL-374` (4), ruling 1; design `D-IMPL-367` §5.3): only a
+    # caller entitled to this record reaches here. At `minimal` an erased
+    # address is the route's not-found rendering; at `reasoned` and `full` it
+    # is the `erased-content` shell the door renders 410.
+    try:
+        # I6 (fix round 1, ruling (i)): the view for the caller's VERIFIED
+        # tenant — an erasure withholds within its tenant, and another
+        # tenant's reason or record address never reaches this caller.
+        tenant_view = store.scoped(authorized.tenant)
+        consulted = tenant_view.get(content_address=content_address)
+    except ErasedContentRefused as erased:
+        return erased_reading(erased)
+
     # --- hold 3: the level that disclosed the serve -------------------------
     level, _policy = refusal_recorder.disclosure_level_for(
         tenant=refusal_recorder.tenant_id, principal_id=principal
@@ -1199,8 +1312,15 @@ def govern_dereference(
 
     # --- the URI's naming, checked LAST -------------------------------------
     if reference.by_uri:
+        # FW-7 (whole-branch review M-3; `D-IMPL-374`): through the SAME view
+        # the consult above read — the caller's verified tenant's — so another
+        # tenant's entry naming this address cannot make the naming check
+        # refuse what the tenant view served; and an erasure met here is the
+        # erased reading at the caller's level, never recorded as an absence.
         try:
-            registered = store.resolve_uri(uri=reference.reference)
+            registered = tenant_view.resolve_uri(uri=reference.reference)
+        except ErasedContentRefused as erased:
+            return erased_reading(erased)
         except (ArtifactStoreError, LookupError):
             return refuse(
                 cause="nonexistent",
@@ -1214,12 +1334,112 @@ def govern_dereference(
                 detail=absent,
             )
 
-    payload = (
-        store.get(content_address=content_address)
-        if reference.wants_bytes
-        else None
-    )
+    payload = consulted if reference.wants_bytes else None
     audited(delivered=content_address, allowed=True)
     return DereferencedEvidence(
         content_address=content_address, record=record, payload=payload
+    )
+
+
+def govern_erasure(
+    *,
+    grant: TokenGrant,
+    tenant: str,
+    product_class: str,
+    product_version: str | None,
+    parameters: Mapping[str, Any],
+    asked_at: datetime | None,
+    surface: str,
+    address: str,
+    perspective: Perspective,
+    erased: ErasedContentRefused,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
+) -> RefusalEnvelope:
+    """The governed determination for an erasure a door met while answering (FW-3, whole-branch review I-2; ``D-IMPL-374``).
+
+    SEC-009's U11 (``ccf.products.refusal.ErasedContentRefusal``): an erased
+    address's reading is disclosure-governed — a door renders the erasure only
+    at ``reasoned`` and ``full``, and at ``minimal`` answers with its own
+    not-found rendering. The HTTP doors and the MCP artifact server did that
+    through :func:`govern_dereference`; the whole-branch review measured the
+    MCP egress tool and resources and the Experience seams passing
+    :class:`~ccf.erasure.ErasedContentRefused` to the wire as exception prose
+    naming the erased address, at every level. This is the mapping they call.
+
+    The mirror of :func:`govern_absence`: the ``erased-content`` determination
+    is enveloped under this surface's request and resource identity, RECORDED
+    through the one recorder the door holds — at every level, so the audit
+    trail is honest (the design's I5) — and returned DISCLOSED. The disclosure
+    step decides what crosses: at ``minimal`` it renders the not-found shell
+    (``ccf.products.disclosure.TRANSLATED_AT_MINIMAL``, the shell
+    :func:`govern_absence` answers), at ``reasoned`` the reason and instant, at
+    ``full`` the record address too. The erased address is never in the
+    envelope: an :class:`~ccf.products.refusal.ErasedContentRefusal` has no
+    address field.
+
+    **Dimension 2 states** ``ResolutionNotApplicable("no-resolution-step")``:
+    the ``erased-content`` determination is the store consult's, made at a
+    read, and a door holds no resolver evidence to record — it states that no
+    resolution step belongs to this determination rather than manufacturing
+    one (the :func:`govern_absence` precedent).
+
+    A door whose surface has NO not-found rendering (the Experience
+    ``get_context``, ``get_lineage`` and ``get_replay_record`` seams) calls
+    this only above ``minimal``, and answers ``minimal`` with its opaque
+    runtime failure instead.
+
+    Args:
+        grant: The verified caller.
+        tenant: The tenant the caller addressed.
+        product_class: The class the surface answers for.
+        product_version: The class's lane, or ``None``.
+        parameters: What the caller supplied, for the request identity.
+        asked_at: The instant asked as-of, or ``None``.
+        surface: One of the surface tokens.
+        address: What the caller addressed, verbatim.
+        perspective: The perspective the door already authorized, or the
+            positive no-role perspective where the surface resolves none.
+        erased: The consult's refusal. Its facts are what the store's view
+            disclosed to the door — ``None`` where the read was tenantless.
+        entitlement_source: The source whose declared clock stamps the
+            determination.
+        refusal_recorder: The seam that mints the record and discloses.
+
+    Returns:
+        The disclosed shell, carrying the replay reference of its own record.
+
+    Raises:
+        Exception: whatever the recorder's store raises on append,
+            deliberately uncaught — a failure to record is a failure to decide.
+    """
+    determined_at = _determined_at(entitlement_source)
+    envelope = envelope_for(
+        ErasedContentRefusal(
+            detail="the requested content was erased by a recorded decision and is not served",
+            erasure_reason=erased.reason,
+            erased_at=erased.erased_at,
+            erasure_record_address=erased.erasure_record_address,
+        ),
+        request=RequestIdentity(
+            product_id=product_class,
+            product_version=product_version,
+            parameters=parameters,
+            temporal_boundary=asked_at,
+        ),
+        resource=ResourceRequestIdentity(
+            surface=surface,
+            address=address,
+            tenant_id=tenant,
+            determined_at=determined_at,
+        ),
+        policy_bindings=(),
+    )
+    return refusal_recorder.record(
+        envelope,
+        perspective=Perspective(principal_id=grant.client_id, role=perspective.role),
+        recorded_at=asked_at if asked_at is not None else determined_at,
+        served_at=determined_at,
+        policy_bindings=(),
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )

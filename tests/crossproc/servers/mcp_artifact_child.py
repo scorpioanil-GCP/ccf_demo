@@ -54,6 +54,7 @@ from mcp.server.auth.settings import AuthSettings  # noqa: E402
 from pydantic import AnyHttpUrl  # noqa: E402
 
 from crossproc.servers.wide_authorizer import wide_authorizer  # noqa: E402
+from ccf.erasure import ERASURE_INDEX_FILENAME, FileErasureIndex
 from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: E402
 from ccf.products.entitlement import (  # noqa: E402
     PRODUCT_ENTITLEMENT_POLICY,
@@ -75,6 +76,7 @@ from ccf_runtime.mcp.auth import (  # noqa: E402
     FileTokenSource,
     SourceBackedTokenVerifier,
 )
+from tests.composition import declared_erasure_trust
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -202,6 +204,9 @@ def build_server(*, workspace: Path) -> FastMCP:
             disclosure_level_for=source.disclosure_level_for,
         ),
         audit_log=registry.audit_log,
+        erasure_trust=declared_erasure_trust(),
+        erasure_index=FileErasureIndex(workspace / ARTIFACTS_DIRNAME / ERASURE_INDEX_FILENAME),
+        control_plane=registry,
     )
 
 

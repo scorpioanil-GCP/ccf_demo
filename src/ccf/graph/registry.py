@@ -122,7 +122,7 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import SecretStr, ValidationError
 
 from ccf.contracts.base import CCFContract
-from ccf.graph.protocols import GraphReader
+from ccf.graph.protocols import GraphReader, WriterLease
 
 if TYPE_CHECKING:
     # The registry *types* the write seam and stops there: it names these two
@@ -249,6 +249,43 @@ class BackendStore(Protocol):
 
     @property
     def reader(self) -> GraphReader: ...
+
+    def writer_lease(self) -> WriterLease:
+        """Acquire the exclusive writer lease for this graph, or refuse.
+
+        **Required** (SEC-013, D-IMPL-372; whitepaper §7.3 / INV-CH7-10,
+        CLAUDE.md §10). Called by the composition root's mint
+        (``src/ccf/graph/_writer.py::mint_boot_token``) only — after the
+        in-process live-writer check passes and before a token exists — and
+        never at store open, because a second read-only store over a live
+        graph is legitimate. The lease is held for the writer's life and
+        released by the writer's ``close`` (or the mint's failure path), always
+        before this store's :meth:`close`.
+
+        The returned lease declares its scope by name
+        (``src/ccf/graph/protocols.py::WriterLeaseScope``):
+
+        * ``"cross-process"`` — the substrate refuses a second holder in any
+          process. Raise ``src/ccf/graph/protocols.py::WriterLeaseHeld`` when
+          another holder has it; never block waiting for it.
+        * ``"process"`` — return
+          ``src/ccf/graph/protocols.py::ProcessScopedWriterLease``. This is a
+          **disclosure, not enforcement**: the single-writer invariant is then
+          NOT enforced across processes on this substrate, so it is correct
+          only for a store whose graph no second process can reach.
+
+        **A store whose graph a second process can reach** (a persistent
+        network store) takes a deployment-declared
+        ``src/ccf/graph/protocols.py::WriterLeaseSource`` at construction and
+        delegates here to
+        ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, which
+        refuses by name (``WriterLeaseRequired``) when none was declared or the
+        declared lease is not ``"cross-process"`` — refuse-when-undeclared
+        (SEC-013, D-IMPL-374 (1)).
+
+        A store that lacks this member is refused at the mint by name.
+        """
+        ...
 
     def close(self) -> None:
         """Release this store's hold on its substrate. **Must be idempotent.**

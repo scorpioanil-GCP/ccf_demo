@@ -73,6 +73,8 @@ type is written in this file.
 
 from __future__ import annotations
 
+from tests.classification_authority import stamp
+
 from collections.abc import Sequence
 
 import pytest
@@ -106,6 +108,7 @@ from ccf.operators.registry import OperatorRegistry
 from ccf.signal.envelope import SourceIdentity
 
 from tests.properties.strategies import (
+    AUTHORITY,
     BOUNDARY,
     CLASSIFICATION_ATTRIBUTE,
     CONTROL,
@@ -170,15 +173,20 @@ def _frozen(
     entities: Sequence[EntityRecord],
     relationships: Sequence[RelationshipRecord],
 ) -> GraphView:
-    """Freeze an answer for canonical-bytes comparison (GQ-22 ordering)."""
-    return GraphView(
+    """Freeze an answer for canonical-bytes comparison (GQ-22 ordering).
+
+    Stamped with the harness's classification authority (SEC-023,
+    ``D-IMPL-374``): the stamp is outside the canonical bytes compared here,
+    and a Policy operator refuses an unstamped view.
+    """
+    return stamp(GraphView(
         tenant_id=TENANT,
         as_of=BOUNDARY,
         entities=tuple(sorted(entities, key=lambda r: r.claim.entity_uri)),
         relationships=tuple(
             sorted(relationships, key=lambda r: r.relationship_key)
         ),
-    )
+    ), AUTHORITY)
 
 
 def _survives(record: EntityRecord | RelationshipRecord) -> bool:

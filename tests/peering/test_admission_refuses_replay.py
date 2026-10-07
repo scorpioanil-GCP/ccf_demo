@@ -267,10 +267,12 @@ class _DeploymentSharedSeenSet:
         self._lock = threading.Lock()
         self.calls = 0
 
-    def admit_once(self, *, tenant_id: str, peer_id: str, nonce: str) -> bool:
+    def admit_once(self, *, tenant_id: str, key_thumbprint: str, nonce: str) -> bool:
+        # `SEC-022-C-01`: the Protocol scopes by the verified signing key's
+        # thumbprint; it offers no peer id to key on.
         with self._lock:
             self.calls += 1
-            key = (tenant_id, peer_id, nonce)
+            key = (tenant_id, key_thumbprint, nonce)
             if key in self._seen:
                 return False
             self._seen.add(key)

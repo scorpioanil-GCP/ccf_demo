@@ -45,10 +45,10 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_timestamp
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_timestamp
 from ccf.graph._writer import BaseGraphWriter, BootToken, _GraphTxn
 from ccf.graph.backends.mongo import (
     DEFAULT_PARTITION,
@@ -61,6 +61,7 @@ from ccf.graph.backends.mongo import (
     MongoGraphStore,
     attribute_field_path,
 )
+from ccf.graph.leases import AbsoluteLockDirectory, declared_lock_directory_lease
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, Row, parse_timestamp
 from ccf.graph.registry import BackendRegistration, BackendStore
 
@@ -638,10 +639,27 @@ class MongoConnection(CCFContract):
             ``_open_backend``'s: an unsupplied partition resolves to the
             adapter's default at construction, in :func:`_open_store`, not on
             the model.
+        writer_lease_lock_dir: The ABSOLUTE directory this deployment declares
+            for the graph's cross-process writer lease (SEC-013, D-IMPL-374
+            (1)). The lock file inside it is derived by mechanism, never
+            chosen: ``<dir>/<sha256(graph identity)>.lock``
+            (``src/ccf/graph/leases.py::lock_directory_writer_lease``), held
+            as an exclusive ``flock`` from the mint to the writer's close. A
+            relative path is refused at validation. A file lease excludes only
+            writers that share this filesystem with real ``flock`` semantics;
+            across hosts it enforces nothing unless the directory is a shared,
+            lock-capable filesystem. Optional on the model because a read-only
+            store needs no lease; **a boot that mints a writer without one is
+            refused** (``WriterLeaseRequired``). Any other lease (the
+            reference advisory-lock lease, or a deployment's own) is reachable
+            only by constructing the store directly with ``writer_lease=``.
     """
 
     uri: str
     partition: str | None = None
+    writer_lease_lock_dir: AbsoluteLockDirectory | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 def _open_store(
@@ -664,6 +682,7 @@ def _open_store(
         partition=(
             config.partition if config.partition is not None else DEFAULT_PARTITION
         ),
+        writer_lease=declared_lock_directory_lease(config.writer_lease_lock_dir),
     )
 
 

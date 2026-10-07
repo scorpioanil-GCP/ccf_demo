@@ -42,6 +42,7 @@ from ccf.graph.protocols import (
     QueryFragment,
     RelationshipRecord,
     TraversalSpec,
+    require_classification_authority,
 )
 from ccf.operators.base import (
     Operator,
@@ -92,12 +93,20 @@ def _substitute(
         for edge in relationships
         if edge.claim.subject_uri in surviving and edge.claim.object_uri in surviving
     )
-    return GraphView(
+    substituted = GraphView(
         tenant_id=view.tenant_id,
         as_of=view.as_of,
         entities=entities,
         relationships=kept,
     )
+    # SEC-023 (`D-IMPL-374`): a subgraph of state read under an authority is
+    # still state read under that authority — carried, so a Policy operator
+    # later in a composition checks the same authority the read carried. A
+    # view that arrived unstamped stays unstamped.
+    authority = view.classification_authority
+    if authority is None:
+        return substituted
+    return substituted._with_classification_authority(authority)
 
 
 
@@ -287,7 +296,21 @@ class PolicyFilter:
         temporal_boundary: datetime,
         upstream: tuple[OperatorProvenance, ...],
     ) -> OperatorOutput:
-        """Substitute the principal-permissible subgraph for the full graph."""
+        """Substitute the principal-permissible subgraph for the full graph.
+
+        Raises:
+            ccf.graph.protocols.ClassificationAuthorityMissing: ``view`` carries
+                no classification authority — it was not read through a booted
+                fabric's reader (SEC-023, ``D-IMPL-374`` ruling (3) (a); fail
+                closed per its ruling (2)).
+            ccf.graph.protocols.UngovernedClassificationAttribute: the
+                authority ``view`` carries does not govern an attribute this
+                operator admits on, which the resolution spec writes from the
+                source payload (SEC-023, ``D-IMPL-374``).
+        """
+        require_classification_authority(
+            view, self._parameters.classification_attribute_by_class, consumer=self.key
+        )
         entities = tuple(record for record in view.entities if self._admits(record))
         edges = tuple(
             edge

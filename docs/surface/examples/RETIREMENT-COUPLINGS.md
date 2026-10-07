@@ -120,7 +120,7 @@ Rows by coupling shape:
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1240 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1272 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1273 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
-| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 261 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 324 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
@@ -224,10 +224,10 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 110 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 124 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 139 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/run-agents-cross-process.md` | 161 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/run-agents-cross-process.md` | 172 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/run-agents-cross-process.md` | 184 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 93 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `public/how-to/run-agents-cross-process.md` | 163 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/run-agents-cross-process.md` | 174 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/run-agents-cross-process.md` | 186 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/how-to/security-and-deployment.md` | 167 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |
@@ -251,15 +251,15 @@ Rows by coupling shape:
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 514 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 516 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 386 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 388 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 547 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 445 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 447 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 664 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 2985 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 1867 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 4505 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 1871 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 4537 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -307,9 +307,9 @@ Rows by coupling shape:
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_s1_00_provision_write_fence.py` | 21 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/scenario/provision.py` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 143 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 466 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 595 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 145 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 477 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 606 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 60 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |

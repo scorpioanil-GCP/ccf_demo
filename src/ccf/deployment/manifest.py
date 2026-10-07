@@ -83,6 +83,7 @@ from ccf.authz.capability import (
     Register,
     mint_at_composition,
 )
+from ccf.assembly.worker import EntityResolutionSpec
 from ccf.boot import FabricHandle, boot
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -90,6 +91,7 @@ from ccf.controlplane.artifacts import (
     DEPLOYMENT_MANIFEST,
     DeploymentManifest,
     ManifestEntry,
+    PolicyFilterParametersArtifact,
     load_artifact,
 )
 from ccf.controlplane.registry import (
@@ -105,6 +107,10 @@ from ccf.deployment.classes import (
 )
 from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
+# SEC-023 (`D-IMPL-374`): the refusal now lives beside the view the
+# consumer-time check reads; re-exported here under its batch-5 name.
+from ccf.graph.protocols import UngovernedClassificationAttribute
+from ccf.graph.leases import _without_lock_directory_setting
 from ccf.graph.registry import (
     ResolvedBackend,
     ResolvedSecret,
@@ -116,7 +122,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -272,8 +278,14 @@ def _document_inside_the_deployment(root: Path, entry: ManifestEntry) -> Path:
 def _preflight_adapter(
     manifest: DeploymentManifest,
     connection: Mapping[str, object],
+    *,
+    read_only: bool = False,
 ) -> ResolvedBackend:
     """Refuse an adapter declaration this deployment cannot satisfy (D-08).
+
+    ``read_only`` validates what a read-only boot validates (N-2;
+    ``D-IMPL-374``): the connection without the writer-lease setting, because
+    a read-only boot takes no writer lease (``ccf.boot.boot``).
 
     **This runs before any artifact is parsed and before anything is
     registered**, and that ordering is the whole point — it is why this is a
@@ -342,7 +354,12 @@ def _preflight_adapter(
     # rendering because it is shorter. That rendering reproduces the value that
     # was supplied, and on this path one of those values is a credential. Do
     # not build a refusal here; call this.
-    validate_connection(record.registration, connection)
+    validate_connection(
+        record.registration,
+        _without_lock_directory_setting(record.registration.config_model, connection)
+        if read_only
+        else connection,
+    )
     _refuse_undeclared_secret_fields(manifest, record)
     return record
 
@@ -554,6 +571,48 @@ def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> 
     )
 
 
+def _refuse_ungoverned_classification(
+    manifest: DeploymentManifest, parsed: Mapping[str, CCFContract]
+) -> None:
+    """Refuse a deployment whose access-deciding attribute is source-asserted (SEC-023).
+
+    Reads the resolution spec at ``manifest.resolution_spec_key`` and every
+    parsed :class:`~ccf.controlplane.artifacts.PolicyFilterParametersArtifact`.
+    Static only: two declarations compared before anything is materialized,
+    on the R-10 precedent (``src/ccf/deployment/config.py::_refuse_unproducible_seed_classes``).
+    A spec key that does not resolve to an
+    :class:`~ccf.assembly.worker.EntityResolutionSpec` is left to
+    :func:`ccf.boot.boot`, which refuses it by type.
+
+    The EARLY refusal (``D-IMPL-374`` ruling (3) (a)): the same rule is
+    enforced again wherever a classification consumer is built or used —
+    ``build_operator_registry``, ``PolicyFilter.apply`` and the booted
+    fabric's reader — which is what covers the paths that never pass through
+    this function.
+    """
+    spec = parsed.get(manifest.resolution_spec_key)
+    if not isinstance(spec, EntityResolutionSpec):
+        return
+    governed = spec.governed_attributes()
+    written = {
+        (rule.entity_class, attribute)
+        for rule in spec.entity_rules
+        for attribute in rule.attribute_keys
+    }
+    for key, artifact in sorted(parsed.items()):
+        if not isinstance(artifact, PolicyFilterParametersArtifact):
+            continue
+        for entity_class, attribute in sorted(
+            artifact.classification_attribute_by_class.items()
+        ):
+            if (entity_class, attribute) not in written:
+                continue
+            if attribute not in governed.get(entity_class, {}):
+                raise UngovernedClassificationAttribute(
+                    operator_key=key, entity_class=entity_class, attribute=attribute
+                )
+
+
 def _register_and_boot(
     manifest: DeploymentManifest,
     parsed: Mapping[str, CCFContract],
@@ -563,8 +622,14 @@ def _register_and_boot(
     secrets: Mapping[str, ResolvedSecret],
     resolved_tenant: str,
     keys: DeploymentKeys | None = None,
+    read_only: bool = False,
 ) -> BootedFabric:
     """Register the ``role: register`` entries and boot — the spine both doors share.
+
+    ``read_only`` is handed to :func:`ccf.boot.boot` unchanged (FW-2;
+    ``D-IMPL-374``): the registration loop runs either way, into the caller's
+    registry, because the pins a read-only fabric reads under are the same
+    pins.
 
     Phase two of the three-phase ordering :func:`load_and_boot`'s own
     docstring states, extracted rather than duplicated (`16-30`). Three
@@ -589,6 +654,10 @@ def _register_and_boot(
     # refused here, before minting. The registry's tenant-segment check
     # (§1.3) then holds for the manifest root as a real check.
     manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
+    # SEC-023 (`D-IMPL-372`): before anything is registered or minted, a
+    # deployment whose Policy operator admits on a source-asserted attribute
+    # with no declared authority refuses to boot, by name.
+    _refuse_ungoverned_classification(manifest, parsed)
     # Phase two: register the ones the manifest marks `role: register`.
     pinned = register_manifest_entries(manifest, parsed, registry=registry, tenant=resolved_tenant)
     pins = ResolvedPins(entries=pinned)
@@ -605,6 +674,7 @@ def _register_and_boot(
         # the fabric is composed for; `boot` mints its invalidation-register
         # capability from this and nothing else.
         tenant_ids=(resolved_tenant,),
+        read_only=read_only,
     )
     return BootedFabric(
         handle=handle,
@@ -782,6 +852,7 @@ def load_and_boot(
     registry: ControlPlaneProtocol,
     connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
+    read_only: bool = False,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
 
@@ -897,6 +968,13 @@ def load_and_boot(
             reference to a credential (``backend_secrets``), which is auditable
             and holds nothing secret.
         tenant_id: The deployment's tenant, when the manifest does not name it.
+        read_only: ``True`` boots the fabric read-only through
+            ``ccf.boot.boot(..., read_only=True)`` (FW-2, whole-branch review
+            I-1; ``D-IMPL-374``): a governed reader, no writer and no writer
+            lease — the fabric Decision Replay reads through beside a live
+            writer. The preflight and the boot both set the connection's
+            writer-lease setting aside, so it is neither validated nor used
+            (N-2). ``False`` (the default) is the writer boot, unchanged.
 
     Raises:
         ccf.graph.registry.UnknownBackend: the manifest names an adapter no
@@ -952,7 +1030,7 @@ def load_and_boot(
     resolved_tenant = _resolve_tenant(manifest, tenant_id)
     root = manifest_file.parent
     document_paths = _preflight_entries(manifest, root)
-    adapter = _preflight_adapter(manifest, connection or {})
+    adapter = _preflight_adapter(manifest, connection or {}, read_only=read_only)
     # After the preflight, deliberately: a reference the adapter cannot use is
     # refused above, without the environment ever being read, so the only
     # variables read here are ones the declared adapter actually accepts. Still
@@ -975,4 +1053,5 @@ def load_and_boot(
         connection=connection,
         secrets=secrets,
         resolved_tenant=resolved_tenant,
+        read_only=read_only,
     )

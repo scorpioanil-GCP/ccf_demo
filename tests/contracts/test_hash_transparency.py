@@ -368,8 +368,46 @@ _MARKED_IN_THE_TREE = frozenset(
         # what caught it, which is why it is a roster and not a count.
         "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_verdict_integrity",
         "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_recorded_approver",
+        # `D-IMPL-372` SEC-023 — seven marks, ticked deliberately. The
+        # per-attribute authority declaration on a resolution rule, the
+        # refusals an ingest reports, and the refusal audit event's five
+        # fields (`src/ccf/assembly/worker.py::EntityResolutionRule`,
+        # `src/ccf/assembly/worker.py::IngestResult`,
+        # `src/ccf/controlplane/audit.py::AttributeAssertionRefusedAuditEvent`).
+        # Each is empty or `None` on every rule, result and event recorded
+        # before the row, so no resolution-spec pin and no examiner's hash of
+        # an older record moves; a real value is a real claim and is rendered.
+        "ccf.assembly.worker.EntityResolutionRule.attribute_authorities",
+        "ccf.assembly.worker.IngestResult.refused_assertions",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_entity_class",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_attribute",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_source_system_id",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_envelope_id",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_value_present",
         "ccf.hitl.transport.HitlActionRequest.annotation",
         "ccf.hitl.transport.HitlActionSubmission.authorizing_decision_id",
+        # `D-IMPL-374` (SEC-013) — three marks, ticked deliberately. The
+        # ABSOLUTE directory a deployment declares for the graph's cross-process
+        # writer lease, on each network store's connection settings
+        # (`src/ccf/graph/backends/fluree_write.py::FlureeConnection`,
+        # `src/ccf/graph/backends/mongo_write.py::MongoConnection`,
+        # `src/ccf/graph/backends/neo4j_write.py::Neo4jConnection`). It is
+        # deployment placement — where the lock file lives, whose NAME the
+        # mechanism derives from the graph identity and no deployment chooses —
+        # and not a claim about the graph or the adapter. `None` means no lease
+        # declared, which is what every connection written before the field
+        # existed said, so a connection that declares no directory
+        # canonicalizes byte-for-byte as it did; a declared directory is a real
+        # claim and is rendered. Ticked `True` and NOT `False`: a connection
+        # without the field is not an earlier generation. Moving the directory
+        # does not move replay dimension 2's adapter pin, because
+        # `src/ccf/graph/registry.py::AdapterPin` carries the adapter's name,
+        # version and secret reference names and no connection setting. The
+        # lane declared the marks at the fields and did not tick them here;
+        # the roster is what reported it, which is why it is a roster.
+        "ccf.graph.backends.fluree_write.FlureeConnection.writer_lease_lock_dir",
+        "ccf.graph.backends.mongo_write.MongoConnection.writer_lease_lock_dir",
+        "ccf.graph.backends.neo4j_write.Neo4jConnection.writer_lease_lock_dir",
         # `D-IMPL-363` (SEC-005, the signed-claims / time-window repair) —
         # six marks, ticked deliberately. `attestation` REPLACES
         # `signed_binding` on both contracts (E1; the submission's old name is
@@ -719,6 +757,12 @@ _MARKED_IN_THE_TREE = frozenset(
         # can reach under it.
         "ccf.products.request.ArgumentDomain.pattern",
         "ccf.products.request.ProductRequestContract.subject_domain",
+        # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.2): the replay
+        # RESULT's erasure disclosure. A result, never a persisted record; the
+        # sentinel `()` says nothing was erased, so an outcome renders exactly
+        # as it did before the field existed.
+        "ccf.replay.engine.ReplayOutcome.erased_content",
+        "ccf.replay.engine.RefusalReplayOutcome.erased_content",
     }
 )
 

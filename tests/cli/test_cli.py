@@ -45,6 +45,7 @@ import yaml
 from ccf.contracts.canonical import content_hash
 
 from cli.conftest import CLI_PRINCIPAL, CLI_ROLE, CLI_TOKEN, Fabric, run_cli
+from tests.composition import declared_erasure_trust, declared_hitl_policy_key
 
 CLI_SOURCE = (
     Path(__file__).resolve().parents[2]
@@ -683,7 +684,7 @@ def test_local_bundle_is_the_api_dependencies_type(tmp_path: Path) -> None:
     from ccf_runtime.cli.local import build_local_dependencies
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    bundle = build_local_dependencies(root=tmp_path)
+    bundle = build_local_dependencies(root=tmp_path, hitl_policy_key=declared_hitl_policy_key(), erasure_trust=declared_erasure_trust())
     # by type, not by intent: --local's bundle IS the object create_app
     # consumes (T-07-27; the Codex shared-abstraction finding)
     assert type(bundle) is ApiDependencies
@@ -716,6 +717,11 @@ def test_local_is_suspended_and_names_what_reviving_it_would_cost(
                 "--local",
                 "--local-root",
                 str(tmp_path),
+                # FW-9 (whole-branch review M-9; `D-IMPL-374`): NO
+                # `--local-hitl-policy-key`. A suspended mode reports itself
+                # suspended before it demands a flag only a working mode would
+                # need — fix round 4 had adapted this test to pass the key
+                # rather than fixing the order.
                 "config",
                 "keys",
                 "--class-id",
@@ -726,6 +732,10 @@ def test_local_is_suspended_and_names_what_reviving_it_would_cost(
     assert suspended.value.code == 2
     err = " ".join(capsys.readouterr().err.split())  # wrap-tolerant
     assert "`--local` is suspended" in err
+    # The usage line names every flag; the ERROR must not demand this one.
+    assert "--local requires --local-hitl-policy-key" not in err
+    # ...and before building the local bundle: nothing was created under the root.
+    assert sorted(path.name for path in tmp_path.iterdir()) == []
     # Each of the five seams a local deployment would have to declare, so the
     # message cannot decay into "not supported" without reddening this.
     for seam in (

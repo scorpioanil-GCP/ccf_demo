@@ -43,6 +43,7 @@ from __future__ import annotations
 import inspect
 import pathlib
 import re
+from tests.composition import declared_erasure_trust, no_erasures
 from typing import Any
 
 import pytest
@@ -70,15 +71,31 @@ class TestTheSignatureHasNoInsecureArm:
             "product_entitlement",
             "perspective_resolver",
             "refusal_recorder",
+            # Required, not optional (`SEC-017`; `D-IMPL-374`): every
+            # keyword-only parameter of `create_app` is required
+            # (`D-IMPL-353` §4 rule 1). Its value may be `None` (see the next
+            # test); the argument may not be omitted.
+            "replay_record_product_class",
         }
 
     def test_no_parameter_accepts_none(self) -> None:
-        """``| None`` on any of the five would re-open the arm by typing."""
+        """``| None`` on any of the five would re-open the arm by typing.
+
+        One parameter is typed ``| None`` BY RULING and is named here rather
+        than hidden: ``replay_record_product_class`` (``SEC-017``;
+        ``D-IMPL-374`` (2), fix round 1). It is REQUIRED — the test above holds
+        that — and ``None`` is a value the deployment passes. It is not an
+        insecure arm: given ``None``, a bearer with a declared product roster
+        is REFUSED every replay read, so ``None`` there fails closed. Every
+        other parameter stays held to the original rule, including any added
+        later.
+        """
         signature = inspect.signature(create_app)
         optional = [
             name
             for name, parameter in signature.parameters.items()
-            if name != "deps" and "None" in str(parameter.annotation)
+            if name not in {"deps", "replay_record_product_class"}
+            and "None" in str(parameter.annotation)
         ]
         assert optional == []
 
@@ -106,7 +123,7 @@ class TestTheSignatureHasNoInsecureArm:
 
         with pytest.raises(TypeError):
             create_app(  # type: ignore[call-arg]
-                ApiDependencies(
+                ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                     control_plane=fabric.registry,
                     artifact_store=fabric.store,
                     product_resolver=fabric.product_resolver,

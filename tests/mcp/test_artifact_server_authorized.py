@@ -32,6 +32,7 @@ from __future__ import annotations
 import base64
 import json
 import pathlib
+from tests.composition import declared_erasure_trust, no_erasures
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -252,7 +253,8 @@ def _world(tmp_path: pathlib.Path, *, authorizer: Any = None) -> _World:
     recording = _RecordingAuthorizer(
         inner=authorizer if authorizer is not None else authorizer_granting()
     )
-    audit_log = ControlPlaneRegistry().audit_log
+    plane = ControlPlaneRegistry()
+    audit_log = plane.audit_log
     server = build_artifact_server(
         server_name="authorized-artifact",
         store=store,  # type: ignore[arg-type]  # the §1.2 write shape, ahead of the join
@@ -268,6 +270,9 @@ def _world(tmp_path: pathlib.Path, *, authorizer: Any = None) -> _World:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=audit_log,
+        erasure_trust=declared_erasure_trust(),
+        erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
     return _World(server=server, store=store, authorizer=recording, audit_log=audit_log)
 
@@ -443,7 +448,9 @@ def test_the_blob_read_goes_through_the_governed_dereference(
     verify(asked["authorized"], kind=ArtifactRead, resource=ADDRESS)
     assert getattr(asked["authorized"], "tenant") == TENANT
     assert asked["reference"] == DereferenceRequest(reference=ADDRESS, by_uri=False, wants_bytes=True)
-    assert asked["store"] is world.store
+    # SEC-009 (D-IMPL-374 (4), MCP ruling): the dereference reads through the
+    # erasure-consulting composition of the server's store.
+    assert asked["store"].inner is world.store
     assert asked["audit_log"] is world.audit_log
     assert asked["surface"] == SURFACE_MCP_RESOURCE
     assert asked["address"] == artifact_blob_uri(content_address=ADDRESS)
@@ -548,16 +555,21 @@ def test_no_surface_on_the_artifact_server_is_untenanted(tmp_path: pathlib.Path)
     # The ledger is per FastMCP; reach it through the module's weak map the
     # same way `unguarded_surfaces` does, since the builder returns the server.
     ledger = tenancy._LEDGERS[world.server]
+    # SEC-009 ruling 2 (D-IMPL-374 (4)): the names resource joins the roster,
+    # hash-addressed and grant-tenanted like the blob and presence resources.
+    from ccf_runtime.mcp.artifact_server import NAMES_URI_TEMPLATE
+
     assert set(ledger) == {
-        BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAME_URI_TEMPLATE, PUT_ARTIFACT_TOOL
+        BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAMES_URI_TEMPLATE, NAME_URI_TEMPLATE, PUT_ARTIFACT_TOOL
     }
     assert ledger[BLOB_URI_TEMPLATE].subject.grant is True
     assert ledger[META_URI_TEMPLATE].subject.grant is True
+    assert ledger[NAMES_URI_TEMPLATE].subject.grant is True
     assert ledger[NAME_URI_TEMPLATE].subject.argument == "tenant"
     assert ledger[PUT_ARTIFACT_TOOL].subject.grant is True
     assert ledger[PUT_ARTIFACT_TOOL].action == ACTION_ARTIFACT_WRITE
     assert ledger[PUT_ARTIFACT_TOOL].resource.template == "{artifact_class}/{name}"
-    for uri in (BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAME_URI_TEMPLATE):
+    for uri in (BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAMES_URI_TEMPLATE, NAME_URI_TEMPLATE):
         assert ledger[uri].action == ACTION_ARTIFACT_READ
         assert ledger[uri].mutating is False
 
@@ -585,6 +597,9 @@ def _real_world(tmp_path: pathlib.Path) -> tuple[FastMCP, FileArtifactStore]:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
+        erasure_trust=declared_erasure_trust(),
+        erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
     return server, store
 
@@ -681,7 +696,8 @@ def test_a_client_lane_read_leaves_the_same_audit_trail_a_governed_one_does(
     the address read, the principal, and the artifact.read action."""
     source, recorder = _entitlement_world(tmp_path)
     store = deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS)
-    audit_log = ControlPlaneRegistry().audit_log
+    plane = ControlPlaneRegistry()
+    audit_log = plane.audit_log
     server = build_artifact_server(
         server_name="authorized-artifact-audit",
         store=store,
@@ -697,6 +713,9 @@ def test_a_client_lane_read_leaves_the_same_audit_trail_a_governed_one_does(
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=audit_log,
+        erasure_trust=declared_erasure_trust(),
+        erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), {"k": 1})
     before = len(audit_log.events())

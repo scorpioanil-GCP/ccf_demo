@@ -405,15 +405,24 @@ def fabric_boot(
         database_path: Path | None = None,
         backend: str = "sqlite",
         tenant_ids: tuple[str, ...] = FIXTURE_TENANTS,
+        governed_classification: Any = None,
     ) -> "FabricHandle":
         counter["n"] += 1
         registry = ControlPlaneRegistry()
+        # SEC-023 (D-IMPL-374 fix round 1, I-1 (a)): a fabric whose tests ask
+        # classification questions declares the attributes its spec governs;
+        # an authority covers nothing it does not govern.
+        spec = _resolution_spec()
+        if governed_classification is not None:
+            from tests.classification_authority import spec_governing
+
+            spec = spec_governing(spec, governed_classification)
         # This factory IS the test suite's composition root (D-IMPL-354): the
         # two artifacts the fabric resolves at boot are registered under a
         # `Register` capability minted by the recipe in `tests/composition.py`,
         # one per key, each audited on this registry's own log.
         spec_version = register_at_composition(
-            registry, RESOLUTION_SPEC_KEY, _resolution_spec()
+            registry, RESOLUTION_SPEC_KEY, spec
         )
         policy_version = register_at_composition(
             registry, POLICY_BUNDLE_KEY, _policy_bundle()
@@ -446,6 +455,9 @@ def fabric_boot(
             location = {
                 "uri": request.getfixturevalue("neo4j_uri"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
+                # SEC-013 (D-IMPL-374): a persistent network store mints a
+                # writer only under a declared, held cross-process lease.
+                "writer_lease_lock_dir": str(tmp_path),
             }
         elif backend == "mongo":
             # Plan 15.2-13: a fresh partition per boot, exactly as the neo4j
@@ -454,6 +466,9 @@ def fabric_boot(
             location = {
                 "uri": request.getfixturevalue("mongo_uri"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
+                # SEC-013 (D-IMPL-374): a persistent network store mints a
+                # writer only under a declared, held cross-process lease.
+                "writer_lease_lock_dir": str(tmp_path),
             }
         elif backend == "demo":
             # Plan 15.4-10: the out-of-tree adapter, installed from
@@ -474,6 +489,9 @@ def fabric_boot(
             location = {
                 "url": request.getfixturevalue("fluree_url"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
+                # SEC-013 (D-IMPL-374): a persistent network store mints a
+                # writer only under a declared, held cross-process lease.
+                "writer_lease_lock_dir": str(tmp_path),
             }
         else:
             raise NotImplementedError(backend)

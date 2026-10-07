@@ -94,8 +94,8 @@ from ccf.controlplane.artifacts import (
     TraversalNeighborhoodParametersArtifact,
 )
 from ccf.deployment.pins import ResolvedPins
-from ccf.graph.protocols import GraphView
-from ccf.operators.base import Operator
+from ccf.graph.protocols import GraphView, require_classification_authority
+from ccf.operators.base import Operator, read_intent_of
 from ccf.operators.categories import (
     PolicyFilter,
     SimilaritySelect,
@@ -290,7 +290,26 @@ def build_operator_registry(
     wrong for a semantic version identity. Same principle, opposite mechanism,
     on purpose.)
 
+    **Classification authority is checked here, at construction** (SEC-023,
+    ``D-IMPL-374`` ruling (3) (a)). Every Policy operator this builder
+    constructs from a ``PolicyFilterParametersArtifact``, and every operator in
+    ``deployment_operators`` whose declared read intent carries a
+    classification map, is checked against the
+    :class:`~ccf.graph.protocols.ClassificationAuthority` ``view`` was read
+    under — the authority ``ccf.boot.boot`` stamps from the resolution spec its
+    L2 enforces — before it is registered. The four call shapes the
+    boot-time door check never saw (a hand-built operator, a hand-composed
+    boot, a per-request build) all pass through here.
+
     Raises:
+        ccf.graph.protocols.ClassificationAuthorityMissing: a classification
+            consumer is built over a ``view`` that carries no authority (a
+            hand-built view, or one read from a store no boot composed) —
+            fail closed.
+        ccf.graph.protocols.UngovernedClassificationAttribute: a
+            classification consumer admits on an attribute the resolution spec
+            writes from the source payload with no ``attribute_authorities``
+            declaration.
         ValueError: ``parameters`` holds an artifact of no recognized operator
             category.
         SimilarityCorpusAttributeError: the corpus could not be read; see
@@ -313,6 +332,16 @@ def build_operator_registry(
     # same reason the manifest loop is sorted, and registered before it so a key
     # collision raises from one place rather than two.
     for operator in sorted(deployment_operators, key=lambda candidate: candidate.key):
+        # SEC-023 (`D-IMPL-374` ruling (3) (a)): a hand-built operator carries
+        # no artifact the boot-time door check could read, so its declared
+        # classification map is checked here, against the authority the view
+        # was read under, before it can be built into a registry.
+        intent = read_intent_of(operator)
+        require_classification_authority(
+            view,
+            None if intent is None else intent.classification_attribute_by_class,
+            consumer=operator.key,
+        )
         registry.register(operator)
 
     # Phase one: the parameter-only categories. Sorted so registration order is
@@ -353,6 +382,13 @@ def build_operator_registry(
                     " EFFECTIVE request; a caller building a registry directly"
                     " has no request and therefore cannot honor the binding"
                 )
+            # SEC-023 (`D-IMPL-374` ruling (3) (a)): a per-request registry has
+            # no `load_and_boot` spine behind it, so the consumer's
+            # classification map is checked here against the authority the
+            # view was read under — a view with none is refused, fail closed.
+            require_classification_authority(
+                view, parameter.classification_attribute_by_class, consumer=key
+            )
             # The one conversion in this module. Constructed explicitly rather
             # than by `model_copy(update=...)`: the artifact is not a
             # PolicyFilterParameters, so there is nothing to copy from, and the

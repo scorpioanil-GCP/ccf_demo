@@ -60,6 +60,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -175,7 +176,7 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
         control_plane=registry, clock=lambda: AUDIT_INSTANT
     )
     return create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -198,6 +199,7 @@ def _app(fabric: Fabric, tmp_path: Path) -> Any:
         # denial is not built. This module only ever serves, so the recorder is
         # bound and never fires — one keyword, and nothing else here moves.
         refusal_recorder=_recorder(fabric, tmp_path, source=source),
+        replay_record_product_class=None,
     )
 
 

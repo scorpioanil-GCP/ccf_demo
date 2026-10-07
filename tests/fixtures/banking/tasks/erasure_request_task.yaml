@@ -1,0 +1,15 @@
+# Banking fixture task definition — a one-gate erasure request (SEC-009;
+# D-IMPL-374 (4), U9: the request/approval is DEPLOYMENT-DECLARED, never an
+# SDK-shipped shape). Test vocabulary only; no approver lives here.
+
+keys:
+  task_definition: acme-bank/ccf.task-definition/erasure-request
+
+task_definition:
+  schema_version: "1.0.0"
+  artifact_version: "1.0.0"
+  name: erasure-request
+  tenant: acme-bank
+  steps:
+    - kind: hitl-gate
+      name: erasure-approval

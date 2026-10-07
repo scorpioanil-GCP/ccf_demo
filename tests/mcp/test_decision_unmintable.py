@@ -103,6 +103,7 @@ def _world(authorizer: Any) -> _World:
         subject=door.from_grant(),
         resource=door.resource_route(),
         mutating=False,
+        products=TenantGuardedServer.products_unknown("test fixture"),
     )
     def list_it(authorized: Authorized[AgentList]) -> str:
         entered.append(authorized)

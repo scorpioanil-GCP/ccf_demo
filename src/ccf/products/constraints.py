@@ -34,7 +34,10 @@ The sequence, and it is fixed
    the larger, two admitted sets to their intersection (``D-IMPL-253`` Q4).
    Priority orders which surviving bound is *reported*; it never makes an
    applicable hard constraint disappear. Irreconcilable constraints are a
-   governed :class:`PolicyResolutionConflict`, not a silent pick.
+   governed :class:`PolicyResolutionConflict`, not a silent pick. A hard
+   constraint reaching a parameter that has no value after steps 1 and 2 is
+   refused ``required-absent``, never skipped (``SEC-019``, ``D-IMPL-356``
+   D11).
 4. **Bound by technical capability.** A backend's limit is an authority of its
    own, with a capability identity rather than an artifact pin
    (``D-IMPL-253`` amendment 2 (1): *"Do not create fake artifacts just to
@@ -151,7 +154,8 @@ _CAPABILITY_TOKENS: Final[frozenset[str]] = frozenset({CAPABILITY_TRAVERSAL_DEPT
 #: force* is pinnable, because a resolution is only reproducible alongside the
 #: thing that produced it (``D-IMPL-253`` Q8).
 REFERENCE_CONSTRAINT_RESOLVER_ID: Final[str] = "ccf.reference.policy-constraint-resolver"
-REFERENCE_CONSTRAINT_RESOLVER_VERSION: Final[str] = "1.0.0"
+#: ``1.1.0`` refuses an absent bounded parameter (``SEC-019``, ``D-IMPL-356`` D11).
+REFERENCE_CONSTRAINT_RESOLVER_VERSION: Final[str] = "1.1.0"
 
 
 #: The fold family each operator in the Control Plane's vocabulary belongs to.
@@ -243,8 +247,11 @@ class ConstraintRefusal(CCFContract):
 
     SDK-defined (CLAUDE.md §11); whitepaper §7.8. The governed shell for a
     caller or defaulted value outside an applicable ``maximum``, ``minimum`` or
-    ``allowed_set``, and for a ``required`` parameter still absent after
-    defaults. **A returned value, never an exception** — the posture
+    ``allowed_set``, and for a parameter still absent after defaults on which
+    a ``required`` constraint or a bounding one (``maximum``, ``minimum``,
+    ``allowed_set``) applies. An absent bounded parameter is refused, never
+    skipped (``SEC-019``; ``D-IMPL-356`` D11, amending the realization of
+    ``D-IMPL-253`` Q5). **A returned value, never an exception** — the posture
     :mod:`ccf.products.gates` states at its own head, and the posture
     ``D-IMPL-253`` Q13 requires of every governed determination: a refusal is
     itself a decision and deserves the same replay treatment as a served
@@ -795,7 +802,7 @@ def _evidence_so_far(
     """The resolution as it stands at one exit, rendered the one way.
 
     ``D-IMPL-264`` D-07/D-08. Called at every exit of
-    :func:`resolve_effective_request` — the five refusal exits and the one
+    :func:`resolve_effective_request` — the six refusal exits and the one
     completion — over the same locals, so a partial record and a completed one
     are the same construction sorted the same way, and dimension 2 cannot
     render one resolution as a family of blocks depending on where it exited.
@@ -854,6 +861,20 @@ def resolve_effective_request(
 
     **``preferred`` never refuses** (Q5). It folds to guidance and to nothing
     else, so there is no branch it can reach that returns a refusal.
+
+    **An absent bounded parameter is refused, never skipped** (``SEC-019``;
+    ``D-IMPL-356`` D11, amending the realization of ``D-IMPL-253`` Q5, under
+    which only ``required`` refused absence). A ``maximum``, ``minimum`` or
+    ``allowed_set`` that reaches a parameter the caller omitted and no default
+    filled is a ``required-absent`` :class:`ConstraintRefusal` carrying the
+    highest-priority such bound, exactly as a ``required`` constraint's is.
+    There is no value to hold to the bound, and skipping it served the request
+    as though the bound did not exist — for
+    :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER`, at any Debt. A
+    parameter no registered policy constraint bounds keeps its behavior:
+    guidance alone completes, and a technical capability's bound on an absent
+    parameter (step 4) is still not a refusal. No value is invented for the
+    absent parameter (CINV-01).
 
     **Worked case 3 is the one exception to "nothing is clamped."** A
     ``maximum`` on :data:`~ccf.products.gates.DEBT_TOLERANCE_PARAMETER` does
@@ -1130,6 +1151,34 @@ def resolve_effective_request(
             )
             return ResolutionOutcome(evidence=evidence_so_far(), refusal=absent)
         if key not in effective:
+            # SEC-019 (`D-IMPL-356` D11, amending the realization of
+            # `D-IMPL-253` Q5): a BOUNDING constraint on a parameter with no
+            # value is refused exactly as `required` is, never skipped. There
+            # is no value to hold to the bound, and skipping it served the
+            # request as though the bound did not exist — for
+            # `debt_tolerance`, at any Debt. The bound reported is the
+            # highest-priority one; every applied pin is already in `applied`.
+            bounding = sorted(
+                (c for c in candidates if c.fold != _PRESENCE), key=_order
+            )
+            if bounding:
+                unheld = ConstraintRefusal(
+                    reason="required-absent",
+                    key=key,
+                    detail=(
+                        f"{key}: an applicable {bounding[0].bound.operator}"
+                        " constraint bounds this parameter and the request"
+                        " neither supplies it nor does the class declare a"
+                        " default for it, so there is no value to hold to the"
+                        " bound; an absent bounded parameter is refused, not"
+                        " skipped (SEC-019, D-IMPL-356 D11)"
+                    ),
+                    bound=bounding[0].bound,
+                    requested=None,
+                    overrides=verified_overrides,
+                )
+                return ResolutionOutcome(evidence=evidence_so_far(), refusal=unheld)
+            # Guidance alone (`preferred`) never refuses (Q5), absent or not.
             continue
 
         ordered = sorted(
@@ -1419,6 +1468,13 @@ class PolicyConstraintResolver(Protocol):
 
     Keyword-only throughout: five of the inputs are strings, and a
     transposition would resolve a different tenant's policy without failing.
+
+    **A conforming resolver refuses an absent bounded parameter** (``SEC-019``,
+    ``D-IMPL-356`` D11), as :func:`resolve_effective_request` does. The
+    governed resolver hands the tolerance step only what a COMPLETED
+    resolution established, and a completed resolution with no tolerance is
+    its statement that no policy bound applies to one; a resolver that skipped
+    an absent bounded tolerance would be served at any Debt.
     """
 
     @property

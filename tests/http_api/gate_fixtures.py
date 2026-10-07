@@ -36,7 +36,8 @@ from __future__ import annotations
 import asyncio
 import json
 import string
-from collections.abc import Iterable, Sequence
+from tests.composition import declared_erasure_trust, no_erasures
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -181,12 +182,22 @@ class GateApp:
         return {"Authorization": f"Bearer {token or self.token_everything}"}
 
 
-def build_gate_app(fabric: Any, root: Path) -> GateApp:
+def build_gate_app(
+    fabric: Any,
+    root: Path,
+    *,
+    extra_grants: Mapping[str, TokenGrant] | None = None,
+    app_options: Mapping[str, Any] | None = None,
+) -> GateApp:
     """Build one authorized app over ``fabric``.
 
     Args:
         fabric: The shared :class:`~http_api.conftest.Fabric`.
         root: A writable directory for the recorder's artifact store.
+        extra_grants: Further tokens the source recognizes, beside the
+            standing ones — a test's own credential shape (``SEC-017``'s
+            rostered grants), never a replacement for the standing ones.
+        app_options: Further keyword arguments for ``create_app``.
 
     Returns:
         The built application and its credentials.
@@ -210,6 +221,7 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
             # Deliberately EMPTY `tenants`: what a token source that was
             # never told a tenant mints — and what every door refuses.
             TOKEN_UNTENANTED: grant(CLIENT_ID, (SCOPE_EVERYTHING,), ()),
+            **(extra_grants or {}),
         }
     )
 
@@ -289,7 +301,7 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
         )
 
     app = create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -307,6 +319,11 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
         product_entitlement=entitlement_source,
         perspective_resolver=perspective_resolver,
         refusal_recorder=recorder,
+        # `SEC-017`; `D-IMPL-374`: `create_app` requires the declared replay
+        # record class, so the fixture states it. `None` — none declared —
+        # fails a rostered caller closed on every replay read; the suites
+        # that are about the roster supply their own through `app_options`.
+        **{"replay_record_product_class": None, **(app_options or {})},
     )
     return GateApp(
         app=app,
@@ -428,6 +445,7 @@ def authority(
     product_entitlement: Any,
     perspective_resolver: Any,
     refusal_recorder: Any,
+    replay_record_product_class: str | None = None,
     clock_at: datetime = AUDIT_INSTANT,
 ) -> dict[str, Any]:
     """Every argument ``create_app`` now requires, as one keyword bundle.
@@ -435,7 +453,12 @@ def authority(
     For the suites whose subject is something other than the gate: the
     evidence dereference, the HITL identity derivation, the signed-binding
     door. Each still has to bind five seams, and building them separately in
-    each file is five chances to build a permissive one.
+    each file is five chances to build a permissive one. The bundle also
+    carries the sixth required key, ``replay_record_product_class``
+    (``SEC-017``; ``D-IMPL-374``): ``create_app`` has no default for it, so
+    this helper states ``None`` — none declared, a rostered caller refused
+    every replay read — unless a suite that is about the roster passes its
+    own.
 
     Splat it and override what the suite is actually about::
 
@@ -454,4 +477,5 @@ def authority(
         "product_entitlement": product_entitlement,
         "perspective_resolver": perspective_resolver,
         "refusal_recorder": refusal_recorder,
+        "replay_record_product_class": replay_record_product_class,
     }

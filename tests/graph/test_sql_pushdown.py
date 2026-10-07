@@ -67,7 +67,7 @@ from tests.conformance.test_substrate_properties import (
     PERMITTED_CLASSIFICATIONS,
     SEED_CLASS,
 )
-from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE, ENTITY_POOL
+from tests.properties.strategies import AUTHORITY, CLASSIFICATION_ATTRIBUTE, ENTITY_POOL
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -82,6 +82,12 @@ BACKEND_PARAMS = (
 )
 
 
+#: SEC-023 (D-IMPL-374 fix round 1, I-1 (a)): the classification attributes
+#: these fabrics are asked about must be governed by their resolution spec, or
+#: the booted reader refuses the question.
+_GOVERNED = AUTHORITY.governed
+
+
 @pytest.fixture(params=BACKEND_PARAMS)
 def backend_name(request: pytest.FixtureRequest) -> str:
     """Which SQL substrate this run pushes into."""
@@ -93,7 +99,7 @@ def pushdown_fabric(
     backend_name: str, fabric_boot: Callable[..., "FabricHandle"]
 ) -> "FabricHandle":
     """One booted fabric per backend param — writes go through L2 only."""
-    return fabric_boot(backend=backend_name)
+    return fabric_boot(backend=backend_name, governed_classification=_GOVERNED)
 
 
 def _frozen(
@@ -383,7 +389,16 @@ def test_unsafe_attribute_name_declines_to_the_fallback(
     visible only in telemetry. sqlite-only: the postgres dialect binds the
     bare key, not a path, and translates any name.
     """
-    handle = fabric_boot(backend="sqlite")
+    handle = fabric_boot(
+        backend="sqlite",
+        governed_classification={
+            **_GOVERNED,
+            SEED_CLASS: {
+                **_GOVERNED.get(SEED_CLASS, {}),
+                "not.a.plain.name": frozenset({"source-any"}),
+            },
+        },
+    )
     _write_chain(handle, mid_classification=PERMITTED_CLASSIFICATION)
     q = GraphQuery(
         tenant_id=TENANT,

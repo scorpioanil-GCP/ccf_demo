@@ -42,10 +42,12 @@ the payload would move the product's address. The protected header is part of
 the JWS signing input, so every claim here is covered by the same ES256
 signature as the product.
 
-**The SDK mints no nonce and signs no envelope.** Uniqueness of the nonce per
-``(tenant, peer)`` is the producer's obligation, as for the HITL claim set
+**The SDK mints no nonce and signs no envelope.** Never reusing a nonce under
+the same signing key is the producer's obligation, as for the HITL claim set
 (``src/ccf/hitl/identity_binding.py::HitlActionClaims``); the producer's
-emitter is the deployment's (CINV-01).
+emitter is the deployment's (CINV-01). The receiver spends a nonce under the
+key the envelope's signature verified under, never under a peer id
+(``SEC-022-C-01``).
 
 What the receiving gate does with them
 --------------------------------------
@@ -53,8 +55,9 @@ What the receiving gate does with them
 See :meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`: an envelope whose
 member is absent, unreadable or of an unknown lane is refused
 ``claims-missing``; one issued outside the peer grant's declared window is
-refused ``stale-issuance``; and a nonce already spent by an **admission** is
-refused ``replayed``. The window is judged against the ``now`` ``admit()``
+refused ``stale-issuance``; and a nonce already spent by an **admission** under
+the same signing key, whichever peer id presented it, is refused ``replayed``.
+The window is judged against the ``now`` ``admit()``
 already receives — this module reads no clock (``D-IMPL-358``).
 
 Algorithmic module (CINV-03).
@@ -158,9 +161,10 @@ class IssuanceClaims(CCFContract):
         issued_at: When the producer issued the envelope. **Timezone-aware**;
             a naive instant is refused, because the window comparison would
             otherwise be made in whatever zone the reader assumed.
-        nonce: An opaque value the producer chose, unique per
-            ``(tenant, peer)``. Non-empty. What makes a second presentation of
-            the same bytes detectable.
+        nonce: An opaque value the producer chose, never reused under the
+            same signing key. Non-empty. What makes a second presentation of
+            the same bytes detectable: the receiver spends it under the key
+            the signature verified under (``SEC-022-C-01``).
         answered: The four question axes the producer says it answered —
             subject, intent, freshness and ``asked_at``.
         echo: The request the producer answered. Required beside ``answered``
@@ -284,31 +288,52 @@ def issuance_staleness(
 
 @runtime_checkable
 class SeenNonceSetProtocol(Protocol):
-    """Where spent issuance nonces live (Q14-2 (a): in-process by default, pluggable).
+    """Where spent issuance nonces live (Q14-2 (a); `SEC-022`, `SEC-022-C-01`).
 
-    One method, atomic: a deployment with several receivers plugs one shared
-    implementation into every gate, and a replay presented to any of them is
-    refused. Keyed by tenant so one store can serve several tenants' gates.
+    One method, atomic. Every gate in one process already consults one default
+    set (`SEC-022-R1`); a deployment whose receivers run in several processes
+    plugs one shared implementation into every gate, and a replay presented to
+    any of them is refused. Keyed by tenant so one store can serve several
+    tenants' gates.
+
+    **Keyed by the signing key, never by a peer id** (`SEC-022-C-01`). A peer
+    id is the receiver's label for a sender, and a trust policy may list one
+    key under two of them; scoped by that label, the same signed bytes crossed
+    once per label. The scope is the key the envelope's signature verified
+    under, passed as its RFC 7638 thumbprint
+    (:func:`~ccf.peering.identity.jwk_thumbprint`): one key written as two
+    documents is one scope, and two keys sharing a ``kid`` label are two, so
+    no peer can spend a nonce in another key's scope. No peer id is offered,
+    so an implementation cannot key on one.
     """
 
-    def admit_once(self, *, tenant_id: str, peer_id: str, nonce: str) -> bool:
-        """Record ``nonce`` as spent; ``True`` on first sight, ``False`` if already spent.
+    def admit_once(self, *, tenant_id: str, key_thumbprint: str, nonce: str) -> bool:
+        """Record ``nonce`` as spent under ``(tenant_id, key_thumbprint)``.
 
-        Check-and-insert in ONE step: two concurrent presentations of the same
-        nonce must not both see ``True``.
+        ``key_thumbprint`` is the RFC 7638 thumbprint of the public key the
+        envelope's signature verified under. ``True`` on first sight, ``False``
+        if already spent. Check-and-insert in ONE step: two concurrent
+        presentations of the same nonce must not both see ``True``.
         """
         ...
 
 
 class InProcessSeenNonceSet:
-    """The reference :class:`SeenNonceSetProtocol`: a set behind a lock.
+    """The reference :class:`SeenNonceSetProtocol`: a set behind a lock (`SEC-022`).
 
-    The default each :class:`~ccf.peering.admission.PeeringAdmissionGate`
-    constructs for itself, never shared between gates. **Bound, stated:** it
-    covers one process and one gate, and its entries are retained for the
-    gate's lifetime. The issuance window makes the set boundable — an entry
-    older than ``max_age + skew`` can never be admitted again — but this
-    reference implementation does not prune; the same retention question as the
+    Entries are ``(tenant, key thumbprint, nonce)``: the signing key's scope,
+    never a peer id's (`SEC-022-C-01`).
+
+    ONE instance of this class is the default every
+    :class:`~ccf.peering.admission.PeeringAdmissionGate` in a process shares
+    when its composition supplies no seen-set (`SEC-022-R1`). **Bound,
+    stated:** it covers one process and lives as long as the process — it is
+    not persisted, so after a restart an envelope still inside its peer's
+    issuance window can be admitted once more, and receivers in several
+    processes share nothing through it. The issuance window makes the set
+    boundable — an entry older than ``max_age + skew`` can never be admitted
+    again — but this reference implementation does not prune; its entries are
+    retained for the process's lifetime, the same retention question as the
     HITL reference transport's seen-nonce set (``CR-363-07``).
     """
 
@@ -316,8 +341,9 @@ class InProcessSeenNonceSet:
         self._seen: set[tuple[str, str, str]] = set()
         self._lock = threading.Lock()
 
-    def admit_once(self, *, tenant_id: str, peer_id: str, nonce: str) -> bool:
-        key = (tenant_id, peer_id, nonce)
+    def admit_once(self, *, tenant_id: str, key_thumbprint: str, nonce: str) -> bool:
+        """Spend ``nonce`` under ``(tenant_id, key_thumbprint)``; see the Protocol."""
+        key = (tenant_id, key_thumbprint, nonce)
         with self._lock:
             if key in self._seen:
                 return False

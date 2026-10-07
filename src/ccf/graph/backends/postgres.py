@@ -63,7 +63,12 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import dict_row
 
 from ccf.contracts.canonical import canonical_timestamp
-from ccf.graph.protocols import GraphQuery
+from ccf.graph.protocols import (
+    GraphQuery,
+    WriterLease,
+    WriterLeaseHeld,
+    WriterLeaseScope,
+)
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
@@ -173,6 +178,108 @@ def _graph_identity(dsn: str, schema: str) -> str:
     return f"postgres://{host}:{port}/{database}#{schema}"
 
 
+#: The lease statements. The key is derived SERVER-side from the session's
+#: current schema — never from the DSN's host spelling, which could differ
+#: (``localhost`` vs ``127.0.0.1``) for one server and so yield two keys.
+#: Advisory locks are already scoped to the connected database.
+_TRY_WRITER_LEASE = (
+    "SELECT current_schema() AS schema_name,"
+    " pg_try_advisory_lock(hashtextextended(current_schema(), 0)) AS held"
+)
+_RELEASE_WRITER_LEASE = (
+    "SELECT pg_advisory_unlock(hashtextextended(current_schema(), 0)) AS released"
+)
+
+
+class PostgresWriterLease:
+    """The Postgres writer lease: a session advisory lock keyed on the schema.
+
+    SEC-013 (D-IMPL-372); whitepaper §7.3 / INV-CH7-10, CLAUDE.md §10. Scope
+    ``"cross-process"``. ``pg_try_advisory_lock(hashtextextended(
+    current_schema(), 0))`` on the store's own session connection:
+
+    * **``pg_try_advisory_lock``, never ``pg_advisory_lock``** — the blocking
+      form would hang a second boot instead of refusing it by name.
+    * **Session-scoped, not ``_xact``** — under autocommit a transaction lock
+      ends with its statement.
+    * **Keyed server-side** on the schema the session resolves into, so host
+      spelling in the DSN cannot produce a second key for one graph.
+
+    Released by ``pg_advisory_unlock`` with the same key, and implicitly when
+    the session ends. **Deployment caveats, disclosed rather than hidden:** a
+    dropped connection loses the lease silently (this writer then fails on its
+    next statement, but a competing boot may already have succeeded); a
+    transaction- or statement-pooled connection (PgBouncer in those modes)
+    cannot carry a session lease, so the store must connect directly or through
+    a session-pooled connection; the key space is the database's shared
+    single-``bigint`` advisory space.
+
+    Args:
+        connection: The store's session connection, ``search_path`` already
+            set to the fabric's schema.
+        schema: The schema the store was opened on, cross-checked against the
+            server's ``current_schema()``.
+
+    Raises:
+        WriterLeaseHeld: another session holds the lease.
+        RuntimeError: the session does not resolve into ``schema``.
+    """
+
+    def __init__(
+        self, *, connection: psycopg.Connection[dict[str, Any]], schema: str
+    ) -> None:
+        row = connection.execute(_TRY_WRITER_LEASE).fetchone()
+        if row is None:
+            raise RuntimeError(
+                "the Postgres lease statement returned no row (SEC-013)"
+            )
+        resolved = row["schema_name"]
+        if resolved != schema:
+            if row["held"]:
+                connection.execute(_RELEASE_WRITER_LEASE)
+            raise RuntimeError(
+                f"the Postgres session resolves into schema {resolved!r}, not"
+                f" {schema!r}; refusing to key a writer lease on it (SEC-013)"
+            )
+        if not row["held"]:
+            raise WriterLeaseHeld(f"advisory lock on schema {schema!r} is held")
+        self._connection: psycopg.Connection[dict[str, Any]] | None = connection
+        self._schema = schema
+
+    @property
+    def scope(self) -> WriterLeaseScope:
+        return "cross-process"
+
+    @property
+    def mechanism(self) -> str:
+        return f"advisory lock on schema {self._schema!r}"
+
+    def release(self) -> None:
+        """Unlock the advisory lock. Idempotent.
+
+        A closed or broken session has already ended, and the server released
+        every session lock with it, so there is nothing left to unlock.
+        """
+        connection, self._connection = self._connection, None
+        if connection is None or connection.closed:
+            return
+        try:
+            connection.execute(_RELEASE_WRITER_LEASE)
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            return
+
+    def __enter__(self) -> PostgresWriterLease:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.release()
+
+
 class PostgresGraphStore:
     """Connection and schema owner for the Postgres reference backend.
 
@@ -192,6 +299,7 @@ class PostgresGraphStore:
 
     def __init__(self, *, dsn: str, schema: str = DEFAULT_SCHEMA) -> None:
         self._graph_identity = _graph_identity(dsn, schema)
+        self._schema = schema
         # Autocommit, with write blocks wrapped in explicit transactions. The
         # alternative — psycopg's default implicit transaction — would leave
         # every *read* holding an open snapshot on the shared connection, so a
@@ -219,6 +327,17 @@ class PostgresGraphStore:
     def graph_identity(self) -> str:
         """Credential-free identity of the graph this store is attached to."""
         return self._graph_identity
+
+    def writer_lease(self) -> WriterLease:
+        """Acquire the cross-process writer lease (SEC-013): see :class:`PostgresWriterLease`.
+
+        Called by the mint only, never at open: a read-only store over a live
+        fabric's schema is legitimate and takes no lease.
+
+        Raises:
+            WriterLeaseHeld: another session — in any process — has the lease.
+        """
+        return PostgresWriterLease(connection=self._connection, schema=self._schema)
 
     @property
     def reader(self) -> PostgresGraphReader:

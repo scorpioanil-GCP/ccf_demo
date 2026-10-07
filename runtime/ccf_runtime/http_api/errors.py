@@ -36,6 +36,7 @@ __all__ = [
     "ERROR_PRINCIPAL_NOT_ENTITLED",
     "ERROR_PRODUCT_CLASS_UNENTITLED",
     "ERROR_PRODUCT_DOOR_UNGOVERNED",
+    "ERROR_PRODUCT_OUTSIDE_ROSTER",
     "ERROR_PRODUCT_PARAMETERS_MALFORMED",
     "ERROR_PRODUCT_POLICY_ABSENT",
     "ERROR_PRODUCT_REQUEST_INCOMPLETE",
@@ -218,6 +219,13 @@ ERROR_PRINCIPAL_NOT_ENTITLED: Final[str] = "principal-not-entitled"
 #: The verified principal's grant does not permit the requested Context
 #: Product class (403; 15.5-06 — ``P`` applied at delivery).
 ERROR_PRODUCT_CLASS_UNENTITLED: Final[str] = "product-class-unentitled"
+
+#: The verified grant declares a product roster
+#: (:attr:`~ccf_runtime.mcp.auth.TokenGrant.products`) and the request reaches
+#: a Context Product class outside it — or a replay record the deployment
+#: declared no class for (403; ``SEC-017``; ``D-IMPL-374`` (2)). Decided by the
+#: gate before the authorizer, so no allow is recorded for it.
+ERROR_PRODUCT_OUTSIDE_ROSTER: Final[str] = "product-outside-roster"
 
 #: The role the resolved :class:`~ccf.projection.plan.Perspective` carries is
 #: outside the verified principal's grant (403; 15.5-06). A caller may

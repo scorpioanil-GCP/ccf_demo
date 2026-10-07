@@ -862,6 +862,19 @@ def build_egress_server(
     the prose an adopter's consumers read is a deployment value and not the
     SDK's to write (CINV-01; CLAUDE.md §6.4).
 
+    **A product roster binds all three product surfaces** (SEC-017;
+    ``D-IMPL-374`` (2)). The resource, the tool and the address template each
+    declare their product class from the ``product_class`` argument, so a
+    principal whose grant declares a product roster is refused a class off it
+    by name (``ProductOutsideRosterRefused``), before the authorizer, and a
+    principal with no roster is unaffected. **An erased artifact crosses by
+    disclosure level** (SEC-009; ``D-IMPL-374`` (4), FW-3): an
+    ``ErasedContentRefused`` raised while answering the resource or the tool
+    is recorded and disclosed through
+    :func:`~ccf_runtime.authz.delivery_boundary.govern_erasure` — the
+    not-found rendering at ``minimal``, the erased-content refusal at
+    ``reasoned`` and ``full`` — and never crosses as the exception's text.
+
     Args:
         server_name: The name this server advertises. Deployment identity; the
             SDK holds no default for it.
@@ -930,6 +943,11 @@ def build_egress_server(
     recorder = recorded_boundary(
         refusal_recorder=refusal_recorder, builder="build_egress_server"
     )
+    # FW-3 (whole-branch review I-2; `D-IMPL-374`). Imported here, not at the
+    # module top, so the line anchors other records cite stay where they were.
+    from ccf.erasure.errors import ErasedContentRefused
+    from ccf_runtime.authz.delivery_boundary import govern_erasure
+
     if not expose_product_resource and not expose_product_tool:
         raise ValueError(
             "expose_product_resource=False together with"
@@ -980,6 +998,7 @@ def build_egress_server(
             subject=door.from_argument("tenant"),
             resource=door.resource_argument("product_class"),
             mutating=False,
+            products=door.products_from_argument("product_class"),
             mime_type=PRODUCT_MIME_TYPE,
         )
         def context_product(
@@ -1130,6 +1149,29 @@ def build_egress_server(
                         ),
                         perspective=decided,
                         absent=absent,
+                        entitlement_source=entitlement_source,
+                        refusal_recorder=recorder,
+                    )
+                ).decode("utf-8")
+            except ErasedContentRefused as erased:
+                # FW-3 (`D-IMPL-374`): an erasure met while answering is the
+                # recorded `erased-content` determination, disclosed by level —
+                # this resource's not-found shell at `minimal` — never the
+                # exception's prose on the wire.
+                return canonical_bytes(
+                    govern_erasure(
+                        grant=verified_grant(),
+                        tenant=tenant,
+                        product_class=product_class,
+                        product_version=version,
+                        parameters={},
+                        asked_at=None,
+                        surface=SURFACE_MCP_RESOURCE,
+                        address=product_uri(
+                            tenant=tenant, product_class=product_class, version=version
+                        ),
+                        perspective=decided,
+                        erased=erased,
                         entitlement_source=entitlement_source,
                         refusal_recorder=recorder,
                     )
@@ -1297,6 +1339,28 @@ def build_egress_server(
                     entitlement_source=entitlement_source,
                     refusal_recorder=recorder,
                 )
+            except ErasedContentRefused as erased:
+                # FW-3 (whole-branch review I-2; `D-IMPL-374`): an erasure met
+                # while answering — out of child admission, say — is the
+                # recorded `erased-content` determination, disclosed by level
+                # (this tool's not-found shell at `minimal`) and delivered
+                # through the one emission site. It is outside the fault
+                # tuple below, so before this clause its prose, naming the
+                # erased address, crossed as the tool error.
+                resolved = govern_erasure(
+                    grant=verified_grant(),
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=asked.parameters,
+                    asked_at=asked_at,
+                    surface=surface,
+                    address=address,
+                    perspective=decided,
+                    erased=erased,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
             except GovernedRefusalRaised as raised:
                 # `D-IMPL-304`: a governed determination the resolver HELD and
                 # could not return. Recorded through the one recorder at the
@@ -1333,6 +1397,7 @@ def build_egress_server(
             # reading is stated at the site rather than assumed from the
             # protocol's tool/resource split (`SEC-018`).
             mutating=False,
+            products=door.products_from_argument("product_class"),
             description=product_tool_description,
         )
         def request_context_product(
@@ -1692,6 +1757,7 @@ def build_egress_server(
             subject=door.from_argument("tenant"),
             resource=door.resource_argument("product_class"),
             mutating=False,
+            products=door.products_from_argument("product_class"),
             mime_type=PRODUCT_MIME_TYPE,
         )
         def addressed_context_product(

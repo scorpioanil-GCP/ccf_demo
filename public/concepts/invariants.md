@@ -114,6 +114,27 @@ they import a model client, and the check runs over the library and runtime
 trees as a blocking gate: `python -m tools.lints --algorithmic`. There is
 deliberately no report-only mode — a non-blocking invariant stops being one.
 
+A model call does not need a model client: a general HTTP client posting to a
+vendor endpoint is the same call. So the lint also rejects an algorithmic
+module whose string expressions name a model endpoint. Each expression is
+constant-folded before it is matched: a `+` chain of string literals is read as
+one string, an f-string is read whole, and a name bound earlier in the same
+scope by a simple straight-line assignment (`NAME = "…" + "…"`,
+`NAME = NAME + "…"`), or by the module for a function, is read as its value —
+so `"https://" + "api." + "anthropic.com" + "/v1/" + "messages"` is refused
+exactly as the single literal is. The fragments are `/v1/messages`,
+`/chat/completions`, `/v1/responses`, `:generateContent`, `:streamGenerateContent`, `/invoke-model`, or the hosts
+`bedrock-runtime`, `api.anthropic.com`, `api.openai.com`,
+`generativelanguage.googleapis.com` and `aiplatform.googleapis.com`, matched
+case-insensitively (`tools/lints/algorithmic.py::MODEL_ENDPOINT_FRAGMENTS`,
+`LOW-05`). Importing an HTTP client is not itself a finding; the library's
+graph, peering and MCP modules do that legitimately. What a static lint cannot
+see is a URL assembled at runtime from configuration, the environment, the
+network, or non-literal computation — a function call, a `join` or `format`, a
+value passed through a parameter, attribute or container, or a name assigned
+under control flow. That is a deployment-review concern, not something this
+check claims to cover.
+
 ## Audit by construction
 
 **The promise.** Every human action, every workflow trace, every skill grant

@@ -72,7 +72,7 @@ from ccf.replay.serve import ServedProduct
 from tests.deployment.test_replay_binding import ENTITY_CLASS
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ADMITTED_AT, ASKED_AT, THRESHOLD_PARAMETER
-from tests.composition import declare_wide_temporal_boundary
+from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust
 
 pytestmark = [pytest.mark.crossproc]
 
@@ -121,6 +121,7 @@ def _config(*, ttl_anchor: str, decay_basis: str | None) -> dict[str, Any]:
 def _open(tmp_path: pathlib.Path, *, ttl_anchor: str, decay_basis: str | None, observed: Mapping[str, datetime | None]) -> OpenedProduct:
     root = fixture.write_tree(tmp_path / "producer", config=_config(ttl_anchor=ttl_anchor, decay_basis=decay_basis), environment=fixture.producer_environment_text())
     return open_product(
+        erasure_trust=declared_erasure_trust(),
         # The declared skills are granted through the ledger by an authorized principal
         # BEFORE opening: the paved road requests no grant (D-IMPL-354).
         control_plane=fixture.granted_control_plane(root),
@@ -288,6 +289,7 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     config["ttl"] = {"max_ttl_seconds": int(CEILING.total_seconds()), "product_ttl_seconds": int(parent_window.total_seconds())}
     root = fixture.write_tree(tmp_path / "consumer", config=config, environment=fixture.consumer_environment_text())
     with _producer() as url, open_product(
+        erasure_trust=declared_erasure_trust(),
         control_plane=fixture.granted_control_plane(root),  # grants in force before opening (D-IMPL-354)
         config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": parent_observed}), project=fixture.plan_factory,
         assess=fixture.assess, questions=fixture.questions, environ=_environ(url), clock=lambda: ADMITTED_AT,
@@ -349,6 +351,7 @@ def test_c4c_the_road_refuses_an_evidence_anchor_with_no_half_life_section_at_op
     root = fixture.write_tree(tmp_path / "producer", config=document, environment=fixture.producer_environment_text())
     with pytest.raises(TTLAnchorUndeclared, match="no half_life section"):
         open_product(
+            erasure_trust=declared_erasure_trust(),
             control_plane=fixture.granted_control_plane(root),  # grants in force before opening (D-IMPL-354)
             config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": OBSERVED}),
             project=fixture.plan_factory, assess=fixture.assess,
@@ -415,6 +418,7 @@ def test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant(
     config["ttl"] = {"max_ttl_seconds": int(CEILING.total_seconds()), "product_ttl_seconds": int(parent_window.total_seconds())}
     root = fixture.write_tree(tmp_path / "consumer", config=config, environment=fixture.consumer_environment_text())
     with _producer() as url, open_product(
+        erasure_trust=declared_erasure_trust(),
         control_plane=fixture.granted_control_plane(root),  # grants in force before opening (D-IMPL-354)
         config_root=root, scratch=tmp_path / "scratch", acquire=_Acquire({"acct-1": parent_observed}), project=fixture.plan_factory,
         assess=fixture.assess, questions=fixture.questions, environ=_environ(url), clock=lambda: ADMITTED_AT,

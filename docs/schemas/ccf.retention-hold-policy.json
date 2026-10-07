@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "ClassRetention": {
+      "additionalProperties": false,
+      "description": "Retention and hold policy for one artifact class (G7, default refuse; SEC-009, `D-IMPL-374` (4)).\n\nAttributes:\n    erasable: ``False`` by default \u2014 a class is erasable only when declared so.\n    severity_exempt: Whitepaper \u00a77.10: significant decisions keep full\n        fidelity permanently; an exempt class refuses erasure.\n    reasons: The closed reason vocabulary this class admits (G1's rule).\n    holds: The active legal holds.\n    minimum_age: The window before which erasure refuses, in **whole\n        days**. **Present, with no SDK default** (U10): a policy states it,\n        ``None`` included. A :class:`~datetime.timedelta` of whole days is\n        accepted and held as its day count, because the canonical form has\n        no rendering for a duration and a policy must hash.",
+      "properties": {
+        "erasable": {
+          "ccf_hash_transparent": false,
+          "default": false,
+          "title": "Erasable",
+          "type": "boolean"
+        },
+        "holds": {
+          "ccf_hash_transparent": false,
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/LegalHold"
+          },
+          "title": "Holds",
+          "type": "array"
+        },
+        "minimum_age": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Minimum Age"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "severity_exempt": {
+          "ccf_hash_transparent": false,
+          "default": false,
+          "title": "Severity Exempt",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "reasons",
+        "minimum_age"
+      ],
+      "title": "ClassRetention",
+      "type": "object"
+    },
+    "LegalHold": {
+      "additionalProperties": false,
+      "description": "One active legal hold (G7): a matching subject or address refuses erasure (SEC-009; `D-IMPL-374` (4)).\n\n``subject_refs`` are the salted references (:func:`subject_ref_for`), never\nraw identifiers. ``None`` on either axis matches nothing on that axis.",
+      "properties": {
+        "addresses": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Addresses"
+        },
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "hold_id": {
+          "minLength": 1,
+          "title": "Hold Id",
+          "type": "string"
+        },
+        "placed_at": {
+          "format": "date-time",
+          "title": "Placed At",
+          "type": "string"
+        },
+        "placed_by": {
+          "title": "Placed By",
+          "type": "string"
+        },
+        "subject_refs": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subject Refs"
+        }
+      },
+      "required": [
+        "hold_id",
+        "subject_refs",
+        "addresses",
+        "placed_at",
+        "placed_by",
+        "basis"
+      ],
+      "title": "LegalHold",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A tenant's retention-and-hold policy, keyed by artifact class; an absent class refuses (SEC-009; `D-IMPL-374` (4)).",
+  "properties": {
+    "classes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ClassRetention"
+      },
+      "title": "Classes",
+      "type": "object"
+    },
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "tenant_id": {
+      "minLength": 1,
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "tenant_id",
+    "classes"
+  ],
+  "title": "RetentionHoldPolicy",
+  "type": "object",
+  "x-ccf-class-id": "ccf.retention-hold-policy"
+}

@@ -52,7 +52,9 @@ import base64
 import hashlib
 import json
 import pathlib
+import re
 from collections.abc import Iterable, Mapping
+from types import MappingProxyType
 from typing import Any, Final, Protocol, runtime_checkable
 
 from joserfc import jws
@@ -81,6 +83,7 @@ __all__ = [
     "SignedContextProduct",
     "SigningKeySource",
     "UnknownSigningKey",
+    "jwk_thumbprint",
     "signed_product_address",
 ]
 
@@ -282,14 +285,31 @@ class SignedContextProduct(CCFContract):
         verify with, so it cannot itself have been verified yet. Every claim in
         it is a claim until :meth:`IdentityProvider.verify` returns.
 
+        **Every decode failure is ``SignatureMalformed``** (T4-P1; `D-IMPL-374`,
+        final fix wave FW-1). The header is untrusted input read before any
+        verification, so whatever the JSON decoder raises — ``ValueError`` for
+        text that is not JSON, ``RecursionError`` for a header nested past the
+        decoder's depth, or any other failure — means the envelope is malformed.
+        An uncaught decode failure here is not a refusal anywhere: the whole-branch
+        review measured a nested header crashing every erasure store
+        composition, A2A admission and HITL attestation, the three families
+        that read a header through this method.
+
         Raises:
-            SignatureMalformed: the header is not base64url JSON object.
+            SignatureMalformed: the header is not base64url, cannot be decoded
+                as JSON (any decoder failure, ``RecursionError`` included), or
+                is not a JSON object.
         """
+        raw = _b64url_decode(self.protected)
         try:
-            decoded = json.loads(_b64url_decode(self.protected))
+            decoded = json.loads(raw)
         except ValueError as error:
             raise SignatureMalformed(
                 "protected header is not JSON"
+            ) from error
+        except Exception as error:  # noqa: BLE001 — every decode failure is a malformed header (T4-P1)
+            raise SignatureMalformed(
+                f"protected header cannot be decoded ({type(error).__name__})"
             ) from error
         if not isinstance(decoded, dict):
             raise SignatureMalformed("protected header is not a JSON object")
@@ -421,12 +441,27 @@ class FileBackedKeySource:
     material, and no key identifier, is baked into this class: which keys exist
     is the deployment's statement (CINV-01).
 
+    **A key identifier is a name, never a path** (LOW-02, D-IMPL-372). A
+    ``key_id`` must fullmatch :attr:`KEY_ID_PATTERN` — an ASCII letter or digit
+    followed by letters, digits, ``.``, ``_`` or ``-`` — and anything else is
+    refused with :class:`KeyUnavailable` **before** a path is formed, so no
+    ``..`` traversal, absolute path, separator, NUL or empty id ever reaches
+    the filesystem. The check is total rather than a list of dangerous shapes,
+    the same design as ``src/ccf/artifacts/protocol.py::held_content_address``
+    (D-IMPL-345 S-02). Key identifiers are flat: :meth:`key_ids` lists only
+    files whose stem matches the same pattern, so listing and lookup agree.
+
     Args:
         directory: Where the JWK files live.
     """
 
     #: Filename suffix of a key document in the directory.
     SUFFIX = ".jwk"
+
+    #: The total grammar of a key identifier (LOW-02). Mechanism, not a
+    #: deployment value: it names what a file-stem identifier may be, not which
+    #: identifiers exist.
+    KEY_ID_PATTERN: Final[re.Pattern[str]] = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]*\Z")
 
     def __init__(self, *, directory: pathlib.Path) -> None:
         self._directory = directory
@@ -435,8 +470,14 @@ class FileBackedKeySource:
         """Return the private JWK stored as ``{key_id}.jwk``.
 
         Raises:
-            KeyUnavailable: no such file, or its content is not a JWK object.
+            KeyUnavailable: ``key_id`` is not a key identifier (refused before
+                any path is formed — LOW-02), no such file, or its content is
+                not a JWK object.
         """
+        if not isinstance(key_id, str) or not self.KEY_ID_PATTERN.match(key_id):
+            raise KeyUnavailable(
+                f"{key_id!r} is not a key identifier; no file was read"
+            )
         path = self._directory / f"{key_id}{self.SUFFIX}"
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
@@ -457,7 +498,11 @@ class FileBackedKeySource:
         return document
 
     def key_ids(self) -> tuple[str, ...]:
-        """Return every key identifier present in the directory, sorted."""
+        """Return every key identifier present in the directory, sorted.
+
+        Only stems matching :attr:`KEY_ID_PATTERN` are listed, so every listed
+        identifier is one :meth:`signing_key` accepts.
+        """
         if not self._directory.is_dir():
             return ()
         return tuple(
@@ -465,6 +510,7 @@ class FileBackedKeySource:
                 path.name[: -len(self.SUFFIX)]
                 for path in self._directory.iterdir()
                 if path.name.endswith(self.SUFFIX)
+                and self.KEY_ID_PATTERN.match(path.name[: -len(self.SUFFIX)])
             )
         )
 
@@ -632,3 +678,63 @@ def signed_product_address(product: object) -> str:
         ccf.contracts.canonical.CanonicalizationError: no canonical form.
     """
     return content_hash(product)
+
+
+#: RFC 7638 §3.2, and RFC 8037 §2 for ``OKP``: the members a JWK thumbprint
+#: covers, per asymmetric key type. Every other member of a JWK document —
+#: ``kid``, ``use``, ``alg`` — is a label written beside the key, not the key,
+#: so two documents that differ only there name one key and one thumbprint. A
+#: symmetric (``oct``) key has no entry: it is not a public key a peer can be
+#: granted to sign with, and its thumbprint would be a digest of the secret.
+_THUMBPRINT_MEMBERS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
+    {
+        "EC": ("crv", "kty", "x", "y"),
+        "OKP": ("crv", "kty", "x"),
+        "RSA": ("e", "kty", "n"),
+    }
+)
+
+
+def jwk_thumbprint(public_key: JsonWebKey) -> str:
+    """Return the RFC 7638 SHA-256 thumbprint of a public JWK (`SEC-022`, `SEC-022-C-01`).
+
+    The identity of the key itself, not of a label a document gives it:
+    computed over the required members of the key's type only, in
+    lexicographic order with no whitespace, then SHA-256 and unpadded
+    base64url — the RFC 7638 construction, equal to ``joserfc``'s own
+    ``thumbprint()`` for the same key.
+
+    The admission gate scopes its replay consult by this value for the key an
+    envelope's signature verified under
+    (:meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`). A key listed
+    under two peer ids, or written as two documents, is therefore one scope;
+    two different keys that happen to share a ``kid`` label are two.
+
+    Raises:
+        KeyUnavailable: the document's ``kty`` is not an asymmetric key type
+            RFC 7638 defines members for, or it lacks one of that type's
+            required members (or carries a non-string or empty value there).
+    """
+    key_type = public_key.get("kty")
+    members = (
+        _THUMBPRINT_MEMBERS.get(key_type) if isinstance(key_type, str) else None
+    )
+    if members is None:
+        raise KeyUnavailable(
+            f"a JWK of key type {key_type!r} has no thumbprint here: only"
+            f" {', '.join(sorted(_THUMBPRINT_MEMBERS))} public keys identify a"
+            " signer (RFC 7638; SEC-022-C-01)"
+        )
+    required: dict[str, str] = {}
+    for member in members:
+        value = public_key.get(member)
+        if not isinstance(value, str) or not value:
+            raise KeyUnavailable(
+                f"the {key_type} JWK carries no {member!r} member, which its"
+                " thumbprint covers (RFC 7638 §3.2; SEC-022-C-01)"
+            )
+        required[member] = value
+    canonical = json.dumps(
+        required, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    return _b64url(hashlib.sha256(canonical.encode("utf-8")).digest())

@@ -47,7 +47,13 @@ from hypothesis import strategies as st
 
 from ccf.contracts.canonical import content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
-from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord
+from tests.classification_authority import authority_through_boot, stamp
+from ccf.graph.protocols import (
+    ClassificationAuthority,
+    EntityRecord,
+    GraphView,
+    RelationshipRecord,
+)
 from ccf.operators.categories import (
     PolicyFilter,
     SimilaritySelect,
@@ -327,15 +333,31 @@ def _relationship_record(
     )
 
 
+#: SEC-023 (`D-IMPL-374` ruling (3) (a)): the classification authority the
+#: generated fabric's L2 would enforce — every declared source system may
+#: assert each class's classification attribute. The property harness reads no
+#: store, so it stamps its views itself, as a composition root reading a store
+#: directly would; a Policy operator refuses an unstamped view.
+AUTHORITY: ClassificationAuthority = authority_through_boot(
+    {
+        entity_class: {attribute: frozenset(GENERATION["source_systems"])}
+        for entity_class, attribute in CLASSIFICATION_ATTRIBUTE.items()
+    }
+)
+
+
 def _view(
     entities: tuple[EntityRecord, ...], relationships: tuple[RelationshipRecord, ...]
 ) -> GraphView:
     """Assemble a view with the deterministic record ordering the contract states."""
-    return GraphView(
-        tenant_id=TENANT,
-        as_of=BOUNDARY,
-        entities=tuple(sorted(entities, key=lambda r: r.claim.entity_uri)),
-        relationships=tuple(sorted(relationships, key=lambda r: r.relationship_key)),
+    return stamp(
+        GraphView(
+            tenant_id=TENANT,
+            as_of=BOUNDARY,
+            entities=tuple(sorted(entities, key=lambda r: r.claim.entity_uri)),
+            relationships=tuple(sorted(relationships, key=lambda r: r.relationship_key)),
+        ),
+        AUTHORITY,
     )
 
 

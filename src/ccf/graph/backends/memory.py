@@ -55,8 +55,10 @@ from ccf.graph.protocols import (
     EntityRecord,
     GraphQuery,
     GraphView,
+    ProcessScopedWriterLease,
     RelationshipRecord,
     SourceAttestation,
+    WriterLease,
 )
 from ccf.graph.reader import (
     Row,
@@ -215,7 +217,7 @@ class MemoryGraphStore:
         """Stable synthetic identity of this in-memory graph, minted at construction.
 
         The single-writer boot check keys on this via
-        ``mint_boot_token(graph_identity=...)``: two writers over one store
+        ``mint_boot_token(store=...)``: two writers over one store
         *instance* are the violation; two instances are two fabrics. The
         per-instance UUID already makes the identity globally unique, exactly
         as SQLite keys on its database path and Postgres on
@@ -242,6 +244,18 @@ class MemoryGraphStore:
             state = TenantState()
             self._tenants[tenant_id] = state
         return state
+
+    def writer_lease(self) -> WriterLease:
+        """Declare ``"process"`` writer-lease scope (SEC-013, D-IMPL-372).
+
+        A **disclosure, not enforcement**: acquiring it does nothing, and the
+        only exclusion is the composition root's in-process live-writer table
+        (``src/ccf/graph/_writer.py::mint_boot_token``). The single-writer
+        invariant (INV-CH7-10) is NOT enforced across processes on this
+        substrate. Each instance is its own ``memory://<uuid>`` graph, so no second process can
+        share it at all; the declaration is exact rather than a gap here.
+        """
+        return ProcessScopedWriterLease(substrate="memory")
 
     @property
     def reader(self) -> MemoryGraphReader:
@@ -310,7 +324,28 @@ class MemoryGraphReader:
         (`GQ-23` at docs/GRAPH_QUERY_SEMANTICS.md:474). Tenant scope arrives
         inside the frozen value; ``q.as_of`` arrives as data — this method
         reads no clock.
+
+        **A classification query carries the boot-minted authority, or it is
+        refused before any substrate I/O** (SEC-023; ``D-IMPL-374``): the
+        check is
+        :func:`~ccf.graph.protocols.require_query_classification_authority`,
+        and a query with no classification map passes it untouched.
+
+        Raises:
+            ClassificationAuthorityMissing: ``q`` sets
+                ``classification_attribute_by_class`` and carries no
+                classification authority — a reader reached without
+                ``ccf.boot.boot`` has none to offer (SEC-023; ``D-IMPL-374``).
+            ClassificationAuthorityNotMinted: ``q``'s authority was not minted
+                by ``ccf.boot.boot`` (built by hand, or rebuilt).
+            UngovernedClassificationAttribute: ``q``'s authority does not
+                cover an attribute its classification map names.
         """
+        # SEC-023 (`D-IMPL-374`): a classification query carries the authority a
+        # booted fabric's reader checked it against, or it is refused here.
+        from ccf.graph.protocols import require_query_classification_authority
+
+        require_query_classification_authority(q)
         boundary = canonical_timestamp(q.as_of)
         state = self._store.tenant_state(q.tenant_id)
         entity_rows: tuple[Row, ...] = tuple(

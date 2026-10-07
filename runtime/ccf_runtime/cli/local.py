@@ -28,6 +28,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.erasure.index import erasure_index_at
+from ccf.erasure.store import compose_erasure_consult
+from ccf.erasure.trust import ErasureTrust
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import Execute, Resume
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -107,12 +110,24 @@ def _no_products_resolver(
     )
 
 
-def build_local_dependencies(*, root: Path) -> ApiDependencies:
+def build_local_dependencies(
+    *, root: Path, hitl_policy_key: str, erasure_trust: ErasureTrust
+) -> ApiDependencies:
     """Assemble the shared bundle from reference implementations only.
 
     Args:
         root: Operator-chosen directory for the file-backed dev artifact
             store (``--local-root``; required, never defaulted — CINV-01).
+        hitl_policy_key: The deployment's HITL policy key
+            (``--local-hitl-policy-key``; required, never defaulted — CINV-01).
+            The in-memory HITL transport is bound to it.
+        erasure_trust: The per-tenant erasure authorities the erasure consult
+            verifies erasures against (SEC-009, fix round 5, R1, R2, R4). The
+            ``--local`` CLI arm declares none — the local dev fabric runs no
+            erasure door and registers no erasure workflow — so every erasure
+            its index names reads ``index-unsupported`` (withheld). An embedder
+            that runs a door passes the authority whose HITL policy key is
+            ``hitl_policy_key``.
 
     Returns:
         The same :class:`ApiDependencies` type ``create_app`` consumes.
@@ -129,14 +144,32 @@ def build_local_dependencies(*, root: Path) -> ApiDependencies:
     # (the registry starts empty by design — D-IMPL-38), so it mints no
     # `Register`; a registration added here goes through the D-IMPL-354
     # recipe, never a bare key.
-    store = FileArtifactStore(
-        root=root / "artifacts",
-        write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+    # SEC-009 (`D-IMPL-374` (4), ruling 2): composed with the erasure consult
+    # here, so the engine reads through it too — not only the routes
+    # `create_app` wraps.
+    # SEC-009 (fix round 1 C1): the durable erasure index sits beside the
+    # declared store root; this multi-tenant site composes the consult
+    # tenantless and its doors read through per-tenant views.
+    erasure_index = erasure_index_at(root / "artifacts")
+    store = compose_erasure_consult(
+        FileArtifactStore(
+            root=root / "artifacts",
+            write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+        ),
+        index=erasure_index,
+        audit_log=registry.audit_log,
+        control_plane=registry,
+        erasure_trust=erasure_trust,
+        clock=_utc_now,
     )
-    hitl = InMemoryHitlTransport()
+    # The transport resolves the policy registered under its key per
+    # submission (D-16).
+    hitl = InMemoryHitlTransport(control_plane=registry, hitl_policy_key=hitl_policy_key)
     return ApiDependencies(
         control_plane=registry,
         artifact_store=store,
+        erasure_index=erasure_index,
+        erasure_trust=erasure_trust,
         product_resolver=_no_products_resolver,
         workflow_factory=WorkflowFactory(control_plane=registry),
         workflow_engine=WorkflowEngine(

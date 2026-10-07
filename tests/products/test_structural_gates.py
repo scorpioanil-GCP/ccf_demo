@@ -315,7 +315,7 @@ def _deliver(
     gated = _serve(candidate, registry=registry, product_class=product_class)
     if not isinstance(gated, ServableProduct):
         return gated
-    withheld = refuse_over_tolerance(gated, tolerance=tolerance)
+    withheld = refuse_over_tolerance(gated, tolerance=tolerance, policy_bound=None)
     return gated if withheld is None else withheld
 
 

@@ -144,6 +144,8 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
 from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
+from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, ErasureTrust, compose_erasure_consult
+from ccf.erasure.approval import PinnedPolicySource
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -163,8 +165,10 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ARTIFACT_BLOB_URI_SCHEME",
     "ARTIFACT_META_URI_SCHEME",
+    "ARTIFACT_NAMES_URI_SCHEME",
     "BLOB_URI_TEMPLATE",
     "META_URI_TEMPLATE",
+    "NAMES_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
     "PUT_ARTIFACT_TOOL",
     "ArtifactPresence",
@@ -188,6 +192,13 @@ ARTIFACT_META_URI_SCHEME = "ccf-artifact-meta"
 
 BLOB_URI_TEMPLATE = f"{ARTIFACT_BLOB_URI_SCHEME}://{{content_address}}"
 META_URI_TEMPLATE = f"{ARTIFACT_META_URI_SCHEME}://{{content_address}}"
+
+#: The naming resource (SEC-009; ``D-IMPL-374`` (4), ruling 2): every
+#: ``(tenant, class, name)`` an address was filed under, scoped to the caller's
+#: verified tenant — what the erasure door reads to verify an address's STORED
+#: class and tenant over the §7.4 reference store. Naming only, never bytes.
+ARTIFACT_NAMES_URI_SCHEME = "ccf-artifact-names"
+NAMES_URI_TEMPLATE = f"{ARTIFACT_NAMES_URI_SCHEME}://{{content_address}}"
 
 #: The naming surface, mirroring :func:`ccf.artifacts.protocol.artifact_uri`
 #: segment for segment. Built from the shared scheme constant rather than
@@ -298,6 +309,11 @@ def artifact_meta_uri(*, content_address: str) -> str:
     return f"{ARTIFACT_META_URI_SCHEME}://{content_address}"
 
 
+def artifact_names_uri(*, content_address: str) -> str:
+    """Render the naming URI for one content address (SEC-009; `D-IMPL-374` (4), ruling 2)."""
+    return f"{ARTIFACT_NAMES_URI_SCHEME}://{content_address}"
+
+
 def build_artifact_server(
     *,
     server_name: str,
@@ -308,6 +324,9 @@ def build_artifact_server(
     entitlement_source: ProductEntitlementSourceProtocol,
     refusal_recorder: DisclosingRecorderProtocol,
     audit_log: AuditLog,
+    erasure_index: ErasureIndexProtocol,
+    control_plane: PinnedPolicySource,
+    erasure_trust: ErasureTrust,
 ) -> FastMCP:
     """Build the authenticated, authorized artifact server over ``store``.
 
@@ -346,12 +365,47 @@ def build_artifact_server(
         audit_log: The Control Plane's own append-only log, where every
             dereference — governed or client-lane — appends the trail of its
             read (``D-IMPL-345`` R-5).
+        erasure_index: The deployment's durable erasure index (SEC-009;
+            ``D-IMPL-374`` (4), MCP ruling and fix round 1 C1). **Required, no
+            default**: this server is the ArtifactStore's persistence
+            transport (CLAUDE.md §7.4), so it composes ``store`` with the
+            erasure consult itself, through
+            :func:`~ccf.erasure.compose_erasure_consult`. Every byte read goes
+            through a view scoped to the caller's verified tenant (I6): a
+            governed record follows ``govern_dereference``'s
+            authorization-first order, and an erased client-lane artifact
+            crosses as the erased reading — the not-found shell at
+            ``minimal``, ``erased-content`` above it — never as bytes. The
+            naming resource still resolves through ``store``: it returns an
+            address, never bytes (the ``exists`` reasoning, U8).
+        control_plane: The deployment's Control Plane (SEC-009; fix round 4).
+            **Required, no default**: an erasure's approval is a signed HITL
+            attestation, verified against the key the pinned HITL policy
+            declares for the approver, and that policy is resolved through this
+            Control Plane. An approval that does not verify here is
+            ``index-unsupported``.
+        erasure_trust: The deployment's per-tenant erasure authorities
+            (SEC-009; fix round 5, R1, R2, R4). **Required, no default**: for
+            each tenant that may erase, the HITL policy key its transport is
+            bound to, its erasure workflow's content hash and the erasure
+            door's public key — fixed here, never chosen by a filed artifact.
+            A tenant it names no authority for reads ``index-unsupported``.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
         address is chosen here — hosting is the deployment's decision, and a
         library that picked an interface would be picking an exposure surface.
     """
+    # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
+    consulted = compose_erasure_consult(
+        store,
+        index=erasure_index,
+        audit_log=audit_log,
+        clock=entitlement_source.clock,
+        control_plane=control_plane,
+        # Fix round 5, R1, R2, R4: the deployment's per-tenant trust root, fixed here.
+        erasure_trust=erasure_trust,
+    )
     door = TenantGuardedServer(
         FastMCP(
             server_name,
@@ -392,7 +446,7 @@ def build_artifact_server(
                 reference=DereferenceRequest(
                     reference=content_address, by_uri=False, wants_bytes=True
                 ),
-                store=store,
+                store=consulted,
                 entitlement_source=entitlement_source,
                 refusal_recorder=refusal_recorder,
                 audit_log=audit_log,
@@ -406,6 +460,28 @@ def build_artifact_server(
         # (4) The client lane: filed under the capability's tenant in a class
         # the deployment did not declare governed. Served tenant-scoped, and
         # the read leaves the same trail a governed one does (D-IMPL-345 R-5).
+        try:
+            # I6: the caller's own tenant's view — the split above decided it
+            # owns this client-lane artifact.
+            payload = consulted.scoped(authorized.tenant).get(content_address=content_address)
+        except ErasedContentRefused as erased:
+            # SEC-009: the caller owns this client-lane artifact (decided by the
+            # split above), so it receives the erased reading at its level.
+            decided = govern_dereference(
+                authorized,
+                reference=DereferenceRequest(
+                    reference=content_address, by_uri=False, wants_bytes=True
+                ),
+                store=consulted,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=audit_log,
+                surface=SURFACE_MCP_RESOURCE,
+                address=address,
+                erased_client_read=erased,
+            )
+            assert isinstance(decided, RefusalEnvelope)  # an erased read only refuses
+            return decided
         audit_log.append(
             action="authz_decision",
             key=content_address,
@@ -418,7 +494,7 @@ def build_artifact_server(
             authz_matched_pattern=None,
             authz_resource=content_address,
         )
-        return store.get(content_address=content_address)
+        return payload
 
     @door.resource(
         BLOB_URI_TEMPLATE,
@@ -426,6 +502,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_argument("content_address"),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_BLOB_MIME_TYPE,
     )
     def artifact_blob(authorized: Authorized[ArtifactRead], content_address: str) -> bytes:
@@ -457,6 +537,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_argument("content_address"),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_presence(authorized: Authorized[ArtifactRead], content_address: str) -> str:
@@ -479,11 +563,67 @@ def build_artifact_server(
         return canonical_bytes(ArtifactPresence(found=True)).decode("utf-8")
 
     @door.resource(
+        NAMES_URI_TEMPLATE,
+        action=ACTION_ARTIFACT_READ,
+        subject=door.from_grant(),
+        resource=door.resource_argument("content_address"),
+        mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
+        mime_type=_JSON_MIME_TYPE,
+    )
+    def artifact_names(authorized: Authorized[ArtifactRead], content_address: str) -> str:
+        """Every ``(tenant, class, name)`` this address was filed under — the caller's tenant only.
+
+        SEC-009 (``D-IMPL-374`` (4), ruling 2): the backing store's naming
+        introspection, so the erasure door can verify an address's STORED
+        class and tenant through the MCP-backed reference store. Scoped to the
+        capability's verified tenant: another tenant's filing of the same bytes
+        never crosses (I6). Naming only — no artifact byte is read; a malformed
+        address answers the empty list, as the store's ``names_at`` does.
+
+        **The same entitlement the blob read requires** (fix round 2, N4). An
+        address filed under a class the deployment declared governed answers
+        its names only to a principal the governed dereference admits — the
+        same decision, record and disclosure :func:`artifact_blob` makes, asked
+        without bytes. A refusal crosses as the shell, which the client reads
+        as an unverifiable answer and the erasure door as ``class-unverifiable``.
+        """
+        verify(authorized, kind=ArtifactRead, resource=content_address)
+        names = store.names_at(content_address=content_address)
+        governed = any(
+            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in names
+        )
+        if governed:
+            decided = govern_dereference(
+                authorized,
+                reference=DereferenceRequest(
+                    reference=content_address, by_uri=False, wants_bytes=False
+                ),
+                store=consulted,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=audit_log,
+                surface=SURFACE_MCP_RESOURCE,
+                address=artifact_names_uri(content_address=content_address),
+            )
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
+        own = tuple(named for named in names if named.tenant_id == authorized.tenant)
+        return canonical_bytes(own).decode("utf-8")
+
+    @door.resource(
         NAME_URI_TEMPLATE,
         action=ACTION_ARTIFACT_READ,
         subject=door.from_argument("tenant"),
         resource=door.resource_composed(_CLASS_AND_NAME),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_resolution(
@@ -506,9 +646,19 @@ def build_artifact_server(
         decides it against the grant and this body reads
         ``authorized.tenant``. This is the surface that turns a name into a
         content address, which is why it was never untenanted.
+
+        **It resolves through the consulted store, in the caller's tenant
+        view** (FW-6, whole-branch review M-2; SEC-009, ``D-IMPL-374``), like
+        the blob, presence and names resources beside it. An address the
+        caller's tenant erased answers this resolution's own not-found
+        rendering — ``found: false``, no address — so the MCP store client
+        refuses to resolve it exactly as the in-process consulting store does
+        (CLAUDE.md §7.4: swap the store, nothing else changes). Before this it
+        resolved through the raw store and answered ``found: true`` with the
+        erased address.
         """
         try:
-            address = store.resolve_uri(
+            address = consulted.scoped(authorized.tenant).resolve_uri(
                 uri=artifact_uri(
                     tenant_id=authorized.tenant,
                     artifact_class=artifact_class,
@@ -516,7 +666,7 @@ def build_artifact_server(
                     artifact_version=artifact_version,
                 )
             )
-        except ArtifactUriUnresolvable:
+        except (ArtifactUriUnresolvable, ErasedContentRefused):
             resolution = ArtifactResolution(found=False, content_address=None)
         else:
             resolution = ArtifactResolution(found=True, content_address=address)
@@ -528,6 +678,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_composed(_CLASS_AND_NAME),
         mutating=True,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
     )
     def put_artifact(
         authorized: Authorized[ArtifactWrite],
@@ -572,6 +726,6 @@ def build_artifact_server(
                 "refusing to file bytes under an address a reader would not "
                 "recompute"
             )
-        return store.put(authorized, artifact)
+        return consulted.put(authorized, artifact)
 
     return door.build()

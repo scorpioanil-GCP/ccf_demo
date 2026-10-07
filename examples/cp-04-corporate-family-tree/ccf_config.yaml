@@ -365,6 +365,11 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: anchor_ref
+      # SEC-023 (D-IMPL-374 executor ruling (b), re-pinned 2026-10-06): only the
+      # named source may assert the attribute the Policy operator admits on. A
+      # claim from any other source is refused and audited, and without this
+      # declaration the specimen refuses to boot.
+      attribute_authorities: {family_id: [corporate_family_graph]}
       entity_class: family_anchor
       identity_keys:
         - entity_uri
@@ -375,6 +380,7 @@ resolution:
         - family_id
 
     - match_key: member_ref
+      attribute_authorities: {family_id: [corporate_family_graph]}
       entity_class: family_member
       identity_keys:
         - entity_uri

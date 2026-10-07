@@ -844,6 +844,21 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.products.composite.ChildCandidate": (
         "370-25-sec-025-child-subject-binding.md"
     ),
+    # SEC-009 ruling 4 (`D-IMPL-374` (4)): replay over erased content stays
+    # positive — `replay` and `replay_refusal` may now return an
+    # `ErasedReplayOutcome` disclosing the erasure instead of raising. The
+    # fragment names both and says why.
+    "ccf.replay.engine.replay": "374-04-sec-009-minimum-erasure.md",
+    "ccf.replay.engine.replay_refusal": "374-04-sec-009-minimum-erasure.md",
+    # SEC-009 MCP ruling (`D-IMPL-374` (4)): the artifact server takes a
+    # REQUIRED `control_plane` (the erasure consult it composes), and the
+    # governed dereference takes the client-lane erased read it renders.
+    "ccf_runtime.mcp.artifact_server.build_artifact_server": "374-04-sec-009-minimum-erasure.md",
+    "ccf_runtime.authz.delivery_boundary.govern_dereference": "374-04-sec-009-minimum-erasure.md",
+    # SEC-009 fix round 4, ruling 1 (`D-IMPL-374` (4)): every store
+    # construction site takes the deployment's HITL policy key — the local
+    # CLI dependencies included, whose transport is now bound to the same key.
+    "ccf_runtime.cli.local.build_local_dependencies": "374-04-sec-009-minimum-erasure.md",
 }
 
 

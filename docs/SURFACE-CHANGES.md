@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1906 entries**, of which **1640** name a public Python surface.
+**2177 entries**, of which **1905** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1074 entries — 1030 public Python surface, 44 not public Python API.
+1245 entries — 1201 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16405,6 +16405,2072 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.graph.protocols.WriterLease
+
+- Surface: ccf.graph.protocols.WriterLease
+- Public surface: true
+- Change type: added
+- Before: absent. Nothing represented a writer's hold on its graph beyond this process's live-writer table.
+- After: a Protocol for a held writer lease. It has `scope` (a `WriterLeaseScope`), `mechanism` (the lease kind and resource, credential-free), an idempotent `release()`, and context-manager entry and exit.
+- Why: SEC-013. The mint holds the lease for the writer's life and gives it back on `BaseGraphWriter.close` or on boot's failure path.
+- Migration: none for a deployment. An adapter author returns one from `writer_lease()`.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.WriterLeaseScope
+
+- Surface: ccf.graph.protocols.WriterLeaseScope
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `Literal["cross-process", "process"]`. `"cross-process"` means the substrate refuses a second holder in any process. `"process"` is a disclosure, not enforcement: the only exclusion is this process's live-writer table.
+- Why: SEC-013. Each lease names its own scope, so nobody has to infer whether cross-process exclusion holds.
+- Migration: none.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.WRITER_LEASE_SCOPES
+
+- Surface: ccf.graph.protocols.WRITER_LEASE_SCOPES
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the two `WriterLeaseScope` values as a tuple. The mint refuses a lease that declares anything else, with a `TypeError`.
+- Why: SEC-013. The vocabulary is closed and checked at the mint.
+- Migration: none.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.WriterLeaseHeld
+
+- Surface: ccf.graph.protocols.WriterLeaseHeld
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `RuntimeError` a store's `writer_lease()` raises when another holder has the lease. The mint turns it into the same `SingleWriterViolation` ("already exists") that an in-process second boot raises, naming the lease it could not take.
+- Why: SEC-013. A backend store may not import `ccf.graph._writer` (CINV-02), so the store needs its own type for refusing.
+- Migration: none for a deployment. A deployment that catches `SingleWriterViolation` at boot now also sees the cross-process refusal there.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.ProcessScopedWriterLease
+
+- Surface: ccf.graph.protocols.ProcessScopedWriterLease
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the `"process"`-scope lease, `ProcessScopedWriterLease(*, substrate)`. Acquiring and releasing it do nothing. The memory, fluree, mongo and neo4j reference stores and the demo fixture return it.
+- Why: SEC-013. This is a disclosure, not enforcement. On the persistent network stores the single-writer invariant is NOT enforced across processes, and SEC-013 stays open for them. A native lease for mongo (a lease document under a unique index) and neo4j (a unique lock node) is an executor proposal, unapproved (SEC-013-P1). Fluree is append-only and has no native lock, so what the invariant means on a shared ledger needs a ruling.
+- Migration: an out-of-tree adapter with no cross-process lock returns `ProcessScopedWriterLease(substrate="<adapter name>")` from `writer_lease()`.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.assembly.worker.RefusedAssertion
+
+- Surface: ccf.assembly.worker.RefusedAssertion
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a contract `(entity_uri, entity_class, attribute, source_system_id, envelope_id)`. It carries no value.
+- Why: lets the caller see a refusal. The record of truth is the audit event.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+
+- Surface: ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a derived `AuditEvent` with `refused_entity_class`, `refused_attribute`, `refused_source_system_id`, `refused_envelope_id` and `refused_value_present`. Each field is hash-transparent at `None`. `AuditLog.append` builds this event when it receives `refused_attribute`. The refused value is never recorded (SEC-024 discipline).
+- Why: an examiner can ask which source tried to relabel which entity, without the audit plane holding a copy of the data the label protects.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.deployment.manifest.UngovernedClassificationAttribute
+
+- Surface: ccf.deployment.manifest.UngovernedClassificationAttribute
+- Public surface: true
+- Change type: added
+- Before: absent. A deployment could admit on an attribute that any source could relabel.
+- After: a `ValueError` subclass carrying `operator_key`, `entity_class` and `attribute`. `_register_and_boot` raises it before anything is registered, which covers both `load_and_boot` and `load_config_and_boot`. It is raised when a `PolicyFilterParametersArtifact` names `classification_attribute_by_class: {class: attribute}` and the resolution spec in force has a rule of that class that writes the attribute without `attribute_authorities` for it. A class that no rule writes the attribute for is not refused. Nothing source-asserts that attribute, and `PolicyFilter` admits such an entity to nobody.
+- Why: SEC-023, Dave's correction of 2026-10-06. The L2 refusal governs only what a deployment declares. This check makes the declaration mandatory wherever classification controls access.
+- Migration: a deployment whose `PolicyFilter` names a classification attribute declares `attribute_authorities` for it on every rule that writes it. Every shipped example config and the banking fixtures were updated. A fabric composed by hand through `ccf.boot.boot` never sees operator parameters, so this check does not cover it (the low road, `D-IMPL-364`).
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.graph.protocols.WriterLeaseSource
+
+- Surface: ccf.graph.protocols.WriterLeaseSource
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `Callable[[str], WriterLease]`: a declared, not-yet-held writer lease. A persistent network store calls it with its own credential-free graph identity, only from `writer_lease()`, which only the boot mint calls.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: none for a deployment that declares `writer_lease_lock_dir`. A deployment that wants another lease passes a callable taking the identity as the store's `writer_lease=`.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.protocols.WriterLeaseRequired
+
+- Surface: ccf.graph.protocols.WriterLeaseRequired
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `RuntimeError` a persistent network store's `writer_lease()` raises, on the boot mint (`ccf.graph._writer.mint_boot_token`), when no lease was declared or the declared lease's scope is not `"cross-process"`. It reaches the caller of `ccf.boot.boot` unchanged, before any token exists, so nothing is marked live and a corrected, leased retry boots. The message names the substrate and the credential-free graph identity and cites SEC-013 and D-IMPL-374.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment booting a network store declares a lease, or the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.protocols.acquire_declared_writer_lease
+
+- Surface: ccf.graph.protocols.acquire_declared_writer_lease
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `acquire_declared_writer_lease(source, *, substrate, graph_identity) -> WriterLease`. Refuses with `WriterLeaseRequired` when `source` is `None`; calls `source(graph_identity)`; lets `WriterLeaseHeld` propagate; releases and refuses a lease whose scope is not `"cross-process"`.
+- Why: SEC-013. One implementation every network store delegates to, so the refusal cannot drift between adapters.
+- Migration: none. An out-of-tree adapter over a store a second process can reach may delegate its `writer_lease()` to it.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.LockFileWriterLease
+
+- Surface: ccf.graph.leases.LockFileWriterLease
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `LockFileWriterLease(*, path)`: an exclusive non-blocking `flock` on `path`, opened `O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW` with mode `0o600`, scope `"cross-process"`, `mechanism` `flock on '<path>'`. A held lock, a file this user cannot open, or a file another user owns refuses as `WriterLeaseHeld`; a symbolic link at the path is refused by name (`RuntimeError`), never followed.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.lock_directory_writer_lease
+
+- Surface: ccf.graph.leases.lock_directory_writer_lease
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `lock_directory_writer_lease(lock_dir) -> WriterLeaseSource`: refuses a relative `lock_dir` (`ValueError`); the source acquires `LockFileWriterLease` on `<resolved lock_dir>/<lock_file_name(identity)>`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.declared_lock_directory_lease
+
+- Surface: ccf.graph.leases.declared_lock_directory_lease
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `declared_lock_directory_lease(lock_dir: str | None) -> WriterLeaseSource | None`: the one helper every network adapter's `_open_store` calls with its `writer_lease_lock_dir` setting.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.lock_file_name
+
+- Surface: ccf.graph.leases.lock_file_name
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `lock_file_name(graph_identity) -> str`: the SHA-256 hex of the identity plus `LOCK_FILE_SUFFIX`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.LOCK_FILE_SUFFIX
+
+- Surface: ccf.graph.leases.LOCK_FILE_SUFFIX
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `".lock"`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.require_absolute_lock_directory
+
+- Surface: ccf.graph.leases.require_absolute_lock_directory
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `require_absolute_lock_directory(value) -> str`: returns an absolute path, refuses a relative one by name (`ValueError`, naming `writer_lease_lock_dir`).
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.AbsoluteLockDirectory
+
+- Surface: ccf.graph.leases.AbsoluteLockDirectory
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `Annotated[str, AfterValidator(require_absolute_lock_directory)]`, the connection-settings type of `writer_lease_lock_dir`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf_runtime.mcp.auth.PRODUCT_CLAIM
+
+- Surface: ccf_runtime.mcp.auth.PRODUCT_CLAIM
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf.products"`. This is the `AccessToken.claims` key the verifier writes a declared roster under. It is absent when no roster is declared.
+- Why: SEC-017. The roster travels the same way the tenants do (`TENANT_CLAIM`).
+- Migration: none. A custom `TokenVerifier` that builds claims itself must write this claim to carry a roster.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.auth.product_claims
+
+- Surface: ccf_runtime.mcp.auth.product_claims
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: renders a grant's roster for `AccessToken.claims`. It returns `{}` when the grant declares none, so "no roster" and "empty roster" stay two states.
+- Why: SEC-017.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.auth.granted_products
+
+- Surface: ccf_runtime.mcp.auth.granted_products
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the single read of a verified token's roster. It returns `None` only when the claim is absent. A malformed claim yields the empty roster, never `None`.
+- Why: SEC-017. Unparseable is not permissive.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.tenancy.ProductOutsideRosterRefused
+
+- Surface: ccf_runtime.mcp.tenancy.ProductOutsideRosterRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `TenantGuardViolation` raised by the MCP guard, before the authorizer, when a rostered caller reaches a class outside its roster. The message names the surface and the off-roster classes, each echoed at most 64 characters.
+- Why: SEC-017. The refusal is by name.
+- Migration: none. A door that catches `TenantGuardViolation` already catches it.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.auth.bounded_echo
+
+- Surface: ccf_runtime.mcp.auth.bounded_echo
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `repr` of at most 64 characters of a value. Every identifier a roster refusal names goes through it. The cap is the one `ccf.skills.wire_arguments` puts on echoed argument keys.
+- Why: SEC-017 fix round 1. A refusal's text is bounded by the SDK, never by the caller.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.tenancy.ProductReach
+
+- Surface: ccf_runtime.mcp.tenancy.ProductReach
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: which Context Product classes one guarded surface's call reaches. Built through `TenantGuardedServer.products_from_argument`, `products_declared`, `products_resolved` and `products_unknown`. Construction itself refuses no reading, two readings, or an empty one, so a reach built directly holds the same rules.
+- Why: SEC-017 fix round 1. Each surface states its product reading, and the guard holds a declared roster to it before the authorizer.
+- Migration: see `ccf_runtime.mcp.tenancy.TenantGuardedServer`.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.tenancy.roster_refusal
+
+- Surface: ccf_runtime.mcp.tenancy.roster_refusal
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: builds the by-name `ProductOutsideRosterRefused` for a surface and a reason.
+- Why: SEC-017. One phrasing for every roster refusal.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.agent_directory.exposed_agent
+
+- Surface: ccf_runtime.mcp.agent_directory.exposed_agent
+- Public surface: true
+- Change type: added
+- Before: absent. Directories built `ExposedAgent` by hand.
+- After: `exposed_agent(definition, *, definition_key, definition_version, skills)` reads name, artifact version, archetypes and the derived `product_classes` off an `AgentDefinition`. It is the only way an entry gets `product_classes`. It lives in its own module because the Experience server source holds no agents-package handle (T-07-20).
+- Why: SEC-017 fix round 1, IMPORTANT 3.
+- Migration: directories serving rostered principals build their entries with it.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.agent_directory.context_contract_classes
+
+- Surface: ccf_runtime.mcp.agent_directory.context_contract_classes
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `consumes ∪ emits` of a `ContextContract` as a set of class names. This is the one derivation of what an exposed agent reaches.
+- Why: SEC-017 fix round 1, IMPORTANT 3.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.authz.route_declaration.ProductClassSource
+
+- Surface: ccf_runtime.authz.route_declaration.ProductClassSource
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `PATH` (a path parameter) or `REPLAY_DECLARED` (the app's declared `replay_record_product_class`).
+- Why: SEC-017 fix round 1. This is where an HTTP route's product class comes from.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.authz.route_declaration.ProductClassBinding
+
+- Surface: ccf_runtime.authz.route_declaration.ProductClassBinding
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: one route's product-class statement, `ProductClassBinding.path(name)` or `ProductClassBinding.replay_declared()`.
+- Why: SEC-017 fix round 1.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_PRODUCT_OUTSIDE_ROSTER
+
+- Surface: ccf_runtime.http_api.errors.ERROR_PRODUCT_OUTSIDE_ROSTER
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"product-outside-roster"`. This is the 403 error code the HTTP gate returns when a rostered bearer reaches a class off its roster, or a replay record when no class is declared.
+- Why: SEC-017 fix round 1.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf.graph.protocols.require_query_classification_authority
+
+- Surface: ccf.graph.protocols.require_query_classification_authority
+- Public surface: true
+- Change type: added
+- Before: absent. A store reader answered any classification query.
+- After: `require_query_classification_authority(q)` — passes a query with no classification map; otherwise refuses a query carrying no authority (`ClassificationAuthorityMissing`) and one whose authority does not cover the map (`UngovernedClassificationAttribute`). Called first by every `GraphQuery`-answering reader entry.
+- Why: coordinator ruling (1): the fifth path fails closed.
+- Migration: a classification query goes through `FabricHandle.reader`; a store or mounted product queried directly refuses it.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthority
+
+- Surface: ccf.graph.protocols.ClassificationAuthority
+- Public surface: true
+- Change type: added
+- Before: absent. No classification consumer could see which sources the resolution spec in force authorizes.
+- After: a contract `(spec_address, governed: class -> attribute -> frozenset[system_id], written: class -> frozenset[attribute])`, both mappings read-only, with `minted` and `require(by_class, *, consumer)`. `require` raises `UngovernedClassificationAttribute` for any attribute it does not govern — one the spec writes ungoverned, or one it knows nothing about. Minted only by `ccf.boot.boot`; a hand-built instance is refused by every consumer.
+- Why: SEC-023, `D-IMPL-374` ruling (3) (a) and fix round 1 (I-1): the value threaded from the composition root to every classification consumer must attest what L2 enforces, not declare it.
+- Migration: none. Read through `FabricHandle.reader`; there is no supported way to build one.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthorityNotMinted
+
+- Surface: ccf.graph.protocols.ClassificationAuthorityNotMinted
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer (or `governed_reader`) meets an authority `ccf.boot.boot` did not mint.
+- Why: fix round 1, I-1 (b).
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthorityMissing
+
+- Surface: ccf.graph.protocols.ClassificationAuthorityMissing
+- Public surface: true
+- Change type: added
+- Before: absent. A `PolicyFilter` applied over a hand-built view admitted on whatever labels it carried.
+- After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer meets a `GraphView` with no authority stamp.
+- Why: coordinator ruling (2) under `D-IMPL-374`: fail closed, by name. A view that carries a classification map silently is the hole.
+- Migration: read views through `FabricHandle.reader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.UngovernedClassificationAttribute
+
+- Surface: ccf.graph.protocols.UngovernedClassificationAttribute
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.deployment.manifest` and raised only at boot.
+- After: defined here, beside the view the consumer-time check reads; `ccf.deployment.manifest.UngovernedClassificationAttribute` is the same class, re-exported, so existing imports and `except` clauses keep working. Raised at boot (`operator_key` the manifest key) and by `ClassificationAuthority.require` (`operator_key` the consumer: a manifest key, an operator key, or `GraphQuery`).
+- Why: `ccf.graph` cannot import `ccf.deployment`; one class serves both refusal sites.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.require_classification_authority
+
+- Surface: ccf.graph.protocols.require_classification_authority
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `require_classification_authority(view, by_class, *, consumer)` — passes a `None` map; otherwise refuses a view with no authority (`ClassificationAuthorityMissing`) and a map the view's authority does not cover (`UngovernedClassificationAttribute`). The one check `PolicyFilter.apply` and `build_operator_registry` run.
+- Why: one function, so the consumers cannot disagree about what covering authority means.
+- Migration: none. A third-party policy operator that admits on a classification map calls it in `apply`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.governed_reader.governed_reader
+
+- Surface: ccf.graph.governed_reader.governed_reader
+- Public surface: true
+- Change type: added
+- Before: absent. `FabricHandle.reader` was the store's reader itself.
+- After: wraps a reader so every view it returns carries the authority, and a `GraphQuery` (or pinned query) with a classification map is refused before the substrate is asked anything unless the authority covers it. The result is `SnapshotPinnable` exactly when the wrapped reader is; every other attribute is forwarded.
+- Why: `ccf.boot.boot` is the only place both the resolution spec and the reader are in hand.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.erasure.ClassRetention
+
+- Surface: ccf.erasure.ClassRetention
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one artifact class's retention and hold policy: `erasable` (default False), `severity_exempt`, the closed `reasons`, active `holds`, and `minimum_age` in whole days, which is required and has no default (U10).
+- Why: SEC-009; G7 default refuse; U10 rules the minimum age present on the contract with no SDK default.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ERASURE_RECORD_CLASS
+
+- Surface: ccf.erasure.ERASURE_RECORD_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The constant `ccf.erasure-record`, the class an erasure record is filed under.
+- Why: SEC-009; G3: the erasure fact is an immutable artifact filed through the store's one write verb.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ERASURE_SUBJECT_DECLARATION
+
+- Surface: ccf.erasure.ERASURE_SUBJECT_DECLARATION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The `ArtifactClass` `ccf.erasure-subject-declaration`. Adopter-registered and not manifest-addressable.
+- Why: SEC-009; G1: what a subject is, declared by the deployment.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasedAddress
+
+- Surface: ccf.erasure.ErasedAddress
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one erased artifact on a record: address, class, key paths, `matched` (presence only), and `scope`, which is `whole` this phase (U5).
+- Why: SEC-009; G3: design §2.3 record shape.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasedContentRefused
+
+- Surface: ccf.erasure.ErasedContentRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: An `ArtifactStoreError` the decorating store raises on a read of an erased address. It carries the record address, the reason and the instant, and nothing of the subject. It is not an `ArtifactNotFound` and not a `LookupError`.
+- Why: SEC-009; G4/G5: an erasure is a recorded decision, not an absence.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureConsultingStore
+
+- Surface: ccf.erasure.ErasureConsultingStore
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies the erasure door's signature over each record before reading it, then each approval's signed HITL attestation, through the Control Plane it was composed with, readable as `control_plane`, against the per-tenant `ErasureTrust` it was composed with, readable as `erasure_trust` (fix round 5), with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4), and the global validation memo is also keyed by the composed trust and the identity provider instance (fix round 5, R3).
+- Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexEntry
+
+- Surface: ccf.erasure.ErasureIndexEntry
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one erased address within one tenant: the record address, the request, the hashed subject, the approval reference, the admitted reason and instant, and the erasure door's detached signature over the record (`door_signature`, `door_key_id`; fix round 5, R2).
+- Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureRecord
+
+- Surface: ccf.erasure.ErasureRecord
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval reference, retention decision, reason, legal basis. Door-signed: the erasure door signs its canonical bytes and the consult verifies that before reading it (fix round 5, R2). It names no approval policy (R1 deleted `approval_policy_ref`).
+- Why: SEC-009; G3; it can be asserted and never retracted (U6).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureRequest
+
+- Surface: ccf.erasure.ErasureRequest
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: What a requester asks to erase. Its content hash `request_id` is the approval workflow's execution id.
+- Why: SEC-009; U9: the human approves exactly this request.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureSubjectClass
+
+- Surface: ccf.erasure.ErasureSubjectClass
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: One declared subject class: `class_id`, `key_paths`, `artifact_classes`, `identifier_kind`, and `subject_ref_salt`. A key path that reaches a replay input is refused (U2). A `principal` subject is refused (U1).
+- Why: SEC-009; G1/G2 with U1, U2 and U4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureSubjectDeclaration
+
+- Surface: ccf.erasure.ErasureSubjectDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A versioned artifact listing a tenant's subject classes.
+- Why: SEC-009; G1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.LegalHold
+
+- Surface: ccf.erasure.LegalHold
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one active legal hold, matched by salted subject refs or by addresses.
+- Why: SEC-009; G7: a matching hold refuses erasure, by hold id.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.REPLAY_INPUT_PATHS
+
+- Surface: ccf.erasure.REPLAY_INPUT_PATHS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The tuple of Decision Replay record paths that are replay inputs.
+- Why: SEC-009; U2: the SDK's own field names, a mechanism constant; no subject key may reach them.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RETENTION_HOLD_POLICY
+
+- Surface: ccf.erasure.RETENTION_HOLD_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The `ArtifactClass` `ccf.retention-hold-policy`.
+- Why: SEC-009; G7.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RETENTION_REASON_CODES
+
+- Surface: ccf.erasure.RETENTION_REASON_CODES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The judgment's closed code vocabulary (`class-absent`, `not-erasable`, `severity-exempt`, `legal-hold`, `reason-unknown`, `under-minimum-age`, `policy-unresolvable`, `admitted`).
+- Why: SEC-009; G7: a structured audit answer, never a subject identifier.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RequestedAddress
+
+- Surface: ccf.erasure.RequestedAddress
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: One address a request names, with its class and a requester-declared, human-approved `retained_since`.
+- Why: SEC-009; U10: the store's Protocol records no write instant, so the age is declared and approved.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RetentionDecision
+
+- Surface: ccf.erasure.RetentionDecision
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The judgment's audit answer: `policy_ref`, `verdict`, `reason_code`, `hold_id`, `address`.
+- Why: SEC-009; G7.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RetentionHoldPolicy
+
+- Surface: ccf.erasure.RetentionHoldPolicy
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
+- Why: SEC-009; G7 default refuse.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.judge_retention
+
+- Surface: ccf.erasure.judge_retention
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A pure, fail-closed judgment of a request against a policy at an injected instant.
+- Why: SEC-009; G7.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.subject_ref_for
+
+- Surface: ccf.erasure.subject_ref_for
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Returns `sha256(salt || 0x00 || identifier)` under the declared class's salt.
+- Why: SEC-009; U4: the raw identifier never enters the fabric.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ClassRetention
+
+- Surface: ccf.erasure.contracts.ClassRetention
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one artifact class's retention and hold policy: `erasable` (default False), `severity_exempt`, the closed `reasons`, active `holds`, and `minimum_age` in whole days, which is required and has no default (U10).
+- Why: SEC-009; G7 default refuse; U10 rules the minimum age present on the contract with no SDK default.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ERASURE_RECORD_CLASS
+
+- Surface: ccf.erasure.contracts.ERASURE_RECORD_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The constant `ccf.erasure-record`, the class an erasure record is filed under.
+- Why: SEC-009; G3: the erasure fact is an immutable artifact filed through the store's one write verb.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ERASURE_SUBJECT_DECLARATION
+
+- Surface: ccf.erasure.contracts.ERASURE_SUBJECT_DECLARATION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The `ArtifactClass` `ccf.erasure-subject-declaration`. Adopter-registered and not manifest-addressable.
+- Why: SEC-009; G1: what a subject is, declared by the deployment.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasedAddress
+
+- Surface: ccf.erasure.contracts.ErasedAddress
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one erased artifact on a record: address, class, key paths, `matched` (presence only), and `scope`, which is `whole` this phase (U5).
+- Why: SEC-009; G3: design §2.3 record shape.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureRecord
+
+- Surface: ccf.erasure.contracts.ErasureRecord
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval reference, retention decision, reason, legal basis. Door-signed: the erasure door signs its canonical bytes and the consult verifies that before reading it (fix round 5, R2). It names no approval policy (R1 deleted `approval_policy_ref`).
+- Why: SEC-009; G3; it can be asserted and never retracted (U6).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureRequest
+
+- Surface: ccf.erasure.contracts.ErasureRequest
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: What a requester asks to erase. Its content hash `request_id` is the approval workflow's execution id.
+- Why: SEC-009; U9: the human approves exactly this request.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureSubjectClass
+
+- Surface: ccf.erasure.contracts.ErasureSubjectClass
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: One declared subject class: `class_id`, `key_paths`, `artifact_classes`, `identifier_kind`, and `subject_ref_salt`. A key path that reaches a replay input is refused (U2). A `principal` subject is refused (U1).
+- Why: SEC-009; G1/G2 with U1, U2 and U4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureSubjectDeclaration
+
+- Surface: ccf.erasure.contracts.ErasureSubjectDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A versioned artifact listing a tenant's subject classes.
+- Why: SEC-009; G1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.LegalHold
+
+- Surface: ccf.erasure.contracts.LegalHold
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one active legal hold, matched by salted subject refs or by addresses.
+- Why: SEC-009; G7: a matching hold refuses erasure, by hold id.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.REPLAY_INPUT_PATHS
+
+- Surface: ccf.erasure.contracts.REPLAY_INPUT_PATHS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The tuple of Decision Replay record paths that are replay inputs.
+- Why: SEC-009; U2: the SDK's own field names, a mechanism constant; no subject key may reach them.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RETENTION_HOLD_POLICY
+
+- Surface: ccf.erasure.contracts.RETENTION_HOLD_POLICY
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The `ArtifactClass` `ccf.retention-hold-policy`.
+- Why: SEC-009; G7.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RETENTION_REASON_CODES
+
+- Surface: ccf.erasure.contracts.RETENTION_REASON_CODES
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The judgment's closed code vocabulary (`class-absent`, `not-erasable`, `severity-exempt`, `legal-hold`, `reason-unknown`, `under-minimum-age`, `policy-unresolvable`, `admitted`).
+- Why: SEC-009; G7: a structured audit answer, never a subject identifier.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RequestedAddress
+
+- Surface: ccf.erasure.contracts.RequestedAddress
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: One address a request names, with its class and a requester-declared, human-approved `retained_since`.
+- Why: SEC-009; U10: the store's Protocol records no write instant, so the age is declared and approved.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RetentionDecision
+
+- Surface: ccf.erasure.contracts.RetentionDecision
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The judgment's audit answer: `policy_ref`, `verdict`, `reason_code`, `hold_id`, `address`.
+- Why: SEC-009; G7.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RetentionHoldPolicy
+
+- Surface: ccf.erasure.contracts.RetentionHoldPolicy
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
+- Why: SEC-009; G7 default refuse.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.judge_retention
+
+- Surface: ccf.erasure.contracts.judge_retention
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A pure, fail-closed judgment of a request against a policy at an injected instant.
+- Why: SEC-009; G7.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.subject_ref_for
+
+- Surface: ccf.erasure.contracts.subject_ref_for
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Returns `sha256(salt || 0x00 || identifier)` under the declared class's salt.
+- Why: SEC-009; U4: the raw identifier never enters the fabric.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ErasureIndexEntry
+
+- Surface: ccf.erasure.index.ErasureIndexEntry
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract for one erased address within one tenant: the record address, the request, the hashed subject, the approval reference, the admitted reason and instant, and the erasure door's detached signature over the record (`door_signature`, `door_key_id`; fix round 5, R2).
+- Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.ErasedContentRefused
+
+- Surface: ccf.erasure.store.ErasedContentRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: An `ArtifactStoreError` the decorating store raises on a read of an erased address. It carries the record address, the reason and the instant, and nothing of the subject. It is not an `ArtifactNotFound` and not a `LookupError`.
+- Why: SEC-009; G4/G5: an erasure is a recorded decision, not an absence.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.ErasureConsultingStore
+
+- Surface: ccf.erasure.store.ErasureConsultingStore
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies the erasure door's signature over each record before reading it, then each approval's signed HITL attestation, through the Control Plane it was composed with, readable as `control_plane`, against the per-tenant `ErasureTrust` it was composed with, readable as `erasure_trust` (fix round 5), with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4), and the global validation memo is also keyed by the composed trust and the identity provider instance (fix round 5, R3).
+- Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The governed door. It takes a REQUIRED `index`; a REQUIRED `authority` (fix round 5), the tenant's `ErasureAuthority` — its HITL policy key, which its `transport` must be bound to or construction refuses by name (R5), its erasure workflow, the only workflow it runs (`workflow-not-declared`, R1), and the door's public key; a REQUIRED `door_signer` and `door_key_id`, the door's private signing key, which must verify under the declared door key or construction refuses by name (R2); and an optional `identity_provider` that verifies signatures (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval for another workflow or tenant (`approval-workflow-mismatch`, `approval-tenant-mismatch`), that is unsigned (`approval-unsigned`), that pins another HITL policy key (`approval-policy-key-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an approver the declared workflow's erasure gate policy does not name (`approver-is-requester`, `approver-not-eligible`), or for a gate that is not that workflow's erasure gate (`approval-gate-unknown`) (fix rounds 4 and 5).
+  - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
+  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it SIGNS the record (R2), appends the index entries carrying that signature FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3). A retry reuses its prior attempt's signature, verified.
+- Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The governed door. It takes a REQUIRED `index`; a REQUIRED `authority` (fix round 5), the tenant's `ErasureAuthority` — its HITL policy key, which its `transport` must be bound to or construction refuses by name (R5), its erasure workflow, the only workflow it runs (`workflow-not-declared`, R1), and the door's public key; a REQUIRED `door_signer` and `door_key_id`, the door's private signing key, which must verify under the declared door key or construction refuses by name (R2); and an optional `identity_provider` that verifies signatures (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval for another workflow or tenant (`approval-workflow-mismatch`, `approval-tenant-mismatch`), that is unsigned (`approval-unsigned`), that pins another HITL policy key (`approval-policy-key-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an approver the declared workflow's erasure gate policy does not name (`approver-is-requester`, `approver-not-eligible`), or for a gate that is not that workflow's erasure gate (`approval-gate-unknown`) (fix rounds 4 and 5).
+  - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
+  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it SIGNS the record (R2), appends the index entries carrying that signature FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3). A retry reuses its prior attempt's signature, verified.
+- Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.erasure.ErasureRefused
+
+- Surface: ccf_runtime.erasure.ErasureRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `PermissionError` carrying `reason_code` and, for a retention refusal, the `RetentionDecision`.
+- Why: SEC-009; Every refusal is by name and writes nothing.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.erasure.door.ErasureRefused
+
+- Surface: ccf_runtime.erasure.door.ErasureRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `PermissionError` carrying `reason_code` and, for a retention refusal, the `RetentionDecision`.
+- Why: SEC-009; Every refusal is by name and writes nothing.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.erasure.ErasureWorkflowUngated
+
+- Surface: ccf_runtime.erasure.ErasureWorkflowUngated
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` raised when the deployment's erasure workflow can reach a terminal state without crossing a typed approval gate.
+- Why: SEC-009; U9: the request/approval shape is the deployment's, validated by the door.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.erasure.door.ErasureWorkflowUngated
+
+- Surface: ccf_runtime.erasure.door.ErasureWorkflowUngated
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` raised when the deployment's erasure workflow can reach a terminal state without crossing a typed approval gate.
+- Why: SEC-009; U9: the request/approval shape is the deployment's, validated by the door.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.refusal.ErasedContentRefusal
+
+- Surface: ccf.products.refusal.ErasedContentRefusal
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A refusal kind `erased-content`: detail, `erasure_reason`, `erased_at`, `erasure_record_address`. A door renders it only at `reasoned` and `full`. The record address is withheld below `full`.
+- Why: SEC-009; G5/U11: a disclosure-governed reading of an erased address.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_RETAINED_CHILD_QUESTION
+
+- Surface: ccf.replay.engine.ERASED_SITE_RETAINED_CHILD_QUESTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `retained-child-question`.
+- Why: SEC-009; §5.2: names where a replay met an erased member.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ErasedContent
+
+- Surface: ccf.replay.engine.ErasedContent
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A replay result member reporting one erased retained member: site, address, record address, reason, instant.
+- Why: SEC-009; §5.2: a replay over erased retained content completes, and the erasure is disclosed rather than reported as absent.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.http_api.refusal_status.STATUS_GONE
+
+- Surface: ccf_runtime.http_api.refusal_status.STATUS_GONE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The HTTP status `410` for the `erased-content` kind.
+- Why: SEC-009; U11: 410 at `reasoned`/`full`; the route's not-found rendering at `minimal`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.compose_erasure_consult
+
+- Surface: ccf.erasure.compose_erasure_consult
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over four REQUIRED arguments, optionally scoped to a tenant:
+  - a declared erasure index;
+  - an audit log;
+  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
+  - the DEPLOYMENT's `control_plane` through which each approval's pinned HITL policy, approval policy and workflow definition are resolved (fix round 4); there is no fresh-registry fallback (ruling 5);
+  - the deployment's `erasure_trust` (fix round 5, R1, R2, R4): per tenant that may erase, an `ErasureAuthority` naming the HITL policy key its transport is bound to (fix round 4, ruling 1), its erasure workflow's content hash, and the erasure door's public key.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.compose_erasure_consult
+
+- Surface: ccf.erasure.store.compose_erasure_consult
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over four REQUIRED arguments, optionally scoped to a tenant:
+  - a declared erasure index;
+  - an audit log;
+  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
+  - the DEPLOYMENT's `control_plane` through which each approval's pinned HITL policy, approval policy and workflow definition are resolved (fix round 4); there is no fresh-registry fallback (ruling 5);
+  - the deployment's `erasure_trust` (fix round 5, R1, R2, R4): per tenant that may erase, an `ErasureAuthority` naming the HITL policy key its transport is bound to (fix round 4, ruling 1), its erasure workflow's content hash, and the erasure door's public key.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexUnavailable
+
+- Surface: ccf.erasure.ErasureIndexUnavailable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `TypeError` raised at composition when the declared index is not an `ErasureIndexProtocol`, or when the store was already composed over a different index.
+- Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
+- Migration: declare an index (`FileErasureIndex`, or `erasure_index_at(<store root>)`) at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.ErasureIndexUnavailable
+
+- Surface: ccf.erasure.store.ErasureIndexUnavailable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `TypeError` raised at composition when the declared index is not an `ErasureIndexProtocol`, or when the store was already composed over a different index.
+- Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
+- Migration: declare an index (`FileErasureIndex`, or `erasure_index_at(<store root>)`) at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.authz.actions.ACTION_ARTIFACT_ERASE
+
+- Surface: ccf.authz.actions.ACTION_ARTIFACT_ERASE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the action id `artifact.erase`. Its resource is `"<subject_class>/<request_id>"`.
+- Why: SEC-009; ruling 3 on `D-IMPL-374` (4) (design §4.1). Erasure is an action of its own, kept apart from every read, write and workflow action.
+- Migration: a deployment that erases grants this action to its erasure requesters in its scope mapping.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.authz.capability.ArtifactErase
+
+- Surface: ccf.authz.capability.ArtifactErase
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the erasure door's `ActionKind`. A door mints it with `mint` from an authorizer's allow. It is never composition-mintable. `ErasureDoor.request` and `ErasureDoor.complete` take it as a required keyword (`erase=`), alongside the recorded human approval. A general `Execute`/`Resume` passed in its place, or an erase capability issued for a different request, is refused by `verify` as `CapabilityBypassError`.
+- Why: SEC-009; ruling 3. A principal that holds only general workflow `Execute`/`Resume` must not be able to have an erasure written.
+- Migration: callers of the erasure door pass `erase=` with a capability for exactly the request.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ErasedReplayOutcome
+
+- Surface: ccf.replay.engine.ErasedReplayOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A positive replay outcome for a replay that met erased content it would have to read to re-execute: the decision record itself, an admitted child contract, or a re-execution artifact. It carries `record_content_address`, `record` (`None` when the record itself was erased) and a non-empty `erased_content`. No product is reproduced.
+- Why: SEC-009; ruling 4 (design §5.2). Replay stays positive and discloses the erasure for every erased input class. It never refuses by name, and it never re-derives a product from bytes the fabric refuses to serve.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_CHILD_CONTRACT
+
+- Surface: ccf.replay.engine.ERASED_SITE_CHILD_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `child-contract`.
+- Why: SEC-009; ruling 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_DECISION_RECORD
+
+- Surface: ccf.replay.engine.ERASED_SITE_DECISION_RECORD
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `decision-record`.
+- Why: SEC-009; ruling 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_REPLAY_ARTIFACT
+
+- Surface: ccf.replay.engine.ERASED_SITE_REPLAY_ARTIFACT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `replay-artifact`, for any other artifact the re-execution reads.
+- Why: SEC-009; ruling 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.disclosure.TRANSLATED_AT_MINIMAL
+
+- Surface: ccf.products.disclosure.TRANSLATED_AT_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent. Every kind crossed as itself at every level (`DisclosureDecision.external_kind == internal_kind`).
+- After: `{"erased-content": "subject-unavailable"}`. At `minimal`, `disclose` renders an `erased-content` determination as the not-found shell, built from a fresh `SubjectUnavailableRefusal` that carries nothing of the determination. The replay record keeps the `erased-content` envelope, and the `DisclosureDecision` records `internal_kind = erased-content`, `external_kind = subject-unavailable`, with `kind` withheld.
+- Why: SEC-009; fix round 1, I5 on `D-IMPL-374` (4). The wire must not disclose an erasure at `minimal`, and the audit trail must not record a false "nonexistent".
+- Migration: none. A consumer at `minimal` sees exactly the not-found shell it saw before.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexProtocol
+
+- Surface: ccf.erasure.ErasureIndexProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The append-only durable erasure index, with four methods: `append(entry)`; `lookup(*, tenant_id, content_address)` (O(1)); `entries(*, tenant_id)`; and `tenants()`. It is REQUIRED at every store construction site.
+- Why: SEC-009; fix round 1 C1, with rulings (i) and (ii). The artifact store is immutable by design, so the erasures in force live in an index of their own. The RECORD stays the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ErasureIndexProtocol
+
+- Surface: ccf.erasure.index.ErasureIndexProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The append-only durable erasure index, with four methods: `append(entry)`; `lookup(*, tenant_id, content_address)` (O(1)); `entries(*, tenant_id)`; and `tenants()`. It is REQUIRED at every store construction site.
+- Why: SEC-009; fix round 1 C1, with rulings (i) and (ii). The artifact store is immutable by design, so the erasures in force live in an index of their own. The RECORD stays the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.FileErasureIndex
+
+- Surface: ccf.erasure.FileErasureIndex
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reference index. One append-only JSON-lines file per deployment, fsynced on every append. Entries are kept in memory, keyed by (tenant, address). It picks up lines that another process appended, and refuses a line that does not parse.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.FileErasureIndex
+
+- Surface: ccf.erasure.index.FileErasureIndex
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reference index. One append-only JSON-lines file per deployment, fsynced on every append. Entries are kept in memory, keyed by (tenant, address). It picks up lines that another process appended, and refuses a line that does not parse.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexEntryExists
+
+- Surface: ccf.erasure.ErasureIndexEntryExists
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` raised when a different entry is offered for an address the tenant has already erased. An entry is never replaced.
+- Why: SEC-009; fix round 1 C1 and U6 (no un-erasure).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ErasureIndexEntryExists
+
+- Surface: ccf.erasure.index.ErasureIndexEntryExists
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` raised when a different entry is offered for an address the tenant has already erased. An entry is never replaced.
+- Why: SEC-009; fix round 1 C1 and U6 (no un-erasure).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ERASURE_INDEX_FILENAME
+
+- Surface: ccf.erasure.ERASURE_INDEX_FILENAME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The conventional file name `.erasure-index.jsonl`, beside a file-backed store. It is dot-prefixed and is not a content address, so the store's read path can never serve it.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ERASURE_INDEX_FILENAME
+
+- Surface: ccf.erasure.index.ERASURE_INDEX_FILENAME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The conventional file name `.erasure-index.jsonl`, beside a file-backed store. It is dot-prefixed and is not a content address, so the store's read path can never serve it.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.erasure_index_at
+
+- Surface: ccf.erasure.erasure_index_at
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Returns the conventional `FileErasureIndex` beside a file store root. The in-process and local-CLI sites use it with their declared root, and so do the examples.
+- Why: SEC-009; fix round 1 C1: the in-process and local-CLI sites take the index path from their existing declared root.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.erasure_index_at
+
+- Surface: ccf.erasure.index.erasure_index_at
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Returns the conventional `FileErasureIndex` beside a file store root. The in-process and local-CLI sites use it with their declared root, and so do the examples.
+- Why: SEC-009; fix round 1 C1: the in-process and local-CLI sites take the index path from their existing declared root.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.INDEX_UNSUPPORTED
+
+- Surface: ccf.erasure.INDEX_UNSUPPORTED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reason `index-unsupported`, carried by an address whose index entry is not supported by an agreeing erasure record. The address is still withheld, and the event is audited `erasure_index_unsupported`.
+- Why: SEC-009; design §8 and fix round 1 I3: the record is the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.INDEX_UNSUPPORTED
+
+- Surface: ccf.erasure.store.INDEX_UNSUPPORTED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reason `index-unsupported`, carried by an address whose index entry is not supported by an agreeing erasure record. The address is still withheld, and the event is audited `erasure_index_unsupported`.
+- Why: SEC-009; design §8 and fix round 1 I3: the record is the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureSubjectLocator
+
+- Surface: ccf.erasure.ErasureSubjectLocator
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A Protocol: `addresses(*, tenant_id, subject_class, subject_ref)`. It has NO reference implementation this phase. Enumerating where a subject appears is the deployment's job; the erasure door VERIFIES every address a request names.
+- Why: SEC-009; ruling (iv) on §4.1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureSubjectLocator
+
+- Surface: ccf.erasure.contracts.ErasureSubjectLocator
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A Protocol: `addresses(*, tenant_id, subject_class, subject_ref)`. It has NO reference implementation this phase. Enumerating where a subject appears is the deployment's job; the erasure door VERIFIES every address a request names.
+- Why: SEC-009; ruling (iv) on §4.1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RetentionReasonCode
+
+- Surface: ccf.erasure.RetentionReasonCode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The closed `Literal` of retention codes, now including `replay-input`. `RetentionDecision.reason_code` is typed with it.
+- Why: SEC-009; fix round 1 M2 and §7 `replay-input`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RetentionReasonCode
+
+- Surface: ccf.erasure.contracts.RetentionReasonCode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The closed `Literal` of retention codes, now including `replay-input`. `RetentionDecision.reason_code` is typed with it.
+- Why: SEC-009; fix round 1 M2 and §7 `replay-input`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.mcp.artifact_server.ARTIFACT_NAMES_URI_SCHEME
+
+- Surface: ccf_runtime.mcp.artifact_server.ARTIFACT_NAMES_URI_SCHEME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The scheme `ccf-artifact-names`.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The erasure door verifies an address's STORED class and tenant through `names_at`, and the §7.4 MCP-backed reference store must not be excluded from that.
+- Migration: none. A deployment running an older artifact server must upgrade it before erasing through `McpArtifactStore`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.mcp.artifact_server.NAMES_URI_TEMPLATE
+
+- Surface: ccf_runtime.mcp.artifact_server.NAMES_URI_TEMPLATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ccf-artifact-names://{content_address}`. It is a resource, grant-tenanted and declared under `artifact.read`, that answers every `(tenant, class, name)` the backing store filed the address under. It returns the caller's verified tenant only, and only naming, never bytes.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The erasure door verifies an address's STORED class and tenant through `names_at`, and the §7.4 MCP-backed reference store must not be excluded from that.
+- Migration: none. A deployment running an older artifact server must upgrade it before erasing through `McpArtifactStore`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.errors.ErasedContentRefused
+
+- Surface: ccf.erasure.errors.ErasedContentRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The same `ArtifactStoreError` as `ccf.erasure.store.ErasedContentRefused`, defined in the dependency-free errors module that the index and the store both import. Its facts (record address, reason, instant) come from the RECORD, never the index entry (fix round 2, N2).
+- Why: SEC-009; fix round 2, N3: one home for the refusal family, so the index can raise a member of it without importing the store.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.errors.ErasureIndexCorrupt
+
+- Surface: ccf.erasure.errors.ErasureIndexCorrupt
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: An `ErasedContentRefused` with reason `index-corrupt` and every fact `None`. The file index raises it on a shrunk file, an unparseable or empty line, a broken hash chain, or a conflicting duplicate. The decorating store raises it on EVERY read under that index: a corrupt index fails CLOSED.
+- Why: SEC-009; fix round 2, N3 and (a).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexCorrupt
+
+- Surface: ccf.erasure.ErasureIndexCorrupt
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.errors.ErasureIndexCorrupt`.
+- Why: SEC-009; fix round 2, N3.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.errors.ErasureIndexInsecure
+
+- Surface: ccf.erasure.errors.ErasureIndexInsecure
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `PermissionError` the file index raises, by name, when its file is a symlink or not a regular file, is not owned by the effective user, has a mode other than 0600, or sits in a parent directory that is not owned by the effective user or is open to group or other.
+- Why: SEC-009; fix round 2, (a).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexInsecure
+
+- Surface: ccf.erasure.ErasureIndexInsecure
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.errors.ErasureIndexInsecure`.
+- Why: SEC-009; fix round 2, (a).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.errors.INDEX_CORRUPT
+
+- Surface: ccf.erasure.errors.INDEX_CORRUPT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reason code `index-corrupt` an `ErasureIndexCorrupt` carries.
+- Why: SEC-009; fix round 2, N3.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.INDEX_CORRUPT
+
+- Surface: ccf.erasure.INDEX_CORRUPT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.errors.INDEX_CORRUPT`.
+- Why: SEC-009; fix round 2, N3.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.GENESIS
+
+- Surface: ccf.erasure.index.GENESIS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The 64-zero predecessor hash the first line of a file index chains from.
+- Why: SEC-009; fix round 2, (a): every line carries the sha256 of the previous line's bytes, and a broken chain is refused at boot.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.GENESIS
+
+- Surface: ccf.erasure.GENESIS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.index.GENESIS`.
+- Why: SEC-009; fix round 2, (a).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.require_append_authority
+
+- Surface: ccf.erasure.index.require_append_authority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The check every `ErasureIndexProtocol.append` makes: the presented capability is a genuine `Authorized[ArtifactErase]` for the resource `<subject_class>/<request_id>` of the entry and for the entry's tenant. Anything else raises `CapabilityBypassError`.
+- Why: SEC-009; fix round 2, I3: an index append is an erasure, so it takes the erase capability bound to its request.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.require_append_authority
+
+- Surface: ccf.erasure.require_append_authority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.index.require_append_authority`.
+- Why: SEC-009; fix round 2, I3.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ERASURE_APPROVAL_CLASS
+
+- Surface: ccf.erasure.contracts.ERASURE_APPROVAL_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The artifact class `ccf.erasure-approval`, under which the door files the recorded human approval before the index append. A subject declaration cannot list it as erasable.
+- Why: SEC-009; fix round 3, I3 part 2, option (a): the approval check needs a durable record, and the ArtifactStore already holds replay records.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ERASURE_APPROVAL_CLASS
+
+- Surface: ccf.erasure.ERASURE_APPROVAL_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.contracts.ERASURE_APPROVAL_CLASS`.
+- Why: SEC-009; fix round 3.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureApproval
+
+- Surface: ccf.erasure.contracts.ErasureApproval
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The recorded, SIGNED approval of one erasure request: tenant, request id, approver, verdict, the instant (the attestation's `issued_at`), the gate and the state hash the approver saw, the workflow definition's hash, the submission's hash, the signed HITL attestation verbatim (`attestation`: claim set, signature, key id) and the pinned HITL policy (`hitl_policy_ref`, `key@version`). Its content address is `approval_ref`; the door and the decorating store verify its signature against the key the pinned policy declares for the approver (fix round 4).
+- Why: SEC-009; fix round 3, I3 part 2: a forged `approval_ref`, or one naming another request, tenant or a non-approving verdict, is `index-unsupported`, durably across restarts and processes.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureApproval
+
+- Surface: ccf.erasure.ErasureApproval
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.contracts.ErasureApproval`.
+- Why: SEC-009; fix round 3.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.approval.verify_erasure_approval
+
+- Surface: ccf.erasure.approval.verify_erasure_approval
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The ONE approval check the door and the decorating store run, taking `requested_by` (the door-signed record's, fix round 5 R2) and the tenant's `authority` (an `ErasureAuthority`, fix round 5): require the approval to be in the authority's tenant and for its declared erasure workflow (`approval-tenant-mismatch`, `approval-workflow-mismatch`, R1); require the pin's key to be the authority's HITL policy key (ruling 1); resolve that key at the pinned version; require its key id to be declared for the signer and verify the signature against exactly those keys; require the signed claims to name this request's gate event (`{tenant}/{request_id}/{gate}`), this tenant, the gate's state hash, the approver and the approving verdict, with `acted_at` equal to `issued_at`; require `issued_at` to precede the pinned version's supersession (ruling 4); require the approver not to be the requester (ruling 2); resolve the declared workflow by its hash, content-verified, in its tenant; require the gate to be its erasure gate (ruling 3, R1); and require the approver to be eligible under that gate's approval policy at its pinned version (ruling 2, R1). Returns the verified claims or raises `ErasureApprovalInvalid`.
+- Why: SEC-009; fix round 4: the re-review's probe D — an approving approval filed with only the requester's `ArtifactErase` was served as supported.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.verify_erasure_approval
+
+- Surface: ccf.erasure.verify_erasure_approval
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.verify_erasure_approval`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.approval.ErasureApprovalInvalid
+
+- Surface: ccf.erasure.approval.ErasureApprovalInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` with a `reason_code`: `approval-tenant-mismatch`, `approval-workflow-mismatch` (fix round 5, R1), `approval-unsigned`, `approval-policy-key-mismatch`, `approval-policy-unresolvable`, `approval-signature-invalid`, `approval-claims-mismatch`, `approval-policy-superseded`, `approval-policy-window-unknown`, `approver-is-requester`, `approver-not-eligible`, `approval-workflow-unresolvable` or `approval-gate-unknown` (fix round 4, rulings 1–4). Fix round 5 removed `approval-policy-tenant-mismatch` (an authority refuses, at construction, a key outside its tenant) and `approval-gate-policy-mismatch` (the record field it compared was deleted).
+- Why: SEC-009; fix round 4: the door refuses with the same reason code; the consult counts any of them as `index-unsupported`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureApprovalInvalid
+
+- Surface: ccf.erasure.ErasureApprovalInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.ErasureApprovalInvalid`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.approval.PinnedPolicySource
+
+- Surface: ccf.erasure.approval.PinnedPolicySource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A read-only Protocol: `resolve(key, version)` (exact, never latest), `versions`, `peek`, `artifact_class_of` (the pinned-read surface the eligibility judgment shares with the transport), `keys_of_class` (locating the workflow definition by its hash) and `audit_events` (the registration history the supersession instant and `policy_head` are read from). Every `ControlPlaneRegistry` satisfies it (fix round 4, rulings 2–4).
+- Why: SEC-009; fix round 4: the narrowest read surface the check needs.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.PinnedPolicySource
+
+- Surface: ccf.erasure.PinnedPolicySource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.PinnedPolicySource`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.approval.reference_approval_verifier
+
+- Surface: ccf.erasure.approval.reference_approval_verifier
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The SDK's reference detached-JWS verifier with no signing material, used where a site supplies no `identity_provider`. Always the same, stateless instance (fix round 5, R3), so compositions that declare no provider share the validation cache keyed by the provider instance.
+- Why: SEC-009; fix round 4: verification needs a provider; the reference one signs nothing.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.reference_approval_verifier
+
+- Surface: ccf.erasure.reference_approval_verifier
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.reference_approval_verifier`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.approval.APPROVING_VERDICT
+
+- Surface: ccf.erasure.approval.APPROVING_VERDICT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The signed HITL action that approves: `approve`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.APPROVING_VERDICT
+
+- Surface: ccf.erasure.APPROVING_VERDICT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.APPROVING_VERDICT`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.errors.ErasureCompositionRefused
+
+- Surface: ccf.erasure.errors.ErasureCompositionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback) or without an `ErasureTrust`, or re-composes an already composed store with a different Control Plane, identity provider or trust; and when the erasure door is built with a non-`ErasureAuthority`, a HITL transport bound to another key, or a signing key that does not verify under the declared door key (fix round 5).
+- Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
+- Migration: pass `erasure_trust=` — per tenant that may erase, its HITL policy key (the key its HITL transport is bound to), its erasure workflow's content hash and the door's public key — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureCompositionRefused
+
+- Surface: ccf.erasure.ErasureCompositionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback) or without an `ErasureTrust`, or re-composes an already composed store with a different Control Plane, identity provider or trust; and when the erasure door is built with a non-`ErasureAuthority`, a HITL transport bound to another key, or a signing key that does not verify under the declared door key (fix round 5). Re-export.
+- Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
+- Migration: pass `erasure_trust=` — per tenant that may erase, its HITL policy key (the key its HITL transport is bound to), its erasure workflow's content hash and the door's public key — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.ErasureCompositionRefused
+
+- Surface: ccf.erasure.store.ErasureCompositionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback) or without an `ErasureTrust`, or re-composes an already composed store with a different Control Plane, identity provider or trust; and when the erasure door is built with a non-`ErasureAuthority`, a HITL transport bound to another key, or a signing key that does not verify under the declared door key (fix round 5). Re-export.
+- Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
+- Migration: pass `erasure_trust=` — per tenant that may erase, its HITL policy key (the key its HITL transport is bound to), its erasure workflow's content hash and the door's public key — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.approval.policy_head
+
+- Surface: ccf.erasure.approval.policy_head
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `policy_head(control_plane) -> str`: the sha256 of the Control Plane's registration history (every resolved `register*` audit event: action, key, version, instant, in order). The decorating store keys its validation cache by it, so any registration re-judges every cached verdict, and a verdict is never keyed by a Control Plane object's identity.
+- Why: SEC-009; fix round 4, ruling 4: a cached SUPPORTED survived a key rotation, and the memo was keyed by `id(control_plane)`.
+- Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.policy_head
+
+- Surface: ccf.erasure.policy_head
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `policy_head(control_plane) -> str`: the sha256 of the Control Plane's registration history (every resolved `register*` audit event: action, key, version, instant, in order). The decorating store keys its validation cache by it, so any registration re-judges every cached verdict, and a verdict is never keyed by a Control Plane object's identity. Re-export.
+- Why: SEC-009; fix round 4, ruling 4: a cached SUPPORTED survived a key rotation, and the memo was keyed by `id(control_plane)`.
+- Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.ErasureAuthority
+
+- Surface: ccf.erasure.trust.ErasureAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract: what ONE tenant's erasures are verified against, declared at composition — `tenant_id` (the erasure workflow's tenant), `hitl_policy_key` (the key its HITL transport is bound to; refused unless it lies under `tenant_id`), `workflow_definition_hash` (the erasure workflow definition's content hash) and `door_keys` (the erasure door's PUBLIC signing keys by key id; a key carrying private material is refused by name).
+- Why: SEC-009; fix round 5, R1, R2, R4: the requester never chooses the workflow, the policy or who counts as the requester.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureAuthority
+
+- Surface: ccf.erasure.ErasureAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.ErasureAuthority`.
+- Why: SEC-009; fix round 5, R1, R2, R4: the requester never chooses the workflow, the policy or who counts as the requester.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.ErasureTrust
+
+- Surface: ccf.erasure.trust.ErasureTrust
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract: `authorities`, a mapping from each tenant that may erase to its `ErasureAuthority`, keyed by the authority's own tenant; `authority_for(tenant_id)`. Empty declares that a site verifies no erasure as supported — every erased address stays withheld, `index-unsupported`.
+- Why: SEC-009; fix round 5, R4: one deployment-wide HITL key let only that key's tenant erase.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureTrust
+
+- Surface: ccf.erasure.ErasureTrust
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.ErasureTrust`.
+- Why: SEC-009; fix round 5, R4: one deployment-wide HITL key let only that key's tenant erase.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.ErasureRecordInvalid
+
+- Surface: ccf.erasure.trust.ErasureRecordInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` with a `reason_code`: `erasure-tenant-undeclared` (no authority for the entry's tenant), `record-address-mismatch`, `record-signature-invalid` (no door signature verifies over the record's bytes under the tenant's declared door keys) or `record-entry-mismatch`. The consult counts any of them as `index-unsupported`.
+- Why: SEC-009; fix round 5, R2 and R4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureRecordInvalid
+
+- Surface: ccf.erasure.ErasureRecordInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.ErasureRecordInvalid`.
+- Why: SEC-009; fix round 5, R2 and R4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.DOOR_SIGNATURE_ASSERTION
+
+- Surface: ccf.erasure.trust.DOOR_SIGNATURE_ASSERTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The protected-header member (`ccf_signed_class`) a door signature asserts, with the value `ccf.erasure-record`: a signature the door key made for anything else does not verify as a record signature.
+- Why: SEC-009; fix round 5, R2: domain separation for the door key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.DOOR_SIGNATURE_ASSERTION
+
+- Surface: ccf.erasure.DOOR_SIGNATURE_ASSERTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.DOOR_SIGNATURE_ASSERTION`.
+- Why: SEC-009; fix round 5, R2: domain separation for the door key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.sign_erasure_record
+
+- Surface: ccf.erasure.trust.sign_erasure_record
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `sign_erasure_record(record, *, signer, key_id) -> str`: the door's detached signature (`protected..signature`) over the record's canonical bytes — the bytes the store holds at its content address — asserting `DOOR_SIGNATURE_ASSERTION`.
+- Why: SEC-009; fix round 5, R2: the record is door-signed.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.sign_erasure_record
+
+- Surface: ccf.erasure.sign_erasure_record
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.sign_erasure_record`.
+- Why: SEC-009; fix round 5, R2: the record is door-signed.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.verify_door_signature
+
+- Surface: ccf.erasure.trust.verify_door_signature
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `verify_door_signature(payload, *, door_signature, door_key_id, authority, identity_provider)`: refuses (`ErasureRecordInvalid`, `record-signature-invalid`) unless the signature's key id is `door_key_id`, it verifies over exactly `payload` against the authority's declared door keys, and its protected header asserts it signs an erasure record.
+- Why: SEC-009; fix round 5, R2.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.verify_door_signature
+
+- Surface: ccf.erasure.verify_door_signature
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.verify_door_signature`.
+- Why: SEC-009; fix round 5, R2.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.verify_erasure_entry
+
+- Surface: ccf.erasure.trust.verify_erasure_entry
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `verify_erasure_entry(entry, payload, *, trust, identity_provider) -> (ErasureRecord, ErasureAuthority)`: the consult's judgment of an entry's record, door signature first — the entry's tenant selects its authority (R4); the bytes hash to the entry's record address; the door's signature verifies over them (R2) before any record field is read; and the record carries every fact the entry does.
+- Why: SEC-009; fix round 5: the record a filer writes is not the door's statement until the door's signature says so.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.verify_erasure_entry
+
+- Surface: ccf.erasure.verify_erasure_entry
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.verify_erasure_entry`.
+- Why: SEC-009; fix round 5: the record a filer writes is not the door's statement until the door's signature says so.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.client.adapters.binding_document.ErasureAuthorityDeclaration
+
+- Surface: ccf.client.adapters.binding_document.ErasureAuthorityDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A frozen dataclass: the erasure authority a deployment declares in `binding.yaml` — `hitl_policy_key`, `workflow_definition_hash`, `door_keys` — minus the tenant, which is the booted fabric's.
+- Why: SEC-009; fix round 5: the in-process adapter's boot is a store construction site, and its trust root is declared in its binding document.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.boot.ReadOnlyFabricRefused
+
+- Surface: ccf.boot.ReadOnlyFabricRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `RuntimeError` the worker of a read-only boot raises for every write (`ingest`, `ingest_admitted`, `admit_entity_claim`, `admit_relationship_claim`), before anything reaches the store. It names the verb and cites FW-2 and `D-IMPL-374`.
+- Why: FW-2. A read-only fabric holds no writer; a write through it would be a second writer, which INV-CH7-10 forbids.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.boot.READ_ONLY_LEASE_SCOPE
+
+- Surface: ccf.boot.READ_ONLY_LEASE_SCOPE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the constant `"read-only"`, which `FabricHandle.lease_scope` reports for a read-only boot.
+- Why: FW-2. The handle reports the read-only state rather than a lease it does not hold.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.boot.READ_ONLY_LEASE_MECHANISM
+
+- Surface: ccf.boot.READ_ONLY_LEASE_MECHANISM
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the text `FabricHandle.lease_mechanism` reports for a read-only boot: no writer was minted and no writer lease was taken.
+- Why: FW-2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_erasure
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_erasure
+- Public surface: true
+- Change type: added
+- Before: absent. An `ErasedContentRefused` raised under an MCP product door or an Experience seam reached the transport, which rendered its text.
+- After: the governed determination for an erasure a door met while answering. It envelopes an `ErasedContentRefusal` under the surface's own request and resource identity, records it through the door's recorder at every level, and returns it disclosed: at `minimal` the not-found shell (`TRANSLATED_AT_MINIMAL`, the shell `govern_absence` answers), at `reasoned` with the reason and instant, at `full` with the record address too. Dimension 2 states `ResolutionNotApplicable("no-resolution-step")`. The erased address is in no envelope.
+- Why: FW-3, whole-branch review I-2 (`D-IMPL-374`); U11. Red tests: `tests/mcp/test_fw3_erasure_at_mcp_doors.py`.
+- Migration: none. A deployment-built door that catches `ErasedContentRefused` calls it the way the SDK's doors do.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.errors.ErasureIndexWriteFailed
+
+- Surface: ccf.erasure.errors.ErasureIndexWriteFailed
+- Public surface: true
+- Change type: added
+- Before: absent. `FileErasureIndex.append` ignored `os.write`'s count, so a write that stopped short without raising (ENOSPC part-way, `RLIMIT_FSIZE`, a network filesystem) returned normally over a torn line. The door then completed and returned a record while the address was still served, and the next append corrupted the index.
+- After: an `OSError` the append raises when its line cannot be written whole. The append writes until every byte is written; when it cannot, it truncates the file back to its pre-append length, fsyncs, and raises this. The entry is not in the index. `ErasureDoor.complete` propagates it by name before the workflow resumes and files no record; a retry completes the erasure.
+- Why: PC1, panel C1 (`D-IMPL-374`). Red tests: `tests/erasure/test_pc1_index_short_write.py`.
+- Migration: none. A caller of the door treats it as an I/O failure and retries.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.ErasureIndexWriteFailed
+
+- Surface: ccf.erasure.ErasureIndexWriteFailed
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: re-export of `ccf.erasure.errors.ErasureIndexWriteFailed`.
+- Why: PC1.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.UnconsultedDeliveryBoundaryError
+
+- Surface: ccf_runtime.authz.delivery_boundary.UnconsultedDeliveryBoundaryError
+- Public surface: true
+- Change type: added
+- Before: absent; `govern_dereference` skipped the erasure consult for a store that was not an `ErasureConsultingStore`.
+- After: a `TypeError` `govern_dereference` raises for such a store, after the capability check and before anything is read, recorded or clocked. The message names `ccf.erasure.compose_erasure_consult`.
+- Why: PM5, panel C5 (`D-IMPL-374`); U12.
+- Migration: an out-of-tree door composes its store with `compose_erasure_consult` before calling `govern_dereference`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.leases.require_private_lock_directory
+
+- Surface: ccf.graph.leases.require_private_lock_directory
+- Public surface: true
+- Change type: added
+- Before: absent. A declared lock directory was checked only for being absolute, and it was resolved at each acquisition.
+- After: `require_private_lock_directory(value) -> str`, the lock-directory rule, judged at config validation and again at every lease acquisition (N-5). It refuses, by name, a path that differs from its real path (any symbolic-link component; the message names the real path to declare), one that does not exist or is not a directory, one not owned by the effective user, and one that is group- or world-writable.
+- Why: PC3, panel C3 (`D-IMPL-374`; SEC-013). A link retargeted between two writers' acquisitions gave one network graph two lock files, and both writers minted (two processes measured). Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`.
+- Migration: declare the lock directory's real path, owned by the user every writer runs as, mode `0700` or `0755`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.controlplane.audit.REGISTRATION_ACTIONS
+
+- Surface: ccf.controlplane.audit.REGISTRATION_ACTIONS
+- Public surface: true
+- Change type: added
+- Before: absent; the registration actions were named only inside the erasure approval module.
+- After: the frozenset `{"register", "register_typed", "register_versioned"}`: the actions whose resolved events make up the registration history. `AuditLog` now folds each such event, as it is appended, into a digest it serves as the read-only property `AuditLog.registration_head` in O(1) under its lock.
+- Why: FW-10, whole-branch review M-5 (`D-IMPL-374`). `ccf.erasure.approval.policy_head` copied and scanned the whole audit log on every erased read and composition, linear in uptime on a door that audits each request. Red tests: `tests/erasure/test_fw10_policy_head_cost.py`, measured by events read, not time.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.peering.identity.jwk_thumbprint
+
+- Surface: ccf.peering.identity.jwk_thumbprint
+- Public surface: true
+- Change type: added
+- Before: absent; nothing in the SDK named a key by its key material
+- After: `jwk_thumbprint(public_key) -> str`, the RFC 7638 SHA-256 thumbprint (unpadded base64url) over the required members of an `EC`, `OKP` or `RSA` public JWK only, so `kid`, `use` and `alg` do not move it. Raises `KeyUnavailable` for a symmetric (`oct`) or unknown key type, or for a missing required member. Equal to `joserfc`'s `thumbprint()` for the same key
+- Why: SEC-022-C-01: the replay scope must be the key the signature verified under, and a `kid` is a label two peers' grants can both use for different keys
+- Migration: none; a deployment's shared `SeenNonceSetProtocol` store receives this value and need not compute it
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -17116,7 +19182,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-536 entries — 346 public Python surface, 190 not public Python API.
+593 entries — 401 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -23329,6 +25395,673 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.graph.registry.BackendStore
+
+- Surface: ccf.graph.registry.BackendStore
+- Public surface: true
+- Change type: reshaped
+- Before: three members, `graph_identity`, `reader` and `close()`.
+- After: a fourth, required member, `writer_lease() -> WriterLease`. Only the boot mint calls it, after the in-process check passes and before a token exists. It is never called at store open, because a read-only store over a live graph is legitimate. The SQLite reference store's lease is an exclusive `fcntl.flock` (never `lockf`) on `<resolved database path>.ccf-writer.lock`, opened with mode `0o600`. The Postgres reference store's lease is a session `pg_try_advisory_lock(hashtextextended(current_schema(), 0))`, never the blocking form. Both are `"cross-process"`. A store without the member is refused at boot by name, with a `TypeError`.
+- Why: SEC-013. The single-writer guard was process-local, so two processes over one SQLite file or one Postgres schema each booted a writer.
+- Migration: every out-of-tree adapter must add `writer_lease()` (see `public/how-to/write-a-graph-backend-adapter.md`). After this change, two processes that each boot one SQLite or Postgres deployment, such as two in-process client adapters or two MCP egress servers on one deployment root, exclude each other, and the second boot is refused. The `public/how-to/security-and-deployment.md` section on processes sharing a graph discloses the per-store scope, the local-filesystem requirement for SQLite, and the session-pooling requirement and silent lease loss on a dropped connection for Postgres.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.assembly.worker.EntityResolutionRule
+
+- Surface: ccf.assembly.worker.EntityResolutionRule
+- Public surface: true
+- Change type: reshaped
+- Before: no way to say which source may assert an attribute. Every attribute in `attribute_keys` was source-asserted.
+- After: adds `attribute_authorities: Mapping[str, frozenset[str]]`, which maps a governed attribute to the `SourceIdentity.system_id` values allowed to assert it. It defaults to empty and is hash-transparent when empty (`D-IMPL-243`), so every existing rule keeps its content hash. An empty source set is fail-closed: no source may assert that attribute. A key that is not one of `attribute_keys` is refused at construction (`ValueError` naming `attribute_authorities`).
+- Why: SEC-023. This is the only SDK-typed Control Plane artifact the L2 worker holds when it writes a claim.
+- Migration: none for existing artifacts. To govern an attribute, declare `attribute_authorities: {<attribute>: [<system id>, ...]}` on every rule that carries it.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.assembly.worker.IngestResult
+
+- Surface: ccf.assembly.worker.IngestResult
+- Public surface: true
+- Change type: reshaped
+- Before: `entities` and `relationships` only.
+- After: adds `refused_assertions: tuple[RefusedAssertion, ...]`, which defaults to `()` and is hash-transparent when empty.
+- Why: SEC-023. A refusal is an outcome that `ingest` returns. It is never an exception.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: 22 members ending in `composition`.
+- After: adds `attribute_assertion_refused`, which is always `resolved=False`.
+- Why: none of the existing members can describe a refused L2 write without making the log say something untrue.
+- Migration: a consumer that matches exhaustively on the action vocabulary adds the member.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphStore
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease()` returned `ProcessScopedWriterLease`, a disclosure that excluded nothing across processes.
+- After: the constructor takes `writer_lease: WriterLeaseSource | None = None`, and `writer_lease()` acquires it through `acquire_declared_writer_lease` with the store's graph identity. With none declared the boot mint is refused with `WriterLeaseRequired`. The lease is never taken at open, so a read-only store needs none.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment that boots a writer over this store declares `writer_lease_lock_dir` in its connection settings, or passes `writer_lease=` when constructing the store directly; otherwise the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.mongo.MongoGraphStore
+
+- Surface: ccf.graph.backends.mongo.MongoGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease()` returned `ProcessScopedWriterLease`, a disclosure that excluded nothing across processes.
+- After: the constructor takes `writer_lease: WriterLeaseSource | None = None`, and `writer_lease()` acquires it through `acquire_declared_writer_lease` with the store's graph identity. With none declared the boot mint is refused with `WriterLeaseRequired`. The lease is never taken at open, so a read-only store needs none.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment that boots a writer over this store declares `writer_lease_lock_dir` in its connection settings, or passes `writer_lease=` when constructing the store directly; otherwise the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.neo4j.Neo4jGraphStore
+
+- Surface: ccf.graph.backends.neo4j.Neo4jGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease()` returned `ProcessScopedWriterLease`, a disclosure that excluded nothing across processes.
+- After: the constructor takes `writer_lease: WriterLeaseSource | None = None`, and `writer_lease()` acquires it through `acquire_declared_writer_lease` with the store's graph identity. With none declared the boot mint is refused with `WriterLeaseRequired`. The lease is never taken at open, so a read-only store needs none.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment that boots a writer over this store declares `writer_lease_lock_dir` in its connection settings, or passes `writer_lease=` when constructing the store directly; otherwise the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.fluree_write.FlureeConnection
+
+- Surface: ccf.graph.backends.fluree_write.FlureeConnection
+- Public surface: true
+- Change type: reshaped
+- Before: no lease setting.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so an omitted value hashes as before). A relative path is refused at validation, by name. When set, the store's lease is the lock-directory lease over it: the file is `<dir>/<sha256(graph identity)>.lock`, derived, never chosen.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: add `writer_lease_lock_dir` (absolute) to the connection settings of every deployment that boots a writer over this store, the same directory for every process that may write the graph. Across hosts this excludes nothing unless the directory is a shared, lock-capable filesystem.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.mongo_write.MongoConnection
+
+- Surface: ccf.graph.backends.mongo_write.MongoConnection
+- Public surface: true
+- Change type: reshaped
+- Before: no lease setting.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so an omitted value hashes as before). A relative path is refused at validation, by name. When set, the store's lease is the lock-directory lease over it: the file is `<dir>/<sha256(graph identity)>.lock`, derived, never chosen.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: add `writer_lease_lock_dir` (absolute) to the connection settings of every deployment that boots a writer over this store, the same directory for every process that may write the graph. Across hosts this excludes nothing unless the directory is a shared, lock-capable filesystem.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.neo4j_write.Neo4jConnection
+
+- Surface: ccf.graph.backends.neo4j_write.Neo4jConnection
+- Public surface: true
+- Change type: reshaped
+- Before: no lease setting.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so an omitted value hashes as before). A relative path is refused at validation, by name. When set, the store's lease is the lock-directory lease over it: the file is `<dir>/<sha256(graph identity)>.lock`, derived, never chosen.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: add `writer_lease_lock_dir` (absolute) to the connection settings of every deployment that boots a writer over this store, the same directory for every process that may write the graph. Across hosts this excludes nothing unless the directory is a shared, lock-capable filesystem.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.boot.FabricHandle
+
+- Surface: ccf.boot.FabricHandle
+- Public surface: true
+- Change type: reshaped
+- Before: no report of the writer lease in force; `BootToken.lease_scope` had no reader (SEC-013-C-03).
+- After: two attributes read off the boot token at boot, `lease_scope` (`"cross-process"` or `"process"`) and `lease_mechanism` (the lease kind and resource, credential-free), both keyword arguments defaulting to `None`. Deliberately not part of `adapter`, so the replay pin is unchanged.
+- Why: SEC-013-C-03. The lease the writer holds is now readable by the deployment that booted it.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf_runtime.mcp.auth.TokenGrant
+
+- Surface: ccf_runtime.mcp.auth.TokenGrant
+- Public surface: true
+- Change type: reshaped
+- Before: `client_id`, `scopes`, `tenants`, `authentication`. Within a tenant, every verified principal reached every agent and the replay record on the Experience door.
+- After: adds `products: frozenset[str] | None = None`, a roster of Context Product class names (schema names). It is hash-transparent at `None`. `None` (`null` or absent in a token file) declares no roster and stays tenant-wide. A set, including an empty one (`[]`), bounds reach to the classes on it on every surface listed above.
+- Why: SEC-017. Within-tenant product entitlement, on the grant that already carries `tenants`.
+- Migration: none for a grant that should stay tenant-wide. To restrict a principal, add `"products": [...]` to its grant in the token source.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.authz.product_entitlement.TokenGrant
+
+- Surface: ccf_runtime.authz.product_entitlement.TokenGrant
+- Public surface: true
+- Change type: reshaped
+- Before: re-export of `ccf_runtime.mcp.auth.TokenGrant` without `products`.
+- After: the same re-export, now with `products`. `verified_grant()` carries the verified token's roster into the grant it returns.
+- Why: SEC-017. If `verified_grant()` dropped the roster, every rostered caller would read as tenant-wide.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.experience.ExposedAgent
+
+- Surface: ccf_runtime.mcp.experience.ExposedAgent
+- Public surface: true
+- Change type: reshaped
+- Before: no product classes. Nothing on the door's path said which products an agent reaches.
+- After: adds `product_classes: frozenset[str] | None = None`, hash-transparent at `None`. It is DERIVED, never declared: only `ccf_runtime.mcp.agent_directory.exposed_agent` sets it, from the definition's context contract (`consumes ∪ emits`). An entry that states `product_classes` any other way is refused at construction by name. With no derived classes, a rostered caller is refused the agent, and the agent is not listed for that caller.
+- Why: SEC-017 fix round 1, IMPORTANT 3. A directory that declared a narrower set would widen every roster's reach.
+- Migration: build directory entries with `ccf_runtime.mcp.agent_directory.exposed_agent`. Unrostered deployments need nothing.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: reshaped
+- Before: no `replay_record_product_class`. `list_agents`, `invoke_agent` and `get_replay_record` were tenant-decided only.
+- After: adds the optional keyword `replay_record_product_class`. The SDK names no class, and `None` means a rostered caller is refused every replay read. It is refused when `get_replay_record` is not allowlisted. For a caller whose grant declares a roster, the guard refuses by name, before the authorizer: the `context_product` resource, `get_context` and `get_lineage` for a class off the roster; `invoke_agent` if the directory is missing, the agent is not exposed, carries no contract, or any of its classes is off the roster; `get_replay_record` unless `replay_record_product_class` is declared and on the roster. `list_agents` lists only agents that `invoke_agent` would dispatch for that caller. A caller with no roster is unchanged.
+- Why: SEC-017.
+- Migration: none for unrostered deployments. A deployment that issues rostered grants and exposes `get_replay_record` declares `replay_record_product_class`.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.mcp.tenancy.GuardedSurface
+
+- Surface: ccf_runtime.mcp.tenancy.GuardedSurface
+- Public surface: true
+- Change type: reshaped
+- Before: `action`, `subject`, `resource`, `mutating`.
+- After: adds `products: ProductReach`.
+- Why: SEC-017 fix round 1. The ledger records each surface's product reading.
+- Migration: none for a deployment.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.authz.route_declaration.RouteAuthorization
+
+- Surface: ccf_runtime.authz.route_declaration.RouteAuthorization
+- Public surface: true
+- Change type: reshaped
+- Before: `action_id`, `resource`.
+- After: adds `products: ProductClassBinding | None = None`. `None` means the route knows no product class at the call.
+- Why: SEC-017 fix round 1.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.authz.route_declaration.authorizes
+
+- Surface: ccf_runtime.authz.route_declaration.authorizes
+- Public surface: true
+- Change type: reshaped
+- Before: `authorizes(action_id, *, resource)`.
+- After: `authorizes(action_id, *, resource, products=None)`. The product route declares `ProductClassBinding.path("product_class")`, and the two replay routes declare `ProductClassBinding.replay_declared()`.
+- Why: SEC-017 fix round 1.
+- Migration: none.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.http_api.gate.AuthorizationGate
+
+- Surface: ccf_runtime.http_api.gate.AuthorizationGate
+- Public surface: true
+- Change type: reshaped
+- Before: `auth`, `authorizer`, `table`. Nothing held a product roster.
+- After: adds the keyword `replay_record_product_class: str | None = None`. After the tenant and resource, and before the authorizer, the gate refuses with 403 `product-outside-roster` when a rostered bearer's route-declared class is off its roster. No allow is recorded for the refusal.
+- Why: SEC-017 fix round 1, IMPORTANTS 1 and 2.
+- Migration: none; `create_app` passes it.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.http_api.app.create_app
+
+- Surface: ccf_runtime.http_api.app.create_app
+- Public surface: true
+- Change type: reshaped
+- Before: no replay class.
+- After: adds the required keyword-only `replay_record_product_class: str | None`, with no default. The SDK names no class, and a `None` passed explicitly means a rostered bearer is refused every replay read. An omitted argument is a `TypeError`.
+- Why: SEC-017 fix round 1. `D-IMPL-353` §4 rule 1 holds every keyword-only parameter of `create_app` required, and `HttpAuthority` names each one with its own type. A deployment states this declaration; it is never read as `None` by omission.
+- Migration: every caller of `create_app` passes `replay_record_product_class=`. Pass `None` unless the deployment issues rostered grants and serves replay over HTTP, in which case pass the class its replay records are held to.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.http_api.app.HttpAuthority
+
+- Surface: ccf_runtime.http_api.app.HttpAuthority
+- Public surface: true
+- Change type: reshaped
+- Before: a `TypedDict` naming `create_app`'s five required keyword seams.
+- After: adds the required key `replay_record_product_class: str | None`, the same type as `create_app`'s parameter, so the bundle names every keyword-only parameter of `create_app`. A bundle that leaves it out is a mypy error where it is written, and `None` is a value the embedder states.
+- Why: SEC-017; `D-IMPL-374` (2). `create_app` requires the declared replay class, and `tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams` holds the two equal.
+- Migration: an embedder that builds an `HttpAuthority` for `ccf_runtime.cli.main.main(authority=...)` or `create_app(deps, **authority)` adds `"replay_record_product_class": None`, or the class its replay records are held to.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: 23 members ending in `attribute_assertion_refused`.
+- After: adds `governed_attribute_omitted`, always `resolved=True`.
+- Why: SEC-023-C-01, coordinator ruling (3).
+- Migration: a consumer that matches exhaustively on the action vocabulary adds the member.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.AuditEvent
+
+- Surface: ccf.controlplane.audit.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `action` typed over 23 members.
+- After: `action` typed over 24 (adds `governed_attribute_omitted`). No field added; canonical bytes of every existing event unchanged.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.registry.AuditEvent
+
+- Surface: ccf.controlplane.registry.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: the re-export of `ccf.controlplane.audit.AuditEvent` over 23 actions.
+- After: the same re-export over 24.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.AuthzDecisionAuditEvent
+
+- Surface: ccf.controlplane.audit.AuthzDecisionAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: inherited `action` over 23 members.
+- After: inherited `action` over 24.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+
+- Surface: ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: inherited `action` over 23 members.
+- After: inherited `action` over 24.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+
+- Surface: ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: inherited `action` over 23 members; carried only `attribute_assertion_refused`.
+- After: inherited `action` over 24; also carries `governed_attribute_omitted` (`resolved=True`, `refused_value_present=False`). The `action` member, not the field names, says which happened.
+- Why: SEC-023-C-01 reuses the five `refused_*` fields rather than adding a parallel keyword family to `AuditLog.append`.
+- Migration: a reader of `refused_*` fields filters on `action`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: reshaped
+- Before: returned `ReplayOutcome`.
+- After: returns `ReplayOutcome | ErasedReplayOutcome`. It returns the second when the record itself, an admitted child contract, or an artifact the re-execution reads was erased.
+- Why: SEC-009; ruling 4. Before this change the call raised `ErasedContentRefused`.
+- Migration: a caller that replays over a store composed with the erasure consult handles `ErasedReplayOutcome`. On a store with nothing erased it never appears.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.replay_refusal
+
+- Surface: ccf.replay.engine.replay_refusal
+- Public surface: true
+- Change type: reshaped
+- Before: returned `RefusalReplayOutcome`.
+- After: returns `RefusalReplayOutcome | ErasedReplayOutcome`. When nothing reads the children (the no-read path), an erased child is disclosed on the `RefusalReplayOutcome` and the reconstruction completes.
+- Why: SEC-009; ruling 4.
+- Migration: as for `replay`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: reshaped
+- Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
+- After: three new **required** keywords with no default: `erasure_index: ErasureIndexProtocol`, (fix round 4) `control_plane: PinnedPolicySource`, the deployment's Control Plane through which each erasure approval is verified, and (fix round 5) `erasure_trust: ErasureTrust`, the per-tenant erasure authorities every erasure is verified against (replacing fix round 4's `hitl_policy_key`). The server wraps `store` through `compose_erasure_consult`.
+  - Every byte read goes through the wrapped store.
+  - A governed record follows the authorization-first order (ruling 1).
+  - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
+  - The naming resource still resolves through `store`, because it returns an address, never bytes (the U8 reasoning).
+- Why: SEC-009; the coordinator's MCP ruling on `D-IMPL-374` (4). This server is the ArtifactStore's persistence transport (CLAUDE.md §7.4), so an erased artifact served over it is exactly the SEC-009 hole.
+- Migration: pass `erasure_index=` with the deployment's durable index, `control_plane=` with its Control Plane and `erasure_trust=` with its per-tenant erasure authorities. Every in-tree call site is updated.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure handling.
+- After:
+  - Authorization runs first: the principal and grant holds read the record through the unconsulted inner store. Those bytes are used only for the rights check and never leave the door.
+  - Only then does the consulted read run. An erased address becomes the erased reading at the entitled caller's level.
+  - A new keyword `erased_client_read: ErasedContentRefused | None = None` lets the MCP artifact server render an erased client-lane artifact the same way. It can only ever produce a refusal, never bytes.
+- Why: SEC-009; rulings 1 and MCP on `D-IMPL-374` (4).
+- Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure index.
+- After: a new **required** keyword `erasure_index: ErasureIndexProtocol`, with no default. The selected store, whether supplied or default, is composed with the erasure consult over it and scoped to the fabric's tenant.
+- Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
+- Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure index.
+- After: a new required constructor keyword `erasure_index`, and an `erasure_index` attribute. `open_product` derives the index from its declared scratch root (`erasure_index_at`), composes its store scoped to the deployment's tenant, and `build_arguments` hands the index to every resolver it builds.
+- Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
+- Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.http_api.dependencies.ApiDependencies
+
+- Surface: ccf_runtime.http_api.dependencies.ApiDependencies
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure index.
+- After: a new **required** field `erasure_index: ErasureIndexProtocol`, with no default. `create_app` composes `artifact_store` over it, together with `control_plane.audit_log`.
+- Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
+- Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: reshaped
+- Before: the four Protocol verbs, plus `url` and `write_kinds`.
+- After: adds `names_at(*, content_address)`. It reads the server's names resource for this credential's tenant. A malformed address returns `()` with no round trip. An answer that is not a list of names raises `McpServerUnreachable`.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The same naming introspection `FileArtifactStore.names_at` offers, so an erasure through the §7.4 reference store is verified and admitted.
+- Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ReplayOutcome
+
+- Surface: ccf.replay.engine.ReplayOutcome
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure field.
+- After: a new field `erased_content: tuple[ErasedContent, ...] = ()`. `RefusalReplayOutcome` gets the same field. It is hash-transparent at `()`, so an outcome with nothing erased renders as before.
+- Why: SEC-009; design §5.2. A replay over erased retained content completes, and the erasure is disclosed on the result. The replay record is unchanged.
+- Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.cli.local.build_local_dependencies
+
+- Surface: ccf_runtime.cli.local.build_local_dependencies
+- Public surface: true
+- Change type: reshaped
+- Before: `build_local_dependencies(*, root)` — the in-memory HITL transport unbound, the erasure consult composed without a trust root.
+- After: `build_local_dependencies(*, root, hitl_policy_key, erasure_trust)`: a REQUIRED `hitl_policy_key` (from `--local-hitl-policy-key`) that the in-memory HITL transport is bound to (fix round 4), and a REQUIRED `erasure_trust` the erasure consult verifies erasures against (fix round 5). The `--local` arm declares none (`ErasureTrust(authorities={})`): the local dev fabric runs no erasure door and registers no erasure workflow, so every erasure its index names is withheld as `index-unsupported`.
+- Why: SEC-009; fix round 4, ruling 1, and fix round 5, R1, R2, R4: every store construction site takes the deployment's trust root.
+- Migration: pass `hitl_policy_key=` and `erasure_trust=`; the `--local` arm (suspended under SEC-002) takes `--local-hitl-policy-key`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: `control_plane: ControlPlaneRegistry | None = None` (a fresh registry when omitted); no erasure trust root.
+- After: `control_plane: ControlPlaneRegistry` is REQUIRED with no default and `None` is refused by name (`ErasureCompositionRefused`, fix round 4); a new REQUIRED `erasure_trust: ErasureTrust` (fix round 5; it replaces fix round 4's `hitl_policy_key`), the per-tenant erasure authorities the composed store verifies every erasure against. A deployment that runs no erasure door passes `ErasureTrust(authorities={})`.
+- Why: SEC-009; fix round 4, rulings 1 and 5, and fix round 5, R1, R2, R4: the fallback registry lacked the door's HITL policy, and a trust root read from filed artifacts let a filer choose who counts as the requester and which workflow's gate policy applies.
+- Migration: pass `control_plane=` (the deployment's registry) and `erasure_trust=`. Every in-tree caller is updated; the examples declare no erasure authority, because none runs an erasure door. **The examples pass a fresh registry inline (M-10, disclosed, not changed):** 16 `open_product` call sites under `examples/`, one in each of 16 `produce.py` files (counted by AST), pass `control_plane=ControlPlaneRegistry()`. That is harmless there, because each declares `ErasureTrust(authorities={})` and no example runs an erasure door, but it teaches the pattern ruling 5 forbids. A deployment that runs an erasure door passes the Control Plane its HITL policy, approval policy and erasure workflow are registered in, never a fresh one.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: No erasure trust root.
+- After: Carries `erasure_trust` (the trust `open_product` took) and hands it to every resolver it builds through `build_arguments`, so a server composed over an opened product passes `opened.erasure_trust` to `ApiDependencies`.
+- Why: SEC-009; fix round 5 (it replaces fix round 4's `hitl_policy_key`).
+- Migration: none; read `opened.erasure_trust` where a server composes over the product.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: No erasure trust root; any `ControlPlaneProtocol` accepted.
+- After: A new REQUIRED `erasure_trust: ErasureTrust` the composed store verifies every erasure against (fix round 5; it replaces fix round 4's `hitl_policy_key`); a `control_plane` offering no pinned-read surface (`PinnedPolicySource`) is refused by name (`ErasureCompositionRefused`).
+- Why: SEC-009; fix round 4, rulings 1 and 5; fix round 5, R1, R2, R4.
+- Migration: pass `erasure_trust=` beside the other declared keys; `OpenedProduct.build_arguments` already does.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.http_api.dependencies.ApiDependencies
+
+- Surface: ccf_runtime.http_api.dependencies.ApiDependencies
+- Public surface: true
+- Change type: reshaped
+- Before: No erasure trust root.
+- After: A new REQUIRED field `erasure_trust: ErasureTrust` — per tenant that may erase, the HITL policy key its `hitl_transport` is bound to, its erasure workflow's content hash and the erasure door's public key — which `create_app` composes the erasure consult with (fix round 5; it replaces fix round 4's `hitl_policy_key`).
+- Why: SEC-009; fix round 4, ruling 1; fix round 5, R1, R2, R4.
+- Migration: pass `erasure_trust=`. Every in-tree construction is updated.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.client.adapters.binding_document.BindingDocument
+
+- Surface: ccf.client.adapters.binding_document.BindingDocument
+- Public surface: true
+- Change type: reshaped
+- Before: No erasure trust root.
+- After: A new REQUIRED data key `erasure_authority` (fix round 5; it replaces fix round 4's `hitl_policy_key`): `{}` declares none, or a mapping of exactly `hitl_policy_key` (confined under the deployment's tenant at boot), `workflow_definition_hash` and `door_keys` (the erasure door's public JWKs by key id), held as an `ErasureAuthorityDeclaration`. `erasure_trust(*, tenant_id)` builds the `ErasureTrust` the in-process adapter composes the erasure consult with.
+- Why: SEC-009; fix round 4, ruling 1, and fix round 5: the in-process adapter's boot is a store construction site, and its deployment is declared by its binding document.
+- Migration: add `erasure_authority: {}` to `binding.yaml`, or the three fields for a deployment that runs an erasure door; the loader refuses a document that omits the key.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.hitl.transport.InMemoryHitlTransport
+
+- Surface: ccf.hitl.transport.InMemoryHitlTransport
+- Public surface: true
+- Change type: reshaped
+- Before: The bound HITL policy key was private.
+- After: A read-only `hitl_policy_key` property: the Control Plane key the transport's HITL policy resolves under, or `None` when unbound. The erasure door holds its authority's HITL policy key to it at construction and refuses a mismatch by name.
+- Why: SEC-009; fix round 5, R5: a door and a transport judging approvals under different policies would file approvals no consult verifies.
+- Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: every boot minted a boot token, so every boot built a writer and took the store's writer lease. Beside a live writer on a persistent store the boot was refused with `SingleWriterViolation`.
+- After: a keyword `read_only: bool = False`. `True` resolves and type-checks the pinned resolution spec, builds L2 over it (validating and auditing the policy-bundle pin as before), mints the classification authority through the same private mint path as the writer boot, and returns a handle whose reader is governed exactly like a writer boot's. It mints no boot token, so no writer exists, no writer lease is taken, no graph is marked live, and no invalidation-register capability is minted. It writes no graph content, but opening the store still runs the store's own open-time setup (schema creation; Fluree ledger creation), as at a writer boot (N-6). Because it takes no lease, it sets the connection's writer-lease setting (`writer_lease_lock_dir`) aside before validation: that setting is neither validated nor handed to the store (N-2, the scoped re-review), so an examiner on another host or under another account boots read-only with the deployment's settings unchanged. `False` is the writer boot. Separately (PM10, panel C10), every step after a writer boot's mint — the worker build, the SEC-023 authority wrap and the handle's construction — now runs inside one guard that retires the writer and gives back its writer lease on failure; before, only the worker build did, and a raise in the other two stranded the writer in this process and its cross-process lease for the process's life.
+- Why: FW-2, whole-branch review I-1 (`D-IMPL-374`). Whitepaper §7.10 replay must be able to read a classification decision beside the live writer. PM10: a corrected retry must boot. N-2: a read-only boot was refused for a lock directory only a writer uses. Red tests: `tests/replay/test_fw2_read_only_replay.py`, `tests/graph/test_pm10_boot_strand.py`, `tests/deployment/test_n2_read_only_boot_lease_settings.py`.
+- Migration: none for a writer boot. A process that only reads a graph a live writer holds (a replay tool, an audit export) passes `read_only=True`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.boot.FabricHandle
+
+- Surface: ccf.boot.FabricHandle
+- Public surface: true
+- Change type: reshaped
+- Before: `lease_scope: WriterLeaseScope | None`.
+- After: `lease_scope: WriterLeaseScope | Literal["read-only"] | None`. A read-only handle keeps the whole contract: its `worker` is L2 over a writer that refuses every write by name, and its `close` closes the store only.
+- Why: FW-2. The handle has to say it is read-only, and `WriterLeaseScope` names the scopes of leases that are held.
+- Migration: a reader of `lease_scope` that matched exhaustively on the two lease scopes adds `"read-only"`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a manifest deployment without a writer.
+- After: a keyword `read_only: bool = False`, handed to `ccf.boot.boot` unchanged. The registration loop runs either way, into the caller's registry. With `True`, the connection preflight sets the writer-lease setting aside as the boot does, so it is neither validated nor used (N-2).
+- Why: FW-2. `ccf.replay.environment.RecordedEnvironment` takes a `BootedFabric`, which the deployment doors build. Without the keyword the replay road would boot a writer.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a manifest deployment without a writer.
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_and_boot` re-exports). With `True`, the writer-lease setting is neither validated nor used (N-2).
+- Why: FW-2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.load_config_and_boot
+
+- Surface: ccf.deployment.load_config_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a single-file deployment without a writer.
+- After: a keyword `read_only: bool = False`, handed through the shared registration spine to `ccf.boot.boot`. With `True`, the connection preflight sets the writer-lease setting aside as the boot does, so it is neither validated nor used (N-2).
+- Why: FW-2. This is the door the paved road's replay reopens a fabric through.
+- Migration: none. To replay beside a live writer, pass `read_only=True`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a single-file deployment without a writer.
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_config_and_boot` re-exports). With `True`, the writer-lease setting is neither validated nor used (N-2).
+- Why: FW-2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.leases.AbsoluteLockDirectory
+
+- Surface: ccf.graph.leases.AbsoluteLockDirectory
+- Public surface: true
+- Change type: reshaped
+- Before: `Annotated[str, AfterValidator(require_absolute_lock_directory)]`.
+- After: `Annotated[str, AfterValidator(require_absolute_lock_directory), AfterValidator(require_private_lock_directory)]`.
+- Why: PC3.
+- Migration: as above.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.backends.fluree_write.FlureeConnection
+
+- Surface: ccf.graph.backends.fluree_write.FlureeConnection
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease_lock_dir` was validated as an absolute path.
+- After: it is also validated by `require_private_lock_directory` (PC3).
+- Why: PC3.
+- Migration: as for `require_private_lock_directory`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.backends.mongo_write.MongoConnection
+
+- Surface: ccf.graph.backends.mongo_write.MongoConnection
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease_lock_dir` was validated as an absolute path.
+- After: it is also validated by `require_private_lock_directory` (PC3).
+- Why: PC3.
+- Migration: as for `require_private_lock_directory`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.backends.neo4j_write.Neo4jConnection
+
+- Surface: ccf.graph.backends.neo4j_write.Neo4jConnection
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease_lock_dir` was validated as an absolute path.
+- After: it is also validated by `require_private_lock_directory` (PC3).
+- Why: PC3.
+- Migration: as for `require_private_lock_directory`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.products.gates.refuse_over_tolerance
+
+- Surface: ccf.products.gates.refuse_over_tolerance
+- Public surface: true
+- Change type: reshaped
+- Before: `(product, *, tolerance: EffectiveParameter | None) -> ToleranceExceededRefusal | None`. An absent tolerance (`None`) was served at any Debt, with no way for the step to learn whether a policy bounded it.
+- After: `(product, *, tolerance: EffectiveParameter | None, policy_bound: ParameterBound | None) -> ToleranceExceededRefusal | ConstraintRefusal | None`. `policy_bound` is required and has no default: it is the bound a registered policy constraint places on `debt_tolerance`, as the Authority layer reported it, or `None` when none does. With no tolerance and a `policy_bound`, the step returns a `ConstraintRefusal` (`required-absent`, carrying the bound) instead of serving. With neither, it serves as before. A present tolerance is compared exactly as before, and `policy_bound` is not read: the policy's fold already happened upstream. The governed resolver passes the policy bound off the resolved tolerance's own record; for an absent tolerance that is `None` by construction, because the resolution has already refused the bounded case.
+- Why: SEC-019 (`D-IMPL-356` D11), the same rule at the delivery step, so "nothing bounds it" is a statement the caller makes rather than a default it gets by leaving an argument out. Red tests: `tests/products/test_sec019_absent_constrained_parameter.py::test_the_tolerance_step_cannot_serve_an_absent_tolerance_a_policy_bounds` and `::test_control_the_tolerance_step_still_serves_an_absent_tolerance_nothing_bounds`.
+- Migration: every direct caller passes `policy_bound=`: the policy bound on the tolerance, or `None` when no policy constraint bounds it. A caller that receives the `ConstraintRefusal` envelopes it as the pre-assembly kind it is, with no lineage, because `envelope_for` refuses a lineage for `ConstraintRefusal`.
+
+*Recorded by `375-01-sec-019-absent-constrained-parameter.md`.*
+
+#### ccf_runtime.peering.lf_a2a.LfA2AWire
+
+- Surface: ccf_runtime.peering.lf_a2a.LfA2AWire
+- Public surface: true
+- Change type: reshaped
+- Before: `(*, local_peer_id, agent_card, cards, http_client_factory, clock, rpc_path, max_message_bytes, max_pending)`. `routes()` mounted `a2a-sdk`'s JSON-RPC route as given, and its dispatcher read and parsed the whole request body before `_accept` consulted `max_message_bytes`, so a request body of any size was buffered and parsed.
+- After: adds `max_request_bytes: int`, which is required, keyword-only, has no default, and must be positive (`ValueError` otherwise, in the typed leg's words). `routes()` wraps the JSON-RPC route's application in a request-body limit equal to `max_request_bytes`. A declared `Content-Length` over it is answered `413` before any of the body is read. Any other body is counted as it arrives, whether or not a length was declared, and answered `413` the moment the count exceeds the limit. Over the limit the dispatcher is never called; a body within it is handed on whole. `max_message_bytes` keeps bounding only the decoded document, in `_accept` after parsing, and the outbound document in `emit`. `routes()` raises `TypeError` rather than mount a JSON-RPC endpoint that is not a starlette `Route`, which the limit could not wrap.
+- Why: SEC-021-U1, carried by `D-IMPL-370` (3): move the size check ahead of parsing. Mechanism parity with `TypedHttpWire`, which declares `max_request_bytes` and checks it before parsing. Holding the body to `max_message_bytes` instead refused documents that limit admits. Neither limit is derived from the other, because a framing allowance would be a hard-coded threshold.
+- Migration: every constructor call must now pass `max_request_bytes`. Declare it large enough for the JSON-RPC request that carries a document of `max_message_bytes`: that request carries the document base64-encoded, about four thirds of its size, plus an envelope that depends on the deployment's own identifiers, so measure it. A body over `max_request_bytes` is answered `413`, which a sending peer sees as `PeerUnreachable` from `emit` or `emit_async`.
+
+*Recorded by `375-02-sec-021-u1-body-cap-before-parse.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -25681,6 +28414,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.graph._writer.mint_boot_token
+
+- Surface: ccf.graph._writer.mint_boot_token
+- Public surface: false
+- Change type: reshaped
+- Before: `mint_boot_token(*, graph_identity: str)`. It checked this process's live-writer table only.
+- After: `mint_boot_token(*, store)`. It checks the live-writer table first, so the in-process refusal text is byte-identical to the old one. Then it acquires `store.writer_lease()`, records the lease beside the table, and records the lease scope on the token (`BootToken.lease_scope`). There is no parameter that skips the lease. `BaseGraphWriter.close` and `release_boot_token` drop the table entry first and then release the lease.
+- Why: SEC-013. The lease is bound to the writer mint rather than to store open, and whether a lease applies is the store's declaration, never the caller's.
+- Migration: none outside the SDK. The module is private, and `ccf.boot.boot` is its only caller.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph._writer.BootToken
+
+- Surface: ccf.graph._writer.BootToken
+- Public surface: false
+- Change type: reshaped
+- Before: the token recorded `lease_scope` only.
+- After: the token also records `lease_mechanism`, the held lease's `mechanism`, at the mint. `ccf.boot.boot` copies both onto `FabricHandle`.
+- Why: SEC-013-C-03.
+- Migration: none. The module is private.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -26321,7 +29078,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-249 entries — 217 public Python surface, 32 not public Python API.
+292 entries — 256 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -30525,6 +33282,474 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.assembly.worker.EntityResolutionSpec
+
+- Surface: ccf.assembly.worker.EntityResolutionSpec
+- Public surface: true
+- Change type: behavior
+- Before: no cross-rule check.
+- After: if any rule of an entity class governs an attribute, every rule of that class that carries the attribute must declare the identical source set. Otherwise the spec is refused at construction. Adds `governed_attributes()`, which returns class -> attribute -> authorized sources.
+- Why: the source's payload decides which rule fires. Without this check, a source could present the match key of a second rule that does not govern the attribute and assert it there.
+- Migration: none unless a spec already governs an attribute.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: `ingest` wrote every resolved entity's claim, whatever its source.
+- After: `ingest` writes no claim for an entity whose source is outside the declared set for a governed attribute it asserts. It derives no relationship from that entity in the same envelope. For each refused attribute it appends one `attribute_assertion_refused` event to the Control Plane audit log, with `occurred_at` set to the envelope's ingestion timestamp. It returns normally.
+- Why: if the refusal were raised, a non-authoritative source could refuse every serve whose acquisition touched it, through `src/ccf/products/resolver.py::SDK_SEAM_REFUSALS`.
+- Migration: none for ungoverned attributes.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditLog
+
+- Surface: ccf.controlplane.audit.AuditLog
+- Public surface: true
+- Change type: behavior
+- Before: `append` accepted the authz and verdict-integrity keywords.
+- After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
+- Why: SEC-023. SURFACE-TOOLING-01: this is a real public method-signature change (`AuditLog.append` gained five keyword arguments, `reshaped` in substance); the surface manifest records class shapes and names, not method signatures, so it yields no line for it and the completeness test cannot accept `reshaped` here; recorded under the only type the tool admits, with the limitation named and carried as a tooling finding (D-IMPL-372 close record, Y3).
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer
+- Public surface: true
+- Change type: behavior
+- Before: `tool()` and `resource()` took `action`, `subject`, `resource`, `mutating`. Nothing held a product roster.
+- After: `tool()` and `resource()` also require `products: ProductReach` (keyword-only, no default), from four new static readers. After the tenant floor and before the authorizer, a grant's declared roster is held to it, and a call off the roster is refused with `ProductOutsideRosterRefused`: no allow is recorded and nothing is minted. The grant handed to the authorizer now carries `products`. For a directory-resolved reach (`invoke_agent`), every outcome (unknown, not exposed, no derived classes, off-roster) gets one opaque refusal that names no agent and no class. The specific reason is logged at INFO on `ccf_runtime.mcp.tenancy` (fix round 2, I-NEW-1). Disclosed, not changed (N-4): the wire is identical for every rostered outcome, but only an existing on-roster agent reaches the authorizer, so only that outcome appends audit events (`resolve` and an `authz_decision` deny) and it answers slightly slower; the asymmetry is server-side.
+- Why: SEC-017 fix round 1, IMPORTANTS 1 and 2.
+- Migration: a deployment registering its own surfaces on the guard adds `products=` to each: `door.products_unknown("<why>")` for a surface that knows no product class at the call.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf.graph.protocols.GraphQuery
+
+- Surface: ccf.graph.protocols.GraphQuery
+- Public surface: true
+- Change type: behavior
+- Before: no authority.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`; the stamping method is private), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
+- Why: the store reader can tell a checked query from one that came another way.
+- Migration: none on the paved road.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.reader.BaseGraphReader
+
+- Surface: ccf.graph.reader.BaseGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` runs `require_query_classification_authority` before any substrate I/O. SQLite, Postgres, MongoDB, Neo4j and Fluree inherit it.
+- Why: the fifth path.
+- Migration: send classification queries through `FabricHandle.reader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.backends.memory.MemoryGraphReader
+
+- Surface: ccf.graph.backends.memory.MemoryGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` refuses an unstamped classification query.
+- Why: the fifth path.
+- Migration: as for `BaseGraphReader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query_pinned` answered any classification query.
+- After: `query_pinned` refuses an unstamped classification query before any I/O (its `query` is `BaseGraphReader.query`).
+- Why: the fifth path; the one `SnapshotPinnable` store entry.
+- Migration: as for `BaseGraphReader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.product_source.ProductSource
+
+- Surface: ccf.graph.product_source.ProductSource
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query over the mounted product.
+- After: `query` refuses an unstamped classification query (ruling (3), fail closed).
+- Why: a peer product's labels were governed by no local L2.
+- Migration: none supported; a classification answer over a peer product is refused (ruling (3)).
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.GraphView
+
+- Surface: ccf.graph.protocols.GraphView
+- Public surface: true
+- Change type: behavior
+- Before: records only.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority` property; the stamping method is private, called by the booted reader and the shipped operators). It is outside the canonical form and outside equality, so a view's content hash and every record built from one are the same stamped or not (proven by `test_the_authority_stamp_leaves_every_record_identity_unchanged`).
+- Why: coordinator ruling (1): the stamp must be hash-transparent, so no replay record changes.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: behavior
+- Before: `FabricHandle.reader` was the store's reader.
+- After: `boot` mints the `ClassificationAuthority` of the resolution spec its L2 enforces (the only mint) and `FabricHandle.reader` is `governed_reader(store.reader, <that authority>)`. A classification `GraphQuery` the authority does not cover is refused; every view and every checked query carries the authority.
+- Why: path 1 and path 3 of the `D-IMPL-372` amendment — a hand-composed boot never sees operator parameters, so the boot-time check could not cover it.
+- Migration: a hand-composed deployment whose classification attribute is written without `attribute_authorities` must declare them; before, it served whatever label the latest source wrote.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.operators.categories.PolicyFilter
+
+- Surface: ccf.operators.categories.PolicyFilter
+- Public surface: true
+- Change type: behavior
+- Before: `apply` admitted on the view's labels, wherever the view came from.
+- After: `apply` first runs `require_classification_authority` on its view: `ClassificationAuthorityMissing` for an unstamped view, `UngovernedClassificationAttribute` for an uncovered map. Views produced by the shipped operators carry the input view's authority forward.
+- Why: path 3 of the `D-IMPL-372` amendment; coordinator ruling (2).
+- Migration: tests and harnesses that apply a `PolicyFilter` over hand-built views stamp them (`tests/properties/strategies.py::AUTHORITY` is the worked case).
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.deployment.operators.build_operator_registry
+
+- Surface: ccf.deployment.operators.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: built a `PolicyFilter` from any policy artifact, and registered any `deployment_operators`, without consulting authority.
+- After: before registering, checks every Policy operator it builds and every deployment operator whose read intent carries a classification map against the authority `view` was read under. Signature unchanged — the six frozen specimens' four-argument calls keep working.
+- Why: paths 2 and 4 of the `D-IMPL-372` amendment.
+- Migration: none when `view` comes from `FabricHandle.reader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: an entity claim from a source not authorized for a governed attribute that OMITTED the attribute was written and blanked the label with no record (`SEC-023-C-01`).
+- After: still written (admitted), and each omitted governed attribute is appended as one `governed_attribute_omitted` event (`resolved=True`, `refused_value_present=False`).
+- Why: coordinator ruling (3): audit AND admit. The refusal event's schema has no reason field, so a new member names the omission instead of recording an admission as a refusal.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.products.product.open_product (erasure index)
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: A supplied `artifact_store` was composed with the erasure consult over an index derived from the scratch root.
+- After: A new keyword `erasure_index`. The consult uses the SELECTED store's own index. A raw supplied store must come with `erasure_index`, or `ErasureIndexUnavailable` is raised by name. A store already composed through `compose_erasure_consult` carries its index, and its tenant scope must be this product's or none. An `erasure_index` presented beside it must be the same index by path. With no supplied store, the index is derived from the scratch root as before.
+- Why: SEC-009; fix round 2, N1: an index derived from the scratch root is not the supplied store's, so every erasure filed against that store would have been missed.
+- Migration: pass `erasure_index=` with a raw supplied store, or supply the store composed through `compose_erasure_consult`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.client.adapters.binding_document.load_binding_document
+
+- Surface: ccf.client.adapters.binding_document.load_binding_document
+- Public surface: true
+- Change type: behavior
+- Before: `erasure_authority` was not a binding-document key.
+- After: `erasure_authority` is a required data key; a document that omits it is refused by name, like every other required key, and a value that is neither `{}` nor exactly its three fields is refused by name (`BindingError`).
+- Why: SEC-009; fix round 5 (it replaces fix round 4's `hitl_policy_key`).
+- Migration: add `erasure_authority:` to the document.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: its `fabric` was documented only as "the booted fabric to read through". Every boot took the writer lease, so beside a live writer there was no fabric to pass.
+- After: its documented fabric is a read-only boot (`load_config_and_boot(..., read_only=True)`), which reads beside the live writer with a boot-minted authority on every view. A writer boot is still accepted where no live writer holds the graph. The class's code and signature are unchanged.
+- Why: FW-2, whole-branch review I-1.
+- Migration: a replay tool that reopens a fabric beside a live writer passes `read_only=True` to the deployment door it boots through.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.errors.ErasedContentRefused
+
+- Surface: ccf.erasure.errors.ErasedContentRefused
+- Public surface: true
+- Change type: behavior
+- Before: the text was `'<content address>' was erased and is not served (SEC-009)`.
+- After: the text names no address: `the requested content was erased by a recorded decision and is not served (SEC-009)`. `content_address`, `erasure_record_address`, `reason` and `erased_at` are unchanged structured attributes.
+- Why: FW-3. The text is what a transport that renders exception prose puts on a wire, and the review measured exactly that.
+- Migration: an in-process caller that parsed the address out of the text reads `content_address`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.ErasedContentRefused
+
+- Surface: ccf.erasure.ErasedContentRefused
+- Public surface: true
+- Change type: behavior
+- Before: the text named the erased address.
+- After: the text names no address (the same class `ccf.erasure.errors.ErasedContentRefused`, re-exported).
+- Why: FW-3.
+- Migration: read `content_address`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: an `ErasedContentRefused` from the resolver left the product tool, the addressed resource and the standing resource as the exception's prose, at every level.
+- After: it is `govern_erasure`'s recorded determination, delivered through each surface's one emission site: the not-found shell at `minimal`, the `erased-content` shell above it. The egress resources still have no opaque wrapper for other exceptions (pre-existing); this adds the erasure case only.
+- Why: FW-3, probe X2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: behavior
+- Before: an `ErasedContentRefused` raised by the product resolver or by the `get_context`, `get_lineage` or `get_replay_record` seam crossed as the tool's or resource's error text, naming the erased address, at every level. A deployment directory's own exception on `invoke_agent`, raised before authorization while reading a rostered caller's reach, crossed as its text. An `ErasedContentRefused` raised by the deployment's agent invoker on `invoke_agent`, or by its agent directory on `list_agents`, crossed as the tool's error text, naming the erased address, at every level.
+- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log. An erasure raised by the deployment's agent invoker on `invoke_agent`, or by its agent directory on `list_agents`, answers the opaque `ccf-runtime-failure:<id>` at `minimal` and records nothing, as the three tools do. Above `minimal` it is not mapped: it crosses as the exception's text, naming no address but stating that an erasure occurred (N-3, the scoped re-review, and its `list_agents` sibling, the final read's M-1; disclosed in §4.10 of the security deployment page, because the recorded shell needs a product identity for an agent dispatch's or an agent listing's determination that no ruling names).
+- Why: FW-3, probe X1; the SEC-017 carry "a deployment directory exception propagates unchanged"; N-3, the scoped re-review (`invoke_agent` at `minimal`), and its `list_agents` sibling, the final read's M-1. Red test: `tests/mcp/test_fw3_erasure_at_mcp_doors.py`.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the name-resolution resource resolved a versioned URI through the raw store, so an address the caller's tenant erased answered `found: true` with the address. The blob, presence and names resources beside it already read through the consulting store.
+- After: the resolution reads the caller's own tenant view of the consulting store. An erased address answers the resolution's own not-found rendering (`found: false`, no address), so `ccf.artifacts.mcp_store.McpArtifactStore.resolve_uri` refuses it as the in-process consulting store does.
+- Why: FW-6, whole-branch review M-2 (`D-IMPL-374`); the CLAUDE.md §7.4 parity claim. Red test: `tests/mcp/test_fw6_artifact_resolution_consults.py`.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: on the by-URI path the naming check after the holds called the TENANTLESS store's `resolve_uri`, and an `ErasedContentRefused` there was recorded as `cause="nonexistent"`. Another tenant's entry naming the caller's record address (genuine, or forged and unsupported) therefore made an entitled examiner read "absent" by URI while the by-address read served.
+- After: the naming check reads the same view the consult read, the caller's verified tenant's. Another tenant's entry changes nothing for the caller, and an erasure the check meets in the caller's own tenant is the erased reading at the caller's level (the not-found shell at `minimal`, `erased-content` above it), not an absence. Separately (PM5, panel C5), a `store` that is not an `ErasureConsultingStore` is refused with `UnconsultedDeliveryBoundaryError`, right after the capability check and before anything is read, recorded or clocked; before, the consult was skipped and an uncomposed store served erased bytes. Every shipped caller (the HTTP artifact and replay routes, the MCP artifact server) passes a composed store.
+- Why: FW-7, whole-branch review M-3 (`D-IMPL-374`); probe X4. PM5: U12, composed always. Red tests: `tests/http_api/test_fw7_by_uri_naming_check.py`, `tests/authz/test_pm5_dereference_requires_consult.py`.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.FileErasureIndex
+
+- Surface: ccf.erasure.FileErasureIndex
+- Public surface: true
+- Change type: behavior
+- Before: `append` issued one `os.write` and ignored its count.
+- After: `append` writes its whole line or nothing, raising `ErasureIndexWriteFailed` with the file left as it was. A new read-only property `head` returns the chain head (the SHA-256 of the last line read, `GENESIS` when empty), which the decorating store's composition memo is now keyed by (PM4, panel C4): a tail entry rewritten in place keeps the count and a valid chain, and a warm memo served its forged reason where a cold process read `index-unsupported`. An index that exposes no `head` is keyed by the digest of its entries.
+- Why: PC1; PM4. Red tests: `tests/erasure/test_pc1_index_short_write.py`, `tests/erasure/test_pm4_memo_chain_head.py`.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.approval.verify_erasure_approval
+
+- Surface: ccf.erasure.approval.verify_erasure_approval
+- Public surface: true
+- Change type: behavior
+- Before: an `AmbiguousPinnedVersionError` resolving the erasure gate's approval policy (two contents declaring its pinned version) was refused with `reason_code="approver-not-eligible"`.
+- After: it is refused with its own `reason_code="approval-policy-ambiguous"`. Both still fail closed; only the cause the audit and the door name changes.
+- Why: PM6, panel C6 (`D-IMPL-374`). The ambiguity is the Control Plane's, not the approver's. Red test: `tests/erasure/test_pm6_ambiguous_policy_reason.py`.
+- Migration: a deployment that alerts on `approver-not-eligible` adds `approval-policy-ambiguous`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.verify_erasure_approval
+
+- Surface: ccf.erasure.verify_erasure_approval
+- Public surface: true
+- Change type: behavior
+- Before: the ambiguity was coded `approver-not-eligible`.
+- After: `approval-policy-ambiguous` (the same function, re-exported).
+- Why: PM6.
+- Migration: as above.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.replay.engine.RefusalReplayOutcome
+
+- Surface: ccf.replay.engine.RefusalReplayOutcome
+- Public surface: true
+- Change type: behavior
+- Before: `child_contract_addresses`, documented as every admitted child "resolved from the store and re-hashed to itself", also listed an admitted child whose retained contract was erased. The no-fabric-read path skips that child unread and discloses it on `erased_content`.
+- After: an erased child's address is not in `child_contract_addresses`; it is reported, positively, on `erased_content`. The docstrings say so.
+- Why: PM7, panel C7 (`D-IMPL-374`). The evidence type's own field overstated what was verified. Red test: `tests/replay/test_pm7_refusal_children_exclude_erased.py`.
+- Migration: a caller that compared `child_contract_addresses` with the record's admitted rows also reads `erased_content`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer
+- Public surface: true
+- Change type: behavior
+- Before: for a caller whose grant declares a product roster, on a surface whose product reach is resolved from a directory (`invoke_agent`), every directory outcome refused with one opaque reason before the authorizer, but an agent that existed and was on the roster reached the authorizer, whose deny read `tenant-unauthorized`. A rostered principal without invoke permission learned which agents exist.
+- After: for that caller on that surface, the authorizer's deny is the same opaque pre-authorization refusal, byte-identical to every other outcome; the specific reason is logged server-side only. The unrostered path, and every surface whose reach is an argument or a declaration, is unchanged.
+- Why: PC2, panel C2 (`D-IMPL-374`); the residual of SEC-017's I-NEW-1 class. Red test: `tests/mcp/test_pc2_invoke_oracle.py`, which compares all six rostered outcomes pairwise.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.tenancy.ProductReach
+
+- Surface: ccf_runtime.mcp.tenancy.ProductReach
+- Public surface: true
+- Change type: behavior
+- Before: `ProductReach(declared=frozenset())` constructed, although the class promises no empty statement, and the roster hold then passed every call, an empty roster's included.
+- After: an empty `declared` is refused at construction with `ValueError`, like an empty `argument`, `undeclared` or `unknown`.
+- Why: PM9, panel C9 (`D-IMPL-374`). An adopter registration that derives its classes from configuration and gets an empty set would otherwise be silently roster-unbound. Red test: `tests/mcp/test_pm9_empty_declared_reach.py`.
+- Migration: a registration whose declared classes can be empty declares an `undeclared` or `unknown` reach instead.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.leases.lock_directory_writer_lease
+
+- Surface: ccf.graph.leases.lock_directory_writer_lease
+- Public surface: true
+- Change type: behavior
+- Before: the declared directory was resolved at each acquisition, through any symbolic link.
+- After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition judges the whole of `require_private_lock_directory` again: its own real path, existing, a directory, owned by the effective user, and not group- or world-writable (N-5, the scoped re-review). A directory widened, swapped or reassigned after validation, and one a direct constructor never made private, is refused at acquisition with `ValueError`, before a lock file is opened in it. The directory's ancestors are judged for symbolic links only, never for owner or mode.
+- Why: PC3. N-5: an acquisition re-checked only the real path, so a directory changed to `0777` after validation, or swapped for another real `0777` directory, was acquired. Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`, `tests/graph/test_n5_lease_acquisition_rechecks.py`.
+- Migration: construct it over the directory's real path, owned by the user every writer runs as, mode `0700` or `0755`; keep every ancestor writable only by that user or root.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.approval.policy_head
+
+- Surface: ccf.erasure.approval.policy_head
+- Public surface: true
+- Change type: behavior
+- Before: every call copied the Control Plane's whole audit log and folded its registrations.
+- After: a Control Plane whose audit log serves `registration_head` (the reference registry's) is read in O(1), with the same bytes folded, so the value is unchanged. Any other Control Plane falls back to the fold over its audit events. The docstring states the head's condition: it digests registration metadata, which suffices where a version IS its content (the reference registry), and a third-party Control Plane must uphold that.
+- Why: FW-10.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.products.constraints.resolve_effective_request
+
+- Surface: ccf.products.constraints.resolve_effective_request
+- Public surface: true
+- Change type: behavior
+- Before: a `maximum`, `minimum` or `allowed_set` that reached a parameter with no value after defaults and the caller's overlay was skipped. The resolution completed, the constraint's pin was recorded in `applied`, and the bound was held against nothing. For `debt_tolerance` with no class default, the governed resolver then served the product at any observed Debt.
+- After: that case is refused as a `ConstraintRefusal` with reason `required-absent`, carrying the highest-priority such bound (authority `policy`, the constraint's artifact pin and `policy_id`), `requested=None`, every attempted override, and the evidence accumulated so far. It is the same determination a `required` constraint already returned for an absent parameter. Through `ReferencePolicyConstraintResolver`, every governed serve (`GovernedResolver` and the doors over it) answers `constraint-refusal` / `required-absent` before anything is read. Unchanged: `required`; `preferred` alone (guidance, never refusing); a parameter a default or the caller supplies (held to the bound as before); a parameter no registered policy constraint bounds.
+- Why: SEC-019 (`D-IMPL-356` D11). There is no value to hold to the bound, and skipping it served the request as though the bound did not exist. Red tests: `tests/products/test_sec019_absent_constrained_parameter.py::test_the_worded_case_a_policy_maximum_on_an_omitted_tolerance_is_refused_not_served` and `::test_an_absent_parameter_a_bounding_constraint_reaches_is_refused_required_absent`.
+- Migration: declare a default (the class's `default_debt_tolerance`, or the request contract's `defaults` or `relative_defaults`) for every parameter a policy constraint bounds that a caller may omit, or the request is refused. A constraint whose `applies_to` reaches a class that does not declare the parameter at all now refuses that class's requests in its scope; narrow `applies_to` to the classes that carry the parameter.
+
+*Recorded by `375-01-sec-019-absent-constrained-parameter.md`.*
+
+#### ccf.products.constraints.PolicyConstraintResolver
+
+- Surface: ccf.products.constraints.PolicyConstraintResolver
+- Public surface: true
+- Change type: behavior
+- Before: the Protocol's contract said nothing about an absent bounded parameter, and the reference implementation skipped it.
+- After: a conforming resolver refuses an absent bounded parameter as `required-absent`, as the reference implementation now does. The governed resolver hands the tolerance step only what a completed resolution established, so a resolver that skipped an absent bounded tolerance would still be served at any Debt.
+- Why: SEC-019 (`D-IMPL-356` D11). The governed resolver cannot re-derive the constraint set; the seam that reads it owns the refusal.
+- Migration: a deployment-supplied resolver adopts the same rule, or delegates to `resolve_effective_request`.
+
+*Recorded by `375-01-sec-019-absent-constrained-parameter.md`.*
+
+#### ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+- Public surface: true
+- Change type: behavior
+- Before: `"1.0.0"`, reported by `ReferencePolicyConstraintResolver.resolver_version`. The label named the resolution that skipped an absent bounded parameter.
+- After: `"1.1.0"`, the resolution that refuses it (`required-absent`). `tests/products/test_reference_resolver_version.py` pins the label together with a fingerprint of the behavior it names: nineteen fixed questions put to the reference resolver over a real Control Plane, reaching every decision the resolution makes. A behavior change that keeps the label is a red build, and `1.0.0` and `1.1.0` are recorded as differing in exactly the three absent-bounded questions. Pinnable by design, not yet pinned: nothing in `src/` or `runtime/` reads `resolver_id` or `resolver_version` into a Decision Replay record, so the bump is not visible in any record today.
+- Why: SEC-019 (`D-IMPL-356` D11). `D-IMPL-253` Q8 puts `resolver_version` on the Protocol so the resolver in force can be pinned into replay, which makes the version a claim about behavior: a label that outlives a change in what it labels is a false pin.
+- Migration: none, unless a consumer compares `resolver_version` against `"1.0.0"`; it reads `"1.1.0"` now.
+
+*Recorded by `375-01-sec-019-absent-constrained-parameter.md`.*
+
+#### ccf.peering.issuance.SeenNonceSetProtocol
+
+- Surface: ccf.peering.issuance.SeenNonceSetProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `admit_once(*, tenant_id, peer_id, nonce) -> bool`; spent nonces scoped by the observed peer id
+- After: `admit_once(*, tenant_id, key_thumbprint, nonce) -> bool`; spent nonces scoped by the RFC 7638 thumbprint of the key the envelope's signature verified under. No peer id is offered, so an implementation cannot key on one. The manifest records a Protocol's shape as `(*args, **kwargs)`, so this keyword change is visible only here
+- Why: SEC-022-C-01: scoped by a peer id, a key listed under two peer ids let the same signed bytes cross once per id
+- Migration: a deployment's own implementation renames the `peer_id` keyword to `key_thumbprint` and keys its store on `(tenant_id, key_thumbprint, nonce)`. An implementation left on the old keyword fails loudly with `TypeError` at the first admission rather than silently keeping the per-peer scope. A persistent store's entries spent under peer ids are not found under thumbprints: an envelope admitted shortly before the upgrade, still inside its peer's issuance window, can be admitted once more after it unless those entries are re-keyed under the thumbprints of that peer's grant keys
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.issuance.InProcessSeenNonceSet
+
+- Surface: ccf.peering.issuance.InProcessSeenNonceSet
+- Public surface: true
+- Change type: behavior
+- Before: entries `(tenant_id, peer_id, nonce)`
+- After: entries `(tenant_id, key_thumbprint, nonce)`, through the Protocol's renamed keyword
+- Why: SEC-022-C-01
+- Migration: none for callers of the gate; a direct caller of `admit_once` renames the keyword
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: verification was offered the peer's whole `signing_keys` entry, and the replay consult spent the nonce under `(tenant, observed peer id)`
+- After: verification is offered only the key the protected header's `kid` names in the peer's entry (none when it names no key there; the provider refuses that as before). The nonce is spent under `(tenant, thumbprint of that key)`, so the same signed bytes are refused `replayed` under any peer id whose grant lists the same key. A verification that returns with no key offered (a non-conforming `IdentityProvider`) is refused at the signature check as `UnknownSigningKey`, audited, never admitted. The `replayed` refusal's detail names the signing key's scope
+- Why: SEC-022-C-01, ruled: the replay key is the verified signing key, not the observed or claimed peer id
+- Migration: none for a conforming `IdentityProvider`. Producers must not reuse a nonce under the same signing key, even when the receiver lists that key under more than one peer id
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate (SEC-022-R1)
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `seen=None` (the default) constructed a fresh `InProcessSeenNonceSet` for each gate, so two receivers in one process each admitted the same envelope once
+- After: `seen=None` is ONE `InProcessSeenNonceSet` shared by every gate in the process, so a second receiver built without `seen=` refuses `replayed` what the first admitted. Entries are scoped by tenant and signing key, so gates for different tenants sharing it spend no nonce of each other's. A `seen=` argument is used instead of the default, never beside it. The constructor's signature is unchanged
+- Why: SEC-022-R1: the sharing obligation was documented, not enforced, and a composition that never heard of the seen-set got a gate that refused only the replays it saw itself
+- Migration: none within one process. Receivers in several processes pass one shared `SeenNonceSetProtocol` implementation to every gate, as before. A deployment that relied on two gates in one process each admitting the same envelope passes each gate its own `InProcessSeenNonceSet()`
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.issuance.InProcessSeenNonceSet (SEC-022-R1)
+
+- Surface: ccf.peering.issuance.InProcessSeenNonceSet
+- Public surface: true
+- Change type: behavior
+- Before: one per gate; entries retained for the gate's lifetime
+- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted. The set gains an entry for every admitted envelope across every tenant's gates, and only an admission (a signature verified under a trusted peer's key) adds one, so a deployment under sustained load supplies a pruning implementation of `SeenNonceSetProtocol` to its gates
+- Why: SEC-022-R1
+- Migration: none
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
 ### Not public Python API
 
 #### runtime/ccf_runtime/mcp/hitl_server.py
@@ -31387,3 +34612,51 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller — the type still exists. The writer itself raises no `TemporalWriteRefused` (it judges no instant); a low-road composition that composes `IngressTemporalBound` and invokes `refuse_outside_window` before its own `ingest` receives the raw exception from that call, and one that does not compose the guard receives nothing. A consumer of the product doors that keys on `cause` alone cannot distinguish this refusal from a missing subject below `full`; a consumer entitled to `full` reads `error_code` `temporal-write-refused`. An operator reads the replay record. A deployment whose serves take longer than the tenant's declared past reach between `asked_at` and the seam's `ingress_at` will see this refusal on otherwise-sound questions; the remedy is the tenant's `TemporalBoundaryPolicy`, not the question.
 
 *Recorded by `364-01-temporal-write-refused-converts-at-the-seam.md`.*
+
+#### ccf.graph._writer.mint_boot_token
+
+- Surface: ccf.graph._writer.mint_boot_token
+- Public surface: false
+- Change type: behavior
+- Before: a network store's `writer_lease()` returned the `"process"` disclosure, so the mint always succeeded past the in-process table.
+- After: the mint's lease acquisition now raises `WriterLeaseRequired` from a persistent network store with no held cross-process lease declared, before any token exists, and records the lease's `mechanism` on the token.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: none outside the SDK.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### examples/cp-04-corporate-family-tree/ccf_config.yaml
+
+- Surface: examples/cp-04-corporate-family-tree/ccf_config.yaml
+- Public surface: false
+- Change type: behavior
+- Before: the frozen specimen's resolution spec wrote its classification attribute with no `attribute_authorities`, so it refused to boot under SEC-023.
+- After: the authority declaration is added (executor ruling (b) at `D-IMPL-374`), with a dated README note. Nothing else in the specimen changed beyond that note.
+- Why: `D-IMPL-261` permits a specimen change when the SDK surface it consumes was deliberately changed.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### examples/cp-05-credit-exposure-rollup/ccf_config.yaml
+
+- Surface: examples/cp-05-credit-exposure-rollup/ccf_config.yaml
+- Public surface: false
+- Change type: behavior
+- Before: the frozen specimen's resolution spec wrote `family_id` on `exposure_anchor` with no `attribute_authorities`, so it refused to boot; three `tests/products/test_cp05_canonical_path.py` tests errored at setup and three `tests/signal_layer/test_cp05_acquisition_boundary.py` tests failed.
+- After: the authority declaration is added (executor ruling (b) at `D-IMPL-374`), with a dated README note. Nothing else in the specimen changed beyond that note.
+- Why: `D-IMPL-261` permits a specimen change when the SDK surface it consumes was deliberately changed.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf --local
+
+- Surface: runtime/ccf_runtime/cli/main.py
+- Public surface: false
+- Change type: behavior
+- Before: `ccf --local --local-root DIR` refused with `--local requires --local-hitl-policy-key KEY`, and with the key it built the local bundle (store directories, the erasure index file) before reporting that the mode is suspended.
+- After: after the `--local-root` check, a CLI invocation with no embedder authority reports `--local` suspended first, demanding no further flag and building nothing.
+- Why: FW-9, whole-branch review M-9 (`D-IMPL-374`). A suspended mode should not ask for a flag only a working mode would need. The suspension test is restored to pass no key.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*

@@ -27,6 +27,18 @@ stating what each part is doing:
   the adapter pin. It has no writer attribute — not a private one either.
   Shutdown runs through a closure, so there is nothing on the handle to reach
   for.
+* **A read-only boot mints no writer at all** (FW-2, whole-branch review I-1;
+  ``D-IMPL-374``). ``boot(..., read_only=True)`` opens the reader and mints the
+  classification authority from the pinned resolution spec through the same
+  private mint path as the writer boot, but never mints a boot token, so it
+  takes no writer lease and marks no graph live. It neither validates nor
+  uses the connection's writer-lease setting (N-2). It writes no graph
+  content, but it is not write-free at the substrate (N-6): opening the store
+  still runs the store's own open-time setup, as a writer boot's open does
+  (schema creation; a Fluree ledger's creation). Its worker's writer refuses
+  every write by name (:class:`ReadOnlyFabricRefused`). It exists so replay —
+  whitepaper §7.10 — can read a classification decision beside the live
+  writer of a persistent store, in another process.
 
 **Honest residual claim, verbatim from DESIGN.md §9 (per the D-IMPL-41
 ruling):** Python cannot make determined-insider evasion impossible. The claim
@@ -42,6 +54,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from types import TracebackType
+from typing import Final, Literal, NoReturn
 
 from ccf.assembly.worker import (
     AssemblyWorker,
@@ -58,10 +71,18 @@ from ccf.authz.capability import (
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
-from ccf.graph.protocols import GraphReader
+from ccf.contracts.claims import EntityClaim, RelationshipClaim
+from ccf.graph.protocols import (
+    ClassificationAuthority,
+    GraphReader,
+    UpsertResult,
+    WriterLeaseScope,
+)
 from ccf.controlplane.invalidation import ControlPlaneInvalidationSink, register_key
+from ccf.graph.leases import _without_lock_directory_setting
 from ccf.graph.registry import (
     AdapterPin,
+    BackendStore,
     ResolvedSecret,
     resolve,
     validate_connection,
@@ -69,7 +90,76 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["FabricHandle", "boot"]
+__all__ = [
+    "READ_ONLY_LEASE_MECHANISM",
+    "READ_ONLY_LEASE_SCOPE",
+    "FabricHandle",
+    "ReadOnlyFabricRefused",
+    "boot",
+]
+
+#: What :attr:`FabricHandle.lease_scope` reports for a read-only boot (FW-2;
+#: ``D-IMPL-374``): no writer was minted, so no writer lease was taken and no
+#: exclusion of any scope is held. Mechanism vocabulary, beside the two
+#: :data:`~ccf.graph.protocols.WriterLeaseScope` values a writer boot reports.
+READ_ONLY_LEASE_SCOPE: Final[Literal["read-only"]] = "read-only"
+
+#: What :attr:`FabricHandle.lease_mechanism` reports for a read-only boot (FW-2).
+READ_ONLY_LEASE_MECHANISM: Final[str] = (
+    "none: a read-only boot mints no writer and takes no writer lease"
+)
+
+
+class ReadOnlyFabricRefused(RuntimeError):
+    """A write was attempted through a read-only boot's worker (FW-2, whole-branch review I-1; ``D-IMPL-374``).
+
+    ``boot(..., read_only=True)`` mints no writer: the worker it hands back is
+    L2 over a writer that refuses every write, by this name, before anything
+    reaches the store. A read-only fabric exists to READ — replay beside the
+    live writer foremost — and a write through it would be a second writer
+    the single-writer invariant (whitepaper §7.3, INV-CH7-10) forbids.
+    """
+
+
+class _ReadOnlyWriter:
+    """The writer a read-only boot's L2 holds: every write refused by name (FW-2).
+
+    Structurally a :class:`~ccf.graph.protocols.GraphWriter`, so the worker is
+    the same :class:`~ccf.assembly.worker.AssemblyWorker` a writer boot builds
+    — the :class:`FabricHandle` contract is unchanged — but it holds no store,
+    no boot token and no lease. It is private to this module and unreachable
+    from the handle.
+    """
+
+    def _refuse(self, verb: str) -> NoReturn:
+        raise ReadOnlyFabricRefused(
+            f"{verb} refused: this fabric was booted read-only — it minted no"
+            " writer and holds no writer lease, so it writes no graph content"
+            " (FW-2; D-IMPL-374; whitepaper §7.3, INV-CH7-10)"
+        )
+
+    def upsert_entity(
+        self, *, tenant_id: str, claim: EntityClaim, policy_bundle_version: str
+    ) -> UpsertResult:
+        """Refuse: a read-only fabric writes no graph content.
+
+        Raises:
+            ReadOnlyFabricRefused: always.
+        """
+        self._refuse("upsert_entity")
+
+    def upsert_relationship(
+        self, *, tenant_id: str, claim: RelationshipClaim, policy_bundle_version: str
+    ) -> UpsertResult:
+        """Refuse: a read-only fabric writes no graph content.
+
+        Raises:
+            ReadOnlyFabricRefused: always.
+        """
+        self._refuse("upsert_relationship")
+
+    def close(self) -> None:
+        """Nothing to retire: this writer was never minted and holds no graph."""
 
 
 class FabricHandle:
@@ -95,6 +185,26 @@ class FabricHandle:
         adapter: The replay pin for the adapter that answered this boot. Three
             fields, none of which can hold a credential: a name, a version, and
             the *names* of the references the credentials came from.
+        lease_scope: The scope of the writer lease this fabric's writer
+            holds (SEC-013-C-03, D-IMPL-374 (1)), read off the boot token:
+            ``"cross-process"`` when a substrate or declared lease excludes
+            other processes, ``"process"`` when only this process's live-writer
+            table does. :data:`READ_ONLY_LEASE_SCOPE` (``"read-only"``) for a
+            read-only boot, which minted no writer and holds no lease (FW-2).
+            ``None`` only for a handle built without a boot.
+        lease_mechanism: Which lease that is, credential-free (the lease
+            kind and the resource it is keyed on, for example the lock file a
+            network store's declared lease holds), read off the boot token;
+            :data:`READ_ONLY_LEASE_MECHANISM` for a read-only boot (FW-2).
+            Deliberately not part of :attr:`adapter`, so the replay pin is
+            unchanged; and neither name contains "writ", so the handle still
+            offers nothing a caller could mistake for a write path.
+
+    A read-only handle (``boot(..., read_only=True)``; FW-2, ``D-IMPL-374``)
+    keeps this exact shape: :attr:`worker` is L2 over a writer that refuses
+    every write by name (:class:`ReadOnlyFabricRefused`), and :meth:`close`
+    closes the store only — there is no writer to retire and no lease to give
+    back.
     """
 
     def __init__(
@@ -105,11 +215,15 @@ class FabricHandle:
         registry: ControlPlaneProtocol,
         adapter: AdapterPin,
         shutdown: Callable[[], None],
+        lease_scope: WriterLeaseScope | Literal["read-only"] | None = None,
+        lease_mechanism: str | None = None,
     ) -> None:
         self.reader = reader
         self.worker = worker
         self.registry = registry
         self.adapter = adapter
+        self.lease_scope = lease_scope
+        self.lease_mechanism = lease_mechanism
         self._shutdown = shutdown
         self._closed = False
 
@@ -301,6 +415,7 @@ def boot(
     policy_bundle_key: str,
     policy_bundle_version: str,
     tenant_ids: Sequence[str],
+    read_only: bool = False,
 ) -> FabricHandle:
     """Construct a fabric over one graph and return its handle.
 
@@ -347,6 +462,20 @@ def boot(
     wrapper written here would format the underlying validation error, and that
     rendering embeds the value that was supplied.
 
+    **The writer lease and the classification authority** (SEC-013 and
+    SEC-023; ``D-IMPL-374``). A writer boot's mint takes the store's writer
+    lease (:func:`ccf.graph._writer.mint_boot_token`), so a second writer of
+    one graph is refused whether it boots in this process or — under a
+    cross-process lease — in another, and a persistent network store that
+    declares no lease refuses the mint. The handle's reader is the store's
+    own reader governed by the
+    :class:`~ccf.graph.protocols.ClassificationAuthority` minted here, from
+    the pinned resolution spec its L2 enforces — the only place that
+    authority is minted — so every view it returns is stamped and every
+    classification query it answers carries it. Every step after the mint runs
+    inside one guard that retires the writer and gives back its lease on
+    failure (PM10, panel C10), so a corrected retry boots.
+
     Args:
         backend: The adapter name this fabric boots against. Required; resolved
             through :func:`ccf.graph.registry.resolve`, which refuses a name no
@@ -375,6 +504,35 @@ def boot(
             A supersession under a tenant not named here is refused by the
             sink, typed, at the write — never filed under a fallback.
             A manifest-driven deployment passes its one resolved tenant.
+        read_only: ``True`` boots the fabric READ-ONLY (FW-2, whole-branch
+            review I-1; ``D-IMPL-374``): the store is opened and its reader is
+            governed exactly as a writer boot governs it — every view stamped
+            with the :class:`~ccf.graph.protocols.ClassificationAuthority`
+            minted from the pinned resolution spec through the same private
+            mint path — but no boot token is minted, so no writer exists, no
+            writer lease is taken and the graph is not marked live; a writer
+            boot of the same graph, here or in another process, is unaffected
+            by it, and it is unaffected by one. The handle's worker refuses
+            every write by name (:class:`ReadOnlyFabricRefused`), no
+            invalidation-register capability is minted (nothing can supersede),
+            :attr:`FabricHandle.lease_scope` reports
+            :data:`READ_ONLY_LEASE_SCOPE` and :meth:`FabricHandle.close` closes
+            the store only. It writes no graph content, but it is not
+            write-free at the substrate (N-6): opening the store still runs
+            the store's own open-time setup, as at a writer boot (schema
+            creation; a Fluree ledger's creation). This is the reader
+            Decision Replay uses beside a live writer
+            (:class:`~ccf.replay.environment.RecordedEnvironment`).
+            ``False`` (the default) is the writer boot every earlier caller
+            gets, unchanged. Whether a WRITER boot takes a lease stays the
+            store's declaration, never the caller's (SEC-013): this flag does
+            not skip a lease, it declines the writer the lease exists for.
+            Because it takes none, a read-only boot sets the connection's
+            writer-lease setting (``writer_lease_lock_dir``) aside before
+            validation, so that setting is neither validated nor handed to
+            the store (N-2, ``D-IMPL-374``): an examiner on another host or
+            under another account boots read-only with the deployment's
+            settings unchanged.
 
     Raises:
         ValueError: ``tenant_ids`` is empty, repeats a tenant, or carries a
@@ -382,14 +540,20 @@ def boot(
         ccf.graph.registry.UnknownBackend: no installed adapter registers
             ``backend``.
         ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
-            satisfy the resolved adapter's contract.
+            satisfy the resolved adapter's contract (for a read-only boot,
+            once its writer-lease setting is set aside).
         ValueError: ``secrets`` names a field the resolved adapter does not
             declare as a credential field; or a supplied credential is keyed by
             a field its own record does not name; or discovery found a
             packaging conflict among the installed adapters; or the named
             adapter is installed but its declaration could not be loaded.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
-            for this graph.
+            for this graph, in this process or, under a cross-process writer
+            lease, in another (SEC-013; ``D-IMPL-374``) — a writer boot only;
+            a read-only boot mints no writer and is never refused for one.
+        ccf.graph.protocols.WriterLeaseRequired: the store is a persistent
+            network store and declares no writer lease (SEC-013;
+            ``D-IMPL-374``); a writer boot only.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
             is not registered.
         TypeError: the resolution-spec artifact is not an
@@ -397,7 +561,9 @@ def boot(
             constructor was handed a store it does not write through; or that
             constructor returned an object that is not a ``BaseGraphWriter``
             and so could never release the graph on close
-            (:func:`ccf.graph._writer.adopt_writer`).
+            (:func:`ccf.graph._writer.adopt_writer`); or the store offers no
+            ``writer_lease()``, or a lease that declares no known scope
+            (SEC-013).
         BaseException: whatever the resolved adapter's own store or writer
             constructor raises, re-raised unchanged. The adapter chooses the
             type — it is third-party code — so this function does not wrap it
@@ -409,7 +575,12 @@ def boot(
     composed = _composed_tenants(tenant_ids)
     record = resolve(backend)
     registration = record.registration
-    config = validate_connection(registration, connection or {})
+    settings: Mapping[str, object] = connection or {}
+    if read_only:
+        # N-2 (`D-IMPL-374`): a read-only boot takes no writer lease, so the
+        # setting that declares one is neither validated nor handed to the store.
+        settings = _without_lock_directory_setting(registration.config_model, settings)
+    config = validate_connection(registration, settings)
     resolved_secrets = dict(secrets or {})
     _refuse_undeclared_secrets(
         registration.name, registration.secret_fields, resolved_secrets
@@ -421,8 +592,26 @@ def boot(
         config,
         {field: secret.value for field, secret in resolved_secrets.items()},
     )
+    adapter = AdapterPin(
+        name=registration.name,
+        version=record.version,
+        secret_refs=tuple(
+            sorted(secret.ref_name for secret in resolved_secrets.values())
+        ),
+    )
+    if read_only:
+        # FW-2 (`D-IMPL-374`): the reader, governed; no token, no writer, no lease.
+        return _boot_read_only(
+            store=store,
+            registry=registry,
+            adapter=adapter,
+            resolution_spec_key=resolution_spec_key,
+            resolution_spec_version=resolution_spec_version,
+            policy_bundle_key=policy_bundle_key,
+            policy_bundle_version=policy_bundle_version,
+        )
     try:
-        token = mint_boot_token(graph_identity=store.graph_identity)
+        token = mint_boot_token(store=store)
     except BaseException:
         store.close()
         raise
@@ -495,14 +684,17 @@ def boot(
         finally:
             store.close()
 
+    # EVERY step after the mint is inside this guard (PM10, panel C10;
+    # `D-IMPL-374`): the worker build, the SEC-023 authority wrap and the
+    # handle itself. A half-booted fabric must not leave the graph marked as
+    # written-to — nor, since SEC-013, its cross-process writer lease held —
+    # or a corrected retry, here or in another process, would be refused as a
+    # second writer. The panel measured both stranded when the guard covered
+    # the worker build alone.
     try:
-        spec = registry.resolve(resolution_spec_key, resolution_spec_version)
-        if not isinstance(spec, EntityResolutionSpec):
-            raise TypeError(
-                f"artifact at ({resolution_spec_key!r}, "
-                f"{resolution_spec_version!r}) is "
-                f"{type(spec).__name__}, not EntityResolutionSpec"
-            )
+        spec = _resolution_spec(
+            registry, resolution_spec_key, resolution_spec_version
+        )
         worker = AssemblyWorker(
             writer=writer,
             resolution=SpecDrivenEntityResolution(spec=spec),
@@ -510,25 +702,113 @@ def boot(
             policy_bundle_key=policy_bundle_key,
             policy_bundle_version=policy_bundle_version,
         )
+
+        # SEC-023 (`D-IMPL-374` ruling (3) (a)): the reader a booted fabric
+        # hands out stamps every view with the authority its L2 enforces, and
+        # refuses a classification query that authority does not cover.
+        # Imported here so the module's line anchors other records cite stay
+        # where they were.
+        from ccf.graph.governed_reader import governed_reader
+
+        return FabricHandle(
+            reader=governed_reader(store.reader, _mint_authority_of(spec)),
+            worker=worker,
+            registry=registry,
+            # Reference names, never the fields they filled and never a value.
+            # Reading the field names instead would pin "a credential was used"
+            # where D-08 asks which one.
+            adapter=adapter,
+            shutdown=shutdown,
+            lease_scope=token.lease_scope,
+            lease_mechanism=token.lease_mechanism,
+        )
     except BaseException:
-        # A half-booted fabric must not leave the graph marked as written-to;
-        # otherwise a corrected retry would be refused as a second writer.
         shutdown()
         raise
 
-    return FabricHandle(
-        reader=store.reader,
-        worker=worker,
-        registry=registry,
-        # Reference names, never the fields they filled and never a value.
-        # Reading the field names instead would pin "a credential was used"
-        # where D-08 asks which one.
-        adapter=AdapterPin(
-            name=registration.name,
-            version=record.version,
-            secret_refs=tuple(
-                sorted(secret.ref_name for secret in resolved_secrets.values())
-            ),
-        ),
-        shutdown=shutdown,
+
+def _resolution_spec(
+    registry: ControlPlaneProtocol, key: str, version: str
+) -> EntityResolutionSpec:
+    """The pinned resolution spec, or a refusal naming what is registered instead."""
+    spec = registry.resolve(key, version)
+    if not isinstance(spec, EntityResolutionSpec):
+        raise TypeError(
+            f"artifact at ({key!r}, "
+            f"{version!r}) is "
+            f"{type(spec).__name__}, not EntityResolutionSpec"
+        )
+    return spec
+
+
+def _boot_read_only(
+    *,
+    store: BackendStore,
+    registry: ControlPlaneProtocol,
+    adapter: AdapterPin,
+    resolution_spec_key: str,
+    resolution_spec_version: str,
+    policy_bundle_key: str,
+    policy_bundle_version: str,
+) -> FabricHandle:
+    """The read-only half of :func:`boot` (FW-2, whole-branch review I-1; ``D-IMPL-374``).
+
+    Everything a writer boot does to GOVERN the reader, and nothing it does to
+    WRITE graph content. The ``store`` the caller opened has already run its
+    own open-time setup (schema creation; a Fluree ledger's creation), exactly
+    as for a writer boot; this function neither prevents nor undoes it (N-6).
+    The pinned spec is resolved and type-checked, L2 is built over it
+    (so the policy-bundle pin is validated and audited exactly as at a writer
+    boot), and the classification authority is minted from that spec by
+    :func:`_mint_authority_of` — the one private mint path both boots share,
+    so a read-only view's stamp is the same boot-minted attestation a writer
+    boot's is. No :func:`~ccf.graph._writer.mint_boot_token` call: no writer,
+    no lease, no live-writer mark. A failure closes the store it opened.
+    """
+    try:
+        spec = _resolution_spec(
+            registry, resolution_spec_key, resolution_spec_version
+        )
+        worker = AssemblyWorker(
+            writer=_ReadOnlyWriter(),
+            resolution=SpecDrivenEntityResolution(spec=spec),
+            registry=registry,
+            policy_bundle_key=policy_bundle_key,
+            policy_bundle_version=policy_bundle_version,
+        )
+
+        from ccf.graph.governed_reader import governed_reader
+
+        return FabricHandle(
+            reader=governed_reader(store.reader, _mint_authority_of(spec)),
+            worker=worker,
+            registry=registry,
+            adapter=adapter,
+            shutdown=store.close,
+            lease_scope=READ_ONLY_LEASE_SCOPE,
+            lease_mechanism=READ_ONLY_LEASE_MECHANISM,
+        )
+    except BaseException:
+        store.close()
+        raise
+
+
+def _mint_authority_of(spec: EntityResolutionSpec) -> ClassificationAuthority:
+    """Mint the classification authority of the spec this fabric's L2 enforces.
+
+    SEC-023 (``D-IMPL-374`` fix round 1, I-1 (b)). The composition root is the
+    one place that mints: the spec here is the one
+    :class:`~ccf.assembly.worker.AssemblyWorker` was just built over, and the
+    mint carries its content address, so the stamp on every view this fabric
+    reads is an attestation of what L2 enforces, not a caller's declaration.
+    """
+    from ccf.graph.protocols import _mint_classification_authority
+
+    written: dict[str, set[str]] = {}
+    for rule in spec.entity_rules:
+        written.setdefault(rule.entity_class, set()).update(rule.attribute_keys)
+    return _mint_classification_authority(
+        spec_address=content_hash(spec),
+        governed=spec.governed_attributes(),
+        written={cls: frozenset(attrs) for cls, attrs in written.items()},
     )

@@ -45,6 +45,7 @@ import inspect
 import json
 import pathlib
 import re
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import Mock
@@ -294,7 +295,7 @@ class TestP1TheRealCredentialOpensTheDoor:
             control_plane=_entitlement_registry(fabric), clock=lambda: INSTANT
         )
         return create_app(
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -314,6 +315,7 @@ class TestP1TheRealCredentialOpensTheDoor:
                 )
             ),
             refusal_recorder=_recorder(fabric, root, source=source),
+            replay_record_product_class=None,
         )
 
     def test_a_file_token_source_grant_with_tenants_is_served(
@@ -837,6 +839,8 @@ class TestCreateAppRefusesMismatchedWiring:
                 )
             ),
             "refusal_recorder": recorder,
+            # `SEC-017`; `D-IMPL-374`: required, and stated — none declared.
+            "replay_record_product_class": None,
         }
 
     def _recorder_over(self, store: Any, fabric: Fabric) -> ReplayRefusalRecorder:
@@ -852,7 +856,7 @@ class TestCreateAppRefusesMismatchedWiring:
     def _deps(self, fabric: Fabric) -> Any:
         from ccf_runtime.http_api.dependencies import ApiDependencies
 
-        return ApiDependencies(
+        return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

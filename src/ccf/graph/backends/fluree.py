@@ -178,7 +178,14 @@ import httpx
 
 from ccf.contracts.canonical import canonical_timestamp, content_hash
 from ccf.graph import fallback
-from ccf.graph.protocols import GraphQuery, GraphView, StoreSnapshotPin
+from ccf.graph.protocols import (
+    GraphQuery,
+    GraphView,
+    StoreSnapshotPin,
+    WriterLease,
+    WriterLeaseSource,
+    acquire_declared_writer_lease,
+)
 from ccf.graph.reader import (
     BaseGraphReader,
     Row,
@@ -948,6 +955,11 @@ class FlureeGraphStore:
             content-hashed manifest artifact (threats T-15.2-05 / T-04-24; the
             manifest carries the backend *kind* only). Mutually exclusive with
             userinfo in ``url``.
+        writer_lease: The deployment-declared writer lease
+            (``src/ccf/graph/protocols.py::WriterLeaseSource``), acquired only
+            when the composition root mints a writer, never at open, so a
+            read-only store needs none. **Without one this store refuses to
+            mint a writer** (``WriterLeaseRequired``; SEC-013, D-IMPL-374).
 
     As with every backend store, this is *not* a store offering both halves of
     the Protocol: it offers :attr:`reader`, and the transport surface to the
@@ -978,7 +990,9 @@ class FlureeGraphStore:
         partition: str = DEFAULT_PARTITION,
         ledger: str = DEFAULT_LEDGER,
         bearer_token: str | None = None,
+        writer_lease: WriterLeaseSource | None = None,
     ) -> None:
+        self._writer_lease = writer_lease
         self._partition = partition
         self._ledger = ledger
         # Derived BEFORE any client exists, so the credential-free string is
@@ -1086,6 +1100,26 @@ class FlureeGraphStore:
     def ledger(self) -> str:
         """The CCF-owned ledger this store's graphs live in (D-03)."""
         return self._ledger
+
+    def writer_lease(self) -> WriterLease:
+        """Acquire the deployment-declared cross-process writer lease, or refuse.
+
+        SEC-013 (D-IMPL-374 (1)); whitepaper §7.3 / INV-CH7-10. A second
+        process can reach this store's graph, so the ``"process"`` disclosure
+        is not a lease here: the mint (``src/ccf/graph/_writer.py::
+        mint_boot_token``) acquires the lease declared at construction
+        (``writer_lease=``) through
+        ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, and with
+        none declared — or one whose scope is not ``"cross-process"`` — the
+        mint is refused by name. The lease is released with the boot token.
+
+        Raises:
+            WriterLeaseRequired: no held cross-process lease was declared.
+            WriterLeaseHeld: another holder, in any process, has the lease.
+        """
+        return acquire_declared_writer_lease(
+            self._writer_lease, substrate='fluree', graph_identity=self._identity
+        )
 
     @property
     def reader(self) -> FlureeGraphReader:
@@ -1742,7 +1776,11 @@ class FlureeGraphReader(BaseGraphReader):
         precisely because the fallback owns that cut and is independently
         enforceable at this tier.
 
-        The D-IMPL-88 guard runs **first**, before any I/O
+        The SEC-023 check runs **first** (``D-IMPL-374``): a query whose
+        ``classification_attribute_by_class`` is set must carry the
+        classification authority ``ccf.boot.boot`` minted, covering the map
+        (:func:`~ccf.graph.protocols.require_query_classification_authority`).
+        The D-IMPL-88 guard runs next, also before any I/O
         (:func:`_require_fluree_pin`): a ``datetime``, an ``int`` or a pin
         from another substrate is refused by ``TypeError`` naming the ruling.
         This method does not touch :meth:`_translate_query` — the unpinned
@@ -1751,11 +1789,24 @@ class FlureeGraphReader(BaseGraphReader):
         :meth:`query`'s posture and nothing else.
 
         Raises:
+            ClassificationAuthorityMissing: ``q`` sets
+                ``classification_attribute_by_class`` and carries no
+                classification authority — a reader reached without
+                ``ccf.boot.boot`` has none to offer (SEC-023; ``D-IMPL-374``).
+            ClassificationAuthorityNotMinted: ``q``'s authority was not minted
+                by ``ccf.boot.boot`` (built by hand, or rebuilt).
+            UngovernedClassificationAttribute: ``q``'s authority does not
+                cover an attribute its classification map names.
             TypeError: ``pin`` is not a Fluree-minted :class:`StoreSnapshotPin`.
             FlureePinAhead: ``pin`` is past the ledger head.
             ValueError: the tenant or partition would be read as a query
                 variable on this route (:func:`_pinned_select`).
         """
+        # SEC-023 (`D-IMPL-374`): a classification query carries the authority a
+        # booted fabric's reader checked it against, or it is refused here.
+        from ccf.graph.protocols import require_query_classification_authority
+
+        require_query_classification_authority(q)
         pin_t = _require_fluree_pin(pin)
         partition = self._store.partition
 

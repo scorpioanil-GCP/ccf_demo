@@ -152,6 +152,11 @@ def _resolution_spec(ontology: Any) -> Any:
                 entity_class=rule["entity_class"],
                 identity_keys=tuple(rule["identity_keys"]),
                 attribute_keys=tuple(rule.get("attribute_keys", ())),
+                # SEC-023 (D-IMPL-374): read from the artifact, never defaulted.
+                attribute_authorities={
+                    attribute: frozenset(sources)
+                    for attribute, sources in rule.get("attribute_authorities", {}).items()
+                },
             )
             for rule in ontology["entity_rules"]
         ),

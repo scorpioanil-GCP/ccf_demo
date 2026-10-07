@@ -42,9 +42,10 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import Field
 
@@ -54,6 +55,8 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "REGISTRATION_ACTIONS",
+    "AttributeAssertionRefusedAuditEvent",
     "AuditAction",
     "AuditEvent",
     "AuditLog",
@@ -129,6 +132,25 @@ __all__ = [
 #: (D-10: refusals are security-relevant events), with the exact artifact
 #: version in ``version`` (D-04). One log, one ``append``, no parallel
 #: surface (D-11; WR-07).
+#: ``attribute_assertion_refused`` is the member added for SEC-023
+#: (``D-IMPL-372``, ruling Q15 (a); CLAUDE.md §7.8 "the Control Plane is the
+#: audit plane"): L2 refused an entity claim because its source is not
+#: authorized for a governed attribute the claim asserts
+#: (``src/ccf/assembly/worker.py::EntityResolutionRule``). It is RECORDED, never
+#: raised — a raise would hand the least trusted source a lever over every
+#: serve — so this member is the refusal's record of truth. None of the
+#: existing members can express it: no Control Plane artifact was registered
+#: or resolved, and a write refusal recorded as ``resolve`` would make the log
+#: say something untrue. Always ``resolved=False``.
+#: ``governed_attribute_omitted`` is the member added for SEC-023-C-01
+#: (``D-IMPL-374`` ruling (3): audit AND admit): L2 ADMITTED an entity claim
+#: from a source not authorized for a governed attribute the claim OMITS —
+#: the claim supersedes the whole attribute dict, so the omission blanks the
+#: label. A distinct member because the refusal event's schema carries no
+#: reason field, and recording an admission as ``attribute_assertion_refused``
+#: would make the log say something untrue. Carried by
+#: :class:`AttributeAssertionRefusedAuditEvent`'s fields with
+#: ``refused_value_present=False``. Always ``resolved=True``.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -151,7 +173,13 @@ AuditAction = Literal[
     "workflow_completed",
     "hitl_action",
     "authz_decision",
-    "composition"
+    "composition",
+    "attribute_assertion_refused",
+    "governed_attribute_omitted",
+    # SEC-009 (`D-IMPL-374` (4), design §8): an erasure index entry whose
+    # record is missing or disagrees — the address is withheld and this is
+    # the audit answer.
+    "erasure_index_unsupported",
 ]
 
 
@@ -331,6 +359,79 @@ class WorkflowVerdictIntegrityAuditEvent(AuditEvent):
     )
 
 
+class AttributeAssertionRefusedAuditEvent(AuditEvent):
+    """An ``attribute_assertion_refused`` event: L2 refused a non-authoritative claim.
+
+    SEC-023 (``D-IMPL-372``, ruling Q15 (a)); whitepaper §7.8.2 (the Control
+    Plane is the audit plane) and §7.3 (L2 is the only writer). Appended by
+    ``src/ccf/assembly/worker.py::AssemblyWorker.ingest`` once per governed
+    attribute a refused entity claim asserted. The base fields carry: the
+    refused entity's URI in ``key``, the policy-bundle version in force in
+    ``version``, ``resolved=False``, the envelope's own ingestion instant in
+    ``occurred_at`` (the worker reads no clock, D-IMPL-159), and
+    ``ccf.resolution-spec`` — the artifact class whose declaration refused it —
+    in ``artifact_class``. ``actor`` stays ``None``: a source system id is the
+    adapter's self-declared logical identity, not an attested actor
+    (D-IMPL-21), so it is recorded in its own field rather than promoted.
+
+    **The refused VALUE is never recorded** — only that one was present
+    (SEC-024 discipline): the audit plane must not become a copy of the data a
+    classification was protecting, nor a channel through which a refused
+    source's text reaches an examiner's tooling.
+
+    **Also the carrier of ``governed_attribute_omitted``** (SEC-023-C-01,
+    ``D-IMPL-374`` ruling (3)): the same fields describe an ADMITTED claim
+    whose source, not authorized for the attribute, omitted it — with
+    ``resolved=True`` and ``refused_value_present=False``. The ``action``
+    member, not the field names, says which of the two happened.
+
+    A derived class for the byte-stability reason
+    :class:`AuthzDecisionAuditEvent` gives, and every field is hash-transparent
+    at its ``None`` sentinel (CINV-06; D-IMPL-243).
+
+    Attributes:
+        refused_entity_class: The entity class of the refused claim.
+        refused_attribute: The governed attribute the source is not
+            authorized to assert.
+        refused_source_system_id: ``SourceIdentity.system_id`` of the
+            envelope, as the source declared it.
+        refused_envelope_id: The envelope whose claim was refused.
+        refused_value_present: Whether the envelope carried a value for the
+            attribute. Recorded in place of the value itself.
+    """
+
+    refused_entity_class: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    refused_attribute: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    refused_source_system_id: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    refused_envelope_id: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    refused_value_present: bool | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+#: The actions that register an artifact version — the registration history
+#: :attr:`AuditLog.registration_head` digests (FW-10; ``D-IMPL-374``).
+REGISTRATION_ACTIONS: Final[frozenset[str]] = frozenset(
+    {"register", "register_typed", "register_versioned"}
+)
+
+
+def _registration_fold(event: AuditEvent) -> bytes:
+    """One registration's bytes in the registration-history digest (FW-10)."""
+    return (
+        f"{event.action}\x1f{event.key}\x1f{event.version}"
+        f"\x1f{event.occurred_at.isoformat()}\x1e"
+    ).encode()
+
+
 class AuditLog:
     """An append-only sequence of :class:`AuditEvent`.
 
@@ -351,6 +452,10 @@ class AuditLog:
     def __init__(self) -> None:
         self._events: list[AuditEvent] = []
         self._lock = threading.Lock()
+        # FW-10 (whole-branch review M-5; `D-IMPL-374`): the registration
+        # history's digest, folded as each registration is appended, so a
+        # reader never copies the log to compute it.
+        self._registrations = hashlib.sha256()
 
     def __len__(self) -> int:
         with self._lock:
@@ -374,6 +479,11 @@ class AuditLog:
         workflow_verdict_integrity: WorkflowVerdictIntegrityFailure
         | None = None,
         workflow_recorded_approver: str | None = None,
+        refused_entity_class: str | None = None,
+        refused_attribute: str | None = None,
+        refused_source_system_id: str | None = None,
+        refused_envelope_id: str | None = None,
+        refused_value_present: bool | None = None,
     ) -> AuditEvent:
         """Append one event and return it, sequence number assigned.
 
@@ -382,7 +492,11 @@ class AuditLog:
         ``workflow_verdict_integrity`` is supplied it is a
         :class:`WorkflowVerdictIntegrityAuditEvent`; otherwise it is a plain
         :class:`AuditEvent` whose canonical bytes are unchanged by the
-        HARD-04 extension (the A2 stability commitment). The three
+        HARD-04 extension (the A2 stability commitment). When
+        ``refused_attribute`` is supplied it is an
+        :class:`AttributeAssertionRefusedAuditEvent` (SEC-023), dispatched on
+        the attribute because the attribute is what names the governed
+        declaration that refused. The three
         D-IMPL-353 §3 keywords are additive and default to ``None``, so
         every pre-existing call shape appends exactly what it appended.
 
@@ -399,7 +513,23 @@ class AuditLog:
         """
         event: AuditEvent
         with self._lock:
-            if workflow_verdict_integrity is not None:
+            if refused_attribute is not None:
+                event = AttributeAssertionRefusedAuditEvent(
+                    sequence=len(self._events),
+                    action=action,
+                    key=key,
+                    version=version,
+                    resolved=resolved,
+                    occurred_at=occurred_at,
+                    actor=actor,
+                    artifact_class=artifact_class,
+                    refused_entity_class=refused_entity_class,
+                    refused_attribute=refused_attribute,
+                    refused_source_system_id=refused_source_system_id,
+                    refused_envelope_id=refused_envelope_id,
+                    refused_value_present=refused_value_present,
+                )
+            elif workflow_verdict_integrity is not None:
                 event = WorkflowVerdictIntegrityAuditEvent(
                     sequence=len(self._events),
                     action=action,
@@ -446,7 +576,25 @@ class AuditLog:
                     artifact_class=artifact_class,
                 )
             self._events.append(event)
+            if event.action in REGISTRATION_ACTIONS and event.resolved:
+                self._registrations.update(_registration_fold(event))
         return event
+
+    @property
+    def registration_head(self) -> str:
+        """The digest of every resolved registration in append order (FW-10; ``D-IMPL-374``).
+
+        The sha256 over each resolved :data:`REGISTRATION_ACTIONS` event's
+        action, key, version and instant, folded as it is appended — the same
+        bytes ``ccf.erasure.approval.policy_head`` folds, so the value is the
+        registration history's digest and moves on a registration and on
+        nothing else. Read in O(1) under the log's lock: no event is copied or
+        scanned. The whole-branch review measured the scan it replaces growing
+        linearly with every unrelated event (13 ms at 400k), under the lock
+        every request's append takes.
+        """
+        with self._lock:
+            return self._registrations.copy().hexdigest()
 
     def events(self) -> tuple[AuditEvent, ...]:
         """Return every recorded event, oldest first.

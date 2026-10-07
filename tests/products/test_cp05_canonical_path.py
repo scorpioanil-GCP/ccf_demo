@@ -160,6 +160,7 @@ import copy
 import json
 import pathlib
 import uuid
+from tests.composition import declared_erasure_trust, no_erasures
 from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from decimal import Decimal
@@ -548,6 +549,8 @@ def _resolver(
     return build_governed_resolver(
         fabric=fabric.booted,
         control_plane=fabric.control_plane,
+        erasure_trust=declared_erasure_trust(),
+        erasure_index=no_erasures(),
         # The keys the loader PLACED, not the section names cp-05 wrote: a
         # deployment's bare keys live under its tenant (D-IMPL-354).
         product_class_key=_placed(fabric.booted, PRODUCT_CLASS_KEY),

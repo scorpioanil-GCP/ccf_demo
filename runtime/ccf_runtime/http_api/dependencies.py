@@ -14,14 +14,19 @@ threshold — that is what CINV-01 is about here, and it is undisturbed.
 Construction is keyword-only and the frozen dataclass cannot grow state after
 boot.
 
-**Three handles are required and five default to ``None``** (``D-IMPL-126``
-item (3), Dave, 2026-08-13). ``control_plane``, ``artifact_store`` and
+**Five handles are required and six default to ``None``** (``D-IMPL-126``
+item (3), Dave, 2026-08-13; counts corrected by the final fix wave, FW-4,
+``D-IMPL-374``). ``control_plane``, ``artifact_store`` and
 ``product_resolver`` are read by four routers, two and one respectively, and no
-useful app omits any of them. The other five gate exactly one noun each, and a
-deployment exposing one noun should not have to fabricate seven handles to
-serve it — the papercut the item (3) spike measured. On those five, ``None`` is
-the positive assertion *this deployment exposes no such route*, and the route
-refuses rather than serving half-wired.
+useful app omits any of them; ``erasure_index`` and ``erasure_trust`` compose
+the erasure consult over the artifact store, which no store construction site
+may omit (SEC-009, ``D-IMPL-374`` (4)). The other six — ``workflow_factory``,
+``workflow_engine``, ``hitl_transport``, ``skill_catalog``, ``grant_ledger``
+and ``clock`` — gate routes of exactly one noun each, and a deployment exposing
+one noun should not have to fabricate seven handles to serve it — the papercut
+the item (3) spike measured. On those six, ``None`` is the positive assertion
+*this deployment exposes no such route*, and the route refuses rather than
+serving half-wired.
 
 **The tradeoff, stated rather than left to be discovered.** Before this, a
 deployment that forgot a handle failed at *boot* with a ``TypeError``; after
@@ -48,6 +53,8 @@ from datetime import datetime
 
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.erasure.index import ErasureIndexProtocol
+from ccf.erasure.trust import ErasureTrust
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.grants import GrantLedger
@@ -77,6 +84,14 @@ class ApiDependencies:
         artifact_store: The store the artifact and replay nouns read and
             write through (CLAUDE.md §7.4; D-IMPL-26). **Required.** Gates
             the ``replay`` and ``artifact`` routers entire.
+        erasure_index: The durable erasure index the store is composed over
+            (SEC-009; `D-IMPL-374` (4), C1). **Required.**
+        erasure_trust: The per-tenant erasure authorities the composed store
+            verifies erasures against — for each tenant that may erase, the
+            HITL policy key its HITL transport is bound to, the content hash
+            of its erasure workflow, and the erasure door's public key
+            (SEC-009; `D-IMPL-374` (4), fix round 5, R1, R2, R4).
+            **Required.**
         product_resolver: The deployment's assemble-and-gate path, exactly
             the seam the MCP egress server holds
             (:class:`~ccf_runtime.mcp.egress.ProductResolverProtocol`).
@@ -114,6 +129,17 @@ class ApiDependencies:
 
     control_plane: ControlPlaneRegistry
     artifact_store: ArtifactStoreProtocol
+    #: SEC-009 (`D-IMPL-374` (4), fix round 1 C1): the deployment's durable
+    #: erasure index. **Required, no default**: ``create_app`` composes the
+    #: store with the erasure consult over it, and a composition without a
+    #: declared index refuses by name.
+    erasure_index: ErasureIndexProtocol
+    #: SEC-009 (`D-IMPL-374` (4), fix round 5, R1, R2, R4): the deployment's
+    #: erasure trust root, per tenant — the HITL policy key each tenant's
+    #: transport is bound to, its erasure workflow's content hash and the
+    #: erasure door's public key. A tenant it names no authority for has every
+    #: erasure read ``index-unsupported``. **Required, no default** (CINV-01).
+    erasure_trust: ErasureTrust
     product_resolver: ProductResolverProtocol
     workflow_factory: WorkflowFactory | None = None
     workflow_engine: WorkflowEngine | None = None

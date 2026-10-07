@@ -318,6 +318,9 @@ def build_hitl_server(
         HITL_QUEUE_URI_TEMPLATE,
         subject=door.from_argument("tenant"),
         mutating=False,
+        products=door.products_unknown(
+            "a HITL queue read or action reaches no Context Product class"
+        ),
         action=ACTION_HITL_QUEUE_READ,
         resource=door.resource_route(),
         mime_type=QUEUE_MIME_TYPE,
@@ -338,6 +341,9 @@ def build_hitl_server(
         name=SUBMIT_HITL_ACTION_TOOL,
         subject=door.from_argument("tenant"),
         mutating=True,
+        products=door.products_unknown(
+            "a HITL queue read or action reaches no Context Product class"
+        ),
         action=ACTION_HITL_ACTION_SUBMIT,
         resource=door.resource_argument("event_key"),
     )

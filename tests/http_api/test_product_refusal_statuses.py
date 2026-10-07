@@ -72,6 +72,7 @@ from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.refusal_status import (
     STATUS_BY_KIND,
     STATUS_FULFILLMENT_WITHHELD,
+    STATUS_GONE,
     STATUS_REQUEST,
     STATUS_UNAVAILABLE,
     status_for,
@@ -103,6 +104,7 @@ from tests.http_api.test_product_declared_obligation_409 import ABSENT_CLASS
 from tests.products.test_disclosure import BY_TOKEN
 
 from http_api.conftest import Fabric
+from tests.composition import declared_erasure_trust, no_erasures
 
 #: The vocabulary, enumerated. The roster, never a cardinality — a count that
 #: happened to be right about a wrong member would audit clean forever.
@@ -110,7 +112,11 @@ TOKENS = sorted(REFUSAL_KINDS.values())
 
 #: The three status classes the table holds, read from the module rather than
 #: spelled, so a re-ruled class moves this assertion with it.
-CLASSES = frozenset({STATUS_REQUEST, STATUS_UNAVAILABLE, STATUS_FULFILLMENT_WITHHELD})
+#: SEC-009 (`D-IMPL-374` (4), U11) adds the erased class, 410, rendered only
+#: above `minimal`.
+CLASSES = frozenset(
+    {STATUS_REQUEST, STATUS_UNAVAILABLE, STATUS_FULFILLMENT_WITHHELD, STATUS_GONE}
+)
 
 APP_SOURCE = pathlib.Path(app_module.__file__)
 
@@ -277,12 +283,18 @@ def test_every_kind_answers_its_row_in_the_one_body(
         f" {type(answer.escaped).__name__} escaped instead of a response"
         f" ({answer.escaped}); no known governed refusal may become 500"
     )
-    assert answer.status == STATUS_BY_KIND[kind]
+    # SEC-009 I5 (D-IMPL-374 (4)): a kind TRANSLATED_AT_MINIMAL crosses at the
+    # door's default (minimal) level as its target kind's shell — the erasure
+    # is not disclosed there; the record keeps the determination.
+    from ccf.products.disclosure import TRANSLATED_AT_MINIMAL
+
+    crossed = TRANSLATED_AT_MINIMAL.get(kind, kind)
+    assert answer.status == STATUS_BY_KIND[crossed]
     assert answer.status != 500
     assert set(answer.body) == {"kind", "refusal_type", "refusal"}
-    assert answer.body["kind"] == kind
-    assert answer.body["refusal_type"] == BY_TOKEN[kind].__name__
-    assert answer.body["refusal"]["kind"] == kind
+    assert answer.body["kind"] == crossed
+    assert answer.body["refusal_type"] == BY_TOKEN[crossed].__name__
+    assert answer.body["refusal"]["kind"] == crossed
 
 
 def test_a_kind_the_vocabulary_does_not_hold_still_escapes(
@@ -522,7 +534,7 @@ def test_a_recorder_with_no_entitlement_is_no_longer_a_configuration(
     source = _source_over(fabric, tmp_path)
     with pytest.raises(TypeError):
         create_app(  # type: ignore[call-arg]
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -541,7 +553,7 @@ def test_neither_bound_is_no_longer_a_posture(fabric: Fabric) -> None:
     that argument, including the measurement that the warning was never
     escalated anywhere in CI.
     """
-    deps = ApiDependencies(
+    deps = ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -628,7 +640,7 @@ def test_a_builder_that_skips_the_recorder_check_is_red_sabotage(
         # because `SEC-001` made every seam required — which makes the
         # unrecordable configuration something a caller has to *state*.
         return scratch.create_app(
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -638,6 +650,7 @@ def test_a_builder_that_skips_the_recorder_check_is_red_sabotage(
             product_entitlement=_source_over(fabric, tmp_path),
             perspective_resolver=lambda **_: None,
             refusal_recorder=None,
+            replay_record_product_class=None,
         )
 
     if mutate:
@@ -702,7 +715,7 @@ def test_a_door_built_with_no_check_at_all_still_releases_nothing(
 
     # It BUILDS. That is the sabotage landing.
     app = scratch_app.create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=_serving_or_absent(fabric),
@@ -712,6 +725,7 @@ def test_a_door_built_with_no_check_at_all_still_releases_nothing(
         product_entitlement=_source_over(fabric, tmp_path),
         perspective_resolver=_perspective,
         refusal_recorder=None,
+        replay_record_product_class=None,
     )
     assert app is not None
 

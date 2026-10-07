@@ -196,7 +196,11 @@ from ccf_runtime.authz.product_entitlement import (
     ProductEntitlementSourceProtocol,
 )
 from ccf_runtime.authz.refusals import ACTION_PRODUCT_RETRIEVE
-from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
+from ccf_runtime.authz.route_declaration import (
+    ProductClassBinding,
+    ResourceBinding,
+    authorizes,
+)
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.errors import (
     ERROR_PRODUCT_DOOR_UNGOVERNED,
@@ -272,7 +276,10 @@ def build_router(
     # to it (`SEC-002`; `TENANT_PATH_PARAM`). What a deployment states here is
     # which product classes a scope may receive.
     @authorizes(
-        ACTION_PRODUCT_RETRIEVE, resource=ResourceBinding.path("product_class")
+        ACTION_PRODUCT_RETRIEVE,
+        resource=ResourceBinding.path("product_class"),
+        # SEC-017: a declared product roster is held to the class by the gate.
+        products=ProductClassBinding.path("product_class"),
     )
     def retrieve(
         tenant: str,

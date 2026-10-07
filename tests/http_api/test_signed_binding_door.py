@@ -38,6 +38,7 @@ Test values are deployment vocabulary chosen by this test-as-deployment
 from __future__ import annotations
 
 import json
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -282,7 +283,7 @@ def auth_app(
     )
     seams["auth"] = BearerTokenAuth(token_source=StaticTokenSource(grants=_grants()))
     return create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

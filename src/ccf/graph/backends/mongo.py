@@ -96,7 +96,12 @@ from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
 from ccf.contracts.canonical import canonical_timestamp
-from ccf.graph.protocols import GraphQuery
+from ccf.graph.protocols import (
+    GraphQuery,
+    WriterLease,
+    WriterLeaseSource,
+    acquire_declared_writer_lease,
+)
 from ccf.graph.reader import BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
@@ -268,6 +273,11 @@ class MongoGraphStore:
             ``schema`` argument's role, exactly).
         database: Database name. ``None`` takes the one named by the URI's
             path, falling back to :data:`DEFAULT_DATABASE`.
+        writer_lease: The deployment-declared writer lease
+            (``src/ccf/graph/protocols.py::WriterLeaseSource``), acquired only
+            when the composition root mints a writer, never at open, so a
+            read-only store needs none. **Without one this store refuses to
+            mint a writer** (``WriterLeaseRequired``; SEC-013, D-IMPL-374).
 
     As with every backend store, this is *not* a store offering both halves of
     the Protocol: it offers :attr:`reader`, and the collection surface to the
@@ -286,7 +296,9 @@ class MongoGraphStore:
         uri: str,
         partition: str = DEFAULT_PARTITION,
         database: str | None = None,
+        writer_lease: WriterLeaseSource | None = None,
     ) -> None:
+        self._writer_lease = writer_lease
         import pymongo  # noqa: PLC0415 - lazy by design; see the module docstring
 
         resolved = (
@@ -319,6 +331,26 @@ class MongoGraphStore:
     def partition(self) -> str:
         """The partition this store's graph lives in."""
         return self._partition
+
+    def writer_lease(self) -> WriterLease:
+        """Acquire the deployment-declared cross-process writer lease, or refuse.
+
+        SEC-013 (D-IMPL-374 (1)); whitepaper §7.3 / INV-CH7-10. A second
+        process can reach this store's graph, so the ``"process"`` disclosure
+        is not a lease here: the mint (``src/ccf/graph/_writer.py::
+        mint_boot_token``) acquires the lease declared at construction
+        (``writer_lease=``) through
+        ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, and with
+        none declared — or one whose scope is not ``"cross-process"`` — the
+        mint is refused by name. The lease is released with the boot token.
+
+        Raises:
+            WriterLeaseRequired: no held cross-process lease was declared.
+            WriterLeaseHeld: another holder, in any process, has the lease.
+        """
+        return acquire_declared_writer_lease(
+            self._writer_lease, substrate='mongo', graph_identity=self._identity
+        )
 
     @property
     def reader(self) -> MongoGraphReader:

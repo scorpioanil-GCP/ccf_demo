@@ -42,8 +42,13 @@ key material and raises `KeyUnavailable` when it holds none.
 - **Sourcing:** the deployment injects a `SigningKeySource` at the
   composition root. The shipped reference, `FileBackedKeySource`, reads
   JWK files from an operator-designated directory *outside* the tree —
-  it is the development reference, not a custody recommendation.
-  Production deployments implement the Protocol against their own key
+  it is the development reference, not a custody recommendation. A
+  `key_id` is a flat name, never a path: anything that does not fullmatch
+  `FileBackedKeySource.KEY_ID_PATTERN` (a letter or digit, then letters,
+  digits, `.`, `_` or `-`) is refused with `KeyUnavailable` before any path
+  is formed, so `..`, an absolute path, a separator or an empty id never
+  reaches the filesystem (`src/ccf/peering/identity.py::FileBackedKeySource`,
+  `LOW-02`). Production deployments implement the Protocol against their own key
   custody (KMS, HSM, vault); the SDK takes no dependency on any vendor.
 - **Verification:** verifiers take candidate *public* keys from the
   caller (trust-policy resolution, D-IMPL-16). No key is baked into
@@ -69,18 +74,87 @@ unchanged, so a product's content address is unchanged.
   (`stale-issuance`).
 - **Replays are refused** (`replayed`) and write no second admission record.
   Only an admission spends a nonce, so a presentation refused for any other
-  reason can be admitted later. The reference seen-set
-  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`) covers one gate in one
-  process and is not pruned; **a deployment running more than one receiver
-  must share one** through `src/ccf/peering/issuance.py::SeenNonceSetProtocol`,
-  or each receiver refuses only the replays it saw itself. Nonce uniqueness per
-  peer is the producer's obligation; the SDK ships no generator.
+  reason can be admitted later.
+- **The replay scope is the signing key, not the peer id** (`SEC-022-C-01`).
+  A nonce is spent under the key the envelope's signature verified under,
+  named by its RFC 7638 thumbprint
+  (`src/ccf/peering/identity.py::jwk_thumbprint`); verification is offered
+  only the key the protected header names, so the gate knows which key that
+  was. The same signed bytes are therefore refused under any peer id whose
+  grant lists that key, however the grant writes the key, while two different
+  keys that share a `kid` label keep separate scopes, so one peer cannot spend
+  another key's nonces. Never reusing a nonce under the same signing key is the
+  producer's obligation; the SDK ships no generator.
+- **Where spent nonces live** (`SEC-022-R1`). Unless a gate is handed a
+  seen-set, every gate in the process consults ONE reference set
+  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`), so a second receiver
+  in the same process refuses the replay the first admitted. A seen-set handed
+  to a gate is used instead of the default, never beside it. The default covers
+  one process only and is not pruned; it is not persisted either, so after a
+  restart an envelope still inside its peer's issuance window can be admitted
+  once more. It gains an entry for every envelope admitted, across every
+  tenant's gates, for the life of the process, and only an admission, which
+  needs a signature verified under a trusted peer's key, adds one, so a
+  deployment under sustained load supplies a pruning implementation of
+  `SeenNonceSetProtocol` that keeps each entry for at least its peer's
+  `signature_max_age_seconds` plus `permitted_clock_skew_seconds` after the
+  admission.
+  **Receivers that run in more than one process must share one
+  seen-set**, an implementation of
+  `src/ccf/peering/issuance.py::SeenNonceSetProtocol` over a store they all
+  reach. That is the deployment's obligation, and the SDK ships no such store;
+  without it, each process refuses only the replays it saw itself.
 - **A peered composite child is held to the subject its composite asked**,
   from the question its producer signed (closing SEC-025-U1), by the same check
   every other child leg passes.
 
-What this does not do: it does not bound the bytes a request body may occupy
-before parsing on the LF leg (`SEC-021-U1`, open).
+**A request body is bounded before it is parsed, on both legs** (`SEC-021-U1`,
+`D-IMPL-370`). Each Peering transport declares its size limits, with no SDK
+default, and each limit bounds one thing:
+
+- **The body cap, `max_request_bytes`, on both legs, bounds the HTTP request
+  body before anything parses it.** A declared `Content-Length` over it is
+  answered `413` without being read. Any other body is counted as it arrives
+  and answered `413` the moment it crosses the limit, whether or not a length
+  was declared. On the LF leg this happens in front of `a2a-sdk`'s JSON-RPC
+  dispatcher, which is never handed more than the limit
+  (`runtime/ccf_runtime/peering/lf_a2a.py::LfA2AWire.routes`; exploit tests in
+  `tests/peering/test_request_body_is_bounded_before_parsing.py`).
+- **The document cap bounds the carried document.** On the typed-HTTP leg the
+  body *is* the canonical document, so `max_request_bytes` is also its
+  document cap. On the LF leg the body is a JSON-RPC request that carries the
+  document base64-encoded, so the leg declares a second limit,
+  `max_message_bytes`, checked on the decoded document after parsing and on
+  the outbound document in `emit`.
+- **Declare the LF body cap for the encoded request.** A request carrying a
+  document of `max_message_bytes` is larger than that document: about four
+  thirds of it, plus a JSON-RPC envelope that depends on your identifiers.
+  Measure it and set `max_request_bytes` above it, or the body cap refuses that
+  document first (the sender sees `PeerUnreachable`). The SDK derives neither
+  limit from the other.
+- **The authoritative ceiling is the Control Plane's.**
+  `InboundPayloadCeiling.max_payload_bytes` is applied by the admission gate on
+  both legs before anything canonicalizes (`src/ccf/peering/admission.py`). The
+  transport limits are defense in depth.
+
+What the body cap does not do:
+
+- **It is per request.** It does not limit how many requests are in flight at
+  once, so the bytes held across concurrent requests can reach the limit times
+  the number of requests your server admits. Bound concurrency at the server.
+- **It cannot bound what the ASGI server buffers** before it hands the
+  application a message, nor what the server does with the bytes the
+  application never reads. Configure those limits in your server.
+- **It bounds what this process receives, not what it reads from a peer.**
+  Neither leg bounds the response an emission reads back. The typed-HTTP leg's
+  `emit` reads the whole HTTP response
+  (`runtime/ccf_runtime/peering/typed_http.py::TypedHttpWire.emit`), and the LF
+  leg's `emit_async` fetches the peer's Agent Card and its JSON-RPC reply
+  through `a2a-sdk`, which reads each in full
+  (`runtime/ccf_runtime/peering/lf_a2a.py::LfA2AWire.emit_async`). A peer, or
+  whatever answers at a peer's card URL, can make the emitting process buffer
+  and parse as much as it chooses to send. The SDK ships no such bound: bound
+  it at your egress proxy or in the HTTP client you inject into the leg.
 
 ### 1.2 SignedHitlAction (D-IMPL-21 / D-IMPL-363, HITL identity)
 
@@ -207,7 +281,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   sourced at review time from the operator-local homecams `.env` file,
   which is outside this repository and never committed here.
 - The `.gitignore` excludes environments and credentials as a standing
-  rule (CLAUDE.md §2.2: "never a secret in the tree"). Key files for
+  rule (CLAUDE.md §2.2: "never a secret in the tree"): `.env` and `.env.*`,
+  and the key-material shapes `*.pem`, `*.jwk`, `*.key`, `*.p12`, `*.pfx`,
+  `*.jks`, `*.keystore` and `tokens.json`. The `ignored-secrets` lint
+  (`tools/lints/ignored_secrets.py::check_tree`, `LOW-04`) refuses the tree
+  if any of those patterns is missing or re-opened by a `!` negation, or if a
+  tracked file matches one; outside a git checkout it reports that the
+  tracked-file half did not run rather than passing. Key files for
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
 - Every workflow under `.github/workflows/` runs with a read-only token
@@ -233,13 +313,21 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Five decisions have to be made explicitly. None of them has a safe default
-the SDK could pick for you, which is why each of them is a construction-time
-argument rather than a setting buried in configuration. The first three
-concern the HTTP surface, whose endpoint-by-endpoint contract is on the
-[HTTP API page](../reference/http-api.md); the fourth concerns which transport
-the MCP product door serves on; the fifth concerns what the Claude Agent SDK
-adapter's child process inherits.
+Ten decisions have to be made explicitly, and §4.8 records two limitations the
+SDK discloses rather than fixes. Each decision is a construction-time argument
+or a declared artifact rather than a setting buried in configuration; where the
+SDK behaves a particular way when nothing is declared, its section says so. The
+first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
+the [HTTP API page](../reference/http-api.md): whether it authenticates at all,
+and the authorization posture it applies; the third is where signing-key
+custody lives, a decision about the key-source Protocol rather than about any
+one surface; the fourth concerns which
+transport the MCP product door serves on; the fifth concerns what the Claude
+Agent SDK adapter's child process inherits; the sixth is how many processes may
+boot one graph, which depends on the graph store; the seventh is which sources
+may assert a classification; the eighth is which products a principal's grant
+may reach; the ninth is how the erasure index is declared and protected; the
+tenth is the default for a parameter a policy constraint bounds.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -376,6 +464,567 @@ of every product it delivered, to that owner-only directory at rest. **Removing
 it is the deployment's obligation:** call `adapter.remove_prompt_directories()`
 once the sessions that used the adapter's carriers have ended. A carrier whose
 directory was removed cannot start a session again.
+
+### 4.6 Decide how many processes share a graph (SEC-013)
+
+The fabric permits exactly one writer per graph (INV-CH7-10). Inside one
+process the boot refuses a second writer from its own live-writer table. Across
+processes the exclusion is the graph store's **writer lease**, and what it
+covers depends on the store. Each lease declares its scope by name, and the
+boot token records it.
+
+| Store | Lease scope | What enforces it |
+| --- | --- | --- |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
+| In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
+| Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | An exclusive `flock` on `<writer_lease_lock_dir>/<sha256(graph identity)>.lock`; the deployment declares only the absolute directory |
+
+**On the persistent network stores the deployment declares the lease, and a
+boot with none declared is refused with `WriterLeaseRequired` (SEC-013,
+D-IMPL-374).** The SDK derives the lock file from the graph identity, and the
+identity is the server address *as spelled* in the connection setting — its
+host and port, with letter case and an omitted default port normalized and the
+userinfo and the scheme dropped — plus the ledger or database and the
+partition. Writers of one graph that declare the same directory contend for
+the same file only if they spell the server identically, so **declare one
+spelling of the server address across every writer of a graph** (FW-4,
+D-IMPL-374). On Fluree, `http://localhost:8090` and `http://127.0.0.1:8090` are
+two identities, two lock files and two writers on one ledger; so are a hostname
+and its IP address, or two names for one load balancer, on MongoDB and Neo4j
+alike. A MongoDB multi-host or replica-set URI is identified by its host list
+as written: list the same hosts in the same order in every writer (a different
+order, a subset, or a `mongodb+srv://` seed name against its expanded host list
+is a different identity). A host list with a port on any host but the last —
+the usual replica-set form `mongodb://h1:27017,h2:27017,h3:27017/?replicaSet=rs0`
+included — does not parse as an identity at all, and the store refuses it with
+a `ValueError` when it is constructed; that is a limit of the identity
+derivation, carried, not a lease rule. A Neo4j cluster is identified by the
+routing address each writer names, so name one. A relative directory is
+refused by name.
+**A file lease excludes only
+writers that share that filesystem with real `flock` semantics: across hosts it
+enforces nothing, unless the directory is on a shared filesystem whose locks
+work across hosts, and two writers declaring different directories are not
+excluded at all.** A cross-host lock (the reference advisory-lock lease) is
+reachable only by constructing the store directly with `writer_lease=`;
+`ccf.boot.boot` cannot declare it, because the connection settings carry no
+credential for it. The booted `FabricHandle` reports the lease in force as
+`lease_scope` and `lease_mechanism`.
+
+**Declare the lock directory by its real path, private to the writers' user
+(PC3, D-IMPL-374).** Connection validation refuses, by name, a
+`writer_lease_lock_dir` reached through a symbolic link in any component (the
+refusal names the real path to declare instead), one that does not exist or is
+not a directory, one not owned by the booting process's effective user, and one
+that is group- or world-writable. The link is refused because the directory was
+resolved at each acquisition: a link retargeted between two writers'
+acquisitions, as at a release cut-over through `/srv/ccf/current`, gave one
+graph two lock files and both writers minted. Every lease acquisition judges
+the same rule again (real path, existence, owner and mode; N-5, D-IMPL-374), so
+a directory widened, swapped or reassigned after validation is refused at the
+boot mint before a lock file is opened in it. A lease constructed directly with
+`ccf.graph.leases.lock_directory_writer_lease` refuses a linked directory when
+it is constructed and is held to the whole rule at every acquisition. Every
+process that writes the graph therefore runs as the directory's owner. **Only
+the declared directory's own owner and mode are checked, not its ancestors'**
+(a symbolic link anywhere in the path is still refused): a principal who can
+write a parent directory can rename the lock directory and put another in its
+place between the check and the lock file's open, so keep every ancestor
+writable only by the writers' user or root.
+
+Consequences for a deployment on the stores that do lease:
+
+- **Two processes that each boot the same deployment are mutually exclusive.**
+  For example, two in-process client adapters or two MCP egress servers on one
+  deployment root over one SQLite file or one Postgres schema. The second is
+  refused at boot with `SingleWriterViolation`, naming the lease it could not
+  take. A holder that dies, however it dies, gives the lease back (the kernel
+  drops the `flock`; the server ends the session), so a crash never wedges a
+  later boot.
+- **SQLite.** The lease is only as good as the filesystem's `flock`. WAL-mode
+  SQLite is already unsupported on network filesystems, so keep the database
+  file and its sidecar on a local filesystem. A process forked while holding
+  the lease shares it until that child exits.
+- **Postgres.** Connect directly or through a *session*-pooled connection. A
+  transaction- or statement-pooled connection (PgBouncer in those modes)
+  cannot carry a session lock. A dropped connection loses the lease silently:
+  the writer fails on its next statement, but a competing boot may already
+  have succeeded. The lease is visible to an operator in `pg_locks` with
+  `locktype = 'advisory'`, and it shares the database's advisory-lock key
+  space with anything else using it.
+
+**A process that only reads boots read-only, and takes no lease (FW-2,
+D-IMPL-374).** The exclusion above is between *writers*. `ccf.boot.boot(...,
+read_only=True)`, and `load_and_boot` or `load_config_and_boot` with the same
+keyword, opens the store and the same governed reader a writer boot hands out,
+but mints no writer: it takes no writer lease, marks no graph live, and is
+never refused because a writer holds the graph. Boot anything that only reads a
+graph a live writer serves this way, an examiner's replay first of all
+(`ccf.replay.environment.RecordedEnvironment` reads through such a fabric, see
+§4.7). The handle reports `lease_scope` as `read-only`, its worker refuses
+every write with `ReadOnlyFabricRefused`, and its `close` closes only the
+store. Because it takes no lease, a read-only boot sets `writer_lease_lock_dir`
+aside before validation and never uses it (N-2, D-IMPL-374), so an examiner on
+another host or under another account declares the deployment's connection
+settings unchanged. **A read-only boot writes no graph content, but it is not
+write-free at the substrate** (N-6, D-IMPL-374): opening the store still runs
+the store's own open-time setup, exactly as a writer boot's open does. Each
+store creates what it needs if it is absent: SQLite its database file, tables
+and indexes; Postgres its schema, tables and indexes; MongoDB and Neo4j their
+indexes; Fluree its ledger. Credentials that cannot perform that setup can fail
+a read-only boot when the store is opened. A read-only boot is not coordinated
+with the writer: it reads what the store returns at each read. Replay reads the
+recorded snapshot boundary, which an append-only graph does not move.
+
+### 4.7 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
+
+The Policy operator admits an entity by the value of one attribute, the one
+`classification_attribute_by_class` names. That attribute comes from source
+payloads like any other attribute. For each entity, the claim with the latest
+ingestion timestamp replaces the whole attribute set, so without a declaration
+any source can relabel a `restricted` entity as `public` simply by sending a
+later record.
+
+Name the sources that may assert the attribute on every resolution rule that
+writes it:
+
+```yaml
+resolution:
+  entity_rules:
+    - match_key: counterparty_lei
+      entity_class: counterparty
+      identity_keys: [counterparty_lei]
+      attribute_keys: [counterparty_name, classification]
+      attribute_authorities: {classification: [core-banking]}
+```
+
+Three things follow, and all three are mechanism:
+
+- **A claim from any other source is refused whole and recorded.** The L2
+  worker writes nothing from that envelope for that entity. It does not strip
+  the attribute, and it does not merge the attribute with the authoritative
+  value. It appends an `attribute_assertion_refused` event to the Control
+  Plane audit log, and it lists the refusal on `IngestResult`
+  (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). The refused value is
+  not copied anywhere. The refusal is never raised, so a source without
+  authority cannot block your serves. An authorized source may move the label
+  in either direction.
+- **An empty source set means no source may assert the attribute.**
+- **A deployment that omits the declaration does not boot.** If a Policy
+  operator admits on an attribute that a rule writes with no
+  `attribute_authorities`, `load_and_boot` and `load_config_and_boot` refuse
+  with `UngovernedClassificationAttribute`
+  (`src/ccf/graph/protocols.py::UngovernedClassificationAttribute`)
+  before anything is registered.
+
+Authority is only as strong as your binding of `SourceIdentity.system_id` to a
+real system. The SDK does not attest source identity: the adapter declares it.
+The same refusal also fires when a classification consumer is built or used:
+`build_operator_registry`, `PolicyFilter.apply` and the booted reader's
+`query` refuse a classification map the authority does not cover, including an
+attribute the resolution spec neither writes nor governs, so a hand-built
+operator, a hand-composed `ccf.boot.boot` and a per-request registry are
+covered too (`D-IMPL-374`;
+`src/ccf/graph/protocols.py::require_classification_authority`). The authority
+is minted only by `ccf.boot.boot`, from the resolution spec its L2 enforces,
+and carries that spec's content address. A view or query with no authority is
+refused with `ClassificationAuthorityMissing`, and one carrying an authority
+boot did not mint is refused with `ClassificationAuthorityNotMinted`. The
+shipped store readers (every `BaseGraphReader` backend, the memory reader,
+Fluree's pinned read) and a mounted peer product refuse a classification query
+that did not come through a booted reader. A claim from an unauthorized source
+that omits a governed attribute is still written, and blanks the label if one
+was present, but it is recorded as a `governed_attribute_omitted` audit event
+(`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). Three boundaries
+remain: an out-of-tree graph reader that does not subclass `BaseGraphReader`
+is unguarded unless it calls `require_query_classification_authority` itself;
+the declared-read boundary (an operator that filters on a classification
+attribute without declaring it in `read_intent` is not checked when it is
+registered, so its own `apply` must call `require_classification_authority`);
+and a source that is authorized for an attribute may set it in either
+direction, including by omitting it, without an event.
+
+**Replaying a classification decision beside a live writer needs a read-only
+boot (FW-2, D-IMPL-374).** Only a booted reader carries an authority, and a
+writer boot takes the store's writer lease (§4.6). On a persistent store that
+a live writer holds, the writer boot is refused and a raw store reader refuses
+the classification query, so a replay tool in another process had no road.
+`boot(..., read_only=True)` is that road. It resolves the pinned resolution
+spec and mints the authority from it through the same private mint as a writer
+boot, so its views carry an authority `ClassificationAuthorityNotMinted` does
+not refuse, and the Policy operator re-executes. It mints no writer, takes no
+lease and writes no graph content, although opening the store still runs the
+store's own open-time setup (§4.6, N-6). Open the fabric you pass to
+`RecordedEnvironment` this way. A raw store reader is still refused, and an
+authority built by hand is still refused on a read-only view.
+
+### 4.8 Two deployment limitations, disclosed rather than fixed
+
+Two behaviors are deliberate designs with recorded reasons, so they are stated
+here as limitations a deployment plans around rather than changed (`D-IMPL-372`,
+Q2 (a)).
+
+- **A reserved graph-backend name denies boot.** Any installed distribution
+  that declares a `ccf.graph_backends` entry point under a name the SDK's own
+  adapters hold refuses every backend resolution, by design, rather than
+  letting the adapter set depend on discovery order
+  (`src/ccf/graph/registry.py::ReservedBackendName`,
+  `src/ccf/graph/registry.py::declared_names`; the
+  [storage and graph Protocols page](../reference/protocols/storage-and-graph.md)
+  states the fail-closed rule). One misbehaving package in the environment is
+  therefore a boot outage, not a silently ignored adapter: control what is
+  installed beside the SDK, and treat a `ReservedBackendName` at boot as a
+  supply-chain finding.
+- **The stdio client adapter hands its child the whole parent environment.**
+  `src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter` spawns the
+  deployment's own server program with `env=dict(os.environ)`, deliberately: it
+  is the deployment's code, reaching the same substrate settings and the same
+  credentials, and the MCP library's filtered default environment would
+  silently run a different checkout. The consequence is that every secret in
+  the client process's environment is visible to the child. A process holding
+  credentials its child must not see should not use the stdio adapter from
+  that process; spawn the client from an environment that carries only what
+  the server needs, or use the loopback transport.
+
+### 4.9 Declare a product roster for principals that must not reach every product (SEC-017, D-IMPL-374)
+
+Tenancy decides whose data a credential reaches. Within its tenant, a principal
+whose grant declares no product roster reaches every Context Product class that
+the doors serve it. **Declaring the roster is your obligation as the
+deployment.** The SDK ships no default roster, and a grant without one is
+tenant-wide.
+
+Declare the roster on the principal's grant, as Context Product class names:
+
+```json
+{"<token>": {"client_id": "analyst-7", "scopes": ["ccf:experience"],
+             "tenants": ["bank-a"], "products": ["credit-risk.spread"]}}
+```
+
+`"products": null`, or no `products` key, means tenant-wide. `"products": []`
+means no product at all.
+
+One rule applies wherever a product class is known at the call. A request that
+reaches a class off the roster is refused by name, after the tenant check and
+**before** the authorizer is asked, so no allow is recorded for it
+(`runtime/ccf_runtime/mcp/tenancy.py::ProductOutsideRosterRefused` on MCP,
+`product-outside-roster` with a 403 on HTTP).
+
+| Surface | The class it is held to |
+| --- | --- |
+| MCP Experience `context_product` resource | the class in the URI |
+| MCP `get_context`, `get_lineage` | the declared `entitled_product_class` |
+| MCP `invoke_agent` | the agent's `product_classes`, from your agent directory |
+| MCP `list_agents` | lists only the agents `invoke_agent` would dispatch |
+| MCP `get_replay_record` | the declared `replay_record_product_class` |
+| MCP egress product resource, product tool, addressed resource | the class in the call |
+| HTTP `GET /product/{tenant}/{product_class}/{version}` | the class in the path |
+| HTTP `GET /replay/decisions`, `GET /replay/resolutions` | `create_app`'s declared `replay_record_product_class` |
+
+Surfaces that cannot know a product class at the call are not bound by the
+roster: the MCP artifact server and the HTTP `/artifact` routes (addressed by
+content address or by class and name), the MCP HITL server and HTTP `/hitl`
+routes, and the HTTP `/agent`, `/skill`, `/workflow`, `/config`, `/schema` and
+`/backends` routes. Control those with the scope mapping.
+
+Two things you must supply:
+
+- **Build agent directory entries with `exposed_agent`**
+  (`runtime/ccf_runtime/mcp/agent_directory.py::exposed_agent`). It derives
+  the entry's `product_classes` from the definition's context contract
+  (`consumes ∪ emits`). An entry that states its own `product_classes` is
+  refused when it is built. A rostered principal is refused an agent whose
+  entry carries no derived classes.
+- **Declare `replay_record_product_class`** on `build_experience_server` and on
+  `create_app` if rostered principals should read replay records. The SDK
+  names no class. `build_experience_server` takes `None` when you pass nothing.
+  `create_app` has no default: you state the value, and `None` is how you say
+  you name no class. Either way, `None` means a rostered caller is refused every
+  replay read.
+
+`invoke_agent` reads your agent directory before the authorizer decides, so a
+rostered caller the authorizer would refuse still reaches that lookup. The
+refusal it gets is therefore the same for an unknown agent, an agent not
+exposed, an agent without derived classes and an agent reaching an off-roster
+class: it names no agent and no class. The specific reason is logged
+server-side (logger `ccf_runtime.mcp.tenancy`, level INFO).
+
+### 4.10 Declare and protect the erasure index (SEC-009, D-IMPL-374)
+
+An erasure is recorded, never performed: every store construction site
+withholds an erased address, reading the deployment's durable erasure index
+(`src/ccf/erasure/index.py::FileErasureIndex`), declared at every site with no
+default.
+
+**What an erasure is not (FW-4, D-IMPL-374).** It is not graph erasure. The
+Context Graph (L3) keeps the subject's attributes, and every Context Product
+assembled after the erasure reads them and carries them. An erasure withholds
+whole artifacts only; nothing narrower than an artifact is withheld. It
+destroys nothing: the bytes stay on the substrate, and the SDK makes no claim
+that anything was deleted. And it makes no legal-compliance claim: whether
+withholding these artifacts satisfies any obligation — a right-to-erasure
+request, for example — is the deployment's own legal determination, made
+knowing that the graph and every new product still hold the subject.
+
+Decide these things before an erasure is ever approved.
+
+- **Where the index lives, and who can write it.** The file index opens with
+  `O_NOFOLLOW` and refuses, by name (`ErasureIndexInsecure`), a file that is a
+  symlink, not owned by the process's user, or not mode 0600, or a directory
+  that is not owned by that user or not mode 0700. Every line carries the hash
+  of the one before it, so an edited, reordered or removed line refuses at boot
+  (`ErasureIndexCorrupt`, which withholds every address under the index).
+  **An attacker with write access to the index file can un-erase its tail;
+  file modes and the deployment's filesystem controls are the mitigation.** A
+  hash chain cannot show that its last lines were cut off.
+- **Which classes the erase capability may write.** Declare
+  `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in the
+  store's `WriteKinds`, and grant `artifact.erase` only to the principals who
+  may file an erasure request. Neither class can be declared erasable.
+- **Which HITL policy signs the approvals.** An erasure approval is bound to
+  a SIGNED HITL attestation (`D-IMPL-363`), so the HITL policy the erasure
+  gate runs under must require signed bindings and pin each approver's public
+  key. The door refuses, by name, an approval that is unsigned
+  (`approval-unsigned`) or whose signature does not verify
+  (`approval-signature-invalid`). It files the approval, with its signed claim
+  set, signature and key id verbatim, as an immutable `ccf.erasure-approval`
+  before the index append, and every store construction site verifies that
+  signature again, against the key the pinned policy declares for the
+  approver, resolved through its own Control Plane
+  (`src/ccf/erasure/approval.py::verify_erasure_approval`). An approval that
+  does not verify is `index-unsupported`: the address stays withheld and the
+  audit says so.
+- **Which erasure authority each site trusts, fixed at composition.** Every
+  store construction site — `create_app` (through
+  `ApiDependencies.erasure_trust`), `build_artifact_server`, `open_product`,
+  `build_governed_resolver`, the in-process adapter (through `binding.yaml`'s
+  `erasure_authority`) and the local CLI dependencies — takes an
+  `ErasureTrust`: for each tenant that may erase, an `ErasureAuthority`
+  naming the HITL policy key its HITL transport is bound to, the content hash
+  of its erasure workflow definition, and the erasure door's public signing
+  key (`src/ccf/erasure/trust.py`). The record's tenant selects the
+  authority; a tenant with none reads `index-unsupported`. A multi-tenant
+  site declares one authority per erasing tenant. The door refuses each of
+  the following by name, before anything is written; the consult, which never
+  says which check failed, withholds the address as `index-unsupported` and
+  audits `erasure_index_unsupported`: an approval that pins any other HITL
+  policy key, that names any workflow but the declared one or any tenant but
+  the authority's, by the requester, by an approver the declared workflow's
+  erasure-gate policy does not name, for a gate that is not that workflow's
+  erasure gate, or signed after the pinned policy version was superseded by
+  the next one. The
+  requester's artifacts may name a policy version, never the key, the
+  workflow or the policy. A legitimate approval made while the old policy
+  version was current stays valid after a rotation.
+- **Who holds the erasure door's signing key.** The door signs the canonical
+  bytes of every erasure record it files with a key the deployment holds and
+  requesters never do; each authority declares its public half, and a
+  declared key carrying private material is refused by name. Every consult
+  verifies that signature before it reads the record, so the record's
+  `requested_by` — the starter the engine recorded, which the door observed —
+  is the door's statement, not a filer's: a record without a verifying door
+  signature is `index-unsupported`, and so is one whose signature header
+  cannot even be decoded — a deeply nested header included, which once
+  crashed every store construction site (FW-1). The door refuses, at construction, a
+  signing key that does not verify under the declared door key, and a HITL
+  transport bound to any HITL policy key but its authority's.
+- **What the trust is as strong as.** Three custodies, and the erasure
+  door's private key is the root of them: its holder can sign a record naming
+  any requester. The other two are each insufficient alone: Control Plane
+  registration under a tenant's declared HITL policy key (a party who can
+  register a new version there can pin a key it holds for an erasure
+  officer), and an approver's private key. Through the consult, either one
+  also needs the door key — a record without a verifying door signature reads
+  `record-signature-invalid` and its address is withheld as
+  `index-unsupported`, never erased on that party's word. Through the door,
+  either one also needs that officer's own authentication at the HITL door.
+  The signed instant is the signer's own claim: revocation refuses a signature
+  dated after the supersession, but a holder of a dropped key who backdates a
+  signature to before it still verifies. The window's lower bound (the
+  version's registration instant) is not enforced, because the in-memory
+  Control Plane re-registers every version at boot and would refuse every
+  approval made before the last restart. There is no fresh-registry
+  fallback: a site that composes without the deployment's Control Plane, or
+  re-composes a store with a different Control Plane, identity provider or
+  trust, is refused by name. **An adopter-supplied identity provider that
+  verifies nothing accepts everything; that is the adopter's trust choice** —
+  door signatures included. The validation cache is keyed by the identity
+  provider instance, so a do-nothing provider's verdict is never served to a
+  site composed with another provider. It is keyed by the Control Plane's
+  `policy_head` too — the digest of its registration history's metadata
+  (action, key, version, instant), not of the content registered. That holds
+  for the reference registry, where a version IS its content hash and a stored
+  version is never overwritten; a third-party Control Plane must uphold the
+  same, or two histories with different content could share a head and a
+  verdict judged under one would serve the other.
+- **The in-process adapter boots its own registry.** It composes with the
+  authority its `binding.yaml` declares (`erasure_authority: {}` declares
+  none). Its Control Plane holds only what its `ccf_config.yaml` registers,
+  and the HITL policy, the approval policy and the erasure workflow are not
+  manifest-addressable, so a genuine erasure consulted through the in-process
+  adapter reads `index-unsupported` until the deployment registers them into
+  that booted registry by its own code. The content stays withheld either
+  way. The `--local` CLI arm declares no erasure authority at all: the local
+  dev fabric runs no erasure door.
+- **Which HITL transport holds pending approvals.** A completed erasure stays
+  verified across restarts and processes, because its approval is in the
+  store and its keys are in the pinned policy. A gate still **pending** in the
+  in-memory transport does not survive a restart: that is the transport's
+  limit, not the record's. A deployment that needs pending approvals to
+  outlive a process wires a durable transport.
+- **How a torn index line is repaired.** A process killed in the middle of an
+  append can leave a partial line that the next append merges into. The index
+  then refuses as `ErasureIndexCorrupt` and every read under it is withheld:
+  that is deliberate, and the SDK ships no repair tool. With every process
+  that composes the index stopped, copy the file aside as evidence, truncate
+  it to the longest prefix of complete lines whose hash chain verifies, then
+  restore the removed suffix before any reader starts: re-run the door's
+  completion for the torn entry, whose execution is still suspended, and
+  re-append every later complete line under the erase capability for its own
+  request. The full procedure is in the `ccf.erasure.index` module docstring.
+
+Two behaviors follow from the design and are stated rather than changed:
+
+- A retry of a completion must present the same erase authorization. A retry
+  under a fresh one is refused as `retry-mismatch`, because the record names
+  the authorizing decision and the index entries already pin the record. The
+  approval itself is re-filed unchanged, because its instant is the signed
+  `issued_at`, and the retry reuses the door signature its prior attempt
+  appended (an ES256 signature is not deterministic, and the index takes only
+  an identical entry again), after verifying it.
+- Over the MCP-backed store, a names read that the server refuses for a
+  governed address reaches the door looking like an outage. The door refuses
+  `class-unverifiable` either way, so it fails closed, but the two causes are
+  not told apart.
+
+Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
+
+- **A forged entry in one tenant withholds another tenant's content on
+  tenantless reads.** A holder of the erase capability in tenant B can append
+  an entry — genuine, or forged and so `index-unsupported` — naming an
+  address of tenant A. Every tenantless read (the replay engine, `record_of`,
+  child admission, the MCP client lane) then withholds A's artifact, with the
+  reason redacted; reads scoped to tenant A still serve it. The by-URI naming
+  check inside the governed evidence read (`govern_dereference`) was one such
+  tenantless read, and answered A's examiner "absent", recorded as
+  `nonexistent`; it now reads through the caller's tenant view, and an
+  address erased there reads as erased content (FW-7).
+- **The erasure door is single-tenant.** An `ErasureDoor` holds one tenant's
+  `ErasureAuthority` and refuses a request, or an erase capability, for any
+  other tenant by name (`tenant-mismatch`). A deployment that erases for
+  several tenants constructs one door per tenant, each over a HITL transport
+  bound to that tenant's HITL policy key.
+- **The door signature lives in the index entry, not in the record.** The
+  `ccf.erasure-record` artifact carries no signature; the door's signature
+  over it, and the key id it was made under, are fields of the index entry.
+  A reader holding only an exported record cannot verify it without the
+  entry.
+- **Rotating a door key out of an authority strands a completion still in
+  flight.** A retry verifies its prior attempt's entry signature against the
+  authority's current door keys; once the key that signed it is no longer
+  declared, the retry is refused as `retry-mismatch` and the address stays
+  withheld under its write-ahead entry. Complete every pending erasure before
+  dropping a door key.
+- **A third-party HITL transport must expose `hitl_policy_key`.** The door
+  reads that attribute to hold the transport to its authority's HITL policy
+  key, but `HITLTransportProtocol` does not declare it. A transport that
+  satisfies the Protocol without the attribute is refused, by name, when the
+  door is constructed; the reference `InMemoryHitlTransport` exposes it.
+- **The index assumes a filesystem whose `flock` and `O_APPEND` work.**
+  Appends are serialized by an exclusive `flock` on the index file and
+  written with `O_APPEND`. On a multi-host shared filesystem where `flock`
+  does not exclude across hosts, concurrent appends can interleave and break
+  the hash chain: the index then refuses as `ErasureIndexCorrupt` and every
+  read under it is withheld. Keep the index on a filesystem every appender
+  shares a working `flock` on. A write that stops short — a full disk, a
+  file-size limit, a network filesystem's short write — is finished, or
+  undone: the file is truncated back to its length before the append and
+  fsynced, and the append raises `ErasureIndexWriteFailed`, which the door's
+  completion propagates by name, filing no record (PC1). The completion can
+  be retried once the cause is cleared.
+- **Another tenant's governed filing of identical bytes changes the owner's
+  reads over the MCP artifact server.** The server decides whether an address
+  is governed evidence over every name it was filed under, in every tenant,
+  before it filters to the caller's own (the D-IMPL-345 R-5 rule, which the
+  SEC-009 names resource inherits). Once tenant B files the same bytes under
+  a governed (`ReplayMint`) class, tenant A's own names and blob reads of its
+  client-lane artifact answer `subject-unavailable`. The consequence for
+  erasure: A's erasure door over the MCP-backed store can no longer read A's
+  own naming of that address, and refuses to erase it as
+  `class-unverifiable`. It fails closed, and the precondition is narrow — B
+  must hold identical bytes and write authority for a governed class — but
+  while B's filing stands, A cannot erase that artifact through a door over
+  the MCP-backed store.
+- **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
+  is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
+  maps an `ErasedContentRefused` from its product resolver and from the
+  `get_context`, `get_lineage` and `get_replay_record` seams (FW-3). It maps
+  one raised by the deployment's own agent invoker (`invoke_agent`) or agent
+  directory (`list_agents`) at `minimal` only: a `minimal` caller of either
+  tool gets the opaque `ccf-runtime-failure:<id>`, and the door records
+  nothing, so the fact of an erasure does not cross. For a `reasoned` or
+  `full` caller the erasure crosses as the tool's error text, not as the
+  recorded `erased-content` shell: `the requested content was erased by a
+  recorded decision and is not served (SEC-009)`. The text names no address,
+  but it tells the caller that an erasure occurred, and the door records no
+  determination for it. Rendering it above `minimal` needs a product identity
+  to record an agent dispatch's or an agent listing's erasure under, and no
+  ruling names one, so it is disclosed rather than changed. An invoker or a
+  directory that reads through an erasure-composed store, and must not reveal
+  an erasure to a caller above `minimal` either, catches `ErasedContentRefused`
+  and answers with its own not-found rendering (a directory leaves the agent
+  out of its listing).
+
+### 4.11 Declare a default for a parameter a policy constraint bounds (SEC-019, D-IMPL-356)
+
+A registered `ccf.policy-constraint` whose `maximum`, `minimum` or
+`allowed_set` reaches a parameter the caller omitted and no default fills is
+never skipped: the request is refused as `constraint-refusal` with reason
+`required-absent` and the constraint's `policy` authority
+(`src/ccf/products/constraints.py::resolve_effective_request`). Declare a
+default for every bounded parameter a caller may leave out, because the SDK
+supplies none: the class's serve obligation `default_debt_tolerance` for the
+tolerance, or the request contract's `defaults` or `relative_defaults` for any
+parameter. The tolerance step refuses an absent `debt_tolerance` that a policy
+bounds in the same way, instead of serving it at any Context Debt, but only
+for a caller that composes it directly and states the bound
+(`src/ccf/products/gates.py::refuse_over_tolerance`, whose `policy_bound`
+argument is required).
+
+- **Narrow a constraint's `applies_to` to the classes that declare its
+  parameter.** A constraint that reaches a class whose request contract does
+  not declare the parameter now refuses every request to that class in its
+  scope: as `required-absent` when the caller omits the parameter, and as
+  `undeclared-parameter` when the caller supplies it, so nothing the caller
+  can send cures it. An `applies_to` with no `product_class` reaches every
+  class, so an enterprise-wide constraint is the usual way to meet this. The
+  fix is in the constraint, not the request: narrow `applies_to` to the
+  classes that carry the parameter.
+- **A deployment's own `PolicyConstraintResolver` must refuse the case
+  itself.** On the governed path the tolerance step is handed no policy bound
+  for an absent tolerance, because the governed resolver relies on the
+  resolution having refused a bounded one already; the step's refusal above is
+  a second line for a direct caller only. A resolver that skips an absent
+  bounded tolerance therefore has the product served at any Context Debt, and
+  one that skips any other absent bounded parameter has the request served as
+  though the bound did not exist. Adopt the same rule, or delegate to
+  `resolve_effective_request`.
+- **A numeric bound on a non-numeric parameter holds vacuously.** A `maximum`
+  or `minimum` on a parameter its request contract declares as something other
+  than a number, a string for example, admits every value of it, and the
+  replay record's effective request still shows the parameter as bounded by
+  that policy. The SDK does not check a constraint's bound against the
+  parameter's declared type, so declare `maximum` and `minimum` on numeric
+  parameters only, and `allowed_set` for the rest. This predates SEC-019 and is
+  disclosed rather than changed.
+- **The reference resolver's `1.1.0` label is pinnable, not yet pinned.**
+  `PolicyConstraintResolver` carries `resolver_id` and `resolver_version` so
+  that the resolver in force can be pinned into replay, and the reference
+  resolver moved from `1.0.0` to `1.1.0` for this refusal. Nothing in the SDK
+  yet reads either property into a Decision Replay record, so no record shows
+  which resolver version made its resolution; do not read the version bump as
+  already replay-pinned.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

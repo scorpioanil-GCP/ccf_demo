@@ -71,6 +71,8 @@ from http_api.composition_authority import (
     refusal_recorder,
     register_typed_at_composition,
 )
+from ccf.erasure import compose_erasure_consult
+from tests.composition import declared_erasure_trust, no_erasures
 from tests.controlplane.capabilities import capability, fabrications, retarget
 
 TENANT = "tenant-dereference"
@@ -109,17 +111,25 @@ class _World:
         self.source = ControlPlaneProductEntitlementSource(
             control_plane=self.registry, clock=clock
         )
-        self.store = deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS)
+        self.raw = deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS)
+        # PM5 (panel C5; `D-IMPL-374`): U12 composes the erasure consult
+        # always, and `govern_dereference` now refuses a store that does not
+        # consult; the store a door hands it is the composed one.
+        self.store = compose_erasure_consult(
+            self.raw, index=no_erasures(), audit_log=self.registry.audit_log,
+            clock=lambda: INSTANT, control_plane=self.registry,
+            erasure_trust=declared_erasure_trust(TENANT),
+        )
         self.recorder = refusal_recorder(
             self.registry,
-            store=self.store,
+            store=self.raw,
             tenant=TENANT,
             replay_record_class=REPLAY_RECORD_CLASS,
             disclosure_level_for=self.source.disclosure_level_for,
         )
 
     def addresses(self) -> set[str]:
-        return {p.name for p in self.store.root.iterdir() if len(p.name) == 64}
+        return {p.name for p in self.raw.root.iterdir() if len(p.name) == 64}
 
     def dereference(self, authorized: Any, *, reference: str = NOWHERE, by_uri: bool = False, wants_bytes: bool = True) -> Any:
         return govern_dereference(

@@ -252,6 +252,7 @@ def _lf_a2a_leg() -> TransportLeg:
             http_client_factory=lambda: httpx.AsyncClient(timeout=30.0),
             clock=lambda: now,
             rpc_path=LF_A2A["rpc_path"],
+            max_request_bytes=CONSUMER["max_request_bytes"],
             max_message_bytes=CONSUMER["max_request_bytes"],
             max_pending=CONSUMER["max_pending"],
         )

@@ -87,8 +87,8 @@ if now < candidate.expires_at <= ceiling:
 ```
 
 That is `(now, now + MAX_TTL]` — both sides present. `now` is already a
-**required keyword** on `run_gates` (`src/ccf/products/gates.py:1017-1021`) and
-`run_federated_gates` (`:1142-1148`).
+**required keyword** on `run_gates` (`src/ccf/products/gates.py::run_gates`) and
+`run_federated_gates` (`src/ccf/products/gates.py::run_federated_gates`).
 
 So **"make Gate 3 two-sided" is not the work, and writing it into a brief would
 ask for a change that is already there.** The defect is the **comparand**: on a
@@ -206,7 +206,7 @@ Three measured problems with D6(d) as written:
 2. **The writer never learns a tenant, so it cannot resolve a per-tenant policy
    once.** `AssemblyWorker.__init__` (`src/ccf/assembly/worker.py:595-611`) stores writer,
    resolution, registry and the pinned bundle — **nothing tenant-shaped**.
-   `boot(tenant_ids=…)` (`src/ccf/boot.py:303`) holds the roster and does not pass it.
+   `boot(tenant_ids=…)` (`src/ccf/boot.py::boot`) holds the roster and does not pass it.
    D5 rules the policy **per-tenant**; D6(d) puts the guard in a component with
    no tenant. **This is the sheet's most load-bearing gap.**
 3. **Resolving per envelope writes an audit event per envelope.**

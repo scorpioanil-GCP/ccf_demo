@@ -47,6 +47,10 @@ entity_rules:
   # Natural persons. The class the UBO question is *about*: a beneficial owner
   # is a human being, not a holding company.
   - match_key: party_ref
+    # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the
+    # Policy operator admits on. A claim from any other source is refused and
+    # audited, and without this declaration the deployment refuses to boot.
+    attribute_authorities: {party_classification: [kyc-registry]}
     entity_class: party
     identity_keys: [party_ref]
     attribute_keys:
@@ -58,6 +62,7 @@ entity_rules:
 
   # Legal entities on the ownership graph.
   - match_key: corporation_ref
+    attribute_authorities: {corporation_classification: [corporate-registry, kyc-registry, name-screening]}
     entity_class: corporation
     identity_keys: [corporation_ref]
     attribute_keys:
@@ -70,6 +75,7 @@ entity_rules:
   # The reified ownership interest. See the header note above for why this is an
   # entity rather than an edge property.
   - match_key: stake_ref
+    attribute_authorities: {stake_classification: [kyc-registry]}
     entity_class: ownership_stake
     identity_keys: [stake_ref]
     attribute_keys:
@@ -81,6 +87,7 @@ entity_rules:
   # Registered addresses. Present so the TYPED half of the traversal bound has
   # something real to exclude, and so the depth bound has a real seventh hop.
   - match_key: address_ref
+    attribute_authorities: {address_classification: [corporate-registry]}
     entity_class: registered_address
     identity_keys: [address_ref]
     attribute_keys:
@@ -90,6 +97,7 @@ entity_rules:
   # Name-screening hits: entities whose names resemble a client's without being
   # that client. The class the Similarity operator ranks.
   - match_key: screening_ref
+    attribute_authorities: {screening_classification: [name-screening]}
     entity_class: screening_candidate
     identity_keys: [screening_ref]
     attribute_keys:

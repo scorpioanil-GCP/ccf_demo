@@ -68,6 +68,7 @@ __all__ = [
     "IdentityRefused",
     "IngestResult",
     "NO_RESOLVING_RULE",
+    "RefusedAssertion",
     "RelationshipResolutionRule",
     "ResolvedEntity",
     "SpecDrivenEntityResolution",
@@ -79,6 +80,13 @@ __all__ = [
 #: this sentinel is not selectable by ``subject_rule`` / ``object_rule``: an
 #: endpoint no rule claims cannot be chosen by rule (``24.5-L-21``).
 NO_RESOLVING_RULE = "no-resolving-rule"
+
+#: The artifact class whose declaration refuses a non-authoritative claim,
+#: recorded as the refusal audit event's ``artifact_class`` (SEC-023). Equal to
+#: ``src/ccf/controlplane/artifacts.py::RESOLUTION_SPEC``'s ``class_id``; spelled
+#: here because that module imports this one, and held equal by
+#: ``tests/assembly/test_classification_authority.py``.
+_RESOLUTION_SPEC_CLASS_ID: Final = "ccf.resolution-spec"
 
 
 class EntityResolutionRule(CCFContract):
@@ -115,6 +123,32 @@ class EntityResolutionRule(CCFContract):
             Hash-transparent when empty (``D-IMPL-243``): every rule written
             before this field keeps the canonical form and the URIs it
             already had.
+        attribute_authorities: Governed attribute -> the
+            ``SourceIdentity.system_id`` values authorized to assert it
+            (SEC-023; ``D-IMPL-372``, ruling Q15 (a); whitepaper §7.3, §7.8).
+            A policy classification is an ordinary attribute, and the claim
+            with the latest ingestion stamp supersedes the whole attribute
+            dict — so without this declaration ANY source relabels an entity
+            merely by speaking later. An envelope whose source is not in the
+            set for a governed attribute it asserts produces NO entity claim
+            for that entity: the claim is refused whole (never stripped —
+            stripping would let a source blank a label — and never merged with
+            the authoritative value, which would mint a claim nobody made,
+            ``D-IMPL-332``), and the refusal is RECORDED on the Control Plane
+            audit log and on :class:`IngestResult`, never raised. An
+            authorized source may move the value in either direction.
+
+            **Optional, and fail-closed where declared.** An attribute named
+            with an EMPTY set may be asserted by no source. An attribute not
+            named stays source-asserted, exactly as before this field existed —
+            the absence is visible in the artifact rather than defaulted to a
+            permissive value. Every key must be one of ``attribute_keys``, and
+            every rule of one ``entity_class`` that carries a governed
+            attribute must declare the same set for it
+            (:class:`EntityResolutionSpec`). Authority is exactly as strong as
+            the deployment's binding of ``system_id`` to a real system: the
+            SDK does not attest source identity. Hash-transparent when empty
+            (``D-IMPL-243``), so every existing rule keeps its content hash.
 
     A ``*_ref: True`` presence-flag ``match_key`` (the SDK's own acquisition
     idiom) cannot also be an identity key: a boolean identity value is refused
@@ -128,6 +162,27 @@ class EntityResolutionRule(CCFContract):
     identity_sources: Mapping[str, str] = Field(
         default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    attribute_authorities: Mapping[str, frozenset[str]] = Field(
+        default_factory=dict, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="after")
+    def _authorities_govern_carried_attributes(self) -> "EntityResolutionRule":
+        """An authority over an attribute the rule never carries governs nothing.
+
+        Refused rather than ignored, on the ``identity_sources`` precedent: a
+        typo here would leave the real attribute source-asserted while the
+        artifact reads as governed — the silent failure SEC-023 removes.
+        """
+        uncarried = sorted(set(self.attribute_authorities) - set(self.attribute_keys))
+        if uncarried:
+            raise ValueError(
+                f"attribute_authorities governs {uncarried}, which"
+                f" {self.entity_class!r} does not carry as attribute keys"
+                f" ({sorted(self.attribute_keys)}). An authority can only"
+                " govern an attribute the rule writes (SEC-023)"
+            )
+        return self
 
     @model_validator(mode="after")
     def _sources_remap_declared_identity_keys(self) -> "EntityResolutionRule":
@@ -247,6 +302,54 @@ class EntityResolutionSpec(VersionedArtifact):
 
     entity_rules: tuple[EntityResolutionRule, ...]
     relationship_rules: tuple[RelationshipResolutionRule, ...] = ()
+
+    @model_validator(mode="after")
+    def _one_authority_per_governed_attribute(self) -> "EntityResolutionSpec":
+        """Authority is one declaration per ``(entity_class, attribute)`` (SEC-023).
+
+        Which rule fires is chosen by the PAYLOAD (``match_key`` presence), and
+        the payload is the source's. So if one rule of a class governed an
+        attribute and a second rule of the same class carried it ungoverned —
+        or governed it with a different set — a source could present the
+        second rule's match key and assert the attribute through the rule
+        that does not refuse it. Refused at declaration: every rule of a class
+        that carries a governed attribute declares the identical set.
+        """
+        declared: dict[tuple[str, str], frozenset[str]] = {}
+        for rule in self.entity_rules:
+            for attribute, sources in rule.attribute_authorities.items():
+                key = (rule.entity_class, attribute)
+                if declared.setdefault(key, frozenset(sources)) != frozenset(sources):
+                    raise ValueError(self._split_authority(key))
+        for rule in self.entity_rules:
+            for attribute in rule.attribute_keys:
+                key = (rule.entity_class, attribute)
+                if key in declared and attribute not in rule.attribute_authorities:
+                    raise ValueError(self._split_authority(key))
+        return self
+
+    @staticmethod
+    def _split_authority(key: tuple[str, str]) -> str:
+        return (
+            f"rules for {key[0]!r} carry attribute {key[1]!r} under differing"
+            " attribute_authorities; a governed attribute takes one authority"
+            " declaration per entity class, on every rule that carries it, or a"
+            " source could assert it through the rule that does not govern it"
+            " (SEC-023)"
+        )
+
+    def governed_attributes(self) -> Mapping[str, Mapping[str, frozenset[str]]]:
+        """Entity class -> governed attribute -> authorized source system ids.
+
+        The one view :meth:`AssemblyWorker.ingest` judges a claim against.
+        Keyed by class, not by the rule that fired, because the validator
+        above makes the declaration a property of ``(class, attribute)``.
+        """
+        governed: dict[str, dict[str, frozenset[str]]] = {}
+        for rule in self.entity_rules:
+            for attribute, sources in rule.attribute_authorities.items():
+                governed.setdefault(rule.entity_class, {})[attribute] = frozenset(sources)
+        return governed
 
 
 class FederatedIngestSpec(CCFContract):
@@ -616,11 +719,39 @@ class SpecDrivenEntityResolution:
         return tuple(resolved)
 
 
+class RefusedAssertion(CCFContract):
+    """One governed attribute a source asserted without authority (SEC-023).
+
+    The caller's view of a refusal whose record of truth is the
+    ``attribute_assertion_refused`` event on the Control Plane audit log
+    (``src/ccf/controlplane/audit.py::AttributeAssertionRefusedAuditEvent``).
+    Carries no value: what the source asserted is not copied anywhere.
+
+    Attributes:
+        entity_uri: The entity whose claim from this envelope was refused.
+        entity_class: Its class.
+        attribute: The governed attribute the source may not assert.
+        source_system_id: The envelope's self-declared source identity.
+        envelope_id: The envelope whose claim was refused.
+    """
+
+    entity_uri: str
+    entity_class: str
+    attribute: str
+    source_system_id: str
+    envelope_id: str
+
+
 class IngestResult(CCFContract):
     """What one envelope became.
 
     Reported rather than swallowed so callers, tests, and the eventual replay
     record can see that an envelope produced exactly this much graph state.
+
+    ``refused_assertions`` lists every governed attribute a refused entity
+    claim asserted without authority (SEC-023, ``D-IMPL-372``): a refusal is a
+    recorded outcome of ``ingest``, never an exception. Hash-transparent when
+    empty (``D-IMPL-243``).
     """
 
     envelope_id: str
@@ -628,6 +759,9 @@ class IngestResult(CCFContract):
     policy_bundle_version: str
     entities: tuple[UpsertResult, ...] = ()
     relationships: tuple[UpsertResult, ...] = ()
+    refused_assertions: tuple[RefusedAssertion, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class AssemblyWorker:
@@ -785,7 +919,9 @@ class AssemblyWorker:
                 )
             }
         )
-        resolved = self._resolution.resolve(envelope=envelope)
+        resolved, refused = self._judge_authority(
+            envelope, self._resolution.resolve(envelope=envelope)
+        )
 
         entity_results = tuple(
             self.admit_entity_claim(
@@ -863,7 +999,109 @@ class AssemblyWorker:
             policy_bundle_version=self._policy_bundle_version,
             entities=entity_results,
             relationships=tuple(relationship_results),
+            refused_assertions=refused,
         )
+
+    def _judge_authority(
+        self, envelope: SignalEnvelope, resolved: tuple[ResolvedEntity, ...]
+    ) -> tuple[tuple[ResolvedEntity, ...], tuple[RefusedAssertion, ...]]:
+        """Refuse every resolved entity whose source may not assert a governed attribute.
+
+        SEC-023 (``D-IMPL-372``, ruling Q15 (a)); whitepaper §7.3 (L2 is the
+        only writer, so the only place the check can hold) and §7.8.2 (the
+        Control Plane is the audit plane). Runs before any claim is written,
+        against ``src/ccf/assembly/worker.py::EntityResolutionSpec.governed_attributes``.
+
+        An entity asserting a governed attribute from a source outside its
+        declared set is dropped WHOLE from this envelope's writes — and so from
+        the relationships derived below, because an edge onto it would be a
+        claim from the same refused source. Each refused attribute is appended
+        to the Control Plane audit log as ``attribute_assertion_refused``
+        (``resolved=False``, ``occurred_at`` the envelope's own ingestion
+        instant — this method reads no clock) and returned for
+        :class:`IngestResult`. **Never raised:** a raise here would let a
+        non-authoritative source refuse every serve whose acquisition touched
+        it (``src/ccf/products/resolver.py::SDK_SEAM_REFUSALS``).
+
+        **An omission is audited and admitted** (SEC-023-C-01, ``D-IMPL-374``
+        ruling (3)): an entity from a source outside a governed attribute's
+        set that does NOT carry the attribute is written — its claim
+        supersedes the attribute dict, so it blanks the label if one was
+        present — and each such attribute is appended as
+        ``governed_attribute_omitted`` (``resolved=True``,
+        ``refused_value_present=False``). The event records the omission, not
+        a measured blanking: it fires on every such ingest, including a first
+        observation where there was no label to blank, so its volume scales
+        with non-authoritative ingest of a governed class.
+
+        A strategy that exposes no :class:`EntityResolutionSpec` declares no
+        authorities, so nothing is governed — the ``_relationship_rules``
+        posture.
+        """
+        spec = getattr(self._resolution, "spec", None)
+        governed = (
+            spec.governed_attributes() if isinstance(spec, EntityResolutionSpec) else {}
+        )
+        source = envelope.source.system_id
+        admitted: list[ResolvedEntity] = []
+        refused: list[RefusedAssertion] = []
+        for item in resolved:
+            authorities = governed.get(item.entity_class, {})
+            unauthorized = sorted(
+                attribute
+                for attribute, sources in authorities.items()
+                if attribute in item.attributes and source not in sources
+            )
+            if not unauthorized:
+                # SEC-023-C-01 (`D-IMPL-374` ruling (3); audit AND admit): a
+                # claim supersedes the whole attribute dict, so a source not
+                # authorized for a governed attribute that OMITS it blanks any
+                # label present (recorded whether or not one was). Admitted — an omission asserts no value, and a refusal
+                # would be a lever over every serve — but never silent.
+                for attribute in sorted(
+                    attribute
+                    for attribute, sources in authorities.items()
+                    if attribute not in item.attributes and source not in sources
+                ):
+                    self._registry.audit_log.append(
+                        action="governed_attribute_omitted",
+                        key=item.entity_uri,
+                        version=self._policy_bundle_version,
+                        resolved=True,
+                        occurred_at=envelope.ingestion_timestamp,
+                        artifact_class=_RESOLUTION_SPEC_CLASS_ID,
+                        refused_entity_class=item.entity_class,
+                        refused_attribute=attribute,
+                        refused_source_system_id=source,
+                        refused_envelope_id=envelope.envelope_id,
+                        refused_value_present=False,
+                    )
+                admitted.append(item)
+                continue
+            for attribute in unauthorized:
+                self._registry.audit_log.append(
+                    action="attribute_assertion_refused",
+                    key=item.entity_uri,
+                    version=self._policy_bundle_version,
+                    resolved=False,
+                    occurred_at=envelope.ingestion_timestamp,
+                    artifact_class=_RESOLUTION_SPEC_CLASS_ID,
+                    refused_entity_class=item.entity_class,
+                    refused_attribute=attribute,
+                    refused_source_system_id=source,
+                    refused_envelope_id=envelope.envelope_id,
+                    refused_value_present=True,
+                )
+                refused.append(
+                    RefusedAssertion(
+                        entity_uri=item.entity_uri,
+                        entity_class=item.entity_class,
+                        attribute=attribute,
+                        source_system_id=source,
+                        envelope_id=envelope.envelope_id,
+                    )
+                )
+        return tuple(admitted), tuple(refused)
 
     def ingest_admitted(
         self,

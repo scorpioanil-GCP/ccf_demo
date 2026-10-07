@@ -53,12 +53,14 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TypedDict
 
 from fastapi import FastAPI
 
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
+from ccf.erasure import compose_erasure_consult
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf_runtime.authz.delivery_boundary import (
     disclosing_boundary,
@@ -121,19 +123,29 @@ AUTH_POSTURE_SENTENCE = (
 
 
 class HttpAuthority(TypedDict):
-    """The five seams :func:`create_app` requires, as one typed bundle.
+    """The keyword-only parameters :func:`create_app` requires, as one typed bundle.
 
-    For embedders that build the app somewhere other than a deployment's own
-    composition — the CLI's in-process leg (:func:`ccf_runtime.cli.main.main`),
-    a test fixture — and hand the seams along as a unit. Every key is required
-    and every value type is the seam's own, so a bundle missing a seam is a
-    type error where the bundle is written, and ``**bundle`` at
-    :func:`create_app` is checked key by key. This replaces the one call site
-    that carried ``# type: ignore[arg-type]`` over an untyped mapping
-    (``D-IMPL-353`` §4 rule 6).
+    Five authority seams and one declared value. For embedders that build the
+    app somewhere other than a deployment's own composition — the CLI's
+    in-process leg (:func:`ccf_runtime.cli.main.main`), a test fixture — and
+    hand them along as a unit. Every key is required and every value type is
+    the parameter's own, so a bundle missing one is a type error where the
+    bundle is written, and ``**bundle`` at :func:`create_app` is checked key by
+    key. This replaces the one call site that carried
+    ``# type: ignore[arg-type]`` over an untyped mapping (``D-IMPL-353`` §4
+    rule 6).
+
+    ``replay_record_product_class`` is the declared value, and it is required
+    like the seams (``SEC-017``; ``D-IMPL-374`` (2)): a bundle that leaves the
+    key out is a type error, not a quiet ``None``. ``None`` is a value the
+    embedder states rather than a default the bundle supplies. It declares that
+    no replay record class is named, and a caller whose grant declares a product
+    roster is then refused every replay read, so it fails closed. The SDK names
+    no class.
+
     ``tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams``
-    holds the keys and types equal to :func:`create_app`'s keyword seams, so
-    the two cannot drift apart.
+    holds the keys and types equal to :func:`create_app`'s keyword-only
+    parameters, so the two cannot drift apart.
     """
 
     auth: HttpAuthProtocol
@@ -141,6 +153,7 @@ class HttpAuthority(TypedDict):
     product_entitlement: ProductEntitlementSourceProtocol
     perspective_resolver: PerspectiveResolverProtocol
     refusal_recorder: RefusalRecorderProtocol
+    replay_record_product_class: str | None
 
 
 class GovernedWiringError(ValueError):
@@ -229,6 +242,7 @@ def create_app(
     product_entitlement: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
     refusal_recorder: RefusalRecorderProtocol,
+    replay_record_product_class: str | None,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
@@ -265,6 +279,23 @@ def create_app(
             run here and refuse rather than building. There is deliberately no
             warn-and-serve posture and no per-request refusal: failing closed
             only on denial would make auditability contingent on outcome.
+        replay_record_product_class: The Context Product class the
+            ``/replay/...`` routes' records are held to for a bearer whose
+            grant declares a product roster (``SEC-017``; ``D-IMPL-374`` (2)).
+            A deployment value; the SDK names no class. **Required**, with no
+            default, like every other keyword-only parameter here
+            (``D-IMPL-353`` §4 rule 1; :class:`HttpAuthority` names it too): a
+            deployment states it, so leaving it out is a ``TypeError`` and not
+            a quiet ``None``. ``None`` is the value you pass to declare no
+            class, and it fails closed: a rostered caller is refused every
+            replay read. A caller whose grant declares no roster is unaffected
+            by either value.
+
+    **The erasure consult is composed always** (SEC-009; ``D-IMPL-374`` (4),
+    U12): the store ``deps`` carries is wrapped in
+    :class:`~ccf.erasure.ErasureConsultingStore` over the registry mirror of
+    ``deps.control_plane``, so no route can serve an erased address's bytes;
+    on an empty index it is identity.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
@@ -297,6 +328,25 @@ def create_app(
     # `tests/http_api/test_product_refusal_statuses.py` severs by literal, is
     # unchanged.)
     governed_wiring(refusal_recorder=refusal_recorder, builder="create_app")
+
+    # SEC-009 (`D-IMPL-374` (4), U12): the erasure consult is composed ALWAYS,
+    # around whatever store the deployment handed in, so every route reads
+    # through it; on an empty index it is identity.
+    deps = replace(
+        deps,
+        artifact_store=compose_erasure_consult(
+            deps.artifact_store,
+            index=deps.erasure_index,
+            audit_log=deps.control_plane.audit_log,
+            # Fix rounds 4 and 5: approvals and the door's record signatures
+            # verify here, against the deployment's per-tenant trust root.
+            control_plane=deps.control_plane,
+            erasure_trust=deps.erasure_trust,
+            # The door's determination clock (ruling 3): the one the entitled
+            # reads are already stamped with.
+            clock=product_entitlement.clock,
+        ),
+    )
 
     app = FastAPI(
         title="CCF HTTP API",
@@ -353,7 +403,11 @@ def create_app(
     # to return an application with an undeclared route on it.
     table = build_route_table(app)
     app.add_middleware(
-        AuthorizationGate, auth=auth, authorizer=authorizer, table=table
+        AuthorizationGate,
+        auth=auth,
+        authorizer=authorizer,
+        table=table,
+        replay_record_product_class=replay_record_product_class,
     )
     return app
 

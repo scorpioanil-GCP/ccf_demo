@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -267,7 +268,7 @@ def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
     token_file = tmp_path / "routes-echo-tokens.json"
     source = _echo_entitlement(fabric)
     return create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -287,6 +288,7 @@ def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
         # denial is not built. This door only ever serves, so the recorder is
         # bound and never fires — one keyword, and nothing else here moves.
         refusal_recorder=_recorder(fabric, tmp_path, source=source),
+        replay_record_product_class=None,
     )
 
 
@@ -1030,7 +1032,7 @@ def test_backends_is_guarded_exactly_as_schema_is(
 
     tenant = fabric.product_address.tenant
     authed = create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -1051,6 +1053,7 @@ def test_backends_is_guarded_exactly_as_schema_is(
         refusal_recorder=_recorder(
             fabric, tmp_path, source=_echo_entitlement(fabric)
         ),
+        replay_record_product_class=None,
     )
 
     from .gate_fixtures import probe
