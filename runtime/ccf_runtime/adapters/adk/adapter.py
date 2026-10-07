@@ -233,6 +233,7 @@ class _DeclaredSkillTool(FunctionTool):
         surface: RenderedToolSurface,
         refuse: Callable[[ArgumentRefused], dict[str, Any]],
         validate: Callable[[Mapping[str, Any]], None],
+        admit: Callable[[], dict[str, Any] | None],
     ) -> None:
         super().__init__(func=func)
         self.name = name
@@ -241,6 +242,7 @@ class _DeclaredSkillTool(FunctionTool):
         self._ccf_dispatch = func
         self._ccf_refuse = refuse
         self._ccf_validate = validate
+        self._ccf_admit = admit
 
     async def run_async(
         self, *, args: dict[str, Any], tool_context: ToolContext
@@ -260,7 +262,17 @@ class _DeclaredSkillTool(FunctionTool):
         dispatch — a ``local_callable`` refused by some other surface —
         propagates like every other dispatch failure rather than being reported
         as this tool's argument refusal.
+
+        **A read-only binding refuses here, before anything else** (``TP-01``,
+        ``I-1``, ``D-IMPL-361``). The ``before_tool`` callback lives on the
+        ``LlmAgent``; a deployment that reuses these tools elsewhere bypasses
+        it. So the tool itself refuses when the adapter declared ``effects``
+        other than ``governed``, independent of the callback, and nothing is
+        dispatched.
         """
+        refused_by_binding = self._ccf_admit()
+        if refused_by_binding is not None:
+            return refused_by_binding
         try:
             refuse_undeclared_arguments(
                 args,
@@ -508,10 +520,22 @@ class AdkAdapter:
                 surface=skill_name,
             )
 
+        def admit() -> dict[str, Any] | None:
+            if self._effects != "governed":
+                return self._refusal_response(
+                    self._refusal(agent, self._refusal_reason())
+                )
+            return None
+
         call.__name__ = entry.name
         call.__doc__ = surface.description
         return _DeclaredSkillTool(
-            call, name=entry.name, surface=surface, refuse=refuse, validate=validate
+            call,
+            name=entry.name,
+            surface=surface,
+            refuse=refuse,
+            validate=validate,
+            admit=admit,
         )
 
     def _tools(self, agent: Agent) -> tuple[FunctionTool, ...]:
