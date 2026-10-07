@@ -96,6 +96,12 @@ ALLOWED_CCF_PREFIXES = (
     # mechanism above L6, same class as catalog/dispatch; binding it opens no
     # path from Agent to L1–L5.
     "ccf.skills.grants",
+    # TP-04 follow-on (Task 5, D-IMPL-361): the one argument rule
+    # `Agent.invoke_skill` enforces before dispatch. Same tier as
+    # catalog/dispatch above — a pure algorithmic validator whose entire `ccf`
+    # import surface is `ccf.skills.catalog`, under TYPE_CHECKING only — so
+    # binding it opens no path from Agent to L1–L5.
+    "ccf.skills.wire_arguments",
 )
 
 #: Per-module widenings of the surface above, argued **one module at a time**

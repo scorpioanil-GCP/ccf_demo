@@ -276,10 +276,19 @@ class LangGraphAdapter:
         derivation (:func:`ccf.skills.toolsurface.render_tool_surface`) over
         the entry's own declared ``description`` and ``argument_schema``
         (D-IMPL-56) — never adapter-authored, so all three reference adapters
-        render the identical surface for the same entry (D-17). The declared
-        arguments arrive as named keyword arguments and are carried to
-        :meth:`~ccf.agents.agent.Agent.invoke_skill` as its
-        ``Mapping[str, str]``.
+        render the identical surface for the same entry (D-17). The arguments
+        arrive as named keyword arguments and are carried to
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as they arrived.
+
+        **The argument rule is the seam's** (``TP-04`` follow-on,
+        ``D-IMPL-361``). Measured before it: langchain-core does not validate
+        a plain JSON-Schema ``args_schema``, and this callable stringified every
+        value, so an undeclared key, a missing required argument and a
+        wrong-typed value were all dispatched and audited. Now
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` refuses each by name,
+        before dispatch, with the
+        :class:`~ccf.skills.wire_arguments.ArgumentRefused` family, which this
+        tool call raises — fail-closed — rather than answering.
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
@@ -289,11 +298,8 @@ class LangGraphAdapter:
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
 
-        def call(**arguments: str) -> str:
-            invocation = agent.invoke_skill(
-                skill_name,
-                arguments={key: str(value) for key, value in arguments.items()},
-            )
+        def call(**arguments: Any) -> str:
+            invocation = agent.invoke_skill(skill_name, arguments=arguments)
             return canonical_bytes(invocation).decode("utf-8")
 
         return StructuredTool.from_function(
