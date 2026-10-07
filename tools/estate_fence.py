@@ -27,11 +27,14 @@ evils. The alternative is a duplicate parser whose drift nobody would notice unt
 it mattered. If the helper ever moves to ``src/``, this import follows it and
 nothing else here changes.
 
-**What it refuses.** Any of the named variables whose PARSED destination reaches a
-host declared in ``CCF_CURATED_ESTATE_HOSTS`` (default ``192.168.4.76``). An unset
-variable is NOT a refusal: unset means the deployment's own default applies, which
-for the disposable set is localhost or a throwaway container. An UNPARSEABLE value
-IS a refusal, because a destination nobody has established must never read as safe.
+**What it refuses.** Any of the named variables whose destination reaches a network
+address that a host declared in ``CCF_CURATED_ESTATE_HOSTS`` (default
+``192.168.4.76``) reaches — compared as ADDRESSES, so every spelling of the curated
+address and every name that resolves to it is refused (`377-FENCE`, Dave,
+2026-10-07). An unset variable is NOT a refusal: unset means the deployment's own
+default applies, which for the disposable set is localhost or a throwaway container.
+An UNPARSEABLE value, and a host that cannot be resolved to an address, ARE
+refusals, because a destination nobody has established must never read as safe.
 
 Exit codes: ``0`` nothing named a curated host; ``1`` something did, and the run
 must not proceed; ``2`` the fence itself could not run.
@@ -58,6 +61,9 @@ WRITE_TARGET_VARS: tuple[str, ...] = (
     "CCF_TEST_FLUREE_URL",
     "CCF_TEST_POSTGRES_DSN",
     "CCF_TEST_MONGO_URI",
+    # The neo4j leg creates indexes and MERGEs nodes into whatever this names, and
+    # the curated host runs a Neo4j: it was in neither roster until `377-FENCE`.
+    "CCF_TEST_NEO4J_URI",
     # s1-00's write profile reads this one; `provision.py` derives it from
     # `CCF_TEST_POSTGRES_DSN` or from a container it starts, so BOTH are checked —
     # fencing only the operator's input would miss a derived destination.

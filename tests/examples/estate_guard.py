@@ -18,12 +18,23 @@ one.
 
 Lifted out of ``cp_04_seed`` when s1-00 needed the same rule: an estate fence
 imported from a module named for one example reads as that example's business.
+
+**It compares NETWORK ADDRESSES, not spellings** (`377-FENCE`, Dave, 2026-10-07).
+The estate lane measured the spelling comparison admitting ``3232236620``,
+``0xc0a8044c``, ``0300.0250.04.0114``, ``192.168.1100`` and
+``::ffff:192.168.4.76`` — five spellings the operating system's resolver turns
+into the curated address — and any name that resolves to it would have passed
+the same way. Every destination and every curated declaration is now reduced to
+the addresses it reaches (:func:`_addresses`), and a destination whose host
+cannot be resolved is refused by name rather than assumed safe.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import re
+import socket
 from urllib.parse import urlsplit
 
 from psycopg.conninfo import conninfo_to_dict
@@ -149,34 +160,163 @@ def _destinations(target: str) -> frozenset[str] | None:
     return _hosts_from_url(target)
 
 
-def _names_a_curated_host(target: str) -> bool:
-    """Does ``target`` reach a curated host? **Host-level, never port-scoped.**
+# ---------------------------------------------------------------------------
+# Addresses, not spellings — `377-FENCE` (Dave, 2026-10-07 14:27 MST).
+# ---------------------------------------------------------------------------
 
-    The estate rule is *"the curated host is read-only"* — not *"read-only on
-    certain ports"* (`CLAUDE.md` section 9; `D-IMPL-358` ruling 12 as corrected).
-    So **no port allow-list or deny-list is introduced here**: if any parsed
-    destination is a curated host, the write is refused **regardless of port**. A
-    curated declaration that happens to carry a port still fences the whole
-    machine, because narrowing a host-level protection to a port list nobody
-    ruled would be a weakening dressed as precision.
+#: Either kind of network address the comparison works in.
+Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 
-    Ports are still parsed — they belong in evidence and in a debugging message —
-    but no port participates in this decision.
+#: The well-known NAT64 prefix (RFC 6052). An address under it is an IPv4 address
+#: reached through a translator, and is compared as that IPv4 address.
+_NAT64_WELL_KNOWN = ipaddress.ip_network("64:ff9b::/96")
 
-    Structural parsing throughout, never a substring test. The previous
-    ``any(host in target for host in curated)`` matched a curated address
-    appearing anywhere in the string, including inside a password, which refused
-    legitimate throwaway targets and taught operators the fence was noise.
+
+def _numeric(host: str) -> Address | None:
+    """``host`` as an address when it is a numeric spelling, or ``None``. No lookup.
+
+    Two parsers, in order. :func:`ipaddress.ip_address` reads the dotted quad and
+    every IPv6 form, a scope included. :func:`socket.inet_aton` then reads what the
+    C library also accepts for IPv4 and :mod:`ipaddress` refuses — a bare integer
+    (``3232236620``), hexadecimal (``0xc0a8044c``), octal (``0300.0250.04.0114``),
+    and the short ``a.b.c`` and ``a.b`` forms. Those are not curiosities: measured,
+    the operating system's resolver turns every one of them into the address it
+    designates, so a connection made with any of them reaches that address.
+    Neither parser performs a lookup.
+    """
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    try:
+        return ipaddress.IPv4Address(socket.inet_aton(host))
+    except (OSError, ValueError, UnicodeError, TypeError):
+        return None
+
+
+def _comparable(address: Address) -> frozenset[Address]:
+    """``address`` and every IPv4 address it embeds, for comparison.
+
+    An IPv4-mapped IPv6 address IS its IPv4 address: a dual-stack socket handed
+    ``::ffff:192.168.4.76`` connects to ``192.168.4.76``. The other IPv6 forms that
+    carry an IPv4 address — IPv4-compatible, 6to4, Teredo, the NAT64 prefix — are
+    compared as that IPv4 address too. Refusing a target that might reach the
+    curated host is the recoverable error; admitting one is the permanent one.
+    A scope is dropped, because it selects an interface, not a host.
+    """
+    found: set[Address] = {address}
+    if isinstance(address, ipaddress.IPv6Address):
+        bare = ipaddress.IPv6Address(int(address))
+        found.add(bare)
+        for embedded in (bare.ipv4_mapped, bare.sixtofour, *(bare.teredo or ())):
+            if embedded is not None:
+                found.add(embedded)
+        compatible = int(bare) >> 32 == 0 and int(bare) > 1
+        if compatible or bare in _NAT64_WELL_KNOWN:
+            found.add(ipaddress.IPv4Address(int(bare) & 0xFFFFFFFF))
+    return frozenset(found)
+
+
+def _is_local_socket(host: str) -> bool:
+    """A libpq Unix-domain socket: a directory path (or Linux's abstract ``@name``).
+
+    It has no network address at all, so no curated host can be behind it — the
+    one host shape that is safe without resolving anything.
+    """
+    return host.startswith(("/", "@"))
+
+
+def _addresses(host: str) -> frozenset[Address] | None:
+    """Every address ``host`` reaches, or ``None`` when that cannot be established.
+
+    A numeric spelling is parsed without a lookup (:func:`_numeric`). A name goes
+    through :func:`socket.getaddrinfo` — the resolver every driver this suite uses
+    calls to connect — so the fence classifies the destination a connection would
+    actually reach rather than the string that names it. A name that does not
+    resolve returns ``None`` and the caller REFUSES it: *don't know* must never
+    collapse into *pass*.
+    """
+    if _is_local_socket(host):
+        return frozenset()
+    numeric = _numeric(host)
+    if numeric is not None:
+        return _comparable(numeric)
+    try:
+        answers = socket.getaddrinfo(host, None)
+    except (OSError, UnicodeError, ValueError):  # `socket.gaierror` is an OSError
+        return None
+    found: set[Address] = set()
+    for *_, sockaddr in answers:
+        parsed = _numeric(str(sockaddr[0]))
+        if parsed is None:
+            return None  # an answer this cannot read is not an answer
+        found |= _comparable(parsed)
+    return frozenset(found) or None
+
+
+def _curated() -> tuple[frozenset[str], frozenset[Address]]:
+    """The curated declarations, as spellings AND as the addresses they reach.
+
+    Both sides of the comparison are canonicalized: a host declared by name, or by
+    another spelling of its address, fences that address however a target spells
+    it. A declaration that cannot be resolved here keeps only its spelling — and a
+    target naming it cannot be resolved either, so that target is refused anyway.
+    """
+    spellings: set[str] = set()
+    addresses: set[Address] = set()
+    for declaration in _curated_hosts():
+        for host in _destinations(declaration) or frozenset():
+            spellings.add(host)
+            addresses |= _addresses(host) or frozenset()
+    return frozenset(spellings), frozenset(addresses)
+
+
+def _why_refused(
+    target: str, curated: tuple[frozenset[str], frozenset[Address]]
+) -> str | None:
+    """Why ``target`` must not be written, or ``None`` when it may be.
+
+    **Host-level, never port-scoped.** The estate rule is *"the curated host is
+    read-only"* — not *"read-only on certain ports"* (`CLAUDE.md` section 9;
+    `D-IMPL-358` ruling 12 as corrected). So no port allow-list or deny-list exists
+    here: if any destination reaches a curated host, the write is refused
+    **regardless of port**. Ports are still parsed — they belong in evidence and in
+    a debugging message — but no port participates in this decision.
+
+    **Addresses, not spellings** (`377-FENCE`). Every destination is resolved to
+    the addresses it reaches and compared with the addresses the curated
+    declarations reach. A destination that cannot be resolved is refused by name.
+    Numeric hosts are judged first, so a curated address in a multi-host target is
+    refused before any resolver is consulted.
+
+    Structural parsing throughout, never a substring test: a curated address
+    appearing inside a password is not a destination.
     """
     destinations = _destinations(target)
     if destinations is None:
-        return True
-    curated = {
-        host
-        for declaration in _curated_hosts()
-        for host in (_destinations(declaration) or frozenset())
-    }
-    return bool(destinations & curated)
+        return "no destination could be read from it"
+    spellings, addresses = curated
+    for host in sorted(destinations, key=lambda name: (_numeric(name) is None, name)):
+        reached = _addresses(host)
+        hit = sorted(str(address) for address in (reached or frozenset()) & addresses)
+        if hit:
+            return f"host {host!r} reaches the curated address {hit[0]}"
+        if host in spellings:
+            return f"host {host!r} is declared curated in {CURATED_HOSTS_ENV}"
+        if reached is None:
+            return (
+                f"host {host!r} could not be resolved to a network address, so it is"
+                " refused rather than assumed safe"
+            )
+    return None
+
+
+def _names_a_curated_host(target: str) -> bool:
+    """Does ``target`` reach a curated host — or fail to say where it goes?
+
+    See :func:`_why_refused`; this is its yes/no.
+    """
+    return _why_refused(target, _curated()) is not None
 
 
 def refuse_to_write_the_curated_estate(*targets: str) -> None:
@@ -197,24 +337,35 @@ def refuse_to_write_the_curated_estate(*targets: str) -> None:
     localhost would run the suite against a store the operator did not choose
     and did not populate, and report the result as though they had.
 
+    **Each refusal says why** (`377-FENCE`): the host that reaches a curated
+    address and the address it reaches, or the host that could not be resolved.
+    The reason names hosts and addresses only; the target itself is redacted.
+
     Raises:
-        RuntimeError: any target names a curated host.
+        RuntimeError: any target reaches a curated address, names a host that
+            cannot be resolved to a network address, or yields no destination.
     """
-    offending = [
-        _redacted(target)
-        for target in targets
-        if target and _names_a_curated_host(target)
-    ]
+    present = [target for target in targets if target]
+    if not present:
+        return
+    curated = _curated()
+    offending = []
+    for target in present:
+        why = _why_refused(target, curated)
+        if why is not None:
+            offending.append(f"{_redacted(target)} ({why})")
     if offending:
         raise RuntimeError(
             "refusing to SEED a curated store: "
             + ", ".join(sorted(offending))
             + f". Hosts in {CURATED_HOSTS_ENV} (default {DEFAULT_CURATED_HOSTS})"
-            " hold the curated estate. A seeded Fluree ledger there is"
+            " hold the curated estate, compared as the network addresses they"
+            " reach: every spelling of a curated address, and every name that"
+            " resolves to one, is that host. A seeded Fluree ledger there is"
             " PERMANENT — the store is append-only — and a seeded PostgreSQL"
             " schema is removable but accumulates until somebody removes it."
-            " Point CCF_TEST_FLUREE_URL, CCF_TEST_POSTGRES_DSN and"
-            " CCF_TEST_MONGO_URI at a local"
+            " Point CCF_TEST_FLUREE_URL, CCF_TEST_POSTGRES_DSN,"
+            " CCF_TEST_MONGO_URI and CCF_TEST_NEO4J_URI at a local"
             " container. Reading the curated estate is expected; writing to it"
             " is not (CLAUDE.md §9, `D-IMPL-318`)"
         )
