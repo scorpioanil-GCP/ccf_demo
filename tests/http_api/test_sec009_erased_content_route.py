@@ -113,3 +113,22 @@ def test_an_unentitled_caller_cannot_learn_that_an_address_was_erased(fabric: Fa
         assert "erased" not in after.text and RECORD_ADDRESS not in after.text, token
         assert "customer-request" not in after.text, token
         assert ed.same_shell(earlier, address, after, address), token
+
+
+def test_at_minimal_the_wire_is_not_found_and_the_recorded_refusal_is_erased_content(fabric: Fabric, tmp_path: Path) -> None:
+    """Fix round 1, I5: the audit trail is honest at ``minimal``.
+
+    The entitled owner ``C`` discloses at ``minimal``. The wire shell is the
+    route's not-found rendering, identical to an address nothing is stored at;
+    the refusal RECORDED behind it (dimension 5) is the ``erased-content``
+    determination, never a false "nonexistent".
+    """
+    governed = ed._governed(fabric, tmp_path)
+    address = ed._served_record(governed, principal=ed.C)
+    _erase(governed, address)
+    minimal = ed._get_artifact(governed, address, token=ed.C_TOKEN)
+    nowhere = ed._get_artifact(governed, ed.NOWHERE, token=ed.C_TOKEN)
+    assert minimal.status_code == 404
+    assert ed.same_shell(minimal, address, nowhere, ed.NOWHERE)
+    internal = governed.internal(minimal.json()["refusal"]["replay_reference"])
+    assert internal.kind == "erased-content", internal.kind
