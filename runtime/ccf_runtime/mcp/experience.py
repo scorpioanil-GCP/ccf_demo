@@ -1523,7 +1523,11 @@ def build_experience_server(
             the guard, before the authorizer is asked — so no allow is
             recorded and the invoker is never entered (fix round 1). A caller with no roster is
             tenant-wide, as before — declaring the roster is the deployment's
-            obligation.
+            obligation. For a rostered caller every refusal on this tool —
+            each directory outcome, a directory failure, and the authorizer's
+            own deny of an existing on-roster agent — is ONE byte-identical
+            opaque refusal, its specific reason logged server-side only (fix
+            round 2, I-NEW-1; PC2, panel C2).
             """
             return invoker_seam(
                 # The capability's tenant, never a wire value (D-IMPL-353 §1.2).

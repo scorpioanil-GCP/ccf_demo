@@ -264,3 +264,13 @@ and X2.
 - After: an erased child's address is not in `child_contract_addresses`; it is reported, positively, on `erased_content`. The docstrings say so.
 - Why: PM7, panel C7 (`D-IMPL-374`). The evidence type's own field overstated what was verified. Red test: `tests/replay/test_pm7_refusal_children_exclude_erased.py`.
 - Migration: a caller that compared `child_contract_addresses` with the record's admitted rows also reads `erased_content`.
+
+## ccf_runtime.mcp.tenancy.TenantGuardedServer
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer
+- Public surface: true
+- Change type: behavior
+- Before: for a caller whose grant declares a product roster, on a surface whose product reach is resolved from a directory (`invoke_agent`), every directory outcome refused with one opaque reason before the authorizer, but an agent that existed and was on the roster reached the authorizer, whose deny read `tenant-unauthorized`. A rostered principal without invoke permission learned which agents exist.
+- After: for that caller on that surface, the authorizer's deny is the same opaque pre-authorization refusal, byte-identical to every other outcome; the specific reason is logged server-side only. The unrostered path, and every surface whose reach is an argument or a declaration, is unchanged.
+- Why: PC2, panel C2 (`D-IMPL-374`); the residual of SEC-017's I-NEW-1 class. Red test: `tests/mcp/test_pc2_invoke_oracle.py`, which compares all six rostered outcomes pairwise.
+- Migration: none.

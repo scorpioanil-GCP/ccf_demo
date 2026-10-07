@@ -142,7 +142,11 @@ _LOGGER = logging.getLogger(__name__)
 #: *reaches X, off the roster* read differently, that caller learns which
 #: agents exist and which classes they touch. So none of them is told: the
 #: specific reason is logged server-side only, and no class name and no
-#: definition key or version is echoed.
+#: definition key or version is echoed. The authorizer's own DENY, for a
+#: rostered caller on such a surface, is this same refusal too (PC2, panel C2;
+#: ``D-IMPL-374``): an agent that exists and is on the roster is the one outcome
+#: that reaches the authorizer, so a distinct ``tenant-unauthorized`` there was
+#: the fourth outcome that told the caller the agent exists.
 _OPAQUE_DIRECTORY_REASON: Final[str] = (
     "the agent named does not resolve to one this grant's product roster"
     " reaches"
@@ -1058,20 +1062,30 @@ class TenantGuardedServer:
                 grant=grant, tenant=tenant, action_id=action, resource=target
             )
             if not decision.allowed:
-                raise ActionUnauthorizedRefused(
-                    json.dumps(
-                        refusal_detail(
-                            error_code=ERROR_TENANT_UNAUTHORIZED,
-                            message=(
-                                "the verified caller's grant does not"
-                                f" authorize action {action!r} on"
-                                f" {target!r} under tenant {tenant!r} against"
-                                " the scope mapping in force (HARD-04;"
-                                " D-IMPL-68 — deny-by-default)"
-                            ),
-                        )
+                denial = json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_TENANT_UNAUTHORIZED,
+                        message=(
+                            "the verified caller's grant does not"
+                            f" authorize action {action!r} on"
+                            f" {target!r} under tenant {tenant!r} against"
+                            " the scope mapping in force (HARD-04;"
+                            " D-IMPL-68 — deny-by-default)"
+                        ),
                     )
                 )
+                if roster is not None and products.resolve is not None:
+                    # PC2 (panel C2; `D-IMPL-374`): a rostered caller's reach
+                    # on a directory-resolved surface was read BEFORE the
+                    # authorizer, and every directory outcome refuses with one
+                    # opaque reason. An agent that exists and is on the roster
+                    # reached the authorizer instead — so a distinct deny here
+                    # would tell the caller which agents exist. Its deny is
+                    # the SAME opaque refusal, its reason logged server-side.
+                    raise _opaque_directory_refusal(
+                        surface_name, f"the authorizer denied the call: {denial}"
+                    ) from None
+                raise ActionUnauthorizedRefused(denial)
             # §1.5(a): the mint binds the authorizer's WHOLE decision, and the
             # decision must be the answer to the question this wrapper asked.
             # An allow naming no record, or deciding about some other tenant,
