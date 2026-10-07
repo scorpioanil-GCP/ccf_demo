@@ -83,7 +83,7 @@ from ccf.artifacts.file_store import InsecureArtifactStoreRoot, _make_private_di
 from ccf.authz.capability import ArtifactErase, Authorized, CapabilityBypassError, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
-from ccf.erasure.errors import ErasureIndexCorrupt, ErasureIndexInsecure
+from ccf.erasure.errors import ErasureIndexCorrupt, ErasureIndexInsecure, ErasureIndexWriteFailed
 
 __ccf_mode__ = "algorithmic"
 
@@ -241,6 +241,47 @@ def _private_file(path: Path) -> None:
         )
 
 
+def _append_whole_line(descriptor: int, line: bytes, *, path: Path) -> None:
+    """Write every byte of ``line`` at the end of the index, or leave the file as it was and refuse (PC1, panel C1; `D-IMPL-374`).
+
+    ``os.write`` may write fewer bytes than asked without raising — ENOSPC
+    part-way, ``RLIMIT_FSIZE``, some network filesystems — and its count is
+    the only signal. The remainder is written until the line is whole; a write
+    that makes no progress, or fails, ends it: the file is truncated back to
+    its length before this append (the caller holds the exclusive ``flock``, so
+    no other appender's bytes are past it), fsynced, and
+    :class:`~ccf.erasure.ErasureIndexWriteFailed` is raised. A torn line is
+    never left for the next append to merge into a corrupt chain.
+
+    Raises:
+        ErasureIndexWriteFailed: the line could not be written whole.
+    """
+    start = os.fstat(descriptor).st_size
+    written = 0
+    try:
+        while written < len(line):
+            count = os.write(descriptor, line[written:])
+            if count <= 0:
+                raise OSError(f"the write made no progress after {written} of {len(line)} bytes")
+            written += count
+    except OSError as failed:
+        try:
+            os.ftruncate(descriptor, start)
+            os.fsync(descriptor)
+        except OSError as unrepaired:
+            raise ErasureIndexWriteFailed(
+                f"the erasure index {str(path)!r} append wrote {written} of {len(line)}"
+                f" bytes ({type(failed).__name__}) and the torn line could not be"
+                f" truncated back ({type(unrepaired).__name__}); the next read finds the"
+                " index corrupt and withholds everything under it (SEC-009; PC1)"
+            ) from failed
+        raise ErasureIndexWriteFailed(
+            f"the erasure index {str(path)!r} append wrote {written} of {len(line)}"
+            f" bytes ({type(failed).__name__}); the file was truncated back to its"
+            " length before the append and the entry is NOT in the index (SEC-009; PC1)"
+        ) from failed
+
+
 class FileErasureIndex:
     """The reference :class:`ErasureIndexProtocol`: a private, hash-chained, append-only JSON-lines file (SEC-009; `D-IMPL-374` (4)).
 
@@ -256,10 +297,18 @@ class FileErasureIndex:
     Args:
         path: The index file. Its directory is created ``0700`` if absent.
 
+    **An append writes its whole line or nothing** (PC1, panel C1;
+    ``D-IMPL-374``): a write that stops short is finished, and one that cannot
+    be finished is truncated back to the file's length before the append and
+    refused with :class:`~ccf.erasure.ErasureIndexWriteFailed`, so no torn line
+    is left for the next append to merge into a corrupt chain.
+
     Raises:
         ccf.erasure.ErasureIndexInsecure: the file or its directory is not
             private to this process's user (fix round 2 (a)).
         ccf.erasure.ErasureIndexCorrupt: the existing file is not an unbroken chain.
+        ccf.erasure.ErasureIndexWriteFailed: (``append``) the new line could
+            not be written whole; the file is as it was.
     """
 
     def __init__(self, path: Path | str) -> None:
@@ -371,7 +420,7 @@ class FileErasureIndex:
                         f" {entry.tenant_id!r} under another record (SEC-009; U6)"
                     )
                 line = canonical_bytes({"entry": entry, "previous": self._head}) + b"\n"
-                os.write(descriptor, line)
+                _append_whole_line(descriptor, line, path=self._path)
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)

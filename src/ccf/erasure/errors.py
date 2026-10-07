@@ -21,6 +21,7 @@ __all__ = [
     "ErasureCompositionRefused",
     "ErasureIndexCorrupt",
     "ErasureIndexInsecure",
+    "ErasureIndexWriteFailed",
 ]
 
 #: The reason every read carries while the index is corrupt (fix round 2, N3).
@@ -97,6 +98,26 @@ class ErasureIndexInsecure(PermissionError):
     user or not mode ``0600``, or a parent directory not owned by it or open
     beyond ``0700``. Anyone who can write the index can append a forged entry
     or truncate its tail.
+    """
+
+
+class ErasureIndexWriteFailed(OSError):
+    """An erasure index append could not write its whole line — refused, the file left exactly as it was (SEC-009; PC1, panel C1; `D-IMPL-374`).
+
+    Raised by :meth:`~ccf.erasure.FileErasureIndex.append` when the write of
+    the new line cannot complete — a write that stops short and cannot be
+    finished (ENOSPC part-way, ``RLIMIT_FSIZE`` on the growing index, a network
+    filesystem), or that fails outright. The append writes until every byte of
+    the line is written; when it cannot, it truncates the file back to its
+    length before the append, so no torn line is left to corrupt the chain,
+    fsyncs, and raises this. The entry is NOT in the index, and the erasure
+    door's completion propagates this by name and files no record — a door that
+    reported an erasure while the index did not hold it would leave the address
+    served (the cross-AI panel measured exactly that).
+
+    If the truncation itself fails, the torn line may remain; the next read then
+    finds the index corrupt and withholds everything under it
+    (:class:`ErasureIndexCorrupt`), which fails closed.
     """
 
 

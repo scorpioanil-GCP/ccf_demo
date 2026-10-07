@@ -321,6 +321,11 @@ class ErasureDoor:
         Raises:
             ErasureWorkflowUngated: the workflow can complete without a gate.
             ErasureRefused: any refusal; nothing is written.
+            ccf.erasure.ErasureIndexWriteFailed: a write-ahead index append
+                could not write its whole line (PC1, panel C1; ``D-IMPL-374``).
+                Propagated by name before the workflow resumes: no record is
+                filed, the entry is not in the index, and a retry on a working
+                disk completes the erasure.
         """
         workflow = self._factory.construct(authorized, definition_version=definition_version)
         tenant = authorized.tenant

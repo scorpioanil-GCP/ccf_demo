@@ -128,6 +128,7 @@ from ccf.erasure.errors import (
     ErasureCompositionRefused,
     ErasureIndexCorrupt,
     ErasureIndexInsecure,
+    ErasureIndexWriteFailed,
 )
 from ccf.erasure.index import (
     ERASURE_INDEX_FILENAME,
@@ -193,6 +194,7 @@ __all__ = [
     "ErasureIndexEntryExists",
     "ErasureIndexInsecure",
     "ErasureIndexProtocol",
+    "ErasureIndexWriteFailed",
     "ErasureIndexUnavailable",
     "ErasureRecord",
     "ErasureRequest",

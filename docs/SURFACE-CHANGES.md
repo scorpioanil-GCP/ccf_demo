@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2148 entries**, of which **1877** name a public Python surface.
+**2151 entries**, of which **1880** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1239 entries — 1195 public Python surface, 44 not public Python API.
+1241 entries — 1197 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18399,6 +18399,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-05-final-fix-wave.md`.*
 
+#### ccf.erasure.errors.ErasureIndexWriteFailed
+
+- Surface: ccf.erasure.errors.ErasureIndexWriteFailed
+- Public surface: true
+- Change type: added
+- Before: absent. `FileErasureIndex.append` ignored `os.write`'s count, so a write that stopped short without raising (ENOSPC part-way, `RLIMIT_FSIZE`, a network filesystem) returned normally over a torn line. The door then completed and returned a record while the address was still served, and the next append corrupted the index.
+- After: an `OSError` the append raises when its line cannot be written whole. The append writes until every byte is written; when it cannot, it truncates the file back to its pre-append length, fsyncs, and raises this. The entry is not in the index. `ErasureDoor.complete` propagates it by name before the workflow resumes and files no record; a retry completes the erasure.
+- Why: PC1, panel C1 (`D-IMPL-374`). Red tests: `tests/erasure/test_pc1_index_short_write.py`.
+- Migration: none. A caller of the door treats it as an I/O failure and retries.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.ErasureIndexWriteFailed
+
+- Surface: ccf.erasure.ErasureIndexWriteFailed
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: re-export of `ccf.erasure.errors.ErasureIndexWriteFailed`.
+- Why: PC1.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -28934,7 +28958,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-275 entries — 240 public Python surface, 35 not public Python API.
+276 entries — 241 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33410,6 +33434,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: on the by-URI path the naming check after the holds called the TENANTLESS store's `resolve_uri`, and an `ErasedContentRefused` there was recorded as `cause="nonexistent"`. Another tenant's entry naming the caller's record address (genuine, or forged and unsupported) therefore made an entitled examiner read "absent" by URI while the by-address read served.
 - After: the naming check reads the same view the consult read, the caller's verified tenant's. Another tenant's entry changes nothing for the caller, and an erasure the check meets in the caller's own tenant is the erased reading at the caller's level (the not-found shell at `minimal`, `erased-content` above it), not an absence.
 - Why: FW-7, whole-branch review M-3 (`D-IMPL-374`); probe X4. Red tests: `tests/http_api/test_fw7_by_uri_naming_check.py`.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.FileErasureIndex
+
+- Surface: ccf.erasure.FileErasureIndex
+- Public surface: true
+- Change type: behavior
+- Before: `append` issued one `os.write` and ignored its count.
+- After: `append` writes its whole line or nothing, raising `ErasureIndexWriteFailed` with the file left as it was.
+- Why: PC1.
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*

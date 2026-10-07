@@ -3036,6 +3036,7 @@
       "ErasureIndexInsecure",
       "ErasureIndexProtocol",
       "ErasureIndexUnavailable",
+      "ErasureIndexWriteFailed",
       "ErasureRecord",
       "ErasureRecordInvalid",
       "ErasureRequest",
@@ -3186,6 +3187,10 @@
         "shape": "(*args, **kwargs)"
       },
       "ErasureIndexUnavailable": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureIndexWriteFailed": {
         "kind": "class",
         "shape": "type"
       },
@@ -3603,6 +3608,7 @@
       "ErasureCompositionRefused",
       "ErasureIndexCorrupt",
       "ErasureIndexInsecure",
+      "ErasureIndexWriteFailed",
       "INDEX_CORRUPT"
     ],
     "exports": {
@@ -3619,6 +3625,10 @@
         "shape": "(detail: 'str', *, content_address: 'str' = '') -> 'None'"
       },
       "ErasureIndexInsecure": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureIndexWriteFailed": {
         "kind": "class",
         "shape": "type"
       },
