@@ -33744,7 +33744,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: one per gate; entries retained for the gate's lifetime
-- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted
+- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted. The set gains an entry for every admitted envelope across every tenant's gates, and only an admission (a signature verified under a trusted peer's key) adds one, so a deployment under sustained load supplies a pruning implementation of `SeenNonceSetProtocol` to its gates
 - Why: SEC-022-R1
 - Migration: none
 

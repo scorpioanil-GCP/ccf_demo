@@ -92,7 +92,14 @@ unchanged, so a product's content address is unchanged.
   to a gate is used instead of the default, never beside it. The default covers
   one process only and is not pruned; it is not persisted either, so after a
   restart an envelope still inside its peer's issuance window can be admitted
-  once more. **Receivers that run in more than one process must share one
+  once more. It gains an entry for every envelope admitted, across every
+  tenant's gates, for the life of the process, and only an admission, which
+  needs a signature verified under a trusted peer's key, adds one, so a
+  deployment under sustained load supplies a pruning implementation of
+  `SeenNonceSetProtocol` that keeps each entry for at least its peer's
+  `signature_max_age_seconds` plus `permitted_clock_skew_seconds` after the
+  admission.
+  **Receivers that run in more than one process must share one
   seen-set**, an implementation of
   `src/ccf/peering/issuance.py::SeenNonceSetProtocol` over a store they all
   reach. That is the deployment's obligation, and the SDK ships no such store;
@@ -138,6 +145,16 @@ What the body cap does not do:
 - **It cannot bound what the ASGI server buffers** before it hands the
   application a message, nor what the server does with the bytes the
   application never reads. Configure those limits in your server.
+- **It bounds what this process receives, not what it reads from a peer.**
+  Neither leg bounds the response an emission reads back. The typed-HTTP leg's
+  `emit` reads the whole HTTP response
+  (`runtime/ccf_runtime/peering/typed_http.py::TypedHttpWire.emit`), and the LF
+  leg's `emit_async` fetches the peer's Agent Card and its JSON-RPC reply
+  through `a2a-sdk`, which reads each in full
+  (`runtime/ccf_runtime/peering/lf_a2a.py::LfA2AWire.emit_async`). A peer, or
+  whatever answers at a peer's card URL, can make the emitting process buffer
+  and parse as much as it chooses to send. The SDK ships no such bound: bound
+  it at your egress proxy or in the HTTP client you inject into the leg.
 
 ### 1.2 SignedHitlAction (D-IMPL-21 / D-IMPL-363, HITL identity)
 

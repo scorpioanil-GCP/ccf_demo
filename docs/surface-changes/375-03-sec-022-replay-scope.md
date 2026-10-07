@@ -34,7 +34,11 @@ deployment's obligation, and the SDK ships no such store and adds no
 dependency. The default is not persisted, so after a restart an envelope still
 inside its peer's issuance window can be admitted once more. It does not prune
 the reference seen-set (the `CR-363-07` retention question, unchanged; its
-entries now live as long as the process). It changes no wire format: the
+entries now live as long as the process). Every tenant's gates share that one
+set, so it gains an entry for every admitted envelope across all of them; only
+an admission, which needs a signature verified under a trusted peer's key, adds
+one, and a deployment under sustained load supplies a pruning implementation of
+`SeenNonceSetProtocol` to its gates. It changes no wire format: the
 envelope, its claims and the refusal shapes are as `371-22` left them.
 
 ## ccf.peering.identity.jwk_thumbprint
@@ -93,6 +97,6 @@ envelope, its claims and the refusal shapes are as `371-22` left them.
 - Public surface: true
 - Change type: behavior
 - Before: one per gate; entries retained for the gate's lifetime
-- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted
+- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted. The set gains an entry for every admitted envelope across every tenant's gates, and only an admission (a signature verified under a trusted peer's key) adds one, so a deployment under sustained load supplies a pruning implementation of `SeenNonceSetProtocol` to its gates
 - Why: SEC-022-R1
 - Migration: none
