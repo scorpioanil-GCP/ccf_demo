@@ -416,7 +416,7 @@ excluded at all.** A cross-host lock (the reference advisory-lock lease) is
 reachable only by constructing the store directly with `writer_lease=`;
 `ccf.boot.boot` cannot declare it, because the connection settings carry no
 credential for it. The booted `FabricHandle` reports the lease in force as
-`writer_lease_scope` and `writer_lease_mechanism`.
+`lease_scope` and `lease_mechanism`.
 
 Consequences for a deployment on the stores that do lease:
 

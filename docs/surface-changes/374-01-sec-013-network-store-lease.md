@@ -186,7 +186,7 @@ carry no credential by environment name, so `ccf.boot.boot` cannot declare it.
 - Public surface: true
 - Change type: reshaped
 - Before: no report of the writer lease in force; `BootToken.lease_scope` had no reader (SEC-013-C-03).
-- After: two attributes read off the boot token at boot, `writer_lease_scope` (`"cross-process"` or `"process"`) and `writer_lease_mechanism` (the lease kind and resource, credential-free), both keyword arguments defaulting to `None`. Deliberately not part of `adapter`, so the replay pin is unchanged.
+- After: two attributes read off the boot token at boot, `lease_scope` (`"cross-process"` or `"process"`) and `lease_mechanism` (the lease kind and resource, credential-free), both keyword arguments defaulting to `None`. Deliberately not part of `adapter`, so the replay pin is unchanged.
 - Why: SEC-013-C-03. The lease the writer holds is now readable by the deployment that booted it.
 - Migration: none.
 

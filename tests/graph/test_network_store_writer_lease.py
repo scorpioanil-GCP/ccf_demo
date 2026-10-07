@@ -523,8 +523,8 @@ def test_the_fabric_handle_reports_the_held_writer_lease(
         try:
             identity = _store_identity(substrate, connection)
             expected = tmp_path.resolve() / lock_file_name(identity)
-            assert handle.writer_lease_scope == "cross-process"
-            assert handle.writer_lease_mechanism == f"flock on {str(expected)!r}"
+            assert handle.lease_scope == "cross-process"
+            assert handle.lease_mechanism == f"flock on {str(expected)!r}"
             fd = os.open(expected, os.O_RDWR)
             try:
                 with pytest.raises(BlockingIOError):
@@ -555,8 +555,8 @@ def test_the_sqlite_fabric_handle_reports_its_substrate_lease(tmp_path: Path) ->
     handle = _boot("sqlite", {"database_path": database_path})
     try:
         sidecar = f"{database_path.resolve()}.ccf-writer.lock"
-        assert handle.writer_lease_scope == "cross-process"
-        assert handle.writer_lease_mechanism == f"flock on {sidecar!r}"
+        assert handle.lease_scope == "cross-process"
+        assert handle.lease_mechanism == f"flock on {sidecar!r}"
     finally:
         handle.close()
 
