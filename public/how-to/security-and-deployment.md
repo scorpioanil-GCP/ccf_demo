@@ -402,12 +402,13 @@ boot token records it.
 | SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
 | Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
 | In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
-| Fluree, MongoDB, Neo4j | `process` | **Nothing across processes. The single-writer invariant is not enforced there.** |
+| Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | The lease the deployment declares: `writer_lease_lock_file` in the connection settings (an exclusive `flock` on that file), or the advisory-lock lease passed as the store's `writer_lease=` |
 
-**The last row is an open gap, not a guarantee.** On those persistent network
-stores a second process booting the same graph is *not* refused. SEC-013 is
-recorded as partial for that reason: run one writing process per graph on
-those stores until a native lease is ruled and built.
+**On the persistent network stores the deployment declares the lease, and a
+boot with none declared is refused with `WriterLeaseRequired` (SEC-013,
+D-IMPL-374).** A lock file excludes only processes that share its filesystem,
+so a deployment that writes one network graph from more than one host declares
+the advisory-lock lease on a Postgres session every writing host reaches.
 
 Consequences for a deployment on the stores that do lease:
 

@@ -68,8 +68,11 @@ store's `close()`. Return one of two things:
   is `"process"`. This is a **disclosure, not enforcement**: the only exclusion
   is the boot's in-process table, so two *processes* over one graph on your
   substrate are not refused. It is exact for a store no second process can
-  reach (an in-process dict); for a persistent network store it is a gap you
-  should state in your adapter's own documentation.
+  reach (an in-process dict). A persistent network store should not return it:
+  take a deployment-declared lease at construction and delegate `writer_lease()`
+  to `acquire_declared_writer_lease` (from `ccf.graph.protocols`), which refuses
+  the mint with `WriterLeaseRequired` when none is declared, as the reference
+  network stores do (SEC-013, D-IMPL-374).
 
 A store with no `writer_lease()` is refused at boot by name. The scope is
 recorded on the boot token. See

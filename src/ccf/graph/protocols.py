@@ -937,7 +937,10 @@ class WriterLease(Protocol):
 
     :attr:`scope` says what the exclusion covers. A ``"process"`` lease is a
     disclosure, not enforcement — the invariant is not enforced across
-    processes on that substrate, and SEC-013 remains open for it.
+    processes on that substrate, so it is correct only where no second
+    process can reach the graph; a persistent network store mints only under
+    a declared ``"cross-process"`` lease (:func:`acquire_declared_writer_lease`,
+    SEC-013, D-IMPL-374).
 
     :meth:`release` must be idempotent. The lease is also a context manager
     whose exit releases it.
@@ -974,10 +977,10 @@ class ProcessScopedWriterLease:
     releasing it do nothing; the only exclusion on such a substrate is the
     composition root's in-process live-writer table, so two *processes* over
     one graph on this substrate are NOT refused. Exact for a store whose graph
-    no second process can reach (an in-process dict); for a persistent network
-    store it is a gap, not a guarantee, and SEC-013 remains open for every
-    such store until a native cross-process lease is ruled and built. Each
-    store's ``writer_lease`` docstring says which case it is.
+    no second process can reach (an in-process dict). A persistent network
+    store does not return it: it mints only under a deployment-declared
+    ``"cross-process"`` lease, and :func:`acquire_declared_writer_lease`
+    refuses a declared ``"process"`` lease by name (SEC-013, D-IMPL-374).
 
     Args:
         substrate: The adapter's name, so the declaration says whose it is.
