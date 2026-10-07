@@ -332,8 +332,10 @@ holds both to `[project] name`.
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Ten decisions have to be made explicitly, and §4.8 records two limitations the
-SDK discloses rather than fixes. Each decision is a construction-time argument
+Ten decisions have to be made explicitly; §4.8 records two limitations the
+SDK discloses rather than fixes, §4.12 an open row (SEC-020) a deployment must
+plan around, and §4.13 how far the SDK serializes the resumption of a suspended
+run, and what a deployment must serialize beyond that. Each decision is a construction-time argument
 or a declared artifact rather than a setting buried in configuration; where the
 SDK behaves a particular way when nothing is declared, its section says so. The
 first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
