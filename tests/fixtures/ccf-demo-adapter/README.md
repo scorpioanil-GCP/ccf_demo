@@ -63,9 +63,9 @@ and here, this is installed.
 Three things keep that from reading as a supported substrate:
 
 1. `demo` is a test fixture, not a substrate CCF supports.
-2. It is **not** a dependency of the `ccf` distribution, so `pip install ccf`
-   never pulls it. The `ccf` distribution's own dependency lists name it
-   nowhere, and a test asserts that rather than leaving it to inspection.
+2. It is **not** a dependency of the `ccf-sdk` distribution, so installing
+   `ccf-sdk` never pulls it. The `ccf-sdk` distribution's own dependency lists
+   name it nowhere, and a test asserts that rather than leaving it to inspection.
 3. `make install` is the developer bootstrap, not an adopter's install path.
 
 **The alternative was considered and rejected.** An opt-in

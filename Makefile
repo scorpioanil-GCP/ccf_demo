@@ -95,8 +95,8 @@ venv: ## Create .venv if missing and install into it — the first command in a 
 #
 # The visible consequence is accepted: every development checkout and every CI
 # runner reports a seventh name from `ccf backends list`. It is bounded because
-# the fixture is not a dependency of the `ccf` distribution — `pip install ccf`
-# never pulls it, and a test asserts that — and because this target is the
+# the fixture is not a dependency of the `ccf-sdk` distribution — installing
+# `ccf-sdk` never pulls it, and a test asserts that — and because this target is the
 # developer bootstrap, not an adopter's install path.
 #
 # Order matters: the fixture imports `ccf`, so the SDK's own install goes first.

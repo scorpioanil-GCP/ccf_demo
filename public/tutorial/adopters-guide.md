@@ -31,6 +31,12 @@ python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+The package installs as the distribution `ccf-sdk` and is imported as `ccf`.
+Install it from the repository as above, never by name from PyPI: the PyPI
+project `ccf` is Microsoft's unrelated Confidential Consortium Framework, which
+also imports as `ccf` and cannot share an environment with this SDK (see
+[the distribution name](../how-to/security-and-deployment.md#31-the-distribution-name-is-ccf-sdk-sec-027)).
+
 If you also intend to build this documentation site, install the `docs` extra
 alongside it (`pip install -e ".[dev,docs]"`), then `make docs`. To verify the
 install end to end before going further:

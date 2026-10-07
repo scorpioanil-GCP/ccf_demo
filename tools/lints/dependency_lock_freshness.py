@@ -21,7 +21,7 @@ The refusals, over the repository's ``pyproject.toml`` and
 2. **Every declared requirement is in the lock and its pin satisfies the
    declared specifier.** The declared set is ``[project].dependencies``, every
    ruled extra followed through the project's own self-references
-   (``dev`` -> ``ccf[harnesses]`` -> ``ccf[adk,claude-agent,langgraph]``), and
+   (``dev`` -> ``ccf-sdk[harnesses]`` -> ``ccf-sdk[adk,claude-agent,langgraph]``), and
    ``[build-system].requires`` (``D-IMPL-369``: the lock carries the build
    set). A requirement whose environment marker is false for the interpreter
    running the lint is skipped, as pip-compile would skip it. A declared
