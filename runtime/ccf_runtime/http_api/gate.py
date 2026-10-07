@@ -88,6 +88,7 @@ from ccf.authz.capability import (
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.authz.route_declaration import (
     TENANT_PATH_PARAM,
+    ProductClassSource,
     ResourceSource,
     RouteAuthorization,
     composed_fields,
@@ -105,12 +106,13 @@ from ccf_runtime.http_api.errors import (
     ERROR_AMBIGUOUS_TENANT,
     ERROR_DECISION_UNMINTABLE,
     ERROR_INVALID_GRANT,
+    ERROR_PRODUCT_OUTSIDE_ROSTER,
     ERROR_REQUEST_UNAUTHORIZED,
     ERROR_UNAUTHENTICATED,
     ERROR_UNTENANTED_GRANT,
     refusal_detail,
 )
-from ccf_runtime.mcp.auth import TokenGrant
+from ccf_runtime.mcp.auth import TokenGrant, bounded_echo
 
 __ccf_mode__ = "algorithmic"
 
@@ -391,6 +393,11 @@ class AuthorizationGate:
         authorizer: The bound authorizer. **Required**, for the same reason.
         table: The declarations, built by :func:`build_route_table` from the
             fully-mounted application.
+        replay_record_product_class: The Context Product class the replay
+            routes' records are held to for a caller whose grant declares a
+            product roster (``SEC-017``; ``D-IMPL-374`` (2)). A deployment
+            value; the SDK names no class. ``None`` means a rostered caller is
+            refused every replay read.
     """
 
     def __init__(
@@ -400,11 +407,13 @@ class AuthorizationGate:
         auth: HttpAuthProtocol,
         authorizer: TenantAuthorizerProtocol,
         table: tuple[RouteEntry, ...],
+        replay_record_product_class: str | None = None,
     ) -> None:
         self._app = app
         self._auth = auth
         self._authorizer = authorizer
         self._table = table
+        self._replay_record_product_class = replay_record_product_class
 
     async def __call__(
         self, scope: _Scope, receive: _Receive, send: _Send
@@ -500,6 +509,21 @@ class AuthorizationGate:
                 scope, replay or receive, send, 403, ERROR_REQUEST_UNAUTHORIZED, _DENIED
             )
             return
+        # SEC-017; D-IMPL-374 (2), fix round 1: a declared product roster is
+        # held to this request HERE — after the tenant and the resource, BEFORE
+        # the authorizer — so a roster refusal records no allow and mints
+        # nothing. No roster declared: tenant-wide, as before.
+        outside = self._off_roster(grant, entry, path_parameters)
+        if outside is not None:
+            await _refuse(
+                scope,
+                replay or receive,
+                send,
+                403,
+                ERROR_PRODUCT_OUTSIDE_ROSTER,
+                outside,
+            )
+            return
         action_id = entry.declaration.action_id
         decision = self._authorizer.authorize(
             grant=grant,
@@ -543,6 +567,43 @@ class AuthorizationGate:
         state["authorized"] = authorized
         state["token_grant"] = grant
         await self._app(scope, replay or receive, send)
+
+    def _off_roster(
+        self,
+        grant: TokenGrant,
+        entry: RouteEntry,
+        path_parameters: Mapping[str, str],
+    ) -> str | None:
+        """The roster refusal's message for this request, or ``None`` to admit.
+
+        ``SEC-017``; ``D-IMPL-374`` (2). ``None`` whenever the grant declares
+        no roster or the route knows no product class at the call. The class is
+        named, bounded (:func:`~ccf_runtime.mcp.auth.bounded_echo`) — it is
+        the caller's own path segment or the deployment's declaration, never a
+        fact about the roster.
+        """
+        roster = grant.products
+        binding = entry.declaration.products
+        if roster is None or binding is None:
+            return None
+        if binding.source is ProductClassSource.REPLAY_DECLARED:
+            declared = self._replay_record_product_class
+            if declared is None:
+                return (
+                    "the deployment declared no replay_record_product_class,"
+                    " so the replay record is on no roster; the verified grant"
+                    " declares a product roster (SEC-017; D-IMPL-374)"
+                )
+            reached = declared
+        else:
+            reached = path_parameters.get(binding.name, "")
+        if reached in roster:
+            return None
+        return (
+            f"the request reaches product class {bounded_echo(reached)},"
+            " outside the verified grant's declared product roster (SEC-017;"
+            " D-IMPL-374)"
+        )
 
     def _match(
         self, scope: _Scope

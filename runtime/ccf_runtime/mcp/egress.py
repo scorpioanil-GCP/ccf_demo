@@ -980,6 +980,7 @@ def build_egress_server(
             subject=door.from_argument("tenant"),
             resource=door.resource_argument("product_class"),
             mutating=False,
+            products=door.products_from_argument("product_class"),
             mime_type=PRODUCT_MIME_TYPE,
         )
         def context_product(
@@ -1333,6 +1334,7 @@ def build_egress_server(
             # reading is stated at the site rather than assumed from the
             # protocol's tool/resource split (`SEC-018`).
             mutating=False,
+            products=door.products_from_argument("product_class"),
             description=product_tool_description,
         )
         def request_context_product(
@@ -1692,6 +1694,7 @@ def build_egress_server(
             subject=door.from_argument("tenant"),
             resource=door.resource_argument("product_class"),
             mutating=False,
+            products=door.products_from_argument("product_class"),
             mime_type=PRODUCT_MIME_TYPE,
         )
         def addressed_context_product(

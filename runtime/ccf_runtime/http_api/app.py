@@ -229,6 +229,7 @@ def create_app(
     product_entitlement: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
     refusal_recorder: RefusalRecorderProtocol,
+    replay_record_product_class: str | None = None,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
@@ -265,6 +266,11 @@ def create_app(
             run here and refuse rather than building. There is deliberately no
             warn-and-serve posture and no per-request refusal: failing closed
             only on denial would make auditability contingent on outcome.
+        replay_record_product_class: The Context Product class the
+            ``/replay/...`` routes' records are held to for a bearer whose
+            grant declares a product roster (``SEC-017``; ``D-IMPL-374`` (2)).
+            A deployment value; the SDK names no class. ``None`` means a
+            rostered caller is refused every replay read.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
@@ -353,7 +359,11 @@ def create_app(
     # to return an application with an undeclared route on it.
     table = build_route_table(app)
     app.add_middleware(
-        AuthorizationGate, auth=auth, authorizer=authorizer, table=table
+        AuthorizationGate,
+        auth=auth,
+        authorizer=authorizer,
+        table=table,
+        replay_record_product_class=replay_record_product_class,
     )
     return app
 

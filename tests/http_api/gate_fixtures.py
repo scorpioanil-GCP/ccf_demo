@@ -36,7 +36,7 @@ from __future__ import annotations
 import asyncio
 import json
 import string
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -181,12 +181,22 @@ class GateApp:
         return {"Authorization": f"Bearer {token or self.token_everything}"}
 
 
-def build_gate_app(fabric: Any, root: Path) -> GateApp:
+def build_gate_app(
+    fabric: Any,
+    root: Path,
+    *,
+    extra_grants: Mapping[str, TokenGrant] | None = None,
+    app_options: Mapping[str, Any] | None = None,
+) -> GateApp:
     """Build one authorized app over ``fabric``.
 
     Args:
         fabric: The shared :class:`~http_api.conftest.Fabric`.
         root: A writable directory for the recorder's artifact store.
+        extra_grants: Further tokens the source recognizes, beside the
+            standing ones — a test's own credential shape (``SEC-017``'s
+            rostered grants), never a replacement for the standing ones.
+        app_options: Further keyword arguments for ``create_app``.
 
     Returns:
         The built application and its credentials.
@@ -210,6 +220,7 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
             # Deliberately EMPTY `tenants`: what a token source that was
             # never told a tenant mints — and what every door refuses.
             TOKEN_UNTENANTED: grant(CLIENT_ID, (SCOPE_EVERYTHING,), ()),
+            **(extra_grants or {}),
         }
     )
 
@@ -307,6 +318,7 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
         product_entitlement=entitlement_source,
         perspective_resolver=perspective_resolver,
         refusal_recorder=recorder,
+        **(app_options or {}),
     )
     return GateApp(
         app=app,

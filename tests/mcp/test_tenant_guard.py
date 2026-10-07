@@ -282,6 +282,7 @@ class _Guarded:
             subject=door.from_argument("tenant"),
             resource=door.resource_route(),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def read_it(authorized: Authorized[ArtifactRead]) -> str:
             entered.append("read_it")
@@ -293,6 +294,7 @@ class _Guarded:
             subject=door.from_argument("tenant"),
             resource=door.resource_argument("value"),
             mutating=True,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def write_it(authorized: Authorized[ArtifactWrite], value: str) -> str:
             entered.append("write_it")
@@ -304,6 +306,7 @@ class _Guarded:
             subject=door.declared(TENANT),
             resource=door.resource_route(),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def declared_it(authorized: Authorized[ArtifactRead]) -> str:
             entered.append("declared_it")

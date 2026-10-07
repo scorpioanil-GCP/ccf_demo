@@ -1432,11 +1432,15 @@ def test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap(
     action ids, which ``D-IMPL-129`` ruled out of this plan's scope and
     assigned to no owner.
 
-    **The signature of the fix is that this test inverts.** Whoever closes the
-    gap will find these three assertions failing; that is the intended
-    collision, and flipping them to refusals is the correct repair. A gap held
-    open by an executable assertion cannot rot the way a paragraph in a
-    deferred-items file can.
+    **It no longer inverts, and that is ruled, not overlooked** (``SEC-017``;
+    ``D-IMPL-374`` (2)). Within-tenant entitlement for these three landed on
+    the GRANT — :attr:`~ccf_runtime.mcp.auth.TokenGrant.products`, a declared
+    roster of product classes — and a grant that declares NO roster stays
+    tenant-wide by ruling, disclosed as the deployment's obligation. This
+    child's ``UNENTITLED_TOKEN`` declares none, so this test is now the
+    cross-process NO-ROSTER CONTROL: it pins that absence of a roster did not
+    narrow reach the deployment never restricted. The rostered refusals are
+    pinned in ``tests/mcp/test_product_roster.py``.
     """
     from ccf_runtime.mcp.experience import (
         GET_REPLAY_RECORD_TOOL,

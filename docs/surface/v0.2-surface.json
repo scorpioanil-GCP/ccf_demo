@@ -10088,6 +10088,7 @@
         "shape": {
           "authentication": "ccf.hitl.principal.AuthenticationClaims | None",
           "client_id": "<class 'str'>",
+          "products": "frozenset[str] | None",
           "scopes": "tuple[str, ...]",
           "tenants": "frozenset[str]"
         }
@@ -10279,6 +10280,8 @@
   },
   "ccf_runtime.authz.route_declaration": {
     "__all__": [
+      "ProductClassBinding",
+      "ProductClassSource",
       "ROUTE_AUTHORIZATION_ATTRIBUTE",
       "ResourceBinding",
       "ResourceSource",
@@ -10289,6 +10292,14 @@
       "route_authorization"
     ],
     "exports": {
+      "ProductClassBinding": {
+        "kind": "class",
+        "shape": "(*, source: 'ProductClassSource', name: 'str' = '') -> None"
+      },
+      "ProductClassSource": {
+        "kind": "class",
+        "shape": "(*values)"
+      },
       "ROUTE_AUTHORIZATION_ATTRIBUTE": {
         "kind": "constant",
         "shape": "str"
@@ -10303,7 +10314,7 @@
       },
       "RouteAuthorization": {
         "kind": "class",
-        "shape": "(*, action_id: 'str', resource: 'ResourceBinding') -> None"
+        "shape": "(*, action_id: 'str', resource: 'ResourceBinding', products: 'ProductClassBinding | None' = None) -> None"
       },
       "TENANT_PATH_PARAM": {
         "kind": "constant",
@@ -10311,7 +10322,7 @@
       },
       "authorizes": {
         "kind": "function",
-        "shape": "(action_id: 'str', *, resource: 'ResourceBinding') -> 'Callable[[_Endpoint], _Endpoint]'"
+        "shape": "(action_id: 'str', *, resource: 'ResourceBinding', products: 'ProductClassBinding | None' = None) -> 'Callable[[_Endpoint], _Endpoint]'"
       },
       "composed_fields": {
         "kind": "function",
@@ -10704,7 +10715,7 @@
       },
       "create_app": {
         "kind": "function",
-        "shape": "(deps: 'ApiDependencies', *, auth: 'HttpAuthProtocol', authorizer: 'TenantAuthorizerProtocol', product_entitlement: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'FastAPI'"
+        "shape": "(deps: 'ApiDependencies', *, auth: 'HttpAuthProtocol', authorizer: 'TenantAuthorizerProtocol', product_entitlement: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol', replay_record_product_class: 'str | None' = None) -> 'FastAPI'"
       }
     }
   },
@@ -10750,6 +10761,7 @@
       "ERROR_PRINCIPAL_NOT_ENTITLED",
       "ERROR_PRODUCT_CLASS_UNENTITLED",
       "ERROR_PRODUCT_DOOR_UNGOVERNED",
+      "ERROR_PRODUCT_OUTSIDE_ROSTER",
       "ERROR_PRODUCT_PARAMETERS_MALFORMED",
       "ERROR_PRODUCT_POLICY_ABSENT",
       "ERROR_PRODUCT_REQUEST_INCOMPLETE",
@@ -10816,6 +10828,10 @@
         "shape": "str"
       },
       "ERROR_PRODUCT_DOOR_UNGOVERNED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_PRODUCT_OUTSIDE_ROSTER": {
         "kind": "constant",
         "shape": "str"
       },
@@ -10892,7 +10908,7 @@
     "exports": {
       "AuthorizationGate": {
         "kind": "class",
-        "shape": "(app: '_ASGIApp', *, auth: 'HttpAuthProtocol', authorizer: 'TenantAuthorizerProtocol', table: 'tuple[RouteEntry, ...]') -> 'None'"
+        "shape": "(app: '_ASGIApp', *, auth: 'HttpAuthProtocol', authorizer: 'TenantAuthorizerProtocol', table: 'tuple[RouteEntry, ...]', replay_record_product_class: 'str | None' = None) -> 'None'"
       },
       "RouteEntry": {
         "kind": "class",
@@ -11245,6 +11261,22 @@
       }
     }
   },
+  "ccf_runtime.mcp.agent_directory": {
+    "__all__": [
+      "context_contract_classes",
+      "exposed_agent"
+    ],
+    "exports": {
+      "context_contract_classes": {
+        "kind": "function",
+        "shape": "(contract: 'ContextContract') -> 'frozenset[str]'"
+      },
+      "exposed_agent": {
+        "kind": "function",
+        "shape": "(definition: 'AgentDefinition', *, definition_key: 'str', definition_version: 'str', skills: 'tuple[SkillCatalogEntry, ...]') -> 'ExposedAgent'"
+      }
+    }
+  },
   "ccf_runtime.mcp.artifact_server": {
     "__all__": [
       "ARTIFACT_BLOB_URI_SCHEME",
@@ -11325,14 +11357,18 @@
     "__all__": [
       "AMBIENT_STDIO_CLAIM",
       "FileTokenSource",
+      "PRODUCT_CLAIM",
       "SourceBackedTokenVerifier",
       "StaticTokenSource",
       "TENANT_CLAIM",
       "TokenGrant",
       "TokenSourceProtocol",
       "authentication_claims",
+      "bounded_echo",
+      "granted_products",
       "granted_tenants",
       "is_ambient_stdio",
+      "product_claims",
       "tenant_claims"
     ],
     "exports": {
@@ -11343,6 +11379,10 @@
       "FileTokenSource": {
         "kind": "class",
         "shape": "(*, path: 'Path | str') -> 'None'"
+      },
+      "PRODUCT_CLAIM": {
+        "kind": "constant",
+        "shape": "str"
       },
       "SourceBackedTokenVerifier": {
         "kind": "class",
@@ -11361,6 +11401,7 @@
         "shape": {
           "authentication": "ccf.hitl.principal.AuthenticationClaims | None",
           "client_id": "<class 'str'>",
+          "products": "frozenset[str] | None",
           "scopes": "tuple[str, ...]",
           "tenants": "frozenset[str]"
         }
@@ -11373,6 +11414,14 @@
         "kind": "function",
         "shape": "(grant: 'TokenGrant') -> 'Mapping[str, Any]'"
       },
+      "bounded_echo": {
+        "kind": "function",
+        "shape": "(value: 'object') -> 'str'"
+      },
+      "granted_products": {
+        "kind": "function",
+        "shape": "(token: 'AccessToken') -> 'frozenset[str] | None'"
+      },
       "granted_tenants": {
         "kind": "function",
         "shape": "(token: 'AccessToken') -> 'frozenset[str]'"
@@ -11380,6 +11429,10 @@
       "is_ambient_stdio": {
         "kind": "function",
         "shape": "(token: 'AccessToken') -> 'bool'"
+      },
+      "product_claims": {
+        "kind": "function",
+        "shape": "(grant: 'TokenGrant') -> 'Mapping[str, Any]'"
       },
       "tenant_claims": {
         "kind": "function",
@@ -11577,6 +11630,7 @@
           "definition_key": "<class 'str'>",
           "definition_version": "<class 'str'>",
           "name": "<class 'str'>",
+          "product_classes": "frozenset[str] | None",
           "skills": "tuple[ccf.skills.catalog.SkillCatalogEntry, ...]"
         }
       },
@@ -11614,7 +11668,7 @@
       },
       "build_experience_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', product_resolver: 'ExperienceProductResolverProtocol', agent_directory: 'AgentDirectoryProtocol | None' = None, agent_invoker: 'AgentInvokerProtocol | None' = None, context_provider: 'ContextProviderProtocol | None' = None, lineage_provider: 'LineageProviderProtocol | None' = None, replay_record_reader: 'ReplayRecordReaderProtocol | None' = None, get_context_description: 'str | None' = None, get_lineage_description: 'str | None' = None, get_replay_record_description: 'str | None' = None, list_agents_description: 'str | None' = None, invoke_agent_description: 'str | None' = None, product_resource_description: 'str | None' = None, token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', authorizer: 'TenantAuthorizerProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, entitled_product_class: 'str | None' = None, lineage_tenant: 'str | None' = None, replay_record_tenant: 'str | None' = None, tool_allowlist: 'frozenset[str] | None' = None) -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', product_resolver: 'ExperienceProductResolverProtocol', agent_directory: 'AgentDirectoryProtocol | None' = None, agent_invoker: 'AgentInvokerProtocol | None' = None, context_provider: 'ContextProviderProtocol | None' = None, lineage_provider: 'LineageProviderProtocol | None' = None, replay_record_reader: 'ReplayRecordReaderProtocol | None' = None, get_context_description: 'str | None' = None, get_lineage_description: 'str | None' = None, get_replay_record_description: 'str | None' = None, list_agents_description: 'str | None' = None, invoke_agent_description: 'str | None' = None, product_resource_description: 'str | None' = None, token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', authorizer: 'TenantAuthorizerProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, entitled_product_class: 'str | None' = None, lineage_tenant: 'str | None' = None, replay_record_tenant: 'str | None' = None, replay_record_product_class: 'str | None' = None, tool_allowlist: 'frozenset[str] | None' = None) -> 'FastMCP'"
       },
       "experience_product_uri": {
         "kind": "function",
@@ -11721,6 +11775,8 @@
       "CrossTenantRefused",
       "DecisionUnmintableRefused",
       "GuardedSurface",
+      "ProductOutsideRosterRefused",
+      "ProductReach",
       "READ_KINDS",
       "ResourceSubject",
       "ResourceUnreadableRefused",
@@ -11734,6 +11790,7 @@
       "ambient_stdio_identity",
       "granted_tenants",
       "is_ambient_stdio",
+      "roster_refusal",
       "tenant_claims",
       "unguarded_surfaces"
     ],
@@ -11764,7 +11821,15 @@
       },
       "GuardedSurface": {
         "kind": "class",
-        "shape": "(action: 'str', subject: 'TenantSubject', resource: 'ResourceSubject', mutating: 'bool') -> None"
+        "shape": "(action: 'str', subject: 'TenantSubject', resource: 'ResourceSubject', mutating: 'bool', products: 'ProductReach') -> None"
+      },
+      "ProductOutsideRosterRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ProductReach": {
+        "kind": "class",
+        "shape": "(argument: 'str | None' = None, declared: 'frozenset[str] | None' = None, undeclared: 'str | None' = None, resolve: 'ProductResolver | None' = None, unknown: 'str | None' = None) -> None"
       },
       "READ_KINDS": {
         "kind": "constant",
@@ -11817,6 +11882,10 @@
       "is_ambient_stdio": {
         "kind": "function",
         "shape": "(token: 'AccessToken') -> 'bool'"
+      },
+      "roster_refusal": {
+        "kind": "function",
+        "shape": "(surface: 'str', reason: 'str') -> 'ProductOutsideRosterRefused'"
       },
       "tenant_claims": {
         "kind": "function",

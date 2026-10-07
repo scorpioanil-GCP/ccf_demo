@@ -513,6 +513,67 @@ Q2 (a)).
   that process; spawn the client from an environment that carries only what
   the server needs, or use the loopback transport.
 
+### 4.9 Declare a product roster for principals that must not reach every product (SEC-017, D-IMPL-374)
+
+Tenancy decides whose data a credential reaches. Within its tenant, a principal
+whose grant declares no product roster reaches every Context Product class that
+the doors serve it. **Declaring the roster is your obligation as the
+deployment.** The SDK ships no default roster, and a grant without one is
+tenant-wide.
+
+Declare the roster on the principal's grant, as Context Product class names:
+
+```json
+{"<token>": {"client_id": "analyst-7", "scopes": ["ccf:experience"],
+             "tenants": ["bank-a"], "products": ["credit-risk.spread"]}}
+```
+
+`"products": null`, or no `products` key, means tenant-wide. `"products": []`
+means no product at all.
+
+One rule applies wherever a product class is known at the call. A request that
+reaches a class off the roster is refused by name, after the tenant check and
+**before** the authorizer is asked, so no allow is recorded for it
+(`runtime/ccf_runtime/mcp/tenancy.py::ProductOutsideRosterRefused` on MCP,
+`product-outside-roster` with a 403 on HTTP).
+
+| Surface | The class it is held to |
+| --- | --- |
+| MCP Experience `context_product` resource | the class in the URI |
+| MCP `get_context`, `get_lineage` | the declared `entitled_product_class` |
+| MCP `invoke_agent` | the agent's `product_classes`, from your agent directory |
+| MCP `list_agents` | lists only the agents `invoke_agent` would dispatch |
+| MCP `get_replay_record` | the declared `replay_record_product_class` |
+| MCP egress product resource, product tool, addressed resource | the class in the call |
+| HTTP `GET /product/{tenant}/{product_class}/{version}` | the class in the path |
+| HTTP `GET /replay/decisions`, `GET /replay/resolutions` | `create_app`'s declared `replay_record_product_class` |
+
+Surfaces that cannot know a product class at the call are not bound by the
+roster: the MCP artifact server and the HTTP `/artifact` routes (addressed by
+content address or by class and name), the MCP HITL server and HTTP `/hitl`
+routes, and the HTTP `/agent`, `/skill`, `/workflow`, `/config`, `/schema` and
+`/backends` routes. Control those with the scope mapping.
+
+Two things you must supply:
+
+- **Build agent directory entries with `exposed_agent`**
+  (`runtime/ccf_runtime/mcp/agent_directory.py::exposed_agent`). It derives
+  the entry's `product_classes` from the definition's context contract
+  (`consumes ∪ emits`). An entry that states its own `product_classes` is
+  refused when it is built. A rostered principal is refused an agent whose
+  entry carries no derived classes.
+- **Declare `replay_record_product_class`** on `build_experience_server` and on
+  `create_app` if rostered principals should read replay records. The SDK
+  names no class: `None`, the signature's value when you pass nothing, means a
+  rostered caller is refused every replay read.
+
+`invoke_agent` reads your agent directory before the authorizer decides, so a
+rostered caller the authorizer would refuse still reaches that lookup. The
+refusal it gets is therefore the same for an unknown agent, an agent not
+exposed, an agent without derived classes and an agent reaching an off-roster
+class: it names no agent and no class. The specific reason is logged
+server-side (logger `ccf_runtime.mcp.tenancy`, level INFO).
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

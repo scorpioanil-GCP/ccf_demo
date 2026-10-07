@@ -85,10 +85,12 @@ Surface                       Client-supplied arguments  Reaches               V
 ``context_product`` resource  tenant, class, version     the product resolver  entitled (15.5-06)
 ``get_context`` tool          tenant, entity             the context provider  entitled (D-IMPL-128 limb 1)
 ``get_lineage`` tool          none                       the lineage provider  entitled (D-IMPL-129)
-``list_agents`` tool          tenant                     the agent directory   tenant-decided (``SEC-018``)
-``invoke_agent`` tool         tenant, key, version,      the agent invoker     tenant-decided (``SEC-018``)
-                              skill, arguments
-``get_replay_record`` tool    none                       the replay reader     tenant-decided (``SEC-018``)
+``list_agents`` tool          tenant                     the agent directory   tenant-decided (``SEC-018``),
+                                                                               roster-filtered (``SEC-017``)
+``invoke_agent`` tool         tenant, key, version,      the agent invoker     tenant-decided (``SEC-018``),
+                              skill, arguments                                 roster-decided (``SEC-017``)
+``get_replay_record`` tool    none                       the replay reader     tenant-decided (``SEC-018``),
+                                                                               roster-decided (``SEC-017``)
 ============================  =========================  ====================  ===============================
 
 **Why the two gated ones could be gated.** ``get_context`` reaches Context
@@ -142,6 +144,28 @@ authorised authorization workstream opens it, **no plan may cite these three
 tools' shipping as evidence that agent-scoped entitlement is unnecessary.**
 The residual is bounded by the caller's own tenant, which it was not before.
 
+**Within-tenant product entitlement is on the GRANT, not on that policy**
+(``SEC-017``; ``D-IMPL-374`` (2)). ``D-IMPL-370`` read ``SEC-017``'s remedy as
+including within-tenant entitlement, and ``D-IMPL-374`` ruled where it lives
+without inventing the semantic above: a deployment may declare on
+:attr:`~ccf_runtime.mcp.auth.TokenGrant.products` the Context Product CLASS
+names a principal may reach. **One rule on every surface that knows a class
+at the call** (fix round 1): each registration states its
+:class:`~ccf_runtime.mcp.tenancy.ProductReach`, and the guard holds a declared
+roster to it after the tenant floor and BEFORE the authorizer, so a refusal
+records no allow and mints nothing. Here: the ``context_product`` resource and
+``get_context``/``get_lineage`` reach their class; ``invoke_agent`` reaches the
+agent's :attr:`ExposedAgent.product_classes` — derived from its definition's
+context contract (``consumes ∪ emits``), never declared by the directory —
+read from the directory; ``get_replay_record`` reaches the declared
+``replay_record_product_class``; ``list_agents`` knows no single class and
+filters its listing by the same rule ``invoke_agent`` refuses by. Everything
+off the roster is refused by name
+(:class:`~ccf_runtime.mcp.tenancy.ProductOutsideRosterRefused`). **Without a
+roster these surfaces are tenant-wide, exactly as above** — the SDK ships no
+default roster, and declaring one for a principal that must not reach every
+product in its tenant is the deployment's obligation.
+
 **The three entitlement paths are delivery boundaries, and this module only
 encodes them** (``D-IMPL-254``; ``D-IMPL-256`` (3), Dave: *"leaving them
 untouched means 24.6 would knowingly ship another delivery seam violating the
@@ -170,12 +194,13 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, Protocol, runtime_checkable
+from collections.abc import Callable, Mapping
+from typing import Any, Final, Protocol, runtime_checkable
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from pydantic import Field, ValidationInfo, model_validator
 
 from ccf.authz.actions import (
     ACTION_AGENT_LIST,
@@ -191,7 +216,7 @@ from ccf.authz.capability import (
     ReplayRead,
 )
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
 from ccf.products.door import door_refusal, served_answer
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.serve import ServedProduct
@@ -208,7 +233,8 @@ from ccf_runtime.authz.delivery_boundary import (
     recorded_boundary,
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
-from ccf_runtime.mcp.tenancy import TenantGuardedServer
+from ccf_runtime.mcp.auth import bounded_echo
+from ccf_runtime.mcp.tenancy import TenantGuardedServer, roster_refusal
 from ccf_runtime.authz.product_entitlement import (
     PerspectiveResolverProtocol,
     ProductEntitlementSourceProtocol,
@@ -429,6 +455,14 @@ class ExperienceProductResolverProtocol(Protocol):
         ...
 
 
+#: The validation-context key under which
+#: :func:`ccf_runtime.mcp.agent_directory.exposed_agent` hands
+#: :class:`ExposedAgent` a DERIVED ``product_classes`` (``SEC-017``;
+#: ``D-IMPL-374`` (2), fix round 1, IMPORTANT 3). Private to the SDK: an entry
+#: built without it that states ``product_classes`` is refused.
+_DERIVED_PRODUCT_CLASSES: Final[str] = "ccf.exposed-agent.derived-product-classes"
+
+
 class ExposedAgent(CCFContract):
     """One declared agent a deployment exposes on the front door.
 
@@ -445,6 +479,38 @@ class ExposedAgent(CCFContract):
     artifact_version: str
     archetypes: tuple[str, ...]
     skills: tuple[SkillCatalogEntry, ...]
+    #: The Context Product classes the agent reaches — its definition's
+    #: context contract ``consumes ∪ emits`` (CLAUDE.md §6.2 axis 2) —
+    #: **derived, never declared** (``SEC-017``; ``D-IMPL-374`` (2), fix round
+    #: 1, IMPORTANT 3). Set only by
+    #: :func:`ccf_runtime.mcp.agent_directory.exposed_agent`, which reads the
+    #: contract off the definition; a directory entry that states its own set
+    #: is refused at construction — at the directory's build — by name,
+    #: because a narrower stated set is a wider reach for every rostered
+    #: principal. What a grant's product roster is compared to on
+    #: ``invoke_agent`` and ``list_agents``. ``None`` — every entry built
+    #: without the helper, and every listing before the field existed — has no
+    #: derived classes: a principal with no roster is unaffected, and a
+    #: principal WITH one is refused the agent. Hash-transparent at ``None``.
+    product_classes: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_declared_product_classes(cls, data: Any, info: ValidationInfo) -> Any:
+        """Admit ``product_classes`` only from the SDK's derivation (``SEC-017``)."""
+        if not isinstance(data, dict) or data.get("product_classes") is None:
+            return data
+        if (info.context or {}).get(_DERIVED_PRODUCT_CLASSES) is True:
+            return data
+        raise ValueError(
+            f"exposed agent {bounded_echo(data.get('definition_key'))} states"
+            " product_classes; they are derived from its definition's context"
+            " contract, never declared — build the entry with"
+            " ccf_runtime.mcp.agent_directory.exposed_agent (SEC-017;"
+            " D-IMPL-374)"
+        )
 
 
 class AgentToolSurface(CCFContract):
@@ -733,6 +799,73 @@ def _unexposed_address(tool: str, parameter: str) -> str:
     )
 
 
+def _granted_roster() -> frozenset[str] | None:
+    """The in-flight caller's declared product roster, or ``None`` for none.
+
+    ``SEC-017``; ``D-IMPL-374`` (2). Read from the verified grant — the
+    deployment's token source, never the wire — through
+    :func:`~ccf_runtime.authz.product_entitlement.verified_grant`. Only
+    :data:`LIST_AGENTS_TOOL` reads it in its body, to filter; every refusal is
+    the guard's, before the authorizer (fix round 1).
+    """
+    return verified_grant().products
+
+
+def _agent_reach(
+    directory: AgentDirectoryProtocol | None,
+) -> Callable[[str, Mapping[str, Any]], frozenset[str]]:
+    """The product classes one ``invoke_agent`` call reaches (``SEC-017``).
+
+    Read from the deployment's directory — the agent named on the wire, at the
+    version named on the wire — and refused, rather than admitted, wherever it
+    cannot be read: no directory configured, the agent not exposed, or the
+    agent exposed with no derived classes. Runs inside the guard, before the
+    authorizer is asked (fix round 1, IMPORTANT 2) — so the specific reason
+    raised here reaches the server-side log ONLY; the guard turns every
+    outcome, off-roster included, into one opaque refusal naming no agent and
+    no class (fix round 2, I-NEW-1).
+    """
+
+    def reach(tenant: str, arguments: Mapping[str, Any]) -> frozenset[str]:
+        key = arguments.get("definition_key")
+        version = arguments.get("definition_version")
+        named = f"agent {bounded_echo(key)}@{bounded_echo(version)}"
+        if directory is None:
+            raise roster_refusal(
+                INVOKE_AGENT_TOOL,
+                f"no agent directory is configured, so the classes {named}"
+                " reaches cannot be read",
+            )
+        exposed = tuple(
+            agent
+            for agent in directory(tenant=tenant)
+            if agent.definition_key == key and agent.definition_version == version
+        )
+        if not exposed:
+            raise roster_refusal(
+                INVOKE_AGENT_TOOL,
+                f"{named} is not exposed by the directory, so the classes it"
+                " reaches cannot be read",
+            )
+        reached: frozenset[str] = frozenset()
+        for agent in exposed:
+            if agent.product_classes is None:
+                raise roster_refusal(
+                    INVOKE_AGENT_TOOL,
+                    f"{named} carries no product classes derived from its"
+                    " definition's context contract",
+                )
+            reached = reached | agent.product_classes
+        return reached
+
+    return reach
+
+
+def _listable(agent: ExposedAgent, roster: frozenset[str]) -> bool:
+    """Whether a rostered caller may see ``agent`` — exactly when it may invoke it."""
+    return agent.product_classes is not None and agent.product_classes <= roster
+
+
 def build_experience_server(
     *,
     server_name: str,
@@ -757,6 +890,7 @@ def build_experience_server(
     entitled_product_class: str | None = None,
     lineage_tenant: str | None = None,
     replay_record_tenant: str | None = None,
+    replay_record_product_class: str | None = None,
     tool_allowlist: frozenset[str] | None = None,
 ) -> FastMCP:
     """Build the authenticated Experience-surface server over six seams.
@@ -915,6 +1049,15 @@ def build_experience_server(
             ``lineage_tenant``'s terms and for the same reason: the tool takes
             no arguments, so its tenant is the deployment's to declare and
             there is no client value that could stand in for it (``SEC-018``).
+        replay_record_product_class: The Context Product class the record
+            :data:`GET_REPLAY_RECORD_TOOL` serves is decided under for a
+            principal whose grant declares a product roster (``SEC-017``;
+            ``D-IMPL-374`` (2)). A deployment value; the SDK names no class.
+            ``None`` means a rostered caller is refused every replay read: a
+            principal with no roster is tenant-wide and never consults it,
+            while a rostered principal is refused the tool by name unless it
+            is declared AND on the roster — an undeclared record is an
+            unrostered reach. Refused when the tool is not allowlisted.
         lineage_tenant: The tenant :data:`GET_LINEAGE_TOOL` is decided under,
             since that tool carries no arguments to decide against. Required
             when it is allowlisted; refused when it is not.
@@ -977,6 +1120,15 @@ def build_experience_server(
         raise ValueError(
             _unexposed_address(GET_REPLAY_RECORD_TOOL, "replay_record_tenant")
         )
+    if (
+        replay_record_product_class is not None
+        and GET_REPLAY_RECORD_TOOL not in allowed
+    ):
+        raise ValueError(
+            _unexposed_address(
+                GET_REPLAY_RECORD_TOOL, "replay_record_product_class"
+            )
+        )
 
     door = TenantGuardedServer(
         FastMCP(
@@ -995,6 +1147,7 @@ def build_experience_server(
         subject=door.from_argument("tenant"),
         resource=door.resource_argument("product_class"),
         mutating=False,
+        products=door.products_from_argument("product_class"),
         mime_type=PRODUCT_MIME_TYPE,
         description=(
             product_resource_description
@@ -1117,6 +1270,13 @@ def build_experience_server(
             # exactly as the HTTP `GET /agent/declarations` route does.
             resource=door.resource_route(),
             mutating=False,
+            # The listing is FILTERED by the roster in the body — the same rule
+            # invoke_agent refuses by — rather than refused; no single class is
+            # known at the call.
+            products=door.products_unknown(
+                "the agent listing names no product class at the call; the"
+                " body filters it by the roster"
+            ),
             description=(
                 list_agents_description
                 if list_agents_description is not None
@@ -1139,14 +1299,25 @@ def build_experience_server(
             decided against ``ProductEntitlementPolicy``, whose grants name
             schemas and roles and say nothing about agents, because inventing
             that semantic is what CLAUDE.md §11 forbids. Within the caller's
-            own tenant, any verified caller still receives the listing.
+            own tenant, a verified caller whose grant declares no product
+            roster still receives the whole listing.
+
+            **Within-tenant product entitlement** (``SEC-017``;
+            ``D-IMPL-374`` (2)): a caller whose grant declares
+            :attr:`~ccf_runtime.mcp.auth.TokenGrant.products` is listed only
+            the agents whose declared ``product_classes`` are all on it — the
+            agents :data:`INVOKE_AGENT_TOOL` would dispatch for it.
             """
             tenant = authorized.tenant
+            roster = _granted_roster()
+            # SEC-017; D-IMPL-374 (2): a rostered principal is listed only the
+            # agents it could invoke — the same rule `invoke_agent` refuses by.
             catalog = AgentToolCatalog(
                 tenant=tenant,
                 agents=tuple(
                     agent_tool_listing(agent)
                     for agent in directory_seam(tenant=tenant)
+                    if roster is None or _listable(agent, roster)
                 ),
             )
             return canonical_bytes(catalog).decode("utf-8")
@@ -1155,6 +1326,9 @@ def build_experience_server(
         if agent_invoker is None:
             raise ValueError(_missing(INVOKE_AGENT_TOOL))
         invoker_seam = agent_invoker
+        # Optional here: only a rostered caller needs it, and one with no
+        # directory to read is refused by name rather than admitted.
+        directory_seam_for_roster = agent_directory
 
         @door.tool(
             name=INVOKE_AGENT_TOOL,
@@ -1169,6 +1343,7 @@ def build_experience_server(
             subject=door.from_argument("tenant"),
             resource=door.resource_argument("definition_key"),
             mutating=True,
+            products=door.products_resolved(_agent_reach(directory_seam_for_roster)),
             description=(
                 invoke_agent_description
                 if invoke_agent_description is not None
@@ -1199,8 +1374,19 @@ def build_experience_server(
 
             What ``D-IMPL-129`` declined remains declined — this is not
             decided against ``ProductEntitlementPolicy``, for the reason that
-            ruling gives — and the remaining gap is now bounded by the
-            caller's own tenant rather than unbounded.
+            ruling gives.
+
+            **Within-tenant product entitlement** (``SEC-017``;
+            ``D-IMPL-374`` (2)): a caller whose grant declares
+            :attr:`~ccf_runtime.mcp.auth.TokenGrant.products` reaches only an
+            agent the directory exposes whose declared ``product_classes``
+            (``consumes ∪ emits``) are all on that roster; anything else is
+            refused by name with
+            :class:`~ccf_runtime.mcp.tenancy.ProductOutsideRosterRefused` by
+            the guard, before the authorizer is asked — so no allow is
+            recorded and the invoker is never entered (fix round 1). A caller with no roster is
+            tenant-wide, as before — declaring the roster is the deployment's
+            obligation.
             """
             return invoker_seam(
                 # The capability's tenant, never a wire value (D-IMPL-353 §1.2).
@@ -1234,6 +1420,9 @@ def build_experience_server(
             # resource decided on is the declared one.
             resource=door.resource_declared(context_class),
             mutating=False,
+            products=door.products_declared(
+                context_class, declaration="entitled_product_class"
+            ),
             description=get_context_description,
         )
         def get_context(authorized: Authorized[ProductRetrieve], entity: str) -> str:
@@ -1323,6 +1512,9 @@ def build_experience_server(
             subject=door.declared(lineage_address_tenant),
             resource=door.resource_declared(lineage_class),
             mutating=False,
+            products=door.products_declared(
+                lineage_class, declaration="entitled_product_class"
+            ),
             description=get_lineage_description,
         )
         def get_lineage(authorized: Authorized[ProductRetrieve]) -> str:
@@ -1389,6 +1581,7 @@ def build_experience_server(
             )
         replay_seam = replay_record_reader
         replay_tenant = replay_record_tenant
+        replay_class = replay_record_product_class
 
         @door.tool(
             name=GET_REPLAY_RECORD_TOOL,
@@ -1398,6 +1591,9 @@ def build_experience_server(
             # routes name the address they are asked for and this one is not.
             resource=door.resource_route(),
             mutating=False,
+            products=door.products_declared(
+                replay_class, declaration="replay_record_product_class"
+            ),
             description=get_replay_record_description,
         )
         def get_replay_record(authorized: Authorized[ReplayRead]) -> str:
@@ -1413,7 +1609,16 @@ def build_experience_server(
 
             What ``D-IMPL-129`` declined remains declined: no replay-scoped
             entitlement vocabulary is invented here. Within the declared
-            tenant, any verified caller still receives the record.
+            tenant, a verified caller whose grant declares no product roster
+            still receives the record.
+
+            **Within-tenant product entitlement** (``SEC-017``;
+            ``D-IMPL-374`` (2)): a caller whose grant declares
+            :attr:`~ccf_runtime.mcp.auth.TokenGrant.products` receives the
+            record only when the deployment declared
+            ``replay_record_product_class`` and that class is on the roster;
+            otherwise the guard refuses it by name before the authorizer is
+            asked (fix round 1).
             """
             # The seam takes no capability: the decision is what mattered, and
             # it was made — for `replay.read` under the declared tenant —

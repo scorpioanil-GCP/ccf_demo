@@ -78,6 +78,7 @@ from __future__ import annotations
 import functools
 import inspect
 import json
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final, TypeVar
@@ -123,12 +124,29 @@ from ccf_runtime.mcp.auth import (
     AMBIENT_STDIO_CLAIM,
     TENANT_CLAIM,
     TokenGrant,
+    bounded_echo,
+    granted_products,
     granted_tenants,
     is_ambient_stdio,
     tenant_claims,
 )
 
 __ccf_mode__ = "algorithmic"
+
+_LOGGER = logging.getLogger(__name__)
+
+#: The ONE reason every directory-resolved roster refusal gives the caller
+#: (``SEC-017`` fix round 2, I-NEW-1). The roster is held before the
+#: authorizer, so a caller the authorizer would deny reaches the directory
+#: lookup; if *unknown agent*, *not exposed*, *no derived classes* and
+#: *reaches X, off the roster* read differently, that caller learns which
+#: agents exist and which classes they touch. So none of them is told: the
+#: specific reason is logged server-side only, and no class name and no
+#: definition key or version is echoed.
+_OPAQUE_DIRECTORY_REASON: Final[str] = (
+    "the agent named does not resolve to one this grant's product roster"
+    " reaches"
+)
 
 __all__ = [
     "AMBIENT_STDIO_CLAIM",
@@ -139,6 +157,9 @@ __all__ = [
     "CrossTenantRefused",
     "DecisionUnmintableRefused",
     "GuardedSurface",
+    "ProductOutsideRosterRefused",
+    "ProductReach",
+    "roster_refusal",
     "ResourceSubject",
     "ResourceUnreadableRefused",
     "TENANT_CLAIM",
@@ -226,6 +247,28 @@ class CrossTenantRefused(TenantGuardViolation):
 
     ``SEC-018`` itself.
     """
+
+
+class ProductOutsideRosterRefused(TenantGuardViolation):
+    """The call reaches a product class outside the grant's declared roster.
+
+    ``SEC-017``; ``D-IMPL-374`` (2). Within-tenant product entitlement: a
+    verified grant that declares
+    :attr:`~ccf_runtime.mcp.auth.TokenGrant.products` reaches only the classes
+    on it. Raised by the Experience door's agent and replay tools, after the
+    tenancy floor has admitted the tenant, and its message names the tool and
+    every off-roster class — the refusal is *by name*, so a deployment reading
+    it learns which declaration to change.
+    """
+
+
+def roster_refusal(surface: str, reason: str) -> ProductOutsideRosterRefused:
+    """The by-name roster refusal, phrased once for every surface (``SEC-017``)."""
+    return ProductOutsideRosterRefused(
+        f"{surface} refused: {reason}; the verified grant declares a product"
+        " roster and reaches only the Context Product classes on it"
+        " (SEC-017; D-IMPL-374)"
+    )
 
 
 class AmbiguousTenantRefused(TenantGuardViolation):
@@ -347,6 +390,130 @@ class ResourceSubject:
     template: str | None = None
 
 
+#: Resolves the product classes one call reaches from the selected tenant and
+#: the bound wire arguments, or raises :class:`ProductOutsideRosterRefused` when
+#: it cannot tell. Used where the class is not on the wire — ``invoke_agent``
+#: reads it from the agent directory.
+ProductResolver = Callable[[str, Mapping[str, Any]], frozenset[str]]
+
+
+@dataclass(frozen=True)
+class ProductReach:
+    """Which Context Product classes one surface's call reaches (``SEC-017``).
+
+    ``D-IMPL-374`` (2), fix round 1: the grant's declared roster
+    (:attr:`~ccf_runtime.mcp.auth.TokenGrant.products`) is held to every
+    surface where a class is known at the call, **by the wrapper, before the
+    authorizer is asked** — so a refused call records no allow and mints
+    nothing. A closed, stated choice, constructed only through the four
+    :class:`TenantGuardedServer` readers, and declared at EVERY registration:
+    a surface that reaches no class it can know says so in words.
+
+    Attributes:
+        argument: The wire parameter carrying the class.
+        declared: Classes fixed at registration (the deployment's).
+        undeclared: The name of a deployment declaration that is ABSENT: the
+            surface reaches a class, the deployment never said which, and a
+            rostered caller is refused by that name.
+        resolve: A resolver for a class read from somewhere other than the
+            wire (see :data:`ProductResolver`).
+        unknown: Why this surface knows no product class at the call; the
+            roster is not consulted on it.
+    """
+
+    argument: str | None = None
+    declared: frozenset[str] | None = None
+    undeclared: str | None = None
+    resolve: ProductResolver | None = None
+    unknown: str | None = None
+
+    def __post_init__(self) -> None:
+        """Exactly one reading, and no empty statement (fix round 2, minor (i)).
+
+        Held at construction rather than only in the four readers, so a
+        reach built directly cannot state no reading, two readings, or an
+        empty one.
+        """
+        stated = [
+            self.argument,
+            self.declared,
+            self.undeclared,
+            self.resolve,
+            self.unknown,
+        ]
+        if sum(value is not None for value in stated) != 1:
+            raise ValueError(
+                "a product reach states exactly one reading — argument,"
+                " declared, undeclared, resolve or unknown (SEC-017)"
+            )
+        for name in ("argument", "undeclared", "unknown"):
+            value = getattr(self, name)
+            if value is not None and not value:
+                raise ValueError(
+                    f"a product reach's {name} is non-empty: an empty"
+                    " statement is a reading nobody made (SEC-017)"
+                )
+
+
+def _hold_to_roster(
+    surface: str,
+    reach: ProductReach,
+    tenant: str,
+    arguments: Mapping[str, Any],
+    roster: frozenset[str],
+) -> None:
+    """Refuse, by name, a call reaching a class outside ``roster`` (``SEC-017``)."""
+    if reach.unknown is not None:
+        return
+    if reach.undeclared is not None:
+        raise roster_refusal(
+            surface,
+            f"the deployment declared no {reach.undeclared}, so what this"
+            " surface serves is on no roster",
+        )
+    if reach.argument is not None:
+        value = arguments.get(reach.argument)
+        if not isinstance(value, str) or not value:
+            raise roster_refusal(
+                surface, f"argument {reach.argument!r} names no product class"
+            )
+        reached = frozenset({value})
+    elif reach.declared is not None:
+        reached = reach.declared
+    elif reach.resolve is not None:
+        # A resolved reach reads a directory before the authorizer: every
+        # outcome refuses alike, and only the log knows which (I-NEW-1).
+        try:
+            reached = reach.resolve(tenant, arguments)
+        except ProductOutsideRosterRefused as specific:
+            raise _opaque_directory_refusal(surface, str(specific)) from None
+        outside = reached - roster
+        if outside:
+            raise _opaque_directory_refusal(
+                surface,
+                "reaches "
+                + ", ".join(bounded_echo(name) for name in sorted(outside))
+                + ", outside the roster",
+            )
+        return
+    else:  # pragma: no cover - unconstructible: __post_init__
+        raise roster_refusal(surface, "this surface states no product reading")
+    outside = reached - roster
+    if outside:
+        named = ", ".join(bounded_echo(name) for name in sorted(outside))
+        raise roster_refusal(surface, f"it reaches {named}, outside the roster")
+
+
+def _opaque_directory_refusal(
+    surface: str, specific: str
+) -> ProductOutsideRosterRefused:
+    """Log ``specific`` server-side; return the one refusal the caller sees (I-NEW-1)."""
+    _LOGGER.info(
+        "SEC-017 roster refusal on %s before authorization: %s", surface, specific
+    )
+    return roster_refusal(surface, _OPAQUE_DIRECTORY_REASON)
+
+
 @dataclass(frozen=True)
 class GuardedSurface:
     """Everything one registration declared, as the ledger keeps it.
@@ -356,12 +523,14 @@ class GuardedSurface:
         subject: How the tenant is selected.
         resource: Where the resource is read.
         mutating: Whether the surface writes.
+        products: Which product classes the call reaches (``SEC-017``).
     """
 
     action: str
     subject: TenantSubject
     resource: ResourceSubject
     mutating: bool
+    products: ProductReach
 
 
 #: Each built server's ledger of guarded surfaces. Keyed weakly so a server
@@ -593,6 +762,37 @@ class TenantGuardedServer:
         """The resource is ``template`` formatted over the wire arguments."""
         return ResourceSubject(template=template)
 
+    # --- the four product readings (SEC-017; D-IMPL-374 (2)) ------------------
+
+    @staticmethod
+    def products_from_argument(name: str) -> ProductReach:
+        """The call reaches the product class the wire parameter ``name`` carries."""
+        return ProductReach(argument=name)
+
+    @staticmethod
+    def products_declared(product_class: str | None, *, declaration: str) -> ProductReach:
+        """The call reaches the deployment-declared class; ``None`` = undeclared.
+
+        ``declaration`` names the builder parameter, so a rostered caller
+        refused for its absence learns which declaration is missing.
+        """
+        if product_class is None:
+            return ProductReach(undeclared=declaration)
+        return ProductReach(declared=frozenset({product_class}))
+
+    @staticmethod
+    def products_resolved(resolve: ProductResolver) -> ProductReach:
+        """The call reaches the classes ``resolve`` reads for it."""
+        return ProductReach(resolve=resolve)
+
+    @staticmethod
+    def products_unknown(reason: str) -> ProductReach:
+        """The surface knows no product class at the call — said, with ``reason``.
+
+        An empty ``reason`` is refused by :class:`ProductReach` itself.
+        """
+        return ProductReach(unknown=reason)
+
     # --- registration ----------------------------------------------------------
 
     def tool(
@@ -603,6 +803,7 @@ class TenantGuardedServer:
         subject: TenantSubject,
         resource: ResourceSubject,
         mutating: bool,
+        products: ProductReach,
         **kwargs: Any,
     ) -> Callable[[_F], _F]:
         """Register a tool whose body runs only under a capability minted for it.
@@ -631,12 +832,20 @@ class TenantGuardedServer:
                 stated (ambient) identity before any decision is made. Refused
                 as ``False`` for an action whose kind is outside
                 :data:`READ_KINDS`.
+            products: Which product classes a call reaches (``SEC-017``); a
+                grant's declared roster is held to it before the authorizer.
             **kwargs: Passed to ``FastMCP.tool`` untouched.
         """
 
         def register(handler: _F) -> _F:
             guarded, surface = self._guard(
-                handler, action=action, subject=subject, resource=resource, mutating=mutating
+                handler,
+                surface_name=name,
+                action=action,
+                subject=subject,
+                resource=resource,
+                mutating=mutating,
+                products=products,
             )
             self._server.tool(name=name, **kwargs)(guarded)
             _close_wire_arguments(self._server, name)
@@ -656,6 +865,7 @@ class TenantGuardedServer:
         subject: TenantSubject,
         resource: ResourceSubject,
         mutating: bool,
+        products: ProductReach,
         **kwargs: Any,
     ) -> Callable[[_F], _F]:
         """Register a resource whose body runs only under a capability minted for it.
@@ -676,12 +886,19 @@ class TenantGuardedServer:
                 protocol, so this is ``False`` for every one the SDK ships; it
                 is a parameter rather than an assumption so the reading is
                 stated at each site.
+            products: Which product classes a read reaches (``SEC-017``).
             **kwargs: Passed to ``FastMCP.resource`` untouched.
         """
 
         def register(handler: _F) -> _F:
             guarded, surface = self._guard(
-                handler, action=action, subject=subject, resource=resource, mutating=mutating
+                handler,
+                surface_name=uri,
+                action=action,
+                subject=subject,
+                resource=resource,
+                mutating=mutating,
+                products=products,
             )
             self._server.resource(uri, **kwargs)(guarded)
             _LEDGERS[self._server][uri] = surface
@@ -695,10 +912,12 @@ class TenantGuardedServer:
         self,
         handler: _F,
         *,
+        surface_name: str,
         action: str,
         subject: TenantSubject,
         resource: ResourceSubject,
         mutating: bool,
+        products: ProductReach,
     ) -> tuple[_F, GuardedSurface]:
         """Wrap ``handler`` so decision and mint precede its first statement.
 
@@ -766,6 +985,12 @@ class TenantGuardedServer:
                 *wire,
             ]
             wire_names.add(subject.argument)
+        if products.argument is not None and products.argument not in wire_names:
+            raise ValueError(
+                f"{handler.__name__!r} declares no parameter"
+                f" {products.argument!r}; a roster held to a class the wire"
+                " does not carry would silently decide nothing (SEC-017)"
+            )
         if resource.argument is not None and resource.argument not in wire_names:
             raise ValueError(
                 f"{handler.__name__!r} declares no parameter"
@@ -774,7 +999,11 @@ class TenantGuardedServer:
             )
         visible = body.replace(parameters=wire)
         surface = GuardedSurface(
-            action=action, subject=subject, resource=resource, mutating=mutating
+            action=action,
+            subject=subject,
+            resource=resource,
+            mutating=mutating,
+            products=products,
         )
         authorizer = self._authorizer
 
@@ -807,12 +1036,23 @@ class TenantGuardedServer:
             arguments = dict(bound.arguments)
             tenant = _select_tenant(subject, arguments, held)
             target = _read_resource(resource, arguments, action=action)
+            # SEC-017; D-IMPL-374 (2), fix round 1: the declared product roster
+            # is held to this call HERE — after the tenant floor, BEFORE the
+            # authorizer — so a roster refusal records no allow and mints no
+            # capability. No roster declared: tenant-wide, as before.
+            roster = granted_products(token)
+            if roster is not None:
+                _hold_to_roster(surface_name, products, tenant, arguments, roster)
             # The §6 round-trip's last step: the grant the authorizer decides
             # on is rebuilt from the VERIFIED token — the claims the verifier
             # composed from the deployment's own grant, never anything the
-            # wire supplied.
+            # wire supplied. It carries the roster too, so the two copies of
+            # the grant in this call agree (SEC-017).
             grant = TokenGrant(
-                client_id=token.client_id, scopes=tuple(token.scopes), tenants=held
+                client_id=token.client_id,
+                scopes=tuple(token.scopes),
+                tenants=held,
+                products=roster,
             )
             decision = authorizer.authorize(
                 grant=grant, tenant=tenant, action_id=action, resource=target
