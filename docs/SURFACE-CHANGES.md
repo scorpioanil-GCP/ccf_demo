@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1963 entries**, of which **1694** name a public Python surface.
+**1988 entries**, of which **1717** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1104 entries — 1060 public Python surface, 44 not public Python API.
+1111 entries — 1067 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16765,6 +16765,90 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-02-sec-017-product-roster.md`.*
 
+#### ccf.graph.protocols.require_query_classification_authority
+
+- Surface: ccf.graph.protocols.require_query_classification_authority
+- Public surface: true
+- Change type: added
+- Before: absent. A store reader answered any classification query.
+- After: `require_query_classification_authority(q)` — passes a query with no classification map; otherwise refuses a query carrying no authority (`ClassificationAuthorityMissing`) and one whose authority does not cover the map (`UngovernedClassificationAttribute`). Called first by every `GraphQuery`-answering reader entry.
+- Why: coordinator ruling (1): the fifth path fails closed.
+- Migration: a classification query goes through `FabricHandle.reader`; a store or mounted product queried directly refuses it.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthority
+
+- Surface: ccf.graph.protocols.ClassificationAuthority
+- Public surface: true
+- Change type: added
+- Before: absent. No classification consumer could see which sources the resolution spec in force authorizes.
+- After: a contract `(spec_address, governed: class -> attribute -> frozenset[system_id], written: class -> frozenset[attribute])`, both mappings read-only, with `minted` and `require(by_class, *, consumer)`. `require` raises `UngovernedClassificationAttribute` for any attribute it does not govern — one the spec writes ungoverned, or one it knows nothing about. Minted only by `ccf.boot.boot`; a hand-built instance is refused by every consumer.
+- Why: SEC-023, `D-IMPL-374` ruling (3) (a) and fix round 1 (I-1): the value threaded from the composition root to every classification consumer must attest what L2 enforces, not declare it.
+- Migration: none. Read through `FabricHandle.reader`; there is no supported way to build one.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthorityNotMinted
+
+- Surface: ccf.graph.protocols.ClassificationAuthorityNotMinted
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer (or `governed_reader`) meets an authority `ccf.boot.boot` did not mint.
+- Why: fix round 1, I-1 (b).
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthorityMissing
+
+- Surface: ccf.graph.protocols.ClassificationAuthorityMissing
+- Public surface: true
+- Change type: added
+- Before: absent. A `PolicyFilter` applied over a hand-built view admitted on whatever labels it carried.
+- After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer meets a `GraphView` with no authority stamp.
+- Why: coordinator ruling (2) under `D-IMPL-374`: fail closed, by name. A view that carries a classification map silently is the hole.
+- Migration: read views through `FabricHandle.reader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.UngovernedClassificationAttribute
+
+- Surface: ccf.graph.protocols.UngovernedClassificationAttribute
+- Public surface: true
+- Change type: added
+- Before: defined in `ccf.deployment.manifest` and raised only at boot.
+- After: defined here, beside the view the consumer-time check reads; `ccf.deployment.manifest.UngovernedClassificationAttribute` is the same class, re-exported, so existing imports and `except` clauses keep working. Raised at boot (`operator_key` the manifest key) and by `ClassificationAuthority.require` (`operator_key` the consumer: a manifest key, an operator key, or `GraphQuery`).
+- Why: `ccf.graph` cannot import `ccf.deployment`; one class serves both refusal sites.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.require_classification_authority
+
+- Surface: ccf.graph.protocols.require_classification_authority
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `require_classification_authority(view, by_class, *, consumer)` — passes a `None` map; otherwise refuses a view with no authority (`ClassificationAuthorityMissing`) and a map the view's authority does not cover (`UngovernedClassificationAttribute`). The one check `PolicyFilter.apply` and `build_operator_registry` run.
+- Why: one function, so the consumers cannot disagree about what covering authority means.
+- Migration: none. A third-party policy operator that admits on a classification map calls it in `apply`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.governed_reader.governed_reader
+
+- Surface: ccf.graph.governed_reader.governed_reader
+- Public surface: true
+- Change type: added
+- Before: absent. `FabricHandle.reader` was the store's reader itself.
+- After: wraps a reader so every view it returns carries the authority, and a `GraphQuery` (or pinned query) with a classification map is refused before the substrate is asked anything unless the authority covers it. The result is `SnapshotPinnable` exactly when the wrapped reader is; every other attribute is forwarded.
+- Why: `ccf.boot.boot` is the only place both the resolution spec and the reader are in hand.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -17476,7 +17560,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-558 entries — 366 public Python surface, 192 not public Python API.
+564 entries — 372 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -23929,6 +24013,78 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `374-02-sec-017-product-roster.md`.*
 
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: 23 members ending in `attribute_assertion_refused`.
+- After: adds `governed_attribute_omitted`, always `resolved=True`.
+- Why: SEC-023-C-01, coordinator ruling (3).
+- Migration: a consumer that matches exhaustively on the action vocabulary adds the member.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.AuditEvent
+
+- Surface: ccf.controlplane.audit.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: `action` typed over 23 members.
+- After: `action` typed over 24 (adds `governed_attribute_omitted`). No field added; canonical bytes of every existing event unchanged.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.registry.AuditEvent
+
+- Surface: ccf.controlplane.registry.AuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: the re-export of `ccf.controlplane.audit.AuditEvent` over 23 actions.
+- After: the same re-export over 24.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.AuthzDecisionAuditEvent
+
+- Surface: ccf.controlplane.audit.AuthzDecisionAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: inherited `action` over 23 members.
+- After: inherited `action` over 24.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+
+- Surface: ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: inherited `action` over 23 members.
+- After: inherited `action` over 24.
+- Why: the `AuditAction` member above.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+
+- Surface: ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+- Public surface: true
+- Change type: reshaped
+- Before: inherited `action` over 23 members; carried only `attribute_assertion_refused`.
+- After: inherited `action` over 24; also carries `governed_attribute_omitted` (`resolved=True`, `refused_value_present=False`). The `action` member, not the field names, says which happened.
+- Why: SEC-023-C-01 reuses the five `refused_*` fields rather than adding a parallel keyword family to `AuditLog.append`.
+- Migration: a reader of `refused_*` fields filters on `action`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -26945,7 +27101,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-254 entries — 221 public Python surface, 33 not public Python API.
+266 entries — 231 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -31197,6 +31353,126 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `374-02-sec-017-product-roster.md`.*
 
+#### ccf.graph.protocols.GraphQuery
+
+- Surface: ccf.graph.protocols.GraphQuery
+- Public surface: true
+- Change type: behavior
+- Before: no authority.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`; the stamping method is private), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
+- Why: the store reader can tell a checked query from one that came another way.
+- Migration: none on the paved road.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.reader.BaseGraphReader
+
+- Surface: ccf.graph.reader.BaseGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` runs `require_query_classification_authority` before any substrate I/O. SQLite, Postgres, MongoDB, Neo4j and Fluree inherit it.
+- Why: the fifth path.
+- Migration: send classification queries through `FabricHandle.reader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.backends.memory.MemoryGraphReader
+
+- Surface: ccf.graph.backends.memory.MemoryGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` refuses an unstamped classification query.
+- Why: the fifth path.
+- Migration: as for `BaseGraphReader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query_pinned` answered any classification query.
+- After: `query_pinned` refuses an unstamped classification query before any I/O (its `query` is `BaseGraphReader.query`).
+- Why: the fifth path; the one `SnapshotPinnable` store entry.
+- Migration: as for `BaseGraphReader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.product_source.ProductSource
+
+- Surface: ccf.graph.product_source.ProductSource
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query over the mounted product.
+- After: `query` refuses an unstamped classification query (ruling (3), fail closed).
+- Why: a peer product's labels were governed by no local L2.
+- Migration: none supported; a classification answer over a peer product is refused (ruling (3)).
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.GraphView
+
+- Surface: ccf.graph.protocols.GraphView
+- Public surface: true
+- Change type: behavior
+- Before: records only.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority` property; the stamping method is private, called by the booted reader and the shipped operators). It is outside the canonical form and outside equality, so a view's content hash and every record built from one are the same stamped or not (proven by `test_the_authority_stamp_leaves_every_record_identity_unchanged`).
+- Why: coordinator ruling (1): the stamp must be hash-transparent, so no replay record changes.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: behavior
+- Before: `FabricHandle.reader` was the store's reader.
+- After: `boot` mints the `ClassificationAuthority` of the resolution spec its L2 enforces (the only mint) and `FabricHandle.reader` is `governed_reader(store.reader, <that authority>)`. A classification `GraphQuery` the authority does not cover is refused; every view and every checked query carries the authority.
+- Why: path 1 and path 3 of the `D-IMPL-372` amendment — a hand-composed boot never sees operator parameters, so the boot-time check could not cover it.
+- Migration: a hand-composed deployment whose classification attribute is written without `attribute_authorities` must declare them; before, it served whatever label the latest source wrote.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.operators.categories.PolicyFilter
+
+- Surface: ccf.operators.categories.PolicyFilter
+- Public surface: true
+- Change type: behavior
+- Before: `apply` admitted on the view's labels, wherever the view came from.
+- After: `apply` first runs `require_classification_authority` on its view: `ClassificationAuthorityMissing` for an unstamped view, `UngovernedClassificationAttribute` for an uncovered map. Views produced by the shipped operators carry the input view's authority forward.
+- Why: path 3 of the `D-IMPL-372` amendment; coordinator ruling (2).
+- Migration: tests and harnesses that apply a `PolicyFilter` over hand-built views stamp them (`tests/properties/strategies.py::AUTHORITY` is the worked case).
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.deployment.operators.build_operator_registry
+
+- Surface: ccf.deployment.operators.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: built a `PolicyFilter` from any policy artifact, and registered any `deployment_operators`, without consulting authority.
+- After: before registering, checks every Policy operator it builds and every deployment operator whose read intent carries a classification map against the authority `view` was read under. Signature unchanged — the six frozen specimens' four-argument calls keep working.
+- Why: paths 2 and 4 of the `D-IMPL-372` amendment.
+- Migration: none when `view` comes from `FabricHandle.reader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: an entity claim from a source not authorized for a governed attribute that OMITTED the attribute was written and blanked the label with no record (`SEC-023-C-01`).
+- After: still written (admitted), and each omitted governed attribute is appended as one `governed_attribute_omitted` event (`resolved=True`, `refused_value_present=False`).
+- Why: coordinator ruling (3): audit AND admit. The refusal event's schema has no reason field, so a new member names the omission instead of recording an admission as a refusal.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
 ### Not public Python API
 
 #### runtime/ccf_runtime/mcp/hitl_server.py
@@ -32071,3 +32347,27 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none outside the SDK.
 
 *Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### examples/cp-04-corporate-family-tree/ccf_config.yaml
+
+- Surface: examples/cp-04-corporate-family-tree/ccf_config.yaml
+- Public surface: false
+- Change type: behavior
+- Before: the frozen specimen's resolution spec wrote its classification attribute with no `attribute_authorities`, so it refused to boot under SEC-023.
+- After: the authority declaration is added (executor ruling (b) at `D-IMPL-374`), with a dated README note. Nothing else in the specimen changed beyond that note.
+- Why: `D-IMPL-261` permits a specimen change when the SDK surface it consumes was deliberately changed.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### examples/cp-05-credit-exposure-rollup/ccf_config.yaml
+
+- Surface: examples/cp-05-credit-exposure-rollup/ccf_config.yaml
+- Public surface: false
+- Change type: behavior
+- Before: the frozen specimen's resolution spec wrote `family_id` on `exposure_anchor` with no `attribute_authorities`, so it refused to boot; three `tests/products/test_cp05_canonical_path.py` tests errored at setup and three `tests/signal_layer/test_cp05_acquisition_boundary.py` tests failed.
+- After: the authority declaration is added (executor ruling (b) at `D-IMPL-374`), with a dated README note. Nothing else in the specimen changed beyond that note.
+- Why: `D-IMPL-261` permits a specimen change when the SDK surface it consumes was deliberately changed.
+- Migration: none.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*

@@ -1790,6 +1790,11 @@ class FlureeGraphReader(BaseGraphReader):
             ValueError: the tenant or partition would be read as a query
                 variable on this route (:func:`_pinned_select`).
         """
+        # SEC-023 (`D-IMPL-374`): a classification query carries the authority a
+        # booted fabric's reader checked it against, or it is refused here.
+        from ccf.graph.protocols import require_query_classification_authority
+
+        require_query_classification_authority(q)
         pin_t = _require_fluree_pin(pin)
         partition = self._store.partition
 

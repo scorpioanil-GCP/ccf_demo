@@ -14,6 +14,11 @@ tenant_id: perf-tenant
 # Rule 0 is the HUB class (D-27: few hubs, long sparse tail); the remaining
 # rules are the tail classes. The generator derives hub/tail roles from the
 # relationship_rules below (subjects are hubs), not from position by magic.
+# `attribute_authorities` (SEC-023, D-IMPL-374): each class's classification
+# attribute is asserted only by the generator's own invented source id, so the
+# Policy operator the policy suites build is a consumer with covering
+# authority. The id must equal the generator's SourceIdentity system_id
+# (perf/synth/generator.py), which spells it there too.
 entity_rules:
   - match_key: alpha_ref
     entity_class: node_alpha
@@ -21,6 +26,7 @@ entity_rules:
     attribute_keys:
       - alpha_label
       - alpha_tag
+    attribute_authorities: {alpha_tag: [perf-synth]}
 
   - match_key: beta_ref
     entity_class: node_beta
@@ -28,6 +34,7 @@ entity_rules:
     attribute_keys:
       - beta_label
       - beta_tag
+    attribute_authorities: {beta_tag: [perf-synth]}
 
   - match_key: gamma_ref
     entity_class: node_gamma
@@ -35,6 +42,7 @@ entity_rules:
     attribute_keys:
       - gamma_label
       - gamma_tag
+    attribute_authorities: {gamma_tag: [perf-synth]}
 
 # Typed edges minted when one envelope resolves both endpoint classes.
 # Subjects are the hub class, so traversal expands hub-outward (D-27).

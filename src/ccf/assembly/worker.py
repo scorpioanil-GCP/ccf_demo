@@ -1023,6 +1023,17 @@ class AssemblyWorker:
         non-authoritative source refuse every serve whose acquisition touched
         it (``src/ccf/products/resolver.py::SDK_SEAM_REFUSALS``).
 
+        **An omission is audited and admitted** (SEC-023-C-01, ``D-IMPL-374``
+        ruling (3)): an entity from a source outside a governed attribute's
+        set that does NOT carry the attribute is written — its claim
+        supersedes the attribute dict, so it blanks the label if one was
+        present — and each such attribute is appended as
+        ``governed_attribute_omitted`` (``resolved=True``,
+        ``refused_value_present=False``). The event records the omission, not
+        a measured blanking: it fires on every such ingest, including a first
+        observation where there was no label to blank, so its volume scales
+        with non-authoritative ingest of a governed class.
+
         A strategy that exposes no :class:`EntityResolutionSpec` declares no
         authorities, so nothing is governed — the ``_relationship_rules``
         posture.
@@ -1042,6 +1053,29 @@ class AssemblyWorker:
                 if attribute in item.attributes and source not in sources
             )
             if not unauthorized:
+                # SEC-023-C-01 (`D-IMPL-374` ruling (3); audit AND admit): a
+                # claim supersedes the whole attribute dict, so a source not
+                # authorized for a governed attribute that OMITS it blanks any
+                # label present (recorded whether or not one was). Admitted — an omission asserts no value, and a refusal
+                # would be a lever over every serve — but never silent.
+                for attribute in sorted(
+                    attribute
+                    for attribute, sources in authorities.items()
+                    if attribute not in item.attributes and source not in sources
+                ):
+                    self._registry.audit_log.append(
+                        action="governed_attribute_omitted",
+                        key=item.entity_uri,
+                        version=self._policy_bundle_version,
+                        resolved=True,
+                        occurred_at=envelope.ingestion_timestamp,
+                        artifact_class=_RESOLUTION_SPEC_CLASS_ID,
+                        refused_entity_class=item.entity_class,
+                        refused_attribute=attribute,
+                        refused_source_system_id=source,
+                        refused_envelope_id=envelope.envelope_id,
+                        refused_value_present=False,
+                    )
                 admitted.append(item)
                 continue
             for attribute in unauthorized:

@@ -140,6 +140,15 @@ __all__ = [
 #: existing members can express it: no Control Plane artifact was registered
 #: or resolved, and a write refusal recorded as ``resolve`` would make the log
 #: say something untrue. Always ``resolved=False``.
+#: ``governed_attribute_omitted`` is the member added for SEC-023-C-01
+#: (``D-IMPL-374`` ruling (3): audit AND admit): L2 ADMITTED an entity claim
+#: from a source not authorized for a governed attribute the claim OMITS —
+#: the claim supersedes the whole attribute dict, so the omission blanks the
+#: label. A distinct member because the refusal event's schema carries no
+#: reason field, and recording an admission as ``attribute_assertion_refused``
+#: would make the log say something untrue. Carried by
+#: :class:`AttributeAssertionRefusedAuditEvent`'s fields with
+#: ``refused_value_present=False``. Always ``resolved=True``.
 AuditAction = Literal[
     "register",
     "register_typed",
@@ -164,6 +173,7 @@ AuditAction = Literal[
     "authz_decision",
     "composition",
     "attribute_assertion_refused",
+    "governed_attribute_omitted",
 ]
 
 
@@ -362,6 +372,12 @@ class AttributeAssertionRefusedAuditEvent(AuditEvent):
     (SEC-024 discipline): the audit plane must not become a copy of the data a
     classification was protecting, nor a channel through which a refused
     source's text reaches an examiner's tooling.
+
+    **Also the carrier of ``governed_attribute_omitted``** (SEC-023-C-01,
+    ``D-IMPL-374`` ruling (3)): the same fields describe an ADMITTED claim
+    whose source, not authorized for the attribute, omitted it — with
+    ``resolved=True`` and ``refused_value_present=False``. The ``action``
+    member, not the field names, says which of the two happened.
 
     A derived class for the byte-stability reason
     :class:`AuthzDecisionAuditEvent` gives, and every field is hash-transparent

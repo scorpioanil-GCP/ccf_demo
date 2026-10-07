@@ -452,6 +452,12 @@ class ProductSource:
         docs/GRAPH_QUERY_SEMANTICS.md:474). ``q.as_of`` arrives as data —
         this method reads no clock.
         """
+        # SEC-023 (`D-IMPL-374`, ruling (3)): a mounted peer product's labels were
+        # governed by no local L2, so a classification query refuses unless the
+        # caller stamped it with the authority it holds itself answerable for.
+        from ccf.graph.protocols import require_query_classification_authority
+
+        require_query_classification_authority(q)
         if q.tenant_id != self._tenant_id:
             return GraphView(tenant_id=q.tenant_id, as_of=q.as_of)
         entities, relationships = fallback.answer(

@@ -325,6 +325,11 @@ class MemoryGraphReader:
         inside the frozen value; ``q.as_of`` arrives as data — this method
         reads no clock.
         """
+        # SEC-023 (`D-IMPL-374`): a classification query carries the authority a
+        # booted fabric's reader checked it against, or it is refused here.
+        from ccf.graph.protocols import require_query_classification_authority
+
+        require_query_classification_authority(q)
         boundary = canonical_timestamp(q.as_of)
         state = self._store.tenant_state(q.tenant_id)
         entity_rows: tuple[Row, ...] = tuple(

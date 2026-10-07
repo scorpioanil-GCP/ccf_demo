@@ -58,7 +58,7 @@ from ccf.authz.capability import (
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
-from ccf.graph.protocols import GraphReader, WriterLeaseScope
+from ccf.graph.protocols import ClassificationAuthority, GraphReader, WriterLeaseScope
 from ccf.controlplane.invalidation import ControlPlaneInvalidationSink, register_key
 from ccf.graph.registry import (
     AdapterPin,
@@ -531,8 +531,14 @@ def boot(
         shutdown()
         raise
 
+    # SEC-023 (`D-IMPL-374` ruling (3) (a)): the reader a booted fabric hands
+    # out stamps every view with the authority its L2 enforces, and refuses a
+    # classification query that authority does not cover. Imported here so the
+    # module's line anchors other records cite stay where they were.
+    from ccf.graph.governed_reader import governed_reader
+
     return FabricHandle(
-        reader=store.reader,
+        reader=governed_reader(store.reader, _mint_authority_of(spec)),
         worker=worker,
         registry=registry,
         # Reference names, never the fields they filled and never a value.
@@ -548,4 +554,25 @@ def boot(
         shutdown=shutdown,
         lease_scope=token.lease_scope,
         lease_mechanism=token.lease_mechanism,
+    )
+
+
+def _mint_authority_of(spec: EntityResolutionSpec) -> ClassificationAuthority:
+    """Mint the classification authority of the spec this fabric's L2 enforces.
+
+    SEC-023 (``D-IMPL-374`` fix round 1, I-1 (b)). The composition root is the
+    one place that mints: the spec here is the one
+    :class:`~ccf.assembly.worker.AssemblyWorker` was just built over, and the
+    mint carries its content address, so the stamp on every view this fabric
+    reads is an attestation of what L2 enforces, not a caller's declaration.
+    """
+    from ccf.graph.protocols import _mint_classification_authority
+
+    written: dict[str, set[str]] = {}
+    for rule in spec.entity_rules:
+        written.setdefault(rule.entity_class, set()).update(rule.attribute_keys)
+    return _mint_classification_authority(
+        spec_address=content_hash(spec),
+        governed=spec.governed_attributes(),
+        written={cls: frozenset(attrs) for cls, attrs in written.items()},
     )

@@ -15,6 +15,16 @@ Specification: [`spec/CP-SPEC-004_Corporate_Family_Tree.md`](spec/CP-SPEC-004_Co
 > entity record and 20 do not.** A build that quietly served only the two that
 > resolve would return a smaller, tidier, wrong family.
 
+> **Specimen re-pin, 2026-10-06 (`D-IMPL-374`, executor ruling (b)).** This
+> frozen specimen changed in one place only: `ccf_config.yaml` now declares
+> `attribute_authorities: {family_id: [corporate_family_graph]}` on the `family_anchor` and
+> `family_member` resolution rules. SEC-023 refuses a deployment whose Policy
+> operator admits on an attribute any source could relabel, so without the
+> declaration this example no longer boots. `D-IMPL-261` allows a specimen
+> change when the SDK surface it consumes was deliberately changed, and
+> SEC-023 is that change. Apart from this note, nothing else in this example
+> changed.
+
 ## What this demonstrates
 
 **Two systems of record in one answer, and the join is the product.** Rungs 00

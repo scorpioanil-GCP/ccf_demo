@@ -107,6 +107,9 @@ from ccf.deployment.classes import (
 )
 from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
+# SEC-023 (`D-IMPL-374`): the refusal now lives beside the view the
+# consumer-time check reads; re-exported here under its batch-5 name.
+from ccf.graph.protocols import UngovernedClassificationAttribute
 from ccf.graph.registry import (
     ResolvedBackend,
     ResolvedSecret,
@@ -556,53 +559,6 @@ def _mint_register(registry: ControlPlaneProtocol, key: str, *, tenant: str) -> 
     )
 
 
-class UngovernedClassificationAttribute(ValueError):
-    """A deployment's Policy operator reads an attribute no source authority governs.
-
-    SEC-023 (``D-IMPL-372``, ruling Q15 (a); Dave's correction of 2026-10-06:
-    *completion requires fail-closed enforcement wherever classification
-    controls access*). Whitepaper §7.4 (the Policy operator admits on the
-    attribute a Control Plane document names) and §7.3 (L2 is the only
-    writer, so the only place an assertion can be refused).
-
-    Raised at boot, by name, before anything is registered or minted, when a
-    ``PolicyFilterParametersArtifact`` in the deployment names
-    ``classification_attribute_by_class: {entity_class: attribute}`` and the
-    resolution spec in force has a rule of that class that writes the
-    attribute (``attribute_keys``) while declaring no
-    ``attribute_authorities`` for it. Without the declaration, ANY source
-    relabels the attribute that decides access merely by speaking later
-    (``src/ccf/graph/_writer.py::BaseGraphWriter._restitch_chain``). There is
-    no default to fall back on: the deployment names the sources, or it does
-    not boot.
-
-    **What it does not cover, stated so it is not over-read.** A class no rule
-    writes the attribute for is not refused — nothing source-asserts it, and
-    the Policy operator admits such an entity to nobody. A fabric composed by
-    hand through ``ccf.boot.boot``, which never sees operator parameters, is
-    outside this check (the low road; ``D-IMPL-364``), as is a custom
-    ``EntityResolutionStrategy`` that exposes no spec.
-
-    Attributes:
-        operator_key: The manifest key of the policy-parameters artifact.
-        entity_class: The class whose classification attribute is ungoverned.
-        attribute: The attribute.
-    """
-
-    def __init__(self, *, operator_key: str, entity_class: str, attribute: str) -> None:
-        self.operator_key, self.entity_class, self.attribute = (
-            operator_key, entity_class, attribute
-        )
-        super().__init__(
-            f"UngovernedClassificationAttribute: policy parameters {operator_key!r}"
-            f" admit {entity_class!r} on attribute {attribute!r}, which the"
-            " resolution spec in force writes from the source payload with no"
-            " attribute_authorities declaration; any source could relabel it."
-            f" Declare attribute_authorities: {{{attribute}: [<system id>, ...]}}"
-            f" on every {entity_class!r} rule that carries it (SEC-023)"
-        )
-
-
 def _refuse_ungoverned_classification(
     manifest: DeploymentManifest, parsed: Mapping[str, CCFContract]
 ) -> None:
@@ -615,6 +571,12 @@ def _refuse_ungoverned_classification(
     A spec key that does not resolve to an
     :class:`~ccf.assembly.worker.EntityResolutionSpec` is left to
     :func:`ccf.boot.boot`, which refuses it by type.
+
+    The EARLY refusal (``D-IMPL-374`` ruling (3) (a)): the same rule is
+    enforced again wherever a classification consumer is built or used —
+    ``build_operator_registry``, ``PolicyFilter.apply`` and the booted
+    fabric's reader — which is what covers the paths that never pass through
+    this function.
     """
     spec = parsed.get(manifest.resolution_spec_key)
     if not isinstance(spec, EntityResolutionSpec):

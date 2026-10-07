@@ -22,6 +22,8 @@ standing rule; INV-CH7-10).
 
 from __future__ import annotations
 
+from tests.classification_authority import stamp
+
 import functools
 from datetime import datetime
 
@@ -43,6 +45,7 @@ from ccf.operators.planner import CATEGORY_ORDER, build_operator_plan, compose
 from ccf.projection.engine import ProjectionEngine
 
 from .strategies import (
+    AUTHORITY,
     BOUNDARY,
     TENANT,
     CuratedGraph,
@@ -110,7 +113,7 @@ class FixedViewReader:
         entities, relationships = answer(
             self._view.entities, self._view.relationships, query=q
         )
-        return GraphView(
+        return stamp(GraphView(
             tenant_id=q.tenant_id,
             as_of=q.as_of,
             entities=tuple(
@@ -119,7 +122,7 @@ class FixedViewReader:
             relationships=tuple(
                 sorted(relationships, key=lambda record: record.relationship_key)
             ),
-        )
+        ), AUTHORITY)
 
     @property
     def attestation(self) -> SourceAttestation:

@@ -477,13 +477,35 @@ Three things follow, and all three are mechanism:
   operator admits on an attribute that a rule writes with no
   `attribute_authorities`, `load_and_boot` and `load_config_and_boot` refuse
   with `UngovernedClassificationAttribute`
-  (`src/ccf/deployment/manifest.py::UngovernedClassificationAttribute`)
+  (`src/ccf/graph/protocols.py::UngovernedClassificationAttribute`)
   before anything is registered.
 
-Authority is only as strong as your binding of `SourceIdentity.system_id` to
-a real system. The SDK does not attest source identity: the adapter declares
-it. A fabric composed by hand through `ccf.boot.boot` never sees operator
-parameters, so the boot check does not cover it.
+Authority is only as strong as your binding of `SourceIdentity.system_id` to a
+real system. The SDK does not attest source identity: the adapter declares it.
+The same refusal also fires when a classification consumer is built or used:
+`build_operator_registry`, `PolicyFilter.apply` and the booted reader's
+`query` refuse a classification map the authority does not cover, including an
+attribute the resolution spec neither writes nor governs, so a hand-built
+operator, a hand-composed `ccf.boot.boot` and a per-request registry are
+covered too (`D-IMPL-374`;
+`src/ccf/graph/protocols.py::require_classification_authority`). The authority
+is minted only by `ccf.boot.boot`, from the resolution spec its L2 enforces,
+and carries that spec's content address. A view or query with no authority is
+refused with `ClassificationAuthorityMissing`, and one carrying an authority
+boot did not mint is refused with `ClassificationAuthorityNotMinted`. The
+shipped store readers (every `BaseGraphReader` backend, the memory reader,
+Fluree's pinned read) and a mounted peer product refuse a classification query
+that did not come through a booted reader. A claim from an unauthorized source
+that omits a governed attribute is still written, and blanks the label if one
+was present, but it is recorded as a `governed_attribute_omitted` audit event
+(`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). Three boundaries
+remain: an out-of-tree graph reader that does not subclass `BaseGraphReader`
+is unguarded unless it calls `require_query_classification_authority` itself;
+the declared-read boundary (an operator that filters on a classification
+attribute without declaring it in `read_intent` is not checked when it is
+registered, so its own `apply` must call `require_classification_authority`);
+and a source that is authorized for an attribute may set it in either
+direction, including by omitting it, without an event.
 
 ### 4.8 Two deployment limitations, disclosed rather than fixed
 
