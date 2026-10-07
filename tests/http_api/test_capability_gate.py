@@ -314,6 +314,7 @@ class TestP1TheRealCredentialOpensTheDoor:
                 )
             ),
             refusal_recorder=_recorder(fabric, root, source=source),
+            replay_record_product_class=None,
         )
 
     def test_a_file_token_source_grant_with_tenants_is_served(
@@ -837,6 +838,8 @@ class TestCreateAppRefusesMismatchedWiring:
                 )
             ),
             "refusal_recorder": recorder,
+            # `SEC-017`; `D-IMPL-374`: required, and stated — none declared.
+            "replay_record_product_class": None,
         }
 
     def _recorder_over(self, store: Any, fabric: Fabric) -> ReplayRefusalRecorder:

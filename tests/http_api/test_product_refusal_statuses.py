@@ -638,6 +638,7 @@ def test_a_builder_that_skips_the_recorder_check_is_red_sabotage(
             product_entitlement=_source_over(fabric, tmp_path),
             perspective_resolver=lambda **_: None,
             refusal_recorder=None,
+            replay_record_product_class=None,
         )
 
     if mutate:
@@ -712,6 +713,7 @@ def test_a_door_built_with_no_check_at_all_still_releases_nothing(
         product_entitlement=_source_over(fabric, tmp_path),
         perspective_resolver=_perspective,
         refusal_recorder=None,
+        replay_record_product_class=None,
     )
     assert app is not None
 

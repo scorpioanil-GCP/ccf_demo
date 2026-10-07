@@ -70,17 +70,24 @@ class TestTheSignatureHasNoInsecureArm:
             "product_entitlement",
             "perspective_resolver",
             "refusal_recorder",
+            # Required, not optional (`SEC-017`; `D-IMPL-374`): every
+            # keyword-only parameter of `create_app` is required
+            # (`D-IMPL-353` §4 rule 1). Its value may be `None` (see the next
+            # test); the argument may not be omitted.
+            "replay_record_product_class",
         }
 
     def test_no_parameter_accepts_none(self) -> None:
         """``| None`` on any of the five would re-open the arm by typing.
 
-        One parameter is optional BY RULING and is named here rather than
-        hidden: ``replay_record_product_class`` (``SEC-017``; ``D-IMPL-374``
-        (2), fix round 1). Its absence is not an insecure arm — absent, a
-        bearer with a declared product roster is REFUSED every replay read —
-        so ``None`` there fails closed. Every other parameter stays held to
-        the original rule, including any added later.
+        One parameter is typed ``| None`` BY RULING and is named here rather
+        than hidden: ``replay_record_product_class`` (``SEC-017``;
+        ``D-IMPL-374`` (2), fix round 1). It is REQUIRED — the test above holds
+        that — and ``None`` is a value the deployment passes. It is not an
+        insecure arm: given ``None``, a bearer with a declared product roster
+        is REFUSED every replay read, so ``None`` there fails closed. Every
+        other parameter stays held to the original rule, including any added
+        later.
         """
         signature = inspect.signature(create_app)
         optional = [

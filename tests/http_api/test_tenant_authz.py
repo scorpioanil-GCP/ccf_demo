@@ -188,6 +188,7 @@ def door(fabric: Fabric, tmp_path_factory: pytest.TempPathFactory) -> Any:
             )
         ),
         refusal_recorder=_recorder(fabric, root, source=entitlement),
+        replay_record_product_class=None,
     )
     return _Door(app=app, tenant=tenant, version=version, registry=registry)
 

@@ -253,6 +253,7 @@ def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
             )
         ),
         refusal_recorder=recorder,
+        replay_record_product_class=None,
     )
     return Governed(
         app=app,
@@ -806,6 +807,7 @@ def test_c19_the_level_is_read_through_the_recorder_not_the_source(
             )
         ),
         refusal_recorder=default_reader,
+        replay_record_product_class=None,
     )
     owned = _served_record(door, principal=A)
     assert source.disclosure_level_for(tenant=door.tenant, principal_id=A) == (
@@ -1051,6 +1053,7 @@ def test_the_door_refuses_to_build_with_a_recorder_that_cannot_disclose(
                 )
             ),
             refusal_recorder=_RecordOnly(),
+            replay_record_product_class=None,
         )
 
 

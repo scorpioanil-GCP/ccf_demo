@@ -10819,7 +10819,7 @@
       },
       "create_app": {
         "kind": "function",
-        "shape": "(deps: 'ApiDependencies', *, auth: 'HttpAuthProtocol', authorizer: 'TenantAuthorizerProtocol', product_entitlement: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol', replay_record_product_class: 'str | None' = None) -> 'FastAPI'"
+        "shape": "(deps: 'ApiDependencies', *, auth: 'HttpAuthProtocol', authorizer: 'TenantAuthorizerProtocol', product_entitlement: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol', replay_record_product_class: 'str | None') -> 'FastAPI'"
       }
     }
   },

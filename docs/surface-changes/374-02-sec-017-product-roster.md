@@ -239,6 +239,16 @@ HITL server, and the HTTP `/artifact`, `/hitl`, `/agent`, `/skill`,
 - Public surface: true
 - Change type: reshaped
 - Before: no replay class.
-- After: adds the keyword `replay_record_product_class: str | None = None`. The SDK names no class, and `None` means a rostered bearer is refused every replay read.
-- Why: SEC-017 fix round 1.
-- Migration: a deployment that issues rostered grants and serves replay over HTTP declares it.
+- After: adds the required keyword-only `replay_record_product_class: str | None`, with no default. The SDK names no class, and a `None` passed explicitly means a rostered bearer is refused every replay read. An omitted argument is a `TypeError`.
+- Why: SEC-017 fix round 1. `D-IMPL-353` §4 rule 1 holds every keyword-only parameter of `create_app` required, and `HttpAuthority` names each one with its own type. A deployment states this declaration; it is never read as `None` by omission.
+- Migration: every caller of `create_app` passes `replay_record_product_class=`. Pass `None` unless the deployment issues rostered grants and serves replay over HTTP, in which case pass the class its replay records are held to.
+
+## ccf_runtime.http_api.app.HttpAuthority
+
+- Surface: ccf_runtime.http_api.app.HttpAuthority
+- Public surface: true
+- Change type: reshaped
+- Before: a `TypedDict` naming `create_app`'s five required keyword seams.
+- After: adds the required key `replay_record_product_class: str | None`, the same type as `create_app`'s parameter, so the bundle names every keyword-only parameter of `create_app`. A bundle that leaves it out is a mypy error where it is written, and `None` is a value the embedder states.
+- Why: SEC-017; `D-IMPL-374` (2). `create_app` requires the declared replay class, and `tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams` holds the two equal.
+- Migration: an embedder that builds an `HttpAuthority` for `ccf_runtime.cli.main.main(authority=...)` or `create_app(deps, **authority)` adds `"replay_record_product_class": None`, or the class its replay records are held to.

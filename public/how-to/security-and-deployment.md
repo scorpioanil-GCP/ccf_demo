@@ -586,8 +586,10 @@ Two things you must supply:
   entry carries no derived classes.
 - **Declare `replay_record_product_class`** on `build_experience_server` and on
   `create_app` if rostered principals should read replay records. The SDK
-  names no class: `None`, the signature's value when you pass nothing, means a
-  rostered caller is refused every replay read.
+  names no class. `build_experience_server` takes `None` when you pass nothing.
+  `create_app` has no default: you state the value, and `None` is how you say
+  you name no class. Either way, `None` means a rostered caller is refused every
+  replay read.
 
 `invoke_agent` reads your agent directory before the authorizer decides, so a
 rostered caller the authorizer would refuse still reaches that lookup. The

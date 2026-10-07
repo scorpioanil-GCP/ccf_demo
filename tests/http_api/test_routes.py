@@ -287,6 +287,7 @@ def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
         # denial is not built. This door only ever serves, so the recorder is
         # bound and never fires — one keyword, and nothing else here moves.
         refusal_recorder=_recorder(fabric, tmp_path, source=source),
+        replay_record_product_class=None,
     )
 
 
@@ -1051,6 +1052,7 @@ def test_backends_is_guarded_exactly_as_schema_is(
         refusal_recorder=_recorder(
             fabric, tmp_path, source=_echo_entitlement(fabric)
         ),
+        replay_record_product_class=None,
     )
 
     from .gate_fixtures import probe

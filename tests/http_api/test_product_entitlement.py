@@ -265,6 +265,7 @@ def _entitled(
             product_entitlement=source,
             perspective_resolver=_resolver,
             refusal_recorder=recorder,
+            replay_record_product_class=None,
         ),
         recorder=recorder,
     )
