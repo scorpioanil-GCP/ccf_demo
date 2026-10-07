@@ -48,7 +48,7 @@ def test_an_erasure_record_is_written_only_after_a_human_approves_through_the_ga
     plane = h.compose(tmp_path)
     door = h.door(plane)
     request = h.request(plane)
-    suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request))
+    suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))
     # Requested, not erased: nothing is written and nothing is indexed until a human approves.
     assert getattr(suspended, "event_key", None), suspended
     assert _record_count(plane) == 0
@@ -57,7 +57,7 @@ def test_an_erasure_record_is_written_only_after_a_human_approves_through_the_ga
 
     resolution = h.approve(plane, h.pending(plane, suspended.event_key))
     record = h.run(
-        door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution)
+        door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request))
     )
     assert isinstance(record, h.erasure("ErasureRecord")), record
     assert record.actor.subject_id == h.APPROVER
@@ -79,7 +79,7 @@ def test_a_completion_presenting_an_approval_the_authority_path_never_recorded_w
     plane = h.compose(tmp_path)
     door = h.door(plane)
     request = h.request(plane)
-    suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request))
+    suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))
     event = h.pending(plane, suspended.event_key)
     # A well-formed GateResolution for THIS suspension that the transport never
     # recorded: an eligible approver's verdict, fabricated rather than submitted.
@@ -92,7 +92,7 @@ def test_a_completion_presenting_an_approval_the_authority_path_never_recorded_w
         hitl_actions_block=canonical_bytes(record).decode("utf-8"),
     )
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
-        h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=forged))
+        h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=forged, erase=h.erase_cap(request)))
     assert _refusal_code(refused.value) == "approval-not-recorded"
     assert _record_count(plane) == 0
     assert h.erasure("ErasureIndex")(plane.registry).lookup(plane.document.content_address) is None
@@ -102,7 +102,7 @@ def test_a_workflow_with_no_approval_gate_is_refused_at_the_door(tmp_path: Path)
     plane = h.compose(tmp_path, gated=False)
     door = h.door(plane)
     with pytest.raises(h.door_module("ErasureWorkflowUngated")):
-        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=h.request(plane)))
+        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=(r := h.request(plane)), erase=h.erase_cap(r)))
     assert not plane.transport.pending(tenant=h.TENANT)
     assert _record_count(plane) == 0
 
@@ -117,7 +117,7 @@ def test_a_legal_hold_refuses_the_request_and_names_its_hold(tmp_path: Path) -> 
     plane = h.compose(tmp_path, policy=h.retention(holds=(hold,)))
     door = h.door(plane)
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
-        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=h.request(plane)))
+        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=(r := h.request(plane)), erase=h.erase_cap(r)))
     decision = refused.value.decision
     assert decision.reason_code == "legal-hold" and decision.hold_id == "hold-7"
     assert decision.verdict == "refuse"
@@ -129,7 +129,7 @@ def test_a_legal_hold_placed_after_the_request_refuses_the_completion(tmp_path: 
     plane = h.compose(tmp_path)
     door = h.door(plane)
     request = h.request(plane)
-    suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request))
+    suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))
     resolution = h.approve(plane, h.pending(plane, suspended.event_key))
     hold = h.erasure("LegalHold")(
         hold_id="hold-late", subject_refs=None, addresses=(plane.document.content_address,),
@@ -137,7 +137,7 @@ def test_a_legal_hold_placed_after_the_request_refuses_the_completion(tmp_path: 
     )
     h.register_policy(plane.registry, h.retention(holds=(hold,), semver="1.1.0"))
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
-        h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution))
+        h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request)))
     assert refused.value.decision.reason_code == "legal-hold"
     assert refused.value.decision.hold_id == "hold-late"
     assert _record_count(plane) == 0
@@ -159,7 +159,7 @@ def test_an_artifact_younger_than_the_minimum_age_is_refused(tmp_path: Path) -> 
         h.run(
             door.request(
                 h.execute_cap(), definition_version=plane.definition_version,
-                request=h.request(plane, retained_since=h.NOW - timedelta(days=30)),
+                request=(r := h.request(plane, retained_since=h.NOW - timedelta(days=30))), erase=h.erase_cap(r),
             )
         )
     assert refused.value.decision.reason_code == "under-minimum-age"
@@ -171,7 +171,7 @@ def test_retention_defaults_to_refuse_for_an_undeclared_class(tmp_path: Path) ->
     plane = h.compose(tmp_path, policy=empty)
     door = h.door(plane)
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
-        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=h.request(plane)))
+        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=(r := h.request(plane)), erase=h.erase_cap(r)))
     assert refused.value.decision.reason_code == "class-absent"
     # And a listed class is not erasable unless it says so.
     assert h.erasure("ClassRetention")(reasons=("x",), minimum_age=None).erasable is False

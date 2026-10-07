@@ -266,3 +266,15 @@ def approve(plane: Plane, event: PendingHitlEvent, *, approver: str = APPROVER) 
     )
     assert isinstance(resolution, GateResolution), resolution
     return resolution
+
+
+def erase_cap(request: Any, *, principal: str = REQUESTER) -> Any:
+    """A genuine ``Authorized[ArtifactErase]`` for exactly this request (ruling 3)."""
+    kind = contract("ccf.authz.capability", "ArtifactErase")
+    target = f"{request.subject_class}/{request.request_id}"
+    return mint(
+        kind,
+        decision=_allowed(action_id=kind.action_id, resource=target),
+        principal=principal,
+        decision_id="authz-decision-erase",
+    )

@@ -52,10 +52,13 @@ def test_execute_and_resume_alone_do_not_erase(tmp_path: Path) -> None:
     plane = h.compose(tmp_path)
     door = h.door(plane)
     request = h.request(plane)
-    # The request half refuses without the erase capability.
-    with pytest.raises(h.door_module("ErasureRefused")) as refused:
+    # The erase capability is required by the signature (D-IMPL-353 §4: an
+    # authority parameter is never optional) ...
+    with pytest.raises(TypeError, match="erase"):
         h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request))
-    assert refused.value.reason_code == "erase-capability-required"
+    # ... and the holder of a general Execute handing it in is refused by name.
+    with pytest.raises(CapabilityBypassError):
+        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.execute_cap()))
     assert not plane.transport.pending(tenant=h.TENANT)
 
 
@@ -66,9 +69,8 @@ def test_a_completion_without_the_erase_capability_writes_nothing(tmp_path: Path
     erase = _erase_capability(request)
     suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=erase))
     resolution = h.approve(plane, h.pending(plane, suspended.event_key))
-    with pytest.raises(h.door_module("ErasureRefused")) as refused:
+    with pytest.raises(TypeError, match="erase"):
         h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution))
-    assert refused.value.reason_code == "erase-capability-required"
     assert _record_count(plane) == 0
     # A general Resume handed in as the erase capability is refused by name.
     with pytest.raises(CapabilityBypassError):

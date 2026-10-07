@@ -25,11 +25,13 @@ The two halves:
   ``DerivedWrite`` under the ``Resume`` capability, which the deployment
   declares for ``ccf.erasure-record``) and append the registry mirror.
 
-**Not built, said so:** the design's separate ``artifact.erase`` action kind
-(§4.1) is not minted; the door's authority is the workflow's own
-``Execute``/``Resume`` capabilities plus the gate's recorded human approval,
-and ``authorizing_decision_id`` names the ``Resume`` decision. No un-erasure
-verb exists (U6).
+**The erase capability (ruling 3; design §4.1).** Both halves also require an
+``Authorized[ArtifactErase]`` minted by a door from an authorizer's allow for
+exactly ``"<subject_class>/<request_id>"``; general workflow
+``Execute``/``Resume`` cannot stand in for it — the parameter is required by
+the signature and a wrong-kind or retargeted capability dies in ``verify`` as
+``CapabilityBypassError`` — and the record's ``authorizing_decision_id``
+is that erase decision's id. No un-erasure verb exists (U6).
 
 Algorithmic module (CINV-03): the clock is injected.
 """
@@ -46,7 +48,14 @@ from ccf.artifacts.protocol import (
     DerivedWrite,
     parse_artifact_uri,
 )
-from ccf.authz.capability import Authorized, CompositionRegister, Execute, Resume, verify
+from ccf.authz.capability import (
+    ArtifactErase,
+    Authorized,
+    CompositionRegister,
+    Execute,
+    Resume,
+    verify,
+)
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
@@ -167,6 +176,7 @@ class ErasureDoor:
         *,
         definition_version: str,
         request: ErasureRequest,
+        erase: Authorized[ArtifactErase],
     ) -> WorkflowSuspended:
         """Judge ``request`` and start its approval workflow; write nothing.
 
@@ -176,7 +186,7 @@ class ErasureDoor:
                 the workflow did not suspend on its gate.
         """
         workflow = self._factory.construct(authorized, definition_version=definition_version)
-        self._admit(authorized.tenant, workflow, request, latest=False)
+        self._admit(authorized.tenant, workflow, request, latest=False, erase=erase)
         outcome = await self._engine.execute(authorized, workflow, execution_id=request.request_id)
         if not isinstance(outcome, WorkflowSuspended):
             raise ErasureRefused(
@@ -193,6 +203,7 @@ class ErasureDoor:
         definition_version: str,
         request: ErasureRequest,
         resolution: GateResolution,
+        erase: Authorized[ArtifactErase],
     ) -> ErasureRecord | WorkflowSuspended:
         """Resume on a RECORDED approval and, on completion, write the erasure record.
 
@@ -205,7 +216,7 @@ class ErasureDoor:
         """
         workflow = self._factory.construct(authorized, definition_version=definition_version)
         tenant = authorized.tenant
-        subject, decision = self._admit(tenant, workflow, request, latest=True)
+        subject, decision = self._admit(tenant, workflow, request, latest=True, erase=erase)
         event = resolution.record.event
         submission = resolution.record.submission
         suspension = state_key(tenant=tenant, record_id=request.request_id)
@@ -275,7 +286,8 @@ class ErasureDoor:
             erased_at=erased_at,
             actor=submission.principal.approver,
             requested_by=requested_by,
-            authorizing_decision_id=authorized.decision_id,
+            # The authorizer's allow for the ERASE door kind (design §2.3).
+            authorizing_decision_id=erase.decision_id,
             approval_policy_ref=str(event.policy_ref),
             retention_decision=decision,
             reason=request.reason,
@@ -303,8 +315,26 @@ class ErasureDoor:
     # -- the shared admission ---------------------------------------------------
 
     def _admit(
-        self, tenant: str, workflow: Workflow, request: ErasureRequest, *, latest: bool
+        self,
+        tenant: str,
+        workflow: Workflow,
+        request: ErasureRequest,
+        *,
+        latest: bool,
+        erase: Authorized[ArtifactErase],
     ) -> tuple[ErasureSubjectClass, RetentionDecision]:
+        # Ruling 3 (`D-IMPL-374` (4); design §4.1): the distinct erase kind, for
+        # exactly this request, IN ADDITION to the recorded approval. Required by
+        # the signature (D-IMPL-353 §4: no authority parameter may be omitted);
+        # a general Execute/Resume, or an erase capability for another request,
+        # is refused by name here — CapabilityBypassError.
+        verify(erase, kind=ArtifactErase, resource=f"{request.subject_class}/{request.request_id}")
+        if erase.tenant != tenant:
+            raise ErasureRefused(
+                f"the erase capability is for tenant {erase.tenant!r}, not {tenant!r}"
+                " (SEC-009; D-IMPL-353 §1.3)",
+                reason_code="tenant-mismatch",
+            )
         if request.tenant_id != tenant:
             raise ErasureRefused(
                 f"the request names tenant {request.tenant_id!r} and the capability is for"

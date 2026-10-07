@@ -23,6 +23,7 @@ __all__ = [
     "ACTION_AGENT_READ",
     "ACTION_AGENT_VERSIONS",
     "ACTION_ARTIFACT_WRITE",
+    "ACTION_ARTIFACT_ERASE",
     "ACTION_BACKENDS_READ",
     "ACTION_CONFIG_KEYS_READ",
     "ACTION_CONFIG_VERSIONS_READ",
@@ -62,6 +63,11 @@ ACTION_AGENT_READ: Final[str] = "agent.read"
 ACTION_AGENT_VERSIONS: Final[str] = "agent.versions"
 #: an examiner filtering on writes must not receive reads.
 ACTION_ARTIFACT_WRITE: Final[str] = "artifact.write"
+#: The erasure door (SEC-009; `D-IMPL-374` (4), ruling 3; design `D-IMPL-367`
+#: §4.1): distinct from every read and write so that only a principal the
+#: deployment granted ERASURE — not general workflow Execute/Resume — can have
+#: an erasure written. Its resource is ``"<subject_class>/<request_id>"``.
+ACTION_ARTIFACT_ERASE: Final[str] = "artifact.erase"
 #: learns is a deployment's shape, which is reconnaissance (``T-15.4-11``).
 ACTION_BACKENDS_READ: Final[str] = "backends.read"
 #: ``GET /config/keys``.

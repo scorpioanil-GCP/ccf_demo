@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1991 entries**, of which **1724** name a public Python surface.
+**1993 entries**, of which **1726** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1150 entries — 1106 public Python surface, 44 not public Python API.
+1152 entries — 1108 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -17314,6 +17314,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: a `TypeError` raised at composition when a Control Plane offers no `keys_of_class`/`versions`/`peek`. The shipped `ControlPlaneRegistry` offers all three.
 - Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
 - Migration: a deployment that passes `build_governed_resolver` a custom `ControlPlaneProtocol` implementation without registry introspection must add those three methods.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.authz.actions.ACTION_ARTIFACT_ERASE
+
+- Surface: ccf.authz.actions.ACTION_ARTIFACT_ERASE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the action id `artifact.erase`. Its resource is `"<subject_class>/<request_id>"`.
+- Why: SEC-009; ruling 3 on `D-IMPL-374` (4) (design §4.1). Erasure is an action of its own, kept apart from every read, write and workflow action.
+- Migration: a deployment that erases grants this action to its erasure requesters in its scope mapping.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.authz.capability.ArtifactErase
+
+- Surface: ccf.authz.capability.ArtifactErase
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the erasure door's `ActionKind`. A door mints it with `mint` from an authorizer's allow. It is never composition-mintable. `ErasureDoor.request` and `ErasureDoor.complete` take it as a required keyword (`erase=`), alongside the recorded human approval. A general `Execute`/`Resume` passed in its place, or an erase capability issued for a different request, is refused by `verify` as `CapabilityBypassError`.
+- Why: SEC-009; ruling 3. A principal that holds only general workflow `Execute`/`Resume` must not be able to have an erasure written.
+- Migration: callers of the erasure door pass `erase=` with a capability for exactly the request.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

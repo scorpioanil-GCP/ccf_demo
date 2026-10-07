@@ -27,9 +27,9 @@ What this change does not do:
 - **No un-erasure** (U6).
 - **No legal-compliance claim.**
 
-The design's separate `artifact.erase` action kind is not minted. The door's
-authority is the workflow's `Execute`/`Resume` capabilities plus the recorded
-human approval.
+The door requires three things: the distinct `artifact.erase` capability for
+exactly the request, the workflow's `Execute`/`Resume` capabilities, and the
+recorded human approval (ruling 3).
 
 ## ccf.erasure.ClassRetention
 
@@ -710,6 +710,26 @@ human approval.
 - After: a `TypeError` raised at composition when a Control Plane offers no `keys_of_class`/`versions`/`peek`. The shipped `ControlPlaneRegistry` offers all three.
 - Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
 - Migration: a deployment that passes `build_governed_resolver` a custom `ControlPlaneProtocol` implementation without registry introspection must add those three methods.
+
+## ccf.authz.actions.ACTION_ARTIFACT_ERASE
+
+- Surface: ccf.authz.actions.ACTION_ARTIFACT_ERASE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the action id `artifact.erase`. Its resource is `"<subject_class>/<request_id>"`.
+- Why: SEC-009; ruling 3 on `D-IMPL-374` (4) (design §4.1). Erasure is an action of its own, kept apart from every read, write and workflow action.
+- Migration: a deployment that erases grants this action to its erasure requesters in its scope mapping.
+
+## ccf.authz.capability.ArtifactErase
+
+- Surface: ccf.authz.capability.ArtifactErase
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the erasure door's `ActionKind`. A door mints it with `mint` from an authorizer's allow. It is never composition-mintable. `ErasureDoor.request` and `ErasureDoor.complete` take it as a required keyword (`erase=`), alongside the recorded human approval. A general `Execute`/`Resume` passed in its place, or an erase capability issued for a different request, is refused by `verify` as `CapabilityBypassError`.
+- Why: SEC-009; ruling 3. A principal that holds only general workflow `Execute`/`Resume` must not be able to have an erasure written.
+- Migration: callers of the erasure door pass `erase=` with a capability for exactly the request.
 
 ## ccf.replay.engine.ReplayOutcome
 

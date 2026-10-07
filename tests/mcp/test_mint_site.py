@@ -738,6 +738,8 @@ def test_every_exported_kind_is_classified_read_or_mutating() -> None:
     }
     mutating = {
         capability.ArtifactWrite,
+        # SEC-009 ruling 3 (`D-IMPL-374` (4)): the erasure door's kind mutates.
+        capability.ArtifactErase,
         capability.AgentDeclare,
         capability.ConfigRegister,
         capability.HitlSubmit,
