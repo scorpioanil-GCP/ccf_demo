@@ -197,7 +197,7 @@ and X2.
 - Public surface: true
 - Change type: behavior
 - Before: an `ErasedContentRefused` raised by the product resolver or by the `get_context`, `get_lineage` or `get_replay_record` seam crossed as the tool's or resource's error text, naming the erased address, at every level. A deployment directory's own exception on `invoke_agent`, raised before authorization while reading a rostered caller's reach, crossed as its text.
-- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log.
+- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log. An erasure raised by the deployment's agent invoker on `invoke_agent` is not mapped: it crosses as the exception's text at every level, naming no address but stating that an erasure occurred (N-3, the scoped re-review; disclosed in §4.10 of the security deployment page, because mapping it needs a product identity for an agent dispatch's determination that no ruling names).
 - Why: FW-3, probe X1; the SEC-017 carry "a deployment directory exception propagates unchanged".
 - Migration: none.
 

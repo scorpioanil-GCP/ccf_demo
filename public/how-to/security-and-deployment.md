@@ -873,6 +873,20 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   must hold identical bytes and write authority for a governed class — but
   while B's filing stands, A cannot erase that artifact through a door over
   the MCP-backed store.
+- **An erasure raised inside `invoke_agent` is not rendered by disclosure
+  level (N-3, D-IMPL-374).** The Experience door maps an
+  `ErasedContentRefused` from its product resolver and from the `get_context`,
+  `get_lineage` and `get_replay_record` seams (FW-3), but not one raised by
+  the deployment's own agent invoker. That one crosses as the tool's error
+  text at every disclosure level, `minimal` included: `the requested content
+  was erased by a recorded decision and is not served (SEC-009)`. The text
+  names no address, but it tells the caller that an erasure occurred, and the
+  door records no determination for it. Mapping it needs a product identity
+  to record an agent dispatch's erasure under, and no ruling names one, so it
+  is disclosed rather than changed. An invoker that reads through an
+  erasure-composed store, and must not reveal an erasure to a `minimal`
+  caller, catches `ErasedContentRefused` and answers with its own not-found
+  rendering.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

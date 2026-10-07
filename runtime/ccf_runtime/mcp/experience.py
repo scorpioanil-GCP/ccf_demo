@@ -187,15 +187,19 @@ what it always was, the seams' own failures, and is not widened here.
 
 **One class of seam failure is mapped, by disclosure level: an erasure** (FW-3,
 whole-branch review I-2; ``D-IMPL-374``). An
-:class:`~ccf.erasure.ErasedContentRefused` a seam or the product resolver meets
-reading through an erasure-composed store is the recorded ``erased-content``
+:class:`~ccf.erasure.ErasedContentRefused` that the product resolver or the
+``get_context``, ``get_lineage`` or ``get_replay_record`` seam meets reading
+through an erasure-composed store is the recorded ``erased-content``
 determination above ``minimal``
 (:func:`~ccf_runtime.authz.delivery_boundary.govern_erasure`). At ``minimal`` the
 product resource answers the same not-found shell its typed absence answers,
 and the three tools, which have no not-found rendering of their own, answer
 the opaque ``ccf-runtime-failure:<id>`` and record nothing. Before this, the
 exception's prose — naming the erased address — crossed as the tool error at
-every level.
+every level. **``invoke_agent``'s invoker seam is not mapped** (N-3; disclosed
+in §4.10 of the security deployment page): an erasure the deployment's agent
+invoker raises crosses as the exception's text at every level, ``minimal``
+included. The text names no address, but it states that an erasure occurred.
 
 Server name, bind address, token values, tenant identifiers, agent names,
 principal identifiers, role names, and skill vocabulary are all deployment
