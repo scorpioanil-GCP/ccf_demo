@@ -482,7 +482,15 @@ view not read through a booted fabric's reader with
 `src/ccf/graph/protocols.py::require_classification_authority`). A claim from
 an unauthorized source that omits a governed attribute is still written, and
 it blanks the label, but it is recorded as a `governed_attribute_omitted`
-audit event (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`).
+audit event (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). A store
+opened without `ccf.boot.boot`, and a mounted peer product, refuse a
+classification query that carries no authority, so the booted reader is the
+only road to a classification answer. Two boundaries remain by design: the
+declared-read boundary (an operator that filters on a classification attribute
+without declaring it in `read_intent` is not checked when it is registered, so
+its own `apply` must call `require_classification_authority`), and a source
+that is authorized for an attribute may set it in either direction, including
+by omitting it, without an event.
 
 ### 4.8 Two deployment limitations, disclosed rather than fixed
 

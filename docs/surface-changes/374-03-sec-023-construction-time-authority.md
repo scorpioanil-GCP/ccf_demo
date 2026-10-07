@@ -18,6 +18,90 @@ a `GraphQuery`-only classification map, a hand-built `PolicyFilter` in
 audit is in `tests/assembly/test_classification_authority.py`. The boot-time
 check stays as the early refusal.
 
+**The fifth path (coordinator ruling (1), same day).** A reader no boot composed
+— a store opened directly, or a mounted peer product — answered a classification
+`GraphQuery` with no authority anywhere. Every `GraphQuery`-answering reader entry
+now refuses a classification query that carries no authority stamp, fail closed:
+`BaseGraphReader.query` (SQLite, Postgres, MongoDB, Neo4j, Fluree),
+`MemoryGraphReader.query`, `FlureeGraphReader.query_pinned` and
+`ProductSource.query`. The booted reader stamps a query after checking it, so the
+paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.py`).
+
+**Disclosed boundaries, ruled rather than fixed.**
+- **The declared-read boundary** (ruling (2)): the registry builder checks a
+  deployment operator through its declared `read_intent`. An operator that filters
+  on a classification attribute WITHOUT declaring it there is not checked when it
+  is registered; its own `apply` must call `require_classification_authority`. This
+  is a residual, carried by name.
+- **A mounted peer product refuses** (ruling (3)): a `ProductSource`'s labels were
+  governed by no local L2, so a `PolicyFilter` over its views, or a classification
+  query against it, refuses unless the consumer stamps the authority it answers
+  for. Accepted as fail-closed.
+- **An authorized source may blank the label** (ruling (4)): the omission audit
+  covers a source that is NOT authorized for the attribute. A source that IS
+  authorized may set the label in either direction, including by omitting it,
+  without an event — by design, because the authority carries that responsibility.
+
+## ccf.graph.protocols.require_query_classification_authority
+
+- Surface: ccf.graph.protocols.require_query_classification_authority
+- Public surface: true
+- Change type: added
+- Before: absent. A store reader answered any classification query.
+- After: `require_query_classification_authority(q)` — passes a query with no classification map; otherwise refuses a query carrying no authority (`ClassificationAuthorityMissing`) and one whose authority does not cover the map (`UngovernedClassificationAttribute`). Called first by every `GraphQuery`-answering reader entry.
+- Why: coordinator ruling (1): the fifth path fails closed.
+- Migration: a composition root that queries a store or a mounted product directly with a classification map stamps the query with `GraphQuery.with_classification_authority`.
+
+## ccf.graph.protocols.GraphQuery
+
+- Surface: ccf.graph.protocols.GraphQuery
+- Public surface: true
+- Change type: behavior
+- Before: no authority.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`, `with_classification_authority(authority)`), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
+- Why: the store reader can tell a checked query from one that came another way.
+- Migration: none on the paved road.
+
+## ccf.graph.reader.BaseGraphReader
+
+- Surface: ccf.graph.reader.BaseGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` runs `require_query_classification_authority` before any substrate I/O. SQLite, Postgres, MongoDB, Neo4j and Fluree inherit it.
+- Why: the fifth path.
+- Migration: stamp a classification query sent to a store reader directly.
+
+## ccf.graph.backends.memory.MemoryGraphReader
+
+- Surface: ccf.graph.backends.memory.MemoryGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` refuses an unstamped classification query.
+- Why: the fifth path.
+- Migration: as for `BaseGraphReader`.
+
+## ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query_pinned` answered any classification query.
+- After: `query_pinned` refuses an unstamped classification query before any I/O (its `query` is `BaseGraphReader.query`).
+- Why: the fifth path; the one `SnapshotPinnable` store entry.
+- Migration: as for `BaseGraphReader`.
+
+## ccf.graph.product_source.ProductSource
+
+- Surface: ccf.graph.product_source.ProductSource
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query over the mounted product.
+- After: `query` refuses an unstamped classification query (ruling (3), fail closed).
+- Why: a peer product's labels were governed by no local L2.
+- Migration: a consumer stamps the authority it answers for.
+
 ## ccf.graph.protocols.ClassificationAuthority
 
 - Surface: ccf.graph.protocols.ClassificationAuthority

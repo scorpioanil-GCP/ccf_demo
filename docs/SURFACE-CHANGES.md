@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1941 entries**, of which **1672** name a public Python surface.
+**1947 entries**, of which **1678** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1087 entries — 1043 public Python surface, 44 not public Python API.
+1088 entries — 1044 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16501,6 +16501,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
 
+#### ccf.graph.protocols.require_query_classification_authority
+
+- Surface: ccf.graph.protocols.require_query_classification_authority
+- Public surface: true
+- Change type: added
+- Before: absent. A store reader answered any classification query.
+- After: `require_query_classification_authority(q)` — passes a query with no classification map; otherwise refuses a query carrying no authority (`ClassificationAuthorityMissing`) and one whose authority does not cover the map (`UngovernedClassificationAttribute`). Called first by every `GraphQuery`-answering reader entry.
+- Why: coordinator ruling (1): the fifth path fails closed.
+- Migration: a composition root that queries a store or a mounted product directly with a classification map stamps the query with `GraphQuery.with_classification_authority`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
 #### ccf.graph.protocols.ClassificationAuthority
 
 - Surface: ccf.graph.protocols.ClassificationAuthority
@@ -26609,7 +26621,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-260 entries — 226 public Python surface, 34 not public Python API.
+265 entries — 231 public Python surface, 34 not public Python API.
 
 ### Public Python surface
 
@@ -30848,6 +30860,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.graph.protocols.GraphQuery
+
+- Surface: ccf.graph.protocols.GraphQuery
+- Public surface: true
+- Change type: behavior
+- Before: no authority.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`, `with_classification_authority(authority)`), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
+- Why: the store reader can tell a checked query from one that came another way.
+- Migration: none on the paved road.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.reader.BaseGraphReader
+
+- Surface: ccf.graph.reader.BaseGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` runs `require_query_classification_authority` before any substrate I/O. SQLite, Postgres, MongoDB, Neo4j and Fluree inherit it.
+- Why: the fifth path.
+- Migration: stamp a classification query sent to a store reader directly.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.backends.memory.MemoryGraphReader
+
+- Surface: ccf.graph.backends.memory.MemoryGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query.
+- After: `query` refuses an unstamped classification query.
+- Why: the fifth path.
+- Migration: as for `BaseGraphReader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.backends.fluree.FlureeGraphReader
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphReader
+- Public surface: true
+- Change type: behavior
+- Before: `query_pinned` answered any classification query.
+- After: `query_pinned` refuses an unstamped classification query before any I/O (its `query` is `BaseGraphReader.query`).
+- Why: the fifth path; the one `SnapshotPinnable` store entry.
+- Migration: as for `BaseGraphReader`.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.product_source.ProductSource
+
+- Surface: ccf.graph.product_source.ProductSource
+- Public surface: true
+- Change type: behavior
+- Before: `query` answered any classification query over the mounted product.
+- After: `query` refuses an unstamped classification query (ruling (3), fail closed).
+- Why: a peer product's labels were governed by no local L2.
+- Migration: a consumer stamps the authority it answers for.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
 
 #### ccf.graph.protocols.GraphView
 
