@@ -20,6 +20,19 @@ a session and a lease schema the deployment names) is reachable only by
 constructing the store directly with `writer_lease=`: the connection contracts
 carry no credential by environment name, so `ccf.boot.boot` cannot declare it.
 
+**Declare one spelling of the server address across every writer of a graph**
+(the final fix wave, FW-4). The lock file is derived from the graph identity,
+which is the server address as spelled (host and port, with letter case and an
+omitted default port normalized) plus the ledger or database and the
+partition: `http://localhost:8090` and `http://127.0.0.1:8090` give one Fluree
+ledger two lock files and two writers, and the same holds for a hostname
+against its IP address on MongoDB and Neo4j, for a MongoDB host list in another
+order or a `mongodb+srv://` seed name against its expanded list, and for two
+routing addresses of one Neo4j cluster. Normalizing the spelling is carried,
+not built. A MongoDB host list with a port on any host but the last (the usual
+replica-set form) does not parse as an identity, and the store refuses it with
+a `ValueError` at construction — measured, pre-existing, carried.
+
 **The declared directory is its own real path, private to the writers' user**
 (the final fix wave, PC3; panel C3). The directory was resolved at each
 acquisition, so a symbolic link retargeted between two writers' acquisitions

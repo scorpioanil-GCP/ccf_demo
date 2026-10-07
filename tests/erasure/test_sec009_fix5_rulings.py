@@ -38,6 +38,7 @@ by its reason code so that one severing reddens one test:
 from __future__ import annotations
 
 import inspect
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from collections.abc import Callable
@@ -664,8 +665,21 @@ def test_r5_the_docs_no_longer_claim_what_was_measured_false() -> None:
         text = flat(page)
         assert "registering any other key, in any tenant, no longer helps" not in text, page
         assert "cannot sign a new approval under the old one" not in text, page
-    section = flat(PAGE).split("### 4.9", 1)[1].split(" ## ", 1)[0]  # up to the next level-2 heading
-    assert "in-process adapter" in section
+    # Exactly §4.10 — the erasure section — up to the next heading of either
+    # level (FW-4, M-1: this pin split on "### 4.9", which after the
+    # renumbering is SEC-017's roster section, read on to the next "##", and
+    # matched a phrase the composition-site list also carries, so deleting the
+    # bullet it was added to hold left it green).
+    raw = (REPO / PAGE).read_text(encoding="utf-8")
+    assert raw.count("\n### 4.10 ") == 1, "the erasure section heading moved"
+    section = re.split(r"\n#{2,3} ", raw.split("\n### 4.10 ", 1)[1], maxsplit=1)[0]
+    assert "(SEC-009, D-IMPL-374)" in section.splitlines()[0], section.splitlines()[0]
+    # The round-4 residual itself: the in-process adapter's own bullet, and the
+    # consequence it discloses, in that bullet.
+    bullets = [" ".join(item.split()) for item in re.split(r"\n- ", section)]
+    adapter = [item for item in bullets if item.startswith("**The in-process adapter boots its own registry.**")]
+    assert len(adapter) == 1, "the in-process adapter's bullet is missing from §4.10"
+    assert "a genuine erasure consulted through the in-process adapter reads `index-unsupported`" in adapter[0], adapter[0]
 
 
 # -- F. controls added with the fix: each isolates one check the severings sever ----

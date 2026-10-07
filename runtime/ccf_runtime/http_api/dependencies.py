@@ -14,14 +14,19 @@ threshold — that is what CINV-01 is about here, and it is undisturbed.
 Construction is keyword-only and the frozen dataclass cannot grow state after
 boot.
 
-**Four handles are required and five default to ``None``** (``D-IMPL-126``
-item (3), Dave, 2026-08-13). ``control_plane``, ``artifact_store`` and
+**Five handles are required and six default to ``None``** (``D-IMPL-126``
+item (3), Dave, 2026-08-13; counts corrected by the final fix wave, FW-4,
+``D-IMPL-374``). ``control_plane``, ``artifact_store`` and
 ``product_resolver`` are read by four routers, two and one respectively, and no
-useful app omits any of them. The other five gate exactly one noun each, and a
-deployment exposing one noun should not have to fabricate seven handles to
-serve it — the papercut the item (3) spike measured. On those five, ``None`` is
-the positive assertion *this deployment exposes no such route*, and the route
-refuses rather than serving half-wired.
+useful app omits any of them; ``erasure_index`` and ``erasure_trust`` compose
+the erasure consult over the artifact store, which no store construction site
+may omit (SEC-009, ``D-IMPL-374`` (4)). The other six — ``workflow_factory``,
+``workflow_engine``, ``hitl_transport``, ``skill_catalog``, ``grant_ledger``
+and ``clock`` — gate routes of exactly one noun each, and a deployment exposing
+one noun should not have to fabricate seven handles to serve it — the papercut
+the item (3) spike measured. On those six, ``None`` is the positive assertion
+*this deployment exposes no such route*, and the route refuses rather than
+serving half-wired.
 
 **The tradeoff, stated rather than left to be discovered.** Before this, a
 deployment that forgot a handle failed at *boot* with a ``TypeError``; after

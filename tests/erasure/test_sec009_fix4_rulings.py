@@ -19,7 +19,7 @@ ruling-5 composition refusals and the production restart shape:
 5. **No fresh-registry fallback**, and re-composition with a different Control
    Plane, identity provider or HITL policy key refuses by name.
 6. An adopter-supplied provider that verifies nothing accepts everything — the
-   adopter's trust choice, stated in the fragment and §4.9.
+   adopter's trust choice, stated in the fragment and §4.10.
 """
 
 from __future__ import annotations

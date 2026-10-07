@@ -406,9 +406,27 @@ boot token records it.
 
 **On the persistent network stores the deployment declares the lease, and a
 boot with none declared is refused with `WriterLeaseRequired` (SEC-013,
-D-IMPL-374).** The SDK derives the lock file from the graph identity, so every
-writer of one graph that declares the same directory contends for the same
-file; a relative directory is refused by name. **A file lease excludes only
+D-IMPL-374).** The SDK derives the lock file from the graph identity, and the
+identity is the server address *as spelled* in the connection setting — its
+host and port, with letter case and an omitted default port normalized and the
+userinfo and the scheme dropped — plus the ledger or database and the
+partition. Writers of one graph that declare the same directory contend for
+the same file only if they spell the server identically, so **declare one
+spelling of the server address across every writer of a graph** (FW-4,
+D-IMPL-374). On Fluree, `http://localhost:8090` and `http://127.0.0.1:8090` are
+two identities, two lock files and two writers on one ledger; so are a hostname
+and its IP address, or two names for one load balancer, on MongoDB and Neo4j
+alike. A MongoDB multi-host or replica-set URI is identified by its host list
+as written: list the same hosts in the same order in every writer (a different
+order, a subset, or a `mongodb+srv://` seed name against its expanded host list
+is a different identity). A host list with a port on any host but the last —
+the usual replica-set form `mongodb://h1:27017,h2:27017,h3:27017/?replicaSet=rs0`
+included — does not parse as an identity at all, and the store refuses it with
+a `ValueError` when it is constructed; that is a limit of the identity
+derivation, carried, not a lease rule. A Neo4j cluster is identified by the
+routing address each writer names, so name one. A relative directory is
+refused by name.
+**A file lease excludes only
 writers that share that filesystem with real `flock` semantics: across hosts it
 enforces nothing, unless the directory is on a shared filesystem whose locks
 work across hosts, and two writers declaring different directories are not
@@ -641,11 +659,22 @@ server-side (logger `ccf_runtime.mcp.tenancy`, level INFO).
 
 ### 4.10 Declare and protect the erasure index (SEC-009, D-IMPL-374)
 
-An erasure is recorded, never performed: the bytes stay on the substrate, and
-every store construction site refuses to serve an erased address. The refusal
-reads the deployment's durable erasure index
+An erasure is recorded, never performed: every store construction site
+withholds an erased address, reading the deployment's durable erasure index
 (`src/ccf/erasure/index.py::FileErasureIndex`), declared at every site with no
-default. Decide three things before an erasure is ever approved.
+default.
+
+**What an erasure is not (FW-4, D-IMPL-374).** It is not graph erasure. The
+Context Graph (L3) keeps the subject's attributes, and every Context Product
+assembled after the erasure reads them and carries them. An erasure withholds
+whole artifacts only; nothing narrower than an artifact is withheld. It
+destroys nothing: the bytes stay on the substrate, and the SDK makes no claim
+that anything was deleted. And it makes no legal-compliance claim: whether
+withholding these artifacts satisfies any obligation — a right-to-erasure
+request, for example — is the deployment's own legal determination, made
+knowing that the graph and every new product still hold the subject.
+
+Decide these things before an erasure is ever approved.
 
 - **Where the index lives, and who can write it.** The file index opens with
   `O_NOFOLLOW` and refuses, by name (`ErasureIndexInsecure`), a file that is a
@@ -683,12 +712,15 @@ default. Decide three things before an erasure is ever approved.
   of its erasure workflow definition, and the erasure door's public signing
   key (`src/ccf/erasure/trust.py`). The record's tenant selects the
   authority; a tenant with none reads `index-unsupported`. A multi-tenant
-  site declares one authority per erasing tenant. The consult refuses, by
-  name, an approval that pins any other HITL policy key, that names any
-  workflow but the declared one or any tenant but the authority's, by the
-  requester, by an approver the declared workflow's erasure-gate policy does
-  not name, for a gate that is not that workflow's erasure gate, or signed
-  after the pinned policy version was superseded by the next one. The
+  site declares one authority per erasing tenant. The door refuses each of
+  the following by name, before anything is written; the consult, which never
+  says which check failed, withholds the address as `index-unsupported` and
+  audits `erasure_index_unsupported`: an approval that pins any other HITL
+  policy key, that names any workflow but the declared one or any tenant but
+  the authority's, by the requester, by an approver the declared workflow's
+  erasure-gate policy does not name, for a gate that is not that workflow's
+  erasure gate, or signed after the pinned policy version was superseded by
+  the next one. The
   requester's artifacts may name a policy version, never the key, the
   workflow or the policy. A legitimate approval made while the old policy
   version was current stays valid after a rotation.
@@ -699,15 +731,22 @@ default. Decide three things before an erasure is ever approved.
   verifies that signature before it reads the record, so the record's
   `requested_by` — the starter the engine recorded, which the door observed —
   is the door's statement, not a filer's: a record without a verifying door
-  signature is `index-unsupported`. The door refuses, at construction, a
+  signature is `index-unsupported`, and so is one whose signature header
+  cannot even be decoded — a deeply nested header included, which once
+  crashed every store construction site (FW-1). The door refuses, at construction, a
   signing key that does not verify under the declared door key, and a HITL
   transport bound to any HITL policy key but its authority's.
-- **What the trust is as strong as.** Three custodies: the erasure door's
-  private key (its holder can sign a record naming any requester); Control
-  Plane registration under each tenant's declared HITL policy key (a party
-  who can register a new version there can pin a key it holds for an erasure
-  officer and approve as that officer); and the approvers' private keys. The
-  signed instant is the signer's own claim: revocation refuses a signature
+- **What the trust is as strong as.** Three custodies, and the erasure
+  door's private key is the root of them: its holder can sign a record naming
+  any requester. The other two are each insufficient alone: Control Plane
+  registration under a tenant's declared HITL policy key (a party who can
+  register a new version there can pin a key it holds for an erasure
+  officer), and an approver's private key. Through the consult, either one
+  also needs the door key — a record without a verifying door signature reads
+  `record-signature-invalid` and its address is withheld as
+  `index-unsupported`, never erased on that party's word. Through the door,
+  either one also needs that officer's own authentication at the HITL door.
+  The signed instant is the signer's own claim: revocation refuses a signature
   dated after the supersession, but a holder of a dropped key who backdates a
   signature to before it still verifies. The window's lower bound (the
   version's registration instant) is not enforced, because the in-memory
@@ -719,7 +758,13 @@ default. Decide three things before an erasure is ever approved.
   verifies nothing accepts everything; that is the adopter's trust choice** —
   door signatures included. The validation cache is keyed by the identity
   provider instance, so a do-nothing provider's verdict is never served to a
-  site composed with another provider.
+  site composed with another provider. It is keyed by the Control Plane's
+  `policy_head` too — the digest of its registration history's metadata
+  (action, key, version, instant), not of the content registered. That holds
+  for the reference registry, where a version IS its content hash and a stored
+  version is never overwritten; a third-party Control Plane must uphold the
+  same, or two histories with different content could share a head and a
+  verdict judged under one would serve the other.
 - **The in-process adapter boots its own registry.** It composes with the
   authority its `binding.yaml` declares (`erasure_authority: {}` declares
   none). Its Control Plane holds only what its `ccf_config.yaml` registers,
@@ -759,6 +804,65 @@ Two behaviors follow from the design and are stated rather than changed:
   governed address reaches the door looking like an outage. The door refuses
   `class-unverifiable` either way, so it fails closed, but the two causes are
   not told apart.
+
+Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
+
+- **A forged entry in one tenant withholds another tenant's content on
+  tenantless reads.** A holder of the erase capability in tenant B can append
+  an entry — genuine, or forged and so `index-unsupported` — naming an
+  address of tenant A. Every tenantless read (the replay engine, `record_of`,
+  child admission, the MCP client lane) then withholds A's artifact, with the
+  reason redacted; reads scoped to tenant A still serve it. The by-URI naming
+  check inside the governed evidence read (`govern_dereference`) was one such
+  tenantless read, and answered A's examiner "absent", recorded as
+  `nonexistent`; it now reads through the caller's tenant view, and an
+  address erased there reads as erased content (FW-7).
+- **The erasure door is single-tenant.** An `ErasureDoor` holds one tenant's
+  `ErasureAuthority` and refuses a request, or an erase capability, for any
+  other tenant by name (`tenant-mismatch`). A deployment that erases for
+  several tenants constructs one door per tenant, each over a HITL transport
+  bound to that tenant's HITL policy key.
+- **The door signature lives in the index entry, not in the record.** The
+  `ccf.erasure-record` artifact carries no signature; the door's signature
+  over it, and the key id it was made under, are fields of the index entry.
+  A reader holding only an exported record cannot verify it without the
+  entry.
+- **Rotating a door key out of an authority strands a completion still in
+  flight.** A retry verifies its prior attempt's entry signature against the
+  authority's current door keys; once the key that signed it is no longer
+  declared, the retry is refused as `retry-mismatch` and the address stays
+  withheld under its write-ahead entry. Complete every pending erasure before
+  dropping a door key.
+- **A third-party HITL transport must expose `hitl_policy_key`.** The door
+  reads that attribute to hold the transport to its authority's HITL policy
+  key, but `HITLTransportProtocol` does not declare it. A transport that
+  satisfies the Protocol without the attribute is refused, by name, when the
+  door is constructed; the reference `InMemoryHitlTransport` exposes it.
+- **The index assumes a filesystem whose `flock` and `O_APPEND` work.**
+  Appends are serialized by an exclusive `flock` on the index file and
+  written with `O_APPEND`. On a multi-host shared filesystem where `flock`
+  does not exclude across hosts, concurrent appends can interleave and break
+  the hash chain: the index then refuses as `ErasureIndexCorrupt` and every
+  read under it is withheld. Keep the index on a filesystem every appender
+  shares a working `flock` on. A write that stops short — a full disk, a
+  file-size limit, a network filesystem's short write — is finished, or
+  undone: the file is truncated back to its length before the append and
+  fsynced, and the append raises `ErasureIndexWriteFailed`, which the door's
+  completion propagates by name, filing no record (PC1). The completion can
+  be retried once the cause is cleared.
+- **Another tenant's governed filing of identical bytes changes the owner's
+  reads over the MCP artifact server.** The server decides whether an address
+  is governed evidence over every name it was filed under, in every tenant,
+  before it filters to the caller's own (the D-IMPL-345 R-5 rule, which the
+  SEC-009 names resource inherits). Once tenant B files the same bytes under
+  a governed (`ReplayMint`) class, tenant A's own names and blob reads of its
+  client-lane artifact answer `subject-unavailable`. The consequence for
+  erasure: A's erasure door over the MCP-backed store can no longer read A's
+  own naming of that address, and refuses to erase it as
+  `class-unverifiable`. It fails closed, and the precondition is narrow — B
+  must hold identical bytes and write authority for a governed class — but
+  while B's filing stands, A cannot erase that artifact through a door over
+  the MCP-backed store.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

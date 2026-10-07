@@ -80,6 +80,25 @@ recorded on the boot token. See
 [deployment posture](security-and-deployment.md#46-decide-how-many-processes-share-a-graph-sec-013)
 for what each reference store's scope means for a deployment.
 
+**A classification query must carry the boot-minted authority, and your
+reader is where that is checked (SEC-023, D-IMPL-374).** A `GraphQuery` whose
+`classification_attribute_by_class` is set must also carry the classification
+authority that only `ccf.boot.boot` mints; the store reader refuses it before
+any substrate I/O when it carries none (`ClassificationAuthorityMissing`), a
+hand-built one (`ClassificationAuthorityNotMinted`), or one that does not
+cover the map. Subclass `BaseGraphReader` (from `ccf.graph.reader`) and its
+`query` makes that check for you. A reader that satisfies the `GraphReader`
+Protocol without subclassing it **must call
+`require_query_classification_authority(q)`** (from `ccf.graph.protocols`) as
+the first statement of its own `query` — nothing enforces that it does. The
+booted path is guarded either way, because boot wraps every adapter's reader
+in its governed reader; the call is what stops your raw reader, opened
+without boot, from answering a classification query no booted fabric
+authorized. The demo adapter's `DemoGraphReader.query` does not make the
+call: copy the call into your reader, not its omission. See
+[deployment posture](security-and-deployment.md#47-declare-which-sources-may-assert-a-classification-sec-023-d-impl-372)
+for the authority and what it governs.
+
 The nine transaction operations are `upsert_entity_node`,
 `insert_entity_claim`, `select_entity_chain`, `update_entity_supersession`, the
 four relationship twins of those, and `insert_lineage`. Two contract rules hold

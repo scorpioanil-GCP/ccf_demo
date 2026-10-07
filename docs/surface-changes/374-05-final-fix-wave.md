@@ -15,6 +15,34 @@ SEC-013 premise that "a read-only store over a live graph is legitimate" is
 true again with it: the read-only boot is that store, governed. The red tests
 are `tests/replay/test_fw2_read_only_replay.py`.
 
+**FW-4 (I-3, M-1, M-4, M-7, M-8, T1-c and the T4 residuals; documentation
+only, no surface changes shape).** §4.10 of the security deployment page now
+states what an erasure is not: there is no graph erasure — the Context Graph
+keeps the subject's attributes and every product assembled afterwards carries
+them — it is whole-artifact only, it destroys nothing and it makes no
+legal-compliance claim. It corrects four overclaims (a record without a
+verifying door signature is `index-unsupported` — true since FW-1, a
+malformed header included; neither HITL-policy registration authority nor an
+approver's key suffices without the door key; `policy_head` covers content
+only where a version is its content hash, as in the reference registry; and
+the door refuses by name where the consult withholds and audits), and adds
+the residuals: a forged entry in one tenant withholding another tenant's
+content on tenantless reads (the by-URI naming check, fixed by FW-7); the
+single-tenant door; the door signature living in the index entry; door-key
+rotation stranding an in-flight completion; the undeclared
+`hitl_policy_key` on `HITLTransportProtocol`; the index's `flock` and
+`O_APPEND` assumptions with the short-write behavior PC1 added; and another
+tenant's governed filing of identical bytes changing the owner's reads over
+the MCP artifact server (panel C8, carried). §4.6 and fragment 374-01 say to
+declare one spelling of each server address across every writer of a graph,
+for Fluree, MongoDB (multi-host and replica-set forms included) and Neo4j. The
+stale §4.9 pointers that meant erasure now say §4.10, and the pin in
+`tests/erasure/test_sec009_fix5_rulings.py` reads exactly §4.10 and the
+in-process adapter's bullet. The adapter-authoring guide carries SEC-023's
+obligation for a reader that does not subclass `BaseGraphReader`; the cp-05
+specimen note states its SEC-009 change exactly; and the `ApiDependencies`
+module docstring counts five required handles and six optional ones.
+
 ## ccf.boot.boot
 
 - Surface: ccf.boot.boot
