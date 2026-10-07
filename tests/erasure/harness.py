@@ -278,3 +278,11 @@ def erase_cap(request: Any, *, principal: str = REQUESTER) -> Any:
         principal=principal,
         decision_id="authz-decision-erase",
     )
+
+
+def index_path(plane: Plane) -> Path:
+    """Where this plane's durable erasure index lives (fix round 1, C1)."""
+    path = getattr(plane, "index_path", None)
+    if path is None:
+        pytest.fail("MISSING CONTRACT: the plane declares no durable erasure index (SEC-009; C1)")
+    return Path(path)
