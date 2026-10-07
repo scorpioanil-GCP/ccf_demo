@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2177 entries**, of which **1905** name a public Python surface.
+**2178 entries**, of which **1906** name a public Python surface.
 
 ## Added
 
@@ -29078,7 +29078,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-292 entries — 256 public Python surface, 36 not public Python API.
+293 entries — 257 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33749,6 +33749,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the blob (`ccf-artifact-blob://`) and presence (`ccf-artifact-meta://`) resources took the governed dereference when ANY tenant's name for the address had a class declared under `ReplayMint`, and the names resource (`ccf-artifact-names://`) answered the governed refusal's shell in the same case. A tenant's own client-lane filing therefore read as `subject-unavailable` once another tenant filed identical bytes under a governed class, and the names resource answered `[]` for an unknown address but the shell for an address only another tenant had filed governed.
+- After: "governed" is judged over the names the caller's own tenant filed the address under, never another tenant's. A tenant's blob, presence and names answers for an address are byte-identical whether or not any other tenant filed the same bytes, under any class. Unchanged: a governed filing by the caller's own tenant still takes the governed dereference for every principal of that tenant (N4, `D-IMPL-345`); an address the caller's tenant never filed still answers the blob and presence resources with the `nonexistent` shell, and the names resource with `[]`; the client lane's read still appends the `D-IMPL-345` R-5 `authz_decision` event under the caller's class.
+- Why: C8 (`D-IMPL-376` ruling (6)). Red tests: `tests/mcp/test_c8_governed_judged_per_tenant.py::test_another_tenants_governed_filing_does_not_change_the_owners_reads`, `::test_the_owners_answers_do_not_depend_on_any_other_tenants_filing` (both parametrizations) and `::test_the_owners_erasure_over_the_mcp_backed_store_is_not_refused_by_another_tenants_governed_filing`.
+- Migration: none for a single-tenant store. Where tenants share one artifact store, an owner's reads and erasure requests no longer depend on other tenants' filings. Erasure is unchanged: it is a per-tenant fact and destroys no bytes. Measured on the file-backed door, identically before and after this change: once tenant A erases an address tenant B also filed, B's filing and the bytes stay, B's tenant-scoped reads (`ErasureConsultingStore.scoped`, which the client lane and the governed dereference's erasure consult use) still serve them, and a tenantless read (`ErasureConsultingStore.get` with no tenant; SEC-009 ruling (i) names the replay engine, `record_of` and child admission) withholds them with the reason redacted. Over the MCP-backed store A's request was refused `class-unverifiable` before this change, so that state was reachable only through a door on the file-backed store; it is now reachable through either.
+
+*Recorded by `377-02-c8-governed-judged-per-tenant.md`.*
 
 ### Not public Python API
 
