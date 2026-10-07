@@ -67,16 +67,33 @@ replay slot seam 4 writes into).
 
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import replace
+from pathlib import Path
+from subprocess import PIPE
 from typing import Any
 
+import anyio
+from anyio.streams.text import TextReceiveStream, TextSendStream
 from claude_agent_sdk import (
     ClaudeAgentOptions,
+    CLIConnectionError,
+    CLINotFoundError,
     PermissionResultAllow,
     PermissionResultDeny,
     ResultMessage,
+    __version__ as _VENDOR_VERSION,
     create_sdk_mcp_server,
     tool,
+)
+from claude_agent_sdk._internal._task_compat import spawn_detached
+from claude_agent_sdk.types import SystemPromptFile
+from claude_agent_sdk._internal.transport.subprocess_cli import (
+    _ACTIVE_CHILDREN,
+    SubprocessCLITransport,
 )
 
 from ccf.agents.agent import Agent, EmittedEffect
@@ -87,7 +104,12 @@ from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import render_tool_surface
 
-__all__ = ["HARNESS_ID", "ClaudeAgentAdapter"]
+__all__ = [
+    "DEFAULT_CHILD_ENVIRONMENT",
+    "HARNESS_ID",
+    "AllowlistedEnvironmentTransport",
+    "ClaudeAgentAdapter",
+]
 
 #: This adapter's stable harness identity. Lands verbatim in
 #: :attr:`~ccf.harness.protocol.HarnessCapabilities.harness_id` and in
@@ -97,6 +119,62 @@ __all__ = ["HARNESS_ID", "ClaudeAgentAdapter"]
 #: it is a constant here and every genuinely deployment-owned value
 #: (model, server name, effect capability) is a constructor argument instead.
 HARNESS_ID = "claude-agent-sdk"
+
+#: The variable NAMES the ``claude`` child receives, by value read from the
+#: fabric's own environment, when the deployment declares no
+#: ``child_environment`` (TP-02, D-IMPL-361; the controller's ruling). Names
+#: only — never values — so this is mechanism, not a deployment value; every
+#: other variable reaches the child only when the deployment names it.
+DEFAULT_CHILD_ENVIRONMENT: tuple[str, ...] = ("PATH", "HOME")
+
+#: Mechanism variables the vendor's own transport always sets on the child
+#: (claude-agent-sdk 0.2.128, ``subprocess_cli.py:690-694``). Reproduced so the
+#: allowlisted child sees the same SDK identity the vendor's spawn would give
+#: it; neither carries a fabric value.
+_VENDOR_ENTRYPOINT_VARIABLE = "CLAUDE_CODE_ENTRYPOINT"
+_VENDOR_ENTRYPOINT = "sdk-py"
+_VENDOR_VERSION_VARIABLE = "CLAUDE_AGENT_SDK_VERSION"
+_VENDOR_CHECKPOINTING_VARIABLE = "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"
+
+#: The vendor client's permission-prompt routing value. ``ClaudeSDKClient`` and
+#: ``query`` set it on *their own* copy of the options when ``can_use_tool`` is
+#: bound, and a pre-built transport never sees that copy — so a transport built
+#: from the carrier must carry it itself, or the CLI never consults the gate.
+_PERMISSION_PROMPT_OVER_STDIO = "stdio"
+
+#: Owner-only modes for the per-call system-prompt directory and file (TP-05,
+#: D-IMPL-361; the controller's ruling). ``tempfile.mkdtemp`` already creates
+#: the directory ``0700``; the file is created ``0600`` and re-asserted with
+#: ``fchmod`` so a permissive umask cannot widen it.
+_PROMPT_FILE_MODE = 0o600
+_PROMPT_FILE_NAME = "system-prompt"
+
+#: The name of a file that is never created, inside the per-call ``0700``
+#: prompt directory. ``inject_context`` points the carrier's ``cli_path`` at it
+#: so the vendor's **default** transport — the one an adopter gets by omitting
+#: :meth:`ClaudeAgentAdapter.transport` — cannot start the CLI and fails with
+#: ``CLINotFoundError`` instead of spawning it with the fabric's whole
+#: environment (TP-02 fails closed, D-IMPL-361). Only the fabric's own user
+#: could create it, because the directory is owner-only.
+_NO_CLI_SENTINEL = "no-cli-use-the-adapter-transport"
+
+
+def _write_prompt_file(prompt: str) -> Path:
+    """Write ``prompt`` to a fresh ``0600`` file in a fresh ``0700`` directory.
+
+    The directory is created per call by ``tempfile.mkdtemp`` (owner-only by
+    construction) and the file with ``O_EXCL``, so no other carrier's prompt
+    file is ever reused or overwritten.
+    """
+    directory = Path(tempfile.mkdtemp())
+    path = directory / _PROMPT_FILE_NAME
+    descriptor = os.open(
+        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _PROMPT_FILE_MODE
+    )
+    with os.fdopen(descriptor, "wb") as handle:
+        os.fchmod(handle.fileno(), _PROMPT_FILE_MODE)
+        handle.write(prompt.encode("utf-8"))
+    return path
 
 def _qualified_tool_name(server_name: str, skill_name: str) -> str:
     """The name the harness sees for an in-process MCP tool.
@@ -108,6 +186,113 @@ def _qualified_tool_name(server_name: str, skill_name: str) -> str:
     point of seam 2 is that those two agree exactly.
     """
     return f"mcp__{server_name}__{skill_name}"
+
+
+def _refused(reason: str) -> dict[str, Any]:
+    """An in-process MCP tool result that refuses, carrying ``reason`` (TP-01).
+
+    ``is_error`` is the key the vendor's ``create_sdk_mcp_server`` wrapper
+    reads into ``CallToolResult.isError`` (claude-agent-sdk 0.2.128,
+    ``claude_agent_sdk/__init__.py:521``); an ``isError`` key would be dropped
+    there and the refusal would reach the harness as a success.
+    """
+    return {"content": [{"type": "text", "text": reason}], "is_error": True}
+
+
+class AllowlistedEnvironmentTransport(SubprocessCLITransport):
+    """The vendor's subprocess transport, spawning the child from an allowlist (TP-02).
+
+    SDK-defined (CLAUDE.md §7.3; TP-02, D-IMPL-361). Measured in
+    claude-agent-sdk 0.2.128 (``_internal/transport/subprocess_cli.py``):
+    ``connect()`` builds the child environment as ``{**os.environ, ...,
+    **options.env, ...}`` (lines 689-694) and passes it to
+    ``anyio.open_process`` (line 739), so ``ClaudeAgentOptions.env`` merges
+    **over** the fabric's whole environment and cannot subtract from it; the
+    version probe (``_check_claude_version``, lines 1031-1035) spawns the same
+    binary with no ``env`` at all. This subclass replaces ``connect()`` so the
+    child's environment is **exactly** :meth:`child_environment` — the
+    carrier's ``env`` plus the vendor's own mechanism variables — and nothing
+    inherited.
+
+    Differences from the vendor's ``connect()``, each deliberate: the version
+    probe is not run (it would hand the binary the full environment, and it
+    only ever logs a warning); OpenTelemetry trace propagation from the
+    fabric's environment is not performed (a deployment that wants it declares
+    the variables in ``child_environment``). Everything else — CLI resolution,
+    the Windows batch-file refusal, argv, working directory, stderr callback,
+    child tracking — follows the vendor's own code path.
+
+    This subclasses a **private** vendor module, which the spec records as the
+    cost of the env half of TP-02 (§7.1 fact (d)); a vendor upgrade that
+    changes ``connect()`` must be re-measured against it.
+    """
+
+    def child_environment(self) -> dict[str, str]:
+        """The complete environment the ``claude`` child is spawned with (TP-02).
+
+        Exactly the carrier's ``env`` — the deployment-declared allowlist, or
+        :data:`DEFAULT_CHILD_ENVIRONMENT` — plus the vendor's own mechanism
+        variables; nothing is read from the fabric's environment here
+        (D-IMPL-361).
+        """
+        environment = {
+            _VENDOR_ENTRYPOINT_VARIABLE: _VENDOR_ENTRYPOINT,
+            **self._options.env,
+            _VENDOR_VERSION_VARIABLE: _VENDOR_VERSION,
+        }
+        if self._options.enable_file_checkpointing:
+            environment[_VENDOR_CHECKPOINTING_VARIABLE] = "true"
+        if self._cwd:
+            environment["PWD"] = self._cwd
+        return environment
+
+    async def connect(self) -> None:
+        """Start the child with :meth:`child_environment` and nothing inherited (TP-02).
+
+        Replaces the vendor's ``connect()``, which merges ``os.environ`` into
+        the child and runs a version probe that inherits it whole
+        (D-IMPL-361).
+        """
+        if self._process:
+            return
+        if self._cli_path is None:
+            self._cli_path = await anyio.to_thread.run_sync(self._find_cli)
+        self._reject_windows_batch_cli(self._cli_path)
+        command = self._build_command()
+        stderr_dest = PIPE if self._options.stderr is not None else None
+        try:
+            self._process = await anyio.open_process(
+                command,
+                stdin=PIPE,
+                stdout=PIPE,
+                stderr=stderr_dest,
+                cwd=self._cwd,
+                env=self.child_environment(),
+                user=self._options.user,
+            )
+            _ACTIVE_CHILDREN.add(self._process)
+            if self._process.stdout:
+                self._stdout_stream = TextReceiveStream(self._process.stdout)
+            if stderr_dest is PIPE and self._process.stderr:
+                self._stderr_stream = TextReceiveStream(self._process.stderr)
+                self._stderr_task = spawn_detached(self._handle_stderr())
+            if self._process.stdin:
+                self._stdin_stream = TextSendStream(self._process.stdin)
+            self._ready = True
+        except FileNotFoundError as error:
+            failure: Exception
+            if self._cwd and not Path(self._cwd).exists():
+                failure = CLIConnectionError(
+                    f"Working directory does not exist: {self._cwd}"
+                )
+            else:
+                failure = CLINotFoundError(f"Claude Code not found at: {self._cli_path}")
+            self._exit_error = failure
+            raise failure from error
+        except Exception as error:
+            failure = CLIConnectionError(f"Failed to start Claude Code: {error}")
+            self._exit_error = failure
+            raise failure from error
 
 
 class ClaudeAgentAdapter:
@@ -140,6 +325,14 @@ class ClaudeAgentAdapter:
             capture it never made. Injected rather than fixed so a deployment
             can bind the same harness read-only, and so the conformance suite
             can drive both branches of the capability space.
+        child_environment: The complete environment, names and values, the
+            ``claude`` child receives (TP-02, D-IMPL-361) — deployment-declared.
+            ``None`` (the default) gives the child only
+            :data:`DEFAULT_CHILD_ENVIRONMENT`'s names, valued from the fabric's
+            environment; every other variable is opt-in by name. Placed on
+            ``ClaudeAgentOptions.env`` and enforced by the transport from
+            :meth:`transport`, because the vendor's default transport merges
+            ``env`` over the fabric's whole environment.
     """
 
     def __init__(
@@ -149,11 +342,44 @@ class ClaudeAgentAdapter:
         mcp_server_name: str,
         mcp_server_version: str,
         effects: EffectCapability,
+        child_environment: Mapping[str, str] | None = None,
     ) -> None:
         self._model = model
         self._mcp_server_name = mcp_server_name
         self._mcp_server_version = mcp_server_version
         self._effects: EffectCapability = effects
+        self._declared_child_environment: dict[str, str] | None = (
+            None if child_environment is None else dict(child_environment)
+        )
+        self._prompt_directories: list[str] = []
+
+    @property
+    def prompt_directories(self) -> tuple[str, ...]:
+        """Every per-call system-prompt directory this adapter created (TP-05).
+
+        :meth:`inject_context` writes the assembled prompt to a ``0600`` file
+        in a new ``0700`` directory on each call, because the vendor would
+        otherwise put the prompt on the ``claude`` argv (D-IMPL-361). The
+        directories are **the adopter's to remove** once the session that
+        used the carrier has ended, with :meth:`remove_prompt_directories` —
+        this adapter runs no background cleaner, because it cannot know when
+        the harness has finished reading the file.
+        """
+        return tuple(self._prompt_directories)
+
+    def remove_prompt_directories(self) -> None:
+        """Remove every recorded system-prompt directory and forget it (TP-05).
+
+        Synchronous and idempotent: a directory already gone is skipped, and
+        :attr:`prompt_directories` is empty afterwards. Each directory holds
+        the full assembled prompt — rendered instructions and the canonical
+        serialization of every product the carrier delivered — at rest, so a
+        long-lived adapter should call this once the sessions that used its
+        carriers have ended (D-IMPL-361). A carrier whose directory has been
+        removed can no longer start a session.
+        """
+        while self._prompt_directories:
+            shutil.rmtree(self._prompt_directories.pop(), ignore_errors=True)
 
     # --- seam 0: what this adapter declares about itself ---------------------
 
@@ -189,12 +415,34 @@ class ClaudeAgentAdapter:
         tool: binding is re-resolved from the ledger-backed view at each
         invocation, so a revocation between two harness turns takes effect on
         the second one without the agent's identity changing (D-07).
+
+        **The handler is the adapter-owned control (TP-01, D-IMPL-361).** The
+        vendor routes a CLI ``tools/call`` straight to this handler with no
+        Python-side permission check (claude-agent-sdk 0.2.128,
+        ``_internal/query.py:679-688``); ``allowed_tools`` and
+        ``can_use_tool`` are enforced by the semi-trusted CLI and are defense
+        in depth only. So the handler re-applies both of the permission gate's
+        conditions itself, **before** :meth:`~ccf.agents.agent.Agent.invoke_skill`
+        is reached: a binding that declared ``effects`` other than
+        ``governed`` refuses every call, and a skill not in
+        ``agent.bound_skill_names`` *at call time* refuses. A refusal is an
+        MCP error result (the vendor's ``is_error`` key, which it carries to
+        ``CallToolResult.isError`` at ``claude_agent_sdk/__init__.py:521``)
+        whose text is this adapter's own reason.
         """
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
 
         @tool(entry.name, surface.description, surface.input_schema)
         async def handler(args: Mapping[str, Any]) -> dict[str, Any]:
+            if self._effects != "governed":
+                return _refused(self._refusal_reason())
+            if skill_name not in agent.bound_skill_names:
+                return _refused(
+                    self._unbound_reason(
+                        _qualified_tool_name(self._mcp_server_name, skill_name)
+                    )
+                )
             invocation = agent.invoke_skill(
                 skill_name, arguments={key: str(value) for key, value in args.items()}
             )
@@ -252,9 +500,31 @@ class ClaudeAgentAdapter:
 
         Returns a ``ClaudeAgentOptions`` — the harness-native carrier — with
         the already-rendered instructions and the canonical serialization of
-        each already-admitted Context Product on ``system_prompt``, this
-        agent's tools on an in-process MCP server, ``allowed_tools`` set to
-        exactly those tools, and the permission gate bound.
+        each already-admitted Context Product joined into the system prompt,
+        this agent's tools on an in-process MCP server, ``allowed_tools`` set
+        to exactly those tools, and the permission gate bound.
+
+        **The system prompt reaches the CLI by file, never by argv (TP-05,
+        D-IMPL-361).** A string ``system_prompt`` is placed on the ``claude``
+        command line as ``--system-prompt <text>`` (claude-agent-sdk 0.2.128,
+        ``subprocess_cli.py:467-468``), where every local process and any
+        central process audit can read it. So the joined prompt is written to
+        a ``0600`` file in a new ``0700`` directory per call, and
+        ``system_prompt`` carries the vendor's typed file form
+        (``{"type": "file", "path": ...}``), which the vendor renders as the
+        single option ``--system-prompt-file <path>`` (lines 469-473). The
+        directory is recorded on :attr:`prompt_directories` for the adopter to
+        remove (:meth:`remove_prompt_directories`).
+
+        **The carrier fails closed without the adapter's transport (TP-02,
+        D-IMPL-361).** The carrier's ``cli_path`` names a file that does not
+        exist inside that owner-only directory. Handing the carrier to
+        ``ClaudeSDKClient(options=carrier)`` or ``query(options=carrier)``
+        **without** ``transport=adapter.transport(carrier)`` therefore raises
+        ``CLINotFoundError`` at connect and starts nothing — because the
+        vendor's default transport would spawn the CLI with the fabric's whole
+        environment merged in. :meth:`transport` clears the sentinel so the
+        vendor resolves the real CLI, and spawns it from the allowlist only.
 
         ``products`` are products the agent already admitted through
         :meth:`~ccf.agents.agent.Agent.consume`; they are serialized
@@ -274,17 +544,73 @@ class ClaudeAgentAdapter:
         serialized_products = tuple(
             canonical_bytes(product).decode("utf-8") for product in products
         )
+        prompt_file = _write_prompt_file("\n".join((*instructions, *serialized_products)))
+        self._prompt_directories.append(str(prompt_file.parent))
+        system_prompt: SystemPromptFile = {"type": "file", "path": str(prompt_file)}
         carrier: object = ClaudeAgentOptions(
             model=self._model,
-            system_prompt="\n".join((*instructions, *serialized_products)),
+            system_prompt=system_prompt,
             mcp_servers={self._mcp_server_name: server},
             allowed_tools=[
                 _qualified_tool_name(self._mcp_server_name, handler.name)
                 for handler in tools
             ],
             can_use_tool=self._permission_gate(agent),
+            env=self._child_environment(),
+            cli_path=prompt_file.parent / _NO_CLI_SENTINEL,
         )
         return carrier
+
+    def _child_environment(self) -> dict[str, str]:
+        """The ``claude`` child's environment for this deployment (TP-02).
+
+        The declared ``child_environment`` verbatim when there is one;
+        otherwise :data:`DEFAULT_CHILD_ENVIRONMENT`'s names, valued from the
+        fabric's environment at carrier-build time, skipping a name the fabric
+        does not have.
+        """
+        if self._declared_child_environment is not None:
+            return dict(self._declared_child_environment)
+        return {
+            name: os.environ[name]
+            for name in DEFAULT_CHILD_ENVIRONMENT
+            if name in os.environ
+        }
+
+    def transport(self, carrier: object) -> AllowlistedEnvironmentTransport:
+        """The transport an adopter must hand the vendor with ``carrier`` (TP-02).
+
+        Pass it as ``ClaudeSDKClient(options=carrier, transport=...)`` or
+        ``query(prompt=..., options=carrier, transport=...)``. Without it the
+        vendor's default transport spawns ``claude`` with the fabric's whole
+        environment, whatever ``carrier.env`` says — ``env`` merges over
+        ``os.environ`` and cannot subtract (D-IMPL-361).
+
+        The carrier's own ``cli_path`` is a fail-closed sentinel; the
+        transport is built with it cleared, so the vendor's CLI resolution
+        applies here and nowhere else. The transport is built from
+        ``carrier`` with the permission prompt
+        routed over stdio when a ``can_use_tool`` gate is bound, because the
+        vendor client applies that routing only to the options *it* would have
+        built a transport from; a pre-built transport that lacked it would
+        leave the CLI never consulting the gate.
+
+        Raises:
+            TypeError: ``carrier`` is not a ``ClaudeAgentOptions``.
+        """
+        if not isinstance(carrier, ClaudeAgentOptions):
+            raise TypeError(
+                f"transport expected the ClaudeAgentOptions inject_context"
+                f" returned, got {type(carrier).__name__}"
+            )
+        # Clear the fail-closed sentinel ``inject_context`` set, so the vendor
+        # resolves the real CLI (bundled, then PATH) for this transport only.
+        options = replace(carrier, cli_path=None)
+        if options.can_use_tool is not None and options.permission_prompt_tool_name is None:
+            options = replace(
+                options, permission_prompt_tool_name=_PERMISSION_PROMPT_OVER_STDIO
+            )
+        return AllowlistedEnvironmentTransport(prompt="", options=options)
 
     # --- seam 3 --------------------------------------------------------------
 

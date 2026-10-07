@@ -120,6 +120,7 @@ from ccf.replay.record import (
 from ccf.skills.grants import SkillGrant
 
 from conformance.test_harness_adapter import (
+    remove_claude_prompt_directories,  # noqa: F401 - autouse teardown, reused
     BOUNDARY,
     HARNESS_PARAMS,
     HarnessLeg,

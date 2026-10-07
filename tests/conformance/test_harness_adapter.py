@@ -170,8 +170,29 @@ def _carrier_values(carrier: object, *, _depth: int = 0) -> Iterator[object]:
 
 
 def _carrier_strings(carrier: object) -> tuple[str, ...]:
-    """Every string reachable inside a harness-native carrier."""
-    return tuple(v for v in _carrier_values(carrier) if isinstance(v, str))
+    """Every string reachable inside a harness-native carrier.
+
+    A carried **file-form system prompt** — a mapping ``{"type": "file",
+    "path": <path>}`` — is followed: its file's text is yielded too, because a
+    harness handed context by file meets that context by reading the file.
+    TP-05 (D-IMPL-361) moved the Claude leg's system prompt off argv into a
+    ``0600`` file carried in exactly that form, so without this the probe would
+    see the path and never the prompt — and seam 1's "the instruction reached
+    the context surface" would read red for a carrier that delivers it
+    correctly. Only that declared form is followed, never an arbitrary path
+    string, so the probe cannot be satisfied by some unrelated file.
+    """
+    found: list[str] = []
+    for value in _carrier_values(carrier):
+        if isinstance(value, str):
+            found.append(value)
+        elif (
+            isinstance(value, Mapping)
+            and value.get("type") == "file"
+            and isinstance(value.get("path"), str)
+        ):
+            found.append(Path(value["path"]).read_text(encoding="utf-8"))
+    return tuple(found)
 
 
 def _carried(carrier: object, needle: str) -> bool:
@@ -445,12 +466,14 @@ def build_harness_leg(param: str) -> HarnessLeg:
         values = _harness_fixture()[param]
 
         def adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
-            return ClaudeAgentAdapter(
+            built = ClaudeAgentAdapter(
                 model=values["model"],
                 mcp_server_name=values["mcp_server_name"],
                 mcp_server_version=values["mcp_server_version"],
                 effects=effects,
             )
+            CLAUDE_ADAPTERS_BUILT.append(built)
+            return built
 
         def execution() -> object:
             return ResultMessage(
@@ -480,19 +503,49 @@ def build_harness_leg(param: str) -> HarnessLeg:
         def refusal(
             under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
         ) -> object | None:
-            """Poke the Claude Agent SDK's own permission hook (D-10 (b)).
+            """Drive the adapter-owned control, then the CLI's hook (D-10 (b)).
 
-            ``can_use_tool`` is the hook the harness consults before running a
-            tool and the one it honours ``PermissionResultDeny`` from, so this
-            is the harness refusing rather than CCF declining.
+            TP-01 (D-IMPL-361): the vendor routes a CLI ``tools/call`` straight
+            to the in-process MCP handler with no Python-side permission check
+            (``claude_agent_sdk/_internal/query.py:679-688``), and
+            ``can_use_tool`` is enforced only by the semi-trusted CLI. Poking
+            the gate with ``{}`` alone was therefore a false green: it proved
+            the CLI's control, never the adapter's. So the refusal counts only
+            when the **in-process handler itself** refuses the skill's declared
+            arguments through the vendor's own ``CallToolRequest`` route — and
+            the CLI-side gate, defense in depth, agrees.
             """
+            from mcp.types import CallToolRequest, CallToolRequestParams
+
             carrier = under_test.inject_context(
                 agent=agent, products=(), instructions=()
             )
+            server = carrier.mcp_servers[values["mcp_server_name"]]  # type: ignore[attr-defined]
+            handler = server["instance"].request_handlers[CallToolRequest]
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            result = asyncio.run(
+                handler(
+                    CallToolRequest(
+                        method="tools/call",
+                        params=CallToolRequestParams(
+                            name=skill_name, arguments=declared
+                        ),
+                    )
+                )
+            ).root
             gate = carrier.can_use_tool  # type: ignore[attr-defined]
             qualified = f"mcp__{values['mcp_server_name']}__{skill_name}"
-            decision = asyncio.run(gate(qualified, {}, None))
-            return decision if isinstance(decision, PermissionResultDeny) else None
+            decision = asyncio.run(gate(qualified, declared, None))
+            # The handler's refusal must carry the adapter's own reason: an
+            # error result produced by a raised exception (which the MCP server
+            # also turns into isError) is not the adapter-owned control firing.
+            declared_effects = under_test.capabilities().effects
+            text = " ".join(getattr(item, "text", "") for item in result.content)
+            refused_in_process = bool(result.isError) and (
+                f"effects={declared_effects!r}" in text
+            )
+            refused_by_cli_gate = isinstance(decision, PermissionResultDeny)
+            return result if refused_in_process and refused_by_cli_gate else None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
@@ -699,6 +752,21 @@ def harness_leg(request: pytest.FixtureRequest) -> HarnessLeg:
 @pytest.fixture
 def world() -> World:
     return World()
+
+
+#: Every Claude adapter a leg built in the current test. Each ``inject_context``
+#: writes the assembled prompt to a 0600 file at rest (TP-05, D-IMPL-361), so
+#: the suite removes them through the adapter's own helper at teardown rather
+#: than leaving product payloads in TMPDIR.
+CLAUDE_ADAPTERS_BUILT: list[Any] = []
+
+
+@pytest.fixture(autouse=True)
+def remove_claude_prompt_directories() -> Iterator[None]:
+    """Teardown: remove every prompt directory a Claude adapter created."""
+    yield
+    while CLAUDE_ADAPTERS_BUILT:
+        CLAUDE_ADAPTERS_BUILT.pop().remove_prompt_directories()
 
 
 @pytest.fixture(autouse=True)
