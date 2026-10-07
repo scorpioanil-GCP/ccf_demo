@@ -61,8 +61,11 @@ already covered.
 
 Seam status is D-IMPL-25, not this module's to reinterpret: context injection,
 effect capture, and replay hooks are mandatory for every conforming adapter;
-skill exposure is mandatory exactly when the bound agent's skill-set is
-non-empty. ``effects: unsupported`` is a *declared value* on
+skill exposure is mandatory exactly when the bound agent's EXPOSABLE skill-set
+is non-empty — the bound skills whose type is in
+:data:`ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES` (``TP-03``,
+``D-IMPL-361``). A bound ``peering``, ``mcp_product`` or ``procedure`` skill is
+never a harness tool. ``effects: unsupported`` is a *declared value* on
 :class:`HarnessCapabilities`, never a missing field — and D-10 makes the
 declaration only half the requirement: the conformance suite drives an
 effect-producing path and asserts the refusal fired and nothing reached the
@@ -229,11 +232,15 @@ class HarnessAdapterProtocol(Protocol):
         ...
 
     def expose_skills(self, *, agent: Agent) -> tuple[str, ...]:
-        """Seam 2 — exactly the currently-bound skill-set, as harness tools.
+        """Seam 2 — exactly the currently-bound exposable skill-set, as harness tools.
 
-        Mandatory exactly when ``agent.bound_skill_names`` is non-empty
-        (D-IMPL-25). Returns the skill names the adapter actually exposed,
-        sorted, so the conformance suite can compare them against
+        Mandatory exactly when the agent's bound skill-set has a member whose
+        type is in :data:`ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+        (D-IMPL-25, re-read by ``TP-03`` / ``D-IMPL-361``: a non-empty
+        EXPOSABLE skill-set). Bound ``peering``, ``mcp_product`` and
+        ``procedure`` skills are skipped, never rendered and never raised on.
+        Returns the skill names the adapter actually exposed, sorted, so the
+        conformance suite can compare them against the exposable subset of
         :attr:`~ccf.agents.agent.Agent.bound_skill_names` directly: a skill the
         agent has not been granted must not exist from the harness's point of
         view, and returning names rather than harness-native tool objects is

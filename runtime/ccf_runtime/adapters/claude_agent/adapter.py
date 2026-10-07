@@ -85,7 +85,7 @@ from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabil
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
-from ccf.skills.toolsurface import render_tool_surface
+from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES, render_tool_surface
 
 __all__ = ["HARNESS_ID", "ClaudeAgentAdapter"]
 
@@ -212,10 +212,18 @@ class ClaudeAgentAdapter:
         shared catalog is the over-exposure defect T-06-66 registers, and it
         is invisible with one agent in the suite; the D-23 two-agent case is
         what makes it visible.
+
+        Filtered by :data:`~ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+        before rendering (``TP-03``, ``D-IMPL-361``): a bound ``peering``,
+        ``mcp_product`` or ``procedure`` skill is skipped — never rendered and
+        never raised on — so the agent's exposable skills still reach the
+        harness.
         """
         return tuple(
             self._skill_tool(agent, skill_name)
             for skill_name in agent.bound_skill_names
+            if self._bound_entry(agent, skill_name).skill_type
+            in HARNESS_EXPOSABLE_SKILL_TYPES
         )
 
     def expose_skills(self, *, agent: Agent) -> tuple[str, ...]:
