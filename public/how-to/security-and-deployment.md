@@ -42,8 +42,13 @@ key material and raises `KeyUnavailable` when it holds none.
 - **Sourcing:** the deployment injects a `SigningKeySource` at the
   composition root. The shipped reference, `FileBackedKeySource`, reads
   JWK files from an operator-designated directory *outside* the tree —
-  it is the development reference, not a custody recommendation.
-  Production deployments implement the Protocol against their own key
+  it is the development reference, not a custody recommendation. A
+  `key_id` is a flat name, never a path: anything that does not fullmatch
+  `FileBackedKeySource.KEY_ID_PATTERN` (a letter or digit, then letters,
+  digits, `.`, `_` or `-`) is refused with `KeyUnavailable` before any path
+  is formed, so `..`, an absolute path, a separator or an empty id never
+  reaches the filesystem (`src/ccf/peering/identity.py::FileBackedKeySource`,
+  `LOW-02`). Production deployments implement the Protocol against their own key
   custody (KMS, HSM, vault); the SDK takes no dependency on any vendor.
 - **Verification:** verifiers take candidate *public* keys from the
   caller (trust-policy resolution, D-IMPL-16). No key is baked into
@@ -207,7 +212,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   sourced at review time from the operator-local homecams `.env` file,
   which is outside this repository and never committed here.
 - The `.gitignore` excludes environments and credentials as a standing
-  rule (CLAUDE.md §2.2: "never a secret in the tree"). Key files for
+  rule (CLAUDE.md §2.2: "never a secret in the tree"): `.env` and `.env.*`,
+  and the key-material shapes `*.pem`, `*.jwk`, `*.key`, `*.p12`, `*.pfx`,
+  `*.jks`, `*.keystore` and `tokens.json`. The `ignored-secrets` lint
+  (`tools/lints/ignored_secrets.py::check_tree`, `LOW-04`) refuses the tree
+  if any of those patterns is missing or re-opened by a `!` negation, or if a
+  tracked file matches one; outside a git checkout it reports that the
+  tracked-file half did not run rather than passing. Key files for
   `FileBackedKeySource` belong in operator-designated directories outside
   the checkout for the same reason.
 - Every workflow under `.github/workflows/` runs with a read-only token
@@ -233,13 +244,14 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Five decisions have to be made explicitly. None of them has a safe default
-the SDK could pick for you, which is why each of them is a construction-time
-argument rather than a setting buried in configuration. The first three
-concern the HTTP surface, whose endpoint-by-endpoint contract is on the
-[HTTP API page](../reference/http-api.md); the fourth concerns which transport
-the MCP product door serves on; the fifth concerns what the Claude Agent SDK
-adapter's child process inherits.
+Six decisions have to be made explicitly. None of the first five has a safe
+default the SDK could pick for you, which is why each of them is a
+construction-time argument rather than a setting buried in configuration. The
+first three concern the HTTP surface, whose endpoint-by-endpoint contract is on
+the [HTTP API page](../reference/http-api.md); the fourth concerns which
+transport the MCP product door serves on; the fifth concerns what the Claude
+Agent SDK adapter's child process inherits; the sixth is how many processes may
+boot one graph, which depends on the graph store.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -376,6 +388,121 @@ of every product it delivered, to that owner-only directory at rest. **Removing
 it is the deployment's obligation:** call `adapter.remove_prompt_directories()`
 once the sessions that used the adapter's carriers have ended. A carrier whose
 directory was removed cannot start a session again.
+
+### 4.6 Decide how many processes share a graph (SEC-013)
+
+The fabric permits exactly one writer per graph (INV-CH7-10). Inside one
+process the boot refuses a second writer from its own live-writer table. Across
+processes the exclusion is the graph store's **writer lease**, and what it
+covers depends on the store. Each lease declares its scope by name, and the
+boot token records it.
+
+| Store | Lease scope | What enforces it |
+| --- | --- | --- |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
+| In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
+| Fluree, MongoDB, Neo4j | `process` | **Nothing across processes. The single-writer invariant is not enforced there.** |
+
+**The last row is an open gap, not a guarantee.** On those persistent network
+stores a second process booting the same graph is *not* refused. SEC-013 is
+recorded as partial for that reason: run one writing process per graph on
+those stores until a native lease is ruled and built.
+
+Consequences for a deployment on the stores that do lease:
+
+- **Two processes that each boot the same deployment are mutually exclusive.**
+  For example, two in-process client adapters or two MCP egress servers on one
+  deployment root over one SQLite file or one Postgres schema. The second is
+  refused at boot with `SingleWriterViolation`, naming the lease it could not
+  take. A holder that dies, however it dies, gives the lease back (the kernel
+  drops the `flock`; the server ends the session), so a crash never wedges a
+  later boot.
+- **SQLite.** The lease is only as good as the filesystem's `flock`. WAL-mode
+  SQLite is already unsupported on network filesystems, so keep the database
+  file and its sidecar on a local filesystem. A process forked while holding
+  the lease shares it until that child exits.
+- **Postgres.** Connect directly or through a *session*-pooled connection. A
+  transaction- or statement-pooled connection (PgBouncer in those modes)
+  cannot carry a session lock. A dropped connection loses the lease silently:
+  the writer fails on its next statement, but a competing boot may already
+  have succeeded. The lease is visible to an operator in `pg_locks` with
+  `locktype = 'advisory'`, and it shares the database's advisory-lock key
+  space with anything else using it.
+
+### 4.7 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
+
+The Policy operator admits an entity by the value of one attribute, the one
+`classification_attribute_by_class` names. That attribute comes from source
+payloads like any other attribute. For each entity, the claim with the latest
+ingestion timestamp replaces the whole attribute set, so without a declaration
+any source can relabel a `restricted` entity as `public` simply by sending a
+later record.
+
+Name the sources that may assert the attribute on every resolution rule that
+writes it:
+
+```yaml
+resolution:
+  entity_rules:
+    - match_key: counterparty_lei
+      entity_class: counterparty
+      identity_keys: [counterparty_lei]
+      attribute_keys: [counterparty_name, classification]
+      attribute_authorities: {classification: [core-banking]}
+```
+
+Three things follow, and all three are mechanism:
+
+- **A claim from any other source is refused whole and recorded.** The L2
+  worker writes nothing from that envelope for that entity. It does not strip
+  the attribute, and it does not merge the attribute with the authoritative
+  value. It appends an `attribute_assertion_refused` event to the Control
+  Plane audit log, and it lists the refusal on `IngestResult`
+  (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`). The refused value is
+  not copied anywhere. The refusal is never raised, so a source without
+  authority cannot block your serves. An authorized source may move the label
+  in either direction.
+- **An empty source set means no source may assert the attribute.**
+- **A deployment that omits the declaration does not boot.** If a Policy
+  operator admits on an attribute that a rule writes with no
+  `attribute_authorities`, `load_and_boot` and `load_config_and_boot` refuse
+  with `UngovernedClassificationAttribute`
+  (`src/ccf/deployment/manifest.py::UngovernedClassificationAttribute`)
+  before anything is registered.
+
+Authority is only as strong as your binding of `SourceIdentity.system_id` to
+a real system. The SDK does not attest source identity: the adapter declares
+it. A fabric composed by hand through `ccf.boot.boot` never sees operator
+parameters, so the boot check does not cover it.
+
+### 4.8 Two deployment limitations, disclosed rather than fixed
+
+Two behaviors are deliberate designs with recorded reasons, so they are stated
+here as limitations a deployment plans around rather than changed (`D-IMPL-372`,
+Q2 (a)).
+
+- **A reserved graph-backend name denies boot.** Any installed distribution
+  that declares a `ccf.graph_backends` entry point under a name the SDK's own
+  adapters hold refuses every backend resolution, by design, rather than
+  letting the adapter set depend on discovery order
+  (`src/ccf/graph/registry.py::ReservedBackendName`,
+  `src/ccf/graph/registry.py::declared_names`; the
+  [storage and graph Protocols page](../reference/protocols/storage-and-graph.md)
+  states the fail-closed rule). One misbehaving package in the environment is
+  therefore a boot outage, not a silently ignored adapter: control what is
+  installed beside the SDK, and treat a `ReservedBackendName` at boot as a
+  supply-chain finding.
+- **The stdio client adapter hands its child the whole parent environment.**
+  `src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter` spawns the
+  deployment's own server program with `env=dict(os.environ)`, deliberately: it
+  is the deployment's code, reaching the same substrate settings and the same
+  credentials, and the MCP library's filtered default environment would
+  silently run a different checkout. The consequence is that every secret in
+  the client process's environment is visible to the child. A process holding
+  credentials its child must not see should not use the stdio adapter from
+  that process; spawn the client from an environment that carries only what
+  the server needs, or use the loopback transport.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

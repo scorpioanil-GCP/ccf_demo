@@ -368,6 +368,22 @@ _MARKED_IN_THE_TREE = frozenset(
         # what caught it, which is why it is a roster and not a count.
         "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_verdict_integrity",
         "ccf.controlplane.audit.WorkflowVerdictIntegrityAuditEvent.workflow_recorded_approver",
+        # `D-IMPL-372` SEC-023 — seven marks, ticked deliberately. The
+        # per-attribute authority declaration on a resolution rule, the
+        # refusals an ingest reports, and the refusal audit event's five
+        # fields (`src/ccf/assembly/worker.py::EntityResolutionRule`,
+        # `src/ccf/assembly/worker.py::IngestResult`,
+        # `src/ccf/controlplane/audit.py::AttributeAssertionRefusedAuditEvent`).
+        # Each is empty or `None` on every rule, result and event recorded
+        # before the row, so no resolution-spec pin and no examiner's hash of
+        # an older record moves; a real value is a real claim and is rendered.
+        "ccf.assembly.worker.EntityResolutionRule.attribute_authorities",
+        "ccf.assembly.worker.IngestResult.refused_assertions",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_entity_class",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_attribute",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_source_system_id",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_envelope_id",
+        "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_value_present",
         "ccf.hitl.transport.HitlActionRequest.annotation",
         "ccf.hitl.transport.HitlActionSubmission.authorizing_decision_id",
         # `D-IMPL-363` (SEC-005, the signed-claims / time-window repair) —

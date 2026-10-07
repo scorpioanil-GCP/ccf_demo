@@ -164,6 +164,7 @@ class _Deferred:
     direction is still up.
     """
 
+    tenant_id: str
     operator: Operator
     view: GraphView
     upstream: tuple[OperatorProvenance, ...]
@@ -180,18 +181,27 @@ class IntermediateCache:
     invalidation story D-IMPL-36 defers, and a cache without one is a replay
     defect waiting for a write.
 
-    Cache identity is ``(operator key, parameter hash, input view hash,
-    upstream chain hash)`` — everything :meth:`Operator.apply` can observe. A
-    hit therefore returns the value recomputation would produce, provenance
-    included.
+    Cache identity is ``(tenant, operator key, parameter hash, input view
+    hash, upstream chain hash)`` — everything :meth:`Operator.apply` can
+    observe, ``tenant_id`` argument included. A hit therefore returns the value
+    recomputation would produce, provenance included.
+
+    **Tenant is the first component, as D-IMPL-36 rules it** (``docs/DECISIONS.md``
+    D-IMPL-36: *"keyed on (tenant, operator_key, parameter_set_version,
+    input_intermediate_keys, graph_snapshot_id)"*). The view hash already
+    differs across tenants, because ``GraphView.tenant_id`` is a hashed field;
+    what it does not cover is :meth:`run`'s separate ``tenant_id`` argument,
+    which :meth:`Operator.apply` observes. Before LOW-03 (D-IMPL-372) the key
+    was a 4-tuple without it, so one view object run under two tenant
+    arguments hit and served the first tenant's intermediate to the second.
 
     **The key's composition is D-IMPL-36's; *when* it is computed is not.**
-    The four components and their order are exactly what they have always
-    been. What this class no longer does is build that key on *every*
-    invocation. An intermediate is held un-keyed (:class:`_Deferred`) until a
-    later call arrives for the same ``operator.key``, which is the first
-    moment a lookup could hit: ``operator.key`` is the key tuple's first
-    component, so an operator with no stored intermediate cannot match one.
+    What this class does not do is build that key on *every* invocation. An
+    intermediate is held un-keyed (:class:`_Deferred`, which carries the
+    ``tenant_id`` it was computed under) until a later call arrives for the
+    same ``operator.key``, which is the first moment a lookup could hit:
+    ``operator.key`` is a component of the key tuple, so an operator with no
+    stored intermediate cannot match one.
     Hashing a graph view is the dominant cost of building the key, and
     ``ProjectionEngine.execute`` invokes each operator key exactly once — so
     on the shipped engine path every one of those hashes was being computed
@@ -214,12 +224,13 @@ class IntermediateCache:
     discovered: a view that has no canonical rendering
     (:class:`~ccf.contracts.canonical.CanonicalizationError`) used to surface
     on its first pass through this cache. It now surfaces only where the key
-    is actually built. The key that *is* built is byte-for-byte the key that
-    was built before.
+    is actually built. The deferral changed only when the key is built; LOW-03
+    changed what it holds (the tenant, restored as D-IMPL-36's first
+    component).
     """
 
     def __init__(self) -> None:
-        self._entries: dict[tuple[str, str, str, str], OperatorOutput] = {}
+        self._entries: dict[tuple[str, str, str, str, str], OperatorOutput] = {}
         self._deferred: dict[str, list[_Deferred]] = {}
         self._hits = 0
 
@@ -235,12 +246,15 @@ class IntermediateCache:
 
     @staticmethod
     def _key(
+        *,
+        tenant_id: str,
         operator: Operator,
         view: GraphView,
         upstream: tuple[OperatorProvenance, ...],
-    ) -> tuple[str, str, str, str]:
-        """D-IMPL-36's key: the same four components, in the same order."""
+    ) -> tuple[str, str, str, str, str]:
+        """D-IMPL-36's key: tenant first, then operator, parameters, view, upstream."""
         return (
+            tenant_id,
             operator.key,
             content_hash(operator.parameters),
             content_hash(view),
@@ -265,7 +279,7 @@ class IntermediateCache:
         held = self._deferred.get(operator.key)
         if held is None:
             # First sighting of this operator in this execution. ``operator.key``
-            # is the key tuple's first component, so nothing already stored can
+            # is a component of the key tuple, so nothing already stored can
             # match: there is no lookup to build a key for. The intermediate is
             # held un-keyed until a second call for this operator makes one
             # necessary.
@@ -277,7 +291,11 @@ class IntermediateCache:
             )
             self._deferred[operator.key] = [
                 _Deferred(
-                    operator=operator, view=view, upstream=upstream, output=output
+                    tenant_id=tenant_id,
+                    operator=operator,
+                    view=view,
+                    upstream=upstream,
+                    output=output,
                 )
             ]
             return output
@@ -286,10 +304,17 @@ class IntermediateCache:
         # along.
         for deferred in held:
             self._entries[
-                self._key(deferred.operator, deferred.view, deferred.upstream)
+                self._key(
+                    tenant_id=deferred.tenant_id,
+                    operator=deferred.operator,
+                    view=deferred.view,
+                    upstream=deferred.upstream,
+                )
             ] = deferred.output
         held.clear()
-        key = self._key(operator, view, upstream)
+        key = self._key(
+            tenant_id=tenant_id, operator=operator, view=view, upstream=upstream
+        )
         cached = self._entries.get(key)
         if cached is not None:
             self._hits += 1

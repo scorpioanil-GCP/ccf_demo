@@ -172,6 +172,8 @@ resolution:
   # perspective-conditioned view.
   entity_rules:
     - match_key: alert_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: alert
       identity_keys: [entity_uri]
       # `plan_json` is the asking perspective's OWN plan; `permitted_json` is
@@ -181,30 +183,37 @@ resolution:
       attribute_keys: [alert_id, subject_party, raised_at, trigger, case_id,
                        classification, plan_json, permitted_json, posture_json, ledger_t]
     - match_key: party_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: party
       identity_keys: [entity_uri]
       attribute_keys: [party_id, legal_name, jurisdiction, party_kind, hops, classification]
     - match_key: transaction_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: transaction
       identity_keys: [entity_uri]
       attribute_keys: [txn_id, from_party, to_party, amount_usd, value_date, channel, classification]
     - match_key: typology_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: typology_match
       identity_keys: [entity_uri]
       attribute_keys: [typology_id, label, confidence, classification]
     - match_key: advisory_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: advisory_passage
       identity_keys: [entity_uri]
       attribute_keys: [passage_id, advisory_number, document_id, typology_id, text, classification]
     - match_key: prior_alert_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: prior_alert
       identity_keys: [entity_uri]
       attribute_keys: [alert_id, relation, raised_at, classification]
     - match_key: sar_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: sar_record
       identity_keys: [entity_uri]
       attribute_keys: [sar_id, alert_id, classification]
     - match_key: screening_node
+      attribute_authorities: {classification: [cp-19-aml-typology]}
       entity_class: screening_result
       identity_keys: [entity_uri]
       attribute_keys: [person_key, listed_name, score, disposition, classification]

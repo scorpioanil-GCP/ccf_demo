@@ -195,6 +195,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: group_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-21-large-exposure]}
       entity_class: group
       identity_keys: [entity_uri]
       attribute_keys: [anchor_lei, connection_basis, member_count, members_lei_registered,
@@ -214,12 +216,14 @@ resolution:
     # exposure denominator (`LEX-F-01`). An economic-dependency member carries
     # its stated basis and its synthetic provenance (`LEX-G20`).
     - match_key: member_node
+      attribute_authorities: {classification: [cp-21-large-exposure]}
       entity_class: member
       identity_keys: [entity_uri]
       attribute_keys: [lei, legal_name, is_anchor, in_group, admitted_by,
                        lei_registered, dependency_basis, dependency_provenance,
                        classification]
     - match_key: exposure_node
+      attribute_authorities: {classification: [cp-21-large-exposure]}
       entity_class: exposure
       identity_keys: [entity_uri]
       attribute_keys: [facility_id, lei, facility_type, commitment_amount, drawn_amount,
@@ -228,6 +232,7 @@ resolution:
     # `LEX-G07`). It keeps its OWN `report_date`: nothing ages it to the
     # exposure instant and nothing ages exposure back to it (`LEX-G14`).
     - match_key: capital_node
+      attribute_authorities: {classification: [cp-21-large-exposure]}
       entity_class: capital
       identity_keys: [entity_uri]
       attribute_keys: [rssd, report_date, tier1_raw, source_unit, tier1_normalized,
@@ -235,6 +240,7 @@ resolution:
     # THE REGIME AS AN EFFECTIVE-DATED ARTIFACT, with its rule form and the
     # rulebook text supporting it.
     - match_key: regime_node
+      attribute_authorities: {classification: [cp-21-large-exposure]}
       entity_class: regime
       identity_keys: [entity_uri]
       attribute_keys: [regime_id, label, effective_from, effective_to,
@@ -244,6 +250,7 @@ resolution:
     # BOTH INTERNAL AUTHORITIES. They genuinely disagree and neither is
     # discarded (`LEX-G11`).
     - match_key: limit_node
+      attribute_authorities: {classification: [cp-21-large-exposure]}
       entity_class: limit
       identity_keys: [entity_uri]
       attribute_keys: [limit_id, authority, limit_pct_of_capital, counts_guarantees,

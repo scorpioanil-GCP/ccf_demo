@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1906 entries**, of which **1640** name a public Python surface.
+**1922 entries**, of which **1655** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1074 entries — 1030 public Python surface, 44 not public Python API.
+1082 entries — 1038 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16405,6 +16405,102 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.graph.protocols.WriterLease
+
+- Surface: ccf.graph.protocols.WriterLease
+- Public surface: true
+- Change type: added
+- Before: absent. Nothing represented a writer's hold on its graph beyond this process's live-writer table.
+- After: a Protocol for a held writer lease. It has `scope` (a `WriterLeaseScope`), `mechanism` (the lease kind and resource, credential-free), an idempotent `release()`, and context-manager entry and exit.
+- Why: SEC-013. The mint holds the lease for the writer's life and gives it back on `BaseGraphWriter.close` or on boot's failure path.
+- Migration: none for a deployment. An adapter author returns one from `writer_lease()`.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.WriterLeaseScope
+
+- Surface: ccf.graph.protocols.WriterLeaseScope
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `Literal["cross-process", "process"]`. `"cross-process"` means the substrate refuses a second holder in any process. `"process"` is a disclosure, not enforcement: the only exclusion is this process's live-writer table.
+- Why: SEC-013. Each lease names its own scope, so nobody has to infer whether cross-process exclusion holds.
+- Migration: none.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.WRITER_LEASE_SCOPES
+
+- Surface: ccf.graph.protocols.WRITER_LEASE_SCOPES
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the two `WriterLeaseScope` values as a tuple. The mint refuses a lease that declares anything else, with a `TypeError`.
+- Why: SEC-013. The vocabulary is closed and checked at the mint.
+- Migration: none.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.WriterLeaseHeld
+
+- Surface: ccf.graph.protocols.WriterLeaseHeld
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `RuntimeError` a store's `writer_lease()` raises when another holder has the lease. The mint turns it into the same `SingleWriterViolation` ("already exists") that an in-process second boot raises, naming the lease it could not take.
+- Why: SEC-013. A backend store may not import `ccf.graph._writer` (CINV-02), so the store needs its own type for refusing.
+- Migration: none for a deployment. A deployment that catches `SingleWriterViolation` at boot now also sees the cross-process refusal there.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.graph.protocols.ProcessScopedWriterLease
+
+- Surface: ccf.graph.protocols.ProcessScopedWriterLease
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the `"process"`-scope lease, `ProcessScopedWriterLease(*, substrate)`. Acquiring and releasing it do nothing. The memory, fluree, mongo and neo4j reference stores and the demo fixture return it.
+- Why: SEC-013. This is a disclosure, not enforcement. On the persistent network stores the single-writer invariant is NOT enforced across processes, and SEC-013 stays open for them. A native lease for mongo (a lease document under a unique index) and neo4j (a unique lock node) is an executor proposal, unapproved (SEC-013-P1). Fluree is append-only and has no native lock, so what the invariant means on a shared ledger needs a ruling.
+- Migration: an out-of-tree adapter with no cross-process lock returns `ProcessScopedWriterLease(substrate="<adapter name>")` from `writer_lease()`.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.assembly.worker.RefusedAssertion
+
+- Surface: ccf.assembly.worker.RefusedAssertion
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a contract `(entity_uri, entity_class, attribute, source_system_id, envelope_id)`. It carries no value.
+- Why: lets the caller see a refusal. The record of truth is the audit event.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+
+- Surface: ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a derived `AuditEvent` with `refused_entity_class`, `refused_attribute`, `refused_source_system_id`, `refused_envelope_id` and `refused_value_present`. Each field is hash-transparent at `None`. `AuditLog.append` builds this event when it receives `refused_attribute`. The refused value is never recorded (SEC-024 discipline).
+- Why: an examiner can ask which source tried to relabel which entity, without the audit plane holding a copy of the data the label protects.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.deployment.manifest.UngovernedClassificationAttribute
+
+- Surface: ccf.deployment.manifest.UngovernedClassificationAttribute
+- Public surface: true
+- Change type: added
+- Before: absent. A deployment could admit on an attribute that any source could relabel.
+- After: a `ValueError` subclass carrying `operator_key`, `entity_class` and `attribute`. `_register_and_boot` raises it before anything is registered, which covers both `load_and_boot` and `load_config_and_boot`. It is raised when a `PolicyFilterParametersArtifact` names `classification_attribute_by_class: {class: attribute}` and the resolution spec in force has a rule of that class that writes the attribute without `attribute_authorities` for it. A class that no rule writes the attribute for is not refused. Nothing source-asserts that attribute, and `PolicyFilter` admits such an entity to nobody.
+- Why: SEC-023, Dave's correction of 2026-10-06. The L2 refusal governs only what a deployment declares. This check makes the declaration mandatory wherever classification controls access.
+- Migration: a deployment whose `PolicyFilter` names a classification attribute declares `attribute_authorities` for it on every rule that writes it. Every shipped example config and the banking fixtures were updated. A fabric composed by hand through `ccf.boot.boot` never sees operator parameters, so this check does not cover it (the low road, `D-IMPL-364`).
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -17116,7 +17212,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-536 entries — 346 public Python surface, 190 not public Python API.
+541 entries — 350 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -23329,6 +23425,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.graph.registry.BackendStore
+
+- Surface: ccf.graph.registry.BackendStore
+- Public surface: true
+- Change type: reshaped
+- Before: three members, `graph_identity`, `reader` and `close()`.
+- After: a fourth, required member, `writer_lease() -> WriterLease`. Only the boot mint calls it, after the in-process check passes and before a token exists. It is never called at store open, because a read-only store over a live graph is legitimate. The SQLite reference store's lease is an exclusive `fcntl.flock` (never `lockf`) on `<resolved database path>.ccf-writer.lock`, opened with mode `0o600`. The Postgres reference store's lease is a session `pg_try_advisory_lock(hashtextextended(current_schema(), 0))`, never the blocking form. Both are `"cross-process"`. A store without the member is refused at boot by name, with a `TypeError`.
+- Why: SEC-013. The single-writer guard was process-local, so two processes over one SQLite file or one Postgres schema each booted a writer.
+- Migration: every out-of-tree adapter must add `writer_lease()` (see `public/how-to/write-a-graph-backend-adapter.md`). After this change, two processes that each boot one SQLite or Postgres deployment, such as two in-process client adapters or two MCP egress servers on one deployment root, exclude each other, and the second boot is refused. The `public/how-to/security-and-deployment.md` section on processes sharing a graph discloses the per-store scope, the local-filesystem requirement for SQLite, and the session-pooling requirement and silent lease loss on a dropped connection for Postgres.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
+#### ccf.assembly.worker.EntityResolutionRule
+
+- Surface: ccf.assembly.worker.EntityResolutionRule
+- Public surface: true
+- Change type: reshaped
+- Before: no way to say which source may assert an attribute. Every attribute in `attribute_keys` was source-asserted.
+- After: adds `attribute_authorities: Mapping[str, frozenset[str]]`, which maps a governed attribute to the `SourceIdentity.system_id` values allowed to assert it. It defaults to empty and is hash-transparent when empty (`D-IMPL-243`), so every existing rule keeps its content hash. An empty source set is fail-closed: no source may assert that attribute. A key that is not one of `attribute_keys` is refused at construction (`ValueError` naming `attribute_authorities`).
+- Why: SEC-023. This is the only SDK-typed Control Plane artifact the L2 worker holds when it writes a claim.
+- Migration: none for existing artifacts. To govern an attribute, declare `attribute_authorities: {<attribute>: [<system id>, ...]}` on every rule that carries it.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.assembly.worker.IngestResult
+
+- Surface: ccf.assembly.worker.IngestResult
+- Public surface: true
+- Change type: reshaped
+- Before: `entities` and `relationships` only.
+- After: adds `refused_assertions: tuple[RefusedAssertion, ...]`, which defaults to `()` and is hash-transparent when empty.
+- Why: SEC-023. A refusal is an outcome that `ingest` returns. It is never an exception.
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditAction
+
+- Surface: ccf.controlplane.audit.AuditAction
+- Public surface: true
+- Change type: reshaped
+- Before: 22 members ending in `composition`.
+- After: adds `attribute_assertion_refused`, which is always `resolved=False`.
+- Why: none of the existing members can describe a refused L2 write without making the log say something untrue.
+- Migration: a consumer that matches exhaustively on the action vocabulary adds the member.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -25681,6 +25825,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
 
+#### ccf.graph._writer.mint_boot_token
+
+- Surface: ccf.graph._writer.mint_boot_token
+- Public surface: false
+- Change type: reshaped
+- Before: `mint_boot_token(*, graph_identity: str)`. It checked this process's live-writer table only.
+- After: `mint_boot_token(*, store)`. It checks the live-writer table first, so the in-process refusal text is byte-identical to the old one. Then it acquires `store.writer_lease()`, records the lease beside the table, and records the lease scope on the token (`BootToken.lease_scope`). There is no parameter that skips the lease. `BaseGraphWriter.close` and `release_boot_token` drop the table entry first and then release the lease.
+- Why: SEC-013. The lease is bound to the writer mint rather than to store open, and whether a lease applies is the store's declaration, never the caller's.
+- Migration: none outside the SDK. The module is private, and `ccf.boot.boot` is its only caller.
+
+*Recorded by `372-13-sec-013-writer-lease.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -26321,7 +26477,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-249 entries — 217 public Python surface, 32 not public Python API.
+252 entries — 220 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -30524,6 +30680,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a peered child must carry issuance claims whose `answered.subject` is the subject the composite asked, or it is refused `question-mismatch`; a hand-built peered candidate's own echo fields are disregarded
 
 *Recorded by `371-22-sec-022-issuance-claims-and-replay.md`.*
+
+#### ccf.assembly.worker.EntityResolutionSpec
+
+- Surface: ccf.assembly.worker.EntityResolutionSpec
+- Public surface: true
+- Change type: behavior
+- Before: no cross-rule check.
+- After: if any rule of an entity class governs an attribute, every rule of that class that carries the attribute must declare the identical source set. Otherwise the spec is refused at construction. Adds `governed_attributes()`, which returns class -> attribute -> authorized sources.
+- Why: the source's payload decides which rule fires. Without this check, a source could present the match key of a second rule that does not govern the attribute and assert it there.
+- Migration: none unless a spec already governs an attribute.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.assembly.worker.AssemblyWorker
+
+- Surface: ccf.assembly.worker.AssemblyWorker
+- Public surface: true
+- Change type: behavior
+- Before: `ingest` wrote every resolved entity's claim, whatever its source.
+- After: `ingest` writes no claim for an entity whose source is outside the declared set for a governed attribute it asserts. It derives no relationship from that entity in the same envelope. For each refused attribute it appends one `attribute_assertion_refused` event to the Control Plane audit log, with `occurred_at` set to the envelope's ingestion timestamp. It returns normally.
+- Why: if the refusal were raised, a non-authoritative source could refuse every serve whose acquisition touched it, through `src/ccf/products/resolver.py::SDK_SEAM_REFUSALS`.
+- Migration: none for ungoverned attributes.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.controlplane.audit.AuditLog
+
+- Surface: ccf.controlplane.audit.AuditLog
+- Public surface: true
+- Change type: behavior
+- Before: `append` accepted the authz and verdict-integrity keywords.
+- After: `append` also accepts the five `refused_*` keywords. Each defaults to `None`, so every existing call shape appends exactly what it appended before.
+- Why: SEC-023. SURFACE-TOOLING-01: this is a real public method-signature change (`AuditLog.append` gained five keyword arguments, `reshaped` in substance); the surface manifest records class shapes and names, not method signatures, so it yields no line for it and the completeness test cannot accept `reshaped` here; recorded under the only type the tool admits, with the limitation named and carried as a tooling finding (D-IMPL-372 close record, Y3).
+- Migration: none.
+
+*Recorded by `372-23-sec-023-classification-authority.md`.*
 
 ### Not public Python API
 

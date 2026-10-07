@@ -117,7 +117,13 @@ from ccf.contracts.canonical import (
     content_hash,
 )
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
-from ccf.graph.protocols import UpsertResult
+from ccf.graph.protocols import (
+    WRITER_LEASE_SCOPES,
+    UpsertResult,
+    WriterLease,
+    WriterLeaseHeld,
+    WriterLeaseScope,
+)
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, Row
 
 __ccf_mode__ = "algorithmic"
@@ -180,7 +186,16 @@ class SingleWriterViolation(RuntimeError):
 # Graph identities that currently have a live writer. Process-scoped state, and
 # the only mutable module-level state in the fabric core — it exists because
 # "how many writers are there?" is not a question a type system can answer.
+# It answers that question for THIS process only; the cross-process half is
+# the store's writer lease (SEC-013), held in :data:`_LIVE_LEASES` beside it.
 _LIVE_WRITERS: set[str] = set()
+
+# The writer lease each live writer holds, keyed on the same graph identity as
+# :data:`_LIVE_WRITERS` and mutated only alongside it (SEC-013, D-IMPL-372).
+# A ``"cross-process"`` lease is an OS- or server-held exclusion the substrate
+# enforces against every process; a ``"process"`` lease is a declaration only,
+# so on those substrates the invariant is NOT enforced across processes.
+_LIVE_LEASES: dict[str, WriterLease] = {}
 
 # Only this module can produce a token, and only holders of this object can
 # construct one. It is not exported.
@@ -196,18 +211,42 @@ class BootToken:
     writer it should not have.
     """
 
-    def __init__(self, *, graph_identity: str, mint_key: object) -> None:
+    def __init__(
+        self,
+        *,
+        graph_identity: str,
+        mint_key: object,
+        lease_scope: WriterLeaseScope | None = None,
+    ) -> None:
         if mint_key is not _MINT_KEY:
             raise SingleWriterViolation(
                 "BootToken is mintable only by the composition root "
                 "(ccf.boot); see DESIGN.md §2A.5.3"
             )
+        # Checked after the mint key so a forged token is refused for the
+        # forgery; only the mint reaches here, and it always passes a scope.
+        if lease_scope not in WRITER_LEASE_SCOPES:
+            raise SingleWriterViolation(
+                "a BootToken must record the scope of the writer lease it was "
+                "minted under (SEC-013)"
+            )
         self._graph_identity = graph_identity
+        self._lease_scope: WriterLeaseScope = lease_scope
         self._consumed = False
 
     @property
     def graph_identity(self) -> str:
         return self._graph_identity
+
+    @property
+    def lease_scope(self) -> WriterLeaseScope:
+        """The scope of the writer lease this token was minted under (SEC-013).
+
+        ``"cross-process"`` when the substrate itself refuses a second holder;
+        ``"process"`` when the only exclusion is this process's live-writer
+        table — a disclosure, not cross-process enforcement.
+        """
+        return self._lease_scope
 
     def consume(self) -> str:
         """Spend the token, returning the graph identity it authorizes.
@@ -225,19 +264,89 @@ class BootToken:
         return self._graph_identity
 
 
-def mint_boot_token(*, graph_identity: str) -> BootToken:
-    """Mint the one token authorizing a writer over ``graph_identity``.
+def mint_boot_token(*, store: _Store) -> BootToken:
+    """Mint the one token authorizing a writer over ``store``'s graph.
+
+    Whitepaper §7.3 / INV-CH7-10; CLAUDE.md §10. Two exclusions, in this
+    order (SEC-013, D-IMPL-372):
+
+    1. **This process's live-writer table.** Checked first, so a second boot
+       inside one process is refused exactly as before, with the same text.
+    2. **The store's writer lease** (``src/ccf/graph/registry.py::BackendStore``
+       ``.writer_lease``). Acquired only after (1) passes and before any
+       token exists; a lease another holder has is refused as the same
+       :class:`SingleWriterViolation`. The lease is bound to the *mint*, not
+       to store open: a read-only store over a live graph stays legitimate.
+
+    The lease's declared scope is recorded on the token. On the SQLite and
+    Postgres reference stores it is ``"cross-process"``. On every store whose
+    lease is ``src/ccf/graph/protocols.py::ProcessScopedWriterLease`` it is
+    ``"process"`` — a disclosure, not enforcement: two processes over one
+    graph on such a substrate are NOT refused, and SEC-013 remains open for
+    the persistent network stores that declare it (each store's
+    ``writer_lease`` docstring says which it is).
+
+    There is no parameter that skips the lease: whether a lease applies is the
+    store's declaration, never the caller's.
 
     Raises:
-        SingleWriterViolation: a live writer already exists for this graph.
+        SingleWriterViolation: a live writer already exists for this graph, in
+            this process or under another holder of the substrate's lease.
+        TypeError: the store neither leases its graph nor declares a scope.
     """
+    graph_identity = store.graph_identity
     if graph_identity in _LIVE_WRITERS:
         raise SingleWriterViolation(
             f"a GraphWriter already exists for graph {graph_identity!r}; "
             "the fabric permits exactly one writer per graph (INV-CH7-10)"
         )
+    # Structural typing makes this unreachable for a type-checked store; a
+    # third-party distribution is not type-checked here, so refuse by name.
+    acquire = getattr(store, "writer_lease", None)
+    if not callable(acquire):
+        raise TypeError(
+            f"the store for graph {graph_identity!r} has no writer_lease();"
+            " a graph store must lease its graph or declare its lease scope"
+            " (SEC-013; see public/how-to/write-a-graph-backend-adapter.md)"
+        )
+    try:
+        lease = acquire()
+    except WriterLeaseHeld as exc:
+        raise SingleWriterViolation(
+            f"a GraphWriter already exists for graph {graph_identity!r} under"
+            f" another holder of its writer lease ({exc}); the fabric permits"
+            " exactly one writer per graph (INV-CH7-10)"
+        ) from exc
+    scope = getattr(lease, "scope", None)
+    if scope not in WRITER_LEASE_SCOPES:
+        try:
+            release = getattr(lease, "release", None)
+            if callable(release):
+                release()
+        finally:
+            raise TypeError(
+                f"the writer lease for graph {graph_identity!r} declares scope"
+                f" {scope!r}; a lease must declare one of"
+                f" {WRITER_LEASE_SCOPES!r} (SEC-013)"
+            )
     _LIVE_WRITERS.add(graph_identity)
-    return BootToken(graph_identity=graph_identity, mint_key=_MINT_KEY)
+    _LIVE_LEASES[graph_identity] = lease
+    return BootToken(
+        graph_identity=graph_identity, mint_key=_MINT_KEY, lease_scope=scope
+    )
+
+
+def _retire(graph_identity: str) -> None:
+    """Unmark ``graph_identity`` and give back its writer lease.
+
+    The set discard runs first, so a lease release that raises cannot leave
+    the graph marked live in this process. Idempotent: a second call finds no
+    lease to release.
+    """
+    _LIVE_WRITERS.discard(graph_identity)
+    lease = _LIVE_LEASES.pop(graph_identity, None)
+    if lease is not None:
+        lease.release()
 
 
 def release_boot_token(token: BootToken) -> None:
@@ -270,8 +379,11 @@ def release_boot_token(token: BootToken) -> None:
 
     Args:
         token: The token whose graph is being given back.
+
+    Gives back the token's writer lease too (SEC-013), so a corrected retry —
+    in this process or another — can acquire it.
     """
-    _LIVE_WRITERS.discard(token.graph_identity)
+    _retire(token.graph_identity)
 
 
 def adopt_writer(writer: object, *, adapter: str) -> BaseGraphWriter:
@@ -428,10 +540,17 @@ def relationship_key(claim: RelationshipClaim) -> str:
 
 
 class _Store(Protocol):
-    """What the shared writer needs of a backend store: its identity."""
+    """What the shared writer needs of a backend store: identity and lease.
+
+    Mirrors ``src/ccf/graph/registry.py::BackendStore`` structurally, so this
+    module reaches a store's writer lease without importing a backend
+    (``cinv02-backend-import``).
+    """
 
     @property
     def graph_identity(self) -> str: ...
+
+    def writer_lease(self) -> WriterLease: ...
 
 
 class _Txn(Protocol):
@@ -740,7 +859,7 @@ class BaseGraphWriter:
         if self._closed:
             return
         self._closed = True
-        _LIVE_WRITERS.discard(self._graph_identity)
+        _retire(self._graph_identity)
 
     def _write_lineage(
         self,

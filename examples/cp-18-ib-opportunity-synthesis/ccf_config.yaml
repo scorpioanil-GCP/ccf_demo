@@ -155,6 +155,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: banker_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-18-ib-opportunity]}
       entity_class: banker
       identity_keys: [entity_uri]
       # `weights_json` is the vector that ranked this product and
@@ -166,11 +168,13 @@ resolution:
                        perspective_id, plan_json, weights_json, weight_version,
                        portfolio_json, optional_context_json, ledger_t]
     - match_key: prospect_node
+      attribute_authorities: {classification: [cp-18-ib-opportunity]}
       entity_class: prospect
       identity_keys: [entity_uri]
       attribute_keys: [lei, legal_name, classification, restriction_type,
                        mnpi_bearing, mandate_type, stated_appetite]
     - match_key: signal_node
+      attribute_authorities: {classification: [cp-18-ib-opportunity]}
       entity_class: signal
       identity_keys: [entity_uri]
       attribute_keys: [signal_id, lei, signal_type, observed_on, detail, classification]
@@ -182,15 +186,18 @@ resolution:
     # (`MissingDecayInstant`, `D-IMPL-332`), and papering over that would
     # report a perfectly fresh figure for an observation with no known age.
     - match_key: standing_signal_node
+      attribute_authorities: {classification: [cp-18-ib-opportunity]}
       entity_class: standing_signal
       identity_keys: [entity_uri]
       attribute_keys: [signal_id, lei, signal_type, effective_on, detail, classification]
     - match_key: note_node
+      attribute_authorities: {classification: [cp-18-ib-opportunity]}
       entity_class: note
       identity_keys: [entity_uri]
       attribute_keys: [note_id, lei, banker_id, signal_type, materiality,
                        rank_changing, note, classification]
     - match_key: passage_node
+      attribute_authorities: {classification: [cp-18-ib-opportunity]}
       entity_class: passage
       identity_keys: [entity_uri]
       attribute_keys: [passage_id, document_id, lei, text, classification]

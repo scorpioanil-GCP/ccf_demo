@@ -120,7 +120,7 @@ Rows by coupling shape:
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1240 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1272 | `tests/examples/test_workflow_hitl_output.py` | `prose` | documentary | - | - | 23-10 |  |
 | `docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md` | 1273 | `tests/examples/test_decision_replay_output.py` | `prose` | documentary | - | - | 23-10 |  |
-| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 261 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/specs/2026-10-05-remaining-rows-exploit-tests.md` | 324 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/FIBO-EXTENSION.md` | 13 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/surface/examples/SECTION-2-TRANSPORT.md` | 6 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
@@ -227,7 +227,7 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 161 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 172 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 184 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 93 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `public/how-to/security-and-deployment.md` | 98 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |

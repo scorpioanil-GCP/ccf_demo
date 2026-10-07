@@ -178,7 +178,13 @@ import httpx
 
 from ccf.contracts.canonical import canonical_timestamp, content_hash
 from ccf.graph import fallback
-from ccf.graph.protocols import GraphQuery, GraphView, StoreSnapshotPin
+from ccf.graph.protocols import (
+    GraphQuery,
+    GraphView,
+    ProcessScopedWriterLease,
+    StoreSnapshotPin,
+    WriterLease,
+)
 from ccf.graph.reader import (
     BaseGraphReader,
     Row,
@@ -1086,6 +1092,19 @@ class FlureeGraphStore:
     def ledger(self) -> str:
         """The CCF-owned ledger this store's graphs live in (D-03)."""
         return self._ledger
+
+    def writer_lease(self) -> WriterLease:
+        """Declare ``"process"`` writer-lease scope (SEC-013, D-IMPL-372).
+
+        A **disclosure, not enforcement**: acquiring it does nothing, and the
+        only exclusion is the composition root's in-process live-writer table
+        (``src/ccf/graph/_writer.py::mint_boot_token``). The single-writer
+        invariant (INV-CH7-10) is NOT enforced across processes on this
+        substrate. **SEC-013 remains OPEN for this substrate.** Fluree is append-only and has
+        no native lock to lease; what the single-writer invariant means across
+        processes on a shared ledger needs a ruling.
+        """
+        return ProcessScopedWriterLease(substrate="fluree")
 
     @property
     def reader(self) -> FlureeGraphReader:

@@ -180,6 +180,8 @@ request_contract:
 resolution:
   entity_rules:
     - match_key: deal_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: deal
       identity_keys: [entity_uri]
       attribute_keys: [deal_id, legal_name, cik, depositor_cik, credit_tier, vintage,
@@ -191,11 +193,13 @@ resolution:
                        cumulative_net_loss_percent, records_materialized, blocks_scanned,
                        records_scanned, cost_band, ledger_t]
     - match_key: tranche_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: tranche
       identity_keys: [entity_uri]
       attribute_keys: [tranche_id, class_name, seniority_rank, cusip, interest_rate,
                        interest_rate_basis, classification]
     - match_key: trigger_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: trigger
       identity_keys: [entity_uri]
       attribute_keys: [trigger_id, label, threshold_value, threshold_unit,
@@ -203,12 +207,14 @@ resolution:
                        source_classification, supersedes, classification]
     # THE FILED SPAN, as its own claim. It exists only where filed text does.
     - match_key: anchor_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: anchor
       identity_keys: [entity_uri]
       attribute_keys: [anchor_id, trigger_id, anchor_text, anchor_sha256,
                        anchor_document_id, anchor_passage_id, start_offset,
                        end_offset, complete_span, classification]
     - match_key: cohort_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: cohort
       identity_keys: [entity_uri]
       attribute_keys: [credit_band, period, loan_count, pool_balance,
@@ -216,6 +222,7 @@ resolution:
                        chargedoff_amount, recovered_amount,
                        weighted_average_coupon_percent, classification]
     - match_key: loan_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: loan
       identity_keys: [entity_uri]
       attribute_keys: [asset_number, period, credit_band, reporting_period_ending_date,
@@ -223,12 +230,14 @@ resolution:
                        current_delinquency_status, chargedoff_principal_amount,
                        recovered_amount, classification]
     - match_key: benchmark_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: benchmark
       identity_keys: [entity_uri]
       attribute_keys: [asset_class, vintage, period, credit_tiers, deal_count,
                        pool_balance, delinquency_percent, period_chargeoff_percent,
                        classification]
     - match_key: repurchase_node
+      attribute_authorities: {classification: [cp-16-abs-surveillance]}
       entity_class: repurchase
       identity_keys: [entity_uri]
       attribute_keys: [repurchase_id, depositor_cik, form, accession, filed_date,

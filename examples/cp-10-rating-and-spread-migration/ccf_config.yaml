@@ -107,14 +107,18 @@ resolution:
   # identically — the ninety-fold flattening this rung exists to prevent.
   entity_rules:
     - match_key: obligor_node
+      # SEC-023 (D-IMPL-372): only the named sources may assert the attribute the Policy operator admits on. A claim from any other source is refused and audited, and without this declaration the deployment refuses to boot.
+      attribute_authorities: {obligor_id: [credit_estate]}
       entity_class: rsm_obligor
       identity_keys: [entity_uri]
       attribute_keys: [obligor_id, node_kind, label, payload_json]
     - match_key: instrument_node
+      attribute_authorities: {obligor_id: [credit_estate]}
       entity_class: rsm_instrument
       identity_keys: [entity_uri]
       attribute_keys: [obligor_id, node_kind, label, payload_json]
     - match_key: spread_node
+      attribute_authorities: {obligor_id: [credit_estate]}
       entity_class: rsm_spread
       identity_keys: [entity_uri]
       # `instrument_id` IS PROMOTED OUT OF THE PAYLOAD because the λ_c row
@@ -122,6 +126,7 @@ resolution:
       # off the CLAIM, not out of a JSON blob (`D-IMPL-333`).
       attribute_keys: [obligor_id, instrument_id, node_kind, label, payload_json]
     - match_key: grade_node
+      attribute_authorities: {obligor_id: [credit_estate]}
       entity_class: rsm_grade
       identity_keys: [entity_uri]
       attribute_keys: [obligor_id, node_kind, label, payload_json]

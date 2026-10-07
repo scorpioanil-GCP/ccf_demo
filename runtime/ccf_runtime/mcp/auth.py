@@ -27,6 +27,13 @@ SDK holds none of them and ships no default token.
 Comparison is constant-time (``hmac.compare_digest``) rather than a dict
 lookup. A dict lookup on a secret is a timing oracle over the token space, and
 the cost of not having one here is a linear scan of a development token file.
+Both operands are compared as UTF-8 **bytes** (:func:`_tokens_match`), never as
+``str``: ``hmac.compare_digest`` refuses a non-ASCII ``str`` with ``TypeError``,
+which turned a presented ``Bearer ü`` into a 500 on every door and one
+non-ASCII token in a deployment's file into a whole-door outage (LOW-01,
+D-IMPL-372). Over bytes, a non-ASCII token is simply a token that does or does
+not match, and :meth:`TokenSourceProtocol.grant_for`'s ``None``-not-an-exception
+contract holds for every input.
 
 Algorithmic module (CINV-03).
 """
@@ -193,6 +200,22 @@ def is_ambient_stdio(token: AccessToken) -> bool:
     return bool((token.claims or {}).get(AMBIENT_STDIO_CLAIM))
 
 
+def _tokens_match(candidate: str, presented: str) -> bool:
+    """Constant-time equality of two tokens, total over every ``str``.
+
+    Encodes both operands as UTF-8 with ``surrogatepass`` so a lone surrogate
+    (reachable from a JSON token file's ``\\udXXX`` escape) encodes rather than
+    raises, and the encoding stays injective. This is the form the mcp
+    library's own ``mcp.server.auth.middleware.client_auth`` uses for client
+    secrets. LOW-01, D-IMPL-372; the contract is
+    :meth:`TokenSourceProtocol.grant_for`'s.
+    """
+    return hmac.compare_digest(
+        candidate.encode("utf-8", "surrogatepass"),
+        presented.encode("utf-8", "surrogatepass"),
+    )
+
+
 @runtime_checkable
 class TokenSourceProtocol(Protocol):
     """Where a deployment's recognised tokens come from.
@@ -263,7 +286,7 @@ class FileTokenSource:
     def grant_for(self, *, token: str) -> TokenGrant | None:
         """Return ``token``'s grant, comparing in constant time."""
         for candidate, grant in self._load().items():
-            if hmac.compare_digest(candidate, token):
+            if _tokens_match(candidate, token):
                 return grant
         return None
 
@@ -348,6 +371,6 @@ class StaticTokenSource:
     def grant_for(self, *, token: str) -> TokenGrant | None:
         """Return ``token``'s grant, comparing in constant time."""
         for candidate, grant in self._grants.items():
-            if hmac.compare_digest(candidate, token):
+            if _tokens_match(candidate, token):
                 return grant
         return None

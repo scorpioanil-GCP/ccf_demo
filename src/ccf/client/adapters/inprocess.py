@@ -178,7 +178,9 @@ class _BootedDeployment:
 #: lifetime, module level, and the only mutable state in this package — it
 #: exists because "has this graph already got a writer?" is not a question a
 #: type system can answer, which is the same reason
-#: ``ccf.graph._writer::_LIVE_WRITERS`` exists one layer down.
+#: ``ccf.graph._writer::_LIVE_WRITERS`` exists one layer down. Since SEC-013 a
+#: store whose writer lease is cross-process also refuses a second *process*
+#: booting the same graph, so this cache is the in-process half only.
 _BOOT_CACHE: dict[Path, _BootedDeployment] = {}
 
 #: Guards :data:`_BOOT_CACHE`. Two threads asking the same *unbooted* binding

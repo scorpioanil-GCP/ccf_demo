@@ -88,7 +88,11 @@ from typing import Any, ClassVar
 from urllib.parse import urlsplit
 
 from ccf.contracts.canonical import canonical_timestamp
-from ccf.graph.protocols import GraphQuery
+from ccf.graph.protocols import (
+    GraphQuery,
+    ProcessScopedWriterLease,
+    WriterLease,
+)
 from ccf.graph.reader import BaseGraphReader, Row
 
 __ccf_mode__ = "algorithmic"
@@ -268,6 +272,18 @@ class Neo4jGraphStore:
     def partition(self) -> str:
         """The partition this store's graph lives in."""
         return self._partition
+
+    def writer_lease(self) -> WriterLease:
+        """Declare ``"process"`` writer-lease scope (SEC-013, D-IMPL-372).
+
+        A **disclosure, not enforcement**: acquiring it does nothing, and the
+        only exclusion is the composition root's in-process live-writer table
+        (``src/ccf/graph/_writer.py::mint_boot_token``). The single-writer
+        invariant (INV-CH7-10) is NOT enforced across processes on this
+        substrate. **SEC-013 remains OPEN for this substrate.** A native cross-process lease
+        (a unique lock node) is an executor proposal, unapproved (SEC-013-P1).
+        """
+        return ProcessScopedWriterLease(substrate="neo4j")
 
     @property
     def reader(self) -> Neo4jGraphReader:
