@@ -2712,7 +2712,8 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Why: D-06 ships all five adapters; 15.2-12 is the pushdown proof — a
   graph-native engine used as one
 - Migration: new surface — none. `boot(neo4j_uri=…)` constructs the store;
-  install with `pip install "ccf[neo4j]"`
+  install with `pip install "ccf-sdk[neo4j]"`
+  (distribution renamed ccf-sdk 2026-10-07, D-IMPL-376 (4))
 
 *Recorded by `15.2-12-neo4j-backend.md`.*
 
@@ -2812,7 +2813,8 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   substrate family neither SQL nor Cypher represents — the proof that the
   read seam is not shaped like a query language
 - Migration: new surface — none. `boot(mongo_uri=…)` constructs the store;
-  install with `pip install "ccf[mongo]"`
+  install with `pip install "ccf-sdk[mongo]"`
+  (distribution renamed ccf-sdk 2026-10-07, D-IMPL-376 (4))
 
 *Recorded by `15.2-13-mongo-backend.md`.*
 
@@ -34679,7 +34681,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: false
 - Change type: behavior
 - Before: the SDK built and installed as the distribution `ccf` (`ccf-<version>.dist-info`), its aggregate extras were spelled `ccf[...]`, the lock was compiled with `--unsafe-package ccf`, and the release version gate discovered `ccf`.
-- After: it builds and installs as `ccf-sdk` (`ccf_sdk-<version>.dist-info`; `ccf-sdk`, `ccf_sdk` and `ccf.sdk` are the same project under PEP 503); `harnesses` and `dev` compose `ccf-sdk[...]`; `requirements.lock` is regenerated with `--unsafe-package ccf-sdk` (pins and hashes unchanged); the gate discovers `ccf-sdk` and refuses when it finds none, even if a distribution named `ccf` is present. Installed packages are still `ccf` and `ccf_runtime`, and the `ccf` command is unchanged.
+- After: it builds and installs as `ccf-sdk` (`ccf_sdk-<version>.dist-info`; `ccf-sdk`, `ccf_sdk` and `ccf.sdk` are the same project under PEP 503); `harnesses` and `dev` compose `ccf-sdk[...]`; `requirements.lock` is regenerated with `--unsafe-package ccf-sdk` (pins and hashes unchanged); the gate discovers `ccf-sdk` and refuses when it finds none, even if a distribution named `ccf` is present. Installed packages are still `ccf` and `ccf_runtime`, and the `ccf` command is unchanged. The metadata also carries the classifier `Private :: Do Not Upload` (Dave's ruling, 2026-10-07), which PyPI refuses on every upload, so the SDK cannot be published there by accident; the empty name-reservation placeholder in `packaging/pypi-placeholder/` carries none.
 - Why: SEC-027 (`D-IMPL-376` ruling 4). Red tests: `tests/test_distribution_name.py::test_the_package_metadata_names_the_distribution_ccf_sdk`, `::test_no_declared_requirement_names_the_foreign_pypi_project_ccf`, `::test_every_reader_of_the_sdks_own_metadata_names_the_declared_distribution`, `::test_the_version_gate_refuses_when_only_a_distribution_named_ccf_is_visible` and `::test_the_version_gate_reads_the_ccf_sdk_distribution_beside_a_foreign_ccf`.
 - Migration: in an environment that holds the former install, run `pip uninstall ccf` before installing `ccf-sdk`. pip keeps both names, and uninstalling `ccf` afterwards deletes the files the two share: for a non-editable install, every package file of `ccf-sdk`, repaired with `--force-reinstall`. Never `pip install ccf` and never `pip install "ccf[...]"`: from a public index those install Microsoft's package. Install `ccf-sdk` from the repository.
 
