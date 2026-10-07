@@ -1099,7 +1099,9 @@ a nonexistent one. Each was measured on test fixtures.
 - **The record behind it.** Dimension 1 of a withheld decision's record lists
   what the plan actually read, the acquired subject included, and an owner at
   full disclosure can read its own record through the governed dereference
-  (D-IMPL-345). Protect access to records as you would the subject itself.
+  (D-IMPL-345). Each half was measured on its own; reading a withheld
+  decision's record end to end through the dereference was not run. Protect
+  access to records as you would the subject itself.
 - **Composite children.** A class that declares `requires` resolves its
   children for the asked subject before its plan runs and composes them
   afterward: the composed factors replace the debt, and the composed expiry

@@ -49,7 +49,8 @@ security how-to, section 4.12, states the same list for deployers.
   subjects' answers shared, while the vessels' content addresses matched.
 - **The record.** Dimension 1 keeps the real read, the acquired subject
   included, and an owner at full disclosure reads its own record through the
-  `D-IMPL-345` dereference.
+  `D-IMPL-345` dereference. Each half was measured on its own; the end-to-end
+  dereference of a withheld decision's record was not run.
 - **Composite child legs.** Children are resolved for the asked subject before
   the plan; the composed factors replace the debt, the composed expiry and
   lineage stand in the product, and none of it is re-rendered. A required
