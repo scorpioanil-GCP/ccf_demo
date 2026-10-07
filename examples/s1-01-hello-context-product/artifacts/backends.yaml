@@ -59,7 +59,7 @@ class_id: fibo-kyc.backend-profiles
 
 declaration:
   profiles:
-    # The kind `manifest.yaml` declares today. Its settings are exactly the two
+    # The kind `manifest.yaml` declares today. Its settings are exactly the three
     # the adapter accepts — a settings key the adapter does not declare is
     # refused rather than ignored, so this profile cannot quietly grow one.
     fluree:
@@ -81,6 +81,17 @@ declaration:
         partition:
           per_run: identifier
           prefix: s1_01
+        # WHERE THE WRITER LEASE LIVES (added 2026-10-06, D-IMPL-374 (1) /
+        # SEC-013; a deliberate change to the SDK surface this example
+        # consumes, D-IMPL-261). A persistent network store now mints a writer
+        # only under a declared, held cross-process lease, and refuses with
+        # `WriterLeaseRequired` without one. The SDK derives the lock file
+        # inside this directory from the graph identity; the example declares
+        # only the directory: the run's own absolute scratch root. Each run is
+        # its own graph, so per-run is exactly the exclusion this run needs.
+        writer_lease_lock_dir:
+          per_run: path
+          filename: "."
 
     # The kind this example ran on before plan 16-05, kept so the reader above
     # stays a general interpreter. A file-backed store needs no environment at

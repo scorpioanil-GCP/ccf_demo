@@ -124,6 +124,14 @@ one `tests/conftest.py` gates the Fluree test leg on, so one export configures
 both. `make example-s1-01` defaults it to `http://localhost:8090`. Unset it and
 the run stops with a message naming the variable and the container to start.
 
+**Dated note, 2026-10-06 (D-IMPL-374 (1), SEC-013).** The Fluree store now
+mints a writer only under a declared, held cross-process writer lease, and a
+boot without one is refused with `WriterLeaseRequired`. `artifacts/backends.yaml`
+therefore declares a third Fluree setting, `writer_lease_lock_dir`, composed as
+the run's own absolute scratch root; the SDK derives the lock file inside it
+from the graph identity. This is a deliberate change to the SDK surface the
+example consumes (D-IMPL-261), not a repair of the example.
+
 Each run attaches to a **fresh graph inside one CCF-owned ledger**, so repeated
 runs accumulate graphs in a long-lived container. That is the deliberate trade
 for a single Fluree lane; discarding the container discards them all.

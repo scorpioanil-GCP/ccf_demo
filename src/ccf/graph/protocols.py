@@ -1018,22 +1018,24 @@ class ProcessScopedWriterLease:
         return f"ProcessScopedWriterLease(substrate={self._substrate!r})"
 
 
-#: A declared, not-yet-held writer lease: calling it ACQUIRES the lease.
+#: A declared, not-yet-held writer lease: calling it with the store's graph
+#: identity ACQUIRES the lease for that graph.
 #:
 #: SEC-013 (D-IMPL-374 (1)); SDK extension of whitepaper §7.3 / INV-CH7-10.
 #: What a deployment hands a persistent network store's constructor
 #: (``writer_lease=``). The store never calls it at open — only its
 #: ``writer_lease()`` does, which only the composition root's mint
 #: (``src/ccf/graph/_writer.py::mint_boot_token``) calls — so a read-only store
-#: over a live graph still takes no lease. A ``functools.partial`` over one of
-#: the reference leases is the expected shape: the lock-file lease
-#: (``src/ccf/graph/backends/sqlite.py::SqliteWriterLease``, ``sidecar=`` any
-#: path the deployment names for the graph) or the advisory-lock lease
-#: (``src/ccf/graph/backends/postgres.py::PostgresWriterLease``, a session and
-#: a lease schema the deployment names for the graph). Either is reusable
-#: against any graph identity because the deployment, not the store, names the
-#: resource the lease is keyed on.
-WriterLeaseSource = Callable[[], WriterLease]
+#: over a live graph still takes no lease. The store passes its own
+#: credential-free graph identity, so a lease keyed by mechanism on the
+#: identity cannot be pointed at a resource a second writer of the same graph
+#: does not also reach: the reference lock-directory lease
+#: (``src/ccf/graph/leases.py::lock_directory_writer_lease``) derives its lock
+#: file from the identity's SHA-256 inside a declared absolute directory. A
+#: deployment may instead declare a lease keyed on a resource it names (the
+#: reference advisory-lock lease over a session and a lease schema); it then
+#: owns making every writer of the graph name the same resource.
+WriterLeaseSource = Callable[[str], WriterLease]
 
 
 class WriterLeaseRequired(RuntimeError):
@@ -1090,7 +1092,7 @@ def acquire_declared_writer_lease(
             " under a held cross-process lease the deployment declares"
             " (SEC-013, D-IMPL-374)"
         )
-    lease = source()
+    lease = source(graph_identity)
     scope = getattr(lease, "scope", None)
     if scope != "cross-process":
         try:

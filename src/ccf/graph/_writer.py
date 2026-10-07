@@ -259,7 +259,9 @@ class BootToken:
         lease's own ``mechanism`` — the lease kind and the resource it is keyed
         on (for example the lock file a persistent network store's declared
         lease holds) — recorded at the mint. ``None`` only for a lease that
-        declares no ``mechanism``.
+        declares no ``mechanism``. Read by ``ccf.boot.boot``, which reports it
+        with :attr:`lease_scope` on ``FabricHandle.writer_lease_mechanism`` and
+        ``FabricHandle.writer_lease_scope``.
         """
         return self._lease_mechanism
 

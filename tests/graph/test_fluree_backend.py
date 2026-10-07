@@ -1747,7 +1747,7 @@ def test_boot_threads_the_bearer_token_to_the_store(
                 "partition": "ccf_test",
                 # SEC-013 (D-IMPL-374): the mint needs a declared lease before
                 # boot reaches the Control Plane step this test relies on.
-                "writer_lease_lock_file": str(tmp_path / "writer.lock"),
+                "writer_lease_lock_dir": str(tmp_path),
             },
             secrets={
                 BEARER_TOKEN_FIELD: ResolvedSecret(

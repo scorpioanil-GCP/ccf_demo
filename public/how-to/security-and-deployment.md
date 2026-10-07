@@ -402,13 +402,21 @@ boot token records it.
 | SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
 | Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
 | In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
-| Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | The lease the deployment declares: `writer_lease_lock_file` in the connection settings (an exclusive `flock` on that file), or the advisory-lock lease passed as the store's `writer_lease=` |
+| Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | An exclusive `flock` on `<writer_lease_lock_dir>/<sha256(graph identity)>.lock`; the deployment declares only the absolute directory |
 
 **On the persistent network stores the deployment declares the lease, and a
 boot with none declared is refused with `WriterLeaseRequired` (SEC-013,
-D-IMPL-374).** A lock file excludes only processes that share its filesystem,
-so a deployment that writes one network graph from more than one host declares
-the advisory-lock lease on a Postgres session every writing host reaches.
+D-IMPL-374).** The SDK derives the lock file from the graph identity, so every
+writer of one graph that declares the same directory contends for the same
+file; a relative directory is refused by name. **A file lease excludes only
+writers that share that filesystem with real `flock` semantics: across hosts it
+enforces nothing, unless the directory is on a shared filesystem whose locks
+work across hosts, and two writers declaring different directories are not
+excluded at all.** A cross-host lock (the reference advisory-lock lease) is
+reachable only by constructing the store directly with `writer_lease=`;
+`ccf.boot.boot` cannot declare it, because the connection settings carry no
+credential for it. The booted `FabricHandle` reports the lease in force as
+`writer_lease_scope` and `writer_lease_mechanism`.
 
 Consequences for a deployment on the stores that do lease:
 
