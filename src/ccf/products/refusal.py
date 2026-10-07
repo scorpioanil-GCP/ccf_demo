@@ -166,6 +166,7 @@ __all__ = [
     "RequestIdentity",
     "ResourceRequestIdentity",
     "SubjectUnavailableRefusal",
+    "ErasedContentRefusal",
     "GovernedRefusalRaised",
     "RESOLVED_BY_THE_RESOLVER",
     "ResolvedByTheResolver",
@@ -281,6 +282,36 @@ class SubjectUnavailableRefusal(CCFContract):
     error_code: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+
+
+class ErasedContentRefusal(CCFContract):
+    """The requested artifact was erased by a recorded decision and is not served (SEC-009; `D-IMPL-374` (4)).
+
+    **SDK-defined**, built to design ``D-IMPL-367`` §5: the reading of an erased
+    address is disclosure-governed. A door renders this kind only at
+    ``reasoned`` and ``full``; at ``minimal`` the door answers with its own
+    not-found rendering instead, so the erasure is not disclosed (U11). Below
+    ``full`` the erasure record's address is withheld
+    (:data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL`), so a
+    ``reasoned`` reader learns the reason and the instant and an entitled
+    ``full`` examiner learns where the authority record is.
+
+    **There is no subject field**, on the ``subject-unavailable`` reasoning:
+    naming the subject is the leak.
+
+    Attributes:
+        detail: The fabric's statement.
+        erasure_reason: The admitted erasure reason (the policy's closed set).
+            Not ``reason``, deliberately: ``reason`` is promoted and crosses at
+            every level, and this crosses only above ``minimal``.
+        erased_at: The erasure record's instant.
+        erasure_record_address: The authority record, crossing only at ``full``.
+    """
+
+    detail: str
+    erasure_reason: str
+    erased_at: datetime
+    erasure_record_address: str
 
 
 class TemporalBoundRefusal(CCFContract):
@@ -873,6 +904,12 @@ REFUSAL_KINDS: Final[Mapping[type[CCFContract], str]] = {
     # not a substring of any shipped token and none is a substring of it, which
     # the closure gate checks rather than the eye.
     SubjectUnavailableRefusal: "subject-unavailable",
+    # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.1): an erased address,
+    # read at `reasoned` or `full`. Its own kind rather than a reuse of
+    # `subject-unavailable`: an erasure is a recorded decision, not an absence,
+    # and above `minimal` the reader is told so. No shipped token is a
+    # substring of `erased-content` or it of them.
+    ErasedContentRefusal: "erased-content",
 }
 
 #: ``…Refusal``-named contracts under ``src/`` that are **not** product
@@ -989,6 +1026,8 @@ _PRE_ASSEMBLY_REFUSALS: Final[frozenset[type[CCFContract]]] = frozenset(
         ConstraintRefusal,
         PolicyResolutionConflict,
         SubjectUnavailableRefusal,
+        # SEC-009: decided at the read, before any plan exists.
+        ErasedContentRefusal,
         # `D-IMPL-358` step 5: judged before acquisition and before the graph
         # read, so no candidate exists and no lineage is invented for it.
         TemporalBoundRefusal,

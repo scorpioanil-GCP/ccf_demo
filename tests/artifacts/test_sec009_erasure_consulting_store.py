@@ -55,7 +55,7 @@ def _plane(tmp_path: Path) -> tuple[ControlPlaneRegistry, FileArtifactStore, Any
 def test_an_erased_artifact_is_never_served_in_process(tmp_path: Path) -> None:
     _registry, inner, store, erased_uri, _kept = _plane(tmp_path)
     address = inner.resolve_uri(uri=erased_uri)
-    refused_type = h.contract("ccf.artifacts.protocol", "ErasedContentRefused")
+    refused_type = h.erasure("ErasedContentRefused")
     assert inner.get(content_address=address)  # the bytes are still on the substrate — no destruction is claimed
     with pytest.raises(refused_type) as refused:
         store.get(content_address=address)
@@ -68,7 +68,7 @@ def test_an_erased_artifact_is_never_served_in_process(tmp_path: Path) -> None:
 
 def test_resolving_the_name_of_an_erased_artifact_is_refused(tmp_path: Path) -> None:
     _registry, _inner, store, erased_uri, _kept = _plane(tmp_path)
-    with pytest.raises(h.contract("ccf.artifacts.protocol", "ErasedContentRefused")):
+    with pytest.raises(h.erasure("ErasedContentRefused")):
         store.resolve_uri(uri=erased_uri)
 
 

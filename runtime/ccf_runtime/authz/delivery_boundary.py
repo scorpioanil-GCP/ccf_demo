@@ -83,13 +83,16 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
-from ccf.products.disclosure import DISCLOSURE_FULL, DisclosureLevel
+from ccf.contracts.base import CCFContract
+from ccf.erasure.store import ErasedContentRefused
+from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
     GovernedRefusalRaised,
     ResolvedByTheResolver,
     RefusalEnvelope,
+    ErasedContentRefusal,
     RequestIdentity,
     ResourceRequestIdentity,
     SubjectUnavailableRefusal,
@@ -1056,9 +1059,12 @@ def govern_dereference(
         error_code: str,
         detail: str,
         policy: ProvenanceSource | None = None,
+        refusal: CCFContract | None = None,
     ) -> RefusalEnvelope:
         envelope = envelope_for(
-            SubjectUnavailableRefusal(
+            refusal
+            if refusal is not None
+            else SubjectUnavailableRefusal(
                 cause=cause,  # type: ignore[arg-type]
                 detail=detail,
                 error_code=error_code,
@@ -1125,6 +1131,31 @@ def govern_dereference(
             store=store,
             content_address=content_address,
             contract=DecisionReplayRecord,
+        )
+    except ErasedContentRefused as erased:
+        # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.3, U11): the store
+        # the door holds refused to serve an erased address. The bytes are not
+        # read, so no record hold can run; the disclosure level in force for
+        # THIS principal decides the reading — at `minimal` the route's own
+        # not-found rendering (the erasure is not disclosed), at `reasoned` and
+        # `full` an `erased-content` shell the door renders 410.
+        level, _policy = refusal_recorder.disclosure_level_for(
+            tenant=refusal_recorder.tenant_id, principal_id=principal
+        )
+        if level == DISCLOSURE_MINIMAL:
+            return refuse(
+                cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+            )
+        return refuse(
+            cause="nonexistent",
+            error_code=ERROR_EVIDENCE_ABSENT,
+            detail=absent,
+            refusal=ErasedContentRefusal(
+                detail="the requested content was erased by a recorded decision and is not served",
+                erasure_reason=erased.reason,
+                erased_at=erased.erased_at,
+                erasure_record_address=erased.erasure_record_address,
+            ),
         )
     except (
         ArtifactNotFound,

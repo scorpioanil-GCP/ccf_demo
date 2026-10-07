@@ -60,6 +60,7 @@ from ccf.erasure.index import (
     append_to_erasure_index,
     erasure_index_key,
 )
+from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
 
 __ccf_mode__ = "algorithmic"
 
@@ -73,6 +74,8 @@ __all__ = [
     "RETENTION_REASON_CODES",
     "ClassRetention",
     "ErasedAddress",
+    "ErasedContentRefused",
+    "ErasureConsultingStore",
     "ErasureIndex",
     "ErasureIndexEntry",
     "ErasureIndexMirror",

@@ -93,6 +93,7 @@ from ccf.artifacts.protocol import (
     MovingTargetRefused,
 )
 from ccf.contracts.base import CCFContract
+from ccf.erasure.store import ErasedContentRefused
 from ccf.contracts.canonical import canonical_bytes, content_hash, generation_mismatch
 from ccf.controlplane.artifacts import PolicyConstraint
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
@@ -581,9 +582,16 @@ def resolve_artifact(
     Raises:
         ReplayUnresolvable: nothing is stored at that address.
         ReplayDivergence: the stored bytes do not hash to the address asked for.
+        ccf.erasure.ErasedContentRefused: the address was erased
+            (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
     """
     try:
         payload = store.get(content_address=content_address)
+    except ErasedContentRefused:
+        # SEC-009 (`D-IMPL-374` (4)): an erasure is a recorded decision, never
+        # an absence — propagated by name, not softened into "unresolvable"
+        # (design `D-IMPL-367` §3, the G5 silent-absence defect).
+        raise
     except (ArtifactStoreError, KeyError) as missing:
         raise ReplayUnresolvable(
             f"no {contract.__name__} is stored at {content_address!r}; "
@@ -636,7 +644,7 @@ def resolve_artifact_at_uri(
     """
     try:
         content_address = store.resolve_uri(uri=uri)
-    except MovingTargetRefused:
+    except (MovingTargetRefused, ErasedContentRefused):
         raise
     except (ArtifactStoreError, LookupError) as unresolvable:
         raise ReplayUnresolvable(

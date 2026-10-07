@@ -77,6 +77,7 @@ from ccf.products.refusal import (
     RequestIdentity,
     ResourceRequestIdentity,
     SubjectUnavailableRefusal,
+    ErasedContentRefusal,
     envelope_for,
 )
 from ccf.graph.protocols import NO_STORE_SNAPSHOT_PIN
@@ -1236,6 +1237,35 @@ def test_pre_assembly_refusal_rejects_a_lineage(
             refusal, request=request_identity, pre_assembly_lineage=partial_lineage
         )
     assert "ProductRequestViolation" in str(caught.value)
+
+
+def test_envelope_for_erased_content(
+    request_identity: RequestIdentity, partial_lineage: ProductLineage
+) -> None:
+    """SEC-009 (`D-IMPL-374` (4)): an erased address, read above ``minimal``.
+
+    No ``reason`` is declared, so ``reason`` is the kind token; the erasure's
+    own reason travels as ``erasure_reason`` in ``fields`` (not promoted, so it
+    never crosses at ``minimal``), and no subject field exists. Pre-assembly:
+    decided at the read, so a lineage offered with it is refused.
+    """
+    from datetime import UTC, datetime
+
+    refusal = ErasedContentRefusal(
+        detail="the requested content was erased by a recorded decision and is not served",
+        erasure_reason="customer-request",
+        erased_at=datetime(2026, 7, 30, tzinfo=UTC),
+        erasure_record_address="f" * 64,
+    )
+    envelope = envelope_for(refusal, request=request_identity)
+    assert envelope.kind == REFUSAL_KINDS[ErasedContentRefusal] == "erased-content"
+    assert envelope.reason == "erased-content"
+    assert envelope.key is None
+    assert envelope.detail == refusal.detail
+    assert set(envelope.fields) == {"erasure_reason", "erased_at", "erasure_record_address"}
+    assert "subject" not in ErasedContentRefusal.model_fields
+    with pytest.raises(ValueError, match="ErasedContentRefusal"):
+        envelope_for(refusal, request=request_identity, pre_assembly_lineage=partial_lineage)
 
 
 def test_every_kind_has_its_own_test_function() -> None:

@@ -330,6 +330,10 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
         "the requested subject is not available to this principal under this"
         " product"
     ),
+    # SEC-009 (`D-IMPL-374` (4)). Never rendered at `minimal` by a door (the
+    # door answers with its not-found rendering there, U11); stated so
+    # `disclose` stays total over the kinds.
+    "erased-content": "the requested content was erased and is not served",
 }
 
 
@@ -456,6 +460,8 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # Nothing. The type declares only the internal cause and the internal code,
     # and both are exactly what `D-IMPL-253` Q27 makes indistinguishable.
     "subject-unavailable": frozenset(),
+    # SEC-009: nothing at `minimal` — the erasure itself is not disclosed there.
+    "erased-content": frozenset(),
 }
 
 
@@ -505,6 +511,10 @@ INDISTINGUISHABLE_BELOW_FULL: Final[Mapping[str, frozenset[str]]] = {
     "subject-unavailable": frozenset(
         {"detail", "cause", "error_code", "policy_bindings", "resource"}
     ),
+    # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.1): below `full` the
+    # erasure record's address is withheld — `reasoned` discloses the reason
+    # and the instant, `full` the record an examiner can dereference.
+    "erased-content": frozenset({"erasure_record_address"}),
 }
 
 #: Per kind, per ``fields`` key, the SUB-MEMBERS of a rendered value that are

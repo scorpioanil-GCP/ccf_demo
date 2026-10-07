@@ -72,6 +72,7 @@ from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.refusal_status import (
     STATUS_BY_KIND,
     STATUS_FULFILLMENT_WITHHELD,
+    STATUS_GONE,
     STATUS_REQUEST,
     STATUS_UNAVAILABLE,
     status_for,
@@ -110,7 +111,11 @@ TOKENS = sorted(REFUSAL_KINDS.values())
 
 #: The three status classes the table holds, read from the module rather than
 #: spelled, so a re-ruled class moves this assertion with it.
-CLASSES = frozenset({STATUS_REQUEST, STATUS_UNAVAILABLE, STATUS_FULFILLMENT_WITHHELD})
+#: SEC-009 (`D-IMPL-374` (4), U11) adds the erased class, 410, rendered only
+#: above `minimal`.
+CLASSES = frozenset(
+    {STATUS_REQUEST, STATUS_UNAVAILABLE, STATUS_FULFILLMENT_WITHHELD, STATUS_GONE}
+)
 
 APP_SOURCE = pathlib.Path(app_module.__file__)
 
