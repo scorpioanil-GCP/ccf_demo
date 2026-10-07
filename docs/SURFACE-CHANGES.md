@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2169 entries**, of which **1897** name a public Python surface.
+**2170 entries**, of which **1898** name a public Python surface.
 
 ## Added
 
@@ -29054,7 +29054,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-286 entries — 250 public Python surface, 36 not public Python API.
+287 entries — 251 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33651,6 +33651,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: a conforming resolver refuses an absent bounded parameter as `required-absent`, as the reference implementation now does. The governed resolver hands the tolerance step only what a completed resolution established, so a resolver that skipped an absent bounded tolerance would still be served at any Debt.
 - Why: SEC-019 (`D-IMPL-356` D11). The governed resolver cannot re-derive the constraint set; the seam that reads it owns the refusal.
 - Migration: a deployment-supplied resolver adopts the same rule, or delegates to `resolve_effective_request`.
+
+*Recorded by `375-01-sec-019-absent-constrained-parameter.md`.*
+
+#### ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+- Public surface: true
+- Change type: behavior
+- Before: `"1.0.0"`, reported by `ReferencePolicyConstraintResolver.resolver_version`. The label named the resolution that skipped an absent bounded parameter.
+- After: `"1.1.0"`, the resolution that refuses it (`required-absent`). `tests/products/test_reference_resolver_version.py` pins the label together with a fingerprint of the behavior it names: nineteen fixed questions put to the reference resolver over a real Control Plane, reaching every decision the resolution makes. A behavior change that keeps the label is a red build, and `1.0.0` and `1.1.0` are recorded as differing in exactly the three absent-bounded questions.
+- Why: SEC-019 (`D-IMPL-356` D11). `D-IMPL-253` Q8 puts `resolver_version` on the Protocol so the resolver in force can be pinned into replay, which makes the version a claim about behavior: a label that outlives a change in what it labels is a false pin.
+- Migration: none, unless a consumer compares `resolver_version` against `"1.0.0"`; it reads `"1.1.0"` now.
 
 *Recorded by `375-01-sec-019-absent-constrained-parameter.md`.*
 

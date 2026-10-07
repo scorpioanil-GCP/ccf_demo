@@ -24,6 +24,11 @@ behavior.
 parameter (CINV-01). A deployment that wants an omitted parameter served under
 a bound declares the default itself.
 
+**The reference resolver's version moves with its behavior.** The reference
+resolution now refuses a case it used to skip, so
+`REFERENCE_CONSTRAINT_RESOLVER_VERSION` goes from `1.0.0` to `1.1.0`, and a
+test pins the label to a fingerprint of the behavior it names.
+
 ## ccf.products.constraints.resolve_effective_request
 
 - Surface: ccf.products.constraints.resolve_effective_request
@@ -43,6 +48,16 @@ a bound declares the default itself.
 - After: a conforming resolver refuses an absent bounded parameter as `required-absent`, as the reference implementation now does. The governed resolver hands the tolerance step only what a completed resolution established, so a resolver that skipped an absent bounded tolerance would still be served at any Debt.
 - Why: SEC-019 (`D-IMPL-356` D11). The governed resolver cannot re-derive the constraint set; the seam that reads it owns the refusal.
 - Migration: a deployment-supplied resolver adopts the same rule, or delegates to `resolve_effective_request`.
+
+## ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+
+- Surface: ccf.products.constraints.REFERENCE_CONSTRAINT_RESOLVER_VERSION
+- Public surface: true
+- Change type: behavior
+- Before: `"1.0.0"`, reported by `ReferencePolicyConstraintResolver.resolver_version`. The label named the resolution that skipped an absent bounded parameter.
+- After: `"1.1.0"`, the resolution that refuses it (`required-absent`). `tests/products/test_reference_resolver_version.py` pins the label together with a fingerprint of the behavior it names: nineteen fixed questions put to the reference resolver over a real Control Plane, reaching every decision the resolution makes. A behavior change that keeps the label is a red build, and `1.0.0` and `1.1.0` are recorded as differing in exactly the three absent-bounded questions.
+- Why: SEC-019 (`D-IMPL-356` D11). `D-IMPL-253` Q8 puts `resolver_version` on the Protocol so the resolver in force can be pinned into replay, which makes the version a claim about behavior: a label that outlives a change in what it labels is a false pin.
+- Migration: none, unless a consumer compares `resolver_version` against `"1.0.0"`; it reads `"1.1.0"` now.
 
 ## ccf.products.gates.refuse_over_tolerance
 

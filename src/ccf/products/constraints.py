@@ -154,7 +154,8 @@ _CAPABILITY_TOKENS: Final[frozenset[str]] = frozenset({CAPABILITY_TRAVERSAL_DEPT
 #: force* is pinnable, because a resolution is only reproducible alongside the
 #: thing that produced it (``D-IMPL-253`` Q8).
 REFERENCE_CONSTRAINT_RESOLVER_ID: Final[str] = "ccf.reference.policy-constraint-resolver"
-REFERENCE_CONSTRAINT_RESOLVER_VERSION: Final[str] = "1.0.0"
+#: ``1.1.0`` refuses an absent bounded parameter (``SEC-019``, ``D-IMPL-356`` D11).
+REFERENCE_CONSTRAINT_RESOLVER_VERSION: Final[str] = "1.1.0"
 
 
 #: The fold family each operator in the Control Plane's vocabulary belongs to.
