@@ -544,3 +544,93 @@ def test_the_grant_the_authorizer_sees_carries_the_roster(tmp_path: pathlib.Path
     )
     assert raised is None, repr(raised)
     assert [g.products for g in seen] == [roster]
+
+
+# --- fix round 2: the pre-authorizer directory lookup is not an oracle -------
+
+
+def test_a_denied_caller_cannot_tell_directory_outcomes_apart(
+    tmp_path: pathlib.Path,
+) -> None:
+    """I-NEW-1: before authorization, every directory outcome refuses alike.
+
+    The roster check runs before the authorizer (fix round 1), so a rostered
+    caller the authorizer would DENY reaches the directory lookup. If "not
+    exposed" and "reaches X, outside the roster" read differently, that caller
+    learns which agents exist and which classes they touch — the listing
+    ``list_agents`` filters. The authorizer here grants every action EXCEPT
+    the one ``invoke_agent`` declares, so nothing about these calls is ever
+    authorized.
+    """
+    from ccf.authz.actions import ACTION_WORKFLOW_INVOKE
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL, build_experience_server
+    from tests.mcp.guarded_servers import ALL_ACTIONS
+    from tests.mcp.test_product_roster import _agent
+
+    off_roster = _agent("agent-touches-off", frozenset({PRODUCT_CLASS}))
+    source, recorder = _entitlement_world(tmp_path)
+    server = build_experience_server(
+        server_name="roster-oracle",
+        product_resolver=lambda **kw: None,
+        agent_directory=lambda *, tenant: (off_roster,),
+        agent_invoker=lambda **kw: "{}",
+        invoke_agent_description="roster fixture",
+        tool_allowlist=frozenset({INVOKE_AGENT_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=authorizer_granting(
+            actions=tuple(a for a in ALL_ACTIONS if a != ACTION_WORKFLOW_INVOKE)
+        ),
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+
+    def refusal_for(key: str) -> str:
+        raised = _drive(
+            lambda: anyio.run(
+                server.call_tool,
+                INVOKE_AGENT_TOOL,
+                {
+                    "tenant": TENANT,
+                    "definition_key": key,
+                    "definition_version": "1.0.0",
+                    "skill": "s",
+                    "arguments": {},
+                },
+            ),
+            frozenset({ROSTERED}),
+        )
+        refusal = _roster_refusal(raised)
+        assert refusal is not None, repr(raised)
+        return str(refusal)
+
+    unknown = refusal_for("agent-that-does-not-exist")
+    exposed_off_roster = refusal_for("agent-touches-off")
+    assert unknown == exposed_off_roster, (
+        "the two directory outcomes are distinguishable before authorization:"
+        f"\n  unknown agent: {unknown}\n  off-roster agent: {exposed_off_roster}"
+    )
+    for text in (unknown, exposed_off_roster):
+        assert PRODUCT_CLASS not in text
+        assert "agent-touches-off" not in text
+        assert "agent-that-does-not-exist" not in text
+
+
+@pytest.mark.parametrize(
+    "fields",
+    (
+        {"unknown": ""},
+        {},
+        {"argument": "product_class", "unknown": "two readings"},
+    ),
+    ids=("empty-reason", "no-reading", "two-readings"),
+)
+def test_a_product_reach_built_directly_states_exactly_one_reading(
+    fields: dict[str, Any],
+) -> None:
+    """Minor (i): the readers' checks hold at construction, not only in the readers."""
+    from ccf_runtime.mcp.tenancy import ProductReach
+
+    with pytest.raises(ValueError):
+        ProductReach(**fields)
