@@ -15,7 +15,7 @@ substrate in the SDK ships a reference impl beside its Protocol (CLAUDE.md
 §11), and this one is the exception because the only honest reference embedder
 is a model call — which would put a semantic stage inside modules the
 Algorithmic ⇄ Semantic Alternation keeps algorithmic (CINV-03), and would make
-``pip install ccf`` drag a model runtime behind it. I.1's vector indexes are
+``pip install ccf-sdk`` drag a model runtime behind it. I.1's vector indexes are
 conformance-tested against a deterministic hashing fake defined in the test
 suite; a deployment supplies its own embedder, and the vendor adapters land
 with the semantic surface in a later phase.

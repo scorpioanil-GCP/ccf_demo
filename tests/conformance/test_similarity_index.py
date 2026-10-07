@@ -117,7 +117,7 @@ def _chroma_param() -> object:
             pytest.mark.skipif(
                 importlib.util.find_spec("chromadb") is None,
                 reason="the optional `chroma` extra is not installed"
-                " — install ccf[chroma] to run this leg",
+                " — install ccf-sdk[chroma] to run this leg",
             ),
         ),
     )
