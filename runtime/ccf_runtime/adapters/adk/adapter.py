@@ -99,6 +99,7 @@ from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.tools.function_tool import FunctionTool
+from google.adk.tools.tool_context import ToolContext
 from google.genai import types as genai_types
 
 from ccf.agents.agent import Agent, EmittedEffect
@@ -106,6 +107,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabilities
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
+from ccf.skills._wire_arguments import UndeclaredArgumentRefused, undeclared_arguments
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import RenderedToolSurface, render_tool_surface
 
@@ -192,20 +194,52 @@ class _DeclaredSkillTool(FunctionTool):
     signature transcription while the other two adapters render the entry's
     declared ``argument_schema`` — exactly the divergence D-17 forbids — so
     this subclass overrides the declaration with the one shared derivation's
-    values verbatim (D-IMPL-56). Execution stays ``FunctionTool``'s own.
+    values verbatim (D-IMPL-56).
+
+    **Execution is overridden too** (``TP-04``, ``D-IMPL-361``). ADK's stock
+    ``run_async`` filters the model's arguments to the bound callable's
+    signature (google-adk 2.5.0, ``function_tool.py:220-224``), and a declared
+    schema's property names are arbitrary strings that need not be Python
+    identifiers, so no signature can carry them. Measured before this override:
+    every declared argument was filtered out and ``invoke_skill`` received the
+    empty mapping; an undeclared key was dropped by the same filter. This
+    override receives ADK's raw ``args``, refuses any key the declared schema
+    does not name — through the adapter's typed ``EffectRefusal``, never by
+    dropping it — and hands the rest to dispatch unchanged.
     """
 
     def __init__(
         self,
-        func: Callable[..., Any],
+        func: Callable[[Mapping[str, Any]], str],
         *,
         name: str,
         surface: RenderedToolSurface,
+        refuse: Callable[[UndeclaredArgumentRefused], dict[str, Any]],
     ) -> None:
         super().__init__(func=func)
         self.name = name
         self.description = surface.description
         self._ccf_surface = surface
+        self._ccf_dispatch = func
+        self._ccf_refuse = refuse
+
+    async def run_async(
+        self, *, args: dict[str, Any], tool_context: ToolContext
+    ) -> Any:
+        """Dispatch the model's declared arguments; refuse any undeclared one.
+
+        ``TP-04`` (``D-IMPL-361``): declared arguments arrive, undeclared ones
+        are refused, never dropped. The refusal is decided before
+        ``invoke_skill`` is reached, so a refused call dispatches nothing.
+        """
+        undeclared = undeclared_arguments(
+            args, declared=self._ccf_surface.input_schema["properties"]
+        )
+        if undeclared:
+            return self._ccf_refuse(
+                UndeclaredArgumentRefused(surface=self.name, undeclared=undeclared)
+            )
+        return self._ccf_dispatch(args)
 
     def _get_declaration(self) -> genai_types.FunctionDeclaration:
         return genai_types.FunctionDeclaration(
@@ -412,9 +446,13 @@ class AdkAdapter:
         (D-IMPL-56) — never adapter-authored and never signature-inferred, so
         all three reference adapters render the identical surface for the
         same entry (D-17); :class:`_DeclaredSkillTool` carries it into ADK's
-        declaration. The declared arguments arrive as named keyword arguments
-        and are carried to :meth:`~ccf.agents.agent.Agent.invoke_skill` as
-        its ``Mapping[str, str]``.
+        declaration. The model's raw argument mapping reaches ``call`` through
+        :meth:`_DeclaredSkillTool.run_async` and is carried to
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as its
+        ``Mapping[str, str]``; a key the declared schema does not name is
+        refused there as this adapter's typed
+        :class:`~ccf.harness.protocol.EffectRefusal`, never dropped (``TP-04``,
+        ``D-IMPL-361``).
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
@@ -424,16 +462,21 @@ class AdkAdapter:
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
 
-        def call(**arguments: str) -> str:
+        def call(arguments: Mapping[str, Any]) -> str:
             invocation = agent.invoke_skill(
                 skill_name,
                 arguments={key: str(value) for key, value in arguments.items()},
             )
             return canonical_bytes(invocation).decode("utf-8")
 
+        def refuse(refused: UndeclaredArgumentRefused) -> dict[str, Any]:
+            return self._refusal_response(self._refusal(agent, str(refused)))
+
         call.__name__ = entry.name
         call.__doc__ = surface.description
-        return _DeclaredSkillTool(call, name=entry.name, surface=surface)
+        return _DeclaredSkillTool(
+            call, name=entry.name, surface=surface, refuse=refuse
+        )
 
     def _tools(self, agent: Agent) -> tuple[FunctionTool, ...]:
         """The harness-native tools for exactly this agent's bound skill-set.

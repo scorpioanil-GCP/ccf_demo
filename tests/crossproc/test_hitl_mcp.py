@@ -302,38 +302,35 @@ def test_an_action_missing_a_binding_field_is_refused_typed(
 
 
 @with_child
-def test_a_caller_typed_subject_has_no_effect_on_the_recorded_binding(
+def test_a_caller_typed_subject_is_refused_and_reaches_nothing(
     child_server_port: int, bridge: SyncMcpBridge
 ) -> None:
     """D-IMPL-353 §2 P6, across the wire: the subject is the capability's.
 
-    The tool has no ``subject_id`` argument. **Measured at the join:** FastMCP's
-    argument model DROPS unknown wire arguments rather than refusing them, so
-    a call naming one is not a tool error — it is a valid approval by the
-    verified officer in which the typed value reaches nothing. What this
-    test therefore holds is the security property: the recorded binding's
-    subject is the verified identity, and the caller-typed value appears
-    nowhere in the replay record. Refusing unknown arguments at the MCP
-    boundary (``extra=forbid`` on the tool's argument model) is recorded as
-    join finding ``SEC353-J-01`` for a ruling; the HTTP door already refuses
-    them (``extra=forbid`` on ``HitlActionRequest``).
+    The tool has no ``subject_id`` argument. This test used to be named
+    ``test_a_caller_typed_subject_has_no_effect_on_the_recorded_binding`` and
+    asserted the call was SERVED, because FastMCP's argument model dropped
+    unknown wire arguments; that drop was recorded as join finding
+    ``SEC353-J-01``. It is now ruled (``D-IMPL-361``, with ``TP-04``):
+    unknown wire arguments are REFUSED, never dropped, matching the HTTP door
+    (``extra=forbid`` on ``HitlActionRequest``). The security property is
+    unchanged and now stronger: the caller-typed subject is refused by name,
+    and the pending event survives, so nothing was consumed or recorded.
     """
-    from ccf_runtime.mcp.hitl_server import SUBMIT_HITL_ACTION_TOOL
+    from ccf_runtime.mcp.hitl_server import (
+        SUBMIT_HITL_ACTION_TOOL,
+        hitl_queue_uri,
+    )
 
     url = f"http://127.0.0.1:{child_server_port}/mcp"
     event = pending_event()
-    binding = principal_binding(product_content_hash=event.product_content_hash)
     typed = _action_arguments()
     typed["subject_id"] = "someone-else-entirely"
     is_error, body = _call_tool(bridge, url, SUBMIT_HITL_ACTION_TOOL, typed)
-    assert not is_error, body
-    payload = json.loads(body)
-    record = json.loads(payload["replay_record"])
-    block = record["policy_bindings"]["hitl_actions"]
-    recorded = json.loads(block)["submission"]["principal"]["approver"]
-    assert recorded["subject_id"] == binding.approver.subject_id
-    assert "someone-else-entirely" not in payload["replay_record"]
-
+    assert is_error, body
+    assert "subject_id" in body
+    view = json.loads(_read_text(bridge, url, hitl_queue_uri(tenant=event.tenant)))
+    assert [item["event_key"] for item in view["events"]] == [event.event_key]
 
 def _unit_server(tmp_path: Path, action_route: Any) -> Any:
     """An authenticated HITL server over stub seams, for direct tool calls."""
