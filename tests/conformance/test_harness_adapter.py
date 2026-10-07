@@ -399,6 +399,39 @@ AdapterFactory = Callable[[EffectCapability], HarnessAdapterProtocol]
 RefusalDriver = Callable[[HarnessAdapterProtocol, Agent, str], object | None]
 
 
+class _DispatchRecorder:
+    """Records every call that reaches the fabric's dispatch seam (TP-01, I-1).
+
+    ``Agent.invoke_skill`` without arguments is introspection (every adapter
+    uses it to build its tool surface); with arguments it dispatches. A refusal
+    driver wraps the harness's own tool call in this recorder so "the refusal
+    fired" means **nothing dispatched**, not merely that nothing was written
+    back (D-IMPL-361, the controller's I-1 ruling: ``effects: unsupported`` is
+    no dispatch and no write-back on every leg). Patched on the class and
+    restored on exit, so the recorder cannot outlive the driver call.
+    """
+
+    def __init__(self) -> None:
+        self.reached: list[Mapping[str, Any]] = []
+        self._original: Any = None
+
+    def __enter__(self) -> _DispatchRecorder:
+        original = Agent.invoke_skill
+        reached = self.reached
+
+        def recording(self_: Agent, name: str, *, arguments: Any = None) -> Any:
+            if arguments is not None:
+                reached.append(dict(arguments))
+            return original(self_, name, arguments=arguments)
+
+        self._original = original
+        Agent.invoke_skill = recording  # type: ignore[method-assign]
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        Agent.invoke_skill = self._original  # type: ignore[method-assign]
+
+
 class HarnessLeg(NamedTuple):
     """One harness's entry into the suite.
 
@@ -731,7 +764,26 @@ def build_harness_leg(param: str) -> HarnessLeg:
                 carrier.config,  # type: ignore[attr-defined]
             )
             outcome = final.get("effect")
-            return outcome if isinstance(outcome, EffectRefusal) else None
+            written_back_refused = isinstance(outcome, EffectRefusal)
+            # TP-01 (I-1, D-IMPL-361): the write-back refusal alone is the
+            # false-green shape spec §7.1(b) named for the Claude leg. A
+            # deployment wires ``carrier.tools`` into its own topology, so the
+            # tool the ToolNode holds is called with the skill's declared
+            # arguments and must refuse in the adapter's own words with
+            # NOTHING dispatched.
+            tool = carrier.tools.tools_by_name[skill_name]  # type: ignore[attr-defined]
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            declared_effects = under_test.capabilities().effects
+            with _DispatchRecorder() as recorder:
+                answered = tool.invoke(declared)
+            refused_before_dispatch = (
+                recorder.reached == []
+                and isinstance(answered, str)
+                and f"effects={declared_effects!r}" in answered
+            )
+            if written_back_refused and refused_before_dispatch:
+                return outcome
+            return None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
