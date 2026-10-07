@@ -59,14 +59,17 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "AMBIENT_STDIO_CLAIM",
     "FileTokenSource",
+    "PRODUCT_CLAIM",
     "SourceBackedTokenVerifier",
     "StaticTokenSource",
     "TENANT_CLAIM",
     "TokenGrant",
     "TokenSourceProtocol",
     "authentication_claims",
+    "granted_products",
     "granted_tenants",
     "is_ambient_stdio",
+    "product_claims",
     "tenant_claims",
 ]
 
@@ -75,6 +78,13 @@ __all__ = [
 #: surface identifiers in :mod:`ccf_runtime.authz.delivery_boundary` — not a
 #: deployment value, and it names no tenant.
 TENANT_CLAIM: Final[str] = "ccf.tenants"
+
+#: Where a verified caller's declared product roster travels inside
+#: ``AccessToken.claims`` (``SEC-017``; ``D-IMPL-374`` (2)). A wire-format
+#: constant beside :data:`TENANT_CLAIM`, naming no product. **Absent means no
+#: roster was declared** — tenant-wide reach — which is why
+#: :func:`product_claims` writes nothing for a grant that declares none.
+PRODUCT_CLAIM: Final[str] = "ccf.products"
 
 #: Marks an identity that was *stated* by the process that owns the transport
 #: rather than *verified* from a presented credential — MCP stdio's case, where
@@ -120,6 +130,19 @@ class TokenGrant(CCFContract):
 
             Tenant identifiers are deployment vocabulary; the SDK enumerates
             none and ships no default (CINV-01).
+        products: The within-tenant product roster (``SEC-017``;
+            ``D-IMPL-374`` (2)) — the Context Product CLASS names (schema
+            names) this bearer may reach through the Experience door's agent
+            and replay tools. ``None`` — the default — declares no roster and
+            reaches tenant-wide, which is the behavior every grant minted
+            before the field existed had; **declaring a roster for a principal
+            that must not reach every product is the deployment's
+            obligation**, and the SDK ships no default roster (CINV-01). A
+            declared roster bounds reach to the classes on it: an agent whose
+            ``consumes ∪ emits`` names an off-roster class is not invocable and
+            not listed, and the replay record is reached only through the
+            class the deployment declared for it. An EMPTY roster is a
+            declaration too, and it reaches no product.
     """
 
     client_id: str
@@ -147,6 +170,13 @@ class TokenGrant(CCFContract):
     authentication: AuthenticationClaims | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    #: ``SEC-017``; ``D-IMPL-374`` (2). ``None`` is "no roster declared",
+    #: exactly what every grant before the field said, so it is
+    #: hash-transparent at the sentinel and a pre-existing grant's canonical
+    #: bytes do not move. A set — empty included — is a real declaration.
+    products: frozenset[str] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 def authentication_claims(grant: TokenGrant) -> Mapping[str, Any]:
@@ -170,6 +200,37 @@ def tenant_claims(grant: TokenGrant) -> Mapping[str, Any]:
     the moment a claim is logged or hashed.
     """
     return {TENANT_CLAIM: sorted(grant.tenants)}
+
+
+def product_claims(grant: TokenGrant) -> Mapping[str, Any]:
+    """Render ``grant``'s product roster for :attr:`AccessToken.claims`.
+
+    ``SEC-017``; ``D-IMPL-374`` (2). Empty when the grant declares no roster,
+    so *no roster* and *an empty roster* stay two states on the wire: the
+    first is tenant-wide, the second reaches no product. Sorted for the reason
+    :func:`tenant_claims` gives.
+    """
+    if grant.products is None:
+        return {}
+    return {PRODUCT_CLAIM: sorted(grant.products)}
+
+
+def granted_products(token: AccessToken) -> frozenset[str] | None:
+    """The product roster ``token`` was verified as carrying, or ``None``.
+
+    ``SEC-017``; ``D-IMPL-374`` (2) — the single read, as
+    :func:`granted_tenants` is for tenants. ``None`` only when the claim is
+    ABSENT, which is a grant that declared no roster. A claim that is present
+    but of the wrong shape yields the empty roster, never ``None``:
+    unparseable is not permissive, and an empty roster reaches no product.
+    """
+    claims = token.claims or {}
+    if PRODUCT_CLAIM not in claims:
+        return None
+    claimed = claims[PRODUCT_CLAIM]
+    if not isinstance(claimed, (list, tuple, set, frozenset)):
+        return frozenset()
+    return frozenset(name for name in claimed if isinstance(name, str))
 
 
 def granted_tenants(token: AccessToken) -> frozenset[str]:
@@ -332,6 +393,10 @@ class SourceBackedTokenVerifier:
         :data:`~ccf.hitl.principal.AUTHENTICATION_CLAIM`, verbatim, and the
         HITL doors read the approver's assurance from there and from nowhere
         else. A grant that states nothing writes no claim.
+
+        **The grant's product roster travels the same way** (``SEC-017``;
+        ``D-IMPL-374`` (2)), under :data:`PRODUCT_CLAIM`, and only when one is
+        declared — :func:`granted_products` is its only read.
         """
         grant = self._source.grant_for(token=token)
         if grant is None:
@@ -340,7 +405,11 @@ class SourceBackedTokenVerifier:
             token=token,
             client_id=grant.client_id,
             scopes=list(grant.scopes),
-            claims={**tenant_claims(grant), **authentication_claims(grant)},
+            claims={
+                **tenant_claims(grant),
+                **product_claims(grant),
+                **authentication_claims(grant),
+            },
         )
 
 

@@ -99,7 +99,7 @@ from ccf_runtime.http_api.errors import (
     ERROR_SUBJECT_CONFLICT,
     refusal_detail,
 )
-from ccf_runtime.mcp.auth import TokenGrant, granted_tenants
+from ccf_runtime.mcp.auth import TokenGrant, granted_products, granted_tenants
 
 __ccf_mode__ = "algorithmic"
 
@@ -565,6 +565,10 @@ def verified_grant() -> TokenGrant:
         # cross-tenant refusal should cross as a RefusalEnvelope through
         # `govern_entitlement`, not as a transport error; D-IMPL-256).
         tenants=granted_tenants(token),
+        # The declared product roster travels too (SEC-017; D-IMPL-374 (2)):
+        # the Experience door's agent and replay tools read it from here, and
+        # dropping it would turn every rostered caller tenant-wide.
+        products=granted_products(token),
     )
 
 

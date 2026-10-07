@@ -139,6 +139,7 @@ __all__ = [
     "CrossTenantRefused",
     "DecisionUnmintableRefused",
     "GuardedSurface",
+    "ProductOutsideRosterRefused",
     "ResourceSubject",
     "ResourceUnreadableRefused",
     "TENANT_CLAIM",
@@ -225,6 +226,19 @@ class CrossTenantRefused(TenantGuardViolation):
     """The call acts on a tenant the verified grant does not carry.
 
     ``SEC-018`` itself.
+    """
+
+
+class ProductOutsideRosterRefused(TenantGuardViolation):
+    """The call reaches a product class outside the grant's declared roster.
+
+    ``SEC-017``; ``D-IMPL-374`` (2). Within-tenant product entitlement: a
+    verified grant that declares
+    :attr:`~ccf_runtime.mcp.auth.TokenGrant.products` reaches only the classes
+    on it. Raised by the Experience door's agent and replay tools, after the
+    tenancy floor has admitted the tenant, and its message names the tool and
+    every off-roster class — the refusal is *by name*, so a deployment reading
+    it learns which declaration to change.
     """
 
 

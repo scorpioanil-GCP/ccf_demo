@@ -288,3 +288,219 @@ def test_a_principal_without_a_roster_still_reaches_tenant_wide(
     _, raised = _call(world, None, GET_REPLAY_RECORD_TOOL, {})
     assert raised is None, repr(raised)
     assert world.replay_reads == ["read"]
+
+
+# --- the mechanism's edges (written with the fix) ---------------------------
+
+
+def test_the_grant_declares_no_roster_by_default_and_that_means_tenant_wide() -> None:
+    """``None`` is undeclared — and it writes no claim, so it cannot read as empty."""
+    from ccf_runtime.mcp.auth import TokenGrant, product_claims
+
+    grant = TokenGrant(client_id=PRINCIPAL, scopes=(SCOPE,))
+    assert grant.products is None
+    assert product_claims(grant) == {}
+
+
+def test_the_verifier_carries_a_declared_roster_into_the_token() -> None:
+    """Source grant -> verifier -> claim -> ``verified_grant``: one flow, no loss."""
+    from ccf_runtime.authz.product_entitlement import verified_grant
+    from ccf_runtime.mcp.auth import (
+        PRODUCT_CLAIM,
+        SourceBackedTokenVerifier,
+        StaticTokenSource,
+        TokenGrant,
+        granted_products,
+    )
+
+    assert PRODUCT_CLAIM == PRODUCTS_CLAIM_WIRE_NAME
+    verifier = SourceBackedTokenVerifier(
+        source=StaticTokenSource(
+            grants={
+                "rostered": TokenGrant(
+                    client_id=PRINCIPAL,
+                    scopes=(SCOPE,),
+                    tenants=frozenset({TENANT}),
+                    products=frozenset({ON_ROSTER}),
+                ),
+                "open": TokenGrant(
+                    client_id=PRINCIPAL,
+                    scopes=(SCOPE,),
+                    tenants=frozenset({TENANT}),
+                ),
+            }
+        )
+    )
+    rostered = anyio.run(verifier.verify_token, "rostered")
+    unrostered = anyio.run(verifier.verify_token, "open")
+    assert rostered is not None and unrostered is not None
+    assert granted_products(rostered) == frozenset({ON_ROSTER})
+    assert granted_products(unrostered) is None
+    reset = auth_context_var.set(AuthenticatedUser(rostered))
+    try:
+        assert verified_grant().products == frozenset({ON_ROSTER})
+    finally:
+        auth_context_var.reset(reset)
+
+
+def test_an_empty_or_malformed_roster_reaches_no_product() -> None:
+    """Declared-but-empty and present-but-unparseable both restrict; neither widens."""
+    from ccf_runtime.mcp.auth import PRODUCT_CLAIM, granted_products
+
+    def token(claim: Any) -> AccessToken:
+        return AccessToken(
+            token="t", client_id=PRINCIPAL, scopes=[SCOPE],
+            claims={PRODUCT_CLAIM: claim},
+        )
+
+    assert granted_products(token([])) == frozenset()
+    assert granted_products(token("class-roster-on")) == frozenset()
+    assert granted_products(token(None)) == frozenset()
+
+
+def test_an_empty_roster_invokes_nothing_and_lists_nothing(
+    tmp_path: pathlib.Path,
+) -> None:
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL, LIST_AGENTS_TOOL
+
+    world = _World(tmp_path)
+    served, raised = _call(world, frozenset(), LIST_AGENTS_TOOL, {"tenant": TENANT})
+    assert raised is None, repr(raised)
+    assert json.loads(served or "")["agents"] == []
+    _, raised = _call(world, frozenset(), INVOKE_AGENT_TOOL, _invoke_args(AGENT_ON))
+    assert type(_underlying(raised)).__name__ == "ProductOutsideRosterRefused"  # type: ignore[arg-type]
+    assert world.invoked == []
+
+
+def test_a_rostered_principal_is_refused_an_agent_that_declares_no_classes(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Undeclared is not on any roster: refused by name, and not listed."""
+    from ccf_runtime.mcp.experience import (
+        INVOKE_AGENT_TOOL,
+        LIST_AGENTS_TOOL,
+        ExposedAgent,
+    )
+
+    world = _World(tmp_path)
+    undeclared = ExposedAgent(
+        definition_key="agent-undeclared",
+        definition_version="1.0.0",
+        name="agent-undeclared",
+        artifact_version="1.0.0",
+        archetypes=("analytics_insights",),
+        skills=(),
+    )
+    assert undeclared.product_classes is None
+    source, recorder = _entitlement_world(tmp_path / "undeclared")
+    from ccf_runtime.mcp.experience import build_experience_server
+
+    server = build_experience_server(
+        server_name="roster-undeclared",
+        product_resolver=lambda **kw: None,
+        agent_directory=lambda *, tenant: (undeclared,),
+        agent_invoker=lambda **kw: world.invoked.append("x") or "{}",
+        list_agents_description="roster fixture",
+        invoke_agent_description="roster fixture",
+        tool_allowlist=frozenset({INVOKE_AGENT_TOOL, LIST_AGENTS_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=authorizer_granting(),
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+    world.server = server
+    _, raised = _call(
+        world, frozenset({ON_ROSTER}), INVOKE_AGENT_TOOL,
+        _invoke_args("agent-undeclared"),
+    )
+    refusal = _underlying(raised)  # type: ignore[arg-type]
+    assert type(refusal).__name__ == "ProductOutsideRosterRefused"
+    assert "declares no product classes" in str(refusal)
+    served, raised = _call(world, frozenset({ON_ROSTER}), LIST_AGENTS_TOOL, {"tenant": TENANT})
+    assert raised is None and json.loads(served or "")["agents"] == []
+    assert world.invoked == []
+
+
+def test_a_rostered_principal_is_refused_an_agent_the_directory_does_not_expose(
+    tmp_path: pathlib.Path,
+) -> None:
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL
+
+    world = _World(tmp_path)
+    _, raised = _call(
+        world, frozenset({ON_ROSTER}), INVOKE_AGENT_TOOL, _invoke_args("agent-absent")
+    )
+    refusal = _underlying(raised)  # type: ignore[arg-type]
+    assert type(refusal).__name__ == "ProductOutsideRosterRefused"
+    assert "not exposed" in str(refusal)
+    assert world.invoked == []
+
+
+def test_a_rostered_invoke_with_no_directory_is_refused_by_name(
+    tmp_path: pathlib.Path,
+) -> None:
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL, build_experience_server
+
+    world = _World(tmp_path)
+    source, recorder = _entitlement_world(tmp_path / "nodir")
+    world.server = build_experience_server(
+        server_name="roster-nodir",
+        product_resolver=lambda **kw: None,
+        agent_invoker=lambda **kw: world.invoked.append("x") or "{}",
+        invoke_agent_description="roster fixture",
+        tool_allowlist=frozenset({INVOKE_AGENT_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=authorizer_granting(),
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+    _, raised = _call(world, frozenset({ON_ROSTER}), INVOKE_AGENT_TOOL, _invoke_args(AGENT_ON))
+    refusal = _underlying(raised)  # type: ignore[arg-type]
+    assert type(refusal).__name__ == "ProductOutsideRosterRefused"
+    assert "no agent directory" in str(refusal)
+    assert world.invoked == []
+    # And the unrostered caller is unaffected by the absent directory.
+    _, raised = _call(world, None, INVOKE_AGENT_TOOL, _invoke_args(AGENT_ON))
+    assert raised is None, repr(raised)
+
+
+def test_the_replay_record_follows_its_declared_class(tmp_path: pathlib.Path) -> None:
+    """Declared and on the roster: served. Declared and off it: refused by name."""
+    from ccf_runtime.mcp.experience import GET_REPLAY_RECORD_TOOL
+
+    world = _World(tmp_path, replay_record_product_class=ON_ROSTER)
+    _, raised = _call(world, frozenset({ON_ROSTER}), GET_REPLAY_RECORD_TOOL, {})
+    assert raised is None, repr(raised)
+    assert world.replay_reads == ["read"]
+    _, raised = _call(world, frozenset({OFF_ROSTER}), GET_REPLAY_RECORD_TOOL, {})
+    refusal = _underlying(raised)  # type: ignore[arg-type]
+    assert type(refusal).__name__ == "ProductOutsideRosterRefused"
+    assert ON_ROSTER in str(refusal) and "outside the roster" in str(refusal)
+    assert world.replay_reads == ["read"]
+
+
+def test_a_replay_class_for_an_unexposed_tool_is_refused(tmp_path: pathlib.Path) -> None:
+    import pytest
+
+    from ccf_runtime.mcp.experience import LIST_AGENTS_TOOL, build_experience_server
+
+    source, recorder = _entitlement_world(tmp_path)
+    with pytest.raises(ValueError, match="replay_record_product_class"):
+        build_experience_server(
+            server_name="roster-inert",
+            product_resolver=lambda **kw: None,
+            agent_directory=lambda *, tenant: (),
+            list_agents_description="roster fixture",
+            replay_record_product_class=ON_ROSTER,
+            tool_allowlist=frozenset({LIST_AGENTS_TOOL}),
+            token_verifier=_verifier(),
+            auth_settings=_auth(),
+            authorizer=authorizer_granting(),
+            entitlement_source=source,
+            perspective_resolver=_perspective,
+            refusal_recorder=recorder,
+        )

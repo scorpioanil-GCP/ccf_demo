@@ -504,6 +504,41 @@ Q2 (a)).
   that process; spawn the client from an environment that carries only what
   the server needs, or use the loopback transport.
 
+### 4.9 Declare a product roster for principals that must not reach every product (SEC-017, D-IMPL-374)
+
+On the Experience MCP door, `list_agents`, `invoke_agent` and
+`get_replay_record` are decided by tenant. Within a tenant, a verified principal
+whose grant declares no product roster reaches every agent the directory
+exposes and the replay record. **Declaring the roster is your obligation as the
+deployment.** The SDK ships no default roster, and a grant without one is
+tenant-wide.
+
+Declare the roster on the principal's grant, as Context Product class names:
+
+```json
+{"<token>": {"client_id": "analyst-7", "scopes": ["ccf:experience"],
+             "tenants": ["bank-a"], "products": ["credit-risk.spread"]}}
+```
+
+With a roster (`runtime/ccf_runtime/mcp/auth.py::TokenGrant`):
+
+- `invoke_agent` looks the agent up in your agent directory. It refuses by name
+  (`runtime/ccf_runtime/mcp/tenancy.py::ProductOutsideRosterRefused`) if
+  any class in the agent's `product_classes` (its context contract's
+  `consumes ∪ emits`) is off the roster. It also refuses if the agent declares
+  no classes, or if no directory is configured.
+- `list_agents` lists only the agents `invoke_agent` would dispatch for that
+  principal.
+- `get_replay_record` refuses unless you declared `replay_record_product_class`
+  on `build_experience_server` and that class is on the roster.
+- An empty roster reaches no product.
+
+Two things you must supply for this to work. Your `AgentDirectoryProtocol`
+fills `ExposedAgent.product_classes` from each exposed definition; an agent
+without them is refused to every rostered principal. And you declare
+`replay_record_product_class` if rostered principals should read the replay
+record.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

@@ -10088,6 +10088,7 @@
         "shape": {
           "authentication": "ccf.hitl.principal.AuthenticationClaims | None",
           "client_id": "<class 'str'>",
+          "products": "frozenset[str] | None",
           "scopes": "tuple[str, ...]",
           "tenants": "frozenset[str]"
         }
@@ -11325,14 +11326,17 @@
     "__all__": [
       "AMBIENT_STDIO_CLAIM",
       "FileTokenSource",
+      "PRODUCT_CLAIM",
       "SourceBackedTokenVerifier",
       "StaticTokenSource",
       "TENANT_CLAIM",
       "TokenGrant",
       "TokenSourceProtocol",
       "authentication_claims",
+      "granted_products",
       "granted_tenants",
       "is_ambient_stdio",
+      "product_claims",
       "tenant_claims"
     ],
     "exports": {
@@ -11343,6 +11347,10 @@
       "FileTokenSource": {
         "kind": "class",
         "shape": "(*, path: 'Path | str') -> 'None'"
+      },
+      "PRODUCT_CLAIM": {
+        "kind": "constant",
+        "shape": "str"
       },
       "SourceBackedTokenVerifier": {
         "kind": "class",
@@ -11361,6 +11369,7 @@
         "shape": {
           "authentication": "ccf.hitl.principal.AuthenticationClaims | None",
           "client_id": "<class 'str'>",
+          "products": "frozenset[str] | None",
           "scopes": "tuple[str, ...]",
           "tenants": "frozenset[str]"
         }
@@ -11373,6 +11382,10 @@
         "kind": "function",
         "shape": "(grant: 'TokenGrant') -> 'Mapping[str, Any]'"
       },
+      "granted_products": {
+        "kind": "function",
+        "shape": "(token: 'AccessToken') -> 'frozenset[str] | None'"
+      },
       "granted_tenants": {
         "kind": "function",
         "shape": "(token: 'AccessToken') -> 'frozenset[str]'"
@@ -11380,6 +11393,10 @@
       "is_ambient_stdio": {
         "kind": "function",
         "shape": "(token: 'AccessToken') -> 'bool'"
+      },
+      "product_claims": {
+        "kind": "function",
+        "shape": "(grant: 'TokenGrant') -> 'Mapping[str, Any]'"
       },
       "tenant_claims": {
         "kind": "function",
@@ -11577,6 +11594,7 @@
           "definition_key": "<class 'str'>",
           "definition_version": "<class 'str'>",
           "name": "<class 'str'>",
+          "product_classes": "frozenset[str] | None",
           "skills": "tuple[ccf.skills.catalog.SkillCatalogEntry, ...]"
         }
       },
@@ -11614,7 +11632,7 @@
       },
       "build_experience_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', product_resolver: 'ExperienceProductResolverProtocol', agent_directory: 'AgentDirectoryProtocol | None' = None, agent_invoker: 'AgentInvokerProtocol | None' = None, context_provider: 'ContextProviderProtocol | None' = None, lineage_provider: 'LineageProviderProtocol | None' = None, replay_record_reader: 'ReplayRecordReaderProtocol | None' = None, get_context_description: 'str | None' = None, get_lineage_description: 'str | None' = None, get_replay_record_description: 'str | None' = None, list_agents_description: 'str | None' = None, invoke_agent_description: 'str | None' = None, product_resource_description: 'str | None' = None, token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', authorizer: 'TenantAuthorizerProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, entitled_product_class: 'str | None' = None, lineage_tenant: 'str | None' = None, replay_record_tenant: 'str | None' = None, tool_allowlist: 'frozenset[str] | None' = None) -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', product_resolver: 'ExperienceProductResolverProtocol', agent_directory: 'AgentDirectoryProtocol | None' = None, agent_invoker: 'AgentInvokerProtocol | None' = None, context_provider: 'ContextProviderProtocol | None' = None, lineage_provider: 'LineageProviderProtocol | None' = None, replay_record_reader: 'ReplayRecordReaderProtocol | None' = None, get_context_description: 'str | None' = None, get_lineage_description: 'str | None' = None, get_replay_record_description: 'str | None' = None, list_agents_description: 'str | None' = None, invoke_agent_description: 'str | None' = None, product_resource_description: 'str | None' = None, token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', authorizer: 'TenantAuthorizerProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol | None' = None, entitled_product_class: 'str | None' = None, lineage_tenant: 'str | None' = None, replay_record_tenant: 'str | None' = None, replay_record_product_class: 'str | None' = None, tool_allowlist: 'frozenset[str] | None' = None) -> 'FastMCP'"
       },
       "experience_product_uri": {
         "kind": "function",
@@ -11721,6 +11739,7 @@
       "CrossTenantRefused",
       "DecisionUnmintableRefused",
       "GuardedSurface",
+      "ProductOutsideRosterRefused",
       "READ_KINDS",
       "ResourceSubject",
       "ResourceUnreadableRefused",
@@ -11765,6 +11784,10 @@
       "GuardedSurface": {
         "kind": "class",
         "shape": "(action: 'str', subject: 'TenantSubject', resource: 'ResourceSubject', mutating: 'bool') -> None"
+      },
+      "ProductOutsideRosterRefused": {
+        "kind": "class",
+        "shape": "type"
       },
       "READ_KINDS": {
         "kind": "constant",
