@@ -36,6 +36,9 @@ What this change does not do:
 
 Disclosed residuals (ruling 5):
 
+- **`McpArtifactStore` cannot be erased through (ruling (iii), the fallback taken).** The erasure door reads the stored class and tenant through the store's naming (`names_at`). `McpArtifactStore`, the §7.4 MCP client store, answers no naming, so an erasure requested through a door that files via it is refused by name: `class-unverifiable`. Reads through it are still consulted. A `names_at` resource on the MCP artifact server and the matching client method are NOT built this round.
+- **Receivers that compose nothing.** `replay()`, `replay_refusal()` and `GrantBoundChildResolver` consult only if the store they are handed is composed (M5). The frozen `dr-01` example replays over a raw store. A child decision record that was erased still propagates `ErasedContentRefused` out of child admission (M4, not built).
+
 - `RequestedAddress.retained_since` is the instant the minimum age is measured from. It is requester-declared and human-approved, not derived from the store, because the `ArtifactStoreProtocol` records no write instant.
 - `ClassRetention.minimum_age` is in whole days.
 
