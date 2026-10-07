@@ -139,3 +139,25 @@ removes the implicit composition; the docstring states stdio is single-principal
 composes the ambient identity. Update each call site to compose the identity explicitly with the same values it
 used implicitly before (behavior-preserving at every call site; `D-IMPL-261` permits it because the SDK surface
 changed deliberately). Severing: restore the implicit composition when `identity` is omitted.
+
+## Task 5 — one argument rule at the fabric seam (follow-on from Task 3's review)
+
+Files: `src/ccf/skills/_wire_arguments.py` (promote to a public module `src/ccf/skills/wire_arguments.py`, keeping
+the private name as a re-export so Task 3's imports hold); `src/ccf/agents/agent.py` (`Agent.invoke_skill`);
+`runtime/ccf_runtime/adapters/claude_agent/adapter.py` (the in-process handler); `runtime/ccf_runtime/adapters/adk/
+adapter.py` (`_DeclaredSkillTool.run_async` uses the shared validator instead of its local key check);
+`runtime/ccf_runtime/adapters/langgraph/adapter.py` (its tool call path); tests under `tests/agents/`, `tests/adapters/`.
+
+Task 3's review measured: the Claude leg forwards undeclared keys into `invoke_skill`, which validates nothing against
+the declared schema, so they are dispatched and audited; the ADK leg now refuses undeclared keys but still accepts a
+MISSING required argument and performs no type check (`str(dict)` passes), while FastMCP refuses both. Ruling: ONE
+rule, enforced at the seam every leg crosses — `Agent.invoke_skill` validates the presented arguments against the
+bound entry's declared `argument_schema` (undeclared key → refused by name; missing required → refused by name; wrong
+type → refused by name) BEFORE any dispatch or audit of the invocation, raising the typed `UndeclaredArgumentRefused`
+family (public). The adapters keep their early refusal where it already exists (ADK, FastMCP) but delegate to the shared
+validator so the message shape is one. Red tests: (a) in-process `invoke_skill` with an undeclared key dispatches today
+→ refuses; (b) Claude in-process handler with an undeclared key dispatches today → refuses before dispatch with the
+adapter's `is_error` result; (c) ADK with a required argument missing dispatches today → refuses; (d) LangGraph leg:
+measure, and add the same pair if it dispatches. Severing: delete the validation call in `invoke_skill` (tests a and b
+must redden; c reddens only if ADK delegates, which it must). Cap the echoed key names in the refusal text (first 8
+keys, each truncated to 64 characters, plus a total count) so an audited reason field is bounded.
