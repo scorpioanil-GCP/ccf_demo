@@ -74,3 +74,65 @@ def test_replay_completes_with_erased_retained_content_reported_positively(tmp_p
         reader=q._NeverConsulted(), control_plane=opened.control_plane, environment=q._NeverConsulted(),  # type: ignore[arg-type]
     )
     assert clean.erased_content == ()
+
+
+def _erase(opened: object, address: str) -> None:
+    control_plane = opened.control_plane  # type: ignore[attr-defined]
+    h.erasure("append_to_erasure_index")(
+        control_plane,
+        composition_register(control_plane, h.erasure("erasure_index_key")(h.TENANT)),
+        (
+            h.erasure("ErasureIndexEntry")(
+                content_address=address,
+                erasure_record_address=RECORD_ADDRESS,
+                reason="customer-request",
+                erased_at=ERASED_AT,
+            ),
+        ),
+    )
+
+
+def _consulting(opened: object) -> object:
+    return h.erasure("ErasureConsultingStore")(
+        q._fresh(opened), index=h.erasure("ErasureIndex")(opened.control_plane)  # type: ignore[attr-defined]
+    )
+
+
+def _member(outcome: object, site: str, address: str) -> None:
+    erased = getattr(outcome, "erased_content", None)
+    assert erased, f"the replay result discloses no erasure: {outcome!r}"[:400]
+    assert any(m.site == site and m.content_address == address and m.erasure_record_address == RECORD_ADDRESS for m in erased), erased
+
+
+def test_replay_over_an_erased_child_contract_completes_with_the_erasure_disclosed(tmp_path: pathlib.Path) -> None:
+    """Ruling 4: an erased ADMITTED CHILD CONTRACT is substituted by the erased
+    reading and the replay completes positively — never refused by name."""
+    from ccf.replay.engine import replay
+    from ccf.replay.serve import ServedProduct
+
+    opened, served, record = q._ask_with_a_producer_that_then_exits(tmp_path)
+    assert isinstance(served, ServedProduct), served
+    (row,) = record.content_generation_path.child_resolutions
+    assert row.outcome_status == "admitted" and row.child_content_address is not None
+    _erase(opened, row.child_content_address)
+    outcome = replay(
+        record_address=served.replay_ref.content_address, store=_consulting(opened),
+        reader=q._NeverConsulted(), control_plane=opened.control_plane, environment=q._NeverConsulted(),  # type: ignore[arg-type]
+    )
+    assert outcome.record_content_address == served.replay_ref.content_address
+    _member(outcome, "child-contract", row.child_content_address)
+
+
+def test_replay_of_an_erased_decision_record_completes_with_the_erasure_disclosed(tmp_path: pathlib.Path) -> None:
+    """Ruling 4: an erased DECISION RECORD is substituted by the erased reading
+    and the replay completes positively — never refused by name."""
+    opened, refused, _record = q._ask_with_a_producer_that_then_exits(tmp_path, config=q._lane_floor_config())
+    fresh = q._fresh(opened)
+    address = q._record_address(opened, refused, fresh)
+    _erase(opened, address)
+    outcome = replay_refusal(
+        record_address=address, store=_consulting(opened),
+        reader=q._NeverConsulted(), control_plane=opened.control_plane, environment=q._NeverConsulted(),  # type: ignore[arg-type]
+    )
+    assert outcome.record_content_address == address
+    _member(outcome, "decision-record", address)
