@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2177 entries**, of which **1905** name a public Python surface.
+**2179 entries**, of which **1905** name a public Python surface.
 
 ## Added
 
@@ -29078,7 +29078,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-292 entries — 256 public Python surface, 36 not public Python API.
+294 entries — 256 public Python surface, 38 not public Python API.
 
 ### Public Python surface
 
@@ -34660,3 +34660,27 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.registry.SDK_DISTRIBUTION
+
+- Surface: ccf.graph.registry.SDK_DISTRIBUTION
+- Public surface: false
+- Change type: behavior
+- Before: `"ccf"`. `ccf.graph.registry.resolve` read every built-in adapter's version through it (`importlib.metadata.version("ccf")`), and that version reached `ccf.graph.registry.AdapterPin.version` and replay dimension 2's `graph_adapter_version`. A distribution named `ccf` on the path, Microsoft's or this SDK's former install, answered that lookup.
+- After: `"ccf-sdk"`. A built-in adapter resolves with `distribution == "ccf-sdk"` and the `ccf-sdk` distribution's version. In an environment where `ccf-sdk` is not installed (a source checkout, or one still holding only the former `ccf` install), the version is the documented `unknown` marker instead of another distribution's version. The constant is not exported (`__all__`) and is absent from the generated manifest, hence `Public surface: false`.
+- Why: SEC-027 (`D-IMPL-376` ruling 4). Red test: `tests/test_distribution_name.py::test_the_builtin_adapter_pin_reads_ccf_sdk_and_never_a_distribution_named_ccf`, which on the former code resolved `("ccf", "7.0.18")` with a foreign `ccf` 7.0.18 on the path.
+- Migration: none for code that only imports `ccf`. A consumer that looked the SDK's version up by name reads `importlib.metadata.version("ccf-sdk")`.
+
+*Recorded by `377-03-sec-027-distribution-name.md`.*
+
+#### The distribution name `ccf` becomes `ccf-sdk`
+
+- Surface: the distribution name in `pyproject.toml` (`[project] name`), its five self-referencing extras, and `tools/check_version_stamp.py::DISTRIBUTION`
+- Public surface: false
+- Change type: behavior
+- Before: the SDK built and installed as the distribution `ccf` (`ccf-<version>.dist-info`), its aggregate extras were spelled `ccf[...]`, the lock was compiled with `--unsafe-package ccf`, and the release version gate discovered `ccf`.
+- After: it builds and installs as `ccf-sdk` (`ccf_sdk-<version>.dist-info`; `ccf-sdk`, `ccf_sdk` and `ccf.sdk` are the same project under PEP 503); `harnesses` and `dev` compose `ccf-sdk[...]`; `requirements.lock` is regenerated with `--unsafe-package ccf-sdk` (pins and hashes unchanged); the gate discovers `ccf-sdk` and refuses when it finds none, even if a distribution named `ccf` is present. Installed packages are still `ccf` and `ccf_runtime`, and the `ccf` command is unchanged.
+- Why: SEC-027 (`D-IMPL-376` ruling 4). Red tests: `tests/test_distribution_name.py::test_the_package_metadata_names_the_distribution_ccf_sdk`, `::test_no_declared_requirement_names_the_foreign_pypi_project_ccf`, `::test_every_reader_of_the_sdks_own_metadata_names_the_declared_distribution`, `::test_the_version_gate_refuses_when_only_a_distribution_named_ccf_is_visible` and `::test_the_version_gate_reads_the_ccf_sdk_distribution_beside_a_foreign_ccf`.
+- Migration: in an environment that holds the former install, run `pip uninstall ccf` before installing `ccf-sdk`. pip keeps both names, and uninstalling `ccf` afterwards deletes the files the two share: for a non-editable install, every package file of `ccf-sdk`, repaired with `--force-reinstall`. Never `pip install ccf` and never `pip install "ccf[...]"`: from a public index those install Microsoft's package. Install `ccf-sdk` from the repository.
+
+*Recorded by `377-03-sec-027-distribution-name.md`.*
