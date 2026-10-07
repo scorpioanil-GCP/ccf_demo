@@ -32,9 +32,10 @@ middleware on the HTTP app and there is no HTTP app on stdio, so the door
 would refuse every caller as unverified. The transport's own security
 boundary is process ownership — this server is a child the deployment's
 client spawned, under the same user, on the same host. So
-:meth:`ProductDoor.serve_stdio` states who its stdio caller is, once, before
-serving: the deployment's declared principal, under the declared scope. On
-the loopback transport bearer auth is REAL and the identity is NOT pre-set.
+:meth:`ProductDoor.serve_stdio` is handed who its stdio caller is, once,
+before serving: the CALLER composes that identity and passes it, and the door
+fabricates none (`EX-03`/`EX-04`, `D-IMPL-361` §7.3). On the loopback
+transport bearer auth is REAL and the identity is NOT pre-set.
 
 **What that statement is now bounded by** (``SEC-018``). Reviewers were right
 that an ambient identity is an identity nobody presented, and the answer is to
@@ -113,7 +114,6 @@ from ccf_runtime.authz.protocol import (
     TenantAuthorizerProtocol,
 )
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource
-from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 from ccf_runtime.mcp.egress import build_egress_server
 
 __all__ = [
@@ -169,6 +169,14 @@ class ServesProducts(Protocol):
         perspective: Perspective,
         request: ProductRequest | None,
     ) -> ResolverOutcome: ...
+
+
+class StdioIdentityRequired(ValueError):
+    """``serve_stdio`` was called without a caller-composed identity (`EX-03`/`EX-04`, `D-IMPL-361` §7.3).
+
+    SDK-defined (``CLAUDE.md`` §7.1). Stdio sets one identity for every caller
+    of the process; the door refuses to author it.
+    """
 
 
 @dataclass(frozen=True)
@@ -239,34 +247,50 @@ class ProductDoor:
             producer_tenant=door.producer_tenant,
         )
 
-    def serve_stdio(self) -> None:
+    def serve_stdio(self, *, identity: AuthenticatedUser | None = None) -> None:
         """Serve on stdio — the transport an MCP client spawns this process for.
+
+        **Stdio is single-principal by construction** (`EX-03`/`EX-04`,
+        `D-IMPL-361` §7.3): the transport carries no authentication channel, so
+        one identity is set once, before anything is served, and it answers for
+        EVERY caller of the process. The door therefore never composes that
+        identity from its own fields; the CALLER composes the ambient identity
+        — typically with
+        :func:`~ccf_runtime.mcp.tenancy.ambient_stdio_identity` — and passes it
+        here as ``identity``. A deployment that serves more than one principal
+        uses :meth:`serve_loopback`, whose bearer authentication is real.
+
+        ``identity`` is required. It is spelled ``| None`` only so that
+        omitting it is refused with the typed :class:`StdioIdentityRequired`
+        naming the ruling, rather than by an anonymous ``TypeError``; the
+        refusal happens before the server is built or anything is set.
 
         The issuer and resource-server addresses are read by the names the
         environment document declares (inert on this transport, required by
-        the builder together with the verifier). The stdio caller's identity
-        is established once, before anything is served — see the module
-        docstring.
+        the builder together with the verifier).
+
+        Args:
+            identity: The ambient identity the caller composes for this
+                process's one principal. Set verbatim, once.
+
+        Raises:
+            StdioIdentityRequired: ``identity`` was not an
+                :class:`AuthenticatedUser` — the door states none of its own.
         """
+        if not isinstance(identity, AuthenticatedUser):
+            raise StdioIdentityRequired(
+                "serve_stdio requires `identity=` — an AuthenticatedUser the "
+                "caller composes (D-IMPL-361 §7.3, EX-03/EX-04): stdio is "
+                "single-principal by construction, and the door does not "
+                "fabricate an identity from its own fields."
+            )
         names = self.product.environment.door
         assert names is not None  # checked by `open_door`
         server = self.server(
             issuer_url=resolve_value(names.issuer_url, self._environ),
             resource_server_url=resolve_value(names.resource_server_url, self._environ),
         )
-        auth_context_var.set(
-            AuthenticatedUser(
-                ambient_stdio_identity(
-                    credential=self.credential,
-                    principal_id=self.principal_id,
-                    scope=self.scope,
-                    # Exactly the tenant this door was opened to serve. Before
-                    # the tenant axis existed the stated identity carried none,
-                    # so nothing about its reach was bounded (`SEC-018`).
-                    tenant=self.tenant_id,
-                )
-            )
-        )
+        auth_context_var.set(identity)
         server.run(transport="stdio")
 
     def serve_loopback(self, *, announce: Callable[[int], None]) -> None:

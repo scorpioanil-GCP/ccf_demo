@@ -38,6 +38,8 @@ for _path in (REPO_ROOT / "src", REPO_ROOT / "runtime", EXAMPLE):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: E402
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: E402
 from ccf_runtime.mcp.product_door import open_door  # noqa: E402
 
 import produce  # noqa: E402
@@ -46,7 +48,17 @@ import produce  # noqa: E402
 def serve() -> None:
     """Open the product, open its door, serve on stdio."""
     with tempfile.TemporaryDirectory(prefix="cp13c-door-") as scratch, produce.product(Path(scratch)) as opened:
-        open_door(opened).serve_stdio()
+        door = open_door(opened)
+        door.serve_stdio(
+            identity=AuthenticatedUser(
+                ambient_stdio_identity(
+                    credential=door.credential,
+                    principal_id=door.principal_id,
+                    scope=door.scope,
+                    tenant=door.tenant_id,
+                )
+            )
+        )
 
 
 def loopback(*, announce: Callable[[int], None]) -> None:
