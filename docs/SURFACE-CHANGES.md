@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2151 entries**, of which **1880** name a public Python surface.
+**2153 entries**, of which **1882** name a public Python surface.
 
 ## Added
 
@@ -28958,7 +28958,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-276 entries — 241 public Python surface, 35 not public Python API.
+278 entries — 243 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33447,6 +33447,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: `append` writes its whole line or nothing, raising `ErasureIndexWriteFailed` with the file left as it was. A new read-only property `head` returns the chain head (the SHA-256 of the last line read, `GENESIS` when empty), which the decorating store's composition memo is now keyed by (PM4, panel C4): a tail entry rewritten in place keeps the count and a valid chain, and a warm memo served its forged reason where a cold process read `index-unsupported`. An index that exposes no `head` is keyed by the digest of its entries.
 - Why: PC1; PM4. Red tests: `tests/erasure/test_pc1_index_short_write.py`, `tests/erasure/test_pm4_memo_chain_head.py`.
 - Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.approval.verify_erasure_approval
+
+- Surface: ccf.erasure.approval.verify_erasure_approval
+- Public surface: true
+- Change type: behavior
+- Before: an `AmbiguousPinnedVersionError` resolving the erasure gate's approval policy (two contents declaring its pinned version) was refused with `reason_code="approver-not-eligible"`.
+- After: it is refused with its own `reason_code="approval-policy-ambiguous"`. Both still fail closed; only the cause the audit and the door name changes.
+- Why: PM6, panel C6 (`D-IMPL-374`). The ambiguity is the Control Plane's, not the approver's. Red test: `tests/erasure/test_pm6_ambiguous_policy_reason.py`.
+- Migration: a deployment that alerts on `approver-not-eligible` adds `approval-policy-ambiguous`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.verify_erasure_approval
+
+- Surface: ccf.erasure.verify_erasure_approval
+- Public surface: true
+- Change type: behavior
+- Before: the ambiguity was coded `approver-not-eligible`.
+- After: `approval-policy-ambiguous` (the same function, re-exported).
+- Why: PM6.
+- Migration: as above.
 
 *Recorded by `374-05-final-fix-wave.md`.*
 

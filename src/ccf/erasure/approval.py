@@ -171,7 +171,10 @@ class ErasureApprovalInvalid(ValueError):
     (the Control Plane records no registration instant for the superseding
     version), ``approver-is-requester``, ``approver-not-eligible`` (the
     transport's door rule under the declared workflow's gate policy, refused
-    again here), ``approval-workflow-unresolvable`` (the Control Plane holds no
+    again here), ``approval-policy-ambiguous`` (two contents declare the
+    gate's approval policy at its pinned version, so the Control Plane refuses
+    to resolve it — a Control Plane fault, not the approver's; PM6, panel C6),
+    ``approval-workflow-unresolvable`` (the Control Plane holds no
     definition with the declared hash, in the authority's tenant) or
     ``approval-gate-unknown`` (the gate is not that definition's erasure gate —
     an approval gate whose approve route completes the workflow).
@@ -440,7 +443,18 @@ def verify_erasure_approval(
             subject_id=approver.subject_id,
             control_plane=control_plane,
         )
-    except (ApproverNotEligible, AmbiguousPinnedVersionError) as ineligible:
+    except AmbiguousPinnedVersionError as ambiguous:
+        # PM6 (panel C6; `D-IMPL-374`): not a judgment about the approver —
+        # two contents declare the pinned version, so the Control Plane
+        # refuses to resolve a moving target (D-IMPL-26). Fails closed, under
+        # its own name.
+        raise ErasureApprovalInvalid(
+            f"the erasure gate's approval policy {gate_policy!r} is ambiguous at its"
+            " pinned version: two contents declare it, and a pin that names two"
+            f" contents is a moving target ({ambiguous}) (SEC-009; D-IMPL-26)"[:400],
+            reason_code="approval-policy-ambiguous",
+        ) from ambiguous
+    except ApproverNotEligible as ineligible:
         raise ErasureApprovalInvalid(
             f"the approver is not eligible under the erasure gate's approval policy"
             f" {gate_policy!r} ({ineligible}) (SEC-009; fix round 4, ruling 2; fix round 5, R1)"[:400],
