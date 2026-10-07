@@ -43,8 +43,8 @@ mistyped arguments before dispatch on every leg).
 - Public surface: true
 - Change type: behavior
 - Before: `_tools()` rendered every bound skill, so `peering` and `mcp_product` skills became harness tools and a bound `procedure` raised; ADK's stock `run_async` filtered the model's arguments to the callable's signature, so every declared argument was dropped, an undeclared one was dropped silently, and every value was stringified
-- After: only skills whose type is in `HARNESS_EXPOSABLE_SKILL_TYPES` are rendered; the others are skipped, never raised on (`TP-03`). The tool receives ADK's raw arguments, refuses an undeclared key, and hands the rest to `invoke_skill` unstringified; every `ArgumentRefused` renders as the adapter's typed `EffectRefusal` (`TP-04`, `D-IMPL-361`). **Disclosed behavior change:** a number sent for a `string`-declared argument is now refused as mistyped, where before it was stringified and dispatched.
-- Why: `TP-03` and `TP-04`, one rule on every leg
+- After: only skills whose type is in `HARNESS_EXPOSABLE_SKILL_TYPES` are rendered; the others are skipped, never raised on (`TP-03`). The tool receives ADK's raw arguments, refuses an undeclared key, a missing required argument or a wrong-typed value with one shared-validator call (I-2), and hands the rest to `invoke_skill` unstringified; every `ArgumentRefused` renders as the adapter's typed `EffectRefusal` (`TP-04`, `D-IMPL-361`). Under `effects: unsupported` the tool's own `run_async` refuses before dispatch with the typed `EffectRefusal`, independent of the `before_tool` callback, so a deployment that reuses `carrier.llm_agent.tools` elsewhere gets no dispatch path (`TP-01`, I-1). **Disclosed behavior change:** a number sent for a `string`-declared argument is now refused as mistyped, where before it was stringified and dispatched.
+- Why: `TP-03` and `TP-04`, one rule on every leg; `TP-01` — `effects: unsupported` is no dispatch and no write-back on every leg (the controller's I-1 ruling)
 - Migration: a model that sends a number for a declared `string` argument is now refused; declare the argument's real JSON type in the skill's `argument_schema`
 
 ## ccf_runtime.adapters.langgraph.adapter.LangGraphAdapter.expose_skills
@@ -53,8 +53,8 @@ mistyped arguments before dispatch on every leg).
 - Public surface: true
 - Change type: behavior
 - Before: the `ToolNode` rendered every bound skill (`peering` and `mcp_product` as tools; a bound `procedure` raised), and each tool stringified every argument before `invoke_skill`, so an undeclared key, a missing required argument and a wrong-typed value were dispatched and audited
-- After: only exposable skill types are rendered (`TP-03`); arguments reach `invoke_skill` as they arrived and the seam's `ArgumentRefused` propagates from the tool call, fail-closed (`TP-04` follow-on, `D-IMPL-361`). **Disclosed behavior change:** a number sent for a `string`-declared argument is now refused, where before it was stringified and dispatched.
-- Why: `TP-03` and `TP-04`, one rule on every leg
+- After: only exposable skill types are rendered (`TP-03`); arguments reach `invoke_skill` as they arrived and the seam's `ArgumentRefused` propagates from the tool call, fail-closed (`TP-04` follow-on, `D-IMPL-361`). Every tool on the carrier's `ToolNode` refuses before dispatch — answering with the typed `EffectRefusal`'s canonical bytes — under `effects: unsupported` and for a skill not bound at call time, so wiring `carrier.tools` into a deployment's own topology grants no dispatch path (`TP-01`, I-1). **Disclosed behavior change:** a number sent for a `string`-declared argument is now refused, where before it was stringified and dispatched.
+- Why: `TP-03` and `TP-04`, one rule on every leg; `TP-01` — measured before I-1, a read-only binding's tool reached `dispatch_skill` through `carrier.tools`
 - Migration: as for `ccf_runtime.adapters.adk.adapter.AdkAdapter.expose_skills`
 
 ## ccf_runtime.mcp.experience.agent_tool_listing

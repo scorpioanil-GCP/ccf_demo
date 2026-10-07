@@ -119,6 +119,7 @@ from ccf_runtime.mcp.egress import build_egress_server
 __all__ = [
     "ProductDoor",
     "ServesProducts",
+    "StdioIdentityRequired",
     "open_door",
     "open_door_with_verifier",
     "scope_mapping_key",

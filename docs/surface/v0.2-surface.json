@@ -9527,7 +9527,7 @@
     "exports": {
       "ClaudeAgentAdapter": {
         "kind": "class",
-        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability', child_environment: 'Mapping[str, str] | None' = None) -> 'None'"
+        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability', child_environment: 'Mapping[str, str] | None' = None, cwd: 'str | Path | None' = None, max_turns: 'int | None' = None) -> 'None'"
       },
       "HARNESS_ID": {
         "kind": "constant",
@@ -9540,7 +9540,8 @@
       "AllowlistedEnvironmentTransport",
       "ClaudeAgentAdapter",
       "DEFAULT_CHILD_ENVIRONMENT",
-      "HARNESS_ID"
+      "HARNESS_ID",
+      "PromptFileRefused"
     ],
     "exports": {
       "AllowlistedEnvironmentTransport": {
@@ -9549,7 +9550,7 @@
       },
       "ClaudeAgentAdapter": {
         "kind": "class",
-        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability', child_environment: 'Mapping[str, str] | None' = None) -> 'None'"
+        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability', child_environment: 'Mapping[str, str] | None' = None, cwd: 'str | Path | None' = None, max_turns: 'int | None' = None) -> 'None'"
       },
       "DEFAULT_CHILD_ENVIRONMENT": {
         "kind": "constant",
@@ -9558,6 +9559,10 @@
       "HARNESS_ID": {
         "kind": "constant",
         "shape": "str"
+      },
+      "PromptFileRefused": {
+        "kind": "class",
+        "shape": "type"
       }
     }
   },
@@ -11613,6 +11618,7 @@
     "__all__": [
       "ProductDoor",
       "ServesProducts",
+      "StdioIdentityRequired",
       "open_door",
       "open_door_with_verifier",
       "scope_mapping_key"
@@ -11625,6 +11631,10 @@
       "ServesProducts": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "StdioIdentityRequired": {
+        "kind": "class",
+        "shape": "type"
       },
       "open_door": {
         "kind": "function",
