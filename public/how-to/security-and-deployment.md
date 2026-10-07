@@ -864,6 +864,19 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   while B's filing stands, A cannot erase that artifact through a door over
   the MCP-backed store.
 
+### 4.11 Declare a default for a parameter a policy constraint bounds (SEC-019, D-IMPL-356)
+
+A registered `ccf.policy-constraint` whose `maximum`, `minimum` or
+`allowed_set` reaches a parameter the caller omitted and no default fills is
+never skipped: the request is refused as `constraint-refusal` with reason
+`required-absent` and the constraint's `policy` authority
+(`src/ccf/products/constraints.py::resolve_effective_request`), and the
+tolerance step refuses an absent `debt_tolerance` that a policy bounds the
+same way instead of serving it at any Context Debt
+(`src/ccf/products/gates.py::refuse_over_tolerance`), so declare a default
+for every bounded parameter a caller may leave out, because the SDK supplies
+none.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

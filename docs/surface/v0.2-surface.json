@@ -7953,7 +7953,7 @@
       },
       "refuse_over_tolerance": {
         "kind": "function",
-        "shape": "(product: 'ServableProduct', *, tolerance: 'EffectiveParameter | None') -> 'ToleranceExceededRefusal | None'"
+        "shape": "(product: 'ServableProduct', *, tolerance: 'EffectiveParameter | None', policy_bound: 'ParameterBound | None') -> 'ToleranceExceededRefusal | ConstraintRefusal | None'"
       },
       "run_federated_gates": {
         "kind": "function",

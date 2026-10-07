@@ -156,7 +156,7 @@ from __future__ import annotations
 from collections.abc import Sized
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Final, Literal, Never, cast
+from typing import TYPE_CHECKING, Final, Literal, Never, cast
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -172,8 +172,15 @@ from ccf.products.contract import (
 from ccf.products.provenance import (
     Authority,
     EffectiveParameter,
+    ParameterBound,
     ProvenanceSource,
 )
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # `ccf.products.constraints` imports this module (for
+    # `DEBT_TOLERANCE_PARAMETER`), so the refusal type is named here for the
+    # annotation and imported where it is built, in `refuse_over_tolerance`.
+    from ccf.products.constraints import ConstraintRefusal
 
 __ccf_mode__ = "algorithmic"
 
@@ -920,12 +927,26 @@ def refuse_over_tolerance(
     product: ServableProduct,
     *,
     tolerance: EffectiveParameter | None,
-) -> ToleranceExceededRefusal | None:
+    policy_bound: ParameterBound | None,
+) -> ToleranceExceededRefusal | ConstraintRefusal | None:
     """Hold an ADMITTED product to the one applicable tolerance, or serve it.
 
     SDK-defined per CLAUDE.md §11; whitepaper §7.7.4–§7.7.8. Ledger row
     ``24.6-L-05``, realizing ``D-IMPL-251`` C1=A and C2=B through
     ``D-IMPL-253`` Q10.
+
+    **An absent tolerance a policy bounds is refused, never served**
+    (``SEC-019``; ``D-IMPL-356`` D11). This step served an absent tolerance at
+    any Debt without asking whether a policy bounded it. The policy's bound now
+    has to be stated by the caller, as a required argument: with no tolerance
+    and a ``policy_bound``, the step returns the Authority layer's own
+    determination for that case — a ``required-absent``
+    :class:`~ccf.products.constraints.ConstraintRefusal` carrying the bound —
+    rather than serving. No tolerance is invented from the bound (CINV-01). On
+    the governed path the Authority layer
+    (:func:`~ccf.products.constraints.resolve_effective_request`) refuses the
+    same case before anything is read, so this is the second line, for a
+    caller that composes the step itself.
 
     **The argument is a resolved parameter, never a number.** The three debt
     authorities — the class's default, the caller's declared tolerance, an
@@ -948,14 +969,26 @@ def refuse_over_tolerance(
             caller who has not run the gates, because it has nothing to pass.
         tolerance: The resolved tolerance for
             :data:`DEBT_TOLERANCE_PARAMETER`, or ``None`` when no authority
-            stated one. ``None`` serves at any Debt — not a permissive
-            default but the absence of any declaration to enforce, which is
-            what a class declaring no default, a caller stating nothing and a
-            deployment registering no constraint jointly mean.
+            stated one. ``None`` with no ``policy_bound`` serves at any Debt —
+            not a permissive default but the absence of any declaration to
+            enforce, which is what a class declaring no default, a caller
+            stating nothing and a deployment registering no constraint jointly
+            mean.
+        policy_bound: The bound a registered policy constraint places on
+            :data:`DEBT_TOLERANCE_PARAMETER`, as the Authority layer reported
+            it, or ``None`` when no policy constraint bounds it. Required, so
+            "nothing bounds it" is a statement a caller makes rather than a
+            default it gets by leaving the argument out (``SEC-019``). Read only
+            when ``tolerance`` is ``None``: a resolved tolerance already
+            carries the policy's fold (worked case 3), and this function
+            performs no fold of its own.
 
     Returns:
-        ``None`` when the product is delivered — no applicable tolerance, or
-        an observed ``D_c`` at or under it — otherwise the
+        ``None`` when the product is delivered — no applicable tolerance and
+        no policy bound, or an observed ``D_c`` at or under the tolerance. A
+        :class:`~ccf.products.constraints.ConstraintRefusal`
+        (``required-absent``, carrying ``policy_bound``) when the tolerance is
+        absent and a policy bounds it. Otherwise the
         :class:`ToleranceExceededRefusal` naming the authority, the tolerance
         and what was observed.
     """
@@ -964,7 +997,28 @@ def refuse_over_tolerance(
     product = verify_gate_provenance(product)
 
     if tolerance is None:
-        return None
+        if policy_bound is None:
+            return None
+        # SEC-019 (`D-IMPL-356` D11): an absent tolerance a policy bounds is
+        # the Authority layer's `required-absent` case, and it is refused
+        # here exactly as there. Imported where it is built: the constraints
+        # module imports this one.
+        from ccf.products.constraints import ConstraintRefusal
+
+        return ConstraintRefusal(
+            reason="required-absent",
+            key=DEBT_TOLERANCE_PARAMETER,
+            detail=(
+                f"{DEBT_TOLERANCE_PARAMETER}: an applicable"
+                f" {policy_bound.operator} constraint ({policy_bound.authority})"
+                " bounds the tolerance and no authority stated one, so there"
+                " is no tolerance to hold the product's Context Debt to; an"
+                " absent bounded tolerance is refused, not served at any Debt"
+                " (SEC-019, D-IMPL-356 D11)"
+            ),
+            bound=policy_bound,
+            requested=None,
+        )
     presented = tolerance.value
     if isinstance(presented, bool) or not isinstance(presented, (int, Decimal)):
         # The same reading of "is this a number" that the request boundary

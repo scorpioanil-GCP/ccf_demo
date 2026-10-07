@@ -3515,8 +3515,25 @@ class GovernedResolver:
         # The product was constructible; what is withheld is fulfillment.
         # Nothing about the principal or the perspective reaches this
         # comparison (`D-IMPL-105`): D_c is entitlement-neutral, as assessed.
+        #
+        # SEC-019 (`D-IMPL-356` D11): the step is also handed the POLICY bound
+        # the Authority layer reported on the tolerance, read off the record.
+        # A completed resolution never leaves a policy-bounded tolerance
+        # absent — it refused that as `required-absent` before anything was
+        # read — so for an absent tolerance the bound is `None` here by
+        # construction, and the step's own refusal of that case (a
+        # pre-assembly kind) is never handed to the recorder below.
+        resolved_tolerance = effective.parameter(DEBT_TOLERANCE_PARAMETER)
         withheld = refuse_over_tolerance(
-            gated, tolerance=effective.parameter(DEBT_TOLERANCE_PARAMETER)
+            gated,
+            tolerance=resolved_tolerance,
+            policy_bound=(
+                resolved_tolerance.bound
+                if resolved_tolerance is not None
+                and resolved_tolerance.bound is not None
+                and resolved_tolerance.bound.authority == "policy"
+                else None
+            ),
         )
         if withheld is not None:
             return self._record_refusal(
