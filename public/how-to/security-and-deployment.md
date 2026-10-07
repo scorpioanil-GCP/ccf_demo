@@ -943,19 +943,19 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   fsynced, and the append raises `ErasureIndexWriteFailed`, which the door's
   completion propagates by name, filing no record (PC1). The completion can
   be retried once the cause is cleared.
-- **Another tenant's governed filing of identical bytes changes the owner's
-  reads over the MCP artifact server.** The server decides whether an address
-  is governed evidence over every name it was filed under, in every tenant,
-  before it filters to the caller's own (the D-IMPL-345 R-5 rule, which the
-  SEC-009 names resource inherits). Once tenant B files the same bytes under
-  a governed (`ReplayMint`) class, tenant A's own names and blob reads of its
-  client-lane artifact answer `subject-unavailable`. The consequence for
-  erasure: A's erasure door over the MCP-backed store can no longer read A's
-  own naming of that address, and refuses to erase it as
-  `class-unverifiable`. It fails closed, and the precondition is narrow — B
-  must hold identical bytes and write authority for a governed class — but
-  while B's filing stands, A cannot erase that artifact through a door over
-  the MCP-backed store.
+- **Another tenant's filing of identical bytes does not change the owner's
+  reads (C8, D-IMPL-376).** The MCP artifact server decides whether an
+  address is governed evidence over the names the caller's own tenant filed
+  it under, never another tenant's. A tenant's blob, presence and names
+  answers, and its erasure door over the MCP-backed store, are the same
+  whether or not any other tenant filed the same bytes, under any class, so
+  they also tell a tenant nothing about what other tenants hold. A governed
+  filing by the caller's own tenant still takes the governed read for every
+  principal of that tenant. What still crosses tenants is the tenantless
+  reading described above: an erasure destroys no bytes and is recorded for
+  the erasing tenant only, so once tenant A erases an address that tenant B
+  also filed, B's tenant-scoped reads still serve it and every tenantless
+  read of it withholds it, with the reason redacted.
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the

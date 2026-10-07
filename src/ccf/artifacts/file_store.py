@@ -316,7 +316,9 @@ class FileArtifactStore:
         says nothing about class or tenant on its own. Content addressing means
         one address may legitimately be filed under several names — the same
         bytes put twice under two names, or by two tenants — so this returns
-        all of them and lets the reader take the safe direction over the set.
+        all of them and lets the reader take the safe direction over the names
+        it may weigh: the artifact server weighs its caller's own tenant's,
+        never another tenant's (C8, ``D-IMPL-376`` (6)).
 
         Empty for an address nothing was filed under, and empty — never a
         path read — for a string that is not a content address

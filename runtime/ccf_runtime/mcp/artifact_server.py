@@ -78,13 +78,23 @@ in this order:
    resource=content_address)`` — the address IS the resource the wrapper
    decided on. Nothing below runs on a fabricated, retargeted or wrong-kind
    capability.
-2. **What the address is**, from the substrate's own naming index
-   (:meth:`ArtifactSubstrate.names_at`): every ``(tenant, class, name)`` the
-   address was filed under. Content addressing means one address may be filed
-   under several names, by several tenants; the decision is taken over the
-   whole set, in the safe direction.
-3. **Governed evidence goes through the governed dereference.** If ANY name's
-   class is one the substrate's :class:`~ccf.artifacts.protocol.WriteKinds`
+2. **What the address is to the caller's tenant**, from the substrate's own
+   naming index (:meth:`ArtifactSubstrate.names_at`): every
+   ``(tenant, class, name)`` the address was filed under, kept to the
+   capability's tenant. Content addressing means one address may be filed
+   under several names, by several tenants; the decision is taken over every
+   name the caller's OWN tenant filed it under, in the safe direction, and
+   never over another tenant's (C8, ``D-IMPL-376`` (6)). Judged over every
+   tenant's names, another tenant's governed filing of identical bytes turned
+   this tenant's own reads into the shell: the address became a channel
+   between tenants — an existence oracle, and a way to make an owner's own
+   artifact unreadable and unerasable. Judging over the caller's tenant
+   relaxes nothing: a governed filing by that tenant still sends every
+   principal of it through the governed dereference, and the client lane
+   below only serves an address the caller's own tenant filed — which a filing
+   can do only by presenting those exact bytes.
+3. **Governed evidence goes through the governed dereference.** If ANY of
+   those names' classes is one the substrate's :class:`~ccf.artifacts.protocol.WriteKinds`
    declares under ``ReplayMint`` — a replay record, a query pin, an admitted
    child contract, whatever the deployment declared as fabric-written
    evidence — the read is a ``D-IMPL-345`` dereference: entitlement re-decided,
@@ -429,13 +439,16 @@ def build_artifact_server(
         # on. The wrapper minted it for this address; a body reached any other
         # way holds proof or holds nothing (D-IMPL-353 §1.5c, f).
         verify(authorized, kind=ArtifactRead, resource=content_address)
-        # (2) What the address IS, over every name it was filed under.
+        # (2) What the address IS to the caller's tenant: every name that
+        # tenant filed it under, and never another tenant's (C8,
+        # D-IMPL-376 (6)) — another tenant's filing of identical bytes does
+        # not change this tenant's answer.
         names = store.names_at(content_address=content_address)
+        own = [named for named in names if named.tenant_id == authorized.tenant]
         governed = any(
             ReplayMint in store.write_kinds.for_class(named.artifact_class)
-            for named in names
+            for named in own
         )
-        own = [named for named in names if named.tenant_id == authorized.tenant]
         if governed or not own:
             # (3) Governed evidence, another tenant's bytes, or nothing at all:
             # the governed dereference decides, records and discloses — and
@@ -585,16 +598,21 @@ def build_artifact_server(
         address answers the empty list, as the store's ``names_at`` does.
 
         **The same entitlement the blob read requires** (fix round 2, N4). An
-        address filed under a class the deployment declared governed answers
-        its names only to a principal the governed dereference admits — the
-        same decision, record and disclosure :func:`artifact_blob` makes, asked
-        without bytes. A refusal crosses as the shell, which the client reads
-        as an unverifiable answer and the erasure door as ``class-unverifiable``.
+        address the caller's own tenant filed under a class the deployment
+        declared governed answers its names only to a principal the governed
+        dereference admits — the same decision, record and disclosure
+        :func:`artifact_blob` makes, asked without bytes. A refusal crosses as
+        the shell, which the client reads as an unverifiable answer and the
+        erasure door as ``class-unverifiable``. Another tenant's filing — of
+        any class — takes no part in the decision (C8, ``D-IMPL-376`` (6)), so
+        it can neither make this tenant's own naming unverifiable nor tell this
+        tenant that some other tenant holds the bytes.
         """
         verify(authorized, kind=ArtifactRead, resource=content_address)
         names = store.names_at(content_address=content_address)
+        own = tuple(named for named in names if named.tenant_id == authorized.tenant)
         governed = any(
-            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in names
+            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
         )
         if governed:
             decided = govern_dereference(
@@ -611,7 +629,6 @@ def build_artifact_server(
             )
             if isinstance(decided, RefusalEnvelope):
                 return canonical_bytes(decided).decode("utf-8")
-        own = tuple(named for named in names if named.tenant_id == authorized.tenant)
         return canonical_bytes(own).decode("utf-8")
 
     @door.resource(
