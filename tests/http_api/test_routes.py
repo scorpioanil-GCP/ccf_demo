@@ -1127,8 +1127,8 @@ def test_backends_refuses_503_when_the_sdks_own_adapter_package_is_unreadable(
     subclasses; the fourth — the SDK's own adapter package not being a readable
     directory — is a ``RuntimeError``, and the route's catch tuple had been
     assembled from the three that shared a base class. So the one refusal whose
-    remedy an operator is least likely to guess (`pip install
-    --force-reinstall` **the SDK**, not an adapter) escaped as an unshaped 500,
+    remedy an operator is least likely to guess (reinstall **the SDK**, from the
+    source it was installed from, not an adapter) escaped as an unshaped 500,
     which is exactly the loss this route's docstring rejects for a packaging
     conflict.
 
@@ -1156,6 +1156,10 @@ def test_backends_refuses_503_when_the_sdks_own_adapter_package_is_unreadable(
     assert detail["error_code"] == "backend-registry-conflict"
     # The remedy survives the trip, which is the whole reason this is a 503.
     assert "force-reinstall" in detail["message"]
+    # SEC-027 review M-1: the remedy pins the reinstall to the wheel or private
+    # index the deployment installed from. By its bare name from public PyPI it
+    # would replace the SDK with the empty `ccf-sdk` name placeholder.
+    assert "never by its bare name from public PyPI" in detail["message"]
     assert "not readable" in detail["message"]
     assert "backends" not in response.json()
 

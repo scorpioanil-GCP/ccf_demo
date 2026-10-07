@@ -476,8 +476,10 @@ def _builtin_names() -> dict[str, str]:
             " metadata, so this is an installation problem with the SDK"
             " itself — a zipped, frozen or sourceless distribution, or a"
             " damaged install — and not a missing third-party adapter:"
-            " `pip install --force-reinstall` the SDK rather than installing"
-            " an adapter."
+            " reinstall the SDK from the same wheel file or private index this"
+            " deployment installed it from (`pip install --force-reinstall`"
+            " with that wheel's path, or against that index), never by its bare"
+            " name from public PyPI, rather than installing an adapter."
         )
     found: dict[str, str] = {}
     for info in pkgutil.iter_modules([str(directory)]):
@@ -660,7 +662,8 @@ def _duplicate_refusal(
         " distribution could not be identified at all. The fabric does not"
         f" choose between them.{tail} This is usually two metadata directories"
         " for one distribution left behind by a failed uninstall: reinstall"
-        " that distribution, or remove the stale one."
+        " that distribution from the source it was installed from, or remove"
+        " the stale one."
     )
 
 
@@ -878,8 +881,10 @@ def _load_third_party(
         " not reproduced — run that import directly to read it. The"
         " distribution is installed and its declaration is broken, which is a"
         " different problem from an adapter that is not installed: nothing is"
-        " fixed by installing something, so `pip install --force-reinstall`"
-        " the distribution named above or report the failure to its author."
+        " fixed by installing something, so reinstall the distribution named"
+        " above from the source it was installed from (`pip install"
+        " --force-reinstall` against that wheel or index) or report the"
+        " failure to its author."
     )
 
 

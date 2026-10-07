@@ -36,6 +36,10 @@ Install it from the repository as above, never by name from PyPI: the PyPI
 project `ccf` is Microsoft's unrelated Confidential Consortium Framework, which
 also imports as `ccf` and cannot share an environment with this SDK (see
 [the distribution name](../how-to/security-and-deployment.md#31-the-distribution-name-is-ccf-sdk-sec-027)).
+If the environment already holds an earlier install of this SDK under its
+former distribution name `ccf`, run `pip uninstall -y ccf` first. Neither
+`pip install` nor `make install` removes it, and while it remains, `import ccf`
+can load the former code.
 
 If you also intend to build this documentation site, install the `docs` extra
 alongside it (`pip install -e ".[dev,docs]"`), then `make docs`. To verify the

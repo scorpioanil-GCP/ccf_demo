@@ -216,7 +216,7 @@ class Neo4jGraphStore:
             Raised here rather than at import so the module remains
             importable and the failure names the moment a deployment
             actually asked for Neo4j: install it with
-            ``pip install "ccf[neo4j]"``.
+            ``pip install "ccf-sdk[neo4j]"``.
     """
 
     def __init__(

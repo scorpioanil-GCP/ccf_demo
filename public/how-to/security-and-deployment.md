@@ -321,7 +321,9 @@ public index: install it from the repository, never by name, and never into an
 environment that holds Microsoft's `ccf`. pip installs the two side by side
 without a warning, and each overwrites or deletes the other's
 `ccf/__init__.py`. `README.md` ("The distribution is `ccf-sdk`") gives the
-install and migration steps. Every reader of the SDK's own installed metadata
+install and migration steps. The SDK's own metadata carries the classifier
+`Private :: Do Not Upload`, which PyPI refuses on every upload, so a stray
+upload of the SDK to PyPI is rejected rather than published. Every reader of the SDK's own installed metadata
 names `ccf-sdk`: the built-in adapter's replay pin reads its version through
 `src/ccf/graph/registry.py::SDK_DISTRIBUTION`, and the release version gate
 discovers through `tools/check_version_stamp.py::DISTRIBUTION`. The test

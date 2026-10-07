@@ -40,7 +40,7 @@ Measured from what the three programs actually import, not remembered:
 
 **Inside this repository, nothing needs installing to run the example.** All
 four distributions are already dev dependencies: `pyproject.toml`'s `harnesses`
-extra composes `ccf[adk,claude-agent,langgraph]` and `dev` includes it, so
+extra composes `ccf-sdk[adk,claude-agent,langgraph]` and `dev` includes it, so
 `make install` has already put them there. Leg 2 additionally needs the
 `claude` CLI binary, which it does not install either — the `claude-agent-sdk`
 wheel bundles one at `claude_agent_sdk/_bundled/claude`, and that is what the
@@ -48,7 +48,7 @@ harness drives.
 
 **Outside this repository, an adopter installs their own harness, an MCP
 client, and nothing from CCF.** That is the claim of this example written as a
-shopping list. There is no `pip install ccf` on the client side, because a
+shopping list. There is no `pip install ccf-sdk` on the client side, because a
 program that consumes a Context Product through an MCP tool has no CCF
 dependency to acquire — which is CLAUDE.md §7.3's *"a harness that already
 speaks MCP needs no adapter for consumption"*, demonstrated rather than
