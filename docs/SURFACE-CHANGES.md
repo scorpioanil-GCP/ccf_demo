@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2189 entries**, of which **1914** name a public Python surface.
+**2191 entries**, of which **1916** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1245 entries — 1201 public Python surface, 44 not public Python API.
+1246 entries — 1202 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18473,6 +18473,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `375-03-sec-022-replay-scope.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.UnattributableDeliveryBoundaryError
+
+- Surface: ccf_runtime.authz.delivery_boundary.UnattributableDeliveryBoundaryError
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `TypeError` `govern_dereference` raises when its store's substrate answers no `names_at` or declares no `WriteKinds`, so it cannot show who filed an address. Raised right after the capability check and the PM5 check, before anything is read, recorded or clocked: a wiring defect, refused where an operator sees it, never a determination about a caller — the posture of `UnconsultedDeliveryBoundaryError`.
+- Why: the forged-record finding (`D-IMPL-376` close-out): "a store that cannot answer that question refuses rather than serves."
+- Migration: none for the shipped stores.
+
+*Recorded by `377-07-forged-record-provenance.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29128,7 +29140,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-300 entries — 261 public Python surface, 39 not public Python API.
+301 entries — 262 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -33859,6 +33871,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a deployment whose tenant ids contain `/` renames them before writing artifacts. Names filed before this change are not re-read: a store that already holds a filing under such a tenant id still attributes it to the prefix.
 
 *Recorded by `377-06-c2-tenant-hold-and-m4-tenant-segment.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: the holds read the record's tenant and principal from the bytes at the address; nothing checked who filed those bytes, so a record-shaped forgery filed on any client lane was served to the principal it named.
+- After: before any hold, the store's own naming (`names_at`) must show the address filed under the record's deciding tenant in a class the store's `WriteKinds` declares under `ReplayMint` — a kind no door can mint, held only by the fabric's record writers, which file a record only under the tenant it names. Anything else answers exactly as a missing address does: `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level. A store whose substrate answers no `names_at` or declares no `WriteKinds` raises `UnattributableDeliveryBoundaryError` before anything is read, recorded or clocked. Every caller inherits it: the HTTP evidence routes and the MCP artifact server's governed reads. Unchanged: genuine records read for their owners, the owner's own read-refusal chain reads (`D-IMPL-345` C20), and the C-2 tenant hold.
+- Why: the forged-record finding (`D-IMPL-376` close-out). Red tests: `tests/http_api/test_forged_record_http.py::test_a_record_forged_on_another_tenants_client_lane_answers_as_a_missing_address_does` and `::test_a_record_forged_on_the_tenants_own_client_lane_answers_as_a_missing_address_does` (all three routes); `tests/mcp/test_forged_record_mcp.py::test_a_record_forged_on_another_tenants_client_lane_answers_as_a_missing_address_does` and `::test_a_store_that_cannot_attribute_an_address_refuses_rather_than_serves` (both parametrizations).
+- Migration: a deployment-supplied artifact substrate behind a governed door answers `names_at` and declares `WriteKinds`, as the shipped `FileArtifactStore` and `McpArtifactStore` do. A record filed under a tenant other than the one it was decided under — a delivery-boundary denial addressed to another tenant at a door whose recorder is a different tenant's — no longer reads for anyone.
+
+*Recorded by `377-07-forged-record-provenance.md`.*
 
 ### Not public Python API
 

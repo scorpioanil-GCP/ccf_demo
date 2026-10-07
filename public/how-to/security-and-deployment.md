@@ -983,7 +983,15 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   other hold: another tenant's record answers exactly as a missing address
   does, `nonexistent`, at every disclosure level. The HTTP evidence routes
   (`/replay/decisions`, `/replay/resolutions`, `/artifact`) read through the
-  same function and hold the same way. Within a tenant nothing changes: the
+  same function and hold the same way. Before any hold, the governed read
+  serves a record only where the store's naming shows the fabric's own record
+  writer filed it — under a class the store's `WriteKinds` declares under
+  `ReplayMint`, a kind no door can mint — under the tenant the record was
+  decided under. Bytes shaped as a record and filed any other way, on another
+  tenant's client lane or on this tenant's, answer exactly as a missing address
+  does, and a store that cannot say who filed an address is refused by name
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::UnattributableDeliveryBoundaryError`).
+  Within a tenant nothing changes: the
   owner reads its own record, and another principal's genuine record answers
   `unauthorized` at `full`. So a tenant's blob, presence and names answers,
   and its erasure door over the MCP-backed store, do not depend on whether
@@ -1007,6 +1015,31 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   tenant A erases an address that tenant B also filed, B's tenant-scoped reads
   still serve it and every tenantless read of it withholds it, with the
   reason redacted.
+- **The MCP client lane is not a governed read (forged-record review,
+  D-IMPL-376).** The artifact server serves a tenant's own client-lane filings
+  to every principal of that tenant as the exact stored bytes, whatever their
+  shape (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`).
+  Bytes a principal files on its tenant's client lane, shaped as another
+  principal's Decision Replay record, therefore cross the MCP blob and
+  presence resources to that tenant's principals — as a client-lane artifact,
+  and the answer does not say which lane served it. They never cross a
+  governed read: the HTTP evidence routes and the artifact server's governed
+  reads answer them as a missing address. Treat a record as evidence only
+  when a governed read returned it.
+- **A read-refusal record is attributed to the door's tenant (forged-record
+  re-review, D-IMPL-376).** The governed read records each refusal through the
+  recorder of the door that refused it, and the record names the door's
+  tenant whichever tenant the refused caller's capability named
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`); the
+  tenant hold attributes the record to that tenant, and the product-grant
+  hold does not apply to read refusals. On a door that serves several
+  tenants through one recorder, as the MCP artifact server is built, a
+  principal holding a capability for the door's tenant reads the read-refusal
+  records of a principal of another tenant that has the same client id, and
+  learns which reference that principal asked for: an address or a URI, never
+  any content. The refused principal reads them back only through a
+  capability for the door's tenant. Keep client ids distinct across tenants
+  that share a door, or give each tenant its own door and recorder.
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the

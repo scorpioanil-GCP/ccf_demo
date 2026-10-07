@@ -1054,7 +1054,8 @@ def govern_dereference(
     the door's recorder and returned disclosed. ``cause="unauthorized"``
     distinguishes a failure of holds 1 to 3 on a genuine record of the
     caller's own tenant from ``"nonexistent"`` for everything else — another
-    tenant's record included (hold 0) — as internal truth; below ``full`` the
+    tenant's record (hold 0) and bytes the record writer did not file
+    (provenance) included — as internal truth; below ``full`` the
     two are one shell, and the request identity every shell carries is the
     mechanism constant plus the caller's own reference, never anything
     recovered from the target.
