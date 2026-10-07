@@ -296,14 +296,18 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Six decisions have to be made explicitly. None of the first five has a safe
-default the SDK could pick for you, which is why each of them is a
-construction-time argument rather than a setting buried in configuration. The
+Ten decisions have to be made explicitly, and §4.8 records two limitations the
+SDK discloses rather than fixes. Each decision is a construction-time argument
+or a declared artifact rather than a setting buried in configuration; where the
+SDK behaves a particular way when nothing is declared, its section says so. The
 first three concern the HTTP surface, whose endpoint-by-endpoint contract is on
 the [HTTP API page](../reference/http-api.md); the fourth concerns which
 transport the MCP product door serves on; the fifth concerns what the Claude
 Agent SDK adapter's child process inherits; the sixth is how many processes may
-boot one graph, which depends on the graph store.
+boot one graph, which depends on the graph store; the seventh is which sources
+may assert a classification; the eighth is which products a principal's grant
+may reach; the ninth is how the erasure index is declared and protected; the
+tenth is the default for a parameter a policy constraint bounds.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
