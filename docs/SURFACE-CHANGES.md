@@ -16591,7 +16591,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. `create_app` composes it always (U12).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17143,7 +17143,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. `create_app` composes it always (U12).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 

@@ -6,14 +6,15 @@ records. The fabric does not perform it as a mutation. A human approves it
 through the `ApprovalGate` of a workflow the deployment declares and the door
 validates. It is written as an immutable `ccf.erasure-record`, and the
 append-only registry mirror records it. The decorating store refuses to serve
-erased content on every read. `create_app` composes the decorating store
-around whatever store it is given (U12).
+erased content on every read. `compose_erasure_consult` composes the decorating
+store at every store construction site (U12, ruling 2). Authorization runs
+before the consult (ruling 1).
 
 Three behavior changes apply to existing public names:
 
 - `create_app` wraps `deps.artifact_store` in `ErasureConsultingStore`.
 - `resolve_artifact` and `resolve_artifact_at_uri` re-raise `ErasedContentRefused` by name. They do not turn it into `ReplayUnresolvable`.
-- `govern_dereference` maps the refusal by the caller's disclosure level:
+- `govern_dereference` runs the principal and grant holds first, against the unconsulted inner store. It then maps an erased address by the entitled caller's disclosure level:
   - at `minimal`, the route's not-found shell (404);
   - at `reasoned` and `full`, an `erased-content` shell (410).
 
@@ -26,6 +27,12 @@ What this change does not do:
 - **No graph erasure** (G8/O2).
 - **No un-erasure** (U6).
 - **No legal-compliance claim.**
+
+Disclosed residuals (ruling 5):
+
+- `RequestedAddress.retained_since` is the instant the minimum age is measured from. It is requester-declared and human-approved, not derived from the store, because the `ArtifactStoreProtocol` records no write instant.
+- `ClassRetention.minimum_age` is in whole days.
+- The MCP artifact server holds no Control Plane, so it does not compose the consult itself. A deployment passes it a store already composed with `compose_erasure_consult` (ruling 2, named and stopped).
 
 The door requires three things: the distinct `artifact.erase` capability for
 exactly the request, the workflow's `Execute`/`Resume` capabilities, and the
@@ -107,7 +114,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. `create_app` composes it always (U12).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -567,7 +574,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. `create_app` composes it always (U12).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 

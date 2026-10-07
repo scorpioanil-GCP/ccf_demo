@@ -9,8 +9,13 @@ validated one-gate workflow at the erasure door
 (``ccf_runtime.erasure.ErasureDoor``); on a human approval it is written as an
 immutable :class:`ErasureRecord` through the store's one write verb, and
 mirrored into the append-only registry index (:class:`ErasureIndex`) that the
-decorating store (:class:`ErasureConsultingStore`, composed ALWAYS) consults on
-every read, serving an ``erased-content`` reading instead of the bytes.
+decorating store (:class:`ErasureConsultingStore`, composed at every store
+construction site through :func:`compose_erasure_consult`) consults on every
+read, serving an ``erased-content`` reading instead of the bytes — to a caller
+entitled to the address, after authorization (ruling 1). The door also
+requires the distinct ``artifact.erase`` capability (ruling 3), and replay
+over erased content stays positive with the erasure disclosed for every
+erased input class (ruling 4).
 
 **What this package does NOT do — stated, not implied:**
 
@@ -25,6 +30,19 @@ every read, serving an ``erased-content`` reading instead of the bytes.
 * **No graph erasure** (G8/O2) and **no key custody or crypto-shredding**
   (G9/O3).
 * **No un-erasure** (U6): no record, verb or method reverses an erasure.
+
+**Disclosed residuals (ruling 5 on ``D-IMPL-374`` (4)):**
+
+* ``RequestedAddress.retained_since`` — the instant the minimum age is
+  measured from — is **requester-declared and human-approved**, not derived
+  from the store: the ``ArtifactStoreProtocol`` records no write instant. The
+  approval binds to the request's content identity, this field included.
+* ``ClassRetention.minimum_age`` is expressed in **whole days**, because the
+  canonical form has no rendering for a duration and a policy must hash.
+* The MCP artifact server (``ccf_runtime.mcp.artifact_server``) holds no
+  Control Plane and therefore does not compose the consult itself; a
+  deployment hands it a store already composed with
+  :func:`compose_erasure_consult` (ruling 2, named and stopped).
 
 Algorithmic package (CINV-03).
 """
