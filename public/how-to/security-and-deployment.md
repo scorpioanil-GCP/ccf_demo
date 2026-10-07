@@ -504,6 +504,45 @@ Q2 (a)).
   that process; spawn the client from an environment that carries only what
   the server needs, or use the loopback transport.
 
+### 4.9 Declare and protect the erasure index (SEC-009, D-IMPL-374)
+
+An erasure is recorded, never performed: the bytes stay on the substrate, and
+every store construction site refuses to serve an erased address. The refusal
+reads the deployment's durable erasure index
+(`src/ccf/erasure/index.py::FileErasureIndex`), declared at every site with no
+default. Decide three things before an erasure is ever approved.
+
+- **Where the index lives, and who can write it.** The file index opens with
+  `O_NOFOLLOW` and refuses, by name (`ErasureIndexInsecure`), a file that is a
+  symlink, not owned by the process's user, or not mode 0600, or a directory
+  that is not owned by that user or not mode 0700. Every line carries the hash
+  of the one before it, so an edited, reordered or removed line refuses at boot
+  (`ErasureIndexCorrupt`, which withholds every address under the index).
+  **An attacker with write access to the index file can un-erase its tail;
+  file modes and the deployment's filesystem controls are the mitigation.** A
+  hash chain cannot show that its last lines were cut off.
+- **Which classes the erase capability may write.** Declare
+  `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in the
+  store's `WriteKinds`, and grant `artifact.erase` only to the principals who
+  may file an erasure request. Neither class can be declared erasable.
+- **Which HITL transport holds pending approvals.** The door files the
+  recorded human approval as an immutable `ccf.erasure-approval` before the
+  index append, and the consult re-checks it from the store, so a completed
+  erasure stays verified across restarts and processes. A gate still
+  **pending** in the in-memory transport does not survive a restart: that is
+  the transport's limit, not the record's. A deployment that needs pending
+  approvals to outlive a process wires a durable transport.
+
+Two behaviors follow from the design and are stated rather than changed:
+
+- A retry of a completion must present the same erase authorization. A retry
+  under a fresh one is refused as `retry-mismatch`, because the record names
+  the authorizing decision and the index entries already pin the record.
+- Over the MCP-backed store, a names read that the server refuses for a
+  governed address reaches the door looking like an outage. The door refuses
+  `class-unverifiable` either way, so it fails closed, but the two causes are
+  not told apart.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

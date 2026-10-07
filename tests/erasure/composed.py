@@ -1,11 +1,19 @@
 """Shared SEC-009 erasure helpers for the per-site and per-door controls (`D-IMPL-374` (4)).
 
-``erase(store, index, address)`` plants a GENUINE erasure the way the door
-leaves one — write-ahead (fix round 1, ruling (ii)): the index entry first,
-then the ``ccf.erasure-record`` it names, filed under an ``ArtifactErase``
-capability into the same file store — so the consult's boot validation (the
-record is the only authority) finds an agreeing record. ``assert_consults``
-holds a site's store to refusing it.
+``erase(store, index, address)`` plants a GENUINE-SHAPED erasure the way the
+door leaves one — the recorded ``ccf.erasure-approval`` first (fix round 3),
+then the index entry (write-ahead, fix round 1 ruling (ii)), then the
+``ccf.erasure-record`` it names, all under the ``ArtifactErase`` capability
+bound to the request (fix round 2, I3) into the same file store — so the
+consult's boot validation finds an agreeing record and approval.
+``assert_consults`` holds a site's store to refusing it.
+
+**This helper BYPASSES THE DOOR ON PURPOSE, and lives under ``tests/`` only**
+(coordinator ruling on fix round 2's second block). It exercises the CONSULT —
+every store construction site's refusal — not the door's admission: several
+sites erase replay inputs or run on planes with no declared erasure workflow,
+which the door rightly refuses. The approval it files was given by no human;
+a production deployment can only obtain one through the door's recorded gate.
 """
 
 from __future__ import annotations
@@ -57,8 +65,20 @@ def subject_ref() -> str:
 def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artifact_class: str = h.DOC_CLASS) -> Any:
     """Plant one genuine erasure of ``address`` under ``tenant``; return the record."""
     ref = subject_ref()
-    approval_ref = "a" * 64
     record_id = content_hash({"tenant_id": tenant, "address": address, "planted": True})
+    actor = ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta")
+    approval = h.erasure("ErasureApproval")(
+        tenant_id=tenant,
+        request_id=record_id,
+        approver=actor,
+        verdict="approve",
+        acted_at=ERASED_AT,
+        gate="approval",
+        gate_state_hash="1" * 64,
+        workflow_definition_hash="2" * 64,
+        submission_hash="3" * 64,
+    )
+    approval_ref = content_hash(approval)
     record = h.erasure("ErasureRecord")(
         tenant_id=tenant,
         record_id=record_id,
@@ -71,7 +91,7 @@ def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artif
             ),
         ),
         erased_at=ERASED_AT,
-        actor=ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta"),
+        actor=actor,
         requested_by=h.REQUESTER,
         authorizing_decision_id="authz-decision-erase-planted",
         approval_policy_ref="ccf-artifact://acme-bank/approval-policy/erasure-officers@1.0.0",
@@ -85,6 +105,12 @@ def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artif
     # Write-ahead: the entry first, then the record it names — both under the
     # ERASE capability bound to this request (fix round 2, I3).
     erase_cap = _erase_capability(tenant, f"{h.SUBJECT_CLASS}/{record_id}")
+    kind = h.contract("ccf.authz.capability", "ArtifactErase")
+    filer = FileArtifactStore(
+        root=_root(store),
+        write_kinds=WriteKinds({h.ERASURE_RECORD_CLASS: (kind,), h.ERASURE_APPROVAL_CLASS: (kind,)}),
+    )
+    filer.put(erase_cap, DerivedWrite(artifact_class=h.ERASURE_APPROVAL_CLASS, name=approval_ref, artifact=approval))
     index.append(
         erase_cap,
         h.erasure("ErasureIndexEntry")(
@@ -99,8 +125,6 @@ def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artif
             erased_at=ERASED_AT,
         ),
     )
-    kind = h.contract("ccf.authz.capability", "ArtifactErase")
-    filer = FileArtifactStore(root=_root(store), write_kinds=WriteKinds({h.ERASURE_RECORD_CLASS: (kind,)}))
     filer.put(
         erase_cap,
         DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name=record_id, artifact=record),

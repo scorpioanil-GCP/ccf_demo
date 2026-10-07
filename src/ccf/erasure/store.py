@@ -63,7 +63,7 @@ from ccf.artifacts.protocol import (
     WriteKinds,
 )
 from ccf.controlplane.audit import AuditLog
-from ccf.erasure.contracts import ERASURE_RECORD_CLASS, ErasureRecord
+from ccf.erasure.contracts import ERASURE_RECORD_CLASS, ErasureApproval, ErasureRecord
 from ccf.erasure.errors import ErasedContentRefused, ErasureIndexCorrupt
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 
@@ -95,6 +95,11 @@ class ErasureIndexUnavailable(TypeError):
 _VALIDATED_HEADS: dict[tuple[str, int, str], frozenset[tuple[str, str, str]]] = {}
 _VALIDATED_HEADS_BOUND: Final[int] = 64
 _VALIDATED_HEADS_LOCK = threading.Lock()
+
+
+#: The recorded gate action that approves (the HITL gate's ``approve``). Kept a
+#: literal here so the algorithmic store does not import the HITL gate.
+_APPROVING_VERDICT: Final[str] = "approve"
 
 
 def _identity(subject: object, attribute: str) -> str:
@@ -226,6 +231,7 @@ class ErasureConsultingStore:
                 and record.reason == entry.reason
                 and record.erased_at == entry.erased_at
                 and entry.content_address in {a.content_address for a in record.addresses}
+                and self._approved(record)
             )
         except (ArtifactStoreError, KeyError, OSError, ValidationError, ValueError):
             agrees = False
@@ -243,6 +249,25 @@ class ErasureConsultingStore:
                 artifact_class=ERASURE_RECORD_CLASS,
             )
         return False
+
+    def _approved(self, record: ErasureRecord) -> bool:
+        """Whether ``record.approval_ref`` resolves to the RECORDED approval of this request (fix round 3).
+
+        The door filed it before the index append; it is content-addressed and
+        immutable, so this check needs nothing but the store, and holds across a
+        restart. It must name this request and this tenant, approve, and name the
+        approver the record names. A missing approval raises, and the caller
+        counts that as unsupported.
+        """
+        payload = self._inner.get(content_address=record.approval_ref)
+        approval = ErasureApproval.model_validate_json(payload)
+        return (
+            hashlib.sha256(payload).hexdigest() == record.approval_ref
+            and approval.tenant_id == record.tenant_id
+            and approval.request_id == record.request_id
+            and approval.verdict == _APPROVING_VERDICT
+            and approval.approver == record.actor
+        )
 
     def _refusal(self, entry: ErasureIndexEntry, *, disclose: bool) -> ErasedContentRefused:
         supported = self._supported(entry)

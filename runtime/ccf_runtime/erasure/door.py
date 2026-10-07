@@ -59,9 +59,11 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import state_key
 from ccf.erasure.contracts import (
+    ERASURE_APPROVAL_CLASS,
     ERASURE_RECORD_CLASS,
     REPLAY_INPUT_PATHS,
     ErasedAddress,
+    ErasureApproval,
     ErasureRecord,
     ErasureRequest,
     ErasureSubjectClass,
@@ -242,6 +244,9 @@ class ErasureDoor:
             )
             if entry is not None and entry.request_id == request.request_id
         )
+        # The record is DETERMINISTIC across retries: its instant is the one
+        # the write-ahead entries already carry, when a prior attempt wrote them.
+        erased_at = prior[0].erased_at if prior else self._clock()
         if state.status == "suspended":
             gate = state.current_state
             bound = recorded_submission.principal.product_content_hash == content_hash(state)
@@ -251,9 +256,25 @@ class ErasureDoor:
             # and the approval is the one the write-ahead entries name.
             resumed = [t for t in state.trace if t.kind == "resume"]
             gate = resumed[-1].source if resumed else ""
-            bound = all(e.approval_ref == content_hash(recorded_submission) for e in prior)
+            bound = True  # checked against the approval's address below
         else:
             raise self._approval_not_recorded()
+        # Fix round 3 (I3 part 2, option (a)): the RECORDED approval, as an
+        # immutable content-addressed artifact; its address is approval_ref.
+        approval = ErasureApproval(
+            tenant_id=tenant,
+            request_id=request.request_id,
+            approver=recorded_submission.principal.approver,
+            verdict=recorded_submission.action,
+            acted_at=erased_at,
+            gate=gate or "-",
+            gate_state_hash=recorded_submission.principal.product_content_hash,
+            workflow_definition_hash=content_hash(workflow.definition),
+            submission_hash=content_hash(recorded_submission),
+        )
+        approval_ref = content_hash(approval)
+        if prior and any(e.approval_ref != approval_ref for e in prior):
+            bound = False
         recorded = (
             bound
             and resolution.record.approved
@@ -295,9 +316,6 @@ class ErasureDoor:
                 f"the erasure workflow did not suspend on its next gate ({outcome!r})"[:400],
                 reason_code="workflow-refused",
             )
-        # The record is DETERMINISTIC across retries: its instant is the one
-        # the write-ahead entries already carry, when a prior attempt wrote them.
-        erased_at = prior[0].erased_at if prior else self._clock()
         addresses = tuple(
             ErasedAddress(
                 content_address=address.content_address,
@@ -331,7 +349,7 @@ class ErasureDoor:
             # the one the write-ahead entries name.
             authorizing_decision_id=erase.decision_id,
             approval_policy_ref=str(event.policy_ref),
-            approval_ref=content_hash(recorded_submission),
+            approval_ref=approval_ref,
             retention_decision=decision,
             reason=request.reason,
             legal_basis=request.legal_basis,
@@ -352,6 +370,12 @@ class ErasureDoor:
         # retry of this method completes it (the entries are idempotent, the
         # record deterministic, and a terminal execution with this request's
         # entries is accepted above). A record with no entry cannot exist.
+        # The approval FIRST (fix round 3): an entry must never name an
+        # approval that is not on the substrate. Idempotent — content-addressed.
+        self._store.put(
+            erase,
+            DerivedWrite(artifact_class=ERASURE_APPROVAL_CLASS, name=approval_ref, artifact=approval),
+        )
         for address in addresses:
             self._index.append(
                 erase,
@@ -526,10 +550,11 @@ class ErasureDoor:
                     reason_code="address-not-in-tenant",
                 )
             classes = {name.artifact_class for name in own}
-            if ERASURE_RECORD_CLASS in classes:
+            if classes & {ERASURE_RECORD_CLASS, ERASURE_APPROVAL_CLASS}:
                 raise ErasureRefused(
-                    "an erasure record is never erasable: the fact of an erasure stays"
-                    " servable at its own address (SEC-009; D-IMPL-374 (4), C2)",
+                    "an erasure record or recorded approval is never erasable: the"
+                    " erasure's evidence stays servable at its own address (SEC-009;"
+                    " D-IMPL-374 (4), C2; fix round 3)",
                     reason_code="mechanism-class-not-erasable",
                 )
             if classes != {address.artifact_class}:

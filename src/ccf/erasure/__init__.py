@@ -69,6 +69,7 @@ Algorithmic package (CINV-03).
 from __future__ import annotations
 
 from ccf.erasure.contracts import (
+    ERASURE_APPROVAL_CLASS,
     ERASURE_RECORD_CLASS,
     ERASURE_SUBJECT_DECLARATION,
     REPLAY_INPUT_PATHS,
@@ -76,6 +77,7 @@ from ccf.erasure.contracts import (
     RETENTION_REASON_CODES,
     ClassRetention,
     ErasedAddress,
+    ErasureApproval,
     ErasureRecord,
     ErasureRequest,
     ErasureSubjectClass,
@@ -112,6 +114,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ERASURE_INDEX_FILENAME",
+    "ERASURE_APPROVAL_CLASS",
     "ERASURE_RECORD_CLASS",
     "ERASURE_SUBJECT_DECLARATION",
     "GENESIS",
@@ -122,6 +125,7 @@ __all__ = [
     "RETENTION_REASON_CODES",
     "ClassRetention",
     "ErasedAddress",
+    "ErasureApproval",
     "ErasedContentRefused",
     "ErasureConsultingStore",
     "ErasureIndexCorrupt",

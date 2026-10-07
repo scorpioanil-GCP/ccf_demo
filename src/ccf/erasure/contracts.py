@@ -40,6 +40,7 @@ from ccf.hitl.principal import ApproverIdentity
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "ERASURE_APPROVAL_CLASS",
     "ERASURE_RECORD_CLASS",
     "ERASURE_SUBJECT_DECLARATION",
     "REPLAY_INPUT_PATHS",
@@ -47,6 +48,7 @@ __all__ = [
     "RETENTION_REASON_CODES",
     "ClassRetention",
     "ErasedAddress",
+    "ErasureApproval",
     "ErasureRecord",
     "ErasureRequest",
     "ErasureSubjectClass",
@@ -64,8 +66,16 @@ __all__ = [
 #: The artifact class an erasure record is filed under (design §2.3). An SDK
 #: mechanism identifier, as ``ccf.approval-policy`` is; the deployment still
 #: declares it mechanism-written in its :class:`~ccf.artifacts.protocol.WriteKinds`
-#: (under ``Resume`` — the resumption's authority writes it, §4.1).
+#: under ``ArtifactErase`` (fix round 1, I3) — never a workflow's ``Resume``.
 ERASURE_RECORD_CLASS: Final[str] = "ccf.erasure-record"
+
+#: The artifact class the door files the RECORDED human approval under, before
+#: the index append (fix round 3, I3 part 2, option (a)). Declared beside the
+#: record class under ``ArtifactErase``. Never erasable, like the record.
+ERASURE_APPROVAL_CLASS: Final[str] = "ccf.erasure-approval"
+
+#: The classes an erasure can never name: the erasure's own evidence.
+_NEVER_ERASABLE: Final[frozenset[str]] = frozenset({ERASURE_RECORD_CLASS, ERASURE_APPROVAL_CLASS})
 
 #: The Decision Replay record paths that are replay INPUTS (design §2.2, U2):
 #: never erased, so never declarable as a subject key path. The SDK's OWN field
@@ -138,6 +148,17 @@ class ErasureSubjectClass(CCFContract):
     artifact_classes: tuple[str, ...] = Field(min_length=1)
     identifier_kind: Literal["opaque", "principal"]
     subject_ref_salt: str = Field(min_length=1)
+
+    @field_validator("artifact_classes")
+    @classmethod
+    def _no_mechanism_class(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        evidence = sorted(set(value) & _NEVER_ERASABLE)
+        if evidence:
+            raise ValueError(
+                f"{evidence!r} is the erasure's own evidence and is never erasable"
+                " (SEC-009; D-IMPL-374 (4), fix round 3)"
+            )
+        return value
 
     @field_validator("key_paths")
     @classmethod
@@ -394,6 +415,46 @@ class ErasedAddress(CCFContract):
     scope: Literal["whole"] = Field(default="whole", json_schema_extra={HASH_TRANSPARENT_KEY: False})
 
 
+class ErasureApproval(CCFContract):
+    """The RECORDED human approval of one erasure request, filed as an artifact (SEC-009; `D-IMPL-374` (4), fix round 3).
+
+    The door files it as ``ccf.erasure-approval`` at completion, BEFORE the
+    index append, from the gate submission the HITL transport recorded — never
+    from anything the caller presents. Its content address IS the
+    ``approval_ref`` of the erasure record and of every index entry, and the
+    decorating store resolves it on validation: an entry whose approval is
+    absent, or names another request or tenant, or does not approve, is
+    ``index-unsupported``. Immutable and content-addressed, so the check needs no
+    plane beyond the ArtifactStore and holds across restarts and processes.
+
+    Attributes:
+        tenant_id: The tenant the approved request is for.
+        request_id: The content identity of the approved erasure request.
+        approver: The approver identity on the recorded submission.
+        verdict: The recorded submission's action (``approve`` approves).
+        acted_at: The fabric instant the door filed this record at completion.
+            The HITL submission carries no action instant of its own, so this
+            is the instant the approval was acted on by the door — the same
+            instant the erasure record carries, deterministic across retries.
+        gate: The approval gate's state name in the erasure workflow.
+        gate_state_hash: The suspended-state content hash the approver's
+            principal binding names — what the approver saw.
+        workflow_definition_hash: The content hash of the workflow definition
+            the gate belongs to.
+        submission_hash: The content hash of the recorded gate submission.
+    """
+
+    tenant_id: str = Field(min_length=1)
+    request_id: str = Field(min_length=1)
+    approver: ApproverIdentity
+    verdict: str = Field(min_length=1)
+    acted_at: datetime
+    gate: str = Field(min_length=1)
+    gate_state_hash: str = Field(min_length=1)
+    workflow_definition_hash: str = Field(min_length=1)
+    submission_hash: str = Field(min_length=1)
+
+
 class ErasureRecord(CCFContract):
     """The immutable erasure FACT (G3) — asserted, never retracted (U6) (SEC-009; `D-IMPL-374` (4)).
 
@@ -416,8 +477,9 @@ class ErasureRecord(CCFContract):
     requested_by: str
     authorizing_decision_id: str
     approval_policy_ref: str
-    #: The content hash of the RECORDED approval submission (fix round 1, I2/I3)
-    #: — what every index entry naming this record must carry.
+    #: The content address of the filed :class:`ErasureApproval` (fix round 3,
+    #: I3 part 2) — what every index entry naming this record must carry, and
+    #: what the consult resolves to verify a human approved this request.
     approval_ref: str
     retention_decision: RetentionDecision
     reason: str
