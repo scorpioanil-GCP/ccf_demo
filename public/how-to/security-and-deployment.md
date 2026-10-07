@@ -1060,35 +1060,91 @@ argument is required).
   which resolver version made its resolution; do not read the version bump as
   already replay-pinned.
 
-### 4.12 Acquire by subject when a projection withholds a subject (SEC-020, D-IMPL-376)
+### 4.12 A withheld subject can still be told from a nonexistent one (SEC-020, open; D-IMPL-376)
 
 A projection that must not tell the asking principal about a subject sets
 `withheld=True` on its `ProjectionOutput` and returns the payload it returns
-for a subject it cannot see. The governed call then computes everything the
-product says about its evidence (its Context Debt, its empty finding, its TTL
-anchor) from the same plan run without the request's subject as a walk start,
-over the fabric as it stood immediately before the call's declared acquisition
-seam ran (`src/ccf/products/resolver.py::GovernedResolver`). A subject that
-names nothing has nothing acquired for it, so that is the fabric its own
-question walks, and the two products match member for member.
+for a subject it cannot see. The governed call then computes the product's
+Context Debt, empty finding and TTL anchor from the same plan run without the
+request's subject as a walk start, over the fabric as it stood immediately
+before the call's declared acquisition seam ran
+(`src/ccf/products/resolver.py::GovernedResolver`).
 
-- **The match holds when an identifier that names nothing acquires nothing.**
-  That is what a source read keyed on the subject returns for an identifier it
-  does not hold. If your `acquire` reads the same content whatever the subject
-  (a population read), a nonexistent subject's question walks that content
-  and a withheld subject's rendering does not, so the two differ: measured, at
-  the empty finding under `from_decision`, and as `ttl-refusal` against
-  `ttl-anchor-refusal` under `from_entity_freshness`. For a product whose
-  projection withholds subjects, key the acquisition on the subject.
+**What that makes equal, as measured.** On the paved road's test fixture, a
+withheld subject's served product, every member of it, and its refusal shell,
+every member except `replay_reference`, matched a nonexistent subject's on both
+TTL anchors. That is a measurement, not a proof. The fixture meets four
+conditions, and the list below includes a measured break of each: your
+`acquire` is keyed on the subject, so an identifier it does not hold acquires
+nothing; the fabric is booted for the question, as the paved road boots one
+per question; the product class composes no child about the subject; and no
+similarity operator in the plan scores an entity the acquisition refreshed.
+The test is
+`tests/products/test_withheld_is_indistinguishable_from_absent.py::test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject`.
+
+**SEC-020 is open.** Each of the following still tells a withheld subject from
+a nonexistent one. Each was measured on test fixtures.
+
+- **The answer's replay reference.** Every answer names its decision record:
+  `ServedProduct.replay_ref`, the MCP egress door's `replay_ref`, the HTTP
+  product route's `X-CCF-Replay-Ref` header, and a refusal's
+  `replay_reference`. The record is filed under its graph snapshot id, a hash
+  of what the plan actually read together with the tenant and the question's
+  instant (`src/ccf/replay/serve.py::ReplayWriter`). When the plan's walk
+  reaches the subject's acquired records, as a class-seeded plan on the paved
+  road does, the withheld answer's reference carried a different record name
+  from the one two nonexistent subjects' answers shared, on both anchors, with
+  no dereference at all. The vessels still matched, so this channel is the
+  reference, not the product.
+- **The record behind it.** Dimension 1 of a withheld decision's record lists
+  what the plan actually read, the acquired subject included, and an owner at
+  full disclosure can read its own record through the governed dereference
+  (D-IMPL-345). Protect access to records as you would the subject itself.
+- **Composite children.** A class that declares `requires` resolves its
+  children for the asked subject before its plan runs and composes them
+  afterward: the composed factors replace the debt, and the composed expiry
+  and lineage stand in the product
+  (`src/ccf/products/resolver.py::GovernedResolver`). None of that is
+  re-rendered for a withheld subject. With a required child asked about the
+  composite's own subject from a source keyed on it, the two products differed
+  at `debt.debt` and `debt.factors.freshness`; with the child asked about a
+  fixed subject, they did not.
+- **Similarity over an entity the acquisition refreshed.** The re-run reuses
+  the operator registry built from the view read after acquisition, so the
+  similarity operator scores the subject against the text acquisition just
+  wrote. On a fabric that already held the subject, an acquisition that
+  changed its similarity attribute made the two products differ at the empty
+  finding and the debt. Without the similarity operator, with the attribute
+  unchanged, or with the registry built from the view read before
+  acquisition, they did not.
+- **A fabric that outlives the question.** The withheld subject's acquisition
+  stays in the fabric, and later questions read it. After one question about a
+  withheld subject the source holds, a later answer about an identifier that
+  names nothing moved at `debt.debt` and `debt.factors.freshness`; when the
+  source held nothing, it did not. The paved road boots a fabric for each
+  question; a deployment composed by hand over a long-lived fabric does not.
+- **An acquisition not keyed on the subject.** If your `acquire` reads the same
+  content whatever is asked (a population read), a nonexistent subject's
+  question walks that content and the withheld rendering does not. The two
+  differ at the empty finding under `from_decision`, and as `ttl-refusal`
+  against `ttl-anchor-refusal` under `from_entity_freshness`.
+
+**Until SEC-020 closes,** do not rely on `withheld=True` to keep a subject's
+existence from a caller that can see an answer's replay reference, whenever the
+plan's walk reaches the subject's records. The in-process answer, the MCP
+egress door and the HTTP product route all return one.
+
 - **One more read per question.** With an acquisition seam declared, every
   governed call reads the tenant's graph once more, before the seam, whether
-  or not the projection later withholds. On the paved road the fabric is
-  booted fresh for each question, so that read is of a fabric holding only
-  what boot put there.
-- **The replay record keeps the real read.** Dimension 1 of a withheld
-  decision's record lists what the plan actually read, the acquired subject
-  included. The record is the audit plane, so protect access to it as you
-  would the subject itself.
+  or not the projection later withholds. On a test fabric of about 3,000
+  entities this raised a governed call's median time to 1.2 to 1.3 times that
+  of the same call with no seam, over two runs of six calls. That is one
+  fixture's figure, not a sizing guide.
+- **The withheld branch's own time, measured at one scale only.** A withheld
+  answer runs the plan a second time. On a test fabric of about 1,500
+  entities, withheld and nonexistent answers had medians within 2 percent of
+  each other and overlapping ranges over eight calls each. Larger fabrics and
+  heavier plans are unmeasured.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

@@ -92,15 +92,25 @@ class ProjectionOutput(CCFContract):
     what it returns for a subject it cannot see. The governed resolver then
     renders the product's debt, empty finding and TTL anchor from the SAME
     plan re-executed WITHOUT THE REQUEST SEED over the fabric as it stood
-    BEFORE this request's acquisition — the walk an identifier that names
-    nothing gets, the plan's class seeds alone, over a fabric its own question
-    acquired nothing into — so a withheld subject is indistinguishable from a
-    nonexistent one by construction wherever an identifier that names nothing
-    acquires nothing, which is what a source keyed on the subject returns (the
-    other acquisition shape is disclosed in the security how-to, section 4.12)
+    BEFORE this request's acquisition — the plan's class seeds alone, the walk
+    of an identifier that names nothing
     (``src/ccf/products/resolver.py::GovernedResolver``,
     ``src/ccf/projection/engine.py::ProjectionEngine.execute_without_request_seed``;
     the fabric before acquisition is ``D-IMPL-376`` (3), route A).
+
+    **What that makes equal, and what it does not: SEC-020 is OPEN.** It is
+    not a guarantee that a withheld subject cannot be told from a nonexistent
+    one. Measured on the paved road's test fixture, the served product then
+    matches a nonexistent subject's on both TTL anchors, for an acquisition
+    keyed on the subject, on a fabric booted for the question, with no
+    composite child about the subject and no similarity operator scoring an
+    entity the acquisition refreshed. Measured as still telling them apart:
+    the answer's replay reference, whose record name hashes the real read; the
+    record's dimension 1; composite children, which are not re-rendered;
+    similarity over an entity the acquisition refreshed, because the operator
+    registry is the one built after acquisition; a fabric that outlives the
+    question; and an acquisition not keyed on the subject. The security how-to,
+    section 4.12, describes each.
 
     The signal is the ONLY way into that branch. An empty payload without it
     is a legitimately empty answer and keeps the debt and the finding its real

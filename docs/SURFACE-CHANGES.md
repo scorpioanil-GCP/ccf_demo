@@ -25378,8 +25378,8 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Change type: reshaped
 - Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
 - After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
-- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes the pre-existing divergence for every empty-finding product.
-- Migration: none for records. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`, and its replay still fails with `ReplayDivergence`: measured with a computed-empty product's record filed without the member, as a writer before this change filed it.
+- Migration: none is possible for a record written before this change: records are immutable, it carries no finding to copy, and its replay still diverges. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
 
 *Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 
@@ -26105,7 +26105,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Change type: reshaped
 - Before: `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)` always read the store at `executed.store_snapshot_pin` where it could pin, so it walked whatever the store held at that pin.
 - After: adds the keyword `before_acquisition: GraphView | None = None`. When given, every query of the re-execution is answered over that one as-of read by the reference semantics, carrying and enforcing the classification authority the read carried. A query at another tenant or instant, and the two history reads, are refused rather than answered from a state the reader does not hold. `None` keeps the previous behavior.
-- Why: SEC-020, `D-IMPL-376` (3) route A. The fabric before this request's acquisition is the state a subject that names nothing walks.
+- Why: SEC-020, `D-IMPL-376` (3) route A. The fabric before this request's acquisition is the state the walk of a subject that names nothing reads, when the acquisition is keyed on the subject and the fabric is booted for the question.
 - Migration: none. The keyword is additive and defaults to the previous behavior.
 
 *Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
@@ -33805,8 +33805,8 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Change type: behavior
 - Before: a subject Π withheld was rendered from the plan re-executed without the request seed over the fabric as it stood after the declared acquisition seam had ingested the asked subject's evidence. On a class-seeded plan its debt, empty finding and TTL anchor therefore reflected evidence that a never-acquired subject's fabric does not hold.
 - After: when `acquisition` is declared, `__call__` reads the fabric (`reader.as_of` at `request.asked_at`) once, after every refusal that precedes the seam and immediately before the seam runs. A subject Π withholds is rendered from the plan re-executed without the request seed over that read. With no seam declared nothing is read in addition and the rendering is unchanged. Every refusal before the seam still reads nothing.
-- Why: SEC-020, `D-IMPL-376` (3) route A. A withheld subject must be indistinguishable from a nonexistent one on the paved road, where acquisition populates each question's fabric before the plan runs.
-- Migration: none for a product whose Π never withholds. A deployment with an acquisition seam makes one more as-of read of the tenant's graph per governed call (the call already makes one). A product whose Π withholds subjects should acquire by subject: see the scope above.
+- Why: SEC-020, `D-IMPL-376` (3) route A. On the paved road acquisition populates each question's fabric before the plan runs, and this removes the difference that made in the served product. SEC-020 stays OPEN: see the channels above.
+- Migration: none for a product whose Π never withholds. A deployment with an acquisition seam makes one more as-of read of the tenant's graph per governed call (the call already makes one). Before relying on Π's withheld signal, read the channels above that still tell a withheld subject from a nonexistent one.
 
 *Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
 
