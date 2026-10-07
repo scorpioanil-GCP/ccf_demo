@@ -22,17 +22,18 @@ authors = [{ name = "drcastillo" }]
 
 # Deliberately empty, and the emptiness is a decision rather than an omission
 # (threat T-15.4-SC). This package imports `ccf` and cannot run without it, so
-# the natural spelling is `dependencies = ["ccf"]` — which is the wrong thing to
-# write here. The name `ccf` on PyPI belongs to an unrelated project (7.0.12 at
-# the time of writing); this repository's `ccf` is 0.1.0, private, and
-# unpublished. Naming it as a requirement would point a resolver at a name this
-# project does not own on any index, so an environment without the local
-# editable install would silently acquire somebody else's package instead of
-# failing.
+# the natural spelling is a dependency on the SDK — which is the wrong thing to
+# write here. The SDK's distribution is `ccf-sdk` (SEC-027): private, and
+# published to no index. The PyPI name `ccf` belongs to an unrelated project
+# (Microsoft's Confidential Consortium Framework, which also imports as `ccf`).
+# Naming either as a requirement would point a resolver at an index that does
+# not hold this SDK, so an environment without the local editable install
+# would acquire somebody else's package, or no SDK code at all, instead of
+# failing loudly.
 #
 # What replaces the declaration is ordering plus a loud failure: `make install`
-# installs `ccf` editable first and this distribution second, and a missing
-# `ccf` surfaces as an ImportError the moment `ccf.graph.registry.resolve`
+# installs the SDK (`ccf-sdk`) editable first and this distribution second, and
+# a missing SDK surfaces as an ImportError the moment `ccf.graph.registry.resolve`
 # imports this adapter — never as a substitution.
 #
 # No third-party package is named here, which is the property the threat

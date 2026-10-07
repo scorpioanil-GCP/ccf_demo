@@ -1,0 +1,18 @@
+# Name-reservation placeholder: no packages, no modules, no dependencies, no
+# entry points.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccf-sdk"
+version = "0.0.0"
+description = "Reserved name for the Cognitive Context Fabric SDK. This package contains no code."
+readme = "README.md"
+dependencies = []
+
+[tool.setuptools]
+packages = []
+py-modules = []
+include-package-data = false

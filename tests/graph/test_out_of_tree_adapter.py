@@ -357,8 +357,8 @@ def test_the_sdk_distribution_does_not_depend_on_the_fixture() -> None:
 
     Every development checkout and every CI runner has this fixture installed,
     so ``ccf backends list`` reports a seventh name. That cost is accepted, and
-    what bounds it is this: the fixture is not a dependency of the ``ccf``
-    distribution, so ``pip install ccf`` never pulls it. ``make install`` is the
+    what bounds it is this: the fixture is not a dependency of the ``ccf-sdk``
+    distribution, so installing ``ccf-sdk`` never pulls it. ``make install`` is the
     developer bootstrap, not an adopter's install path.
 
     Prose in a README saying so is worth less than a check, because the way

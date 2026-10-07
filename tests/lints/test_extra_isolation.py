@@ -48,14 +48,15 @@ AGGREGATE_EXTRA = "harnesses"
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: `name==1.2.3`, `name[signing]>=1`, `ccf[adk,claude-agent]` — capture the
+#: `name==1.2.3`, `name[signing]>=1`, `ccf-sdk[adk,claude-agent]` — capture the
 #: distribution name, which is everything before the first version specifier,
 #: extras bracket, or whitespace.
 _REQUIREMENT_NAME = re.compile(r"^\s*([A-Za-z0-9._-]+)")
 
-#: `ccf[adk,claude-agent,langgraph]` — a self-referential extra. Captured so a
-#: self-reference can be expanded rather than mistaken for a real distribution.
-_SELF_REFERENCE = re.compile(r"^\s*ccf\s*\[([^\]]+)\]\s*$")
+#: `name[extras]` with nothing after the bracket — the shape of a self-referential
+#: extra (`ccf-sdk[adk,claude-agent,langgraph]`) once its name is this project's;
+#: see `_self_reference`.
+_BARE_EXTRAS = re.compile(r"^\s*[A-Za-z0-9._-]+\s*\[([^\]]+)\]\s*$")
 
 
 def _normalize(name: str) -> str:
@@ -67,6 +68,28 @@ def _requirement_name(requirement: str) -> str:
     match = _REQUIREMENT_NAME.match(requirement)
     assert match is not None, f"unparseable requirement: {requirement!r}"
     return _normalize(match.group(1))
+
+
+#: This project's own distribution name, READ from `[project] name` rather than
+#: spelled here. SEC-027 renamed the distribution `ccf` -> `ccf-sdk`; the copy this
+#: module used to spell (`^\s*ccf\s*\[`) was a second place the rename had to find.
+_PROJECT_NAME = _normalize(
+    tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]["name"]
+)
+
+
+def _self_reference(requirement: str) -> str | None:
+    """The extras a self-referential requirement names, or None.
+
+    A self-reference is a bare `name[extras]` whose name is this project's own.
+    Captured so it can be expanded rather than mistaken for a real distribution.
+    """
+    match = _BARE_EXTRAS.match(requirement)
+    if match is None or _requirement_name(requirement) != _PROJECT_NAME:
+        return None
+    return match.group(1)
 
 
 @pytest.fixture(scope="module")
@@ -92,16 +115,16 @@ def core_dependencies(pyproject: dict[str, Any]) -> list[str]:
 def _resolve_extra(extras: dict[str, list[str]], name: str) -> set[str]:
     """The full set of distribution names an extra installs, self-references expanded.
 
-    `harnesses = ["ccf[adk,claude-agent,langgraph]"]` must resolve to the same
+    `harnesses = ["ccf-sdk[adk,claude-agent,langgraph]"]` must resolve to the same
     answer as spelling the three requirements out, or the aggregate extra could
     satisfy D-08's one-command requirement while the isolation assertions below
     silently examined nothing.
     """
     resolved: set[str] = set()
     for requirement in extras[name]:
-        self_ref = _SELF_REFERENCE.match(requirement)
+        self_ref = _self_reference(requirement)
         if self_ref is not None:
-            for referenced in self_ref.group(1).split(","):
+            for referenced in self_ref.split(","):
                 resolved |= _resolve_extra(extras, referenced.strip())
             continue
         resolved.add(_requirement_name(requirement))
@@ -120,7 +143,7 @@ def _extras_naming(extras: dict[str, list[str]], distribution: str) -> set[str]:
         extra
         for extra, requirements in extras.items()
         for requirement in requirements
-        if _SELF_REFERENCE.match(requirement) is None
+        if _self_reference(requirement) is None
         and _requirement_name(requirement) == target
     }
 

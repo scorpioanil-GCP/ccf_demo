@@ -311,6 +311,23 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   `[build-system].requires` build set), pins a version the declared specifier
   does not admit, or whose compile header does not name the ruled extras.
 
+### 3.1 The distribution name is `ccf-sdk` (SEC-027)
+
+The SDK's distribution is named `ccf-sdk`; its import name is `ccf`. The PyPI
+name `ccf` belongs to Microsoft's Confidential Consortium Framework, which also
+installs a top-level `ccf` package, so a distribution named `ccf` made
+`pip install ccf` a dependency-confusion path. The SDK is not published to any
+public index: install it from the repository, never by name, and never into an
+environment that holds Microsoft's `ccf`. pip installs the two side by side
+without a warning, and each overwrites or deletes the other's
+`ccf/__init__.py`. `README.md` ("The distribution is `ccf-sdk`") gives the
+install and migration steps. Every reader of the SDK's own installed metadata
+names `ccf-sdk`: the built-in adapter's replay pin reads its version through
+`src/ccf/graph/registry.py::SDK_DISTRIBUTION`, and the release version gate
+discovers through `tools/check_version_stamp.py::DISTRIBUTION`. The test
+`tests/test_distribution_name.py::test_every_reader_of_the_sdks_own_metadata_names_the_declared_distribution`
+holds both to `[project] name`.
+
 ## 4. Deployment posture: what to decide before a surface is up
 
 Ten decisions have to be made explicitly, and §4.8 records two limitations the

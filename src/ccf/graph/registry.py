@@ -184,8 +184,14 @@ ADAPTER_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 BACKENDS_PACKAGE = "ccf.graph.backends"
 BACKENDS_DIR_NAME = "backends"
 
-#: This distribution's name, used to derive a built-in adapter's pin.
-SDK_DISTRIBUTION = "ccf"
+#: This distribution's name, used to derive a built-in adapter's pin. It is
+#: the DISTRIBUTION name, not the import name (SEC-027): ``ccf`` on public PyPI
+#: is Microsoft's Confidential Consortium Framework, which also installs a
+#: top-level ``ccf`` package, so a lookup by ``ccf`` would read that package's
+#: version into the replay pin whenever it is installed. Equal to
+#: ``[project] name`` in ``pyproject.toml`` and to
+#: ``tools/check_version_stamp.py::DISTRIBUTION``.
+SDK_DISTRIBUTION = "ccf-sdk"
 
 #: Positive "the environment could not tell us" markers. A source checkout that
 #: was never installed has no distribution metadata, and a pin that silently
