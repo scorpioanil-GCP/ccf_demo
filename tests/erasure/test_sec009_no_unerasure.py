@@ -65,7 +65,7 @@ def test_an_index_entry_is_never_replaced_and_a_reopen_still_withholds(tmp_path:
     composed.erase(inner, index, ref.content_address)
     entry = index.lookup(tenant_id=h.TENANT, content_address=ref.content_address)
     with pytest.raises(h.erasure("ErasureIndexEntryExists")):
-        index.append(entry.model_copy(update={"erasure_record_address": "0" * 64}))
+        composed.append_as(index, entry.model_copy(update={"erasure_record_address": "0" * 64}))
     reopened = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
     store = h.erasure("compose_erasure_consult")(
         inner, index=reopened, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, tenant_id=h.TENANT

@@ -89,13 +89,16 @@ from ccf.erasure.contracts import (
     judge_retention,
     subject_ref_for,
 )
+from ccf.erasure.errors import INDEX_CORRUPT, ErasureIndexCorrupt, ErasureIndexInsecure
 from ccf.erasure.index import (
     ERASURE_INDEX_FILENAME,
+    GENESIS,
     ErasureIndexEntryExists,
     ErasureIndexEntry,
     ErasureIndexProtocol,
     FileErasureIndex,
     erasure_index_at,
+    require_append_authority,
 )
 from ccf.erasure.store import (
     INDEX_UNSUPPORTED,
@@ -111,6 +114,8 @@ __all__ = [
     "ERASURE_INDEX_FILENAME",
     "ERASURE_RECORD_CLASS",
     "ERASURE_SUBJECT_DECLARATION",
+    "GENESIS",
+    "INDEX_CORRUPT",
     "INDEX_UNSUPPORTED",
     "REPLAY_INPUT_PATHS",
     "RETENTION_HOLD_POLICY",
@@ -119,8 +124,10 @@ __all__ = [
     "ErasedAddress",
     "ErasedContentRefused",
     "ErasureConsultingStore",
-    "ErasureIndexEntryExists",
+    "ErasureIndexCorrupt",
     "ErasureIndexEntry",
+    "ErasureIndexEntryExists",
+    "ErasureIndexInsecure",
     "ErasureIndexProtocol",
     "ErasureIndexUnavailable",
     "ErasureRecord",
@@ -137,5 +144,6 @@ __all__ = [
     "compose_erasure_consult",
     "erasure_index_at",
     "judge_retention",
+    "require_append_authority",
     "subject_ref_for",
 ]

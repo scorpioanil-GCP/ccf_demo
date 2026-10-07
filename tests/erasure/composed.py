@@ -45,6 +45,11 @@ def _erase_capability(tenant: str, resource: str) -> Any:
     )
 
 
+def append_as(index: Any, entry: Any) -> None:
+    """Append ``entry`` under the ERASE capability bound to ITS request (fix round 2, I3)."""
+    index.append(_erase_capability(entry.tenant_id, f"{entry.subject_class}/{entry.request_id}"), entry)
+
+
 def subject_ref() -> str:
     return str(h.erasure("subject_ref_for")(h.declaration(), h.SUBJECT_CLASS, h.SUBJECT_ID))
 
@@ -57,6 +62,7 @@ def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artif
     record = h.erasure("ErasureRecord")(
         tenant_id=tenant,
         record_id=record_id,
+        request_id=record_id,
         subject_class=h.SUBJECT_CLASS,
         subject_ref=ref,
         addresses=(
@@ -76,22 +82,27 @@ def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artif
         reason=REASON,
         legal_basis="planted by the test",
     )
-    # Write-ahead: the entry first, then the record it names.
+    # Write-ahead: the entry first, then the record it names — both under the
+    # ERASE capability bound to this request (fix round 2, I3).
+    erase_cap = _erase_capability(tenant, f"{h.SUBJECT_CLASS}/{record_id}")
     index.append(
+        erase_cap,
         h.erasure("ErasureIndexEntry")(
             tenant_id=tenant,
             content_address=address,
             erasure_record_address=content_hash(record),
+            subject_class=h.SUBJECT_CLASS,
+            request_id=record_id,
             subject_ref=ref,
             approval_ref=approval_ref,
             reason=REASON,
             erased_at=ERASED_AT,
-        )
+        ),
     )
     kind = h.contract("ccf.authz.capability", "ArtifactErase")
     filer = FileArtifactStore(root=_root(store), write_kinds=WriteKinds({h.ERASURE_RECORD_CLASS: (kind,)}))
     filer.put(
-        _erase_capability(tenant, f"{h.SUBJECT_CLASS}/{record_id}"),
+        erase_cap,
         DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name=record_id, artifact=record),
     )
     return record

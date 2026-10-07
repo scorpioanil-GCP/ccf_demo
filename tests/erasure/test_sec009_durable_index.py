@@ -42,6 +42,8 @@ def _entry(**overrides: Any) -> Any:
         tenant_id=h.TENANT,
         content_address="b" * 64,
         erasure_record_address="c" * 64,
+        subject_class=h.SUBJECT_CLASS,
+        request_id="req-durable-index",
         subject_ref=composed.subject_ref(),
         approval_ref="a" * 64,
         reason="customer-request",
@@ -60,10 +62,10 @@ def test_the_file_index_is_append_only_and_survives_a_reopen(tmp_path: Path) -> 
     path = tmp_path / "index.jsonl"
     index = index_type(path)
     entry = _entry()
-    index.append(entry)
-    index.append(entry)  # identical: idempotent
+    composed.append_as(index, entry)
+    composed.append_as(index, entry)  # identical: idempotent
     with pytest.raises(h.erasure("ErasureIndexEntryExists")):
-        index.append(_entry(erasure_record_address="d" * 64))  # never replaced
+        composed.append_as(index, _entry(erasure_record_address="d" * 64))  # never replaced
     reopened = index_type(path)
     assert reopened.lookup(tenant_id=h.TENANT, content_address=entry.content_address) == entry
     assert reopened.lookup(tenant_id=OTHER, content_address=entry.content_address) is None
@@ -71,7 +73,7 @@ def test_the_file_index_is_append_only_and_survives_a_reopen(tmp_path: Path) -> 
     assert reopened.tenants() == frozenset({h.TENANT})
     assert isinstance(reopened, h.erasure("ErasureIndexProtocol"))
     # Another process's append is seen without reopening.
-    index_type(path).append(_entry(tenant_id=OTHER))
+    composed.append_as(index_type(path), _entry(tenant_id=OTHER))
     assert reopened.tenants() == frozenset({h.TENANT, OTHER})
     assert len(path.read_text().splitlines()) == 2
 
@@ -88,7 +90,7 @@ def test_an_entry_whose_record_is_missing_is_withheld_and_audited_index_unsuppor
     store = _store(tmp_path)
     ref = h.client_put(store, name="n", document={"customer": {"id": h.SUBJECT_ID}})
     index = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
-    index.append(_entry(content_address=ref.content_address))  # names a record nobody filed
+    composed.append_as(index, _entry(content_address=ref.content_address))  # names a record nobody filed
     audit = ControlPlaneRegistry().audit_log
     consulted = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, tenant_id=h.TENANT)
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:
@@ -139,9 +141,9 @@ class _Counting:
         self.inner = inner
         self.calls: dict[str, int] = {"append": 0, "lookup": 0, "entries": 0, "tenants": 0}
 
-    def append(self, entry: Any) -> None:
+    def append(self, authorized: Any, entry: Any) -> None:
         self.calls["append"] += 1
-        self.inner.append(entry)
+        self.inner.append(authorized, entry)
 
     def lookup(self, *, tenant_id: str, content_address: str) -> Any:
         self.calls["lookup"] += 1
@@ -160,7 +162,7 @@ def test_a_scoped_read_costs_one_lookup_and_no_scan(tmp_path: Path) -> None:
     store = _store(tmp_path)
     inner = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
     for n in range(50):
-        inner.append(_entry(content_address=f"{n:064x}", erasure_record_address=f"{n + 1000:064x}"))
+        composed.append_as(inner, _entry(content_address=f"{n:064x}", erasure_record_address=f"{n + 1000:064x}"))
     counting = _Counting(inner)
     consulted = h.erasure("compose_erasure_consult")(
         store, index=counting, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, tenant_id=h.TENANT

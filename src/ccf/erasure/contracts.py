@@ -404,6 +404,10 @@ class ErasureRecord(CCFContract):
 
     tenant_id: str
     record_id: str
+    #: The content identity of the erasure request this record answers — what
+    #: binds every index entry naming it to the ``ArtifactErase`` capability
+    #: that appended it (fix round 2, I3).
+    request_id: str
     subject_class: str
     subject_ref: str
     addresses: tuple[ErasedAddress, ...] = Field(min_length=1)

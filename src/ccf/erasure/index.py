@@ -1,45 +1,68 @@
 """The durable erasure index — ``ErasureIndexProtocol`` and its file-backed reference (SEC-009; `D-IMPL-374` (4)).
 
-Fix-round-1 ruling C1, as amended by rulings (i) and (ii). The artifact store is
-immutable and version-pinned by design, so "the erasures in force" — state
-that grows — lives in an append-only index of its own, declared at
-composition and REQUIRED at every store construction site.
+Fix-round-1 ruling C1 as amended by rulings (i) and (ii), and fix-round-2
+rulings I3, (a) and N3. The artifact store is immutable and version-pinned by
+design, so "the erasures in force" — state that grows — lives in an
+append-only index of its own, declared at composition and REQUIRED at every
+store construction site.
 
 **The record is the only authority** (U7). Every entry names its erasure
-record's content address, the hashed subject, the tenant, the erased address
-and the approval reference; the decorating store validates every entry
-against its record (:mod:`ccf.erasure.store`) and refuses to serve an address
-whose entry disagrees, auditing ``erasure_index_unsupported`` (design §8).
+record's content address, the request it answers, the hashed subject, the
+tenant, the erased address and the approval reference; the decorating store
+validates every entry against its record (:mod:`ccf.erasure.store`) and
+refuses to serve an address whose entry disagrees, auditing
+``erasure_index_unsupported`` (design §8).
 
-**Grows only.** :meth:`ErasureIndexProtocol.append` is the one write; an
-identical entry is idempotent, a different entry for an already-erased
-``(tenant, address)`` is refused (:class:`ErasureIndexEntryExists`), and no
-removal or un-erasure verb exists (U6).
+**Only the erasure door writes it** (I3). :meth:`ErasureIndexProtocol.append`
+takes the ``ArtifactErase`` capability bound to the entry's own request
+(``"<subject_class>/<request_id>"``) and the entry's tenant; anything else is
+refused by name before a byte is written.
 
-**Write-ahead** (ruling (ii)): the erasure door appends the entry BEFORE it
-files the record, so a record with no entry cannot exist and no listing of the
-store is needed; an entry whose record never arrived is the §8 disagreement.
+**Grows only.** An identical entry is idempotent, a different entry for an
+already-erased ``(tenant, address)`` is refused (:class:`ErasureIndexEntryExists`),
+and no removal or un-erasure verb exists (U6).
+
+**The file is private and chained** (fix round 2 (a)). The reference file is
+opened ``O_NOFOLLOW``; it and its parent must be owned by the effective user,
+the file mode ``0600`` and the parent ``0700``, or the index is refused by
+name (:class:`~ccf.erasure.ErasureIndexInsecure`). Every line carries the
+hash of the line before it, so an edited, reordered or interleaved line
+breaks the chain and the index is refused (:class:`~ccf.erasure.ErasureIndexCorrupt`,
+fail closed). **Residual, stated plainly:** a truncated TAIL leaves a valid
+shorter chain and is not detectable without state kept outside the file — an
+attacker with write access to the index file can un-erase its tail; the file
+modes and the deployment's filesystem controls are the mitigation.
 
 Algorithmic module (CINV-03): no clock is read here.
 """
 
 from __future__ import annotations
 
+import fcntl
+import hashlib
+import json
 import os
+import stat
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Final, Protocol, runtime_checkable
+from typing import Final, NoReturn, Protocol, runtime_checkable
 
+from pydantic import ValidationError
+
+from ccf.authz.capability import ArtifactErase, Authorized, CapabilityBypassError, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
+from ccf.erasure.errors import ErasureIndexCorrupt, ErasureIndexInsecure
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ERASURE_INDEX_FILENAME",
-    "ErasureIndexEntryExists",
+    "require_append_authority",
+    "GENESIS",
     "ErasureIndexEntry",
+    "ErasureIndexEntryExists",
     "ErasureIndexProtocol",
     "FileErasureIndex",
     "erasure_index_at",
@@ -50,28 +73,38 @@ __all__ = [
 #: read path (``held_content_address``) can never serve it.
 ERASURE_INDEX_FILENAME: Final[str] = ".erasure-index.jsonl"
 
+#: The predecessor hash the FIRST line of a chain names (fix round 2 (a)).
+GENESIS: Final[str] = "0" * 64
+
 
 class ErasureIndexEntryExists(ValueError):
     """An already-erased ``(tenant, address)`` was offered a different entry; the index never replaces one (SEC-009; `D-IMPL-374` (4))."""
 
 
 class ErasureIndexEntry(CCFContract):
-    """One erased address within one tenant, naming its authority record (SEC-009; `D-IMPL-374` (4)).
+    """One erased address within one tenant, naming its authority record and its request (SEC-009; `D-IMPL-374` (4)).
 
     Attributes:
         tenant_id: The tenant the erasure withholds within (I6).
         content_address: The erased artifact.
         erasure_record_address: The content address of the ``ccf.erasure-record``
             that is the authority for this entry.
+        subject_class: The request's subject class — with ``request_id``, the
+            resource the appending ``ArtifactErase`` capability is bound to (I3).
+        request_id: The content identity of the erasure request it answers.
         subject_ref: The salted subject reference the record carries.
         approval_ref: The content hash of the recorded approval the record carries.
-        reason: The admitted erasure reason (disclosed at ``reasoned``).
-        erased_at: The record's ``erased_at`` (disclosed at ``reasoned``).
+        reason: The admitted erasure reason; served only when it equals the
+            record's (N2).
+        erased_at: The record's ``erased_at``; served only when it equals the
+            record's (N2).
     """
 
     tenant_id: str
     content_address: str
     erasure_record_address: str
+    subject_class: str
+    request_id: str
     subject_ref: str
     approval_ref: str
     reason: str
@@ -83,15 +116,19 @@ class ErasureIndexProtocol(Protocol):
     """The append-only erasure index every store construction site declares (SEC-009; `D-IMPL-374` (4), C1).
 
     ``lookup`` is O(1) per ``(tenant, address)`` (I7); ``entries`` and
-    ``tenants`` serve the decorating store's boot validation.
+    ``tenants`` serve the decorating store's boot validation. ``append`` is the
+    erasure door's alone (I3).
     """
 
-    def append(self, entry: ErasureIndexEntry) -> None:
-        """Durably add ``entry``; idempotent for an identical entry.
+    def append(self, authorized: Authorized[ArtifactErase], entry: ErasureIndexEntry) -> None:
+        """Durably add ``entry`` under the erase capability for its own request; idempotent for an identical entry.
 
         Raises:
-            ErasureIndexEntryExists: a different entry already erases the address
-                within the tenant.
+            ccf.authz.capability.CapabilityBypassError: ``authorized`` is not a
+                genuine ``ArtifactErase`` for ``"<subject_class>/<request_id>"``
+                of the entry, or is for another tenant.
+            ErasureIndexEntryExists: a different entry already erases the
+                address within the tenant.
         """
         ...
 
@@ -108,24 +145,78 @@ class ErasureIndexProtocol(Protocol):
         ...
 
 
-class FileErasureIndex:
-    """The reference :class:`ErasureIndexProtocol`: append-only JSON lines, fsync on append (SEC-009; `D-IMPL-374` (4)).
+def require_append_authority(authorized: Authorized[ArtifactErase], entry: ErasureIndexEntry) -> None:
+    """The append check every index runs first (I3): the erase capability for this entry's request and tenant.
 
-    One file per deployment. Entries are held in memory keyed by
-    ``(tenant, address)`` for O(1) lookup; a read first picks up any lines
-    another process appended since (one ``stat`` — the file only grows), so
-    two processes over one file agree. A line that does not parse is refused
-    at load rather than skipped: an index that silently dropped an entry would
-    un-erase its address.
+    Raises:
+        ccf.authz.capability.CapabilityBypassError: anything else.
+    """
+    verify(authorized, kind=ArtifactErase, resource=f"{entry.subject_class}/{entry.request_id}")
+    if authorized.tenant != entry.tenant_id:
+        raise CapabilityBypassError(
+            "the erase capability is for another tenant than the index entry it"
+            " would append (SEC-009; D-IMPL-374 (4), I3)"
+        )
+
+
+def _private_parent(directory: Path) -> None:
+    if not directory.exists():
+        directory.mkdir(parents=True, mode=0o700)
+        os.chmod(directory, 0o700)
+    status = os.stat(directory)
+    if not stat.S_ISDIR(status.st_mode) or status.st_uid != os.geteuid() or status.st_mode & 0o077:
+        raise ErasureIndexInsecure(
+            f"the erasure index's directory {str(directory)!r} must be owned by"
+            " this process's user and mode 0700 (SEC-009; fix round 2 (a))"
+        )
+
+
+def _private_file(path: Path) -> None:
+    try:
+        status = os.lstat(path)
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(status.st_mode) or not stat.S_ISREG(status.st_mode):
+        raise ErasureIndexInsecure(
+            f"the erasure index {str(path)!r} is not a regular file (a symlink is"
+            " refused) (SEC-009; fix round 2 (a))"
+        )
+    if status.st_uid != os.geteuid() or stat.S_IMODE(status.st_mode) != 0o600:
+        raise ErasureIndexInsecure(
+            f"the erasure index {str(path)!r} must be owned by this process's user"
+            " and mode 0600 (SEC-009; fix round 2 (a))"
+        )
+
+
+class FileErasureIndex:
+    """The reference :class:`ErasureIndexProtocol`: a private, hash-chained, append-only JSON-lines file (SEC-009; `D-IMPL-374` (4)).
+
+    One file per deployment, fsynced on every append. Each line is
+    ``{"entry": <entry>, "previous": <sha256 of the previous line>}``.
+    Entries are held in memory keyed by ``(tenant, address)`` for O(1) lookup;
+    a read first picks up lines another process appended since (one ``stat``),
+    holding the chain across them. A line that does not parse, or breaks the
+    chain, makes the index CORRUPT: every method then raises
+    :class:`~ccf.erasure.ErasureIndexCorrupt` until the file is repaired —
+    an index that cannot say what is erased never serves "nothing is erased".
 
     Args:
-        path: The index file. Created (with parents) on the first append.
+        path: The index file. Its directory is created ``0700`` if absent.
+
+    Raises:
+        ccf.erasure.ErasureIndexInsecure: the file or its directory is not
+            private to this process's user (fix round 2 (a)).
+        ccf.erasure.ErasureIndexCorrupt: the existing file is not an unbroken chain.
     """
 
     def __init__(self, path: Path | str) -> None:
         self._path = Path(path)
+        _private_parent(self._path.parent)
+        _private_file(self._path)
         self._lock = threading.Lock()
         self._offset = 0
+        self._head = GENESIS
+        self._corrupt: str | None = None
         self._by_key: dict[tuple[str, str], ErasureIndexEntry] = {}
         self._by_tenant: dict[str, list[ErasureIndexEntry]] = {}
         with self._lock:
@@ -136,32 +227,66 @@ class FileErasureIndex:
         """The index file."""
         return self._path
 
+    def _fail(self, detail: str) -> NoReturn:
+        self._corrupt = detail
+        raise ErasureIndexCorrupt(detail)
+
     def _catch_up(self) -> None:
+        if self._corrupt is not None:
+            raise ErasureIndexCorrupt(self._corrupt)
         try:
-            size = self._path.stat().st_size
+            descriptor = os.open(self._path, os.O_RDONLY | os.O_NOFOLLOW)
         except FileNotFoundError:
             return
-        if size <= self._offset:
-            return
-        with self._path.open("rb") as handle:
-            handle.seek(self._offset)
-            tail = handle.read(size - self._offset)
+        except OSError as refused:
+            raise ErasureIndexInsecure(
+                f"the erasure index {str(self._path)!r} could not be opened without"
+                f" following a link ({refused}) (SEC-009; fix round 2 (a))"
+            ) from refused
+        try:
+            size = os.fstat(descriptor).st_size
+            if size < self._offset:
+                self._fail("the file shrank below what this process already read")
+            if size == self._offset:
+                return
+            os.lseek(descriptor, self._offset, os.SEEK_SET)
+            tail = b""
+            while len(tail) < size - self._offset:
+                chunk = os.read(descriptor, size - self._offset - len(tail))
+                if not chunk:
+                    break
+                tail += chunk
+        finally:
+            os.close(descriptor)
         last = tail.rfind(b"\n")
         if last < 0:
             return  # a line still being written; read it next time
         for line in tail[:last].split(b"\n"):
-            if line.strip():
-                self._admit(ErasureIndexEntry.model_validate_json(line))
+            if not line.strip():
+                self._fail("an empty line breaks the chain")
+            try:
+                parsed = json.loads(line)
+                previous = parsed["previous"]
+                entry = ErasureIndexEntry.model_validate(parsed["entry"])
+            except (ValueError, KeyError, TypeError, ValidationError) as error:
+                self._fail(f"a line does not parse ({type(error).__name__})")
+            if previous != self._head:
+                self._fail("a line's predecessor hash breaks the chain")
+            self._head = hashlib.sha256(line).hexdigest()
+            self._admit(entry)
         self._offset += last + 1
 
     def _admit(self, entry: ErasureIndexEntry) -> None:
         key = (entry.tenant_id, entry.content_address)
         if key in self._by_key:
-            return  # the first entry stands; a later conflicting line was refused at append
+            if self._by_key[key] != entry:
+                self._fail("two lines erase one address with different entries")
+            return
         self._by_key[key] = entry
         self._by_tenant.setdefault(entry.tenant_id, []).append(entry)
 
-    def append(self, entry: ErasureIndexEntry) -> None:
+    def append(self, authorized: Authorized[ArtifactErase], entry: ErasureIndexEntry) -> None:
+        require_append_authority(authorized, entry)
         with self._lock:
             self._catch_up()
             standing = self._by_key.get((entry.tenant_id, entry.content_address))
@@ -173,10 +298,26 @@ class FileErasureIndex:
                     f" {entry.tenant_id!r} under another record; an erasure index"
                     " entry is never replaced (SEC-009; U6)"
                 )
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            line = canonical_bytes(entry) + b"\n"
-            descriptor = os.open(self._path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+            _private_parent(self._path.parent)
+            _private_file(self._path)
+            descriptor = os.open(
+                self._path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600
+            )
             try:
+                # One writer at a time ACROSS processes: the chain's next line
+                # names the head as it stands under the lock.
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                os.fchmod(descriptor, 0o600)
+                self._catch_up()
+                standing = self._by_key.get((entry.tenant_id, entry.content_address))
+                if standing is not None:
+                    if standing == entry:
+                        return
+                    raise ErasureIndexEntryExists(
+                        f"{entry.content_address!r} is already erased within tenant"
+                        f" {entry.tenant_id!r} under another record (SEC-009; U6)"
+                    )
+                line = canonical_bytes({"entry": entry, "previous": self._head}) + b"\n"
                 os.write(descriptor, line)
                 os.fsync(descriptor)
             finally:
@@ -209,4 +350,3 @@ def erasure_index_at(store_root: Path | str) -> FileErasureIndex:
     declared store root fixes the index's path, so one deployment has one file.
     """
     return FileErasureIndex(Path(store_root) / ERASURE_INDEX_FILENAME)
-

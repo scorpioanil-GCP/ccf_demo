@@ -550,13 +550,35 @@ def build_artifact_server(
         capability's verified tenant: another tenant's filing of the same bytes
         never crosses (I6). Naming only — no artifact byte is read; a malformed
         address answers the empty list, as the store's ``names_at`` does.
+
+        **The same entitlement the blob read requires** (fix round 2, N4). An
+        address filed under a class the deployment declared governed answers
+        its names only to a principal the governed dereference admits — the
+        same decision, record and disclosure :func:`artifact_blob` makes, asked
+        without bytes. A refusal crosses as the shell, which the client reads
+        as an unverifiable answer and the erasure door as ``class-unverifiable``.
         """
         verify(authorized, kind=ArtifactRead, resource=content_address)
-        own = tuple(
-            named
-            for named in store.names_at(content_address=content_address)
-            if named.tenant_id == authorized.tenant
+        names = store.names_at(content_address=content_address)
+        governed = any(
+            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in names
         )
+        if governed:
+            decided = govern_dereference(
+                authorized,
+                reference=DereferenceRequest(
+                    reference=content_address, by_uri=False, wants_bytes=False
+                ),
+                store=consulted,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=audit_log,
+                surface=SURFACE_MCP_RESOURCE,
+                address=artifact_names_uri(content_address=content_address),
+            )
+            if isinstance(decided, RefusalEnvelope):
+                return canonical_bytes(decided).decode("utf-8")
+        own = tuple(named for named in names if named.tenant_id == authorized.tenant)
         return canonical_bytes(own).decode("utf-8")
 
     @door.resource(

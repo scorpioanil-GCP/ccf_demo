@@ -97,7 +97,11 @@ from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
 from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
-from ccf.erasure.store import compose_erasure_consult
+from ccf.erasure.store import (
+    ErasureConsultingStore,
+    ErasureIndexUnavailable,
+    compose_erasure_consult,
+)
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
@@ -908,6 +912,7 @@ def open_product(
     children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None = None,
     build_children: ChildResolverFactory | None = None,
     packaging_trace: PackagingTraceProtocol | None = None,
+    erasure_index: ErasureIndexProtocol | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -995,6 +1000,12 @@ def open_product(
             deployment composes with. The SDK registers ``producers:`` and the
             deployment builds everything else the low road builds. Refused
             beside ``children=``, ``questions=``, ``agent:`` or ``skills:``.
+        erasure_index: The supplied ``artifact_store``'s own durable erasure
+            index (SEC-009; fix round 2, N1). Required with a raw supplied
+            store; a store already composed through
+            :func:`~ccf.erasure.compose_erasure_consult` carries its own, and
+            one presented beside it must be the same index by path. ``None``
+            with no supplied store derives the index from the scratch root.
 
     Raises:
         ValueError: any open-time refusal in the module docstring — each
@@ -1005,6 +1016,9 @@ def open_product(
             names is unset; the document's remedy is the message.
         ccf.skills.producers.ProducerEnvironmentMissing: a variable a producer
             registration names is unset.
+        ccf.erasure.ErasureIndexUnavailable: a raw supplied store came without
+            its erasure index, a composed one is scoped to another tenant, or
+            the ``erasure_index`` presented is not the selected store's own.
     """
     root = Path(config_root).resolve()
     scratch_root = Path(scratch).resolve()
@@ -1115,7 +1129,41 @@ def open_product(
     # in-process site takes from its declared scratch root, scoped to the
     # tenant it serves, so `record_of` and every resolver read refuse erased
     # content.
-    erasure_index = erasure_index_at(scratch_root / replay.store_dirname)
+    #
+    # Fix round 2, N1: the index is the SELECTED store's own. A supplied store
+    # already composed carries its index (its tenant scope must be this
+    # product's, or none); a raw supplied store must come with its index; only
+    # the default store derives one from the scratch root. Any index presented
+    # alongside must be the same index, by path.
+    if isinstance(artifact_store, ErasureConsultingStore):
+        if artifact_store.tenant_id not in (None, config.tenant_id):
+            raise ErasureIndexUnavailable(
+                f"the supplied store is scoped to tenant {artifact_store.tenant_id!r},"
+                f" not this product's {config.tenant_id!r} (SEC-009; N1)"
+            )
+        own_index: ErasureIndexProtocol = artifact_store.index
+    elif artifact_store is not None:
+        if erasure_index is None:
+            raise ErasureIndexUnavailable(
+                "a supplied artifact store must come with its own erasure index"
+                " (pass erasure_index=, or supply a store composed through"
+                " compose_erasure_consult); consulting it against an index derived"
+                " from the scratch root would miss every erasure filed against it"
+                " (SEC-009; D-IMPL-374 (4), N1)"
+            )
+        own_index = erasure_index
+    else:
+        own_index = erasure_index_at(scratch_root / replay.store_dirname)
+    if (
+        erasure_index is not None
+        and erasure_index is not own_index
+        and getattr(erasure_index, "path", object()) != getattr(own_index, "path", None)
+    ):
+        raise ErasureIndexUnavailable(
+            "the erasure_index presented is not the selected store's own index"
+            " (compared by path; SEC-009; N1)"
+        )
+    erasure_index = own_index
     store: ArtifactStoreProtocol = compose_erasure_consult(
         selected,
         index=erasure_index,

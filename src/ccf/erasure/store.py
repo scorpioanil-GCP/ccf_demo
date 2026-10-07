@@ -64,6 +64,7 @@ from ccf.artifacts.protocol import (
 )
 from ccf.controlplane.audit import AuditLog
 from ccf.erasure.contracts import ERASURE_RECORD_CLASS, ErasureRecord
+from ccf.erasure.errors import ErasedContentRefused, ErasureIndexCorrupt
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 
 __ccf_mode__ = "algorithmic"
@@ -79,36 +80,6 @@ __all__ = [
 #: The reason a withheld address carries when its index entry is not supported
 #: by an agreeing erasure record (design §8; mechanism vocabulary).
 INDEX_UNSUPPORTED: Final[str] = "index-unsupported"
-
-
-class ErasedContentRefused(ArtifactStoreError):
-    """The address holds content a recorded erasure says is not served (SEC-009; `D-IMPL-374` (4)).
-
-    Raised by :class:`ErasureConsultingStore` on a read of an erased address,
-    in place of the bytes. An :class:`~ccf.artifacts.protocol.ArtifactStoreError`
-    and deliberately **not** an ``ArtifactNotFound`` nor a ``LookupError``: an
-    erasure is a recorded decision, not an absence (G5).
-
-    Carries the erasure's record address, reason and instant **only** for a
-    read scoped to the erasing tenant; a tenantless read, and an entry the
-    record does not support, carry ``None`` there (I6; §8). Never anything of
-    the subject, and the message carries no record address (M8). The bytes it
-    withholds remain on the substrate; no destruction is claimed.
-    """
-
-    def __init__(
-        self,
-        *,
-        content_address: str,
-        erasure_record_address: str | None,
-        reason: str | None,
-        erased_at: datetime | None,
-    ) -> None:
-        super().__init__(f"{content_address!r} was erased and is not served (SEC-009)")
-        self.content_address = content_address
-        self.erasure_record_address = erasure_record_address
-        self.reason = reason
-        self.erased_at = erased_at
 
 
 class ErasureIndexUnavailable(TypeError):
@@ -137,6 +108,7 @@ class _Verdicts:
     def __init__(self) -> None:
         self.valid: set[tuple[str, str, str]] = set()
         self.audited: set[tuple[str, str, str]] = set()
+        self.corrupt: str | None = None
 
 
 class ErasureConsultingStore:
@@ -209,11 +181,16 @@ class ErasureConsultingStore:
 
     def validate_all(self) -> None:
         """Validate every entry of every tenant against its record (boot; §8), memoized per index head (ruling 4)."""
-        entries = [
-            entry
-            for tenant in sorted(self._index.tenants())
-            for entry in self._index.entries(tenant_id=tenant)
-        ]
+        try:
+            entries = [
+                entry
+                for tenant in sorted(self._index.tenants())
+                for entry in self._index.entries(tenant_id=tenant)
+            ]
+        except ErasureIndexCorrupt as corrupt:
+            # N3: the store composes and then refuses EVERY read — fail closed.
+            self._verdicts.corrupt = str(corrupt)
+            return
         head = (_identity(self._index, "path"), len(entries), _identity(self._inner, "root"))
         with _VALIDATED_HEADS_LOCK:
             known = _VALIDATED_HEADS.get(head)
@@ -237,11 +214,17 @@ class ErasureConsultingStore:
         try:
             payload = self._inner.get(content_address=entry.erasure_record_address)
             record = ErasureRecord.model_validate_json(payload)
+            # Every fact the entry carries must be the RECORD's (U7; N2): the
+            # served reason and instant are therefore the record's own.
             agrees = (
                 hashlib.sha256(payload).hexdigest() == entry.erasure_record_address
                 and record.tenant_id == entry.tenant_id
+                and record.request_id == entry.request_id
+                and record.subject_class == entry.subject_class
                 and record.subject_ref == entry.subject_ref
                 and record.approval_ref == entry.approval_ref
+                and record.reason == entry.reason
+                and record.erased_at == entry.erased_at
                 and entry.content_address in {a.content_address for a in record.addresses}
             )
         except (ArtifactStoreError, KeyError, OSError, ValidationError, ValueError):
@@ -279,6 +262,15 @@ class ErasureConsultingStore:
 
     def _consult(self, content_address: str) -> None:
         """THE consult: refuse an address the index names as erased."""
+        try:
+            self._consult_index(content_address)
+        except ErasureIndexCorrupt as corrupt:
+            # N3: typed, and closed — no address is served under a corrupt index.
+            raise ErasureIndexCorrupt(str(corrupt), content_address=content_address) from None
+
+    def _consult_index(self, content_address: str) -> None:
+        if self._verdicts.corrupt is not None:
+            raise ErasureIndexCorrupt(self._verdicts.corrupt)
         if self._tenant_id is not None:
             entry = self._index.lookup(tenant_id=self._tenant_id, content_address=content_address)
             if entry is not None:
@@ -351,7 +343,9 @@ def compose_erasure_consult(
             " (4), C1)"
         )
     if isinstance(store, ErasureConsultingStore):
-        if store.index is not index:
+        # N1: the SAME index by identity of what it is — its file path —
+        # never by object identity (a deployment reopens its index).
+        if _identity(store.index, "path") != _identity(index, "path"):
             raise ErasureIndexUnavailable(
                 "this store was already composed over a different erasure index;"
                 " re-composing it over another would consult the wrong erasures"

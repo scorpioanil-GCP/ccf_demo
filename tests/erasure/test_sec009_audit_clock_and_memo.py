@@ -43,12 +43,14 @@ def test_the_index_unsupported_audit_is_stamped_with_the_injected_fabric_clock(t
         tenant_id=h.TENANT,
         content_address=ref.content_address,
         erasure_record_address="c" * 64,  # no such record: unsupported
+        subject_class=h.SUBJECT_CLASS,
+        request_id="req-audit-clock",
         subject_ref=composed.subject_ref(),
         approval_ref="a" * 64,
         reason="customer-request",
         erased_at=datetime(2026, 7, 30, tzinfo=UTC),
     )
-    index.append(entry)
+    composed.append_as(index, entry)
     audit = ControlPlaneRegistry().audit_log
     _compose(store, index=index, audit_log=audit, tenant_id=h.TENANT)
     (event,) = [e for e in audit.events() if e.action == "erasure_index_unsupported"]

@@ -74,6 +74,7 @@ from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.erasure.store import ErasureIndexUnavailable
 from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolution
 from ccf.hitl.transport import HITLTransportProtocol
+from ccf.mcp.errors import McpServerUnreachable
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
@@ -222,22 +223,42 @@ class ErasureDoor:
         event = resolution.record.event
         submission = resolution.record.submission
         suspension = state_key(tenant=tenant, record_id=request.request_id)
-        # I2 (fix round 1): the FABRIC's own record of this suspension — the
+        # I2 (fix round 1): the FABRIC's own record of this execution — the
         # engine-written state — not anything the caller presents.
         state = self._control_plane.state_store.get(WORKFLOW_STATE, suspension)
-        gate = state.current_state if isinstance(state, WorkflowStateRecord) else ""
         recorded_submission = next(
             (s for s in self._transport.submissions(tenant=tenant) if s == submission),
             None,
         )
+        if not isinstance(state, WorkflowStateRecord) or recorded_submission is None:
+            raise self._approval_not_recorded()
+        # I4 (fix round 2): the entries already appended for THIS request — a
+        # prior completion that died after its write-ahead append.
+        prior = tuple(
+            entry
+            for entry in (
+                self._index.lookup(tenant_id=tenant, content_address=a.content_address)
+                for a in request.addresses
+            )
+            if entry is not None and entry.request_id == request.request_id
+        )
+        if state.status == "suspended":
+            gate = state.current_state
+            bound = recorded_submission.principal.product_content_hash == content_hash(state)
+        elif state.status == "terminal" and prior:
+            # The retry of a completion that appended, resumed, and died before
+            # filing its record: the gate it left is the trace's last resume,
+            # and the approval is the one the write-ahead entries name.
+            resumed = [t for t in state.trace if t.kind == "resume"]
+            gate = resumed[-1].source if resumed else ""
+            bound = all(e.approval_ref == content_hash(recorded_submission) for e in prior)
+        else:
+            raise self._approval_not_recorded()
         recorded = (
-            isinstance(state, WorkflowStateRecord)
-            and state.status == "suspended"
+            bound
             and resolution.record.approved
-            and recorded_submission is not None
             and recorded_submission.action == GATE_APPROVE
             and recorded_submission.event_key == f"{suspension}/{gate}"
-            and recorded_submission.principal.product_content_hash == content_hash(state)
             and event.event_key == recorded_submission.event_key
             and event.event_class == GATE_EVENT_CLASS
             and event.tenant == tenant
@@ -245,20 +266,15 @@ class ErasureDoor:
             and gate in workflow.definition.gate_policies
             and event.policy_ref == workflow.definition.gate_policies[gate]
         )
-        if not recorded or recorded_submission is None or not isinstance(state, WorkflowStateRecord):
-            raise ErasureRefused(
-                "the presented approval is not one the HITL authority path recorded for"
-                " this request's suspension; an erasure is written only on a recorded"
-                " human approval (SEC-009; D-IMPL-367 §4.1; D-IMPL-366)",
-                reason_code="approval-not-recorded",
-            )
-        # The requester is the starter the ENGINE recorded on the suspended
-        # state, and the actor is the approver on the transport's RECORDED
-        # submission — never the presented event (I2; probe P3).
+        if not recorded:
+            raise self._approval_not_recorded()
+        # The requester is the starter the ENGINE recorded on the execution,
+        # and the actor is the approver on the transport's RECORDED submission
+        # — never the presented event (I2; probe P3).
         requested_by = state.started_by
         if requested_by is None:
             raise ErasureRefused(
-                "the suspended execution records no starter (SEC-009; D-IMPL-366 G1)",
+                "the execution records no starter (SEC-009; D-IMPL-366 G1)",
                 reason_code="requester-unrecorded",
             )
         actor = recorded_submission.principal.approver
@@ -267,17 +283,21 @@ class ErasureDoor:
             raise ErasureRefused(
                 f"gate {gate!r} declares no approve route (SEC-009)", reason_code="approval-route-undeclared"
             )
-        outcome = await self._engine.resume(
-            authorized, workflow, execution_id=request.request_id, decision=route
-        )
-        if isinstance(outcome, WorkflowSuspended):
-            return outcome
-        if not isinstance(outcome, WorkflowCompleted) or outcome.terminal_state == WORKFLOW_FAILED_STATE:
+        final = route in workflow.definition.effective_terminal_states
+        if not final:
+            # A further gate follows: nothing is erased until the last approval.
+            outcome = await self._engine.resume(
+                authorized, workflow, execution_id=request.request_id, decision=route
+            )
+            if isinstance(outcome, WorkflowSuspended):
+                return outcome
             raise ErasureRefused(
-                f"the erasure workflow did not complete ({outcome!r})"[:400],
+                f"the erasure workflow did not suspend on its next gate ({outcome!r})"[:400],
                 reason_code="workflow-refused",
             )
-        erased_at = self._clock()
+        # The record is DETERMINISTIC across retries: its instant is the one
+        # the write-ahead entries already carry, when a prior attempt wrote them.
+        erased_at = prior[0].erased_at if prior else self._clock()
         addresses = tuple(
             ErasedAddress(
                 content_address=address.content_address,
@@ -290,6 +310,7 @@ class ErasureDoor:
         record_id = content_hash(
             {
                 "tenant_id": tenant,
+                "request_id": request.request_id,
                 "subject_ref": request.subject_ref,
                 "addresses": [a.content_address for a in addresses],
                 "erased_at": erased_at.isoformat(),
@@ -298,13 +319,16 @@ class ErasureDoor:
         record = ErasureRecord(
             tenant_id=tenant,
             record_id=record_id,
+            request_id=request.request_id,
             subject_class=request.subject_class,
             subject_ref=request.subject_ref,
             addresses=addresses,
             erased_at=erased_at,
             actor=actor,
             requested_by=requested_by,
-            # The authorizer's allow for the ERASE door kind (design §2.3).
+            # The authorizer's allow for the ERASE door kind (design §2.3). A
+            # retry presents the same erase decision, or its record would not be
+            # the one the write-ahead entries name.
             authorizing_decision_id=erase.decision_id,
             approval_policy_ref=str(event.policy_ref),
             approval_ref=content_hash(recorded_submission),
@@ -312,31 +336,61 @@ class ErasureDoor:
             reason=request.reason,
             legal_basis=request.legal_basis,
         )
-        # WRITE-AHEAD (ruling (ii), I4): the index entries — each naming the
-        # record's content address, computed before it exists — are appended
-        # FIRST, then the record is filed under the ERASE capability (I3). A
-        # completion that dies between the two leaves entries whose record is
-        # missing: the consult withholds those addresses and audits
-        # `erasure_index_unsupported` (design §8). A record with no entry
-        # cannot exist, so nothing has to list the store.
         record_address = content_hash(record)
+        if any(e.erasure_record_address != record_address for e in prior):
+            raise ErasureRefused(
+                "a retry built a record other than the one its prior attempt's index"
+                " entries name; present the same request and erase decision (SEC-009; I4)",
+                reason_code="retry-mismatch",
+            )
+        # WRITE-AHEAD, BEFORE THE RESUME COMMITS (rulings (ii) and I4): the
+        # approval is already recorded by the gate, so the index entries — each
+        # naming the record's content address, computed before it exists — are
+        # appended FIRST, under the ERASE capability for this request (I3);
+        # then the engine resumes; then the record is filed. A completion that
+        # dies anywhere after the append leaves the address WITHHELD, and a
+        # retry of this method completes it (the entries are idempotent, the
+        # record deterministic, and a terminal execution with this request's
+        # entries is accepted above). A record with no entry cannot exist.
         for address in addresses:
             self._index.append(
+                erase,
                 ErasureIndexEntry(
                     tenant_id=tenant,
                     content_address=address.content_address,
                     erasure_record_address=record_address,
+                    subject_class=record.subject_class,
+                    request_id=record.request_id,
                     subject_ref=record.subject_ref,
                     approval_ref=record.approval_ref,
                     reason=record.reason,
                     erased_at=erased_at,
-                )
+                ),
             )
+        if state.status == "suspended":
+            outcome = await self._engine.resume(
+                authorized, workflow, execution_id=request.request_id, decision=route
+            )
+            if not isinstance(outcome, WorkflowCompleted) or outcome.terminal_state == WORKFLOW_FAILED_STATE:
+                raise ErasureRefused(
+                    f"the erasure workflow did not complete ({outcome!r}); the address"
+                    " stays withheld (index-unsupported) and the audit says so"[:400],
+                    reason_code="workflow-refused",
+                )
         self._store.put(
             erase,
             DerivedWrite(artifact_class=ERASURE_RECORD_CLASS, name=record_id, artifact=record),
         )
         return record
+
+    @staticmethod
+    def _approval_not_recorded() -> ErasureRefused:
+        return ErasureRefused(
+            "the presented approval is not one the HITL authority path recorded for"
+            " this request's execution; an erasure is written only on a recorded"
+            " human approval (SEC-009; D-IMPL-367 §4.1; D-IMPL-366)",
+            reason_code="approval-not-recorded",
+        )
 
     # -- the shared admission ---------------------------------------------------
 
@@ -388,7 +442,7 @@ class ErasureDoor:
                 f" {subject.class_id!r} (SEC-009; D-IMPL-367 §2.1)",
                 reason_code="artifact-class-undeclared",
             )
-        stored = self._verify_addresses(tenant, request, subject)
+        stored = self._verify_addresses(tenant, request, subject, completing=latest)
         now = self._clock()
         pinned = resolve_pinned(self._control_plane, request.retention_policy_ref)
         # Retention and hold are judged against the STORED class of every
@@ -413,7 +467,12 @@ class ErasureDoor:
         return subject, decision, stored
 
     def _verify_addresses(
-        self, tenant: str, request: ErasureRequest, subject: ErasureSubjectClass
+        self,
+        tenant: str,
+        request: ErasureRequest,
+        subject: ErasureSubjectClass,
+        *,
+        completing: bool,
     ) -> dict[str, str]:
         """Verify every requester-named address; return each one's STORED class.
 
@@ -441,12 +500,25 @@ class ErasureDoor:
         stored: dict[str, str] = {}
         for address in request.addresses:
             where = address.content_address
-            if self._index.lookup(tenant_id=tenant, content_address=where) is not None:
+            standing = self._index.lookup(tenant_id=tenant, content_address=where)
+            if standing is not None and not (completing and standing.request_id == request.request_id):
                 raise ErasureRefused(
                     f"{where!r} is already erased within this tenant (SEC-009)",
                     reason_code="already-erased",
                 )
-            own = [name for name in names_at(content_address=where) if name.tenant_id == tenant]
+            try:
+                named = names_at(content_address=where)
+            except (McpServerUnreachable, ArtifactStoreError) as unanswered:
+                # (d), fix round 2: a substrate whose naming read fails — an
+                # older MCP server without the names resource, or a names read
+                # the governed dereference refused — has not verified the class.
+                raise ErasureRefused(
+                    f"the store's naming did not answer for a requested address"
+                    f" ({type(unanswered).__name__}); its stored class and tenant"
+                    " cannot be verified (SEC-009; D-IMPL-374 (4), C2)",
+                    reason_code="class-unverifiable",
+                ) from unanswered
+            own = [name for name in named if name.tenant_id == tenant]
             if not own:
                 raise ErasureRefused(
                     "a requested address is not an artifact of the requesting tenant"

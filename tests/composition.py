@@ -304,7 +304,12 @@ class MemoryErasureIndex:
     def __init__(self) -> None:
         self._entries: dict[tuple[str, str], Any] = {}
 
-    def append(self, entry: Any) -> None:
+    def append(self, authorized: Any, entry: Any) -> None:
+        from ccf.erasure import require_append_authority
+
+        # The Protocol's I3 contract (fix round 2): the ERASE capability bound
+        # to the entry's request, the same check the shipped index makes.
+        require_append_authority(authorized, entry)
         key = (entry.tenant_id, entry.content_address)
         standing = self._entries.get(key)
         if standing is not None and standing != entry:

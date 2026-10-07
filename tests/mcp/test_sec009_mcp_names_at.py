@@ -231,5 +231,11 @@ def test_the_names_resource_requires_the_entitlement_a_governed_read_requires(tm
     )
     (answer,) = _read(server, _names_uri(pin.content_address))
     text = answer.content if isinstance(answer.content, str) else answer.content.decode("utf-8")
-    assert REPLAY_RECORD_CLASS not in text, text
+    # The answer is the governed refusal's shell, never the list of filings —
+    # matched structurally: the shell's own `replay_reference` is a
+    # decision-replay-record URI for the REFUSAL, so a substring test on the
+    # class name cannot tell the two apart.
+    answered = json.loads(text)
+    assert isinstance(answered, dict) and answered.get("kind") == "subject-unavailable", text
+    assert "pin" not in {n.get("name") for n in answered.get("names", [])}
     assert "pin" not in json.loads(text) if isinstance(json.loads(text), list) else True
