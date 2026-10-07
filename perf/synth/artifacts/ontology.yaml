@@ -17,7 +17,8 @@ tenant_id: perf-tenant
 # `attribute_authorities` (SEC-023, D-IMPL-374): each class's classification
 # attribute is asserted only by the generator's own invented source id, so the
 # Policy operator the policy suites build is a consumer with covering
-# authority. Values, not mechanism — the generator holds no such name.
+# authority. The id must equal the generator's SourceIdentity system_id
+# (perf/synth/generator.py), which spells it there too.
 entity_rules:
   - match_key: alpha_ref
     entity_class: node_alpha

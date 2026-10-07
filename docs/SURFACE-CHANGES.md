@@ -31,7 +31,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1088 entries — 1044 public Python surface, 44 not public Python API.
+1089 entries — 1045 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16509,7 +16509,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent. A store reader answered any classification query.
 - After: `require_query_classification_authority(q)` — passes a query with no classification map; otherwise refuses a query carrying no authority (`ClassificationAuthorityMissing`) and one whose authority does not cover the map (`UngovernedClassificationAttribute`). Called first by every `GraphQuery`-answering reader entry.
 - Why: coordinator ruling (1): the fifth path fails closed.
-- Migration: a composition root that queries a store or a mounted product directly with a classification map stamps the query with `GraphQuery.with_classification_authority`.
+- Migration: a classification query goes through `FabricHandle.reader`; a store or mounted product queried directly refuses it.
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
 
@@ -16519,9 +16519,21 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent. No classification consumer could see which sources the resolution spec in force authorizes.
-- After: a frozen contract `(governed: class -> attribute -> frozenset[system_id], written: class -> frozenset[attribute])` with `require(by_class, *, consumer)`, which raises `UngovernedClassificationAttribute` for a class whose attribute is written from the payload with no authority declaration. Built by `EntityResolutionSpec.classification_authority()`.
-- Why: SEC-023, `D-IMPL-374` ruling (3) (a). This is the value threaded from the composition root to every classification consumer.
-- Migration: none. A composition root that reads a store without `ccf.boot.boot` stamps its views with `spec.classification_authority()` of the spec its L2 enforces.
+- After: a contract `(spec_address, governed: class -> attribute -> frozenset[system_id], written: class -> frozenset[attribute])`, both mappings read-only, with `minted` and `require(by_class, *, consumer)`. `require` raises `UngovernedClassificationAttribute` for any attribute it does not govern — one the spec writes ungoverned, or one it knows nothing about. Minted only by `ccf.boot.boot`; a hand-built instance is refused by every consumer.
+- Why: SEC-023, `D-IMPL-374` ruling (3) (a) and fix round 1 (I-1): the value threaded from the composition root to every classification consumer must attest what L2 enforces, not declare it.
+- Migration: none. Read through `FabricHandle.reader`; there is no supported way to build one.
+
+*Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf.graph.protocols.ClassificationAuthorityNotMinted
+
+- Surface: ccf.graph.protocols.ClassificationAuthorityNotMinted
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer (or `governed_reader`) meets an authority `ccf.boot.boot` did not mint.
+- Why: fix round 1, I-1 (b).
+- Migration: none.
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
 
@@ -16533,7 +16545,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent. A `PolicyFilter` applied over a hand-built view admitted on whatever labels it carried.
 - After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer meets a `GraphView` with no authority stamp.
 - Why: coordinator ruling (2) under `D-IMPL-374`: fail closed, by name. A view that carries a classification map silently is the hole.
-- Migration: read views through `FabricHandle.reader`, or stamp them with `GraphView.with_classification_authority`.
+- Migration: read views through `FabricHandle.reader`.
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
 
@@ -26621,7 +26633,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-265 entries — 231 public Python surface, 34 not public Python API.
+264 entries — 230 public Python surface, 34 not public Python API.
 
 ### Public Python surface
 
@@ -30867,7 +30879,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: no authority.
-- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`, `with_classification_authority(authority)`), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`; the stamping method is private), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
 - Why: the store reader can tell a checked query from one that came another way.
 - Migration: none on the paved road.
 
@@ -30881,7 +30893,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: `query` answered any classification query.
 - After: `query` runs `require_query_classification_authority` before any substrate I/O. SQLite, Postgres, MongoDB, Neo4j and Fluree inherit it.
 - Why: the fifth path.
-- Migration: stamp a classification query sent to a store reader directly.
+- Migration: send classification queries through `FabricHandle.reader`.
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
 
@@ -30917,7 +30929,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: `query` answered any classification query over the mounted product.
 - After: `query` refuses an unstamped classification query (ruling (3), fail closed).
 - Why: a peer product's labels were governed by no local L2.
-- Migration: a consumer stamps the authority it answers for.
+- Migration: none supported; a classification answer over a peer product is refused (ruling (3)).
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
 
@@ -30927,20 +30939,8 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: records only.
-- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority` property, `with_classification_authority(authority)` copy). It is outside the canonical form and outside equality, so a view's content hash and every record built from one are the same stamped or not (proven by `test_the_authority_stamp_leaves_every_record_identity_unchanged`).
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority` property; the stamping method is private, called by the booted reader and the shipped operators). It is outside the canonical form and outside equality, so a view's content hash and every record built from one are the same stamped or not (proven by `test_the_authority_stamp_leaves_every_record_identity_unchanged`).
 - Why: coordinator ruling (1): the stamp must be hash-transparent, so no replay record changes.
-- Migration: none.
-
-*Recorded by `374-03-sec-023-construction-time-authority.md`.*
-
-#### ccf.assembly.worker.EntityResolutionSpec
-
-- Surface: ccf.assembly.worker.EntityResolutionSpec
-- Public surface: true
-- Change type: behavior
-- Before: `governed_attributes()` only.
-- After: adds `classification_authority()`, the `ClassificationAuthority` this spec enforces at L2.
-- Why: SEC-023, `D-IMPL-374`.
 - Migration: none.
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
@@ -30951,7 +30951,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `FabricHandle.reader` was the store's reader.
-- After: `FabricHandle.reader` is `governed_reader(store.reader, spec.classification_authority())`. A classification `GraphQuery` the spec's authority does not cover is refused; every view carries the authority.
+- After: `boot` mints the `ClassificationAuthority` of the resolution spec its L2 enforces (the only mint) and `FabricHandle.reader` is `governed_reader(store.reader, <that authority>)`. A classification `GraphQuery` the authority does not cover is refused; every view and every checked query carries the authority.
 - Why: path 1 and path 3 of the `D-IMPL-372` amendment — a hand-composed boot never sees operator parameters, so the boot-time check could not cover it.
 - Migration: a hand-composed deployment whose classification attribute is written without `attribute_authorities` must declare them; before, it served whatever label the latest source wrote.
 

@@ -27,7 +27,24 @@ now refuses a classification query that carries no authority stamp, fail closed:
 `ProductSource.query`. The booted reader stamps a query after checking it, so the
 paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.py`).
 
+**Fix round 1 (review I-1, ruled): the stamp is minted, not declared.** A
+`ClassificationAuthority` is minted only by `ccf.boot.boot`, from the resolution
+spec its L2 enforces, through a module-private mint key (the `BootToken` /
+`_MINT_KEY` pattern), and carries that spec's content address. The stamping
+methods are private. A consumer refuses a hand-built authority by name
+(`ClassificationAuthorityNotMinted`), and `require` refuses an attribute the
+authority knows nothing about, so an empty authority covers nothing. Tests obtain
+their authority through boot (`tests/classification_authority.py`).
+
 **Disclosed boundaries, ruled rather than fixed.**
+- **An out-of-tree reader** that implements `GraphReader` without subclassing
+  `BaseGraphReader` is unguarded on a direct classification query unless it calls
+  `require_query_classification_authority` itself; nothing enforces that it does.
+  Inside the engine, `PolicyFilter.apply` still refuses its unstamped views.
+- **Replay of a record minted under an ungoverned spec** now raises
+  `UngovernedClassificationAttribute` / `ClassificationAuthorityMissing` out of
+  `replay()`, outside the typed `ReplayUnresolvable` taxonomy, and
+  `SnapshotPinUnresolvable`'s message can name the wrapper class. Carried.
 - **The declared-read boundary** (ruling (2)): the registry builder checks a
   deployment operator through its declared `read_intent`. An operator that filters
   on a classification attribute WITHOUT declaring it there is not checked when it
@@ -35,10 +52,11 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
   is a residual, carried by name.
 - **A mounted peer product refuses** (ruling (3)): a `ProductSource`'s labels were
   governed by no local L2, so a `PolicyFilter` over its views, or a classification
-  query against it, refuses unless the consumer stamps the authority it answers
-  for. Accepted as fail-closed.
+  query against it, refuses. Accepted as fail-closed.
 - **An authorized source may blank the label** (ruling (4)): the omission audit
-  covers a source that is NOT authorized for the attribute. A source that IS
+  covers a source that is NOT authorized for the attribute, and records the
+  omission whether or not a label was present (it fires on a first observation
+  too, so its volume scales with non-authoritative ingest). A source that IS
   authorized may set the label in either direction, including by omitting it,
   without an event — by design, because the authority carries that responsibility.
 
@@ -50,7 +68,7 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Before: absent. A store reader answered any classification query.
 - After: `require_query_classification_authority(q)` — passes a query with no classification map; otherwise refuses a query carrying no authority (`ClassificationAuthorityMissing`) and one whose authority does not cover the map (`UngovernedClassificationAttribute`). Called first by every `GraphQuery`-answering reader entry.
 - Why: coordinator ruling (1): the fifth path fails closed.
-- Migration: a composition root that queries a store or a mounted product directly with a classification map stamps the query with `GraphQuery.with_classification_authority`.
+- Migration: a classification query goes through `FabricHandle.reader`; a store or mounted product queried directly refuses it.
 
 ## ccf.graph.protocols.GraphQuery
 
@@ -58,7 +76,7 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Public surface: true
 - Change type: behavior
 - Before: no authority.
-- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`, `with_classification_authority(authority)`), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority`; the stamping method is private), outside the canonical form and outside equality, so `content_hash(q)` — the replay pin — and the engine's recorded query sequence are unchanged. The booted reader stamps a query after checking it.
 - Why: the store reader can tell a checked query from one that came another way.
 - Migration: none on the paved road.
 
@@ -70,7 +88,7 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Before: `query` answered any classification query.
 - After: `query` runs `require_query_classification_authority` before any substrate I/O. SQLite, Postgres, MongoDB, Neo4j and Fluree inherit it.
 - Why: the fifth path.
-- Migration: stamp a classification query sent to a store reader directly.
+- Migration: send classification queries through `FabricHandle.reader`.
 
 ## ccf.graph.backends.memory.MemoryGraphReader
 
@@ -100,7 +118,7 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Before: `query` answered any classification query over the mounted product.
 - After: `query` refuses an unstamped classification query (ruling (3), fail closed).
 - Why: a peer product's labels were governed by no local L2.
-- Migration: a consumer stamps the authority it answers for.
+- Migration: none supported; a classification answer over a peer product is refused (ruling (3)).
 
 ## ccf.graph.protocols.ClassificationAuthority
 
@@ -108,9 +126,19 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Public surface: true
 - Change type: added
 - Before: absent. No classification consumer could see which sources the resolution spec in force authorizes.
-- After: a frozen contract `(governed: class -> attribute -> frozenset[system_id], written: class -> frozenset[attribute])` with `require(by_class, *, consumer)`, which raises `UngovernedClassificationAttribute` for a class whose attribute is written from the payload with no authority declaration. Built by `EntityResolutionSpec.classification_authority()`.
-- Why: SEC-023, `D-IMPL-374` ruling (3) (a). This is the value threaded from the composition root to every classification consumer.
-- Migration: none. A composition root that reads a store without `ccf.boot.boot` stamps its views with `spec.classification_authority()` of the spec its L2 enforces.
+- After: a contract `(spec_address, governed: class -> attribute -> frozenset[system_id], written: class -> frozenset[attribute])`, both mappings read-only, with `minted` and `require(by_class, *, consumer)`. `require` raises `UngovernedClassificationAttribute` for any attribute it does not govern — one the spec writes ungoverned, or one it knows nothing about. Minted only by `ccf.boot.boot`; a hand-built instance is refused by every consumer.
+- Why: SEC-023, `D-IMPL-374` ruling (3) (a) and fix round 1 (I-1): the value threaded from the composition root to every classification consumer must attest what L2 enforces, not declare it.
+- Migration: none. Read through `FabricHandle.reader`; there is no supported way to build one.
+
+## ccf.graph.protocols.ClassificationAuthorityNotMinted
+
+- Surface: ccf.graph.protocols.ClassificationAuthorityNotMinted
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer (or `governed_reader`) meets an authority `ccf.boot.boot` did not mint.
+- Why: fix round 1, I-1 (b).
+- Migration: none.
 
 ## ccf.graph.protocols.ClassificationAuthorityMissing
 
@@ -120,7 +148,7 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Before: absent. A `PolicyFilter` applied over a hand-built view admitted on whatever labels it carried.
 - After: a `ValueError` subclass carrying `consumer`, raised when a classification consumer meets a `GraphView` with no authority stamp.
 - Why: coordinator ruling (2) under `D-IMPL-374`: fail closed, by name. A view that carries a classification map silently is the hole.
-- Migration: read views through `FabricHandle.reader`, or stamp them with `GraphView.with_classification_authority`.
+- Migration: read views through `FabricHandle.reader`.
 
 ## ccf.graph.protocols.UngovernedClassificationAttribute
 
@@ -158,18 +186,8 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Public surface: true
 - Change type: behavior
 - Before: records only.
-- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority` property, `with_classification_authority(authority)` copy). It is outside the canonical form and outside equality, so a view's content hash and every record built from one are the same stamped or not (proven by `test_the_authority_stamp_leaves_every_record_identity_unchanged`).
+- After: carries an optional classification authority as a PRIVATE attribute (`classification_authority` property; the stamping method is private, called by the booted reader and the shipped operators). It is outside the canonical form and outside equality, so a view's content hash and every record built from one are the same stamped or not (proven by `test_the_authority_stamp_leaves_every_record_identity_unchanged`).
 - Why: coordinator ruling (1): the stamp must be hash-transparent, so no replay record changes.
-- Migration: none.
-
-## ccf.assembly.worker.EntityResolutionSpec
-
-- Surface: ccf.assembly.worker.EntityResolutionSpec
-- Public surface: true
-- Change type: behavior
-- Before: `governed_attributes()` only.
-- After: adds `classification_authority()`, the `ClassificationAuthority` this spec enforces at L2.
-- Why: SEC-023, `D-IMPL-374`.
 - Migration: none.
 
 ## ccf.boot.boot
@@ -178,7 +196,7 @@ paved road is unchanged (`tests/graph/test_raw_reader_classification_authority.p
 - Public surface: true
 - Change type: behavior
 - Before: `FabricHandle.reader` was the store's reader.
-- After: `FabricHandle.reader` is `governed_reader(store.reader, spec.classification_authority())`. A classification `GraphQuery` the spec's authority does not cover is refused; every view carries the authority.
+- After: `boot` mints the `ClassificationAuthority` of the resolution spec its L2 enforces (the only mint) and `FabricHandle.reader` is `governed_reader(store.reader, <that authority>)`. A classification `GraphQuery` the authority does not cover is refused; every view and every checked query carries the authority.
 - Why: path 1 and path 3 of the `D-IMPL-372` amendment — a hand-composed boot never sees operator parameters, so the boot-time check could not cover it.
 - Migration: a hand-composed deployment whose classification attribute is written without `attribute_authorities` must declare them; before, it served whatever label the latest source wrote.
 
