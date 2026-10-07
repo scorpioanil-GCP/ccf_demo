@@ -198,12 +198,16 @@ def test_the_vendor_default_transport_built_from_the_carrier_cannot_spawn(
     ``query(options=carrier)`` without ``adapter.transport(carrier)`` gets the
     vendor's own ``SubprocessCLITransport``, which merges the fabric's whole
     environment into the child. That path must not be able to start the CLI at
-    all. The recorder below behaves like the OS: a command naming no existing
-    file raises ``FileNotFoundError``; a command naming a real binary is
-    recorded as a spawn that *would have happened* and is then refused.
+    all. The recorder below behaves like the OS: a command whose path runs
+    through a non-directory (the sentinel is below ``os.devnull`` since I-3)
+    raises ``NotADirectoryError``, one naming no existing file raises
+    ``FileNotFoundError``; a command naming a real binary is recorded as a
+    spawn that *would have happened* and is then refused. The vendor maps
+    ``ENOTDIR`` to ``CLIConnectionError`` and ``ENOENT`` to its subclass
+    ``CLINotFoundError`` (``subprocess_cli.py:761-775``); either is fail-closed.
     """
     import anyio
-    from claude_agent_sdk import CLINotFoundError
+    from claude_agent_sdk import CLIConnectionError
     from claude_agent_sdk._internal.transport.subprocess_cli import (
         SubprocessCLITransport,
     )
@@ -212,6 +216,9 @@ def test_the_vendor_default_transport_built_from_the_carrier_cannot_spawn(
 
     async def like_the_os(command: Any, **kwargs: Any) -> Any:
         executable = str(list(command)[0])
+        parent = os.path.dirname(executable)
+        if os.path.exists(parent) and not os.path.isdir(parent):
+            raise NotADirectoryError(executable)
         if not os.path.isfile(executable):
             raise FileNotFoundError(executable)
         would_spawn.append(" ".join(list(command)[1:2]))
@@ -233,7 +240,7 @@ def test_the_vendor_default_transport_built_from_the_carrier_cannot_spawn(
         " TP-02 fails open on the path an adopter takes by omitting"
         " adapter.transport(carrier)"
     )
-    assert isinstance(raised.value, CLINotFoundError), type(raised.value).__name__
+    assert isinstance(raised.value, CLIConnectionError), type(raised.value).__name__
 
     # The adapter's own transport is the one that can find the CLI.
     governed = adapter.transport(carrier)

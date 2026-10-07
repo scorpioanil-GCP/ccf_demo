@@ -69,6 +69,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
 import tempfile
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
@@ -110,6 +111,7 @@ __all__ = [
     "HARNESS_ID",
     "AllowlistedEnvironmentTransport",
     "ClaudeAgentAdapter",
+    "PromptFileRefused",
 ]
 
 #: This adapter's stable harness identity. Lands verbatim in
@@ -150,14 +152,74 @@ _PERMISSION_PROMPT_OVER_STDIO = "stdio"
 _PROMPT_FILE_MODE = 0o600
 _PROMPT_FILE_NAME = "system-prompt"
 
-#: The name of a file that is never created, inside the per-call ``0700``
-#: prompt directory. ``inject_context`` points the carrier's ``cli_path`` at it
-#: so the vendor's **default** transport — the one an adopter gets by omitting
-#: :meth:`ClaudeAgentAdapter.transport` — cannot start the CLI and fails with
-#: ``CLINotFoundError`` instead of spawning it with the fabric's whole
-#: environment (TP-02 fails closed, D-IMPL-361). Only the fabric's own user
-#: could create it, because the directory is owner-only.
-_NO_CLI_SENTINEL = "no-cli-use-the-adapter-transport"
+_PROMPT_DIRECTORY_MODE = 0o700
+
+#: A path that can never exist on any POSIX system: it is BELOW ``os.devnull``,
+#: a character device, which has no children, so resolving it fails with
+#: ``ENOTDIR`` for every user, root included (TP-02, I-3, D-IMPL-361; the
+#: controller's ruling). ``inject_context`` points the carrier's ``cli_path`` at
+#: it so the vendor's **default** transport — the one an adopter gets by
+#: omitting :meth:`ClaudeAgentAdapter.transport` — cannot start the CLI and
+#: fails with ``CLIConnectionError`` (the vendor's mapping of ``ENOTDIR``;
+#: ``CLINotFoundError`` is its subclass for ``ENOENT``) instead of spawning it
+#: with the fabric's whole environment. The sentinel used to sit inside the
+#: removable per-call prompt directory, whose name is published on every
+#: child's argv, so after cleanup a co-tenant could recreate that directory and
+#: plant an executable under the sentinel's name (the whole-branch review's
+#: I-3); nothing can be planted below the null device.
+_NO_CLI_PATH = Path(os.devnull) / "ccf-no-cli"
+
+
+class PromptFileRefused(ValueError):
+    """``transport(carrier)`` refused a carrier whose prompt file is not the adapter's (I-3).
+
+    SDK-defined (CLAUDE.md §7.3; TP-02, TP-05, I-3, D-IMPL-361). Raised before
+    anything connects when the carrier's system-prompt file is missing, is not
+    a regular file (a symlink included), is not owned by the effective uid, or
+    is not mode ``0600``; or when its directory is not a directory owned by the
+    effective uid with mode ``0700``. Any of those means the bytes the CLI would
+    read as its system prompt are not provably the ones
+    :meth:`ClaudeAgentAdapter.inject_context` wrote — for example a directory
+    recreated by another local user after
+    :meth:`ClaudeAgentAdapter.remove_prompt_directories`.
+    """
+
+
+def _verify_prompt_file(path: Path) -> None:
+    """Refuse unless ``path`` is the adapter's own ``0600`` file in its own ``0700`` directory (I-3).
+
+    ``lstat`` throughout, so a symlink at either level is refused rather than
+    followed. Owner is compared with ``os.geteuid()``, read at call time.
+    """
+    euid = os.geteuid()
+    checks: tuple[tuple[Path, Callable[[int], bool], int, str], ...] = (
+        (path.parent, stat.S_ISDIR, _PROMPT_DIRECTORY_MODE, "directory"),
+        (path, stat.S_ISREG, _PROMPT_FILE_MODE, "regular file"),
+    )
+    for candidate, is_kind, mode, kind in checks:
+        try:
+            status = os.lstat(candidate)
+        except OSError as error:
+            raise PromptFileRefused(
+                f"the carrier's system-prompt {kind} {str(candidate)!r} cannot be"
+                f" read ({error.strerror}); build a new carrier with inject_context"
+                " (TP-05, I-3, D-IMPL-361)"
+            ) from error
+        if not is_kind(status.st_mode):
+            reason = f"is not a {kind}"
+        elif status.st_uid != euid:
+            reason = f"is owned by uid {status.st_uid}, not the effective uid {euid}"
+        elif stat.S_IMODE(status.st_mode) != mode:
+            reason = (
+                f"has mode {stat.S_IMODE(status.st_mode):04o}, not {mode:04o}"
+            )
+        else:
+            continue
+        raise PromptFileRefused(
+            f"the carrier's system-prompt {kind} {str(candidate)!r} {reason};"
+            " refusing to start a session whose prompt another user could have"
+            " authored (TP-05, I-3, D-IMPL-361)"
+        )
 
 
 def _write_prompt_file(prompt: str) -> Path:
@@ -376,8 +438,14 @@ class ClaudeAgentAdapter:
         the full assembled prompt — rendered instructions and the canonical
         serialization of every product the carrier delivered — at rest, so a
         long-lived adapter should call this once the sessions that used its
-        carriers have ended (D-IMPL-361). A carrier whose directory has been
-        removed can no longer start a session.
+        carriers have ended (D-IMPL-361).
+
+        A carrier whose directory has been removed cannot start a session on
+        either path (I-3): :meth:`transport` refuses it with
+        :class:`PromptFileRefused` — also when another local user has since
+        recreated the directory, because it is then not owned by the effective
+        uid — and the vendor's default transport cannot start it at all,
+        because the carrier's ``cli_path`` is below ``os.devnull``.
         """
         while self._prompt_directories:
             shutil.rmtree(self._prompt_directories.pop(), ignore_errors=True)
@@ -550,11 +618,11 @@ class ClaudeAgentAdapter:
         remove (:meth:`remove_prompt_directories`).
 
         **The carrier fails closed without the adapter's transport (TP-02,
-        D-IMPL-361).** The carrier's ``cli_path`` names a file that does not
-        exist inside that owner-only directory. Handing the carrier to
+        I-3, D-IMPL-361).** The carrier's ``cli_path`` is a path below
+        ``os.devnull``, which can never exist. Handing the carrier to
         ``ClaudeSDKClient(options=carrier)`` or ``query(options=carrier)``
         **without** ``transport=adapter.transport(carrier)`` therefore raises
-        ``CLINotFoundError`` at connect and starts nothing — because the
+        ``CLIConnectionError`` at connect and starts nothing — because the
         vendor's default transport would spawn the CLI with the fabric's whole
         environment merged in. :meth:`transport` clears the sentinel so the
         vendor resolves the real CLI, and spawns it from the allowlist only.
@@ -590,7 +658,7 @@ class ClaudeAgentAdapter:
             ],
             can_use_tool=self._permission_gate(agent),
             env=self._child_environment(),
-            cli_path=prompt_file.parent / _NO_CLI_SENTINEL,
+            cli_path=_NO_CLI_PATH,
         )
         return carrier
 
@@ -628,14 +696,31 @@ class ClaudeAgentAdapter:
         built a transport from; a pre-built transport that lacked it would
         leave the CLI never consulting the gate.
 
+        **The prompt file is verified before anything connects** (``TP-05``,
+        ``I-3``, ``D-IMPL-361``): it must be a regular file owned by the
+        effective uid with mode ``0600``, in a directory owned by the effective
+        uid with mode ``0700``, checked with ``lstat`` so no symlink is
+        followed. A carrier whose directory was removed — and possibly
+        recreated by another local user, whose name every child publishes on
+        its argv — is refused rather than handed to the CLI.
+
         Raises:
             TypeError: ``carrier`` is not a ``ClaudeAgentOptions``.
+            PromptFileRefused: the carrier's system prompt is not the adapter's
+                file form, or the file or its directory fails the checks above.
         """
         if not isinstance(carrier, ClaudeAgentOptions):
             raise TypeError(
                 f"transport expected the ClaudeAgentOptions inject_context"
                 f" returned, got {type(carrier).__name__}"
             )
+        prompt = carrier.system_prompt
+        if not (isinstance(prompt, dict) and prompt.get("type") == "file"):
+            raise PromptFileRefused(
+                "the carrier's system_prompt is not the adapter's file form; build"
+                " the carrier with inject_context (TP-05, I-3, D-IMPL-361)"
+            )
+        _verify_prompt_file(Path(str(prompt["path"])))
         # Clear the fail-closed sentinel ``inject_context`` set, so the vendor
         # resolves the real CLI (bundled, then PATH) for this transport only.
         options = replace(carrier, cli_path=None)
