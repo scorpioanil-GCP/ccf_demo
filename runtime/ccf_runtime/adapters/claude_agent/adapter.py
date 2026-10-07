@@ -653,7 +653,9 @@ class ClaudeAgentAdapter:
         keeps its default built-in tool set (lines 478-488); ``setting_sources``
         ``None`` emits no ``--setting-sources`` and the CLI loads every
         filesystem settings source, ``~/.claude/settings.json`` included, whose
-        allow-rules are evaluated before ``can_use_tool`` (lines 599-600). So
+        allow-rules could permit a tool without consulting ``can_use_tool``
+        (lines 599-600; a risk stated by the review, not measured against the
+        live CLI). So
         the carrier sets, unconditionally, ``tools=[]`` (``--tools ""``: no
         built-in tools, only this agent's MCP tools), ``setting_sources=[]``
         (``--setting-sources=``: SDK isolation mode) and

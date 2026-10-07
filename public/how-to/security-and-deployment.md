@@ -345,13 +345,37 @@ compose yourself.
 ### 4.5 Declare the Claude adapter's child environment
 
 The Claude Agent SDK adapter's child environment is a deployment-declared
-allowlist: the `claude` child receives exactly the variables named in the
-adapter's `child_environment`, and when none is declared it receives only
-`PATH` and `HOME` (`TP-02`, `D-IMPL-361`). The adopter starts a session with
-`transport=adapter.transport(carrier)`; the carrier fails closed on the
-vendor's default transport, which raises `CLINotFoundError` and starts
-nothing, because that transport would merge the fabric's whole environment
-into the child.
+allowlist (`TP-02`, `D-IMPL-361`). The `claude` child receives the variables
+named in the adapter's `child_environment`, or only `PATH` and `HOME` when none
+is declared, plus the variables the vendor's own spawn always sets and that
+carry no fabric value: `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_AGENT_SDK_VERSION`,
+`CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` when file checkpointing is on, and
+`PWD`, set to the session's working directory. Nothing else is inherited from
+the fabric's environment.
+
+The adopter starts a session with `transport=adapter.transport(carrier)`. The
+carrier fails closed on the vendor's default transport: its `cli_path` is a
+path below `os.devnull`, which can never exist, so that transport raises
+`CLIConnectionError` and starts nothing, because it would merge the fabric's
+whole environment into the child. Before it connects, `adapter.transport`
+checks that the system-prompt file is a regular file owned by the effective
+user with mode `0600`, in a directory owned by the effective user with mode
+`0700`, and raises `PromptFileRefused` otherwise.
+
+The carrier also isolates the CLI from the host's own configuration: it sets
+`tools=[]` (no built-in tools such as Bash or the file tools; only the agent's
+governed skills), `setting_sources=[]` (no `~/.claude/settings.json` or project
+settings, whose allow-rules could otherwise permit a tool without consulting
+the adapter's permission gate) and `strict_mcp_config=True` (no MCP server but the carrier's). The
+child's working directory is the per-call owner-only directory unless the
+deployment declares `cwd` on the adapter. `max_turns` is the deployment's to
+declare; it is a turn budget, not a security boundary.
+
+Each carrier writes the assembled system prompt, including the canonical bytes
+of every product it delivered, to that owner-only directory at rest. **Removing
+it is the deployment's obligation:** call `adapter.remove_prompt_directories()`
+once the sessions that used the adapter's carriers have ended. A carrier whose
+directory was removed cannot start a session again.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 
