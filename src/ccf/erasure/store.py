@@ -107,16 +107,28 @@ class ErasureConsultingStore:
             )
 
     def put(self, authorized: ArtifactWriteAuthority, artifact: object) -> ArtifactRef:
+        """Pass through to the inner store: erasure is a read-side control (SEC-009)."""
         return self._inner.put(authorized, artifact)
 
     def get(self, *, content_address: str) -> bytes:
+        """The inner store's bytes, unless the mirror names the address erased (SEC-009).
+
+        Raises:
+            ErasedContentRefused: the address was erased.
+        """
         self._consult(content_address)
         return self._inner.get(content_address=content_address)
 
     def exists(self, *, content_address: str) -> bool:
+        """The inner store's truth; deliberately NOT consulted (U8; SEC-009)."""
         return self._inner.exists(content_address=content_address)
 
     def resolve_uri(self, *, uri: str) -> str:
+        """The inner store's resolution, refused when it names an erased address (SEC-009).
+
+        Raises:
+            ErasedContentRefused: the resolved address was erased.
+        """
         address = self._inner.resolve_uri(uri=uri)
         self._consult(address)
         return address

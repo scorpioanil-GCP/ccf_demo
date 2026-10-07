@@ -971,6 +971,13 @@ def govern_dereference(
     a caller allowed to consult it before the holds could confirm those three
     facts about a record it may not read by varying the segments.
 
+    **An erased address** (SEC-009; ``D-IMPL-374`` (4), U11) is the one
+    exception, decided before the holds because the store the door holds
+    refuses to read its bytes: at ``minimal`` it is the same absence as below;
+    at ``reasoned`` and ``full`` it is an ``erased-content`` shell (410),
+    carrying the erasure's reason and instant, and its record address only at
+    ``full``.
+
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
     the door's recorder and returned disclosed. ``cause="unauthorized"``

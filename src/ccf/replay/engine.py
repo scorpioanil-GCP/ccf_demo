@@ -529,6 +529,8 @@ class ReplayOutcome(CCFContract):
             equal by construction to the one the record carries.
         graph_snapshot_id: Snapshot id derived from the re-execution, equal by
             construction to the recorded one.
+        erased_content: The erased RETAINED members this replay met and
+            disclosed (SEC-009; `D-IMPL-374` (4); design `D-IMPL-367` §5.2).
     """
 
     record: DecisionReplayRecord
@@ -569,6 +571,8 @@ class RefusalReplayOutcome(CCFContract):
             refusal reached before any projection ran; otherwise the snapshot
             id the re-execution derived, equal by construction to the
             recorded one.
+        erased_content: As :attr:`ReplayOutcome.erased_content` (SEC-009;
+            `D-IMPL-374` (4)).
     """
 
     record: DecisionReplayRecord
@@ -690,6 +694,8 @@ def resolve_artifact_at_uri(
             names a version whose bytes are absent.
         ReplayDivergence: the resolved bytes do not hash to the address the name
             pointed at.
+        ccf.erasure.ErasedContentRefused: the named version was erased
+            (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
     """
     try:
         content_address = store.resolve_uri(uri=uri)
