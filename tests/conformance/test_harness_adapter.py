@@ -480,19 +480,42 @@ def build_harness_leg(param: str) -> HarnessLeg:
         def refusal(
             under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
         ) -> object | None:
-            """Poke the Claude Agent SDK's own permission hook (D-10 (b)).
+            """Drive the adapter-owned control, then the CLI's hook (D-10 (b)).
 
-            ``can_use_tool`` is the hook the harness consults before running a
-            tool and the one it honours ``PermissionResultDeny`` from, so this
-            is the harness refusing rather than CCF declining.
+            TP-01 (D-IMPL-361): the vendor routes a CLI ``tools/call`` straight
+            to the in-process MCP handler with no Python-side permission check
+            (``claude_agent_sdk/_internal/query.py:679-688``), and
+            ``can_use_tool`` is enforced only by the semi-trusted CLI. Poking
+            the gate with ``{}`` alone was therefore a false green: it proved
+            the CLI's control, never the adapter's. So the refusal counts only
+            when the **in-process handler itself** refuses the skill's declared
+            arguments through the vendor's own ``CallToolRequest`` route — and
+            the CLI-side gate, defense in depth, agrees.
             """
+            from mcp.types import CallToolRequest, CallToolRequestParams
+
             carrier = under_test.inject_context(
                 agent=agent, products=(), instructions=()
             )
+            server = carrier.mcp_servers[values["mcp_server_name"]]  # type: ignore[attr-defined]
+            handler = server["instance"].request_handlers[CallToolRequest]
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            result = asyncio.run(
+                handler(
+                    CallToolRequest(
+                        method="tools/call",
+                        params=CallToolRequestParams(
+                            name=skill_name, arguments=declared
+                        ),
+                    )
+                )
+            ).root
             gate = carrier.can_use_tool  # type: ignore[attr-defined]
             qualified = f"mcp__{values['mcp_server_name']}__{skill_name}"
-            decision = asyncio.run(gate(qualified, {}, None))
-            return decision if isinstance(decision, PermissionResultDeny) else None
+            decision = asyncio.run(gate(qualified, declared, None))
+            refused_in_process = bool(result.isError)
+            refused_by_cli_gate = isinstance(decision, PermissionResultDeny)
+            return result if refused_in_process and refused_by_cli_gate else None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
