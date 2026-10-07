@@ -90,3 +90,26 @@ def test_an_erased_record_at_reasoned_is_gone_with_its_reason_and_without_its_re
     assert refusal["kind"] == "erased-content" and refusal["disclosure"] == "reasoned"
     assert "customer-request" in response.text
     assert RECORD_ADDRESS not in response.text
+
+
+def test_an_unentitled_caller_cannot_learn_that_an_address_was_erased(fabric: Fabric, tmp_path: Path) -> None:
+    """Ruling 1 (authorization first): the holds run BEFORE the erasure consult.
+
+    ``B`` discloses at ``full`` and holds the same grant, but the record is
+    ``A``'s; the stranger holds no grant at all. Each must receive, after the
+    erasure, exactly the rendering the door gave it before — no ``erased-content``
+    kind, no 410, no reason, no instant, no record address.
+    """
+    governed = ed._governed(fabric, tmp_path)
+    address = ed._served_record(governed, principal=ed.A)
+    before = {
+        token: ed._get_artifact(governed, address, token=token)
+        for token in (ed.B_TOKEN, ed.STRANGER_TOKEN, ed.C_TOKEN)
+    }
+    _erase(governed, address)
+    for token, earlier in before.items():
+        after = ed._get_artifact(governed, address, token=token)
+        assert after.status_code == earlier.status_code != 410, (token, after.status_code)
+        assert "erased" not in after.text and RECORD_ADDRESS not in after.text, token
+        assert "customer-request" not in after.text, token
+        assert ed.same_shell(earlier, address, after, address), token
