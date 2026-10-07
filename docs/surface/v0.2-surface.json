@@ -1272,7 +1272,7 @@
     "exports": {
       "FabricHandle": {
         "kind": "class",
-        "shape": "(*, reader: 'GraphReader', worker: 'AssemblyWorker', registry: 'ControlPlaneProtocol', adapter: 'AdapterPin', shutdown: 'Callable[[], None]') -> 'None'"
+        "shape": "(*, reader: 'GraphReader', worker: 'AssemblyWorker', registry: 'ControlPlaneProtocol', adapter: 'AdapterPin', shutdown: 'Callable[[], None]', lease_scope: 'WriterLeaseScope | None' = None, lease_mechanism: 'str | None' = None) -> 'None'"
       },
       "boot": {
         "kind": "function",
@@ -2275,7 +2275,7 @@
       "AttributeAssertionRefusedAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2292,12 +2292,12 @@
       },
       "AuditAction": {
         "kind": "function",
-        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']"
+        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']"
       },
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2314,7 +2314,7 @@
       "AuthzDecisionAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "authz_action_id": "str | None",
@@ -2336,7 +2336,7 @@
       "WorkflowVerdictIntegrityAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2380,7 +2380,7 @@
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -3009,7 +3009,7 @@
       },
       "FlureeGraphStore": {
         "kind": "class",
-        "shape": "(*, url: 'str', partition: 'str' = 'ccf', ledger: 'str' = 'ccf:main', bearer_token: 'str | None' = None) -> 'None'"
+        "shape": "(*, url: 'str', partition: 'str' = 'ccf', ledger: 'str' = 'ccf:main', bearer_token: 'str | None' = None, writer_lease: 'WriterLeaseSource | None' = None) -> 'None'"
       },
       "FlureePinAhead": {
         "kind": "class",
@@ -3036,7 +3036,8 @@
         "kind": "contract",
         "shape": {
           "partition": "str | None",
-          "url": "<class 'str'>"
+          "url": "<class 'str'>",
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]]"
         }
       },
       "FlureeGraphWriter": {
@@ -3108,7 +3109,7 @@
       },
       "MongoGraphStore": {
         "kind": "class",
-        "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None) -> 'None'"
+        "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None, writer_lease: 'WriterLeaseSource | None' = None) -> 'None'"
       }
     }
   },
@@ -3123,7 +3124,8 @@
         "kind": "contract",
         "shape": {
           "partition": "str | None",
-          "uri": "<class 'str'>"
+          "uri": "<class 'str'>",
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]]"
         }
       },
       "MongoGraphWriter": {
@@ -3158,7 +3160,7 @@
       },
       "Neo4jGraphStore": {
         "kind": "class",
-        "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None) -> 'None'"
+        "shape": "(*, uri: 'str', partition: 'str' = 'ccf', database: 'str | None' = None, writer_lease: 'WriterLeaseSource | None' = None) -> 'None'"
       }
     }
   },
@@ -3173,7 +3175,8 @@
         "kind": "contract",
         "shape": {
           "partition": "str | None",
-          "uri": "<class 'str'>"
+          "uri": "<class 'str'>",
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]]"
         }
       },
       "Neo4jGraphWriter": {
@@ -3301,6 +3304,58 @@
       }
     }
   },
+  "ccf.graph.governed_reader": {
+    "__all__": [
+      "governed_reader"
+    ],
+    "exports": {
+      "governed_reader": {
+        "kind": "function",
+        "shape": "(inner: 'GraphReader', authority: 'ClassificationAuthority') -> 'GraphReader'"
+      }
+    }
+  },
+  "ccf.graph.leases": {
+    "__all__": [
+      "AbsoluteLockDirectory",
+      "LOCK_FILE_SUFFIX",
+      "LockFileWriterLease",
+      "declared_lock_directory_lease",
+      "lock_directory_writer_lease",
+      "lock_file_name",
+      "require_absolute_lock_directory"
+    ],
+    "exports": {
+      "AbsoluteLockDirectory": {
+        "kind": "function",
+        "shape": "typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]"
+      },
+      "LOCK_FILE_SUFFIX": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "LockFileWriterLease": {
+        "kind": "class",
+        "shape": "(*, path: 'Path') -> 'None'"
+      },
+      "declared_lock_directory_lease": {
+        "kind": "function",
+        "shape": "(lock_dir: 'str | None') -> 'WriterLeaseSource | None'"
+      },
+      "lock_directory_writer_lease": {
+        "kind": "function",
+        "shape": "(lock_dir: 'str | Path') -> 'WriterLeaseSource'"
+      },
+      "lock_file_name": {
+        "kind": "function",
+        "shape": "(graph_identity: 'str') -> 'str'"
+      },
+      "require_absolute_lock_directory": {
+        "kind": "function",
+        "shape": "(value: 'str') -> 'str'"
+      }
+    }
+  },
   "ccf.graph.product_source": {
     "__all__": [
       "GATE_PRODUCT_MOUNT",
@@ -3335,6 +3390,9 @@
   },
   "ccf.graph.protocols": {
     "__all__": [
+      "ClassificationAuthority",
+      "ClassificationAuthorityMissing",
+      "ClassificationAuthorityNotMinted",
       "EntityRecord",
       "GraphQuery",
       "GraphReader",
@@ -3354,13 +3412,35 @@
       "TraversalDepthCapability",
       "TraversalDirection",
       "TraversalSpec",
+      "UngovernedClassificationAttribute",
       "UpsertResult",
       "WRITER_LEASE_SCOPES",
       "WriterLease",
       "WriterLeaseHeld",
-      "WriterLeaseScope"
+      "WriterLeaseRequired",
+      "WriterLeaseScope",
+      "WriterLeaseSource",
+      "acquire_declared_writer_lease",
+      "require_classification_authority",
+      "require_query_classification_authority"
     ],
     "exports": {
+      "ClassificationAuthority": {
+        "kind": "contract",
+        "shape": {
+          "governed": "collections.abc.Mapping[str, collections.abc.Mapping[str, frozenset[str]]]",
+          "spec_address": "<class 'str'>",
+          "written": "collections.abc.Mapping[str, frozenset[str]]"
+        }
+      },
+      "ClassificationAuthorityMissing": {
+        "kind": "class",
+        "shape": "(*, consumer: 'str') -> 'None'"
+      },
+      "ClassificationAuthorityNotMinted": {
+        "kind": "class",
+        "shape": "(*, consumer: 'str') -> 'None'"
+      },
       "EntityRecord": {
         "kind": "contract",
         "shape": {
@@ -3484,6 +3564,10 @@
           "seed_entity_classes": "frozenset[str]"
         }
       },
+      "UngovernedClassificationAttribute": {
+        "kind": "class",
+        "shape": "(*, operator_key: 'str', entity_class: 'str', attribute: 'str') -> 'None'"
+      },
       "UpsertResult": {
         "kind": "contract",
         "shape": {
@@ -3506,9 +3590,29 @@
         "kind": "class",
         "shape": "type"
       },
+      "WriterLeaseRequired": {
+        "kind": "class",
+        "shape": "type"
+      },
       "WriterLeaseScope": {
         "kind": "function",
         "shape": "typing.Literal['cross-process', 'process']"
+      },
+      "WriterLeaseSource": {
+        "kind": "function",
+        "shape": "collections.abc.Callable[[str], ccf.graph.protocols.WriterLease]"
+      },
+      "acquire_declared_writer_lease": {
+        "kind": "function",
+        "shape": "(source: 'WriterLeaseSource | None', *, substrate: 'str', graph_identity: 'str') -> 'WriterLease'"
+      },
+      "require_classification_authority": {
+        "kind": "function",
+        "shape": "(view: \"'GraphView'\", by_class: 'Mapping[str, str] | None', *, consumer: 'str') -> 'None'"
+      },
+      "require_query_classification_authority": {
+        "kind": "function",
+        "shape": "(q: \"'GraphQuery'\") -> 'None'"
       }
     }
   },
