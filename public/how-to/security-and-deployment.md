@@ -1214,6 +1214,61 @@ state record that had already been overwritten.
   transport a deployment supplies. Until then, reconcile: find every
   execution that has left a gate whose suspension holds both an approve and
   a reject verdict, and route it to human review.
+- **A step that never returns keeps the claim for the life of the
+  process.** The SDK has no timeout and no operator override for the claim.
+  The claim is given back only when the resumption itself exits, and
+  cancelling the resumption counts as an exit (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). While a
+  step after a gate hangs, every later resumption of that execution in the
+  process is refused as in flight. Measured: refused at once and again two
+  seconds later, then admitted once the hung resumption was cancelled. If
+  you cannot cancel it, restart the process. What the restarted process
+  finds depends on where the execution's state lives. The shipped
+  composition keeps its state store, HITL transport and audit log in
+  memory, so a restart loses the execution. Measured: the restarted
+  process holds no state record and no recorded approval for it, a
+  resumption is refused "no execution exists", and the trace artifact its
+  suspension wrote to the artifact store survives. Starting it
+  again under the same execution id runs it from its first step to its
+  first gate, where it waits for a new approval (measured). The audit rows
+  the killed process wrote are gone with its memory (code reading). A
+  durable state store and HITL transport instead keep the execution
+  suspended at the gate the hung resumption was carrying it past, because
+  that resumption committed nothing. The next resumption passes on the same
+  recorded approval and runs the step after the gate again. This was
+  measured with the reference store and transport, persisted to disk after
+  every write, standing in for durable ones.
+- **The in-flight refusal tells a `Resume` holder that a resumption is
+  running.** The claim is taken after the `Resume` capability is verified
+  and before the gate's authority is checked (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). So a
+  principal can learn that another resumption of an execution is running
+  if it holds a `Resume` capability for the workflow's definition key in
+  that execution's tenant and names the execution id, whether or not it is
+  an eligible approver. While another resumption runs, its request is
+  refused as in flight. Without one, the same request is answered from the
+  execution's state instead. Measured with a principal that neither started
+  nor approved the run. A `Resume` capability minted for another tenant on
+  the same definition key is answered "no execution exists" under its own
+  tenant, so it learns nothing about this one (measured). Each refused
+  request is audited as a refused resumption with no actor (measured).
+  Grant `Resume` only to principals entitled to know when a run is being
+  resumed.
+- **At the erasure door, read the reason code, not the message, and
+  retry.** When two completions of one erasure request run at once, the one
+  the claim refuses raises `ErasureRefused` with reason code
+  `workflow-refused` (measured). The door builds the message from the
+  engine's refusal and cuts it at 400 characters (code reading of
+  `runtime/ccf_runtime/erasure/door.py::ErasureDoor.complete`). The
+  request's 64-character identity appears twice in that refusal, so the cut
+  falls inside the engine's reason. The closing clause the door writes,
+  "the address stays withheld (index-unsupported) and the audit says so",
+  is therefore missing from the message (measured). Had it appeared, it
+  would not hold. Until the other completion returns, a read of the
+  address is refused `index-unsupported`, because its index entry is
+  written and its record is not yet filed. Once the other completion files
+  the record, the read is refused as erased with the request's reason, and
+  a retry of the refused completion returns the same record (measured).
 
 ## Validation-error text and caller values (SEC-024, choice C)
 
