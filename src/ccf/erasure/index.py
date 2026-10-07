@@ -7,8 +7,9 @@ grows only. **The erasure record is the only authority**; the mirror is a
 derived view. An entry the mirror names is served as erased whether or not a
 record supports it — the fail-closed direction of design §8's disagreement row.
 
-**Grows only.** :class:`ErasureIndexMirror` has an append and no removal, and
-no un-erasure verb exists anywhere (U6).
+**Grows only.** :class:`ErasureIndexMirror` has an append and no removal, no
+un-erasure verb exists anywhere (U6), and the consult reads EVERY registered
+version — so a later version that omits an address cannot un-erase it.
 
 The read (:class:`ErasureIndex`) uses the registry's UNAUDITED introspection
 (``keys_of_class``, ``versions``, ``peek``): the consult runs on every artifact
@@ -122,25 +123,30 @@ class ErasureIndex:
         self._source = source
 
     def lookup(self, content_address: str) -> ErasureIndexEntry | None:
-        """The entry naming ``content_address`` in any tenant's latest mirror, or ``None``.
+        """The entry naming ``content_address`` in ANY version of any tenant's mirror, or ``None``.
+
+        **Every version, oldest first — never only the newest** (U6). The
+        mirror is append-only by its own writer, but the registry accepts any
+        well-typed version from a holder of the key's ``Register``
+        capability; reading only the newest would let a later version that
+        omits an address un-erase it by omission. Reading the whole history
+        makes an erasure, once mirrored, permanent for the consult.
 
         Raises:
             TypeError: a key bound to the mirror class holds something else —
                 a broken registry, refused rather than read as "not erased".
         """
         for key in self._source.keys_of_class(ERASURE_INDEX.class_id):
-            versions = self._source.versions(key)
-            if not versions:
-                continue
-            mirror = self._source.peek(key, versions[-1])
-            if not isinstance(mirror, ErasureIndexMirror):
-                raise TypeError(
-                    f"{key!r} holds {type(mirror).__name__}, not ErasureIndexMirror"
-                    " (SEC-009)"
-                )
-            entry = mirror.entry_for(content_address)
-            if entry is not None:
-                return entry
+            for version in self._source.versions(key):
+                mirror = self._source.peek(key, version)
+                if not isinstance(mirror, ErasureIndexMirror):
+                    raise TypeError(
+                        f"{key!r} holds {type(mirror).__name__}, not ErasureIndexMirror"
+                        " (SEC-009)"
+                    )
+                entry = mirror.entry_for(content_address)
+                if entry is not None:
+                    return entry
         return None
 
 
