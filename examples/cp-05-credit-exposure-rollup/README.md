@@ -9,6 +9,16 @@
 
 ---
 
+> **Specimen re-pin, 2026-10-06 (`D-IMPL-374`, executor ruling (b)).** This
+> frozen specimen changed in one place only: `ccf_config.yaml` now declares
+> `attribute_authorities: {family_id: [exposure_graph]}` on the `exposure_anchor` and
+> `exposure_member` resolution rules. SEC-023 refuses a deployment whose Policy
+> operator admits on an attribute any source could relabel, so without the
+> declaration this example no longer boots. `D-IMPL-261` allows a specimen
+> change when the SDK surface it consumes was deliberately changed, and
+> SEC-023 is that change. Apart from this note, nothing else in this example
+> changed.
+
 ## What this demonstrates
 
 **That "total exposure" is not a sum.** A data product that adds facility
