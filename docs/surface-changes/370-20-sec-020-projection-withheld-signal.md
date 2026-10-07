@@ -33,13 +33,14 @@ The two earlier versions are kept here as measured history:
 The signal is the only key into the branch. An empty payload without it keeps
 the debt and finding its real view earned.
 
-**Scope the rule states rather than hides.** Equality is with a nonexistent
-subject asked on the SAME fabric. On a class-seeded plan, a per-request fabric
-that acquisition populated with the subject's claims still reads them, exactly
-as a nonexistent subject asked on that fabric would. Compared with the EMPTY
-fabric a nonexistent subject's own question gets, it differs. That difference is
-made by acquisition, which put the claims there, not by Π, and this row does
-not change it.
+**Scope, as amended by `377-01` (`D-IMPL-376` (3), route A).** As first
+integrated, equality held with a nonexistent subject asked on the SAME fabric.
+On the paved road, acquisition populates each question's fabric with the asked
+subject's claims before the plan runs, so the unseeded walk still read them,
+while a nonexistent subject's own question walks a fabric acquisition added
+nothing to. `377-01` renders the withheld subject over the fabric as it stood
+before its question's acquisition; its own scope note says for which
+acquisition shape that is exact.
 
 ## ccf.projection.plan.ProjectionOutput
 
@@ -47,7 +48,7 @@ not change it.
 - Public surface: true
 - Change type: reshaped
 - Before: `plan_id: str`, `payload: Mapping[str, Any]`. A projection that withheld a subject could only do so silently.
-- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from `ExecutionResult.over_empty_view()`. The replay record keeps the execution that ran.
+- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from the same plan re-executed without the request seed (`ProjectionEngine.execute_without_request_seed`), over the fabric as it stood before this request's acquisition (`377-01`). The replay record keeps the execution that ran.
 - Why: SEC-020 and Q12 (a). The withheld subject's claims must not move any member a consumer reads. A withhold is never inferred from an empty payload (`D-IMPL-242` amendment 1).
 - Migration: none for a projection that does not withhold. A projection that withholds today by returning an empty payload should set `withheld=True` to get the constant-fill rendering.
 

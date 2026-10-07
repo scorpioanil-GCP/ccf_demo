@@ -754,8 +754,13 @@ def _subject_seeded_paved_config() -> dict[str, Any]:
     return document
 
 
-def _replay_once(tmp_path: pathlib.Path, subject: str) -> tuple[Any, Any, str]:
-    """Serve ``subject`` on the paved road, reopen its fabric, replay through ``RecordedEnvironment``."""
+def _replay_once(
+    tmp_path: pathlib.Path, subject: str, *, config: dict[str, Any] | None = None
+) -> tuple[Any, Any, str]:
+    """Serve ``subject`` on the paved road, reopen its fabric, replay through ``RecordedEnvironment``.
+
+    ``config`` is the subject-seeded paved config unless a control names another.
+    """
     from ccf.deployment import load_config_and_boot  # noqa: PLC0415
     from ccf.replay.engine import replay  # noqa: PLC0415
     from ccf.replay.environment import RecordedEnvironment  # noqa: PLC0415
@@ -763,7 +768,9 @@ def _replay_once(tmp_path: pathlib.Path, subject: str) -> tuple[Any, Any, str]:
     from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
     from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER as PAVED_THRESHOLD  # noqa: PLC0415
 
-    root = _write_tree(tmp_path, config=_subject_seeded_paved_config())
+    root = _write_tree(
+        tmp_path, config=config if config is not None else _subject_seeded_paved_config()
+    )
     scratch = tmp_path / "scratch"
     with _open(root, scratch, acquire=_AcquireForSubject(), project=_paved_withholding_project) as opened:
         served = opened.answer(
@@ -944,3 +951,26 @@ def test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject(
             f" (`D-IMPL-341` R-3): {nonexistent!r}"
         )
     _assert_indistinguishable(withheld, nonexistent, case=case)
+
+
+@pytest.mark.parametrize("subject", [PAVED_WITHHELD, PAVED_ABSENT], ids=["withheld", "never-acquired"])
+def test_control_4_on_the_class_seeded_paved_road_each_decision_replays_to_its_own_address(
+    tmp_path: pathlib.Path, subject: str
+) -> None:
+    """(4) on the shape route A changes: the class-seeded paved road, acquisition seam on.
+
+    The withheld decision now carries the empty finding of the fabric before
+    its acquisition, while its dimension 1 keeps the real read of the acquired
+    account; dimension 5 carries the finding and the shipped
+    ``RecordedEnvironment`` rehydrates it, so the decision replays to its own
+    address, as the never-acquired control does.
+    """
+    served, outcome, recorded = _replay_once(
+        tmp_path, subject, config=_paved_config(anchor=FROM_DECISION, seeding=CLASS_SEEDED)
+    )
+    assert served.product.computed_empty is not None, (
+        "on the class-seeded paved road both decisions carry the empty finding"
+        " of a fabric holding nothing; the case was not constructed"
+    )
+    assert content_hash(outcome.product) == recorded == content_hash(served.product)
+    assert outcome.product.computed_empty == served.product.computed_empty

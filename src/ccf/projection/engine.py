@@ -57,6 +57,7 @@ from pydantic import Field
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
+from ccf.graph import fallback
 from ccf.graph.protocols import (
     NO_STORE_SNAPSHOT_PIN,
     EntityRecord,
@@ -67,6 +68,7 @@ from ccf.graph.protocols import (
     SnapshotPinnable,
     SourceAttestation,
     StoreSnapshotPin,
+    require_classification_authority,
 )
 from ccf.operators.base import OperatorOutput, OperatorProvenance
 from ccf.operators.planner import IntermediateCache, build_operator_plan
@@ -311,6 +313,90 @@ class _PinnedReader:
         )
 
 
+
+class _BeforeAcquisitionReader:
+    """The fabric as it stood BEFORE this request's acquisition, as a reader.
+
+    SEC-020; ``D-IMPL-376`` (3), route A (SDK-defined, CLAUDE.md §11). Private
+    to this module and reached only through
+    :meth:`ProjectionEngine.execute_without_request_seed`. ``held`` is ONE
+    as-of read of the real store, taken by the governed resolver immediately
+    BEFORE its declared acquisition seam ran
+    (``src/ccf/products/resolver.py::GovernedResolver``): the state the walk of
+    a subject whose acquisition added nothing reads. Every query is answered
+    over those records by the reference semantics
+    (:func:`ccf.graph.fallback.answer`, the oracle every adapter agrees with,
+    which re-applies the as-of cut over the records' retained temporal
+    metadata), so the walk is the one the store answers at that state: no
+    record is added, removed or masked.
+
+    It answers only the tenant and the instant it holds. Every query an
+    execution issues is at the execution's temporal boundary
+    (``compile_segment_query``); a query at any other instant would need a
+    state this reader does not hold, so it is refused rather than answered
+    from the wrong one, and the two history reads, which no execution issues,
+    are refused for the same reason. A classification-bearing query is held to
+    the authority the read carried (SEC-023, ``D-IMPL-374``), and every answer
+    carries that authority forward. Read-only by construction: it holds a view
+    and the reader whose attestation it reports, and nothing else.
+    """
+
+    def __init__(self, *, inner: GraphReader, held: GraphView) -> None:
+        self._inner = inner
+        self._held = held
+
+    @property
+    def attestation(self) -> SourceAttestation:
+        """The real source's attestation."""
+        return self._inner.attestation
+
+    def query(self, q: GraphQuery) -> GraphView:
+        held = self._held
+        if q.tenant_id != held.tenant_id or q.as_of != held.as_of:
+            raise ValueError(
+                f"this reader holds tenant {held.tenant_id!r} as of"
+                f" {held.as_of.isoformat()}, the fabric before this request's"
+                f" acquisition, and was asked for {q.tenant_id!r} as of"
+                f" {q.as_of.isoformat()}; it answers no state it does not hold"
+            )
+        require_classification_authority(
+            held, q.classification_attribute_by_class, consumer="GraphQuery"
+        )
+        entities, relationships = fallback.answer(
+            held.entities, held.relationships, query=q
+        )
+        answered = GraphView(
+            tenant_id=q.tenant_id,
+            as_of=q.as_of,
+            entities=tuple(sorted(entities, key=lambda record: record.claim.entity_uri)),
+            relationships=tuple(
+                sorted(relationships, key=lambda record: record.relationship_key)
+            ),
+        )
+        authority = held.classification_authority
+        if authority is None:
+            return answered
+        return answered._with_classification_authority(authority)
+
+    def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
+        return self.query(GraphQuery(tenant_id=tenant_id, as_of=at))
+
+    def entity_history(
+        self, *, tenant_id: str, entity_uri: str
+    ) -> tuple[EntityRecord, ...]:
+        raise NotImplementedError(
+            "the fabric before this request's acquisition is held as one as-of"
+            " read; it carries no claim history, and no execution reads one"
+        )
+
+    def relationship_history(
+        self, *, tenant_id: str, relationship_key: str
+    ) -> tuple[RelationshipRecord, ...]:
+        raise NotImplementedError(
+            "the fabric before this request's acquisition is held as one as-of"
+            " read; it carries no claim history, and no execution reads one"
+        )
+
 class ProjectionEngine:
     """Runs the operator plan, then decision-time acquisition, then Π.
 
@@ -429,6 +515,7 @@ class ProjectionEngine:
         perspective: Perspective,
         tenant_id: str,
         temporal_boundary: datetime,
+        before_acquisition: GraphView | None = None,
     ) -> ExecutionResult:
         """Re-execute ``plan`` exactly as ``executed`` ran, minus the request seed.
 
@@ -444,19 +531,39 @@ class ProjectionEngine:
         seed reaches them, exactly as they are for that identifier. No record
         is masked; seeding semantics are untouched.
 
+        **Which fabric the walk reads** (``D-IMPL-376`` (3), route A). A
+        subject that names nothing has nothing acquired for it, so its walk
+        reads the fabric as it stood BEFORE its question's acquisition — and
+        that is what this walk reads too. ``before_acquisition`` is that state
+        for this request: the as-of read the governed resolver takes
+        immediately before its declared acquisition seam
+        (``src/ccf/products/resolver.py::GovernedResolver``). When it is given,
+        every query is answered over it by the reference semantics, so nothing
+        this request's acquisition ingested for the asked subject is walked.
+        ``None`` means no acquisition ran for this request (no seam declared):
+        the state before acquisition is then the state ``executed`` read, and
+        the store is read at ``executed.store_snapshot_pin`` where it can pin.
+
         Every other input is the shadowed execution's: the same plan, boundary
         and perspective, on a fresh engine sharing this one's registry and
-        survivor cap (so this engine's telemetry is not replaced), reading the
-        store at ``executed.store_snapshot_pin`` where the store can pin.
-        Content the real execution acquired is RE-FED rather than re-acquired
-        (the replay posture, INV-CH7-31). The result carries the real
-        execution's attestation and pin.
+        survivor cap (so this engine's telemetry is not replaced). Content the
+        real execution acquired at decision time is RE-FED rather than
+        re-acquired (the replay posture, INV-CH7-31). The result carries the
+        real execution's attestation and pin.
 
         Args:
             executed: The real execution of the same plan, already run.
+            before_acquisition: The fabric as it stood before this request's
+                acquisition, read at ``temporal_boundary`` — or ``None`` where
+                no acquisition ran for this request.
         """
+        reader: GraphReader = (
+            _PinnedReader(inner=self._reader, pin=executed.store_snapshot_pin)
+            if before_acquisition is None
+            else _BeforeAcquisitionReader(inner=self._reader, held=before_acquisition)
+        )
         unseeded_engine = ProjectionEngine(
-            reader=_PinnedReader(inner=self._reader, pin=executed.store_snapshot_pin),
+            reader=reader,
             registry=self._registry,
             survivor_cap=self._survivor_cap,
         )

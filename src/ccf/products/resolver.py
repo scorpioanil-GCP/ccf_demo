@@ -2718,7 +2718,20 @@ class GovernedResolver:
         # never reaches this line. The seam is the composition root's: it
         # reads and it ingests through L2's one writer; this resolver hands
         # it a request and holds no handle to anything it writes.
+        #
+        # SEC-020, `D-IMPL-376` (3) route A: THE FABRIC BEFORE THIS REQUEST'S
+        # ACQUISITION, read once, immediately before the seam — after every
+        # refusal above, so a refused question still costs nothing, and before
+        # the seam, so nothing this request acquires is in it. A subject that
+        # names nothing has nothing acquired for it, so this is the state its
+        # walk reads; a subject Π withholds is rendered from it below. Read
+        # only when a seam is declared: with none, nothing is acquired, and the
+        # state the plan reads below is this one.
+        before_acquisition: GraphView | None = None
         if self.acquisition is not None:
+            before_acquisition = self.fabric.handle.reader.as_of(
+                tenant_id=self.fabric.tenant_id, at=request.asked_at
+            )
             try:
                 self.acquisition(request=effective_request, perspective=perspective)
             except GovernedRefusalRaised as raised:
@@ -3044,6 +3057,17 @@ class GovernedResolver:
         # evidence was fresher or staler than its siblings', because the
         # nonexistent identifier's walk reads those records.
         #
+        # AND THE FABRIC IT WALKS IS THE ONE BEFORE THIS REQUEST'S ACQUISITION
+        # (`D-IMPL-376` (3), route A). An identifier that names nothing has
+        # nothing acquired for it; the withheld subject's own question did
+        # acquire, through the declared seam above, BEFORE the plan ran — so
+        # re-executing over the fabric as it now stands walked the evidence
+        # acquisition had just ingested for the asked subject (measured by the
+        # `D-IMPL-371` close review on the paved road: `computed_empty` under
+        # `from_decision`, the refusal kind under `from_entity_freshness`).
+        # `before_acquisition` is the state read immediately before that seam;
+        # with no seam declared it is `None` and the store is read as it is.
+        #
         # `execution` itself is NOT replaced. The replay record is the audit
         # plane (whitepaper §7.8.2) and keeps what was actually read, so a
         # re-execution pins the same reads; the recorded debt and finding are
@@ -3055,6 +3079,7 @@ class GovernedResolver:
                 perspective=perspective,
                 tenant_id=self.fabric.tenant_id,
                 temporal_boundary=request.asked_at,
+                before_acquisition=before_acquisition,
             )
             if execution.projection.withheld
             else execution

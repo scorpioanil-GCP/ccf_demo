@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2180 entries**, of which **1908** name a public Python surface.
+**2182 entries**, of which **1910** name a public Python surface.
 
 ## Added
 
@@ -19182,7 +19182,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-596 entries — 404 public Python surface, 192 not public Python API.
+597 entries — 405 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -25353,7 +25353,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: `plan_id: str`, `payload: Mapping[str, Any]`. A projection that withheld a subject could only do so silently.
-- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from `ExecutionResult.over_empty_view()`. The replay record keeps the execution that ran.
+- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from the same plan re-executed without the request seed (`ProjectionEngine.execute_without_request_seed`), over the fabric as it stood before this request's acquisition (`377-01`). The replay record keeps the execution that ran.
 - Why: SEC-020 and Q12 (a). The withheld subject's claims must not move any member a consumer reads. A withhold is never inferred from an empty payload (`D-IMPL-242` amendment 1).
 - Migration: none for a projection that does not withhold. A projection that withholds today by returning an empty payload should set `withheld=True` to get the constant-fill rendering.
 
@@ -26097,6 +26097,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: every constructor call must now pass `max_request_bytes`. Declare it large enough for the JSON-RPC request that carries a document of `max_message_bytes`: that request carries the document base64-encoded, about four thirds of its size, plus an envelope that depends on the deployment's own identifiers, so measure it. A body over `max_request_bytes` is answered `413`, which a sending peer sees as `PeerUnreachable` from `emit` or `emit_async`.
 
 *Recorded by `375-02-sec-021-u1-body-cap-before-parse.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: reshaped
+- Before: `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)` always read the store at `executed.store_snapshot_pin` where it could pin, so it walked whatever the store held at that pin.
+- After: adds the keyword `before_acquisition: GraphView | None = None`. When given, every query of the re-execution is answered over that one as-of read by the reference semantics, carrying and enforcing the classification authority the read carried. A query at another tenant or instant, and the two history reads, are refused rather than answered from a state the reader does not hold. `None` keeps the previous behavior.
+- Why: SEC-020, `D-IMPL-376` (3) route A. The fabric before this request's acquisition is the state a subject that names nothing walks.
+- Migration: none. The keyword is additive and defaults to the previous behavior.
+
+*Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
 
 ### Not public Python API
 
@@ -29114,7 +29126,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-292 entries — 256 public Python surface, 36 not public Python API.
+293 entries — 257 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33785,6 +33797,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a subject Π withheld was rendered from the plan re-executed without the request seed over the fabric as it stood after the declared acquisition seam had ingested the asked subject's evidence. On a class-seeded plan its debt, empty finding and TTL anchor therefore reflected evidence that a never-acquired subject's fabric does not hold.
+- After: when `acquisition` is declared, `__call__` reads the fabric (`reader.as_of` at `request.asked_at`) once, after every refusal that precedes the seam and immediately before the seam runs. A subject Π withholds is rendered from the plan re-executed without the request seed over that read. With no seam declared nothing is read in addition and the rendering is unchanged. Every refusal before the seam still reads nothing.
+- Why: SEC-020, `D-IMPL-376` (3) route A. A withheld subject must be indistinguishable from a nonexistent one on the paved road, where acquisition populates each question's fabric before the plan runs.
+- Migration: none for a product whose Π never withholds. A deployment with an acquisition seam makes one more as-of read of the tenant's graph per governed call (the call already makes one). A product whose Π withholds subjects should acquire by subject: see the scope above.
+
+*Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
 
 ### Not public Python API
 
