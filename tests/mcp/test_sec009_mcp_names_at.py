@@ -62,6 +62,7 @@ def _server(tmp_path: pathlib.Path, store: Any) -> Any:
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
         erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
 
 

@@ -204,6 +204,7 @@ def build_server(*, workspace: Path) -> FastMCP:
         ),
         audit_log=registry.audit_log,
         erasure_index=FileErasureIndex(workspace / ARTIFACTS_DIRNAME / ERASURE_INDEX_FILENAME),
+        control_plane=registry,
     )
 
 

@@ -525,19 +525,46 @@ default. Decide three things before an erasure is ever approved.
   `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in the
   store's `WriteKinds`, and grant `artifact.erase` only to the principals who
   may file an erasure request. Neither class can be declared erasable.
-- **Which HITL transport holds pending approvals.** The door files the
-  recorded human approval as an immutable `ccf.erasure-approval` before the
-  index append, and the consult re-checks it from the store, so a completed
-  erasure stays verified across restarts and processes. A gate still
-  **pending** in the in-memory transport does not survive a restart: that is
-  the transport's limit, not the record's. A deployment that needs pending
-  approvals to outlive a process wires a durable transport.
+- **Which HITL policy signs the approvals.** An erasure approval is bound to
+  a SIGNED HITL attestation (`D-IMPL-363`), so the HITL policy the erasure
+  gate runs under must require signed bindings and pin each approver's public
+  key. The door refuses, by name, an approval that is unsigned
+  (`approval-unsigned`) or whose signature does not verify
+  (`approval-signature-invalid`). It files the approval, with its signed claim
+  set, signature and key id verbatim, as an immutable `ccf.erasure-approval`
+  before the index append, and every store construction site verifies that
+  signature again, against the key the pinned policy declares for the
+  approver, resolved through its own Control Plane
+  (`src/ccf/erasure/approval.py::verify_erasure_approval`). An approval that
+  does not verify is `index-unsupported`: the address stays withheld and the
+  audit says so. Holding `artifact.erase` lets a requester file an approval
+  artifact, not produce a signature the policy accepts, so the strength of an
+  erasure's approval is the custody of the approvers' private keys and of
+  Control Plane registration.
+- **Which HITL transport holds pending approvals.** A completed erasure stays
+  verified across restarts and processes, because its approval is in the
+  store and its keys are in the pinned policy. A gate still **pending** in the
+  in-memory transport does not survive a restart: that is the transport's
+  limit, not the record's. A deployment that needs pending approvals to
+  outlive a process wires a durable transport.
+- **How a torn index line is repaired.** A process killed in the middle of an
+  append can leave a partial line that the next append merges into. The index
+  then refuses as `ErasureIndexCorrupt` and every read under it is withheld:
+  that is deliberate, and the SDK ships no repair tool. With every process
+  that composes the index stopped, copy the file aside as evidence, truncate
+  it to the longest prefix of complete lines whose hash chain verifies, then
+  restore the removed suffix before any reader starts: re-run the door's
+  completion for the torn entry, whose execution is still suspended, and
+  re-append every later complete line under the erase capability for its own
+  request. The full procedure is in the `ccf.erasure.index` module docstring.
 
 Two behaviors follow from the design and are stated rather than changed:
 
 - A retry of a completion must present the same erase authorization. A retry
   under a fresh one is refused as `retry-mismatch`, because the record names
-  the authorizing decision and the index entries already pin the record.
+  the authorizing decision and the index entries already pin the record. The
+  approval itself is re-filed unchanged, because its instant is the signed
+  `issued_at`.
 - Over the MCP-backed store, a names read that the server refuses for a
   governed address reaches the door looking like an outage. The door refuses
   `class-unverifiable` either way, so it fails closed, but the two causes are

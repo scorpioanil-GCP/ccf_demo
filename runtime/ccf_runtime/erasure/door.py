@@ -72,11 +72,17 @@ from ccf.erasure.contracts import (
     RetentionHoldPolicy,
     judge_retention,
 )
+from ccf.erasure.approval import (
+    ErasureApprovalInvalid,
+    reference_approval_verifier,
+    verify_erasure_approval,
+)
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.erasure.store import ErasureIndexUnavailable
 from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolution
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.mcp.errors import McpServerUnreachable
+from ccf.peering.identity import IdentityProvider
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
@@ -159,6 +165,7 @@ class ErasureDoor:
         store: ArtifactStoreProtocol,
         clock: Callable[[], datetime],
         index: ErasureIndexProtocol,
+        identity_provider: IdentityProvider | None = None,
     ) -> None:
         if not isinstance(index, ErasureIndexProtocol):
             raise ErasureIndexUnavailable(
@@ -172,6 +179,11 @@ class ErasureDoor:
         self._store = store
         self._clock = clock
         self._index = index
+        # Fix round 4: the verifier the approval's signed attestation is checked
+        # with — the deployment's HITL identity provider, or the SDK reference.
+        self._identity_provider = (
+            reference_approval_verifier() if identity_provider is None else identity_provider
+        )
 
     # -- the two halves -------------------------------------------------------
 
@@ -259,18 +271,34 @@ class ErasureDoor:
             bound = True  # checked against the approval's address below
         else:
             raise self._approval_not_recorded()
+        # Fix round 4: an erasure requires a SIGNED approval (D-IMPL-363). The
+        # recorded submission must carry its attestation and the transport's
+        # pin of the HITL policy that admitted it; refused by name otherwise.
+        attestation = recorded_submission.attestation
+        if attestation is None or recorded_submission.hitl_policy_ref is None:
+            raise ErasureRefused(
+                "an erasure is written only on a SIGNED human approval: the recorded"
+                " gate submission carries no signed HITL attestation, or no pinned"
+                " HITL policy to verify it against (SEC-009; D-IMPL-374 (4), fix"
+                " round 4; D-IMPL-363)",
+                reason_code="approval-unsigned",
+            )
         # Fix round 3 (I3 part 2, option (a)): the RECORDED approval, as an
         # immutable content-addressed artifact; its address is approval_ref.
+        # Its instant is the signer's own (fix round 4), so a retry re-files the
+        # same artifact.
         approval = ErasureApproval(
             tenant_id=tenant,
             request_id=request.request_id,
             approver=recorded_submission.principal.approver,
             verdict=recorded_submission.action,
-            acted_at=erased_at,
+            acted_at=attestation.claims.issued_at,
             gate=gate or "-",
             gate_state_hash=recorded_submission.principal.product_content_hash,
             workflow_definition_hash=content_hash(workflow.definition),
             submission_hash=content_hash(recorded_submission),
+            attestation=attestation,
+            hitl_policy_ref=recorded_submission.hitl_policy_ref,
         )
         approval_ref = content_hash(approval)
         if prior and any(e.approval_ref != approval_ref for e in prior):
@@ -289,6 +317,25 @@ class ErasureDoor:
         )
         if not recorded:
             raise self._approval_not_recorded()
+        # Fix round 4: the SAME verification the consult runs — the signature
+        # against the key the pinned HITL policy declares for the approver, and
+        # the signed claims against this request's gate, tenant, state and
+        # verdict. Refused by name before anything is written.
+        try:
+            verify_erasure_approval(
+                approval,
+                tenant_id=tenant,
+                request_id=request.request_id,
+                approver=recorded_submission.principal.approver,
+                control_plane=self._control_plane,
+                identity_provider=self._identity_provider,
+            )
+        except ErasureApprovalInvalid as invalid:
+            raise ErasureRefused(
+                f"the recorded approval's signed attestation does not verify for"
+                f" this request ({invalid}) (SEC-009; fix round 4)"[:400],
+                reason_code=invalid.reason_code,
+            ) from invalid
         # The requester is the starter the ENGINE recorded on the execution,
         # and the actor is the approver on the transport's RECORDED submission
         # — never the presented event (I2; probe P3).

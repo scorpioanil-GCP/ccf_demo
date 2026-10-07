@@ -41,7 +41,7 @@ NOWHERE = "e" * 64
 DOCUMENT = {"customer": {"id": "customer-42"}, "note": "kyc"}
 
 
-def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, Any, Any]:
+def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, Any, Any, Any]:
     registry = ControlPlaneRegistry()
     index = FileErasureIndex(tmp_path / "erasure-index.jsonl")
     source, recorder = _entitlement_world(tmp_path)
@@ -69,7 +69,10 @@ def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, A
         audit_log=registry.audit_log,
     )
     arguments["erasure_index"] = index
-    return build_artifact_server(**arguments), store, index
+    # Fix round 4: the server verifies each approval's signature through this
+    # Control Plane, where the erasure plants register the signed HITL policy.
+    arguments["control_plane"] = registry
+    return build_artifact_server(**arguments), store, index, registry
 
 
 def _shell(payload: bytes) -> RefusalEnvelope:
@@ -77,10 +80,10 @@ def _shell(payload: bytes) -> RefusalEnvelope:
 
 
 def test_an_erased_artifact_is_not_served_over_the_mcp_artifact_server(tmp_path: pathlib.Path) -> None:
-    server, store, index = _server(tmp_path)
+    server, store, index, registry = _server(tmp_path)
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), DOCUMENT)
     assert aa._blob(server, ref.content_address, TENANT) == canonical_bytes(DOCUMENT)
-    composed.erase(store, index, ref.content_address, tenant=TENANT)
+    composed.erase(store, index, ref.content_address, control_plane=registry, tenant=TENANT)
     served = aa._blob(server, ref.content_address, TENANT)
     assert served != canonical_bytes(DOCUMENT), "the erased bytes crossed the MCP artifact server"
     # minimal: the not-found rendering, identical to an address nothing is stored at.
@@ -88,9 +91,9 @@ def test_an_erased_artifact_is_not_served_over_the_mcp_artifact_server(tmp_path:
 
 
 def test_an_erased_artifact_reads_as_erased_content_above_minimal(tmp_path: pathlib.Path) -> None:
-    server, store, index = _server(tmp_path, level="full")
+    server, store, index, registry = _server(tmp_path, level="full")
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), DOCUMENT)
-    record = composed.erase(store, index, ref.content_address, tenant=TENANT)
+    record = composed.erase(store, index, ref.content_address, control_plane=registry, tenant=TENANT)
     shell = _shell(aa._blob(server, ref.content_address, TENANT))
     assert shell.kind == "erased-content" and shell.disclosure == "full"
     assert shell.fields["erasure_record_address"] == '"' + content_hash(record) + '"'

@@ -65,7 +65,7 @@ def _forged_record(request: Any, address: str, **overrides: Any) -> Any:
 def _consult(plane: h.Plane, audit: Any | None = None) -> Any:
     return h.erasure("compose_erasure_consult")(
         plane.store, index=h.index_of(plane), audit_log=audit or plane.registry.audit_log,
-        clock=h.fabric_clock, tenant_id=h.TENANT,
+        clock=h.fabric_clock, control_plane=plane.registry, tenant_id=h.TENANT,
     )
 
 
@@ -187,7 +187,8 @@ def test_a_broken_chain_and_a_corrupt_line_fail_closed_with_a_typed_refusal(tmp_
     os.chmod(plane.index_path, 0o600)
     audit = ControlPlaneRegistry().audit_log
     consulted = h.erasure("compose_erasure_consult")(
-        plane.store, index=_LazyIndex(plane.index_path), audit_log=audit, clock=h.fabric_clock, tenant_id=h.TENANT
+        plane.store, index=_LazyIndex(plane.index_path), audit_log=audit, clock=h.fabric_clock,
+        control_plane=plane.registry, tenant_id=h.TENANT,
     )
     untouched = plane.document.content_address
     with pytest.raises(corrupt) as refused:

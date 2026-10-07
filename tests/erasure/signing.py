@@ -65,6 +65,8 @@ def public_jwk(directory: Path | None = None) -> JsonWebKey:
 
 def register_signed_policy(registry: ControlPlaneRegistry, *, subject: str, key: str = HITL_POLICY_KEY) -> str:
     """Register the ruled signed ``HitlPolicy`` pinning the test key for ``subject``; return the key."""
+    from ccf.contracts.canonical import content_hash
+    from ccf.controlplane.registry import ControlPlaneMissing
     from tests.composition import register_typed_at_composition
 
     policy = parse_artifact(
@@ -77,7 +79,12 @@ def register_signed_policy(registry: ControlPlaneRegistry, *, subject: str, key:
         },
         HITL_POLICY,
     )
-    register_typed_at_composition(registry, key, policy, HITL_POLICY)
+    try:
+        _version, standing = registry.resolve_latest(key)
+    except ControlPlaneMissing:
+        standing = None
+    if standing is None or content_hash(standing) != content_hash(policy):
+        register_typed_at_composition(registry, key, policy, HITL_POLICY)
     return key
 
 

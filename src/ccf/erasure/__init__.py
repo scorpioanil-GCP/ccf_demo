@@ -68,6 +68,13 @@ Algorithmic package (CINV-03).
 
 from __future__ import annotations
 
+from ccf.erasure.approval import (
+    APPROVING_VERDICT,
+    ErasureApprovalInvalid,
+    PinnedPolicySource,
+    reference_approval_verifier,
+    verify_erasure_approval,
+)
 from ccf.erasure.contracts import (
     ERASURE_APPROVAL_CLASS,
     ERASURE_RECORD_CLASS,
@@ -113,6 +120,11 @@ from ccf.erasure.store import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "APPROVING_VERDICT",
+    "ErasureApprovalInvalid",
+    "PinnedPolicySource",
+    "reference_approval_verifier",
+    "verify_erasure_approval",
     "ERASURE_INDEX_FILENAME",
     "ERASURE_APPROVAL_CLASS",
     "ERASURE_RECORD_CLASS",

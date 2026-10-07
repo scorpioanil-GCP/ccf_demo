@@ -22,4 +22,7 @@ def test_the_resolvers_default_store_composes_the_consult(declared: _Booted, tmp
             erasure_index=FileErasureIndex(tmp_path / "erasure-index.jsonl"),
         )
     )
-    composed.assert_consults(resolver.artifact_store, resolver.artifact_store.index, tenant=resolver.artifact_store.tenant_id)
+    composed.assert_consults(
+        resolver.artifact_store, resolver.artifact_store.index,
+        control_plane=resolver.artifact_store.control_plane, tenant=resolver.artifact_store.tenant_id,
+    )

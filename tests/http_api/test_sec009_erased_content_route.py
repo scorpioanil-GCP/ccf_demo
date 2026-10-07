@@ -25,7 +25,7 @@ from tests.erasure import harness as h
 
 def _erase(governed: ed.Governed, address: str) -> str:
     """Plant a GENUINE erasure of ``address`` in the deployment's index; return the record address."""
-    record = composed.erase(governed.store, governed.erasure_index, address, tenant=governed.tenant)
+    record = composed.erase(governed.store, governed.erasure_index, address, control_plane=governed.registry, tenant=governed.tenant)
     return str(content_hash(record))
 
 

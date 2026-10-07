@@ -4958,6 +4958,8 @@ def build_governed_resolver(
         index=erasure_index,
         audit_log=control_plane.audit_log,
         clock=admission_clock,
+        # Fix round 4: approvals verify against the pinned HITL policy here.
+        control_plane=control_plane,
         tenant_id=fabric.tenant_id,
     )
 

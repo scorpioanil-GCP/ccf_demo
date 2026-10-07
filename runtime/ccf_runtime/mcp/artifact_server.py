@@ -145,6 +145,7 @@ from ccf.artifacts.protocol import (
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
 from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
 from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, compose_erasure_consult
+from ccf.erasure.approval import PinnedPolicySource
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -324,6 +325,7 @@ def build_artifact_server(
     refusal_recorder: DisclosingRecorderProtocol,
     audit_log: AuditLog,
     erasure_index: ErasureIndexProtocol,
+    control_plane: PinnedPolicySource,
 ) -> FastMCP:
     """Build the authenticated, authorized artifact server over ``store``.
 
@@ -375,6 +377,12 @@ def build_artifact_server(
             ``minimal``, ``erased-content`` above it — never as bytes. The
             naming resource still resolves through ``store``: it returns an
             address, never bytes (the ``exists`` reasoning, U8).
+        control_plane: The deployment's Control Plane (SEC-009; fix round 4).
+            **Required, no default**: an erasure's approval is a signed HITL
+            attestation, verified against the key the pinned HITL policy
+            declares for the approver, and that policy is resolved through this
+            Control Plane. An approval that does not verify here is
+            ``index-unsupported``.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -383,7 +391,11 @@ def build_artifact_server(
     """
     # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
     consulted = compose_erasure_consult(
-        store, index=erasure_index, audit_log=audit_log, clock=entitlement_source.clock
+        store,
+        index=erasure_index,
+        audit_log=audit_log,
+        clock=entitlement_source.clock,
+        control_plane=control_plane,
     )
     door = TenantGuardedServer(
         FastMCP(

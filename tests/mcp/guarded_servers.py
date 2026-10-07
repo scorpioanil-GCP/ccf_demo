@@ -236,6 +236,7 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             refusal_recorder=recorder,
             audit_log=ControlPlaneRegistry().audit_log,
             erasure_index=no_erasures(),
+            control_plane=ControlPlaneRegistry(),
         )
 
     if builder == "hitl":

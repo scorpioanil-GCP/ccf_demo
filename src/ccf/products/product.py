@@ -1169,6 +1169,8 @@ def open_product(
         index=erasure_index,
         audit_log=registry.audit_log,
         clock=clock,
+        # Fix round 4: approvals verify against the pinned HITL policy here.
+        control_plane=registry,
         tenant_id=config.tenant_id,
     )
     # The bundle pin the boot WILL mint, computed the way the registry mints

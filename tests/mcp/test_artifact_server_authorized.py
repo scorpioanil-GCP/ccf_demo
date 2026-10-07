@@ -271,6 +271,7 @@ def _world(tmp_path: pathlib.Path, *, authorizer: Any = None) -> _World:
         refusal_recorder=recorder,
         audit_log=audit_log,
         erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
     return _World(server=server, store=store, authorizer=recording, audit_log=audit_log)
 
@@ -596,6 +597,7 @@ def _real_world(tmp_path: pathlib.Path) -> tuple[FastMCP, FileArtifactStore]:
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
         erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
     return server, store
 
@@ -710,6 +712,7 @@ def test_a_client_lane_read_leaves_the_same_audit_trail_a_governed_one_does(
         refusal_recorder=recorder,
         audit_log=audit_log,
         erasure_index=no_erasures(),
+        control_plane=ControlPlaneRegistry(),
     )
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), {"k": 1})
     before = len(audit_log.events())

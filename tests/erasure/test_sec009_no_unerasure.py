@@ -51,6 +51,8 @@ def test_no_public_name_in_the_erasure_surface_is_a_reversal_verb() -> None:
     }
     assert store_verbs - PROTOCOL_VERBS <= {
         "inner", "index", "tenant_id", "write_kinds", "names_at", "scoped", "validate_all",
+        # Fix round 4: a read-only view of the Control Plane approvals verify through.
+        "control_plane",
     }, store_verbs
     index_verbs = {
         attr for attr in vars(h.erasure("ErasureIndexProtocol")) if not attr.startswith("_")
@@ -62,13 +64,14 @@ def test_an_index_entry_is_never_replaced_and_a_reopen_still_withholds(tmp_path:
     inner = FileArtifactStore(root=tmp_path / "artifacts", write_kinds=h.write_kinds())
     ref = h.client_put(inner, name="erased", document={"customer": {"id": h.SUBJECT_ID}})
     index = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
-    composed.erase(inner, index, ref.content_address)
+    registry = ControlPlaneRegistry()
+    composed.erase(inner, index, ref.content_address, control_plane=registry)
     entry = index.lookup(tenant_id=h.TENANT, content_address=ref.content_address)
     with pytest.raises(h.erasure("ErasureIndexEntryExists")):
         composed.append_as(index, entry.model_copy(update={"erasure_record_address": "0" * 64}))
     reopened = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
     store = h.erasure("compose_erasure_consult")(
-        inner, index=reopened, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, tenant_id=h.TENANT
+        inner, index=reopened, audit_log=registry.audit_log, clock=h.fabric_clock, control_plane=registry, tenant_id=h.TENANT
     )
     with pytest.raises(h.erasure("ErasedContentRefused")):
         store.get(content_address=ref.content_address)

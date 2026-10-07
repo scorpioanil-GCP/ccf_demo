@@ -30,6 +30,7 @@ from ccf.authz.decision import AuthzDecision
 from ccf.contracts.canonical import content_hash
 from ccf.hitl.principal import ApproverIdentity
 from tests.erasure import harness as h
+from tests.erasure import signing
 
 ERASED_AT = datetime(2026, 7, 30, tzinfo=UTC)
 REASON = "customer-request"
@@ -62,21 +63,49 @@ def subject_ref() -> str:
     return str(h.erasure("subject_ref_for")(h.declaration(), h.SUBJECT_CLASS, h.SUBJECT_ID))
 
 
-def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artifact_class: str = h.DOC_CLASS) -> Any:
-    """Plant one genuine erasure of ``address`` under ``tenant``; return the record."""
+def erase(
+    store: Any,
+    index: Any,
+    address: str,
+    *,
+    control_plane: Any,
+    tenant: str = h.TENANT,
+    artifact_class: str = h.DOC_CLASS,
+) -> Any:
+    """Plant one genuine-shaped erasure of ``address`` under ``tenant``; return the record.
+
+    ``control_plane`` is the site's OWN Control Plane: the signed HITL policy
+    pinning the SEC-005 test key for the approver is registered there, so the
+    site's consult verifies the planted approval's signature (fix round 4).
+    """
     ref = subject_ref()
     record_id = content_hash({"tenant_id": tenant, "address": address, "planted": True})
     actor = ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta")
+    # A REAL signature by the SEC-005 test key, pinned for the approver in a
+    # HITL policy registered in the site's own Control Plane — never a
+    # placeholder (fix round 4).
+    signing.register_signed_policy(control_plane, subject=h.APPROVER)
+    gate = "approval"
+    gate_state = content_hash({"planted-gate-state": address, "tenant": tenant})
+    attestation = signing.sign(
+        tenant=tenant,
+        event_key=f"{tenant}/{record_id}/{gate}",
+        product_content_hash=gate_state,
+        subject_id=h.APPROVER,
+        issued_at=ERASED_AT,
+    )
     approval = h.erasure("ErasureApproval")(
         tenant_id=tenant,
         request_id=record_id,
         approver=actor,
         verdict="approve",
-        acted_at=ERASED_AT,
-        gate="approval",
-        gate_state_hash="1" * 64,
-        workflow_definition_hash="2" * 64,
-        submission_hash="3" * 64,
+        acted_at=attestation.claims.issued_at,
+        gate=gate,
+        gate_state_hash=gate_state,
+        workflow_definition_hash=content_hash({"planted-workflow": True}),
+        submission_hash=content_hash({"planted-submission": address}),
+        attestation=attestation,
+        hitl_policy_ref=signing.policy_ref(control_plane),
     )
     approval_ref = content_hash(approval)
     record = h.erasure("ErasureRecord")(
@@ -132,10 +161,22 @@ def erase(store: Any, index: Any, address: str, *, tenant: str = h.TENANT, artif
     return record
 
 
-def assert_consults(store: Any, index: Any, *, name: str = "probe", tenant: str = h.TENANT) -> None:
-    """File a probe through the site's own store, erase it in the site's own index, require refusal."""
+def assert_consults(
+    store: Any, index: Any, *, control_plane: Any, name: str = "probe", tenant: str = h.TENANT
+) -> None:
+    """File a probe through the site's own store, erase it in the site's own index, require refusal.
+
+    The refusal must be the SUPPORTED one (the record's reason), not
+    ``index-unsupported``: a site whose consult cannot verify the signed approval
+    through ``control_plane`` would also refuse, for the wrong reason (fix round 4).
+    """
     ref = h.client_put(store, name=name, document={"customer": {"id": h.SUBJECT_ID}, "site": name})
     assert store.get(content_address=ref.content_address)  # served while not erased
-    erase(store, index, ref.content_address, tenant=tenant)
+    erase(store, index, ref.content_address, control_plane=control_plane, tenant=tenant)
     with pytest.raises(h.erasure("ErasedContentRefused")):
         store.get(content_address=ref.content_address)
+    # A tenantless view discloses no facts by design; the erasing tenant's view does.
+    view = store if store.tenant_id is not None else store.scoped(tenant)
+    with pytest.raises(h.erasure("ErasedContentRefused")) as refused:
+        view.get(content_address=ref.content_address)
+    assert refused.value.reason == REASON, refused.value.reason

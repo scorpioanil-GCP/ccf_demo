@@ -35,6 +35,7 @@ from ccf.artifacts.protocol import CONTENT_ADDRESS_PATTERN, parse_artifact_uri
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
+from ccf.hitl.identity_binding import SignedHitlAction
 from ccf.hitl.principal import ApproverIdentity
 
 __ccf_mode__ = "algorithmic"
@@ -420,10 +421,13 @@ class ErasureApproval(CCFContract):
 
     The door files it as ``ccf.erasure-approval`` at completion, BEFORE the
     index append, from the gate submission the HITL transport recorded — never
-    from anything the caller presents. Its content address IS the
+    from anything the caller presents — and only when that submission carries a
+    SIGNED attestation that verifies (fix round 4). Its content address IS the
     ``approval_ref`` of the erasure record and of every index entry, and the
-    decorating store resolves it on validation: an entry whose approval is
-    absent, or names another request or tenant, or does not approve, is
+    decorating store resolves it and VERIFIES its signature
+    (:func:`~ccf.erasure.approval.verify_erasure_approval`): an entry whose
+    approval is absent, unsigned, signed by a key the pinned policy does not
+    declare for the signer, or names another request, tenant or verdict, is
     ``index-unsupported``. Immutable and content-addressed, so the check needs no
     plane beyond the ArtifactStore and holds across restarts and processes.
 
@@ -432,16 +436,17 @@ class ErasureApproval(CCFContract):
         request_id: The content identity of the approved erasure request.
         approver: The approver identity on the recorded submission.
         verdict: The recorded submission's action (``approve`` approves).
-        acted_at: The fabric instant the door filed this record at completion.
-            The HITL submission carries no action instant of its own, so this
-            is the instant the approval was acted on by the door — the same
-            instant the erasure record carries, deterministic across retries.
+        acted_at: The human's own action instant: the signed attestation's
+            ``issued_at`` (fix round 4). Fixed by the signature, so a retry
+            re-files the same approval.
         gate: The approval gate's state name in the erasure workflow.
         gate_state_hash: The suspended-state content hash the approver's
             principal binding names — what the approver saw.
         workflow_definition_hash: The content hash of the workflow definition
             the gate belongs to.
         submission_hash: The content hash of the recorded gate submission.
+        attestation: The signed HITL attestation, verbatim.
+        hitl_policy_ref: The pinned HITL policy, ``key@version``.
     """
 
     tenant_id: str = Field(min_length=1)
@@ -453,6 +458,14 @@ class ErasureApproval(CCFContract):
     gate_state_hash: str = Field(min_length=1)
     workflow_definition_hash: str = Field(min_length=1)
     submission_hash: str = Field(min_length=1)
+    #: The recorded submission's SIGNED attestation, verbatim: the claim set,
+    #: the detached signature and the key id the pinned policy declares (fix
+    #: round 4; `D-IMPL-363`). What the consult verifies.
+    attestation: SignedHitlAction
+    #: The transport-stamped ``key@version`` of the HITL policy in force when
+    #: the approval was recorded — resolved at that exact version to find the
+    #: approver's pinned keys.
+    hitl_policy_ref: str = Field(min_length=1)
 
 
 class ErasureRecord(CCFContract):

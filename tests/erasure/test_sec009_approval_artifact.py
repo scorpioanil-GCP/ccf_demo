@@ -24,6 +24,7 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.principal import ApproverIdentity
 from tests.erasure import harness as h
+from tests.erasure import signing
 from tests.erasure.test_sec009_fix2 import _entry, _forged_record
 
 
@@ -39,10 +40,13 @@ def _erased(plane: h.Plane) -> tuple[Any, Any]:
 
 def _fresh_consult(plane: h.Plane) -> tuple[Any, Any]:
     """A consult composed as a RESTARTED process composes it: a fresh registry's
-    audit log, the index reopened from its file, nothing in memory."""
-    audit = ControlPlaneRegistry().audit_log
+    audit log, the index reopened from its file, nothing in memory — and the
+    deployment's HITL policy re-registered at boot, as every boot does (fix round 4)."""
+    booted = ControlPlaneRegistry()
+    signing.register_signed_policy(booted, subject=h.APPROVER)
+    audit = booted.audit_log
     consulted = h.erasure("compose_erasure_consult")(
-        plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, tenant_id=h.TENANT
+        plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, control_plane=booted, tenant_id=h.TENANT
     )
     return consulted, audit
 
@@ -73,22 +77,36 @@ def test_an_approval_that_does_not_approve_this_request_is_unsupported(tmp_path:
     plane = h.compose(tmp_path)
     request = h.request(plane)
     address = plane.document.content_address
+    # Fix round 4: every forgery is SIGNED by the pinned key — a valid signature
+    # over a claim set that does not approve THIS request — so what refuses it
+    # is the claims check, not the signature check.
+    tenant = "beta-bank" if forgery == "another-tenant" else h.TENANT
+    request_id = "another-request" if forgery == "another-request" else request.request_id
+    verdict = "reject" if forgery == "rejecting-verdict" else "approve"
+    issued = h.fabric_clock()
+    attestation = signing.sign(
+        tenant=tenant, event_key=f"{tenant}/{request_id}/approval", product_content_hash="1" * 64,
+        subject_id=h.APPROVER, issued_at=issued, action=verdict,
+    )
+    approver = ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta")
     approval = h.erasure("ErasureApproval")(
-        tenant_id="beta-bank" if forgery == "another-tenant" else h.TENANT,
-        request_id="another-request" if forgery == "another-request" else request.request_id,
-        approver=ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta"),
-        verdict="reject" if forgery == "rejecting-verdict" else "approve",
-        acted_at=h.fabric_clock(),
+        tenant_id=tenant,
+        request_id=request_id,
+        approver=approver,
+        verdict=verdict,
+        acted_at=issued,
         gate="approval",
         gate_state_hash="1" * 64,
         workflow_definition_hash="2" * 64,
         submission_hash="3" * 64,
+        attestation=attestation,
+        hitl_policy_ref=signing.policy_ref(plane.registry),
     )
     filed = plane.store.put(
         h.erase_cap(request),
         DerivedWrite(artifact_class=h.ERASURE_APPROVAL_CLASS, name=f"forged-{forgery}", artifact=approval),
     )
-    record = _forged_record(request, address, approval_ref=filed.content_address)
+    record = _forged_record(request, address, approval_ref=filed.content_address, actor=approver)
     h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), approval_ref=filed.content_address))
     plane.store.put(h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name="f" * 64, artifact=record))
     consulted, audit = _fresh_consult(plane)

@@ -33,6 +33,34 @@ shorter chain and is not detectable without state kept outside the file — an
 attacker with write access to the index file can un-erase its tail; the file
 modes and the deployment's filesystem controls are the mitigation.
 
+**A torn line fails closed, and is repaired by hand** (fix round 4, re-review
+M-a). A process killed in the middle of an append can leave a partial last
+line; the next append lands after it, the two read as one malformed line, and
+the index is refused as :class:`~ccf.erasure.ErasureIndexCorrupt` — every read
+under it is withheld. That stays the posture: the SDK never guesses which of
+two merged writes was meant. The SDK ships no repair tool; an operator repairs
+the file with every process that composes it stopped:
+
+1. Copy the index file aside, unchanged, as evidence.
+2. Find the longest prefix of complete, newline-terminated lines whose chain
+   verifies from :data:`GENESIS` — each line parses, and its ``previous`` is
+   the sha256 of the line before it (the first line's is ``GENESIS``).
+3. Truncate the file to exactly that prefix, keeping its owner and mode
+   ``0600``.
+4. Restore the removed suffix BEFORE any reader starts — until then its
+   addresses are not withheld, which is why readers stay stopped:
+
+   - the TORN entry belongs to a completion that died inside its append, before
+     the workflow resumed, so its execution is still suspended: re-run the
+     door's ``complete`` with the same request and erase authorization, and the
+     write-ahead protocol re-appends it;
+   - every COMPLETE line after the torn one (from the evidence copy) is a valid
+     entry another completion appended: re-append it, unchanged, through
+     :meth:`ErasureIndexProtocol.append` under the ``ArtifactErase`` capability
+     for its own request. The consult re-validates each against its record and
+     its signed approval, so a line that was not genuine stays unsupported.
+5. Restart.
+
 Algorithmic module (CINV-03): no clock is read here.
 """
 
@@ -50,6 +78,7 @@ from typing import Final, NoReturn, Protocol, runtime_checkable
 
 from pydantic import ValidationError
 
+from ccf.artifacts.file_store import InsecureArtifactStoreRoot, _make_private_dirs
 from ccf.authz.capability import ArtifactErase, Authorized, CapabilityBypassError, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
@@ -160,15 +189,27 @@ def require_append_authority(authorized: Authorized[ArtifactErase], entry: Erasu
 
 
 def _private_parent(directory: Path) -> None:
-    if not directory.exists():
-        directory.mkdir(parents=True, mode=0o700)
-        os.chmod(directory, 0o700)
-    status = os.stat(directory)
-    if not stat.S_ISDIR(status.st_mode) or status.st_uid != os.geteuid() or status.st_mode & 0o077:
+    """The index's directory: created owner-only, or refused by name — the FILE STORE's policy.
+
+    Fix round 4 (re-review M-b): the same mechanism the artifact store applies
+    to its root (:func:`ccf.artifacts.file_store._make_private_dirs`). Every
+    directory this call creates, intermediate parents included, is chmodded
+    ``0o700``; a directory that already existed is never chmodded and is refused
+    when any mode bit lies outside ``0o700`` (special bits included) or it is
+    not owned by this process's effective uid.
+    """
+    try:
+        _make_private_dirs(directory)
+    except InsecureArtifactStoreRoot as loose:
         raise ErasureIndexInsecure(
-            f"the erasure index's directory {str(directory)!r} must be owned by"
-            " this process's user and mode 0700 (SEC-009; fix round 2 (a))"
-        )
+            f"the erasure index's directory {str(directory)!r} must be owned by this"
+            " process's user with no mode bit outside 0700 (SEC-009; fix round 2 (a);"
+            f" the artifact store's root policy, SEC-014): {loose}"
+        ) from loose
+    except FileExistsError as not_a_directory:
+        raise ErasureIndexInsecure(
+            f"the erasure index's directory {str(directory)!r} is not a directory"
+        ) from not_a_directory
 
 
 def _private_file(path: Path) -> None:

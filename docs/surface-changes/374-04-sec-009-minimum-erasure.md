@@ -38,8 +38,10 @@ Disclosed residuals (ruling 5):
 
 - **A third-party store with no `names_at` cannot be erased through.** The door refuses by name, `class-unverifiable`, because it reads an address's stored class and tenant through the store's naming. The §7.4 reference store is NOT excluded: the MCP artifact server answers names through a resource, and `McpArtifactStore.names_at` reads it (ruling 2).
 - **An attacker with write access to the index file can un-erase its tail; file modes and the deployment's filesystem controls are the mitigation.** The file index is hash-chained, so an edited, reordered or removed line in the middle is refused at boot (`ErasureIndexCorrupt`, fail closed), and it opens with `O_NOFOLLOW` under an owner-only mode (0600 file, 0700 parent, refused by name otherwise). A chain cannot show that its last lines were cut off, so a truncated tail reads as a shorter, valid index (fix round 2, (a)).
-- **The recorded approval is re-checked from the store, but an in-memory HITL transport cannot resume a pending approval across a restart.** At completion, before the index append, the door files the recorded approval as an immutable `ccf.erasure-approval`, and its content address is the `approval_ref` on the record and the entry (fix round 3). The consult resolves it and requires this request, this tenant, an approving verdict and the record's approver; anything else is `index-unsupported`. That check survives a restart. What does not survive is a gate still PENDING in `InMemoryHitlTransport`: that is the transport's limit, not the record's.
-- **The approval's instant is the door's, not the human's.** The HITL submission carries no action instant, so `ErasureApproval.acted_at` is the fabric instant the door completed the erasure, the same instant the record carries.
+- **The approval is signature-bound, and verified again on every composition; an in-memory HITL transport still cannot resume a PENDING approval across a restart.** An erasure requires a SIGNED human approval: the door refuses, by name, an approval that is unsigned (`approval-unsigned`) or whose signature does not verify (`approval-signature-invalid`). Before the index append it files the approval as an immutable `ccf.erasure-approval` that carries the signed HITL attestation verbatim (claim set, signature, key id) and the pinned HITL policy version; its content address is the `approval_ref` on the record and the entry. The consult verifies that signature against the key the pinned HITL policy declares for the approver, resolved through its composed Control Plane, and requires the signed claims to name this request's gate, this tenant, the gate's state hash, the approver and an approving verdict; anything else is `index-unsupported` and audited (fix round 4). Holding `ArtifactErase` lets a requester file an approval artifact, not produce a signature the pinned policy accepts. The check survives a restart. A gate still PENDING in `InMemoryHitlTransport` does not: that is the transport's limit, not the record's.
+- **The approval's instant is the human's.** `ErasureApproval.acted_at` is the signed attestation's `issued_at`, so a retry re-files the same approval and leaves no orphan.
+- **The check is as strong as the HITL policy's key custody.** A party who can register a HITL policy in the Control Plane, or who holds an approver's private key, can approve. Both are outside the erasure surface. A deployment whose HITL transport signs under an algorithm other than the SDK's reference detached JWS passes its own `identity_provider` to `compose_erasure_consult` and the door; otherwise its approvals do not verify and fail closed.
+- **A torn index line fails closed and is repaired by hand.** A process killed mid-append can leave a partial line that the next append merges into; the index is then refused as `ErasureIndexCorrupt` and every read under it is withheld. The repair procedure (evidence copy, truncate to the longest verifying prefix, restore the suffix before readers start) is in the `ccf.erasure.index` module docstring and §4.9 of the security deployment page. The SDK ships no repair tool.
 - **A retry needs the same authorization.** The record names the erase decision id, and the write-ahead entries pin the record's address, so a retry of a completion under a FRESH erase authorization is refused as `retry-mismatch`. Present the same request and the same erase decision.
 - **A refused names read is not told apart from an outage.** When the MCP names resource refuses a governed address, the client receives the refusal shell and reports `McpServerUnreachable`, and the door refuses `class-unverifiable`. That fails closed, but the caller cannot tell a refusal from an unreachable server.
 - **Receivers that compose nothing.** `replay()`, `replay_refusal()` and `GrantBoundChildResolver` consult only if the store they are handed is composed (M5). The frozen `dr-01` example replays over a raw store. A child decision record that was erased still propagates `ErasedContentRefused` out of child admission (M4, not built).
@@ -59,7 +61,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one artifact class's retention and hold policy: `erasable` (default False), `severity_exempt`, the closed `reasons`, active `holds`, and `minimum_age` in whole days, which is required and has no default (U10).
 - Why: SEC-009; G7 default refuse; U10 rules the minimum age present on the contract with no SDK default.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ERASURE_RECORD_CLASS
 
@@ -69,7 +71,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The constant `ccf.erasure-record`, the class an erasure record is filed under.
 - Why: SEC-009; G3: the erasure fact is an immutable artifact filed through the store's one write verb.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ERASURE_SUBJECT_DECLARATION
 
@@ -79,7 +81,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The `ArtifactClass` `ccf.erasure-subject-declaration`. Adopter-registered and not manifest-addressable.
 - Why: SEC-009; G1: what a subject is, declared by the deployment.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasedAddress
 
@@ -89,7 +91,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one erased artifact on a record: address, class, key paths, `matched` (presence only), and `scope`, which is `whole` this phase (U5).
 - Why: SEC-009; G3: design §2.3 record shape.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasedContentRefused
 
@@ -99,7 +101,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: An `ArtifactStoreError` the decorating store raises on a read of an erased address. It carries the record address, the reason and the instant, and nothing of the subject. It is not an `ArtifactNotFound` and not a `LookupError`.
 - Why: SEC-009; G4/G5: an erasure is a recorded decision, not an absence.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureConsultingStore
 
@@ -107,9 +109,9 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane` (fix round 4).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureIndexEntry
 
@@ -119,7 +121,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one erased address: record address, admitted reason, instant.
 - Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureRecord
 
@@ -129,7 +131,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval policy, retention decision, reason, legal basis.
 - Why: SEC-009; G3; it can be asserted and never retracted (U6).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureRequest
 
@@ -139,7 +141,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: What a requester asks to erase. Its content hash `request_id` is the approval workflow's execution id.
 - Why: SEC-009; U9: the human approves exactly this request.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureSubjectClass
 
@@ -149,7 +151,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: One declared subject class: `class_id`, `key_paths`, `artifact_classes`, `identifier_kind`, and `subject_ref_salt`. A key path that reaches a replay input is refused (U2). A `principal` subject is refused (U1).
 - Why: SEC-009; G1/G2 with U1, U2 and U4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureSubjectDeclaration
 
@@ -159,7 +161,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A versioned artifact listing a tenant's subject classes.
 - Why: SEC-009; G1.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.LegalHold
 
@@ -169,7 +171,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one active legal hold, matched by salted subject refs or by addresses.
 - Why: SEC-009; G7: a matching hold refuses erasure, by hold id.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.REPLAY_INPUT_PATHS
 
@@ -179,7 +181,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The tuple of Decision Replay record paths that are replay inputs.
 - Why: SEC-009; U2: the SDK's own field names, a mechanism constant; no subject key may reach them.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.RETENTION_HOLD_POLICY
 
@@ -189,7 +191,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The `ArtifactClass` `ccf.retention-hold-policy`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.RETENTION_REASON_CODES
 
@@ -199,7 +201,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The judgment's closed code vocabulary (`class-absent`, `not-erasable`, `severity-exempt`, `legal-hold`, `reason-unknown`, `under-minimum-age`, `policy-unresolvable`, `admitted`).
 - Why: SEC-009; G7: a structured audit answer, never a subject identifier.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.RequestedAddress
 
@@ -209,7 +211,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: One address a request names, with its class and a requester-declared, human-approved `retained_since`.
 - Why: SEC-009; U10: the store's Protocol records no write instant, so the age is declared and approved.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.RetentionDecision
 
@@ -219,7 +221,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The judgment's audit answer: `policy_ref`, `verdict`, `reason_code`, `hold_id`, `address`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.RetentionHoldPolicy
 
@@ -229,7 +231,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
 - Why: SEC-009; G7 default refuse.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.judge_retention
 
@@ -239,7 +241,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A pure, fail-closed judgment of a request against a policy at an injected instant.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.subject_ref_for
 
@@ -249,7 +251,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Returns `sha256(salt || 0x00 || identifier)` under the declared class's salt.
 - Why: SEC-009; U4: the raw identifier never enters the fabric.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ClassRetention
 
@@ -259,7 +261,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one artifact class's retention and hold policy: `erasable` (default False), `severity_exempt`, the closed `reasons`, active `holds`, and `minimum_age` in whole days, which is required and has no default (U10).
 - Why: SEC-009; G7 default refuse; U10 rules the minimum age present on the contract with no SDK default.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ERASURE_RECORD_CLASS
 
@@ -269,7 +271,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The constant `ccf.erasure-record`, the class an erasure record is filed under.
 - Why: SEC-009; G3: the erasure fact is an immutable artifact filed through the store's one write verb.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ERASURE_SUBJECT_DECLARATION
 
@@ -279,7 +281,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The `ArtifactClass` `ccf.erasure-subject-declaration`. Adopter-registered and not manifest-addressable.
 - Why: SEC-009; G1: what a subject is, declared by the deployment.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ErasedAddress
 
@@ -289,7 +291,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one erased artifact on a record: address, class, key paths, `matched` (presence only), and `scope`, which is `whole` this phase (U5).
 - Why: SEC-009; G3: design §2.3 record shape.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ErasureRecord
 
@@ -299,7 +301,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval policy, retention decision, reason, legal basis.
 - Why: SEC-009; G3; it can be asserted and never retracted (U6).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ErasureRequest
 
@@ -309,7 +311,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: What a requester asks to erase. Its content hash `request_id` is the approval workflow's execution id.
 - Why: SEC-009; U9: the human approves exactly this request.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ErasureSubjectClass
 
@@ -319,7 +321,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: One declared subject class: `class_id`, `key_paths`, `artifact_classes`, `identifier_kind`, and `subject_ref_salt`. A key path that reaches a replay input is refused (U2). A `principal` subject is refused (U1).
 - Why: SEC-009; G1/G2 with U1, U2 and U4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ErasureSubjectDeclaration
 
@@ -329,7 +331,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A versioned artifact listing a tenant's subject classes.
 - Why: SEC-009; G1.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.LegalHold
 
@@ -339,7 +341,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one active legal hold, matched by salted subject refs or by addresses.
 - Why: SEC-009; G7: a matching hold refuses erasure, by hold id.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.REPLAY_INPUT_PATHS
 
@@ -349,7 +351,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The tuple of Decision Replay record paths that are replay inputs.
 - Why: SEC-009; U2: the SDK's own field names, a mechanism constant; no subject key may reach them.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.RETENTION_HOLD_POLICY
 
@@ -359,7 +361,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The `ArtifactClass` `ccf.retention-hold-policy`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.RETENTION_REASON_CODES
 
@@ -369,7 +371,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The judgment's closed code vocabulary (`class-absent`, `not-erasable`, `severity-exempt`, `legal-hold`, `reason-unknown`, `under-minimum-age`, `policy-unresolvable`, `admitted`).
 - Why: SEC-009; G7: a structured audit answer, never a subject identifier.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.RequestedAddress
 
@@ -379,7 +381,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: One address a request names, with its class and a requester-declared, human-approved `retained_since`.
 - Why: SEC-009; U10: the store's Protocol records no write instant, so the age is declared and approved.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.RetentionDecision
 
@@ -389,7 +391,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The judgment's audit answer: `policy_ref`, `verdict`, `reason_code`, `hold_id`, `address`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.RetentionHoldPolicy
 
@@ -399,7 +401,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
 - Why: SEC-009; G7 default refuse.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.judge_retention
 
@@ -409,7 +411,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A pure, fail-closed judgment of a request against a policy at an injected instant.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.subject_ref_for
 
@@ -419,7 +421,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Returns `sha256(salt || 0x00 || identifier)` under the declared class's salt.
 - Why: SEC-009; U4: the raw identifier never enters the fabric.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.index.ErasureIndexEntry
 
@@ -429,7 +431,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A contract for one erased address: record address, admitted reason, instant.
 - Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.store.ErasedContentRefused
 
@@ -439,7 +441,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: An `ArtifactStoreError` the decorating store raises on a read of an erased address. It carries the record address, the reason and the instant, and nothing of the subject. It is not an `ArtifactNotFound` and not a `LookupError`.
 - Why: SEC-009; G4/G5: an erasure is a recorded decision, not an absence.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.store.ErasureConsultingStore
 
@@ -447,9 +449,9 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane` (fix round 4).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.erasure.ErasureDoor
 
@@ -457,11 +459,11 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. It takes a REQUIRED `index`.
+- After: The governed door. It takes a REQUIRED `index`, and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), or whose signed claims do not approve this request (`approval-claims-mismatch`) (fix round 4).
   - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
   - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.erasure.door.ErasureDoor
 
@@ -469,11 +471,11 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. It takes a REQUIRED `index`.
+- After: The governed door. It takes a REQUIRED `index`, and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), or whose signed claims do not approve this request (`approval-claims-mismatch`) (fix round 4).
   - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
   - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.erasure.ErasureRefused
 
@@ -483,7 +485,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A `PermissionError` carrying `reason_code` and, for a retention refusal, the `RetentionDecision`.
 - Why: SEC-009; Every refusal is by name and writes nothing.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.erasure.door.ErasureRefused
 
@@ -493,7 +495,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A `PermissionError` carrying `reason_code` and, for a retention refusal, the `RetentionDecision`.
 - Why: SEC-009; Every refusal is by name and writes nothing.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.erasure.ErasureWorkflowUngated
 
@@ -503,7 +505,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A `ValueError` raised when the deployment's erasure workflow can reach a terminal state without crossing a typed approval gate.
 - Why: SEC-009; U9: the request/approval shape is the deployment's, validated by the door.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.erasure.door.ErasureWorkflowUngated
 
@@ -513,7 +515,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A `ValueError` raised when the deployment's erasure workflow can reach a terminal state without crossing a typed approval gate.
 - Why: SEC-009; U9: the request/approval shape is the deployment's, validated by the door.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.products.refusal.ErasedContentRefusal
 
@@ -523,7 +525,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A refusal kind `erased-content`: detail, `erasure_reason`, `erased_at`, `erasure_record_address`. A door renders it only at `reasoned` and `full`. The record address is withheld below `full`.
 - Why: SEC-009; G5/U11: a disclosure-governed reading of an erased address.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.replay.engine.ERASED_SITE_RETAINED_CHILD_QUESTION
 
@@ -533,7 +535,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The site token `retained-child-question`.
 - Why: SEC-009; §5.2: names where a replay met an erased member.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.replay.engine.ErasedContent
 
@@ -543,7 +545,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A replay result member reporting one erased retained member: site, address, record address, reason, instant.
 - Why: SEC-009; §5.2: a replay over erased retained content completes, and the erasure is disclosed rather than reported as absent.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf_runtime.http_api.refusal_status.STATUS_GONE
 
@@ -553,7 +555,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The HTTP status `410` for the `erased-content` kind.
 - Why: SEC-009; U11: 410 at `reasoned`/`full`; the route's not-found rendering at `minimal`.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.compose_erasure_consult
 
@@ -561,14 +563,15 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over three REQUIRED arguments, optionally scoped to a tenant:
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over four REQUIRED arguments, optionally scoped to a tenant:
   - a declared erasure index;
   - an audit log;
-  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3).
+  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
+  - the `control_plane` through which each approval's pinned HITL policy is resolved and its signature verified (fix round 4). An optional `identity_provider` is the verifier; `None` is the SDK's reference detached-JWS verifier.
 
   It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity), so a site composing once per question does not re-read every record; an append invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.store.compose_erasure_consult
 
@@ -576,14 +579,15 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over three REQUIRED arguments, optionally scoped to a tenant:
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over four REQUIRED arguments, optionally scoped to a tenant:
   - a declared erasure index;
   - an audit log;
-  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3).
+  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
+  - the `control_plane` through which each approval's pinned HITL policy is resolved and its signature verified (fix round 4). An optional `identity_provider` is the verifier; `None` is the SDK's reference detached-JWS verifier.
 
   It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity), so a site composing once per question does not re-read every record; an append invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureIndexUnavailable
 
@@ -633,7 +637,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A positive replay outcome for a replay that met erased content it would have to read to re-execute: the decision record itself, an admitted child contract, or a re-execution artifact. It carries `record_content_address`, `record` (`None` when the record itself was erased) and a non-empty `erased_content`. No product is reproduced.
 - Why: SEC-009; ruling 4 (design §5.2). Replay stays positive and discloses the erasure for every erased input class. It never refuses by name, and it never re-derives a product from bytes the fabric refuses to serve.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.replay.engine.ERASED_SITE_CHILD_CONTRACT
 
@@ -643,7 +647,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The site token `child-contract`.
 - Why: SEC-009; ruling 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.replay.engine.ERASED_SITE_DECISION_RECORD
 
@@ -653,7 +657,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The site token `decision-record`.
 - Why: SEC-009; ruling 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.replay.engine.ERASED_SITE_REPLAY_ARTIFACT
 
@@ -663,7 +667,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The site token `replay-artifact`, for any other artifact the re-execution reads.
 - Why: SEC-009; ruling 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.replay.engine.replay
 
@@ -691,7 +695,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: reshaped
 - Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
-- After: a new **required** keyword `erasure_index: ErasureIndexProtocol`, with no default. The server wraps `store` through `compose_erasure_consult`.
+- After: two new **required** keywords with no default: `erasure_index: ErasureIndexProtocol` and (fix round 4) `control_plane: PinnedPolicySource`, the Control Plane through which each erasure approval's signature is verified. The server wraps `store` through `compose_erasure_consult`.
   - Every byte read goes through the wrapped store.
   - A governed record follows the authorization-first order (ruling 1).
   - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
@@ -960,7 +964,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The same `ArtifactStoreError` as `ccf.erasure.store.ErasedContentRefused`, defined in the dependency-free errors module that the index and the store both import. Its facts (record address, reason, instant) come from the RECORD, never the index entry (fix round 2, N2).
 - Why: SEC-009; fix round 2, N3: one home for the refusal family, so the index can raise a member of it without importing the store.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.errors.ErasureIndexCorrupt
 
@@ -970,7 +974,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: An `ErasedContentRefused` with reason `index-corrupt` and every fact `None`. The file index raises it on a shrunk file, an unparseable or empty line, a broken hash chain, or a conflicting duplicate. The decorating store raises it on EVERY read under that index: a corrupt index fails CLOSED.
 - Why: SEC-009; fix round 2, N3 and (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureIndexCorrupt
 
@@ -980,7 +984,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.errors.ErasureIndexCorrupt`.
 - Why: SEC-009; fix round 2, N3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.errors.ErasureIndexInsecure
 
@@ -990,7 +994,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: A `PermissionError` the file index raises, by name, when its file is a symlink or not a regular file, is not owned by the effective user, has a mode other than 0600, or sits in a parent directory that is not owned by the effective user or is open to group or other.
 - Why: SEC-009; fix round 2, (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureIndexInsecure
 
@@ -1000,7 +1004,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.errors.ErasureIndexInsecure`.
 - Why: SEC-009; fix round 2, (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.errors.INDEX_CORRUPT
 
@@ -1010,7 +1014,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The reason code `index-corrupt` an `ErasureIndexCorrupt` carries.
 - Why: SEC-009; fix round 2, N3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.INDEX_CORRUPT
 
@@ -1020,7 +1024,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.errors.INDEX_CORRUPT`.
 - Why: SEC-009; fix round 2, N3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.index.GENESIS
 
@@ -1030,7 +1034,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The 64-zero predecessor hash the first line of a file index chains from.
 - Why: SEC-009; fix round 2, (a): every line carries the sha256 of the previous line's bytes, and a broken chain is refused at boot.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.GENESIS
 
@@ -1040,7 +1044,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.index.GENESIS`.
 - Why: SEC-009; fix round 2, (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.index.require_append_authority
 
@@ -1050,7 +1054,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The check every `ErasureIndexProtocol.append` makes: the presented capability is a genuine `Authorized[ArtifactErase]` for the resource `<subject_class>/<request_id>` of the entry and for the entry's tenant. Anything else raises `CapabilityBypassError`.
 - Why: SEC-009; fix round 2, I3: an index append is an erasure, so it takes the erase capability bound to its request.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.require_append_authority
 
@@ -1060,7 +1064,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.index.require_append_authority`.
 - Why: SEC-009; fix round 2, I3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.products.product.open_product (erasure index)
 
@@ -1080,7 +1084,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: The artifact class `ccf.erasure-approval`, under which the door files the recorded human approval before the index append. A subject declaration cannot list it as erasable.
 - Why: SEC-009; fix round 3, I3 part 2, option (a): the approval check needs a durable record, and the ArtifactStore already holds replay records.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ERASURE_APPROVAL_CLASS
 
@@ -1090,7 +1094,7 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.contracts.ERASURE_APPROVAL_CLASS`.
 - Why: SEC-009; fix round 3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.contracts.ErasureApproval
 
@@ -1098,9 +1102,9 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The recorded approval of one erasure request: tenant, request id, approver, verdict, instant, the gate and the state hash the approver saw, the workflow definition's hash, and the submission's hash. Its content address is `approval_ref`, and the decorating store resolves it on validation.
+- After: The recorded, SIGNED approval of one erasure request: tenant, request id, approver, verdict, the instant (the attestation's `issued_at`), the gate and the state hash the approver saw, the workflow definition's hash, the submission's hash, the signed HITL attestation verbatim (`attestation`: claim set, signature, key id) and the pinned HITL policy (`hitl_policy_ref`, `key@version`). Its content address is `approval_ref`; the door and the decorating store verify its signature against the key the pinned policy declares for the approver (fix round 4).
 - Why: SEC-009; fix round 3, I3 part 2: a forged `approval_ref`, or one naming another request, tenant or a non-approving verdict, is `index-unsupported`, durably across restarts and processes.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
 ## ccf.erasure.ErasureApproval
 
@@ -1110,4 +1114,104 @@ recorded human approval (ruling 3).
 - Before: absent
 - After: Re-export of `ccf.erasure.contracts.ErasureApproval`.
 - Why: SEC-009; fix round 3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.approval.verify_erasure_approval
+
+- Surface: ccf.erasure.approval.verify_erasure_approval
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The ONE approval check the door and the decorating store run: resolve the approval's pinned HITL policy at its exact version, require its key id to be declared for the signer, verify the signature against exactly those keys, and require the signed claims to name this request's gate event (`{tenant}/{request_id}/{gate}`), this tenant, the gate's state hash, the approver and the approving verdict, with `acted_at` equal to `issued_at`. Returns the verified claims or raises `ErasureApprovalInvalid`.
+- Why: SEC-009; fix round 4: the re-review's probe D — an approving approval filed with only the requester's `ArtifactErase` was served as supported.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.verify_erasure_approval
+
+- Surface: ccf.erasure.verify_erasure_approval
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.verify_erasure_approval`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.approval.ErasureApprovalInvalid
+
+- Surface: ccf.erasure.approval.ErasureApprovalInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` with a `reason_code`: `approval-unsigned`, `approval-policy-unresolvable`, `approval-signature-invalid` or `approval-claims-mismatch`.
+- Why: SEC-009; fix round 4: the door refuses with the same reason code; the consult counts any of them as `index-unsupported`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.ErasureApprovalInvalid
+
+- Surface: ccf.erasure.ErasureApprovalInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.ErasureApprovalInvalid`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.approval.PinnedPolicySource
+
+- Surface: ccf.erasure.approval.PinnedPolicySource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A Protocol with one method, `resolve(key, version)`: what the approval check reads from the Control Plane — one exact version, never latest. Every `ControlPlaneRegistry` satisfies it.
+- Why: SEC-009; fix round 4: the narrowest read surface the check needs.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.PinnedPolicySource
+
+- Surface: ccf.erasure.PinnedPolicySource
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.PinnedPolicySource`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.approval.reference_approval_verifier
+
+- Surface: ccf.erasure.approval.reference_approval_verifier
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The SDK's reference detached-JWS verifier with no signing material, used where a site supplies no `identity_provider`.
+- Why: SEC-009; fix round 4: verification needs a provider; the reference one signs nothing.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.reference_approval_verifier
+
+- Surface: ccf.erasure.reference_approval_verifier
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.reference_approval_verifier`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.approval.APPROVING_VERDICT
+
+- Surface: ccf.erasure.approval.APPROVING_VERDICT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The signed HITL action that approves: `approve`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.APPROVING_VERDICT
+
+- Surface: ccf.erasure.APPROVING_VERDICT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.approval.APPROVING_VERDICT`.
+- Why: SEC-009; fix round 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.

@@ -51,8 +51,9 @@ def test_the_index_unsupported_audit_is_stamped_with_the_injected_fabric_clock(t
         erased_at=datetime(2026, 7, 30, tzinfo=UTC),
     )
     composed.append_as(index, entry)
-    audit = ControlPlaneRegistry().audit_log
-    _compose(store, index=index, audit_log=audit, tenant_id=h.TENANT)
+    registry = ControlPlaneRegistry()
+    audit = registry.audit_log
+    _compose(store, index=index, audit_log=audit, control_plane=registry, tenant_id=h.TENANT)
     (event,) = [e for e in audit.events() if e.action == "erasure_index_unsupported"]
     assert event.occurred_at == FABRIC_NOW
     assert event.occurred_at != entry.erased_at
@@ -87,16 +88,20 @@ def test_two_compositions_over_an_unchanged_index_read_each_record_once(tmp_path
     raw = FileArtifactStore(root=tmp_path / "artifacts", write_kinds=h.write_kinds())
     ref = h.client_put(raw, name="n", document={"customer": {"id": h.SUBJECT_ID}})
     index = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
-    record = composed.erase(raw, index, ref.content_address)
+    # ONE Control Plane across the compositions: the memo is per index head AND
+    # per Control Plane (fix round 4) — verification resolves the pinned HITL
+    # policy through it, so a head validated under one is never trusted under another.
+    registry = ControlPlaneRegistry()
+    record = composed.erase(raw, index, ref.content_address, control_plane=registry)
     from ccf.contracts.canonical import content_hash
 
     record_address = content_hash(record)
     counting = _CountingStore(raw)
     for _ in range(2):
-        _compose(counting, index=index, audit_log=ControlPlaneRegistry().audit_log, tenant_id=h.TENANT)
+        _compose(counting, index=index, audit_log=ControlPlaneRegistry().audit_log, control_plane=registry, tenant_id=h.TENANT)
     assert counting.reads.count(record_address) == 1, counting.reads
     # A new append invalidates the memo: the next composition validates again.
     other = h.client_put(raw, name="m", document={"customer": {"id": h.SUBJECT_ID}, "n": 2})
-    second = composed.erase(raw, index, other.content_address)
-    _compose(counting, index=index, audit_log=ControlPlaneRegistry().audit_log, tenant_id=h.TENANT)
+    second = composed.erase(raw, index, other.content_address, control_plane=registry)
+    _compose(counting, index=index, audit_log=ControlPlaneRegistry().audit_log, control_plane=registry, tenant_id=h.TENANT)
     assert counting.reads.count(content_hash(second)) == 1

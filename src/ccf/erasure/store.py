@@ -63,9 +63,16 @@ from ccf.artifacts.protocol import (
     WriteKinds,
 )
 from ccf.controlplane.audit import AuditLog
+from ccf.erasure.approval import (
+    ErasureApprovalInvalid,
+    PinnedPolicySource,
+    reference_approval_verifier,
+    verify_erasure_approval,
+)
 from ccf.erasure.contracts import ERASURE_RECORD_CLASS, ErasureApproval, ErasureRecord
 from ccf.erasure.errors import ErasedContentRefused, ErasureIndexCorrupt
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
+from ccf.peering.identity import IdentityProvider
 
 __ccf_mode__ = "algorithmic"
 
@@ -92,14 +99,9 @@ class ErasureIndexUnavailable(TypeError):
 
 #: Supported-entry keys per (index head, store) — ruling 4. Bounded: the oldest
 #: head is dropped past the bound, which only costs a re-validation.
-_VALIDATED_HEADS: dict[tuple[str, int, str], frozenset[tuple[str, str, str]]] = {}
+_VALIDATED_HEADS: dict[tuple[str, int, str, str], frozenset[tuple[str, str, str]]] = {}
 _VALIDATED_HEADS_BOUND: Final[int] = 64
 _VALIDATED_HEADS_LOCK = threading.Lock()
-
-
-#: The recorded gate action that approves (the HITL gate's ``approve``). Kept a
-#: literal here so the algorithmic store does not import the HITL gate.
-_APPROVING_VERDICT: Final[str] = "approve"
 
 
 def _identity(subject: object, attribute: str) -> str:
@@ -129,13 +131,19 @@ class ErasureConsultingStore:
         index: ErasureIndexProtocol,
         audit_log: AuditLog,
         clock: Callable[[], datetime],
+        control_plane: PinnedPolicySource,
         tenant_id: str | None,
+        identity_provider: IdentityProvider | None = None,
         _verdicts: _Verdicts | None = None,
     ) -> None:
         self._inner = inner
         self._index = index
         self._audit_log = audit_log
         self._clock = clock
+        self._control_plane = control_plane
+        self._identity_provider = (
+            reference_approval_verifier() if identity_provider is None else identity_provider
+        )
         self._tenant_id = tenant_id
         self._verdicts = _Verdicts() if _verdicts is None else _verdicts
 
@@ -150,6 +158,11 @@ class ErasureConsultingStore:
     def index(self) -> ErasureIndexProtocol:
         """The declared erasure index."""
         return self._index
+
+    @property
+    def control_plane(self) -> PinnedPolicySource:
+        """The Control Plane each approval's pinned HITL policy is resolved through (fix round 4)."""
+        return self._control_plane
 
     @property
     def tenant_id(self) -> str | None:
@@ -180,7 +193,9 @@ class ErasureConsultingStore:
             index=self._index,
             audit_log=self._audit_log,
             clock=self._clock,
+            control_plane=self._control_plane,
             tenant_id=tenant_id,
+            identity_provider=self._identity_provider,
             _verdicts=self._verdicts,
         )
 
@@ -196,7 +211,15 @@ class ErasureConsultingStore:
             # N3: the store composes and then refuses EVERY read — fail closed.
             self._verdicts.corrupt = str(corrupt)
             return
-        head = (_identity(self._index, "path"), len(entries), _identity(self._inner, "root"))
+        # The Control Plane is part of the head: verification resolves the pinned
+        # HITL policy THROUGH it, so a head validated under one Control Plane is
+        # never accepted under another (fix round 4).
+        head = (
+            _identity(self._index, "path"),
+            len(entries),
+            _identity(self._inner, "root"),
+            f"id:{id(self._control_plane)}",
+        )
         with _VALIDATED_HEADS_LOCK:
             known = _VALIDATED_HEADS.get(head)
         keys = {(e.tenant_id, e.content_address, e.erasure_record_address) for e in entries}
@@ -251,23 +274,34 @@ class ErasureConsultingStore:
         return False
 
     def _approved(self, record: ErasureRecord) -> bool:
-        """Whether ``record.approval_ref`` resolves to the RECORDED approval of this request (fix round 3).
+        """Whether ``record.approval_ref`` resolves to a VERIFIED signed approval of this request (fix round 4).
 
         The door filed it before the index append; it is content-addressed and
-        immutable, so this check needs nothing but the store, and holds across a
-        restart. It must name this request and this tenant, approve, and name the
-        approver the record names. A missing approval raises, and the caller
-        counts that as unsupported.
+        immutable. Its signed HITL attestation is verified against the key the
+        pinned HITL policy declares for the signer, resolved through this
+        store's composed Control Plane, and its signed claims must name this
+        request's gate, this tenant, the gate's state hash, the record's
+        approver and the approving verdict
+        (:func:`~ccf.erasure.approval.verify_erasure_approval`). A missing,
+        unsigned or unverifiable approval raises, and the caller counts that as
+        unsupported.
         """
         payload = self._inner.get(content_address=record.approval_ref)
+        if hashlib.sha256(payload).hexdigest() != record.approval_ref:
+            return False
         approval = ErasureApproval.model_validate_json(payload)
-        return (
-            hashlib.sha256(payload).hexdigest() == record.approval_ref
-            and approval.tenant_id == record.tenant_id
-            and approval.request_id == record.request_id
-            and approval.verdict == _APPROVING_VERDICT
-            and approval.approver == record.actor
-        )
+        try:
+            verify_erasure_approval(
+                approval,
+                tenant_id=record.tenant_id,
+                request_id=record.request_id,
+                approver=record.actor,
+                control_plane=self._control_plane,
+                identity_provider=self._identity_provider,
+            )
+        except ErasureApprovalInvalid:
+            return False
+        return True
 
     def _refusal(self, entry: ErasureIndexEntry, *, disclose: bool) -> ErasedContentRefused:
         supported = self._supported(entry)
@@ -342,12 +376,18 @@ def compose_erasure_consult(
     index: ErasureIndexProtocol,
     audit_log: AuditLog,
     clock: Callable[[], datetime],
+    control_plane: PinnedPolicySource,
     tenant_id: str | None = None,
+    identity_provider: IdentityProvider | None = None,
 ) -> ErasureConsultingStore:
     """THE composition helper every store construction site uses (SEC-009; `D-IMPL-374` (4), C1, (i), U12).
 
-    Wraps ``store`` over the REQUIRED ``index`` and the REQUIRED fabric
-    ``clock`` (which stamps the ``index-unsupported`` audit; ruling 3),
+    Wraps ``store`` over the REQUIRED ``index``, the REQUIRED fabric
+    ``clock`` (which stamps the ``index-unsupported`` audit; ruling 3) and the
+    REQUIRED ``control_plane`` through which each approval's pinned HITL policy
+    — the approver's signing keys — is resolved (fix round 4). ``identity_provider``
+    is the verifier the deployment's HITL transport verifies with; ``None`` is
+    the SDK's reference detached-JWS verifier (no signing material),
     validates every entry against its record (§8; memoized per index head,
     ruling 4), and returns the store scoped to ``tenant_id`` — or
     tenantless (``None``) for a multi-tenant site whose doors take
@@ -379,10 +419,22 @@ def compose_erasure_consult(
         if store.tenant_id == tenant_id:
             return store
         return store.scoped(tenant_id) if tenant_id is not None else ErasureConsultingStore(
-            store.inner, index=index, audit_log=audit_log, clock=clock, tenant_id=None
+            store.inner,
+            index=index,
+            audit_log=audit_log,
+            clock=clock,
+            control_plane=control_plane,
+            tenant_id=None,
+            identity_provider=identity_provider,
         )
     composed = ErasureConsultingStore(
-        store, index=index, audit_log=audit_log, clock=clock, tenant_id=tenant_id
+        store,
+        index=index,
+        audit_log=audit_log,
+        clock=clock,
+        control_plane=control_plane,
+        tenant_id=tenant_id,
+        identity_provider=identity_provider,
     )
     composed.validate_all()
     return composed
