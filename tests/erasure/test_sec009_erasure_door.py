@@ -28,8 +28,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ccf.contracts.canonical import content_hash
-from ccf.hitl.approval_gate import GateResolution
+from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.hitl.approval_gate import GateResolution, HitlActionRecord
+from ccf.skills.grants import ApprovalOutcome
 from tests.erasure import harness as h
 
 
@@ -80,9 +81,16 @@ def test_a_completion_presenting_an_approval_the_authority_path_never_recorded_w
     request = h.request(plane)
     suspended = h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request))
     event = h.pending(plane, suspended.event_key)
-    # A well-formed GateResolution the transport never recorded: a forged approval.
-    genuine = h.approve(h.compose(tmp_path / "elsewhere"), event)
-    forged = GateResolution.model_validate(genuine.model_dump())
+    # A well-formed GateResolution for THIS suspension that the transport never
+    # recorded: an eligible approver's verdict, fabricated rather than submitted.
+    record = HitlActionRecord(
+        event=event, submission=h.door_submission(event, subject_id=h.APPROVER), approved=True
+    )
+    forged = GateResolution(
+        record=record,
+        outcome=ApprovalOutcome(approved=True, approver_id=h.APPROVER),
+        hitl_actions_block=canonical_bytes(record).decode("utf-8"),
+    )
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
         h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=forged))
     assert _refusal_code(refused.value) == "approval-not-recorded"
