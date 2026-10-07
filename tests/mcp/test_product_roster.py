@@ -34,9 +34,8 @@ The roster is carried here as the verified token's claim — the state the beare
 middleware leaves in context after :class:`SourceBackedTokenVerifier` verified a
 grant — written with the claim's wire name so that the arrangement exists on a
 tree that predates the mechanism and the assertions fail for the hole rather
-than at setup. Agents are built with ``model_construct`` for the same reason:
-on such a tree the undeclared field is dropped and the tool serves, which is the
-hole; a validated-construction test of the field lives beside these.
+than at setup. Agents carry their definition's context contract, from which
+the SDK derives the classes (fix round 1).
 
 Tenant, principal, scope, class and agent names are test deployment
 vocabulary, meaningful nowhere else (CINV-01 applied to test data).
@@ -44,6 +43,7 @@ vocabulary, meaningful nowhere else (CINV-01 applied to test data).
 
 from __future__ import annotations
 
+import functools
 import json
 import pathlib
 from typing import Any
@@ -75,17 +75,36 @@ AGENT_ON = "agent-roster-on"
 AGENT_OFF = "agent-roster-off"
 
 
-def _agent(key: str, classes: frozenset[str]) -> Any:
-    from ccf_runtime.mcp.experience import ExposedAgent
+@functools.lru_cache(maxsize=1)
+def _base_definition() -> Any:
+    from tests.mcp.test_experience_exposable_roster import _bound_world
 
-    return ExposedAgent.model_construct(
-        definition_key=key,
-        definition_version="1.0.0",
-        name=key,
-        artifact_version="1.0.0",
-        archetypes=("analytics_insights",),
-        skills=(),
-        product_classes=classes,
+    return _bound_world("procedure")[0].definition_a
+
+
+def _agent(key: str, classes: frozenset[str]) -> Any:
+    """An exposed agent whose definition's context contract consumes ``classes``.
+
+    Fix round 1 (IMPORTANT 3): the classes are DERIVED from the definition by
+    :func:`ccf_runtime.mcp.agent_directory.exposed_agent` — the red commit
+    built the entry with ``model_construct`` and a stated set, which an
+    entry now refuses.
+    """
+    from ccf.agents.definitions import ConsumedProduct, ContextContract
+    from ccf_runtime.mcp.agent_directory import exposed_agent
+
+    definition = _base_definition().model_copy(
+        update={
+            "context_contract": ContextContract(
+                consumes=tuple(
+                    ConsumedProduct(product_class=name, schema_version="1.0.0")
+                    for name in sorted(classes)
+                )
+            )
+        }
+    )
+    return exposed_agent(
+        definition, definition_key=key, definition_version="1.0.0", skills=()
     )
 
 
@@ -417,7 +436,7 @@ def test_a_rostered_principal_is_refused_an_agent_that_declares_no_classes(
     )
     refusal = _underlying(raised)  # type: ignore[arg-type]
     assert type(refusal).__name__ == "ProductOutsideRosterRefused"
-    assert "declares no product classes" in str(refusal)
+    assert "carries no product classes derived" in str(refusal)
     served, raised = _call(world, frozenset({ON_ROSTER}), LIST_AGENTS_TOOL, {"tenant": TENANT})
     assert raised is None and json.loads(served or "")["agents"] == []
     assert world.invoked == []

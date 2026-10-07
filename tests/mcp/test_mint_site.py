@@ -205,6 +205,7 @@ def _probe(*, authorizer: TenantAuthorizerProtocol | None = None) -> _Probe:
         subject=door.from_argument("tenant"),
         resource=door.resource_argument("content_address"),
         mutating=False,
+        products=TenantGuardedServer.products_unknown("test fixture"),
     )
     def read_it(authorized: Authorized[ArtifactRead], content_address: str) -> str:
         received.append(authorized)
@@ -216,6 +217,7 @@ def _probe(*, authorizer: TenantAuthorizerProtocol | None = None) -> _Probe:
         subject=door.from_grant(),
         resource=door.resource_composed("{artifact_class}/{name}"),
         mutating=True,
+        products=TenantGuardedServer.products_unknown("test fixture"),
     )
     def write_it(
         authorized: Authorized[ArtifactWrite], artifact_class: str, name: str
@@ -229,6 +231,7 @@ def _probe(*, authorizer: TenantAuthorizerProtocol | None = None) -> _Probe:
         subject=door.from_argument("tenant"),
         resource=door.resource_route(),
         mutating=False,
+        products=TenantGuardedServer.products_unknown("test fixture"),
     )
     def list_it(authorized: Authorized[AgentList]) -> str:
         received.append(authorized)
@@ -240,6 +243,7 @@ def _probe(*, authorizer: TenantAuthorizerProtocol | None = None) -> _Probe:
         subject=door.from_argument("tenant"),
         resource=door.resource_argument("item"),
         mutating=False,
+        products=TenantGuardedServer.products_unknown("test fixture"),
     )
     def item(authorized: Authorized[ArtifactRead], item: str) -> str:
         received.append(authorized)
@@ -501,6 +505,7 @@ def test_registering_an_action_no_door_declares_fails_at_registration() -> None:
             subject=door.from_grant(),
             resource=door.resource_route(),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def t(authorized: Authorized[Any]) -> str:
             return ""
@@ -516,6 +521,7 @@ def test_the_replay_mint_cannot_be_declared_by_a_door() -> None:
             subject=door.from_grant(),
             resource=door.resource_route(),
             mutating=True,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def t(authorized: Authorized[ReplayMint]) -> str:
             return ""
@@ -531,6 +537,7 @@ def test_a_body_without_the_capability_parameter_is_refused_at_registration() ->
             subject=door.from_grant(),
             resource=door.resource_route(),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def t(content_address: str) -> str:
             return ""
@@ -548,6 +555,7 @@ def test_a_body_declaring_the_tenant_argument_is_refused_at_registration() -> No
             subject=door.from_argument("tenant"),
             resource=door.resource_route(),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def t(authorized: Authorized[ArtifactRead], tenant: str) -> str:
             return ""
@@ -563,6 +571,7 @@ def test_a_resource_argument_the_body_lacks_is_refused_at_registration() -> None
             subject=door.from_grant(),
             resource=door.resource_argument("content_address"),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def t(authorized: Authorized[ArtifactRead]) -> str:
             return ""
@@ -622,6 +631,7 @@ def test_a_surface_registered_behind_the_wrapper_fails_the_build() -> None:
         subject=door.from_grant(),
         resource=door.resource_route(),
         mutating=False,
+        products=TenantGuardedServer.products_unknown("test fixture"),
     )
     def governed(authorized: Authorized[ArtifactRead]) -> str:
         return ""
@@ -720,6 +730,7 @@ def test_a_mutating_kind_cannot_be_registered_as_a_read_surface() -> None:
             subject=door.from_grant(),
             resource=door.resource_route(),
             mutating=False,
+            products=TenantGuardedServer.products_unknown("test fixture"),
         )
         def t(authorized: Authorized[ArtifactWrite]) -> str:
             return ""

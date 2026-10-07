@@ -46,7 +46,11 @@ from ccf_runtime.authz.product_entitlement import (
     ProductEntitlementSourceProtocol,
 )
 from ccf_runtime.authz.refusals import ACTION_REPLAY_READ
-from ccf_runtime.authz.route_declaration import ResourceBinding, authorizes
+from ccf_runtime.authz.route_declaration import (
+    ProductClassBinding,
+    ResourceBinding,
+    authorizes,
+)
 from ccf_runtime.http_api.dependencies import ApiDependencies
 from ccf_runtime.http_api.grants import authorized_from_request
 from ccf_runtime.http_api.routes import (
@@ -134,7 +138,11 @@ def build_router(
 
     @router.get("/decisions", summary="Replay decision (D-IMPL-23)")
     @authorizes(
-        ACTION_REPLAY_READ, resource=ResourceBinding.query("content_address")
+        ACTION_REPLAY_READ,
+        resource=ResourceBinding.query("content_address"),
+        # SEC-017: a record's class is not on the wire; the deployment's
+        # declared replay_record_product_class is what a roster is held to.
+        products=ProductClassBinding.replay_declared(),
     )
     def decision(content_address: str, request: Request) -> Response:
         return _dereferenced(
@@ -145,7 +153,11 @@ def build_router(
         )
 
     @router.get("/resolutions", summary="Replay resolve (D-IMPL-23)")
-    @authorizes(ACTION_REPLAY_READ, resource=ResourceBinding.query("uri"))
+    @authorizes(
+        ACTION_REPLAY_READ,
+        resource=ResourceBinding.query("uri"),
+        products=ProductClassBinding.replay_declared(),
+    )
     def resolution(uri: str, request: Request) -> Response:
         return _dereferenced(
             request,

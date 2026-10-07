@@ -426,6 +426,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_argument("content_address"),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_BLOB_MIME_TYPE,
     )
     def artifact_blob(authorized: Authorized[ArtifactRead], content_address: str) -> bytes:
@@ -457,6 +461,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_argument("content_address"),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_presence(authorized: Authorized[ArtifactRead], content_address: str) -> str:
@@ -484,6 +492,10 @@ def build_artifact_server(
         subject=door.from_argument("tenant"),
         resource=door.resource_composed(_CLASS_AND_NAME),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_resolution(
@@ -528,6 +540,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_composed(_CLASS_AND_NAME),
         mutating=True,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
     )
     def put_artifact(
         authorized: Authorized[ArtifactWrite],

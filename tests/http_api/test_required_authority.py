@@ -73,12 +73,21 @@ class TestTheSignatureHasNoInsecureArm:
         }
 
     def test_no_parameter_accepts_none(self) -> None:
-        """``| None`` on any of the five would re-open the arm by typing."""
+        """``| None`` on any of the five would re-open the arm by typing.
+
+        One parameter is optional BY RULING and is named here rather than
+        hidden: ``replay_record_product_class`` (``SEC-017``; ``D-IMPL-374``
+        (2), fix round 1). Its absence is not an insecure arm — absent, a
+        bearer with a declared product roster is REFUSED every replay read —
+        so ``None`` there fails closed. Every other parameter stays held to
+        the original rule, including any added later.
+        """
         signature = inspect.signature(create_app)
         optional = [
             name
             for name, parameter in signature.parameters.items()
-            if name != "deps" and "None" in str(parameter.annotation)
+            if name not in {"deps", "replay_record_product_class"}
+            and "None" in str(parameter.annotation)
         ]
         assert optional == []
 

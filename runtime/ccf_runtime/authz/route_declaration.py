@@ -49,6 +49,8 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ROUTE_AUTHORIZATION_ATTRIBUTE",
     "TENANT_PATH_PARAM",
+    "ProductClassBinding",
+    "ProductClassSource",
     "ResourceBinding",
     "ResourceSource",
     "RouteAuthorization",
@@ -180,6 +182,56 @@ class ResourceBinding:
         return cls(source=ResourceSource.BODY_COMPOSED, name=template)
 
 
+class ProductClassSource(Enum):
+    """Where a route's Context Product class comes from (``SEC-017``).
+
+    ``D-IMPL-374`` (2), fix round 1: a grant's declared product roster
+    (:attr:`~ccf_runtime.mcp.auth.TokenGrant.products`) is held by the gate to
+    every route where a class is known at the call, before the authorizer.
+
+    * :attr:`PATH` — a named path parameter (the product route's
+      ``product_class``).
+    * :attr:`REPLAY_DECLARED` — the class the deployment declared for the
+      replay records it serves (``create_app``'s
+      ``replay_record_product_class``); none declared and a rostered caller is
+      refused, because an undeclared record is on no roster.
+    """
+
+    PATH = "path"
+    REPLAY_DECLARED = "replay-declared"
+
+
+@dataclass(frozen=True, kw_only=True)
+class ProductClassBinding:
+    """One route's statement of which product class a request reaches (``SEC-017``).
+
+    Attributes:
+        source: Where the class comes from.
+        name: The path parameter for :attr:`ProductClassSource.PATH`; empty for
+            :attr:`ProductClassSource.REPLAY_DECLARED`.
+    """
+
+    source: ProductClassSource
+    name: str = ""
+
+    def __post_init__(self) -> None:
+        if (self.source is ProductClassSource.PATH) != bool(self.name):
+            raise ValueError(
+                "a PATH product class names its path parameter, and only a"
+                " PATH product class names one (SEC-017)"
+            )
+
+    @classmethod
+    def path(cls, name: str) -> ProductClassBinding:
+        """The product class is the named path parameter."""
+        return cls(source=ProductClassSource.PATH, name=name)
+
+    @classmethod
+    def replay_declared(cls) -> ProductClassBinding:
+        """The product class is the app's declared ``replay_record_product_class``."""
+        return cls(source=ProductClassSource.REPLAY_DECLARED)
+
+
 def composed_fields(template: str) -> tuple[str, ...]:
     """The body fields a :attr:`ResourceSource.BODY_COMPOSED` template names, in order.
 
@@ -214,10 +266,14 @@ class RouteAuthorization:
         action_id: The door-declared action (D-02), from
             :mod:`ccf_runtime.authz.refusals`.
         resource: Where the thing being acted on comes from.
+        products: Which Context Product class a request reaches, where one is
+            known at the call (``SEC-017``); ``None`` for a route that knows
+            none — the roster is not consulted on it.
     """
 
     action_id: str
     resource: ResourceBinding
+    products: ProductClassBinding | None = None
 
     def __post_init__(self) -> None:
         if not self.action_id:
@@ -232,7 +288,10 @@ _Endpoint = TypeVar("_Endpoint", bound=Callable[..., Any])
 
 
 def authorizes(
-    action_id: str, *, resource: ResourceBinding
+    action_id: str,
+    *,
+    resource: ResourceBinding,
+    products: ProductClassBinding | None = None,
 ) -> Callable[[_Endpoint], _Endpoint]:
     """Declare a handler's action and resource, at the handler.
 
@@ -252,11 +311,15 @@ def authorizes(
     Args:
         action_id: The door-declared action identifier.
         resource: Where this route's resource is read from.
+        products: Which product class a request reaches (``SEC-017``), where
+            the route knows one at the call.
 
     Returns:
         The identity decorator that parks the declaration.
     """
-    declaration = RouteAuthorization(action_id=action_id, resource=resource)
+    declaration = RouteAuthorization(
+        action_id=action_id, resource=resource, products=products
+    )
 
     def attach(endpoint: _Endpoint) -> _Endpoint:
         setattr(endpoint, ROUTE_AUTHORIZATION_ATTRIBUTE, declaration)

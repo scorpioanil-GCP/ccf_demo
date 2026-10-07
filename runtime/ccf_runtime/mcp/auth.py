@@ -66,6 +66,7 @@ __all__ = [
     "TokenGrant",
     "TokenSourceProtocol",
     "authentication_claims",
+    "bounded_echo",
     "granted_products",
     "granted_tenants",
     "is_ambient_stdio",
@@ -132,17 +133,22 @@ class TokenGrant(CCFContract):
             none and ships no default (CINV-01).
         products: The within-tenant product roster (``SEC-017``;
             ``D-IMPL-374`` (2)) — the Context Product CLASS names (schema
-            names) this bearer may reach through the Experience door's agent
-            and replay tools. ``None`` — the default — declares no roster and
-            reaches tenant-wide, which is the behavior every grant minted
-            before the field existed had; **declaring a roster for a principal
-            that must not reach every product is the deployment's
-            obligation**, and the SDK ships no default roster (CINV-01). A
-            declared roster bounds reach to the classes on it: an agent whose
-            ``consumes ∪ emits`` names an off-roster class is not invocable and
-            not listed, and the replay record is reached only through the
-            class the deployment declared for it. An EMPTY roster is a
-            declaration too, and it reaches no product.
+            names) this bearer may reach. ``None`` — the default — declares no
+            roster and reaches tenant-wide, which is the behavior every grant
+            minted before the field existed had; **declaring a roster for a
+            principal that must not reach every product is the deployment's
+            obligation**, and the SDK ships no default roster (CINV-01). In a
+            token file, ``"products": null`` (or the key omitted) means
+            tenant-wide and ``"products": []`` means NO product. A declared
+            roster is held, before the authorizer is asked, on every surface
+            that knows a class at the call: the MCP Experience door's
+            ``context_product`` resource, ``get_context``, ``get_lineage``,
+            ``invoke_agent`` (the agent's ``consumes ∪ emits``),
+            ``list_agents`` (filtered) and ``get_replay_record`` (the declared
+            ``replay_record_product_class``); the MCP egress door's three
+            product surfaces; and the HTTP door's product route and replay
+            routes. Surfaces that know no class at the call — artifact
+            store, HITL — are not bound by it.
     """
 
     client_id: str
@@ -261,6 +267,25 @@ def is_ambient_stdio(token: AccessToken) -> bool:
     return bool((token.claims or {}).get(AMBIENT_STDIO_CLAIM))
 
 
+#: The most characters of any caller- or directory-supplied identifier a roster
+#: refusal echoes — the cap :mod:`ccf.skills.wire_arguments` puts on an echoed
+#: argument key (``_ECHOED_KEY_CHARACTERS``), so a refusal's text is bounded by
+#: the SDK, never by the caller (``SEC-017`` fix round 1).
+_ECHOED_CHARACTERS: Final[int] = 64
+
+
+def bounded_echo(value: object) -> str:
+    """``repr`` of ``value``'s first :data:`_ECHOED_CHARACTERS` characters.
+
+    ``SEC-017``; ``D-IMPL-374`` (2). Every identifier a roster refusal names
+    passes through here, so a refusal cannot carry an unbounded caller string.
+    """
+    text = str(value)
+    if len(text) > _ECHOED_CHARACTERS:
+        return repr(text[:_ECHOED_CHARACTERS]) + "…"
+    return repr(text)
+
+
 def _tokens_match(candidate: str, presented: str) -> bool:
     """Constant-time equality of two tokens, total over every ``str``.
 
@@ -307,6 +332,10 @@ class FileTokenSource:
     ``tenants`` omitted parses as the empty set, which reaches nothing
     (``SEC-018``) — a token file written before the tenant axis existed
     therefore fails closed rather than carrying its old reach forward.
+
+    ``products`` is the opposite on purpose (``SEC-017``): omitted or
+    ``null`` declares no roster and reaches tenant-wide, and ``[]`` reaches no
+    product. Declaring it is the deployment's obligation.
 
     Read on every lookup rather than cached at construction, so a deployment
     revoking a token by editing the file does not have to restart the server —

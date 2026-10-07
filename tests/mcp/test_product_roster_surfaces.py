@@ -396,3 +396,151 @@ def test_a_roster_refused_agent_or_replay_call_records_no_allow(
         f"{tool}: the authorizer recorded an allow for a call the roster refused"
     )
     assert seams.entered == []
+
+
+# --- the mechanism's edges (written with the fix) ---------------------------
+
+
+@pytest.mark.parametrize("builder", ("artifact", "hitl", "experience", "egress"))
+def test_every_surface_states_its_product_reading_and_class_arguments_are_held(
+    builder: str, tmp_path: pathlib.Path
+) -> None:
+    """One rule: a surface whose resource IS a product-class argument holds the roster to it."""
+    from ccf_runtime.mcp.tenancy import _LEDGERS
+    from tests.mcp.guarded_servers import build_for
+
+    server = build_for(builder, tmp_path)
+    ledger = _LEDGERS[server]
+    assert ledger
+    for name, surface in ledger.items():
+        reach = surface.products
+        stated = [
+            reach.argument,
+            reach.declared,
+            reach.undeclared,
+            reach.resolve,
+            reach.unknown,
+        ]
+        assert sum(value is not None for value in stated) == 1, (name, reach)
+        if surface.resource.argument == "product_class":
+            assert reach.argument == "product_class", name
+
+
+def test_a_directory_entry_stating_any_set_is_refused_by_name() -> None:
+    """Derived, never declared: a stated set — narrower OR equal — is refused."""
+    from ccf_runtime.mcp.experience import ExposedAgent
+
+    fields: dict[str, Any] = {
+        "definition_key": "agent-states",
+        "definition_version": "1.0.0",
+        "name": "agent-states",
+        "artifact_version": "1.0.0",
+        "archetypes": ("analytics_insights",),
+        "skills": (),
+    }
+    for stated in (frozenset({ROSTERED}), frozenset({ROSTERED, PRODUCT_CLASS})):
+        with pytest.raises(ValueError, match="agent-states") as refused:
+            ExposedAgent(**fields, product_classes=stated)
+        assert "derived" in str(refused.value)
+    assert ExposedAgent(**fields).product_classes is None
+
+
+def test_the_helper_derives_every_artifact_carried_value() -> None:
+    """``exposed_agent`` reads the entry off the definition: consumes ∪ emits."""
+    from ccf_runtime.mcp.agent_directory import (
+        context_contract_classes,
+        exposed_agent,
+    )
+    from tests.mcp.test_experience_exposable_roster import _bound_world
+
+    world, _ = _bound_world("procedure")
+    definition = world.definition_a
+    entry = exposed_agent(
+        definition, definition_key="k", definition_version="v", skills=()
+    )
+    assert entry.name == definition.name
+    assert entry.artifact_version == definition.artifact_version
+    assert entry.archetypes == definition.archetypes
+    expected = frozenset(
+        c.product_class for c in definition.context_contract.consumes
+    ) | frozenset(e.product_class for e in definition.context_contract.emits)
+    assert entry.product_classes == expected
+    assert context_contract_classes(definition.context_contract) == expected
+
+
+def test_a_roster_refusal_echoes_a_bounded_identifier(tmp_path: pathlib.Path) -> None:
+    """Minor: a caller's definition_key is echoed at most 64 characters."""
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL, build_experience_server
+
+    source, recorder = _entitlement_world(tmp_path)
+    server = build_experience_server(
+        server_name="roster-echo",
+        product_resolver=lambda **kw: None,
+        agent_directory=lambda *, tenant: (),
+        agent_invoker=lambda **kw: "{}",
+        invoke_agent_description="roster fixture",
+        tool_allowlist=frozenset({INVOKE_AGENT_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=authorizer_granting(),
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+    long_key = "k" * 5000
+    raised = _drive(
+        lambda: anyio.run(
+            server.call_tool,
+            INVOKE_AGENT_TOOL,
+            {
+                "tenant": TENANT,
+                "definition_key": long_key,
+                "definition_version": "v" * 5000,
+                "skill": "s",
+                "arguments": {},
+            },
+        ),
+        frozenset({ROSTERED}),
+    )
+    refusal = _roster_refusal(raised)
+    assert refusal is not None
+    assert "k" * 64 in str(refusal) and "k" * 65 not in str(refusal)
+    assert "v" * 65 not in str(refusal)
+
+
+def test_the_grant_the_authorizer_sees_carries_the_roster(tmp_path: pathlib.Path) -> None:
+    """Minor: the guard's copy of the grant agrees with the verified token."""
+    from ccf_runtime.mcp.experience import GET_CONTEXT_TOOL, build_experience_server
+
+    seen: list[Any] = []
+    inner = authorizer_granting()
+
+    class _Recording:
+        def authorize(self, *, grant: Any, **kwargs: Any) -> Any:
+            seen.append(grant)
+            return inner.authorize(grant=grant, **kwargs)
+
+    source, recorder = _entitlement_world(tmp_path)
+    server = build_experience_server(
+        server_name="roster-copy",
+        product_resolver=lambda **kw: None,
+        context_provider=lambda **kw: "{}",
+        get_context_description="roster fixture",
+        entitled_product_class=PRODUCT_CLASS,
+        tool_allowlist=frozenset({GET_CONTEXT_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=_Recording(),  # type: ignore[arg-type]
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+    roster = frozenset({PRODUCT_CLASS, ROSTERED})
+    raised = _drive(
+        lambda: anyio.run(
+            server.call_tool, GET_CONTEXT_TOOL, {"tenant": TENANT, "entity": "e"}
+        ),
+        roster,
+    )
+    assert raised is None, repr(raised)
+    assert [g.products for g in seen] == [roster]
