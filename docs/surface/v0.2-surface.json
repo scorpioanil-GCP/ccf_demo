@@ -9199,11 +9199,17 @@
   },
   "ccf.skills.toolsurface": {
     "__all__": [
+      "HARNESS_EXPOSABLE_SKILL_TYPES",
       "ProcedureHasNoToolSurface",
       "RenderedToolSurface",
+      "SkillHasNoToolSurface",
       "render_tool_surface"
     ],
     "exports": {
+      "HARNESS_EXPOSABLE_SKILL_TYPES": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
       "ProcedureHasNoToolSurface": {
         "kind": "class",
         "shape": "type"
@@ -9212,9 +9218,54 @@
         "kind": "class",
         "shape": "(description: 'str', input_schema: 'dict[str, Any]') -> None"
       },
+      "SkillHasNoToolSurface": {
+        "kind": "class",
+        "shape": "type"
+      },
       "render_tool_surface": {
         "kind": "function",
         "shape": "(entry: 'SkillCatalogEntry') -> 'RenderedToolSurface'"
+      }
+    }
+  },
+  "ccf.skills.wire_arguments": {
+    "__all__": [
+      "ArgumentRefused",
+      "MissingArgumentRefused",
+      "MistypedArgumentRefused",
+      "UndeclaredArgumentRefused",
+      "refuse_unconforming_arguments",
+      "refuse_undeclared_arguments",
+      "undeclared_arguments"
+    ],
+    "exports": {
+      "ArgumentRefused": {
+        "kind": "class",
+        "shape": "(*, surface: 'str', undeclared: 'tuple[str, ...]' = (), missing: 'tuple[str, ...]' = (), mistyped: 'tuple[str, ...]' = ()) -> 'None'"
+      },
+      "MissingArgumentRefused": {
+        "kind": "class",
+        "shape": "(*, surface: 'str', undeclared: 'tuple[str, ...]' = (), missing: 'tuple[str, ...]' = (), mistyped: 'tuple[str, ...]' = ()) -> 'None'"
+      },
+      "MistypedArgumentRefused": {
+        "kind": "class",
+        "shape": "(*, surface: 'str', undeclared: 'tuple[str, ...]' = (), missing: 'tuple[str, ...]' = (), mistyped: 'tuple[str, ...]' = ()) -> 'None'"
+      },
+      "UndeclaredArgumentRefused": {
+        "kind": "class",
+        "shape": "(*, surface: 'str', undeclared: 'tuple[str, ...]' = (), missing: 'tuple[str, ...]' = (), mistyped: 'tuple[str, ...]' = ()) -> 'None'"
+      },
+      "refuse_unconforming_arguments": {
+        "kind": "function",
+        "shape": "(arguments: 'Mapping[str, object]', *, schema: 'SkillArgumentSchema', surface: 'str') -> 'None'"
+      },
+      "refuse_undeclared_arguments": {
+        "kind": "function",
+        "shape": "(arguments: 'Mapping[str, object]', *, declared: 'Iterable[str]', surface: 'str') -> 'None'"
+      },
+      "undeclared_arguments": {
+        "kind": "function",
+        "shape": "(arguments: 'Mapping[str, object]', *, declared: 'Iterable[str]') -> 'tuple[str, ...]'"
       }
     }
   },
@@ -9476,7 +9527,7 @@
     "exports": {
       "ClaudeAgentAdapter": {
         "kind": "class",
-        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability') -> 'None'"
+        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability', child_environment: 'Mapping[str, str] | None' = None) -> 'None'"
       },
       "HARNESS_ID": {
         "kind": "constant",
@@ -9486,13 +9537,23 @@
   },
   "ccf_runtime.adapters.claude_agent.adapter": {
     "__all__": [
+      "AllowlistedEnvironmentTransport",
       "ClaudeAgentAdapter",
+      "DEFAULT_CHILD_ENVIRONMENT",
       "HARNESS_ID"
     ],
     "exports": {
+      "AllowlistedEnvironmentTransport": {
+        "kind": "class",
+        "shape": "(prompt: str | collections.abc.AsyncIterable[dict[str, typing.Any]], options: claude_agent_sdk.types.ClaudeAgentOptions)"
+      },
       "ClaudeAgentAdapter": {
         "kind": "class",
-        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability') -> 'None'"
+        "shape": "(*, model: 'str', mcp_server_name: 'str', mcp_server_version: 'str', effects: 'EffectCapability', child_environment: 'Mapping[str, str] | None' = None) -> 'None'"
+      },
+      "DEFAULT_CHILD_ENVIRONMENT": {
+        "kind": "constant",
+        "shape": "tuple"
       },
       "HARNESS_ID": {
         "kind": "constant",
