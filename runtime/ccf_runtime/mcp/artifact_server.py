@@ -92,7 +92,10 @@ in this order:
    relaxes nothing: a governed filing by that tenant still sends every
    principal of it through the governed dereference, and the client lane
    below only serves an address the caller's own tenant filed — which a filing
-   can do only by presenting those exact bytes.
+   can do only by presenting those exact bytes. "Filed by the caller's tenant"
+   is read from the naming index, so it holds because a tenant id is one
+   naming segment: the store's write boundary refuses a tenant containing the
+   separator (:func:`~ccf.artifacts.protocol.authorized_write_target`, M-4).
 3. **Governed evidence goes through the governed dereference.** If ANY of
    those names' classes is one the substrate's :class:`~ccf.artifacts.protocol.WriteKinds`
    declares under ``ReplayMint`` — a replay record, a query pin, an admitted
@@ -107,10 +110,14 @@ in this order:
    engine's trace class, declared under ``Execute | Resume`` — is served: the
    exact stored bytes, with one ``authz_decision`` audit event naming the read.
    An address filed under **no** name of the capability's tenant — another
-   tenant's, or nothing at all — goes through the governed dereference too and
-   answers the ``nonexistent`` shell: byte-identical, up to the reference asked
-   and the record it produced, to a missing address. A caller cannot learn
-   from this door that another tenant holds bytes at an address it names.
+   tenant's, or nothing at all — goes through the governed dereference too,
+   which holds the caller to the tenant a record was decided under before any
+   other hold (hold 0 of
+   :func:`~ccf_runtime.authz.delivery_boundary.govern_dereference`, C-2): it
+   answers the ``nonexistent`` shell, at every disclosure level, byte-identical
+   up to the reference asked and the record it produced to a missing address —
+   another tenant's genuine replay record included. A caller cannot learn from
+   this door that another tenant holds bytes at an address it names.
 
 The blob handler's ``-> bytes`` annotation is load-bearing: it produces
 ``BlobResourceContents`` (base64) and preserves canonical bytes exactly, where

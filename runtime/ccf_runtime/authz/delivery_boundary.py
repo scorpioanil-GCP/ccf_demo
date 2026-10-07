@@ -959,6 +959,16 @@ def govern_dereference(
     **The holds, in order, and the order is the property** (``D-IMPL-345``
     R-2):
 
+    0. **Tenant.** The tenant the record was decided under
+       (:func:`_decided_identity`; the record's own ``tenant_id`` when no
+       identity is recoverable) equals the capability's ``authorized.tenant``.
+       On a mismatch the read is answered exactly as a missing address is —
+       ``nonexistent``, the one outcome at every disclosure level — so a caller
+       learns nothing about another tenant's records, not even that one exists
+       at an address it computed (C-2, the ``D-IMPL-376`` close-out). First,
+       because hold 1's ``unauthorized`` at ``full`` would otherwise be that
+       signal, and so that hold 2 only ever re-decides a grant under the
+       capability's own tenant.
     1. **Principal.** The verified ``client_id`` equals the record's own
        ``perspective_conditioning.principal_id``. On a mismatch the boundary
        stops reading the record: ``authorize`` is never called, no policy pin
@@ -1012,11 +1022,12 @@ def govern_dereference(
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
     the door's recorder and returned disclosed. ``cause="unauthorized"``
-    distinguishes a hold failure on a genuine record from ``"nonexistent"``
-    for everything else, as internal truth; below ``full`` the two are one
-    shell, and the request identity every shell carries is the mechanism
-    constant plus the caller's own reference, never anything recovered from
-    the target.
+    distinguishes a failure of holds 1 to 3 on a genuine record of the
+    caller's own tenant from ``"nonexistent"`` for everything else — another
+    tenant's record included (hold 0) — as internal truth; below ``full`` the
+    two are one shell, and the request identity every shell carries is the
+    mechanism constant plus the caller's own reference, never anything
+    recovered from the target.
 
     **The capability first** (D-IMPL-353 §1.2, §1.5). ``authorized`` is the
     ``Authorized[ArtifactRead]`` or ``Authorized[ReplayRead]`` the HTTP gate or
@@ -1241,6 +1252,23 @@ def govern_dereference(
             cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
         )
 
+    internal = _internal_refusal(record)
+    decided = _decided_identity(record, internal)
+
+    # --- hold 0: the tenant the record was decided under --------------------
+    # C-2 (`D-IMPL-345` R-2: the caller is held to the record's retained
+    # principal/TENANT/product identity). A record decided under any tenant but
+    # the capability's answers exactly as a missing address does — the one
+    # `nonexistent` outcome, at every level — and FIRST: hold 1's
+    # `unauthorized` would otherwise tell a `full` caller that another tenant
+    # holds a record at an address it computed, and hold 2 would re-decide a
+    # grant under a tenant the capability does not name.
+    deciding_tenant = decided[0] if decided is not None else record.tenant_id
+    if deciding_tenant != authorized.tenant:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
+
     # --- hold 1: the record's own principal ---------------------------------
     if principal != record.perspective_conditioning.principal_id:
         return refuse(
@@ -1252,11 +1280,8 @@ def govern_dereference(
             ),
         )
 
-    internal = _internal_refusal(record)
-
     # --- hold 2: the product grant that governed the serve ------------------
     if not _is_read_refusal(internal):
-        decided = _decided_identity(record, internal)
         if decided is None:
             return refuse(
                 cause="unauthorized",
