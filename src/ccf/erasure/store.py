@@ -29,11 +29,16 @@ from ccf.artifacts.protocol import (
     ArtifactWriteAuthority,
     WriteKinds,
 )
-from ccf.erasure.index import ErasureIndex
+from ccf.erasure.index import ErasureIndex, ErasureIndexSource
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["ErasedContentRefused", "ErasureConsultingStore"]
+__all__ = [
+    "ErasedContentRefused",
+    "ErasureConsultingStore",
+    "ErasureIndexUnavailable",
+    "compose_erasure_consult",
+]
 
 
 class ErasedContentRefused(ArtifactStoreError):
@@ -66,6 +71,10 @@ class ErasedContentRefused(ArtifactStoreError):
         self.erased_at = erased_at
 
 
+#: The inner store's introspection the decorator forwards: naming, never bytes.
+_FORWARDED_INTROSPECTION = frozenset({"root", "names_at", "versions"})
+
+
 class ErasureConsultingStore:
     """An :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol` that refuses to serve erased content (SEC-009; `D-IMPL-374` (4)).
 
@@ -94,6 +103,17 @@ class ErasureConsultingStore:
         """The inner store's write-kinds declaration, so wiring checks read through the decorator."""
         declared = getattr(self._inner, "write_kinds", None)
         return declared if isinstance(declared, WriteKinds) else None
+
+    def __getattr__(self, name: str) -> object:
+        """Forward the inner store's naming INTROSPECTION only — never a byte read.
+
+        ``root``, ``names_at`` and ``versions`` name what a store holds and read
+        no artifact bytes, so the composed store keeps the shipped store's
+        introspection surface; every other name is refused (SEC-009).
+        """
+        if name in _FORWARDED_INTROSPECTION:
+            return getattr(self._inner, name)
+        raise AttributeError(name)
 
     def _consult(self, content_address: str) -> None:
         """THE consult: refuse an address the mirror names as erased."""
@@ -132,3 +152,36 @@ class ErasureConsultingStore:
         address = self._inner.resolve_uri(uri=uri)
         self._consult(address)
         return address
+
+
+class ErasureIndexUnavailable(TypeError):
+    """A store construction site's Control Plane cannot serve the erasure index (SEC-009; `D-IMPL-374` (4)).
+
+    Raised at composition — where an operator sees it — never at a read: a
+    store that could not consult would serve erased bytes silently, which is
+    the posture ruling 2 ("composed ALWAYS") forbids.
+    """
+
+
+def compose_erasure_consult(
+    store: ArtifactStoreProtocol, *, control_plane: object
+) -> ErasureConsultingStore:
+    """THE composition helper every store construction site uses (SEC-009; `D-IMPL-374` (4), U12, ruling 2).
+
+    Wraps ``store`` in :class:`ErasureConsultingStore` over the registry mirror
+    ``control_plane`` holds; idempotent on an already-wrapped store. On an
+    empty index the decorator is identity.
+
+    Raises:
+        ErasureIndexUnavailable: ``control_plane`` offers no
+            :class:`~ccf.erasure.ErasureIndexSource` introspection
+            (``keys_of_class``, ``versions``, ``peek``) — the shipped
+            ``ControlPlaneRegistry`` does.
+    """
+    if not isinstance(control_plane, ErasureIndexSource):
+        raise ErasureIndexUnavailable(
+            f"{type(control_plane).__name__} offers no keys_of_class/versions/peek, so"
+            " the erasure consult cannot be composed over it; a store that cannot"
+            " consult would serve erased content (SEC-009; D-IMPL-374 (4), ruling 2)"
+        )
+    return ErasureConsultingStore.around(store, index=ErasureIndex(control_plane))

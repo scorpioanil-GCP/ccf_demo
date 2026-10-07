@@ -105,6 +105,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.erasure.store import compose_erasure_consult
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
 from ccf.client.adapters.binding_document import (
@@ -323,15 +324,20 @@ def _boot(
             # `ReplayMint`. This adapter is a composition site; the resolver it
             # builds mints its own capabilities against this declaration and
             # refuses at construction if a class it files is missing.
-            artifact_store=FileArtifactStore(
-                root=document.artifact_store,
-                write_kinds=WriteKinds.declare(
-                    {
-                        document.replay_record_class: (ReplayMint,),
-                        document.query_pin_class: (ReplayMint,),
-                        ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
-                    }
+            # SEC-009 (`D-IMPL-374` (4), ruling 2): composed with the erasure
+            # consult over this boot's Control Plane, through the one helper.
+            artifact_store=compose_erasure_consult(
+                FileArtifactStore(
+                    root=document.artifact_store,
+                    write_kinds=WriteKinds.declare(
+                        {
+                            document.replay_record_class: (ReplayMint,),
+                            document.query_pin_class: (ReplayMint,),
+                            ADMITTED_CHILD_CONTRACT_CLASS: (ReplayMint,),
+                        }
+                    ),
                 ),
+                control_plane=control_plane,
             ),
             replay_record_class=document.replay_record_class,
             query_pin_class=document.query_pin_class,

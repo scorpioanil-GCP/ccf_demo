@@ -60,7 +60,12 @@ from ccf.erasure.index import (
     append_to_erasure_index,
     erasure_index_key,
 )
-from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
+from ccf.erasure.store import (
+    ErasedContentRefused,
+    ErasureConsultingStore,
+    ErasureIndexUnavailable,
+    compose_erasure_consult,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -80,6 +85,7 @@ __all__ = [
     "ErasureIndexEntry",
     "ErasureIndexMirror",
     "ErasureIndexSource",
+    "ErasureIndexUnavailable",
     "ErasureRecord",
     "ErasureRequest",
     "ErasureSubjectClass",
@@ -89,6 +95,7 @@ __all__ = [
     "RetentionDecision",
     "RetentionHoldPolicy",
     "append_to_erasure_index",
+    "compose_erasure_consult",
     "erasure_index_key",
     "judge_retention",
     "subject_ref_for",

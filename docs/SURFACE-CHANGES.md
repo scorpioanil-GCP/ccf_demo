@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1987 entries**, of which **1720** name a public Python surface.
+**1991 entries**, of which **1724** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1146 entries — 1102 public Python surface, 44 not public Python API.
+1150 entries — 1106 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -17266,6 +17266,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: The HTTP status `410` for the `erased-content` kind.
 - Why: SEC-009; U11: 410 at `reasoned`/`full`; the route's not-found rendering at `minimal`.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.compose_erasure_consult
+
+- Surface: ccf.erasure.compose_erasure_consult
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.compose_erasure_consult
+
+- Surface: ccf.erasure.store.compose_erasure_consult
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexUnavailable
+
+- Surface: ccf.erasure.ErasureIndexUnavailable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `TypeError` raised at composition when a Control Plane offers no `keys_of_class`/`versions`/`peek`. The shipped `ControlPlaneRegistry` offers all three.
+- Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
+- Migration: a deployment that passes `build_governed_resolver` a custom `ControlPlaneProtocol` implementation without registry introspection must add those three methods.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.ErasureIndexUnavailable
+
+- Surface: ccf.erasure.store.ErasureIndexUnavailable
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a `TypeError` raised at composition when a Control Plane offers no `keys_of_class`/`versions`/`peek`. The shipped `ControlPlaneRegistry` offers all three.
+- Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
+- Migration: a deployment that passes `build_governed_resolver` a custom `ControlPlaneProtocol` implementation without registry introspection must add those three methods.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

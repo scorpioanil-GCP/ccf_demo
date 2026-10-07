@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.erasure.store import compose_erasure_consult
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import Execute, Resume
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -129,9 +130,15 @@ def build_local_dependencies(*, root: Path) -> ApiDependencies:
     # (the registry starts empty by design — D-IMPL-38), so it mints no
     # `Register`; a registration added here goes through the D-IMPL-354
     # recipe, never a bare key.
-    store = FileArtifactStore(
-        root=root / "artifacts",
-        write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+    # SEC-009 (`D-IMPL-374` (4), ruling 2): composed with the erasure consult
+    # here, so the engine reads through it too — not only the routes
+    # `create_app` wraps.
+    store = compose_erasure_consult(
+        FileArtifactStore(
+            root=root / "artifacts",
+            write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
+        ),
+        control_plane=registry,
     )
     hitl = InMemoryHitlTransport()
     return ApiDependencies(

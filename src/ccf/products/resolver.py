@@ -156,6 +156,7 @@ from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
+from ccf.erasure.store import compose_erasure_consult
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -4938,6 +4939,12 @@ def build_governed_resolver(
                 }
             ),
         )
+
+    # SEC-009 (`D-IMPL-374` (4), ruling 2): the erasure consult is composed
+    # around whichever store was selected — supplied or default — over this
+    # call's Control Plane, so every read the resolver and its recorder make
+    # refuses erased content.
+    store = compose_erasure_consult(store, control_plane=control_plane)
 
     # `D-IMPL-343` R-3a, THIRD: the two TTL figures, from the call or from the
     # declared `ttl:` binding, held EQUAL when both speak and refused when

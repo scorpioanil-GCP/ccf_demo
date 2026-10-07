@@ -60,6 +60,7 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.erasure import ErasureConsultingStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_and_boot
 from ccf.graph.protocols import GraphView
@@ -1282,8 +1283,10 @@ def test_the_declared_binding_supplies_every_member_the_call_omits(
 
     assert resolver.replay_record_class == DECLARED_RECORD_CLASS
     assert resolver.query_pin_class == DECLARED_QUERY_PIN_CLASS
-    assert isinstance(resolver.artifact_store, FileArtifactStore)
-    assert resolver.artifact_store.root == root / DECLARED_STORE_DIRNAME
+    # SEC-009 ruling 2: the selected store is composed with the erasure consult.
+    assert isinstance(resolver.artifact_store, ErasureConsultingStore)
+    assert isinstance(resolver.artifact_store.inner, FileArtifactStore)
+    assert resolver.artifact_store.inner.root == root / DECLARED_STORE_DIRNAME
 
 
 def test_an_explicit_argument_beats_the_declaration_for_that_member_alone(
@@ -1303,8 +1306,10 @@ def test_an_explicit_argument_beats_the_declaration_for_that_member_alone(
 
     assert resolver.replay_record_class == "fixture.explicit-replay-record"
     assert resolver.query_pin_class == DECLARED_QUERY_PIN_CLASS
-    assert isinstance(resolver.artifact_store, FileArtifactStore)
-    assert resolver.artifact_store.root == root / DECLARED_STORE_DIRNAME
+    # SEC-009 ruling 2: the selected store is composed with the erasure consult.
+    assert isinstance(resolver.artifact_store, ErasureConsultingStore)
+    assert isinstance(resolver.artifact_store.inner, FileArtifactStore)
+    assert resolver.artifact_store.inner.root == root / DECLARED_STORE_DIRNAME
 
 
 def test_a_call_supplying_all_three_is_unaffected_by_a_declaration(
@@ -1321,7 +1326,8 @@ def test_a_call_supplying_all_three_is_unaffected_by_a_declaration(
 
     assert resolver.replay_record_class == REPLAY_RECORD_CLASS
     assert resolver.query_pin_class == QUERY_PIN_CLASS
-    assert resolver.artifact_store is booted_with_binding.store
+    # SEC-009 ruling 2: the SUPPLIED store, composed with the erasure consult.
+    assert resolver.artifact_store.inner is booted_with_binding.store
 
 
 def test_neither_source_is_refused_naming_the_argument_and_the_section(

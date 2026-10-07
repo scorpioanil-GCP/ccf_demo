@@ -96,6 +96,7 @@ from typing import Any, Protocol, runtime_checkable
 from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
+from ccf.erasure.store import compose_erasure_consult
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
@@ -1082,7 +1083,7 @@ def open_product(
 
     scratch_root.mkdir(parents=True, exist_ok=True)
     registry = control_plane if control_plane is not None else ControlPlaneRegistry()
-    store: ArtifactStoreProtocol = (
+    selected: ArtifactStoreProtocol = (
         artifact_store
         if artifact_store is not None
         # The deployment's declaration of what its own mechanism writes and
@@ -1102,6 +1103,10 @@ def open_product(
             ),
         )
     )
+    # SEC-009 (`D-IMPL-374` (4), ruling 2): the erasure consult is composed
+    # around whichever store was selected — supplied or default — so
+    # `record_of` and every resolver read through it refuse erased content.
+    store: ArtifactStoreProtocol = compose_erasure_consult(selected, control_plane=registry)
     # The bundle pin the boot WILL mint, computed the way the registry mints
     # it — the content address of the parsed artifact (`D-IMPL-26`) — so the
     # one recorder can exist before any fabric does and record the same pin

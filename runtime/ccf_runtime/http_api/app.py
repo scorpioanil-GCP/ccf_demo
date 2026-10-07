@@ -60,7 +60,7 @@ from fastapi import FastAPI
 
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
-from ccf.erasure import ErasureConsultingStore, ErasureIndex
+from ccf.erasure import compose_erasure_consult
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf_runtime.authz.delivery_boundary import (
     disclosing_boundary,
@@ -311,8 +311,8 @@ def create_app(
     # through it; on an empty index it is identity.
     deps = replace(
         deps,
-        artifact_store=ErasureConsultingStore.around(
-            deps.artifact_store, index=ErasureIndex(deps.control_plane)
+        artifact_store=compose_erasure_consult(
+            deps.artifact_store, control_plane=deps.control_plane
         ),
     )
 
