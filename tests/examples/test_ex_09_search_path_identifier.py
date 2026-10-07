@@ -20,14 +20,13 @@ own ``psycopg.sql`` — ``SQL("SET search_path TO {}").format(Identifier(schema)
   schema name, which must be a ``psycopg.sql.Composable`` rendering to exactly
   ``SET search_path TO "<name, quotes doubled>"``.
 
-**Frozen specimens are held apart, not skipped.** A tree pinned "ZERO files
-changed by this work" by its successor's test (``D-IMPL-261``) cannot be edited
-by this lane. ``examples/cp-13-covenant-cross-reference`` is one (its pin is
+**Frozen specimens are not exempt.** ``examples/cp-13-covenant-cross-reference`` is a
+frozen specimen under ``D-IMPL-261`` (pinned by
 ``tests/examples/test_cp_13_canonical_output.py::test_the_specimen_is_untouched_and_no_identity_is_reused``)
-and holds one of the 16 sites. Its checks are STRICT expected failures: they
-stay executable evidence, and the day the specimen is repaired under a ruling
-they XPASS and go red until the marker is removed. The pinned set is derived
-from the pins themselves, not listed here.
+and held one of the 16 sites. Dave ruled on 2026-10-07 (*"Fix the one line"*) that it is
+repaired under ``D-IMPL-261``'s objectively-wrong clause, so every site is checked alike. That
+pin compares the specimen with ``git merge-base HEAD main``, so it reads the repair as a change
+on a branch until the merge, as the ``D-IMPL-375`` specimen pins did.
 
 Offline: no estate, no database, no writes.
 """
@@ -172,57 +171,17 @@ def _scan_examples() -> list[Site]:
 
 
 # =========================================================================
-# Frozen specimens — derived from the pins that freeze them
-# =========================================================================
-
-_SPECIMEN_PIN = re.compile(r'^SPECIMEN\s*=\s*REPO_ROOT\s*/\s*"examples"\s*/\s*"([^"]+)"', re.MULTILINE)
-
-
-def _pinned_specimens() -> Mapping[str, str]:
-    """``tree -> pinning test module`` for every tree pinned "ZERO files changed".
-
-    A tree counts only when the module that names it as ``SPECIMEN`` also runs
-    the ``git diff --name-only`` pin over it — the pin, not the name, is what
-    freezes it.
-    """
-    pinned: dict[str, str] = {}
-    for test in sorted((REPO_ROOT / "tests" / "examples").glob("test_*.py")):
-        text = test.read_text(encoding="utf-8")
-        if '"--name-only"' not in text:
-            continue
-        for tree in _SPECIMEN_PIN.findall(text):
-            pinned[tree] = test.name
-    return pinned
-
-
-PINNED = _pinned_specimens()
-FROZEN_REASON = (
-    "frozen specimen under D-IMPL-261 (pinned ZERO-files-changed by its successor's test); the"
-    " EX-09 brief says both 'fix every site' and 'do not touch any frozen specimen' — raised by"
-    " lane EX-01/EX-09 for a ruling, not edited"
-)
-
-
-# =========================================================================
 # The static tests
 # =========================================================================
 
 
 def test_ex_09_no_search_path_statement_in_examples_is_built_by_string_formatting() -> None:
     sites = _scan_examples()
-    open_sites = [site for site in sites if site.string_built and site.tree not in PINNED]
-    held = [site for site in sites if site.string_built and site.tree in PINNED]
+    open_sites = [site for site in sites if site.string_built]
     assert open_sites == [], (
-        f"{len(open_sites)} search_path statement(s) built by string formatting"
-        f" (plus {len(held)} in frozen specimens, held by the strict expected failure):\n  "
+        f"{len(open_sites)} search_path statement(s) built by string formatting:\n  "
         + "\n  ".join(map(str, open_sites))
     )
-
-
-@pytest.mark.xfail(strict=True, reason=FROZEN_REASON)
-def test_ex_09_frozen_specimens_build_no_search_path_by_string_formatting() -> None:
-    held = [site for site in _scan_examples() if site.string_built and site.tree in PINNED]
-    assert held == [], "\n  ".join(map(str, held))
 
 
 def test_ex_09_the_scanner_tells_string_formatting_from_composition() -> None:
@@ -247,12 +206,6 @@ def test_ex_09_the_scan_reads_every_search_path_site() -> None:
     """Control: the scan is not vacuous — it reads at least the census's 16 sites."""
     sites = _scan_examples()
     assert len(sites) >= MINIMUM_SEARCH_PATH_SITES, "\n  ".join(map(str, sites))
-
-
-def test_ex_09_the_frozen_set_is_read_from_the_pins() -> None:
-    """Control: the derivation finds the pins the brief names and the one it did not."""
-    assert "cp-04-corporate-family-tree" in PINNED, PINNED
-    assert "cp-13-covenant-cross-reference" in PINNED, PINNED
 
 
 # =========================================================================
@@ -343,8 +296,7 @@ def _site_params() -> list[Any]:
     params = []
     for path, symbol in SITE_DRIVERS:
         tree = path.split("/")[1]
-        marks = [pytest.mark.xfail(strict=True, reason=FROZEN_REASON)] if tree in PINNED else []
-        params.append(pytest.param(path, symbol, id=f"{tree}::{symbol}", marks=marks))
+        params.append(pytest.param(path, symbol, id=f"{tree}::{symbol}"))
     return params
 
 
