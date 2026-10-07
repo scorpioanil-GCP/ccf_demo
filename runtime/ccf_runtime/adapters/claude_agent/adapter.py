@@ -103,7 +103,7 @@ from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES, render_tool_surface
-from ccf.skills.wire_arguments import ArgumentRefused
+from ccf.skills.wire_arguments import ArgumentRefused, refuse_unconforming_arguments
 
 __all__ = [
     "DEFAULT_CHILD_ENVIRONMENT",
@@ -439,6 +439,15 @@ class ClaudeAgentAdapter:
         :class:`~ccf.skills.wire_arguments.ArgumentRefused` family. The handler
         renders that refusal as the same ``is_error`` result, so nothing is
         dispatched or audited for a call the declared schema does not admit.
+
+        **Only this tool's own refusal is rendered** (``TP-04`` follow-on,
+        ``D-IMPL-361``). The handler runs the shared validator
+        (:func:`~ccf.skills.wire_arguments.refuse_unconforming_arguments`)
+        against the currently-bound entry's ``argument_schema`` inside a narrow
+        ``try``, and dispatches outside it: an ``ArgumentRefused`` raised inside
+        the skill's own dispatch — a ``local_callable`` refused by some other
+        surface — propagates like every other dispatch failure rather than being
+        reported as this tool's argument refusal.
         """
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
@@ -454,9 +463,14 @@ class ClaudeAgentAdapter:
                     )
                 )
             try:
-                invocation = agent.invoke_skill(skill_name, arguments=dict(args))
+                refuse_unconforming_arguments(
+                    args,
+                    schema=self._bound_entry(agent, skill_name).argument_schema,
+                    surface=skill_name,
+                )
             except ArgumentRefused as refused:
                 return _refused(str(refused))
+            invocation = agent.invoke_skill(skill_name, arguments=dict(args))
             payload = canonical_bytes(invocation).decode("utf-8")
             return {"content": [{"type": "text", "text": payload}]}
 

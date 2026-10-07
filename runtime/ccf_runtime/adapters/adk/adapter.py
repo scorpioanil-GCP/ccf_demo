@@ -113,7 +113,11 @@ from ccf.skills.toolsurface import (
     RenderedToolSurface,
     render_tool_surface,
 )
-from ccf.skills.wire_arguments import ArgumentRefused, refuse_undeclared_arguments
+from ccf.skills.wire_arguments import (
+    ArgumentRefused,
+    refuse_unconforming_arguments,
+    refuse_undeclared_arguments,
+)
 
 __all__ = [
     "AGENT_HASH_STATE_KEY",
@@ -228,6 +232,7 @@ class _DeclaredSkillTool(FunctionTool):
         name: str,
         surface: RenderedToolSurface,
         refuse: Callable[[ArgumentRefused], dict[str, Any]],
+        validate: Callable[[Mapping[str, Any]], None],
     ) -> None:
         super().__init__(func=func)
         self.name = name
@@ -235,6 +240,7 @@ class _DeclaredSkillTool(FunctionTool):
         self._ccf_surface = surface
         self._ccf_dispatch = func
         self._ccf_refuse = refuse
+        self._ccf_validate = validate
 
     async def run_async(
         self, *, args: dict[str, Any], tool_context: ToolContext
@@ -244,8 +250,16 @@ class _DeclaredSkillTool(FunctionTool):
         ``TP-04`` (``D-IMPL-361``): declared arguments arrive, undeclared ones
         are refused, never dropped. The undeclared-key refusal is decided before
         ``invoke_skill`` is reached; the rest of the rule (missing, mistyped) is
-        refused inside ``invoke_skill`` before dispatch (``TP-04`` follow-on).
-        Either way a refused call dispatches nothing.
+        refused by the shared validator against the currently-bound entry's
+        schema, also before dispatch (``TP-04`` follow-on). Either way a
+        refused call dispatches nothing.
+
+        **Only this tool's own refusal is rendered** (``TP-04`` follow-on,
+        ``D-IMPL-361``): validation runs inside a narrow ``try`` and dispatch
+        outside it, so an ``ArgumentRefused`` raised inside the skill's own
+        dispatch — a ``local_callable`` refused by some other surface —
+        propagates like every other dispatch failure rather than being reported
+        as this tool's argument refusal.
         """
         try:
             refuse_undeclared_arguments(
@@ -253,9 +267,10 @@ class _DeclaredSkillTool(FunctionTool):
                 declared=self._ccf_surface.input_schema["properties"],
                 surface=self.name,
             )
-            return self._ccf_dispatch(args)
+            self._ccf_validate(args)
         except ArgumentRefused as refused:
             return self._ccf_refuse(refused)
+        return self._ccf_dispatch(args)
 
     def _get_declaration(self) -> genai_types.FunctionDeclaration:
         return genai_types.FunctionDeclaration(
@@ -486,10 +501,17 @@ class AdkAdapter:
         def refuse(refused: ArgumentRefused) -> dict[str, Any]:
             return self._refusal_response(self._refusal(agent, str(refused)))
 
+        def validate(arguments: Mapping[str, Any]) -> None:
+            refuse_unconforming_arguments(
+                arguments,
+                schema=self._bound_entry(agent, skill_name).argument_schema,
+                surface=skill_name,
+            )
+
         call.__name__ = entry.name
         call.__doc__ = surface.description
         return _DeclaredSkillTool(
-            call, name=entry.name, surface=surface, refuse=refuse
+            call, name=entry.name, surface=surface, refuse=refuse, validate=validate
         )
 
     def _tools(self, agent: Agent) -> tuple[FunctionTool, ...]:
