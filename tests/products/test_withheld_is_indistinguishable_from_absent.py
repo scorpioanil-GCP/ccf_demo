@@ -812,3 +812,135 @@ def test_control_4_a_nonexistent_subject_on_an_empty_fabric_replays_to_its_own_a
     served, outcome, recorded = _replay_once(tmp_path, PAVED_ABSENT)
     assert served.product.computed_empty is not None
     assert content_hash(outcome.product) == recorded == content_hash(served.product)
+
+
+# --- the paved road WITH the acquisition seam (`D-IMPL-376` (3), route A) ---------
+#
+# The final close review of `D-IMPL-371` MEASURED the leak these controls could
+# not see, because every control above either boots its fabric by hand or, on
+# the paved road, seeds the walk on the subject alone: on the shipped paved road
+# (`open_product`, the deployment's own `acquire`, a class-seeded plan)
+# `GovernedResolver.__call__`'s declared acquisition seam ingests the ASKED
+# subject's evidence BEFORE the plan runs. A subject that names nothing has
+# nothing acquired, so its walk reads the fabric as it stood before
+# acquisition; a withheld subject's unseeded re-execution read the fabric AFTER
+# its own acquisition, so the class seeds reached the evidence acquisition had
+# just put there. Measured on the reapplied final round: `from_decision`
+# differs at `computed_empty`; `from_entity_freshness` refuses the withheld
+# subject `ttl-refusal` and the never-acquired one `ttl-anchor-refusal`.
+
+
+class _RecordingAcquireForSubject(_AcquireForSubject):
+    """The same subject-keyed source, counting the envelopes it returned per subject.
+
+    The count is what proves the case was constructed: the withheld subject's
+    evidence really was acquired, and nothing was for the never-acquired one.
+    """
+
+    def __init__(self) -> None:
+        self.returned: dict[str, int] = {}
+
+    def __call__(self, context: Any) -> tuple[SignalEnvelope, ...]:
+        envelopes = super().__call__(context)
+        subject = context.request.subject
+        self.returned[subject] = self.returned.get(subject, 0) + len(envelopes)
+        return envelopes
+
+
+def _paved_config(*, anchor: str, seeding: str) -> dict[str, Any]:
+    """The paved fixture's config under ``anchor``; ``seeding`` as the controls name it.
+
+    ``class`` is the paved fixture's own config, whose walk is seeded on the
+    account class — the shape the close review measured. ``subject`` is the
+    controls' subject-seeded variant. An evidence-anchored class declares its
+    λ_c row ``valid-from`` (the open-time refusal `D-IMPL-341` R-3 requires).
+    Test-side variants only (CINV-01).
+    """
+    import copy  # noqa: PLC0415
+
+    from tests.products.test_paved_road import _config  # noqa: PLC0415
+
+    document = (
+        copy.deepcopy(_config()) if seeding == CLASS_SEEDED else _subject_seeded_paved_config()
+    )
+    document["product_class"]["ttl_anchor"] = anchor
+    if anchor == FROM_ENTITY_FRESHNESS:
+        for row in document["half_life"].values():
+            row["decay_basis"] = "valid-from"
+    return document
+
+
+@pytest.mark.parametrize("seeding", [CLASS_SEEDED, SUBJECT_SEEDED])
+@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
+def test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject(
+    tmp_path: pathlib.Path, anchor: str, seeding: str
+) -> None:
+    """The same question through ``GovernedResolver.__call__`` WITH the acquisition seam.
+
+    ``D-IMPL-376`` (3), route A. (a) A subject the source holds, acquired and
+    then withheld by Π from this principal; (b) a subject that names nothing,
+    so its acquisition returns nothing. Both asked through the shipped paved
+    road — ``open_product``, a fresh per-question fabric, the deployment's
+    ``acquire`` at the declared seam — and compared in every member a caller
+    observes: served-or-refused, then the vessel path for path (or the refusal
+    shell, every member but its own per-decision ``replay_reference``),
+    ``computed_empty`` included, on both anchors. The never-acquired subject's
+    side is pinned by name first — its walk reads nothing, so it is served with
+    the empty finding naming the plan's operator under ``from_decision`` and
+    refused ``ttl-anchor-refusal`` under ``from_entity_freshness`` (an empty
+    view carries no evidence instant) — so the equality cannot hold by both
+    sides being wrong the same way.
+    """
+    from tests.products.test_paved_road import ASKED_AT as PAVED_ASKED_AT  # noqa: PLC0415
+    from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
+    from tests.deployment.test_replay_binding import (  # noqa: PLC0415
+        THRESHOLD_PARAMETER as PAVED_THRESHOLD,
+    )
+
+    acquire = _RecordingAcquireForSubject()
+    root = _write_tree(tmp_path, config=_paved_config(anchor=anchor, seeding=seeding))
+    with _open(
+        root, tmp_path / "scratch", acquire=acquire, project=_paved_withholding_project
+    ) as opened:
+
+        def ask(subject: str) -> Any:
+            return opened.answer(
+                opened.question(
+                    subject=subject, asked_at=PAVED_ASKED_AT, intent="fixture-intent",
+                    freshness="fixture-freshness", parameters={PAVED_THRESHOLD: 1000},
+                )
+            )
+
+        withheld = ask(PAVED_WITHHELD)
+        nonexistent = ask(PAVED_ABSENT)
+        withheld_record = opened.record_of(withheld)
+
+    case = f"{anchor}, {seeding}-seeded paved road"
+    assert acquire.returned == {PAVED_WITHHELD: 1, PAVED_ABSENT: 0}, (
+        f"[{case}] the case was not constructed: the source must return the"
+        f" withheld subject's evidence and nothing for the absent one: {acquire.returned}"
+    )
+    if seeding == CLASS_SEEDED:
+        # The class seeds reach the acquired account, so the REAL read saw it,
+        # and replay dimension 1 keeps that read: the withheld rendering never
+        # replaces it. On the subject-seeded plan the real read is empty as
+        # well, because the request seed never reaches the final operator view
+        # (`TraversalNeighborhood.apply` walks from the seed classes only; the
+        # SDK finding recorded at `D-IMPL-371`, bearing on `D-IMPL-111` limb (a)).
+        assert PAVED_WITHHELD in withheld_record.context_fabric_snapshot.touched_entities, (
+            f"[{case}] replay dimension 1 must keep the REAL read, which saw the"
+            " acquired subject; the withheld rendering never replaces it"
+        )
+    if anchor == FROM_DECISION:
+        assert isinstance(nonexistent, ServedProduct), nonexistent
+        finding = nonexistent.product.computed_empty
+        assert finding is not None and set(finding.operators_returned_empty) == {
+            TRAVERSAL_OPERATOR
+        }, f"[{case}] the never-acquired subject's walk reads nothing: {finding}"
+    else:
+        assert isinstance(nonexistent, RefusalEnvelope), nonexistent
+        assert nonexistent.kind == "ttl-anchor-refusal", (
+            f"[{case}] an empty view has no evidence instant to anchor on"
+            f" (`D-IMPL-341` R-3): {nonexistent!r}"
+        )
+    _assert_indistinguishable(withheld, nonexistent, case=case)
