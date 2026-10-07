@@ -117,9 +117,13 @@ def client_put(store: Any, *, name: str, document: dict[str, Any]) -> ArtifactRe
 
 
 def write_kinds() -> WriteKinds:
-    """The deployment declares the erasure record mechanism-written under Resume."""
+    """The deployment declares the erasure record mechanism-written under the
+    ERASE kind (fix round 1, I3) — never a workflow's Resume."""
     return WriteKinds(
-        {WORKFLOW_TRACE_CLASS: (Execute, Resume), ERASURE_RECORD_CLASS: (Resume,)}
+        {
+            WORKFLOW_TRACE_CLASS: (Execute, Resume),
+            ERASURE_RECORD_CLASS: (contract("ccf.authz.capability", "ArtifactErase"),),
+        }
     )
 
 
@@ -132,6 +136,7 @@ class Plane:
     clock: Any
     definition_version: str
     document: ArtifactRef
+    index_path: Path
 
 
 def declaration(*, key_paths: tuple[str, ...] = ("customer.id",), identifier_kind: str = "opaque") -> Any:
@@ -198,7 +203,13 @@ def compose(tmp_path: Path, *, policy: Any | None = None, gated: bool = True) ->
         clock=clock,
     )
     doc = client_put(store, name="note-1", document={"customer": {"id": SUBJECT_ID}, "note": "kyc"})
-    return Plane(registry, store, transport, engine, clock, version, doc)
+    index_path = tmp_path / "artifacts" / ".erasure-index.jsonl"
+    return Plane(registry, store, transport, engine, clock, version, doc, index_path)
+
+
+def index_of(plane: Plane) -> Any:
+    """The plane's durable erasure index, opened fresh from its file (C1)."""
+    return erasure("FileErasureIndex")(plane.index_path)
 
 
 def door(plane: Plane) -> Any:
@@ -209,9 +220,7 @@ def door(plane: Plane) -> Any:
         transport=plane.transport,
         store=plane.store,
         clock=plane.clock,
-        index_authorities=(
-            composition_register(plane.registry, erasure("erasure_index_key")(TENANT)),
-        ),
+        index=index_of(plane),
     )
 
 
