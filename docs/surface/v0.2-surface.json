@@ -6642,6 +6642,7 @@
       "SignedContextProduct",
       "SigningKeySource",
       "UnknownSigningKey",
+      "jwk_thumbprint",
       "signed_product_address"
     ],
     "exports": {
@@ -6704,6 +6705,10 @@
       "UnknownSigningKey": {
         "kind": "class",
         "shape": "type"
+      },
+      "jwk_thumbprint": {
+        "kind": "function",
+        "shape": "(public_key: 'JsonWebKey') -> 'str'"
       },
       "signed_product_address": {
         "kind": "function",

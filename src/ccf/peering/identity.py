@@ -54,6 +54,7 @@ import json
 import pathlib
 import re
 from collections.abc import Iterable, Mapping
+from types import MappingProxyType
 from typing import Any, Final, Protocol, runtime_checkable
 
 from joserfc import jws
@@ -82,6 +83,7 @@ __all__ = [
     "SignedContextProduct",
     "SigningKeySource",
     "UnknownSigningKey",
+    "jwk_thumbprint",
     "signed_product_address",
 ]
 
@@ -676,3 +678,63 @@ def signed_product_address(product: object) -> str:
         ccf.contracts.canonical.CanonicalizationError: no canonical form.
     """
     return content_hash(product)
+
+
+#: RFC 7638 §3.2, and RFC 8037 §2 for ``OKP``: the members a JWK thumbprint
+#: covers, per asymmetric key type. Every other member of a JWK document —
+#: ``kid``, ``use``, ``alg`` — is a label written beside the key, not the key,
+#: so two documents that differ only there name one key and one thumbprint. A
+#: symmetric (``oct``) key has no entry: it is not a public key a peer can be
+#: granted to sign with, and its thumbprint would be a digest of the secret.
+_THUMBPRINT_MEMBERS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
+    {
+        "EC": ("crv", "kty", "x", "y"),
+        "OKP": ("crv", "kty", "x"),
+        "RSA": ("e", "kty", "n"),
+    }
+)
+
+
+def jwk_thumbprint(public_key: JsonWebKey) -> str:
+    """Return the RFC 7638 SHA-256 thumbprint of a public JWK (`SEC-022`, `SEC-022-C-01`).
+
+    The identity of the key itself, not of a label a document gives it:
+    computed over the required members of the key's type only, in
+    lexicographic order with no whitespace, then SHA-256 and unpadded
+    base64url — the RFC 7638 construction, equal to ``joserfc``'s own
+    ``thumbprint()`` for the same key.
+
+    The admission gate scopes its replay consult by this value for the key an
+    envelope's signature verified under
+    (:meth:`~ccf.peering.admission.PeeringAdmissionGate.admit`). A key listed
+    under two peer ids, or written as two documents, is therefore one scope;
+    two different keys that happen to share a ``kid`` label are two.
+
+    Raises:
+        KeyUnavailable: the document's ``kty`` is not an asymmetric key type
+            RFC 7638 defines members for, or it lacks one of that type's
+            required members (or carries a non-string or empty value there).
+    """
+    key_type = public_key.get("kty")
+    members = (
+        _THUMBPRINT_MEMBERS.get(key_type) if isinstance(key_type, str) else None
+    )
+    if members is None:
+        raise KeyUnavailable(
+            f"a JWK of key type {key_type!r} has no thumbprint here: only"
+            f" {', '.join(sorted(_THUMBPRINT_MEMBERS))} public keys identify a"
+            " signer (RFC 7638; SEC-022-C-01)"
+        )
+    required: dict[str, str] = {}
+    for member in members:
+        value = public_key.get(member)
+        if not isinstance(value, str) or not value:
+            raise KeyUnavailable(
+                f"the {key_type} JWK carries no {member!r} member, which its"
+                " thumbprint covers (RFC 7638 §3.2; SEC-022-C-01)"
+            )
+        required[member] = value
+    canonical = json.dumps(
+        required, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    return _b64url(hashlib.sha256(canonical.encode("utf-8")).digest())

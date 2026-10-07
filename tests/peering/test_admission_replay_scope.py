@@ -26,14 +26,29 @@ refused, so a failure names a residual that is present.
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
 import pytest
-from joserfc.jwk import ECKey
+from joserfc.jwk import ECKey, OKPKey, RSAKey
 
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.peering.admission import ADMISSION_RECORD, AdmittedProduct
-from ccf.peering.identity import DetachedJwsIdentityProvider, JsonWebKey
+from ccf.peering.admission import (
+    ADMISSION_RECORD,
+    AdmittedProduct,
+    SignatureRefusal,
+)
+from ccf.peering.identity import (
+    DetachedJwsIdentityProvider,
+    FileBackedKeySource,
+    JsonWebKey,
+    KeyUnavailable,
+    SignedContextProduct,
+    jwk_thumbprint,
+)
 from ccf.peering.protocol import InboundProduct, PeerRef
 from ccf.peering.trust_policy import PeerTrustGrant
 from ccf.products.contract import RegisteredProductClass
@@ -44,6 +59,9 @@ from tests.peering.test_admission import (  # noqa: F401  (pytest fixtures)
     PEER_A,
     PEER_A_KID,
     PEER_A_PRODUCER,
+    PEER_B,
+    PEER_B_KID,
+    PEER_B_PRODUCER,
     POLICY_REGIME,
     PRODUCER_ASSERTION_HEADER,
     PRODUCT_CLASS,
@@ -87,11 +105,16 @@ def _presented(signed: object, *, as_peer: str) -> InboundProduct:
     )
 
 
-def _grant_over(document: JsonWebKey) -> PeerTrustGrant:
-    """Peer A's entitlements, with ``document`` as the key under peer A's kid."""
+def _grant_over(
+    document: JsonWebKey,
+    *,
+    kid: str = PEER_A_KID,
+    producer: str = PEER_A_PRODUCER,
+) -> PeerTrustGrant:
+    """Peer A's entitlements, with ``document`` as the key under ``kid``."""
     return PeerTrustGrant(
-        signing_keys={PEER_A_KID: document},
-        permitted_producer_hashes=frozenset({PEER_A_PRODUCER}),
+        signing_keys={kid: document},
+        permitted_producer_hashes=frozenset({producer}),
         permitted_schema_names=frozenset({PRODUCT_CLASS["schema_name"]}),
         permitted_policy_regimes=frozenset({POLICY_REGIME}),
         **window(),
@@ -248,3 +271,273 @@ def test_r1_a_second_gate_with_the_default_seen_set_refuses_the_replay_the_first
     assert getattr(again, "gate", None) == GATE_ISSUANCE, again
     assert getattr(again, "failure", None) == "replayed", again
     assert len(_events(registry, "peering_admitted")) == 1
+
+
+# --- SEC-022-C-01, the controls the fix's choices need -------------------------
+
+#: One ``kid`` label two different peers' grants both use, for two different keys.
+SHARED_KID_LABEL = "shared-kid-label"
+
+#: One nonce two different producers both chose.
+SHARED_NONCE = "nonce-chosen-by-two-producers"
+
+
+def _provider_holding(directory: Path, *, kid: str) -> tuple[DetachedJwsIdentityProvider, ECKey]:
+    """A producer of its own: a fresh P-256 key under ``kid``, and a provider signing with it."""
+    directory.mkdir()
+    key = ECKey.generate_key("P-256", parameters={"kid": kid})
+    (directory / f"{kid}.jwk").write_text(
+        json.dumps(key.as_dict(private=True)), encoding="utf-8"
+    )
+    return (
+        DetachedJwsIdentityProvider(key_source=FileBackedKeySource(directory=directory)),
+        key,
+    )
+
+
+def _signed_by(
+    provider: DetachedJwsIdentityProvider,
+    *,
+    kid: str,
+    producer: str,
+    nonce: str | None = None,
+) -> SignedContextProduct:
+    body = banking_product()
+    assertions = {PRODUCER_ASSERTION_HEADER: producer}
+    assertions.update(issuance_member(product=body, issued_at=BOUNDARY, nonce=nonce))
+    return provider.sign(product=body, key_id=kid, assertions=assertions)
+
+
+def test_c01_two_keys_sharing_one_kid_label_keep_separate_nonce_scopes(
+    tmp_path: Path,
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    artifact_store: object,
+) -> None:
+    """The positive control that the scope is the KEY: not the label, and not nothing.
+
+    Two peers, two different keys, one ``kid`` label, one nonce. A scope keyed
+    on the label would let peer B's admission spend peer A's nonce (and peer A
+    could burn peer B's); a scope of tenant and nonce alone would too. Both are
+    admitted, and peer A's own bytes presented again are still refused — the
+    consult ran, in A's key's scope.
+    """
+    producer_a, key_a = _provider_holding(tmp_path / "a", kid=SHARED_KID_LABEL)
+    producer_b, key_b = _provider_holding(tmp_path / "b", kid=SHARED_KID_LABEL)
+    assert jwk_thumbprint(_as_written(key_a)) != jwk_thumbprint(_as_written(key_b))
+    policy_version = _register_policy(
+        registry,
+        tenant_id=TENANT,
+        peers={
+            PEER_A: _grant_over(_as_written(key_a), kid=SHARED_KID_LABEL),
+            PEER_B: _grant_over(
+                _as_written(key_b), kid=SHARED_KID_LABEL, producer=PEER_B_PRODUCER
+            ),
+        },
+    )
+    ceiling_version = _register_ceiling(registry, tenant_id=TENANT)
+    gate = _gate(
+        provider=producer_a,
+        registry=registry,
+        product_class=product_class,
+        tenant_id=TENANT,
+        policy_version=policy_version,
+        ceiling_version=ceiling_version,
+        artifact_store=artifact_store,  # type: ignore[arg-type]
+    )
+    from_a = _signed_by(
+        producer_a, kid=SHARED_KID_LABEL, producer=PEER_A_PRODUCER, nonce=SHARED_NONCE
+    )
+    from_b = _signed_by(
+        producer_b, kid=SHARED_KID_LABEL, producer=PEER_B_PRODUCER, nonce=SHARED_NONCE
+    )
+
+    admitted_a = gate.admit(
+        inbound=_presented(from_a, as_peer=PEER_A),
+        consumer_lineage=consumer_lineage(),
+        now=_now(),
+    )
+    assert isinstance(admitted_a, AdmittedProduct), admitted_a
+    admitted_b = gate.admit(
+        inbound=_presented(from_b, as_peer=PEER_B),
+        consumer_lineage=consumer_lineage(),
+        now=_now(),
+    )
+    assert isinstance(admitted_b, AdmittedProduct), (
+        "SEC-022-C-01: peer B's envelope, signed by a DIFFERENT key that shares"
+        " peer A's kid label and nonce, was refused — the replay scope is the"
+        f" label or nothing, not the key: {admitted_b}"
+    )
+    replay = gate.admit(
+        inbound=_presented(from_a, as_peer=PEER_A),
+        consumer_lineage=consumer_lineage(),
+        now=_now() + timedelta(seconds=30),
+    )
+    assert getattr(replay, "failure", None) == "replayed", replay
+
+
+class _RecordingProvider:
+    """An identity provider that records the keys each verification was offered.
+
+    ``returns_without_a_key`` makes it NON-conforming: its ``verify`` returns the
+    payload whatever it was offered, as a provider that checks nothing would.
+    """
+
+    def __init__(
+        self, signer: DetachedJwsIdentityProvider, *, returns_without_a_key: bool
+    ) -> None:
+        self._signer = signer
+        self._returns_without_a_key = returns_without_a_key
+        self.offered: list[frozenset[str]] = []
+
+    def sign(self, **kwargs: Any) -> SignedContextProduct:
+        return self._signer.sign(**kwargs)
+
+    def verify(
+        self, *, signed: SignedContextProduct, public_keys: Mapping[str, JsonWebKey]
+    ) -> bytes:
+        self.offered.append(frozenset(public_keys))
+        if self._returns_without_a_key:
+            return signed.canonical_payload()
+        return self._signer.verify(signed=signed, public_keys=public_keys)
+
+
+def _gate_verifying_with(
+    identity: _RecordingProvider,
+    *,
+    grant: PeerTrustGrant,
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    artifact_store: object,
+) -> Any:
+    policy_version = _register_policy(registry, tenant_id=TENANT, peers={PEER_A: grant})
+    ceiling_version = _register_ceiling(registry, tenant_id=TENANT)
+    return _gate(
+        provider=identity,  # type: ignore[arg-type]
+        registry=registry,
+        product_class=product_class,
+        tenant_id=TENANT,
+        policy_version=policy_version,
+        ceiling_version=ceiling_version,
+        artifact_store=artifact_store,  # type: ignore[arg-type]
+    )
+
+
+def test_c01_verification_is_offered_only_the_key_the_header_names(
+    provider: DetachedJwsIdentityProvider,
+    keys: dict[str, ECKey],
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    artifact_store: object,
+) -> None:
+    """Peer A holds two keys; an envelope naming one is verified against that one only.
+
+    This is what makes "the key the signature verified under" a fact the gate
+    holds rather than one it assumes of the provider.
+    """
+    grant = PeerTrustGrant(
+        signing_keys={
+            PEER_A_KID: _as_written(keys[PEER_A_KID]),
+            PEER_B_KID: _as_written(keys[PEER_B_KID]),
+        },
+        permitted_producer_hashes=frozenset({PEER_A_PRODUCER}),
+        permitted_schema_names=frozenset({PRODUCT_CLASS["schema_name"]}),
+        permitted_policy_regimes=frozenset({POLICY_REGIME}),
+        **window(),
+    )
+    identity = _RecordingProvider(provider, returns_without_a_key=False)
+    gate = _gate_verifying_with(
+        identity,
+        grant=grant,
+        registry=registry,
+        product_class=product_class,
+        artifact_store=artifact_store,
+    )
+    outcome = gate.admit(
+        inbound=_presented(
+            _signed_by(provider, kid=PEER_A_KID, producer=PEER_A_PRODUCER),
+            as_peer=PEER_A,
+        ),
+        consumer_lineage=consumer_lineage(),
+        now=_now(),
+    )
+    assert isinstance(outcome, AdmittedProduct), outcome
+    assert identity.offered == [frozenset({PEER_A_KID})], identity.offered
+
+
+def test_c01_a_provider_that_returns_with_no_key_offered_admits_nothing(
+    provider: DetachedJwsIdentityProvider,
+    keys: dict[str, ECKey],
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    artifact_store: object,
+) -> None:
+    """A header naming a key outside the grant is offered no key at all.
+
+    A NON-conforming provider that returns anyway has checked nothing a peer
+    may sign with: the gate refuses at the signature check, audited, rather
+    than admitting or raising.
+    """
+    identity = _RecordingProvider(provider, returns_without_a_key=True)
+    gate = _gate_verifying_with(
+        identity,
+        grant=_grant_over(_as_written(keys[PEER_A_KID])),
+        registry=registry,
+        product_class=product_class,
+        artifact_store=artifact_store,
+    )
+    outcome = gate.admit(
+        inbound=_presented(
+            _signed_by(provider, kid=PEER_B_KID, producer=PEER_A_PRODUCER),
+            as_peer=PEER_A,
+        ),
+        consumer_lineage=consumer_lineage(),
+        now=_now(),
+    )
+    assert identity.offered == [frozenset()], identity.offered
+    assert isinstance(outcome, SignatureRefusal), outcome
+    assert outcome.failure == "UnknownSigningKey", outcome
+    assert not _events(registry, "peering_admitted")
+    assert len(_events(registry, "peering_admission_refused")) == 1
+
+
+# --- the scope's identity: an RFC 7638 thumbprint ------------------------------
+
+
+@pytest.mark.parametrize(
+    "generate",
+    [
+        pytest.param(lambda: ECKey.generate_key("P-256"), id="EC"),
+        pytest.param(lambda: OKPKey.generate_key("Ed25519"), id="OKP"),
+        pytest.param(lambda: RSAKey.generate_key(2048), id="RSA"),
+    ],
+)
+def test_jwk_thumbprint_is_rfc_7638_for_every_key_type_it_names(generate: Any) -> None:
+    """Each row of the member table, against ``joserfc``'s own thumbprint (the oracle)."""
+    key = generate()
+    assert jwk_thumbprint(key.as_dict(private=False)) == key.thumbprint()
+
+
+def test_jwk_thumbprint_names_the_key_not_its_document(keys: dict[str, ECKey]) -> None:
+    """A different ``kid`` member or an added ``use`` is the same key; another key is not."""
+    key = keys[PEER_A_KID]
+    assert jwk_thumbprint(_rewritten(key)) == jwk_thumbprint(_as_written(key))
+    assert jwk_thumbprint(_as_written(keys[PEER_B_KID])) != jwk_thumbprint(
+        _as_written(key)
+    )
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        pytest.param({"kty": "oct", "k": "c2VjcmV0"}, id="symmetric"),
+        pytest.param({"kty": "unknown"}, id="unknown-type"),
+        pytest.param({}, id="no-type"),
+        pytest.param({"kty": "EC", "crv": "P-256", "x": "AAAA"}, id="EC-without-y"),
+    ],
+)
+def test_jwk_thumbprint_refuses_what_identifies_no_public_key(
+    document: dict[str, str],
+) -> None:
+    with pytest.raises(KeyUnavailable):
+        jwk_thumbprint(document)
