@@ -228,7 +228,13 @@ class AllowlistedEnvironmentTransport(SubprocessCLITransport):
     """
 
     def child_environment(self) -> dict[str, str]:
-        """The complete environment the ``claude`` child is spawned with."""
+        """The complete environment the ``claude`` child is spawned with (TP-02).
+
+        Exactly the carrier's ``env`` — the deployment-declared allowlist, or
+        :data:`DEFAULT_CHILD_ENVIRONMENT` — plus the vendor's own mechanism
+        variables; nothing is read from the fabric's environment here
+        (D-IMPL-361).
+        """
         environment = {
             _VENDOR_ENTRYPOINT_VARIABLE: _VENDOR_ENTRYPOINT,
             **self._options.env,
@@ -241,7 +247,12 @@ class AllowlistedEnvironmentTransport(SubprocessCLITransport):
         return environment
 
     async def connect(self) -> None:
-        """Start the child with :meth:`child_environment` and nothing inherited."""
+        """Start the child with :meth:`child_environment` and nothing inherited (TP-02).
+
+        Replaces the vendor's ``connect()``, which merges ``os.environ`` into
+        the child and runs a version probe that inherits it whole
+        (D-IMPL-361).
+        """
         if self._process:
             return
         if self._cli_path is None:

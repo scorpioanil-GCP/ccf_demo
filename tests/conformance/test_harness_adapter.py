@@ -172,21 +172,26 @@ def _carrier_values(carrier: object, *, _depth: int = 0) -> Iterator[object]:
 def _carrier_strings(carrier: object) -> tuple[str, ...]:
     """Every string reachable inside a harness-native carrier.
 
-    A carried string that is the absolute path of an existing regular file is
-    followed: its text is yielded too, because a harness handed context **by
-    file** meets that context by reading the file. TP-05 (D-IMPL-361) moved the
-    Claude leg's system prompt off argv into a ``0600`` file the carrier names,
-    so without this the probe would see the path and never the prompt — and
-    seam 1's "the instruction reached the context surface" would read red for
-    a carrier that delivers it correctly.
+    A carried **file-form system prompt** — a mapping ``{"type": "file",
+    "path": <path>}`` — is followed: its file's text is yielded too, because a
+    harness handed context by file meets that context by reading the file.
+    TP-05 (D-IMPL-361) moved the Claude leg's system prompt off argv into a
+    ``0600`` file carried in exactly that form, so without this the probe would
+    see the path and never the prompt — and seam 1's "the instruction reached
+    the context surface" would read red for a carrier that delivers it
+    correctly. Only that declared form is followed, never an arbitrary path
+    string, so the probe cannot be satisfied by some unrelated file.
     """
     found: list[str] = []
     for value in _carrier_values(carrier):
-        if not isinstance(value, str):
-            continue
-        found.append(value)
-        if value.startswith("/") and "\n" not in value and Path(value).is_file():
-            found.append(Path(value).read_text(encoding="utf-8"))
+        if isinstance(value, str):
+            found.append(value)
+        elif (
+            isinstance(value, Mapping)
+            and value.get("type") == "file"
+            and isinstance(value.get("path"), str)
+        ):
+            found.append(Path(value["path"]).read_text(encoding="utf-8"))
     return tuple(found)
 
 
@@ -531,7 +536,14 @@ def build_harness_leg(param: str) -> HarnessLeg:
             gate = carrier.can_use_tool  # type: ignore[attr-defined]
             qualified = f"mcp__{values['mcp_server_name']}__{skill_name}"
             decision = asyncio.run(gate(qualified, declared, None))
-            refused_in_process = bool(result.isError)
+            # The handler's refusal must carry the adapter's own reason: an
+            # error result produced by a raised exception (which the MCP server
+            # also turns into isError) is not the adapter-owned control firing.
+            declared_effects = under_test.capabilities().effects
+            text = " ".join(getattr(item, "text", "") for item in result.content)
+            refused_in_process = bool(result.isError) and (
+                f"effects={declared_effects!r}" in text
+            )
             refused_by_cli_gate = isinstance(decision, PermissionResultDeny)
             return result if refused_in_process and refused_by_cli_gate else None
 

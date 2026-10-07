@@ -49,6 +49,12 @@ SECRET_VALUE = "tp02-marker-must-not-reach-the-child"
 #: The controller's ruling for the undeclared case (plan, Global Constraint 7).
 RULED_DEFAULT = ("PATH", "HOME")
 
+#: The mechanism variables the vendor's own spawn always sets
+#: (claude-agent-sdk 0.2.128, ``subprocess_cli.py:690-694``) — vendor names,
+#: carrying no fabric value. The child's key set must be exactly the allowlist
+#: plus these, so re-adding any selective inheritance turns the test red.
+VENDOR_MECHANISM = ("CLAUDE_CODE_ENTRYPOINT", "CLAUDE_AGENT_SDK_VERSION")
+
 
 class _Refused(Exception):
     """Raised by the recorder so ``connect()`` never starts a process."""
@@ -147,6 +153,11 @@ def test_an_unrelated_fabric_variable_does_not_reach_the_claude_child(
         assert not any(value == SECRET_VALUE for value in environment.values())
         for name in RULED_DEFAULT:
             assert environment.get(name) == os.environ[name], name
+        assert set(environment) == {*RULED_DEFAULT, *VENDOR_MECHANISM}, (
+            "the child's environment is not exactly the ruled allowlist plus the"
+            f" vendor's mechanism variables; extra names:"
+            f" {sorted(set(environment) - {*RULED_DEFAULT, *VENDOR_MECHANISM})}"
+        )
 
 
 def test_a_declared_child_environment_is_exactly_what_the_child_receives(
@@ -172,6 +183,10 @@ def test_a_declared_child_environment_is_exactly_what_the_child_receives(
         assert not inherited_home, "an undeclared HOME reached the child"
         for name, value in declared.items():
             assert environment.get(name) == value, name
+        assert set(environment) == {*declared, *VENDOR_MECHANISM}, (
+            f"extra names reached the child:"
+            f" {sorted(set(environment) - {*declared, *VENDOR_MECHANISM})}"
+        )
 
 
 def test_the_vendor_default_transport_built_from_the_carrier_cannot_spawn(
