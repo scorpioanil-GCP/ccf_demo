@@ -54,8 +54,10 @@ disclosed for every erased input class (ruling 4).
   addresses a request names; where a subject's artifacts are is the
   deployment's to know (:class:`ErasureSubjectLocator`, declared without a
   reference implementation).
-* A tenantless read (the replay engine, ``record_of``, child admission, the MCP
-  client lane) withholds an address ANY tenant erased, redacted (ruling (i)).
+* A tenantless read (the replay engine, ``record_of``, child admission)
+  withholds an address ANY tenant erased, redacted (ruling (i)). The MCP
+  artifact server's client lane is scoped to its caller's tenant and is not
+  one of them (corrected 2026-10-07, ``D-IMPL-377``).
 * The ``erasure_index_unsupported`` audit event is stamped with the fabric
   clock injected at composition (ruling 3) — never a wall clock read by the
   store, never the disputed entry's own ``erased_at``; it does not say WHICH

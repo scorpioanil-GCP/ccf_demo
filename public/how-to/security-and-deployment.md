@@ -562,7 +562,13 @@ Consequences for a deployment on the stores that do lease:
 - **SQLite.** The lease is only as good as the filesystem's `flock`. WAL-mode
   SQLite is already unsupported on network filesystems, so keep the database
   file and its sidecar on a local filesystem. A process forked while holding
-  the lease shares it until that child exits.
+  the lease shares it until that child exits. The sidecar is opened without
+  `O_NOFOLLOW` (`src/ccf/graph/backends/sqlite.py::SqliteWriterLease`), so a
+  symbolic link placed at `<database file>.ccf-writer.lock` is followed: an
+  account that can write to the database file's directory can redirect the
+  lease to a file of its choosing. Keep that directory writable only by the
+  account the SDK runs as (disclosed 2026-10-07, `D-IMPL-377`; `D-IMPL-375`
+  recorded this residual as disclosed here before it was).
 - **Postgres.** Connect directly or through a *session*-pooled connection. A
   transaction- or statement-pooled connection (PgBouncer in those modes)
   cannot carry a session lock. A dropped connection loses the lease silently:
@@ -921,8 +927,11 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   tenantless reads.** A holder of the erase capability in tenant B can append
   an entry — genuine, or forged and so `index-unsupported` — naming an
   address of tenant A. Every tenantless read (the replay engine, `record_of`,
-  child admission, the MCP client lane) then withholds A's artifact, with the
-  reason redacted; reads scoped to tenant A still serve it. The by-URI naming
+  child admission) then withholds A's artifact, with the reason redacted;
+  reads scoped to tenant A still serve it. The MCP artifact server's client
+  lane is scoped to its caller's tenant and is not among them (corrected
+  2026-10-07, `D-IMPL-377`: this list named it, and a measured read of
+  another tenant's erased address over that lane is served). The by-URI naming
   check inside the governed evidence read (`govern_dereference`) was one such
   tenantless read, and answered A's examiner "absent", recorded as
   `nonexistent`; it now reads through the caller's tenant view, and an
@@ -966,7 +975,15 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   it under, never another tenant's. A tenant's blob, presence and names
   answers, and its erasure door over the MCP-backed store, are the same
   whether or not any other tenant filed the same bytes, under any class, so
-  they also tell a tenant nothing about what other tenants hold. A governed
+  they also tell a tenant nothing about what other tenants hold. This rests
+  on one property of the store: a name is filed only together with its bytes.
+  The address is derived from the bytes `put` receives
+  (`src/ccf/artifacts/protocol.py::ArtifactStoreProtocol.put`), and no verb
+  registers a name for an address by reference. A deployment's own substrate
+  behind the artifact server
+  (`runtime/ccf_runtime/mcp/artifact_server.py::ArtifactSubstrate`) must keep
+  that property; one that can register a name without receiving the bytes must
+  not back a store several tenants share. A governed
   filing by the caller's own tenant still takes the governed read for every
   principal of that tenant. What still crosses tenants is the tenantless
   reading described above: an erasure destroys no bytes and is recorded for
