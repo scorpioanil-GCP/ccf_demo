@@ -611,6 +611,14 @@ class TenantGuardedServer:
         without stating all four is a ``TypeError`` at import rather than a
         silent ungoverned surface.
 
+        **A wire argument the tool does not declare is refused, never
+        dropped** (``SEC353-J-01``, ruled with ``TP-04`` at ``D-IMPL-361``):
+        the registered tool is closed by :func:`_close_wire_arguments`, so the
+        call fails with a typed
+        :class:`~ccf.skills._wire_arguments.UndeclaredArgumentRefused` naming
+        the key, and the advertised ``inputSchema`` carries
+        ``additionalProperties: false``.
+
         Args:
             name: The tool name on the wire.
             action: The door-declared action id this tool performs. The kind
