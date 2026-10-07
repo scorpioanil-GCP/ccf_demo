@@ -40,15 +40,17 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import functools
 import json
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_timestamp
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_timestamp
 from ccf.graph._writer import BaseGraphWriter, BootToken, _GraphTxn
 from ccf.graph.backends.mongo import (
     DEFAULT_PARTITION,
@@ -61,6 +63,7 @@ from ccf.graph.backends.mongo import (
     MongoGraphStore,
     attribute_field_path,
 )
+from ccf.graph.protocols import WriterLeaseSource
 from ccf.graph.reader import ENTITY_KIND, RELATIONSHIP_KIND, Row, parse_timestamp
 from ccf.graph.registry import BackendRegistration, BackendStore
 
@@ -638,10 +641,37 @@ class MongoConnection(CCFContract):
             ``_open_backend``'s: an unsupplied partition resolves to the
             adapter's default at construction, in :func:`_open_store`, not on
             the model.
+        writer_lease_lock_file: The lock file this deployment declares as the
+            graph's cross-process writer lease (SEC-013, D-IMPL-374 (1)): the
+            reference lock-file lease (an exclusive ``flock``), held from the
+            mint to the writer's close. Every process that may write this graph
+            must name the SAME file, so it must live on a filesystem they all
+            share with working ``flock``. Optional on the model because a
+            read-only deployment needs no lease; **a boot that mints a writer
+            without one is refused** (``WriterLeaseRequired``). A deployment
+            that needs another lease (the reference advisory-lock lease, or its
+            own) declares it through the store's ``writer_lease=`` argument.
     """
 
     uri: str
     partition: str | None = None
+    writer_lease_lock_file: str | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+
+def _declared_lease(lock_file: str | None) -> WriterLeaseSource | None:
+    """The reference lock-file lease over ``lock_file``, or ``None`` when undeclared.
+
+    SEC-013 (D-IMPL-374 (1)). Not acquired here: the store's ``writer_lease()``
+    calls it when the composition root mints. The lease implementation is
+    imported only when a deployment declares one.
+    """
+    if lock_file is None:
+        return None
+    from ccf.graph.backends.sqlite import SqliteWriterLease  # noqa: PLC0415
+
+    return functools.partial(SqliteWriterLease, sidecar=Path(lock_file).resolve())
 
 
 def _open_store(
@@ -664,6 +694,7 @@ def _open_store(
         partition=(
             config.partition if config.partition is not None else DEFAULT_PARTITION
         ),
+        writer_lease=_declared_lease(config.writer_lease_lock_file),
     )
 
 

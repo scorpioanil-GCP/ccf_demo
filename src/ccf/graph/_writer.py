@@ -217,6 +217,7 @@ class BootToken:
         graph_identity: str,
         mint_key: object,
         lease_scope: WriterLeaseScope | None = None,
+        lease_mechanism: str | None = None,
     ) -> None:
         if mint_key is not _MINT_KEY:
             raise SingleWriterViolation(
@@ -232,6 +233,7 @@ class BootToken:
             )
         self._graph_identity = graph_identity
         self._lease_scope: WriterLeaseScope = lease_scope
+        self._lease_mechanism = lease_mechanism
         self._consumed = False
 
     @property
@@ -247,6 +249,19 @@ class BootToken:
         table — a disclosure, not cross-process enforcement.
         """
         return self._lease_scope
+
+    @property
+    def lease_mechanism(self) -> str | None:
+        """Which writer lease this token was minted under, credential-free.
+
+        SEC-013-C-03 (D-IMPL-374 (1)): :attr:`lease_scope` alone said *how far*
+        the exclusion reached, never *which* lease held it. This is the held
+        lease's own ``mechanism`` — the lease kind and the resource it is keyed
+        on (for example the lock file a persistent network store's declared
+        lease holds) — recorded at the mint. ``None`` only for a lease that
+        declares no ``mechanism``.
+        """
+        return self._lease_mechanism
 
     def consume(self) -> str:
         """Spend the token, returning the graph identity it authorizes.
@@ -278,13 +293,18 @@ def mint_boot_token(*, store: _Store) -> BootToken:
        :class:`SingleWriterViolation`. The lease is bound to the *mint*, not
        to store open: a read-only store over a live graph stays legitimate.
 
-    The lease's declared scope is recorded on the token. On the SQLite and
-    Postgres reference stores it is ``"cross-process"``. On every store whose
-    lease is ``src/ccf/graph/protocols.py::ProcessScopedWriterLease`` it is
-    ``"process"`` — a disclosure, not enforcement: two processes over one
-    graph on such a substrate are NOT refused, and SEC-013 remains open for
-    the persistent network stores that declare it (each store's
-    ``writer_lease`` docstring says which it is).
+    The lease's declared scope and its ``mechanism`` are recorded on the token
+    (SEC-013-C-03, D-IMPL-374 (1)). On the file-backed and SQL reference
+    stores the scope is ``"cross-process"``. A persistent network store
+    acquires the lease its deployment DECLARED
+    (``src/ccf/graph/protocols.py::acquire_declared_writer_lease``) and, with
+    none declared, refuses here with
+    ``src/ccf/graph/protocols.py::WriterLeaseRequired`` before any token
+    exists — the acquisition below is what puts that refusal on the mint
+    path. Only a store whose graph no second process can reach (the in-process
+    dict) still mints under
+    ``src/ccf/graph/protocols.py::ProcessScopedWriterLease``'s ``"process"``
+    disclosure.
 
     There is no parameter that skips the lease: whether a lease applies is the
     store's declaration, never the caller's.
@@ -292,6 +312,8 @@ def mint_boot_token(*, store: _Store) -> BootToken:
     Raises:
         SingleWriterViolation: a live writer already exists for this graph, in
             this process or under another holder of the substrate's lease.
+        WriterLeaseRequired: a persistent network store has no held
+            cross-process lease declared (SEC-013, D-IMPL-374).
         TypeError: the store neither leases its graph nor declares a scope.
     """
     graph_identity = store.graph_identity
@@ -329,10 +351,14 @@ def mint_boot_token(*, store: _Store) -> BootToken:
                 f" {scope!r}; a lease must declare one of"
                 f" {WRITER_LEASE_SCOPES!r} (SEC-013)"
             )
+    mechanism = getattr(lease, "mechanism", None)
     _LIVE_WRITERS.add(graph_identity)
     _LIVE_LEASES[graph_identity] = lease
     return BootToken(
-        graph_identity=graph_identity, mint_key=_MINT_KEY, lease_scope=scope
+        graph_identity=graph_identity,
+        mint_key=_MINT_KEY,
+        lease_scope=scope,
+        lease_mechanism=mechanism if isinstance(mechanism, str) else None,
     )
 
 
