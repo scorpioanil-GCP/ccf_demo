@@ -86,6 +86,7 @@ from weakref import WeakKeyDictionary
 from mcp.server.auth.middleware.auth_context import get_access_token
 from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import FastMCP
+from pydantic import model_validator
 
 from ccf.authz.capability import (
     ActionKind,
@@ -111,6 +112,7 @@ from ccf.authz.capability import (
     kind_for_action,
     mint,
 )
+from ccf.skills._wire_arguments import refuse_undeclared_arguments
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.errors import (
     ERROR_DECISION_UNMINTABLE,
@@ -447,6 +449,52 @@ def unguarded_surfaces(server: FastMCP) -> frozenset[str]:
     return frozenset(registered - set(ledger))
 
 
+def _close_wire_arguments(server: FastMCP, name: str) -> None:
+    """Refuse, never drop, a wire argument the registered tool does not declare.
+
+    ``SEC353-J-01`` (``D-IMPL-353`` residual R4), ruled with ``TP-04`` as one
+    defect class (``D-IMPL-361``). Measured against ``mcp==1.28.1``: FastMCP's
+    per-tool argument model is a pydantic model with the default
+    ``extra="ignore"`` (``fastmcp/utilities/func_metadata.py:48-66``), it hands
+    the body only the declared fields (``:87-89``), and the low-level handler is
+    registered with ``validate_input=False`` (``fastmcp/server.py:308``) — so an
+    undeclared argument was silently dropped and the call served as though the
+    caller had sent a different question.
+
+    The registered tool's argument model is replaced by a subclass whose
+    ``before`` validator runs the one shared rule
+    (:func:`ccf.skills._wire_arguments.refuse_undeclared_arguments`) over the
+    RAW wire mapping, before any field is parsed and before the guard or the
+    body runs. The refusal is raised as the typed
+    :class:`~ccf.skills._wire_arguments.UndeclaredArgumentRefused` (not a
+    ``ValueError``, so pydantic does not re-type it), and FastMCP surfaces it to
+    the client as a tool error naming the key. The advertised ``inputSchema``
+    gains ``additionalProperties: false`` so what the tool advertises is what
+    it enforces. Declared names are read off the model's own fields, by wire
+    alias where FastMCP assigned one.
+    """
+    tool = server._tool_manager.get_tool(name)
+    if tool is None:  # pragma: no cover - registered on the line before
+        raise LookupError(f"tool {name!r} was not registered")
+    base = tool.fn_metadata.arg_model
+    declared = frozenset(
+        field.alias or field_name for field_name, field in base.model_fields.items()
+    )
+
+    class _Closed(base):  # type: ignore[valid-type, misc]
+        @model_validator(mode="before")
+        @classmethod
+        def _refuse_undeclared(cls, data: Any) -> Any:
+            if isinstance(data, Mapping):
+                refuse_undeclared_arguments(data, declared=declared, surface=name)
+            return data
+
+    _Closed.__name__ = base.__name__
+    _Closed.__qualname__ = base.__qualname__
+    tool.fn_metadata = tool.fn_metadata.model_copy(update={"arg_model": _Closed})
+    tool.parameters = {**tool.parameters, "additionalProperties": False}
+
+
 class TenantGuardedServer:
     """A ``FastMCP`` whose surfaces cannot be registered ungoverned — the MCP mint site.
 
@@ -583,6 +631,7 @@ class TenantGuardedServer:
                 handler, action=action, subject=subject, resource=resource, mutating=mutating
             )
             self._server.tool(name=name, **kwargs)(guarded)
+            _close_wire_arguments(self._server, name)
             _LEDGERS[self._server][name] = surface
             # The GUARDED callable, never the bare one: returning `handler`
             # would leave an ungoverned alias bound to the module-level name
