@@ -110,6 +110,17 @@ def _qualified_tool_name(server_name: str, skill_name: str) -> str:
     return f"mcp__{server_name}__{skill_name}"
 
 
+def _refused(reason: str) -> dict[str, Any]:
+    """An in-process MCP tool result that refuses, carrying ``reason`` (TP-01).
+
+    ``is_error`` is the key the vendor's ``create_sdk_mcp_server`` wrapper
+    reads into ``CallToolResult.isError`` (claude-agent-sdk 0.2.128,
+    ``claude_agent_sdk/__init__.py:521``); an ``isError`` key would be dropped
+    there and the refusal would reach the harness as a success.
+    """
+    return {"content": [{"type": "text", "text": reason}], "is_error": True}
+
+
 class ClaudeAgentAdapter:
     """The Claude Agent SDK's binding of the four seams (CLAUDE.md §7.3).
 
@@ -189,12 +200,34 @@ class ClaudeAgentAdapter:
         tool: binding is re-resolved from the ledger-backed view at each
         invocation, so a revocation between two harness turns takes effect on
         the second one without the agent's identity changing (D-07).
+
+        **The handler is the adapter-owned control (TP-01, D-IMPL-361).** The
+        vendor routes a CLI ``tools/call`` straight to this handler with no
+        Python-side permission check (claude-agent-sdk 0.2.128,
+        ``_internal/query.py:679-688``); ``allowed_tools`` and
+        ``can_use_tool`` are enforced by the semi-trusted CLI and are defense
+        in depth only. So the handler re-applies both of the permission gate's
+        conditions itself, **before** :meth:`~ccf.agents.agent.Agent.invoke_skill`
+        is reached: a binding that declared ``effects`` other than
+        ``governed`` refuses every call, and a skill not in
+        ``agent.bound_skill_names`` *at call time* refuses. A refusal is an
+        MCP error result (the vendor's ``is_error`` key, which it carries to
+        ``CallToolResult.isError`` at ``claude_agent_sdk/__init__.py:521``)
+        whose text is this adapter's own reason.
         """
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
 
         @tool(entry.name, surface.description, surface.input_schema)
         async def handler(args: Mapping[str, Any]) -> dict[str, Any]:
+            if self._effects != "governed":
+                return _refused(self._refusal_reason())
+            if skill_name not in agent.bound_skill_names:
+                return _refused(
+                    self._unbound_reason(
+                        _qualified_tool_name(self._mcp_server_name, skill_name)
+                    )
+                )
             invocation = agent.invoke_skill(
                 skill_name, arguments={key: str(value) for key, value in args.items()}
             )
