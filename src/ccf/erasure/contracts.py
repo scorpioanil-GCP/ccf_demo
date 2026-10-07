@@ -95,6 +95,18 @@ RETENTION_REASON_CODES: Final[frozenset[str]] = frozenset(
 )
 
 
+def _hashed_subject_ref(value: str) -> str:
+    """Refuse anything but the salted sha256-hex form :func:`subject_ref_for` returns (I1)."""
+    if not CONTENT_ADDRESS_PATTERN.match(value):
+        raise ValueError(
+            "subject_ref must be the salted sha256-hex form subject_ref_for returns;"
+            " a raw identifier is refused, because it would be written permanently"
+            " into an erasure record and would never match a hold keyed on the"
+            " salted reference (SEC-009; D-IMPL-374 (4), I1)"
+        )
+    return value
+
+
 def _touches_replay_input(path: str) -> bool:
     """Whether ``path`` equals, lies under, or contains a replay-input path."""
     for reserved in REPLAY_INPUT_PATHS:
@@ -201,6 +213,11 @@ class LegalHold(CCFContract):
     placed_by: str
     basis: str
 
+    @field_validator("subject_refs")
+    @classmethod
+    def _refs_are_hashed(cls, value: tuple[str, ...] | None) -> tuple[str, ...] | None:
+        return None if value is None else tuple(_hashed_subject_ref(ref) for ref in value)
+
 
 class ClassRetention(CCFContract):
     """Retention and hold policy for one artifact class (G7, default refuse; SEC-009, `D-IMPL-374` (4)).
@@ -293,6 +310,11 @@ class ErasureRequest(CCFContract):
     reason: str = Field(min_length=1)
     legal_basis: str
     retention_policy_ref: str
+
+    @field_validator("subject_ref")
+    @classmethod
+    def _subject_ref_is_hashed(cls, value: str) -> str:
+        return _hashed_subject_ref(value)
 
     @field_validator("subject_declaration_ref", "retention_policy_ref")
     @classmethod
