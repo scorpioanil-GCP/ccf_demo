@@ -109,53 +109,64 @@ def _replay_road(config_path: pathlib.Path, *, registry: Any, connection: Mappin
     return load_config_and_boot(config_path, registry=registry, connection=connection)
 
 
-def _examiner_replays(
-    root: str, scratch: str, minted: str, record_address: str, queue: "mp.Queue[tuple[str, str]]"
-) -> None:
-    """A second PROCESS — an examiner's replay tool — reconstructing the recorded decision."""
+def _live_writer(config_path: str, minted: str, held: "mp.Queue[str]", release: Any) -> None:
+    """The serving deployment's live writer — ANOTHER PROCESS — holding the SQLite file's lease."""
     try:
-        from ccf.replay.engine import replay
-        from ccf.replay.environment import RecordedEnvironment
-        from ccf.replay.record import DecisionReplayRecord
-        from tests.products import test_paved_road as paved
+        from ccf.deployment import load_config_and_boot
 
-        opened = paved._open(pathlib.Path(root), pathlib.Path(scratch))
-        record = DecisionReplayRecord.model_validate_json(
-            opened.artifact_store.get(content_address=record_address)
+        live = load_config_and_boot(
+            config_path, registry=ControlPlaneRegistry(), connection={"database_path": minted}
         )
-        try:
-            fabric = _replay_road(
-                opened.config_path, registry=opened.control_plane, connection={"database_path": minted}
-            )
-        except BaseException as exc:  # noqa: BLE001 - reported by name, asserted by the parent
-            queue.put(("REFUSED", f"{type(exc).__name__}<-{type(exc.__cause__).__name__}"))
-            return
-        try:
-            stamped = fabric.handle.reader.as_of(
-                tenant_id=record.tenant_id, at=record.context_fabric_snapshot.temporal_boundary
-            ).classification_authority
-            environment = RecordedEnvironment(record=record, opened=opened, fabric=fabric)
-            outcome = replay(
-                record_address=record_address,
-                store=opened.artifact_store,
-                reader=fabric.handle.reader,
-                control_plane=opened.control_plane,
-                environment=environment,
-            )
-            minted_authority = stamped is not None and bool(getattr(stamped, "minted", False))
-            queue.put(("REPLAYED", f"{outcome.product_content_address}|stamped={minted_authority}"))
-        finally:
-            fabric.handle.close()
-    except BaseException:  # noqa: BLE001 - the parent asserts on the text
-        import traceback
+    except BaseException as exc:  # noqa: BLE001 - reported by name, asserted by the parent
+        held.put(f"FAILED|{type(exc).__name__}: {exc}")
+        return
+    try:
+        held.put(f"HELD|{live.handle.lease_scope}")
+        release.wait(_TIMEOUT_SECONDS)
+    finally:
+        live.handle.close()
 
-        queue.put(("ERROR", traceback.format_exc()))
+
+def _replay_beside(opened: Any, served: Any, minted: str) -> tuple[str, str]:
+    """THIS process, as the examiner: reconstruct the recorded decision through the replay road."""
+    from ccf.replay.engine import replay
+    from ccf.replay.environment import RecordedEnvironment
+
+    record = opened.record_of(served)
+    try:
+        fabric = _replay_road(
+            opened.config_path, registry=opened.control_plane, connection={"database_path": minted}
+        )
+    except Exception as exc:  # noqa: BLE001 - the defect as measured, asserted below
+        return "REFUSED", f"{type(exc).__name__}<-{type(exc.__cause__).__name__}"
+    try:
+        stamped = fabric.handle.reader.as_of(
+            tenant_id=record.tenant_id, at=record.context_fabric_snapshot.temporal_boundary
+        ).classification_authority
+        outcome = replay(
+            record_address=served.replay_ref.content_address,
+            store=opened.artifact_store,
+            reader=fabric.handle.reader,
+            control_plane=opened.control_plane,
+            environment=RecordedEnvironment(record=record, opened=opened, fabric=fabric),
+        )
+        minted_authority = stamped is not None and bool(getattr(stamped, "minted", False))
+        return "REPLAYED", f"{outcome.product_content_address}|stamped={minted_authority}"
+    finally:
+        fabric.handle.close()
 
 
 def test_a_second_process_replays_a_classification_decision_beside_a_live_sqlite_writer(
     tmp_path: pathlib.Path,
 ) -> None:
-    from ccf.deployment import load_config_and_boot
+    """The examiner (this process) and the live serving writer (a spawned process) over ONE SQLite file.
+
+    The decision was served here through the paved road, whose per-question
+    fabric closed after the question; then another process boots the
+    deployment's writer over the same file and holds its cross-process lease.
+    The examiner replays the recorded classification decision through
+    :class:`~ccf.replay.environment.RecordedEnvironment` while that writer lives.
+    """
     from tests.products import test_paved_road as paved
 
     root = paved._write_tree(tmp_path, config=_classification_config())
@@ -167,28 +178,22 @@ def test_a_second_process_replays_a_classification_decision_beside_a_live_sqlite
     assert POLICY_OPERATOR in record.content_generation_path.operator_plan, record.content_generation_path
     minted = str(sorted(scratch.glob("paved_fixture*.sqlite3"))[-1])
 
-    # The serving deployment's live writer, holding the SQLite file's cross-process lease.
-    live = load_config_and_boot(
-        opened.config_path, registry=opened.control_plane, connection={"database_path": minted}
-    )
+    context = mp.get_context("spawn")
+    held: mp.Queue[str] = context.Queue()
+    release = context.Event()
+    writer = context.Process(target=_live_writer, args=(str(opened.config_path), minted, held, release))
+    writer.start()
     try:
-        assert live.handle.lease_scope == "cross-process", live.handle.lease_scope
-        context = mp.get_context("spawn")
-        queue: mp.Queue[tuple[str, str]] = context.Queue()
-        process = context.Process(
-            target=_examiner_replays,
-            args=(str(root), str(scratch), minted, served.replay_ref.content_address, queue),
-        )
-        process.start()
-        try:
-            status, detail = queue.get(timeout=_TIMEOUT_SECONDS)
-        finally:
-            process.join(timeout=_TIMEOUT_SECONDS)
+        state = held.get(timeout=_TIMEOUT_SECONDS)
+        # Positive control: the other process really holds the file's cross-process lease.
+        assert state == "HELD|cross-process", state
+        status, detail = _replay_beside(opened, served, minted)
     finally:
-        live.handle.close()
+        release.set()
+        writer.join(timeout=_TIMEOUT_SECONDS)
 
     assert status == "REPLAYED", (
-        f"the second process could not replay the classification decision beside the live"
+        f"the examiner could not replay the classification decision beside the live"
         f" writer: {status} {detail}"
     )
     replayed_address, stamped = detail.split("|")
