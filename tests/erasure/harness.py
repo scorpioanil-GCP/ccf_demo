@@ -295,3 +295,8 @@ def index_path(plane: Plane) -> Path:
     if path is None:
         pytest.fail("MISSING CONTRACT: the plane declares no durable erasure index (SEC-009; C1)")
     return Path(path)
+
+
+def fabric_clock() -> datetime:
+    """The injected fabric clock test compositions stamp audits with (ruling 3)."""
+    return NOW

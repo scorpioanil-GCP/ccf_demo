@@ -1120,6 +1120,7 @@ def open_product(
         selected,
         index=erasure_index,
         audit_log=registry.audit_log,
+        clock=clock,
         tenant_id=config.tenant_id,
     )
     # The bundle pin the boot WILL mint, computed the way the registry mints

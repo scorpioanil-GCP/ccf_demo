@@ -556,7 +556,12 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a REQUIRED declared erasure index and an audit log, optionally scoped to a tenant, and validates every entry against its record. It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over three REQUIRED arguments, optionally scoped to a tenant:
+  - a declared erasure index;
+  - an audit log;
+  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3).
+
+  It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity), so a site composing once per question does not re-read every record; an append invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -566,7 +571,12 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a REQUIRED declared erasure index and an audit log, optionally scoped to a tenant, and validates every entry against its record. It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over three REQUIRED arguments, optionally scoped to a tenant:
+  - a declared erasure index;
+  - an audit log;
+  - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3).
+
+  It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity), so a site composing once per question does not re-read every record; an append invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 

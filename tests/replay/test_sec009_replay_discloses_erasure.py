@@ -42,7 +42,7 @@ def _erase(opened: Any, address: str, tenant: str) -> str:
 def _consulting(opened: Any, tenant: str | None) -> Any:
     """The product's store composed over its index — scoped to ``tenant``, or tenantless."""
     return h.erasure("compose_erasure_consult")(
-        q._fresh(opened), index=opened.erasure_index, audit_log=opened.control_plane.audit_log, tenant_id=tenant
+        q._fresh(opened), index=opened.erasure_index, audit_log=opened.control_plane.audit_log, clock=h.fabric_clock, tenant_id=tenant
     )
 
 

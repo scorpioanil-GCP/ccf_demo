@@ -30,7 +30,7 @@ def _plane(tmp_path: Path) -> tuple[Any, FileArtifactStore, Any, str, str]:
     index = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
     record = composed.erase(inner, index, erased.content_address)
     store = h.erasure("compose_erasure_consult")(
-        inner, index=index, audit_log=ControlPlaneRegistry().audit_log, tenant_id=h.TENANT
+        inner, index=index, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, tenant_id=h.TENANT
     )
     return record, inner, store, erased.uri, kept.content_address
 

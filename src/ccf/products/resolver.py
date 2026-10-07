@@ -4957,6 +4957,7 @@ def build_governed_resolver(
         store,
         index=erasure_index,
         audit_log=control_plane.audit_log,
+        clock=admission_clock,
         tenant_id=fabric.tenant_id,
     )
 

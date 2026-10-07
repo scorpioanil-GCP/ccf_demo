@@ -145,6 +145,7 @@ def build_local_dependencies(*, root: Path) -> ApiDependencies:
         ),
         index=erasure_index,
         audit_log=registry.audit_log,
+        clock=_utc_now,
     )
     hitl = InMemoryHitlTransport()
     return ApiDependencies(

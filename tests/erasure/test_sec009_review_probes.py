@@ -103,6 +103,6 @@ def test_p5_an_erasure_survives_a_restart(tmp_path: Path) -> None:
     reopened = FileArtifactStore(root=tmp_path / "artifacts", write_kinds=h.write_kinds())
     assert reopened.exists(content_address=content_hash(record))
     index = h.erasure("FileErasureIndex")(h.index_path(plane))
-    consulted = h.erasure("compose_erasure_consult")(reopened, index=index, audit_log=ControlPlaneRegistry().audit_log)
+    consulted = h.erasure("compose_erasure_consult")(reopened, index=index, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock)
     with pytest.raises(h.erasure("ErasedContentRefused")):
         consulted.get(content_address=address)

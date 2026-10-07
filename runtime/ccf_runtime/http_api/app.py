@@ -315,6 +315,9 @@ def create_app(
             deps.artifact_store,
             index=deps.erasure_index,
             audit_log=deps.control_plane.audit_log,
+            # The door's determination clock (ruling 3): the one the entitled
+            # reads are already stamped with.
+            clock=product_entitlement.clock,
         ),
     )
 

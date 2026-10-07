@@ -368,7 +368,9 @@ def build_artifact_server(
         library that picked an interface would be picking an exposure surface.
     """
     # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
-    consulted = compose_erasure_consult(store, index=erasure_index, audit_log=audit_log)
+    consulted = compose_erasure_consult(
+        store, index=erasure_index, audit_log=audit_log, clock=entitlement_source.clock
+    )
     door = TenantGuardedServer(
         FastMCP(
             server_name,

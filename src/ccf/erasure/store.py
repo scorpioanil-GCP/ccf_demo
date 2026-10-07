@@ -31,14 +31,24 @@ the decorator is identity.
 :meth:`ErasureConsultingStore.get` and :meth:`ErasureConsultingStore.resolve_uri`
 consult; :meth:`ErasureConsultingStore.exists` does **not** (U8); ``put``
 passes through. The Protocol's four verbs are unchanged and no removal or
-un-erasure surface exists (U6). Algorithmic module (CINV-03): no clock is
-read — the ``index-unsupported`` audit event carries the disputed entry's own
-``erased_at`` as its instant, and the audit log's sequence number orders it.
+un-erasure surface exists (U6). Algorithmic module (CINV-03): the
+``index-unsupported`` audit event is stamped with the fabric clock injected at
+composition (ruling 3), never a wall clock and never the disputed entry's own
+``erased_at``.
+
+**Boot validation is memoized per index head** (ruling 4): the key is the
+index's identity (its file path, for the file index), its entry count and the
+store's identity (its root, for a file store), so a site that composes once
+per question — the governed resolver — does not re-read every record; an
+append changes the count and invalidates it. Only SUPPORTED entries are
+memoized: an unsupported one is re-judged, and audited, by every composition.
 """
 
 from __future__ import annotations
 
 import hashlib
+import threading
+from collections.abc import Callable
 from datetime import datetime
 from typing import Final
 
@@ -109,6 +119,18 @@ class ErasureIndexUnavailable(TypeError):
     """
 
 
+#: Supported-entry keys per (index head, store) — ruling 4. Bounded: the oldest
+#: head is dropped past the bound, which only costs a re-validation.
+_VALIDATED_HEADS: dict[tuple[str, int, str], frozenset[tuple[str, str, str]]] = {}
+_VALIDATED_HEADS_BOUND: Final[int] = 64
+_VALIDATED_HEADS_LOCK = threading.Lock()
+
+
+def _identity(subject: object, attribute: str) -> str:
+    named = getattr(subject, attribute, None)
+    return f"{attribute}:{named}" if named is not None else f"id:{id(subject)}"
+
+
 class _Verdicts:
     """Validation results shared by a composed store and its tenant views."""
 
@@ -129,12 +151,14 @@ class ErasureConsultingStore:
         *,
         index: ErasureIndexProtocol,
         audit_log: AuditLog,
+        clock: Callable[[], datetime],
         tenant_id: str | None,
         _verdicts: _Verdicts | None = None,
     ) -> None:
         self._inner = inner
         self._index = index
         self._audit_log = audit_log
+        self._clock = clock
         self._tenant_id = tenant_id
         self._verdicts = _Verdicts() if _verdicts is None else _verdicts
 
@@ -178,15 +202,30 @@ class ErasureConsultingStore:
             self._inner,
             index=self._index,
             audit_log=self._audit_log,
+            clock=self._clock,
             tenant_id=tenant_id,
             _verdicts=self._verdicts,
         )
 
     def validate_all(self) -> None:
-        """Validate every entry of every tenant against its record (boot; §8)."""
-        for tenant in sorted(self._index.tenants()):
-            for entry in self._index.entries(tenant_id=tenant):
-                self._supported(entry)
+        """Validate every entry of every tenant against its record (boot; §8), memoized per index head (ruling 4)."""
+        entries = [
+            entry
+            for tenant in sorted(self._index.tenants())
+            for entry in self._index.entries(tenant_id=tenant)
+        ]
+        head = (_identity(self._index, "path"), len(entries), _identity(self._inner, "root"))
+        with _VALIDATED_HEADS_LOCK:
+            known = _VALIDATED_HEADS.get(head)
+        keys = {(e.tenant_id, e.content_address, e.erasure_record_address) for e in entries}
+        if known is not None:
+            self._verdicts.valid |= known & keys
+        for entry in entries:
+            self._supported(entry)
+        with _VALIDATED_HEADS_LOCK:
+            _VALIDATED_HEADS[head] = frozenset(self._verdicts.valid & keys)
+            while len(_VALIDATED_HEADS) > _VALIDATED_HEADS_BOUND:
+                _VALIDATED_HEADS.pop(next(iter(_VALIDATED_HEADS)))
 
     # -- the consult -------------------------------------------------------------------
 
@@ -217,7 +256,7 @@ class ErasureConsultingStore:
                 key=f"{entry.tenant_id}/{entry.content_address}",
                 version=entry.erasure_record_address,
                 resolved=False,
-                occurred_at=entry.erased_at,
+                occurred_at=self._clock(),
                 artifact_class=ERASURE_RECORD_CLASS,
             )
         return False
@@ -285,12 +324,15 @@ def compose_erasure_consult(
     *,
     index: ErasureIndexProtocol,
     audit_log: AuditLog,
+    clock: Callable[[], datetime],
     tenant_id: str | None = None,
 ) -> ErasureConsultingStore:
     """THE composition helper every store construction site uses (SEC-009; `D-IMPL-374` (4), C1, (i), U12).
 
-    Wraps ``store`` over the REQUIRED ``index``, validates every entry against
-    its record (§8), and returns the store scoped to ``tenant_id`` — or
+    Wraps ``store`` over the REQUIRED ``index`` and the REQUIRED fabric
+    ``clock`` (which stamps the ``index-unsupported`` audit; ruling 3),
+    validates every entry against its record (§8; memoized per index head,
+    ruling 4), and returns the store scoped to ``tenant_id`` — or
     tenantless (``None``) for a multi-tenant site whose doors take
     :meth:`ErasureConsultingStore.scoped` views for the caller's verified
     tenant. A store already composed is re-scoped, never re-wrapped, and must
@@ -318,8 +360,10 @@ def compose_erasure_consult(
         if store.tenant_id == tenant_id:
             return store
         return store.scoped(tenant_id) if tenant_id is not None else ErasureConsultingStore(
-            store.inner, index=index, audit_log=audit_log, tenant_id=None
+            store.inner, index=index, audit_log=audit_log, clock=clock, tenant_id=None
         )
-    composed = ErasureConsultingStore(store, index=index, audit_log=audit_log, tenant_id=tenant_id)
+    composed = ErasureConsultingStore(
+        store, index=index, audit_log=audit_log, clock=clock, tenant_id=tenant_id
+    )
     composed.validate_all()
     return composed

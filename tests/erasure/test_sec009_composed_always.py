@@ -25,15 +25,15 @@ def test_the_one_helper_wraps_a_store_and_refuses_a_plane_that_cannot_serve_the_
     compose = h.erasure("compose_erasure_consult")
     index = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
     audit = ControlPlaneRegistry().audit_log
-    store = compose(composed_store(tmp_path), index=index, audit_log=audit)
+    store = compose(composed_store(tmp_path), index=index, audit_log=audit, clock=h.fabric_clock)
     assert isinstance(store, h.erasure("ErasureConsultingStore"))
-    assert compose(store, index=index, audit_log=audit) is store  # idempotent
+    assert compose(store, index=index, audit_log=audit, clock=h.fabric_clock) is store  # idempotent
     composed.assert_consults(store, index)
     with pytest.raises(TypeError):
-        compose(composed_store(tmp_path / "other"), index=object(), audit_log=audit)
+        compose(composed_store(tmp_path / "other"), index=object(), audit_log=audit, clock=h.fabric_clock)
     # M1: a store composed over one index is never re-composed over another.
     with pytest.raises(h.erasure("ErasureIndexUnavailable")):
-        compose(store, index=h.erasure("FileErasureIndex")(tmp_path / "other.jsonl"), audit_log=audit)
+        compose(store, index=h.erasure("FileErasureIndex")(tmp_path / "other.jsonl"), audit_log=audit, clock=h.fabric_clock)
 
 
 def composed_store(root: Path) -> object:

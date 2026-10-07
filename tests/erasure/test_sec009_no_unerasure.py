@@ -68,7 +68,7 @@ def test_an_index_entry_is_never_replaced_and_a_reopen_still_withholds(tmp_path:
         index.append(entry.model_copy(update={"erasure_record_address": "0" * 64}))
     reopened = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
     store = h.erasure("compose_erasure_consult")(
-        inner, index=reopened, audit_log=ControlPlaneRegistry().audit_log, tenant_id=h.TENANT
+        inner, index=reopened, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, tenant_id=h.TENANT
     )
     with pytest.raises(h.erasure("ErasedContentRefused")):
         store.get(content_address=ref.content_address)
