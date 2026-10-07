@@ -90,6 +90,7 @@ __all__ = [
     "TraversalSpec",
     "UpsertResult",
     "require_classification_authority",
+    "require_query_classification_authority",
     "WriterLease",
     "WriterLeaseHeld",
     "WriterLeaseScope",
@@ -272,7 +273,9 @@ class ClassificationAuthorityMissing(ValueError):
 
     SEC-023 (``D-IMPL-374`` ruling (3) (a) and its ruling (2): a view with no
     authority stamp that meets a classification consumer is refused by name,
-    fail closed). A :class:`GraphView` produced by a booted fabric's reader
+    fail closed). Also raised by a store reader for a classification
+    :class:`GraphQuery` that carries no authority
+    (:func:`require_query_classification_authority`). A :class:`GraphView` produced by a booted fabric's reader
     (``ccf.boot.boot``) carries the :class:`ClassificationAuthority` of the
     resolution spec that fabric enforces at L2. A view built by hand, or read
     from a store reader no boot composed, carries none — and a classification
@@ -353,6 +356,29 @@ def require_classification_authority(
     if authority is None:
         raise ClassificationAuthorityMissing(consumer=consumer)
     authority.require(by_class, consumer=consumer)
+
+
+def require_query_classification_authority(q: "GraphQuery") -> None:
+    """The check every store-reader entry runs on a ``GraphQuery`` (SEC-023).
+
+    ``D-IMPL-374``; coordinator ruling (1) on the fifth path, under ruling (2).
+    A query with no classification map passes. One with a map must carry the
+    authority a booted fabric's reader checked it against
+    (:class:`ClassificationAuthorityMissing` when it does not — a store opened
+    without ``ccf.boot.boot``, or a mounted peer product, has no authority to
+    offer, so it fails closed), and that authority must cover the map
+    (:class:`UngovernedClassificationAttribute`). Called by
+    ``BaseGraphReader.query``, ``MemoryGraphReader.query``,
+    ``FlureeGraphReader.query_pinned`` and ``ProductSource.query`` before any
+    substrate I/O.
+    """
+    by_class = q.classification_attribute_by_class
+    if by_class is None:
+        return
+    authority = q.classification_authority
+    if authority is None:
+        raise ClassificationAuthorityMissing(consumer="GraphQuery")
+    authority.require(by_class, consumer="GraphQuery")
 
 
 class GraphView(CCFContract):
@@ -614,6 +640,38 @@ class GraphQuery(CCFContract):
     traverse: TraversalSpec | None = None
     seeds: frozenset[str] | None = None
     allowed_entities: frozenset[str] | None = None
+
+    # SEC-023 (`D-IMPL-374`; coordinator ruling (1) on the fifth path): the
+    # authority a booted fabric's reader checked this query against before
+    # handing it to the store. PRIVATE, so it is outside the canonical form —
+    # the replay pin `content_hash(q)` is the same stamped or not — and outside
+    # equality (`__eq__` below).
+    _classification_authority: ClassificationAuthority | None = PrivateAttr(default=None)
+
+    @property
+    def classification_authority(self) -> ClassificationAuthority | None:
+        """The authority this query was checked against, or ``None`` (SEC-023, ``D-IMPL-374``)."""
+        return self._classification_authority
+
+    def with_classification_authority(self, authority: ClassificationAuthority) -> "GraphQuery":
+        """This query, carrying ``authority`` — the same question, the same hash.
+
+        SEC-023 (``D-IMPL-374``). Set by the booted fabric's reader
+        (``ccf.graph.governed_reader``) after it has checked the classification
+        map; a composition root that queries a store directly stamps with
+        ``spec.classification_authority()`` of the spec its L2 enforces, and a
+        store reader refuses a classification query that carries none
+        (:func:`require_query_classification_authority`).
+        """
+        stamped = self.model_copy()
+        stamped._classification_authority = authority
+        return stamped
+
+    def __eq__(self, other: object) -> bool:
+        """Equal by content: the authority stamp is provenance, not the question (SEC-023)."""
+        if not isinstance(other, BaseModel):
+            return NotImplemented
+        return type(self) is type(other) and self.__dict__ == other.__dict__
 
     @model_validator(mode="after")
     def _policy_family_is_whole(self) -> GraphQuery:

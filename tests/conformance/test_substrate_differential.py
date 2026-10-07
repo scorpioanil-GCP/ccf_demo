@@ -99,7 +99,13 @@ from tests.conformance.test_substrate_properties import (
     SEED_CLASS,
 )
 from tests.graph.test_product_source import admit_product, graph_state_product
-from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE, ENTITY_POOL
+from tests.properties.strategies import AUTHORITY, CLASSIFICATION_ATTRIBUTE, ENTITY_POOL
+
+# SEC-023 (D-IMPL-374, coordinator rulings (1) and (3)): a store reader no boot
+# composed, and a mounted peer product, refuse a classification query that
+# carries no authority. The harness declares the authority it answers for —
+# exactly what a composition root querying such a reader directly must do. A
+# booted reader re-checks the query against its own spec and re-stamps it.
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -504,14 +510,15 @@ def test_the_mounted_product_answers_byte_identical_to_the_fallback(
     for q in build_queries(
         case, policy_bundle_version=handle.worker.policy_bundle_version
     ):
-        answered = source.query(q)
+        declared = q.with_classification_authority(AUTHORITY)
+        answered = source.query(declared)
         expected = _expected(handle, q)
         assert canonical_bytes(answered) == canonical_bytes(expected), (
             f"the mounted product diverged from the fallback on corpus case"
             f" {case.name!r}"
         )
         # The determinism twin: same question, same bytes.
-        assert canonical_bytes(source.query(q)) == canonical_bytes(answered)
+        assert canonical_bytes(source.query(declared)) == canonical_bytes(answered)
 
 
 # --- the tenant boundary, as a query() twin ---------------------------------
@@ -647,7 +654,7 @@ def test_hop_admissibility_holds_directly_on_each_reader(
         ),
         classification_attribute_by_class=dict(CLASSIFICATION_ATTRIBUTE),
         permitted_classifications=frozenset(PERMITTED_CLASSIFICATIONS),
-    )
+    ).with_classification_authority(AUTHORITY)
     answered = {
         record.claim.entity_uri
         for record in substrate_fabric.reader.query(q).entities
@@ -810,7 +817,7 @@ def test_repeat_query_answers_are_deterministic_on_each_reader(
         ),
         classification_attribute_by_class=dict(CLASSIFICATION_ATTRIBUTE),
         permitted_classifications=frozenset(PERMITTED_CLASSIFICATIONS),
-    )
+    ).with_classification_authority(AUTHORITY)
     first = substrate_fabric.reader.query(q)
     second = substrate_fabric.reader.query(q)
     assert canonical_bytes(first) == canonical_bytes(second)

@@ -70,6 +70,10 @@ class _ClassificationGovernedReader:
             # The consumer here is the query itself (path 1 of D-IMPL-372's
             # amendment): refused before the substrate is asked anything.
             self._authority.require(q.classification_attribute_by_class, consumer="GraphQuery")
+            # Checked: hand the store the stamped question, which is what lets
+            # a store reader refuse every classification query that did not
+            # come through here (the fifth path).
+            q = q.with_classification_authority(self._authority)
         return self._inner.query(q).with_classification_authority(self._authority)
 
     @property
@@ -115,6 +119,7 @@ class _PinnableClassificationGovernedReader(_ClassificationGovernedReader):
     def query_pinned(self, q: GraphQuery, *, pin: StoreSnapshotPin) -> GraphView:
         if q.classification_attribute_by_class is not None:
             self._authority.require(q.classification_attribute_by_class, consumer="GraphQuery")
+            q = q.with_classification_authority(self._authority)
         view: GraphView = self._inner.query_pinned(q, pin=pin)
         return view.with_classification_authority(self._authority)
 

@@ -391,6 +391,11 @@ class BaseGraphReader:
         the frozen value; ``q.as_of`` arrives as data — this method reads
         no clock.
         """
+        # SEC-023 (`D-IMPL-374`): a classification query carries the authority a
+        # booted fabric's reader checked it against, or it is refused here.
+        from ccf.graph.protocols import require_query_classification_authority
+
+        require_query_classification_authority(q)
         translated = self._translate_query(q)
         lineage_rows_for = self._lineage_rows_for(q.tenant_id)
         if translated is not None:
