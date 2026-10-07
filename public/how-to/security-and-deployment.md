@@ -491,9 +491,15 @@ every write with `ReadOnlyFabricRefused`, and its `close` closes only the
 store. Because it takes no lease, a read-only boot sets `writer_lease_lock_dir`
 aside before validation and never uses it (N-2, D-IMPL-374), so an examiner on
 another host or under another account declares the deployment's connection
-settings unchanged. A read-only boot is not coordinated with the writer: it reads what the
-store returns at each read. Replay reads the recorded snapshot boundary, which
-an append-only graph does not move.
+settings unchanged. **A read-only boot writes no graph content, but it is not
+write-free at the substrate** (N-6, D-IMPL-374): opening the store still runs
+the store's own open-time setup, exactly as a writer boot's open does. Each
+store creates what it needs if it is absent: SQLite its database file, tables
+and indexes; Postgres its schema, tables and indexes; MongoDB and Neo4j their
+indexes; Fluree its ledger. Credentials that cannot perform that setup can fail
+a read-only boot when the store is opened. A read-only boot is not coordinated
+with the writer: it reads what the store returns at each read. Replay reads the
+recorded snapshot boundary, which an append-only graph does not move.
 
 ### 4.7 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
 
@@ -571,10 +577,11 @@ the classification query, so a replay tool in another process had no road.
 `boot(..., read_only=True)` is that road. It resolves the pinned resolution
 spec and mints the authority from it through the same private mint as a writer
 boot, so its views carry an authority `ClassificationAuthorityNotMinted` does
-not refuse, and the Policy operator re-executes. It mints no writer and takes
-no lease. Open the fabric you pass to `RecordedEnvironment` this way. A raw
-store reader is still refused, and an authority built by hand is still refused
-on a read-only view.
+not refuse, and the Policy operator re-executes. It mints no writer, takes no
+lease and writes no graph content, although opening the store still runs the
+store's own open-time setup (§4.6, N-6). Open the fabric you pass to
+`RecordedEnvironment` this way. A raw store reader is still refused, and an
+authority built by hand is still refused on a read-only view.
 
 ### 4.8 Two deployment limitations, disclosed rather than fixed
 

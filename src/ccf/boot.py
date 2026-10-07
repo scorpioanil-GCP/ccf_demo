@@ -32,7 +32,10 @@ stating what each part is doing:
   classification authority from the pinned resolution spec through the same
   private mint path as the writer boot, but never mints a boot token, so it
   takes no writer lease and marks no graph live. It neither validates nor
-  uses the connection's writer-lease setting (N-2). Its worker's writer refuses
+  uses the connection's writer-lease setting (N-2). It writes no graph
+  content, but it is not write-free at the substrate (N-6): opening the store
+  still runs the store's own open-time setup, as a writer boot's open does
+  (schema creation; a Fluree ledger's creation). Its worker's writer refuses
   every write by name (:class:`ReadOnlyFabricRefused`). It exists so replay —
   whitepaper §7.10 — can read a classification decision beside the live
   writer of a persistent store, in another process.
@@ -131,14 +134,14 @@ class _ReadOnlyWriter:
     def _refuse(self, verb: str) -> NoReturn:
         raise ReadOnlyFabricRefused(
             f"{verb} refused: this fabric was booted read-only — it minted no"
-            " writer and holds no writer lease, so it writes nothing to the graph"
+            " writer and holds no writer lease, so it writes no graph content"
             " (FW-2; D-IMPL-374; whitepaper §7.3, INV-CH7-10)"
         )
 
     def upsert_entity(
         self, *, tenant_id: str, claim: EntityClaim, policy_bundle_version: str
     ) -> UpsertResult:
-        """Refuse: a read-only fabric writes nothing.
+        """Refuse: a read-only fabric writes no graph content.
 
         Raises:
             ReadOnlyFabricRefused: always.
@@ -148,7 +151,7 @@ class _ReadOnlyWriter:
     def upsert_relationship(
         self, *, tenant_id: str, claim: RelationshipClaim, policy_bundle_version: str
     ) -> UpsertResult:
-        """Refuse: a read-only fabric writes nothing.
+        """Refuse: a read-only fabric writes no graph content.
 
         Raises:
             ReadOnlyFabricRefused: always.
@@ -514,8 +517,12 @@ def boot(
             invalidation-register capability is minted (nothing can supersede),
             :attr:`FabricHandle.lease_scope` reports
             :data:`READ_ONLY_LEASE_SCOPE` and :meth:`FabricHandle.close` closes
-            the store only. This is the reader Decision Replay uses beside a
-            live writer (:class:`~ccf.replay.environment.RecordedEnvironment`).
+            the store only. It writes no graph content, but it is not
+            write-free at the substrate (N-6): opening the store still runs
+            the store's own open-time setup, as at a writer boot (schema
+            creation; a Fluree ledger's creation). This is the reader
+            Decision Replay uses beside a live writer
+            (:class:`~ccf.replay.environment.RecordedEnvironment`).
             ``False`` (the default) is the writer boot every earlier caller
             gets, unchanged. Whether a WRITER boot takes a lease stays the
             store's declaration, never the caller's (SEC-013): this flag does
@@ -747,7 +754,10 @@ def _boot_read_only(
     """The read-only half of :func:`boot` (FW-2, whole-branch review I-1; ``D-IMPL-374``).
 
     Everything a writer boot does to GOVERN the reader, and nothing it does to
-    WRITE: the pinned spec is resolved and type-checked, L2 is built over it
+    WRITE graph content. The ``store`` the caller opened has already run its
+    own open-time setup (schema creation; a Fluree ledger's creation), exactly
+    as for a writer boot; this function neither prevents nor undoes it (N-6).
+    The pinned spec is resolved and type-checked, L2 is built over it
     (so the policy-bundle pin is validated and audited exactly as at a writer
     boot), and the classification authority is minted from that spec by
     :func:`_mint_authority_of` — the one private mint path both boots share,
