@@ -68,6 +68,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol, Union, runtime_checkable
@@ -130,6 +131,36 @@ __all__ = [
 #: mechanism identifier: it names the engine's own trace artifacts, exactly
 #: as ``WORKFLOW_STATE`` names its state records.
 WORKFLOW_TRACE_ARTIFACT_CLASS = "ccf.workflow-trace"
+
+#: Executions with a resumption in flight IN THIS PROCESS (D-IMPL-377), each
+#: as ``(id(state_store), state_key)``: the Control Plane state store the
+#: execution's record lives in, and the key it lives under. Module-level and
+#: not per engine, because two engines over one Control Plane read and write
+#: the same record and must be refused against each other. Membership IS the
+#: claim; the lock guards only the test-and-set and the discard, and is never
+#: held across an ``await``.
+_RESUMPTIONS_IN_FLIGHT: set[tuple[int, str]] = set()
+_RESUMPTIONS_IN_FLIGHT_LOCK = threading.Lock()
+
+
+def _claim_resumption(claim: tuple[int, str]) -> bool:
+    """Take one execution's single-flight claim, or report it already taken.
+
+    A test-and-set that returns at once either way (D-IMPL-377): the caller
+    refuses rather than waits, so no thread blocks on another resumption and
+    no event loop blocks on itself.
+    """
+    with _RESUMPTIONS_IN_FLIGHT_LOCK:
+        if claim in _RESUMPTIONS_IN_FLIGHT:
+            return False
+        _RESUMPTIONS_IN_FLIGHT.add(claim)
+        return True
+
+
+def _release_resumption(claim: tuple[int, str]) -> None:
+    """Give one execution's single-flight claim back (D-IMPL-377)."""
+    with _RESUMPTIONS_IN_FLIGHT_LOCK:
+        _RESUMPTIONS_IN_FLIGHT.discard(claim)
 
 
 class WorkflowExecutionTypeError(TypeError):
@@ -445,6 +476,30 @@ class WorkflowEngine:
         from the suspended node (CINV-01 — routing is the artifact's
         statement; the engine interprets, never decides).
 
+        **One resumption per execution at a time, in this process
+        (D-IMPL-377).** Before the state record is read, the resumption
+        takes a single-flight claim on the execution, keyed by the Control
+        Plane state store the record lives in and by its state key, and
+        shared by every engine in this process over that store. While it is
+        held, a second resumption of the same execution is REFUSED, never
+        queued: a typed :class:`WorkflowResumeRefused`, audited
+        ``resolved=False``, which the HTTP door answers with the same 409 as
+        the sequential refusal. Without it, two resumes of one approved
+        suspension both read the record before either committed over it,
+        both passed the authority and conflict checks, and ran the
+        downstream node twice under two attributed ``workflow_resumed`` rows
+        (residual 2(a) of :meth:`_gate_authority`). The claim is released on
+        every exit — completion, refusal, exception and cancellation — and
+        its lock guards only the test-and-set, never an ``await``, so it
+        holds for threads and for one event loop alike. **It does not
+        reach** several processes, or several state-store objects fronting
+        one durable store:
+        :class:`~ccf.controlplane.state.ControlPlaneStateStore` offers no
+        compare-and-set, so serialize resumptions per execution in front of
+        the door there. Nor does it reach a verdict recorded while a
+        resumption is in flight (residual 2(b)): verdicts are recorded
+        through the HITL transport, which this claim never touches.
+
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
                 handle.
@@ -457,6 +512,44 @@ class WorkflowEngine:
         verify(authorized, kind=Resume, resource=workflow.definition_key)
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
+        # D-IMPL-377: taken BEFORE the record is read, so no second
+        # resumption can read what this one has not yet committed over.
+        claim = (id(self._control_plane.state_store), key)
+        if not _claim_resumption(claim):
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} already has a resumption in flight in"
+                    " this process; a suspended execution is resumed by one"
+                    " request at a time, so this one is refused rather than"
+                    " queued — present it again once the other has returned"
+                    " (D-IMPL-377; CLAUDE.md §8.1)"
+                ),
+            )
+        try:
+            return await self._resume_claimed(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                decision=decision,
+                key=key,
+            )
+        finally:
+            _release_resumption(claim)
+
+    async def _resume_claimed(
+        self,
+        authorized: Authorized[Resume],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+        decision: str,
+        key: str,
+    ) -> WorkflowOutcome:
+        """:meth:`resume`'s body, run only while its single-flight claim is held."""
+        tenant = authorized.tenant
         record = self._control_plane.state_store.get(WORKFLOW_STATE, key)
         if record is None:
             return self._refuse(
@@ -1174,7 +1267,9 @@ class WorkflowEngine:
 
         **What remains OPEN, stated here because this docstring is the
         residual ledger a close panel, an adopter and the next maintainer
-        read.** Both items are real and neither may be read as closed. The
+        read.** Both items are real and neither may be read as closed:
+        item (2)'s first shape is refused within one process and nowhere
+        else, and its second shape is untouched. The
         second one **can** put a rejection at an approving terminal — no
         sentence here may reassure a reader otherwise, because a
         reassurance is exactly what stops a maintainer looking for the
@@ -1194,16 +1289,22 @@ class WorkflowEngine:
           ``remove`` minting an opaque claim token that ``submit``
           requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
           signature change that belongs with the D-IMPL-62 door ruling.
-        * **(2) NOTHING MAKES THIS RESUMPTION'S READ-DECIDE-COMMIT
-          ATOMIC**,
-          and two shapes fall out of that one absence. :meth:`resume`
-          takes no per-execution lock and performs no compare-and-set: it
-          reads the state record, reads the authority and conflict
-          populations, decides, and only then writes. So **(a)** two
-          concurrent resumes of one suspension both pass the authority
-          read AND the conflict check, execute the downstream node twice
-          from one human action, and write two attributed resumption rows
-          — one human decision became two passages; and **(b)** a verdict
+        * **(2) THIS RESUMPTION'S READ-DECIDE-COMMIT IS ATOMIC ONLY AGAINST
+          OTHER RESUMPTIONS OF THE SAME EXECUTION IN THIS PROCESS**, and
+          two shapes fall out of that. :meth:`resume` performs no
+          compare-and-set: it reads the state record, reads the authority
+          and conflict populations, decides, and only then writes. Since
+          D-IMPL-377 it does all of that under a single-flight claim on the
+          execution (keyed by the state store and the state key, shared by
+          every engine in the process over that store), so **(a)** — two
+          concurrent resumes of one suspension both passing the authority
+          read AND the conflict check, executing the downstream node twice
+          from one human action and writing two attributed resumption rows
+          — is REFUSED within one process: the second resume is a typed
+          refusal. (a) stays OPEN across processes, and across several
+          state-store objects that front one durable store, because
+          :class:`~ccf.controlplane.state.ControlPlaneStateStore` offers no
+          compare-and-set. **(b) is unchanged:** a verdict
           recorded *inside that window* is not seen at all, so a rejection
           submitted after the conflict read and before the attributed
           commit leaves BOTH verdicts standing in the record while the
@@ -1214,7 +1315,10 @@ class WorkflowEngine:
           and the submission path for that execution's event, or a
           compare-and-set that covers the conflict population as well as
           the state record, closes both; a lock or compare-and-set on the
-          state record ALONE closes only (a).** The reason is structural
+          state record ALONE closes only (a).** D-IMPL-377's claim is the
+          resumption half of the first remedy only — the submission path
+          does not take it — so it closes (a) in one process and leaves
+          (b) exactly as it was. The reason is structural
           rather than incidental, and it is stated because this is the
           sentence a maintainer would implement from: submissions live in
           the transport's own list, and

@@ -293,3 +293,139 @@ def test_a_resume_held_inside_its_read_on_another_thread_admits_no_second(
         store.release.set()
     first = held.join()
     assert_one_passage(registry, transport, workflow, bindings, [first, second])
+
+
+# --- the claim is given back on every exit ------------------------------------
+#
+# Green before the claim existed (nothing was ever taken) and green after; what
+# they pin is the RELEASE. A claim kept past any one of these exits would refuse
+# every later resumption of the execution as "in flight" for the life of the
+# process, which is a permanent denial of service on that approval.
+
+
+class FailingOnceStateStore(InMemoryStateStore):
+    """The reference state store, failing its next workflow-state write once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fail_next_write = False
+
+    def put(
+        self,
+        authorized: Any,
+        record_class: str,
+        record: object,
+        *,
+        record_id: str,
+        token: Any,
+    ) -> None:
+        if self.fail_next_write and record_class == WORKFLOW_STATE:
+            self.fail_next_write = False
+            raise RuntimeError("state store unavailable")
+        super().put(authorized, record_class, record, record_id=record_id, token=token)
+
+
+class BlockingOnceBindings(eh._Bindings):
+    """The downstream step's FIRST call never returns on its own; only
+    cancellation ends it. Later calls are the suite's double."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.blocked = False
+
+    async def run_skill(
+        self, *, tenant: str, step_name: str, ref: str
+    ) -> Mapping[str, str]:
+        if step_name == DOWNSTREAM and not self.blocked:
+            self.blocked = True
+            await asyncio.Event().wait()
+        return await super().run_skill(tenant=tenant, step_name=step_name, ref=ref)
+
+
+def assert_not_held(outcome: WorkflowOutcome) -> None:
+    """The later resumption passed: the claim had been given back."""
+    if isinstance(outcome, WorkflowResumeRefused):
+        assert IN_FLIGHT not in outcome.reason, "the claim was never released"
+    assert isinstance(outcome, WorkflowSuspended), outcome
+    assert outcome.gate == NEXT_GATE
+
+
+def test_a_completed_resume_gives_the_claim_back(tmp_path: Path) -> None:
+    """Completion: the next resumption is judged on its own authority, at the
+    next gate, and the claim never answers it."""
+    registry = plane()
+    bindings = eh._Bindings()
+    engine, transport, workflow = approved_suspension(registry, tmp_path, bindings)
+    first = asyncio.run(resume(engine, workflow))
+    assert isinstance(first, WorkflowSuspended) and first.gate == NEXT_GATE
+    second = asyncio.run(resume(engine, workflow))
+    assert isinstance(second, WorkflowResumeRefused)
+    assert "no approval for this suspension" in second.reason
+    assert IN_FLIGHT not in second.reason
+
+
+def test_a_resume_refused_for_its_authority_gives_the_claim_back(tmp_path: Path) -> None:
+    """Refusal: a resume refused before any approval is recorded returns the
+    claim, so the resume after the approval passes."""
+    registry = plane()
+    bindings = eh._Bindings()
+    workflow = s6._two_gate(registry, eligible=frozenset({STARTER, APPROVER}))
+    transport = InMemoryHitlTransport()
+    engine = engine_over(registry, tmp_path, bindings, transport)
+    tenant = workflow.definition.tenant
+    starter = execute_as_principal(
+        tenant=tenant, resource=workflow.definition_key, principal=STARTER
+    )
+    suspended = asyncio.run(engine.execute(starter, workflow, execution_id=EXECUTION))
+    assert isinstance(suspended, WorkflowSuspended)
+    refused = asyncio.run(resume(engine, workflow))
+    assert isinstance(refused, WorkflowResumeRefused)
+    assert "no approval for this suspension" in refused.reason
+    eh._resolve_gate(
+        registry,
+        transport,
+        tenant=tenant,
+        event_key=suspended.event_key,
+        action="approve",
+        subject_id=APPROVER,
+    )
+    assert_not_held(asyncio.run(resume(engine, workflow)))
+
+
+def test_a_resume_that_raises_gives_the_claim_back(tmp_path: Path) -> None:
+    """Exception: the state store fails the resume's commit, and the error
+    propagates. The claim goes back with it, so the retry passes and runs
+    the node again (the node is not idempotent by construction, and the
+    deployment page says so)."""
+    store = FailingOnceStateStore()
+    registry = plane(store)
+    bindings = eh._Bindings()
+    engine, transport, workflow = approved_suspension(registry, tmp_path, bindings)
+    store.fail_next_write = True
+    with pytest.raises(RuntimeError, match="state store unavailable"):
+        asyncio.run(resume(engine, workflow))
+    assert_not_held(asyncio.run(resume(engine, workflow)))
+    # The failed attempt had already run the node; the retry runs it again.
+    assert bindings.ran.count(f"skill:{DOWNSTREAM}") == 2
+
+
+def test_a_cancelled_resume_gives_the_claim_back(tmp_path: Path) -> None:
+    """Cancellation: the resume is cancelled while the downstream node awaits.
+    The claim goes back with the cancellation, so a later resume passes."""
+    registry = plane()
+    bindings = BlockingOnceBindings()
+    engine, transport, workflow = approved_suspension(registry, tmp_path, bindings)
+
+    async def cancel_then_resume() -> WorkflowOutcome:
+        first = asyncio.create_task(resume(engine, workflow))
+        for _ in range(10_000):
+            if bindings.blocked:
+                break
+            await asyncio.sleep(0)
+        assert bindings.blocked, "the first resume never reached the downstream node"
+        first.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await first
+        return await resume(engine, workflow)
+
+    assert_not_held(asyncio.run(cancel_then_resume()))
