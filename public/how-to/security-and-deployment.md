@@ -1109,9 +1109,10 @@ approver, and the next gate held two pending events, one of them bound to a
 state record that had already been overwritten.
 
 - **Present a refused resumption again only after the other one has
-  returned.** The 409 means another request is already carrying the same
-  approval past the gate. Once that request returns, the execution has
-  moved on, and a repeat is judged at the gate it now waits on.
+  returned.** The 409 means another resumption of the same execution is in
+  flight in this process. A repeat presented after that one has returned is
+  judged on the execution as it then stands: if the other passed the gate,
+  at the gate the execution now waits on.
 - **Serialize resumptions per execution in front of the door when more
   than one process can resume.** The claim lives in one process's memory.
   It does not cover several processes, or several state-store objects that
