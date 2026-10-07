@@ -148,6 +148,15 @@ _PERMISSION_PROMPT_OVER_STDIO = "stdio"
 _PROMPT_FILE_MODE = 0o600
 _PROMPT_FILE_NAME = "system-prompt"
 
+#: The name of a file that is never created, inside the per-call ``0700``
+#: prompt directory. ``inject_context`` points the carrier's ``cli_path`` at it
+#: so the vendor's **default** transport — the one an adopter gets by omitting
+#: :meth:`ClaudeAgentAdapter.transport` — cannot start the CLI and fails with
+#: ``CLINotFoundError`` instead of spawning it with the fabric's whole
+#: environment (TP-02 fails closed, D-IMPL-361). Only the fabric's own user
+#: could create it, because the directory is owner-only.
+_NO_CLI_SENTINEL = "no-cli-use-the-adapter-transport"
+
 
 def _write_prompt_file(prompt: str) -> Path:
     """Write ``prompt`` to a fresh ``0600`` file in a fresh ``0700`` directory.
@@ -478,7 +487,17 @@ class ClaudeAgentAdapter:
         (``{"type": "file", "path": ...}``), which the vendor renders as the
         single option ``--system-prompt-file <path>`` (lines 469-473). The
         directory is recorded on :attr:`prompt_directories` for the adopter to
-        remove.
+        remove (:meth:`remove_prompt_directories`).
+
+        **The carrier fails closed without the adapter's transport (TP-02,
+        D-IMPL-361).** The carrier's ``cli_path`` names a file that does not
+        exist inside that owner-only directory. Handing the carrier to
+        ``ClaudeSDKClient(options=carrier)`` or ``query(options=carrier)``
+        **without** ``transport=adapter.transport(carrier)`` therefore raises
+        ``CLINotFoundError`` at connect and starts nothing — because the
+        vendor's default transport would spawn the CLI with the fabric's whole
+        environment merged in. :meth:`transport` clears the sentinel so the
+        vendor resolves the real CLI, and spawns it from the allowlist only.
 
         ``products`` are products the agent already admitted through
         :meth:`~ccf.agents.agent.Agent.consume`; they are serialized
@@ -511,6 +530,7 @@ class ClaudeAgentAdapter:
             ],
             can_use_tool=self._permission_gate(agent),
             env=self._child_environment(),
+            cli_path=prompt_file.parent / _NO_CLI_SENTINEL,
         )
         return carrier
 
@@ -539,7 +559,10 @@ class ClaudeAgentAdapter:
         environment, whatever ``carrier.env`` says — ``env`` merges over
         ``os.environ`` and cannot subtract (D-IMPL-361).
 
-        The transport is built from ``carrier`` with the permission prompt
+        The carrier's own ``cli_path`` is a fail-closed sentinel; the
+        transport is built with it cleared, so the vendor's CLI resolution
+        applies here and nowhere else. The transport is built from
+        ``carrier`` with the permission prompt
         routed over stdio when a ``can_use_tool`` gate is bound, because the
         vendor client applies that routing only to the options *it* would have
         built a transport from; a pre-built transport that lacked it would
@@ -553,7 +576,9 @@ class ClaudeAgentAdapter:
                 f"transport expected the ClaudeAgentOptions inject_context"
                 f" returned, got {type(carrier).__name__}"
             )
-        options = carrier
+        # Clear the fail-closed sentinel ``inject_context`` set, so the vendor
+        # resolves the real CLI (bundled, then PATH) for this transport only.
+        options = replace(carrier, cli_path=None)
         if options.can_use_tool is not None and options.permission_prompt_tool_name is None:
             options = replace(
                 options, permission_prompt_tool_name=_PERMISSION_PROMPT_OVER_STDIO
