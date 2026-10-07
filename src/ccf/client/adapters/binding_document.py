@@ -319,6 +319,11 @@ class BindingDocument:
         artifact_store: Where this deployment files artifacts, resolved absolute
             and contained.
         debt: Where ``D_c``'s inputs come from.
+        erasure_authority: The erasure authority this deployment's consult
+            verifies erasures against, or ``None`` when the document declares
+            none (``erasure_authority: {}``) — then every erasure its index
+            names reads ``index-unsupported`` (SEC-009; ``D-IMPL-374`` (4),
+            fix round 5). Required: silence is not a declaration.
         connection: The declared adapter's own settings, already composed, or
             ``None`` when the document stated none.
         server: This deployment's own server program, resolved absolute against
@@ -326,6 +331,13 @@ class BindingDocument:
             deployment states none. Contained but **not** existence-checked:
             whether the program has to be there is the transport's question,
             and an in-process deployment never asks it.
+
+    Raises:
+        TypeError: constructed without ``erasure_authority`` — the field is
+            required and has no default (SEC-009; ``D-IMPL-374`` (4)). A
+            document read from disk is refused earlier, by
+            :func:`load_binding_document`, with
+            :class:`~ccf.client.errors.BindingError` naming the omitted key.
     """
 
     root: Path

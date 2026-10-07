@@ -493,6 +493,24 @@ class ExposedAgent(CCFContract):
     definition's own declared identity, and the agent's *currently-bound*
     skill entries (CLAUDE.md §6.2 channel 2 — skills the agent has not been
     granted do not exist from this surface).
+
+    **The product classes it reaches are derived, never declared**
+    (SEC-017; ``D-IMPL-374`` (2), fix round 1, IMPORTANT 3).
+    ``product_classes`` is set only by
+    :func:`ccf_runtime.mcp.agent_directory.exposed_agent`, from the
+    definition's context contract. A principal whose grant declares a product
+    roster is refused, on ``invoke_agent``, an agent whose derived classes are
+    not all on it — before the authorizer, with one opaque refusal whatever
+    the reason (PC2) — and ``list_agents`` lists it only the agents whose
+    classes are. An entry with no derived classes reaches no rostered
+    principal; a principal with no roster is unaffected.
+
+    Raises:
+        pydantic.ValidationError: the entry states ``product_classes``
+            itself — outside :func:`~ccf_runtime.mcp.agent_directory.exposed_agent`'s
+            derivation — refused by name at construction, because a narrower
+            stated set is a wider reach for every rostered principal (SEC-017;
+            ``D-IMPL-374``).
     """
 
     definition_key: str

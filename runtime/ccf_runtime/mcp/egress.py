@@ -862,6 +862,19 @@ def build_egress_server(
     the prose an adopter's consumers read is a deployment value and not the
     SDK's to write (CINV-01; CLAUDE.md §6.4).
 
+    **A product roster binds all three product surfaces** (SEC-017;
+    ``D-IMPL-374`` (2)). The resource, the tool and the address template each
+    declare their product class from the ``product_class`` argument, so a
+    principal whose grant declares a product roster is refused a class off it
+    by name (``ProductOutsideRosterRefused``), before the authorizer, and a
+    principal with no roster is unaffected. **An erased artifact crosses by
+    disclosure level** (SEC-009; ``D-IMPL-374`` (4), FW-3): an
+    ``ErasedContentRefused`` raised while answering the resource or the tool
+    is recorded and disclosed through
+    :func:`~ccf_runtime.authz.delivery_boundary.govern_erasure` — the
+    not-found rendering at ``minimal``, the erased-content refusal at
+    ``reasoned`` and ``full`` — and never crosses as the exception's text.
+
     Args:
         server_name: The name this server advertises. Deployment identity; the
             SDK holds no default for it.

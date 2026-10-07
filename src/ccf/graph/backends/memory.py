@@ -324,6 +324,22 @@ class MemoryGraphReader:
         (`GQ-23` at docs/GRAPH_QUERY_SEMANTICS.md:474). Tenant scope arrives
         inside the frozen value; ``q.as_of`` arrives as data — this method
         reads no clock.
+
+        **A classification query carries the boot-minted authority, or it is
+        refused before any substrate I/O** (SEC-023; ``D-IMPL-374``): the
+        check is
+        :func:`~ccf.graph.protocols.require_query_classification_authority`,
+        and a query with no classification map passes it untouched.
+
+        Raises:
+            ClassificationAuthorityMissing: ``q`` sets
+                ``classification_attribute_by_class`` and carries no
+                classification authority — a reader reached without
+                ``ccf.boot.boot`` has none to offer (SEC-023; ``D-IMPL-374``).
+            ClassificationAuthorityNotMinted: ``q``'s authority was not minted
+                by ``ccf.boot.boot`` (built by hand, or rebuilt).
+            UngovernedClassificationAttribute: ``q``'s authority does not
+                cover an attribute its classification map names.
         """
         # SEC-023 (`D-IMPL-374`): a classification query carries the authority a
         # booted fabric's reader checked it against, or it is refused here.

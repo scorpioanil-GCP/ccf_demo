@@ -1776,7 +1776,11 @@ class FlureeGraphReader(BaseGraphReader):
         precisely because the fallback owns that cut and is independently
         enforceable at this tier.
 
-        The D-IMPL-88 guard runs **first**, before any I/O
+        The SEC-023 check runs **first** (``D-IMPL-374``): a query whose
+        ``classification_attribute_by_class`` is set must carry the
+        classification authority ``ccf.boot.boot`` minted, covering the map
+        (:func:`~ccf.graph.protocols.require_query_classification_authority`).
+        The D-IMPL-88 guard runs next, also before any I/O
         (:func:`_require_fluree_pin`): a ``datetime``, an ``int`` or a pin
         from another substrate is refused by ``TypeError`` naming the ruling.
         This method does not touch :meth:`_translate_query` — the unpinned
@@ -1785,6 +1789,14 @@ class FlureeGraphReader(BaseGraphReader):
         :meth:`query`'s posture and nothing else.
 
         Raises:
+            ClassificationAuthorityMissing: ``q`` sets
+                ``classification_attribute_by_class`` and carries no
+                classification authority — a reader reached without
+                ``ccf.boot.boot`` has none to offer (SEC-023; ``D-IMPL-374``).
+            ClassificationAuthorityNotMinted: ``q``'s authority was not minted
+                by ``ccf.boot.boot`` (built by hand, or rebuilt).
+            UngovernedClassificationAttribute: ``q``'s authority does not
+                cover an attribute its classification map names.
             TypeError: ``pin`` is not a Fluree-minted :class:`StoreSnapshotPin`.
             FlureePinAhead: ``pin`` is past the ledger head.
             ValueError: the tenant or partition would be read as a query

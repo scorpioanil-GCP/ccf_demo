@@ -51,7 +51,7 @@ def test_p1_a_mislabelled_class_cannot_bypass_retention(tmp_path: Path) -> None:
         principal="filer", decision_id="p1",
     )
     ref = plane.store.put(authorized, {"customer": {"id": h.SUBJECT_ID}, "decision": "significant"})
-    request = _readdress(h.request(plane), ref.content_address)  # labelled kyc-note
+    request = _readdress(h.request(plane), ref.content_address)  # labeled kyc-note
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
         _full_erasure(plane, h.door(plane), request)
     assert refused.value.reason_code == "class-label-mismatch"

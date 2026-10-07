@@ -696,6 +696,15 @@ def disclose(
     the one seam that calls this) and passed in, so one determination discloses
     identically wherever it is disclosed.
 
+    **A kind in** :data:`TRANSLATED_AT_MINIMAL` **crosses at** ``minimal``
+    **as another kind's rendering** (SEC-009; ``D-IMPL-374`` (4), fix round 1
+    I5). ``erased-content`` is disclosed at ``minimal`` as the
+    ``subject-unavailable`` shell, built from a value of that kind carrying
+    none of this envelope's determination, so the erasure itself never
+    crosses; the returned :class:`DisclosureDecision` records the
+    ``erased-content`` determination with ``external_kind`` naming what
+    crossed. At ``reasoned`` and ``full`` the kind renders as itself.
+
     Args:
         envelope: The internal, fully-known shell — the determination as the
             fabric reached it. Its

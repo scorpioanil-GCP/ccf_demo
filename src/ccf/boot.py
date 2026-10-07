@@ -457,6 +457,20 @@ def boot(
     wrapper written here would format the underlying validation error, and that
     rendering embeds the value that was supplied.
 
+    **The writer lease and the classification authority** (SEC-013 and
+    SEC-023; ``D-IMPL-374``). A writer boot's mint takes the store's writer
+    lease (:func:`ccf.graph._writer.mint_boot_token`), so a second writer of
+    one graph is refused whether it boots in this process or — under a
+    cross-process lease — in another, and a persistent network store that
+    declares no lease refuses the mint. The handle's reader is the store's
+    own reader governed by the
+    :class:`~ccf.graph.protocols.ClassificationAuthority` minted here, from
+    the pinned resolution spec its L2 enforces — the only place that
+    authority is minted — so every view it returns is stamped and every
+    classification query it answers carries it. Every step after the mint runs
+    inside one guard that retires the writer and gives back its lease on
+    failure (PM10, panel C10), so a corrected retry boots.
+
     Args:
         backend: The adapter name this fabric boots against. Required; resolved
             through :func:`ccf.graph.registry.resolve`, which refuses a name no
@@ -518,8 +532,12 @@ def boot(
             packaging conflict among the installed adapters; or the named
             adapter is installed but its declaration could not be loaded.
         ccf.graph._writer.SingleWriterViolation: a live writer already exists
-            for this graph (a writer boot only; a read-only boot mints no
-            writer and is never refused for one).
+            for this graph, in this process or, under a cross-process writer
+            lease, in another (SEC-013; ``D-IMPL-374``) — a writer boot only;
+            a read-only boot mints no writer and is never refused for one.
+        ccf.graph.protocols.WriterLeaseRequired: the store is a persistent
+            network store and declares no writer lease (SEC-013;
+            ``D-IMPL-374``); a writer boot only.
         ccf.controlplane.registry.ControlPlaneMissing: a pinned key or version
             is not registered.
         TypeError: the resolution-spec artifact is not an
@@ -527,7 +545,9 @@ def boot(
             constructor was handed a store it does not write through; or that
             constructor returned an object that is not a ``BaseGraphWriter``
             and so could never release the graph on close
-            (:func:`ccf.graph._writer.adopt_writer`).
+            (:func:`ccf.graph._writer.adopt_writer`); or the store offers no
+            ``writer_lease()``, or a lease that declares no known scope
+            (SEC-013).
         BaseException: whatever the resolved adapter's own store or writer
             constructor raises, re-raised unchanged. The adapter chooses the
             type — it is third-party code — so this function does not wrap it
