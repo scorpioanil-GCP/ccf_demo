@@ -386,6 +386,28 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.audit.AttributeAssertionRefusedAuditEvent.refused_value_present",
         "ccf.hitl.transport.HitlActionRequest.annotation",
         "ccf.hitl.transport.HitlActionSubmission.authorizing_decision_id",
+        # `D-IMPL-374` (SEC-013) — three marks, ticked deliberately. The
+        # ABSOLUTE directory a deployment declares for the graph's cross-process
+        # writer lease, on each network store's connection settings
+        # (`src/ccf/graph/backends/fluree_write.py::FlureeConnection`,
+        # `src/ccf/graph/backends/mongo_write.py::MongoConnection`,
+        # `src/ccf/graph/backends/neo4j_write.py::Neo4jConnection`). It is
+        # deployment placement — where the lock file lives, whose NAME the
+        # mechanism derives from the graph identity and no deployment chooses —
+        # and not a claim about the graph or the adapter. `None` means no lease
+        # declared, which is what every connection written before the field
+        # existed said, so a connection that declares no directory
+        # canonicalizes byte-for-byte as it did; a declared directory is a real
+        # claim and is rendered. Ticked `True` and NOT `False`: a connection
+        # without the field is not an earlier generation. Moving the directory
+        # does not move replay dimension 2's adapter pin, because
+        # `src/ccf/graph/registry.py::AdapterPin` carries the adapter's name,
+        # version and secret reference names and no connection setting. The
+        # lane declared the marks at the fields and did not tick them here;
+        # the roster is what reported it, which is why it is a roster.
+        "ccf.graph.backends.fluree_write.FlureeConnection.writer_lease_lock_dir",
+        "ccf.graph.backends.mongo_write.MongoConnection.writer_lease_lock_dir",
+        "ccf.graph.backends.neo4j_write.Neo4jConnection.writer_lease_lock_dir",
         # `D-IMPL-363` (SEC-005, the signed-claims / time-window repair) —
         # six marks, ticked deliberately. `attestation` REPLACES
         # `signed_binding` on both contracts (E1; the submission's old name is
