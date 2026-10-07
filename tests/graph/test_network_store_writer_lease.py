@@ -23,7 +23,6 @@ Lock files live in ``tmp_path``.
 from __future__ import annotations
 
 import contextlib
-import functools
 import multiprocessing as mp
 import uuid
 from collections.abc import Iterator
@@ -39,8 +38,8 @@ _TIMEOUT_SECONDS = 120
 
 NETWORK_SUBSTRATES = ("fluree", "mongo", "neo4j")
 
-#: The connection-contract field a deployment declares the lock-file lease by.
-LEASE_FIELD = "writer_lease_lock_file"
+#: The connection-contract field a deployment declares the lock-directory lease by.
+LEASE_FIELD = "writer_lease_lock_dir"
 
 
 # --- Network-client doubles ---------------------------------------------------
@@ -233,7 +232,7 @@ def test_a_second_process_cannot_mint_a_writer_for_a_held_network_graph(
     fresh process boots.
     """
     connection = _connection(substrate, f"lease_{uuid.uuid4().hex}")
-    connection[LEASE_FIELD] = str(tmp_path / f"{substrate}-writer.lock")
+    connection[LEASE_FIELD] = str(tmp_path)
     with _offline_clients():
         holder = _boot(substrate, connection)
         try:
@@ -300,7 +299,7 @@ def test_a_refused_unleased_mint_leaves_the_graph_bootable(
         with pytest.raises(Exception) as refused:
             _boot(substrate, connection)
         assert type(refused.value).__name__ == "WriterLeaseRequired"
-        connection[LEASE_FIELD] = str(tmp_path / "retry.lock")
+        connection[LEASE_FIELD] = str(tmp_path)
         _boot(substrate, connection).close()
 
 
@@ -332,20 +331,20 @@ def test_the_boot_token_records_the_held_leases_scope_and_identity(
 ) -> None:
     """SEC-013-C-03: the token says which lease it was minted under, not only its scope."""
     from ccf.graph._writer import mint_boot_token, release_boot_token
-    from ccf.graph.backends.sqlite import SqliteWriterLease
+    from ccf.graph.leases import lock_directory_writer_lease, lock_file_name
 
-    sidecar = tmp_path / "token.lock"
     with _offline_clients():
         store = _store(
             substrate,
             f"token_{uuid.uuid4().hex}",
-            functools.partial(SqliteWriterLease, sidecar=sidecar),
+            lock_directory_writer_lease(tmp_path),
         )
         try:
             token = mint_boot_token(store=store)
             try:
+                expected = tmp_path.resolve() / lock_file_name(store.graph_identity)
                 assert token.lease_scope == "cross-process"
-                assert token.lease_mechanism == f"flock on {str(sidecar)!r}"
+                assert token.lease_mechanism == f"flock on {str(expected)!r}"
             finally:
                 release_boot_token(token)
         finally:
@@ -364,7 +363,7 @@ def test_a_declared_process_scoped_lease_is_not_a_held_lease(
         store = _store(
             substrate,
             f"declared_{uuid.uuid4().hex}",
-            functools.partial(ProcessScopedWriterLease, substrate="declared"),
+            lambda _identity: ProcessScopedWriterLease(substrate="declared"),
         )
         try:
             with pytest.raises(Exception) as refused:
@@ -430,9 +429,9 @@ def test_the_advisory_lock_lease_is_reusable_against_a_network_graph(
     partition = f"advisory_{uuid.uuid4().hex}"
 
     def declared() -> Any:
-        return functools.partial(
-            PostgresWriterLease,
-            connection=_AdvisorySession(server, lease_schema),
+        session = _AdvisorySession(server, lease_schema)
+        return lambda _identity: PostgresWriterLease(
+            connection=session,  # type: ignore[arg-type]
             schema=lease_schema,
         )
 
@@ -449,3 +448,160 @@ def test_the_advisory_lock_lease_is_reusable_against_a_network_graph(
         finally:
             first.close()
             second.close()
+
+
+# --- Fix round 1: the lock file is derived from the graph identity -----------
+
+
+@pytest.mark.parametrize("substrate", NETWORK_SUBSTRATES)
+def test_two_spellings_of_one_lock_dir_lock_one_file_across_processes(
+    substrate: str, tmp_path: Path
+) -> None:
+    """The file is derived, never chosen: one graph, one declared dir, one lock.
+
+    The holder declares ``<tmp>/leases``; a second process declares the same
+    directory spelled ``<tmp>/leases/../leases``. Before the fix a deployment
+    chose the lock FILE, so two writers of one graph naming two files both
+    minted; now both reach ``<dir>/<sha256(graph identity)>.lock`` and the
+    second is refused.
+    """
+    leases = tmp_path / "leases"
+    leases.mkdir()
+    partition = f"spelled_{uuid.uuid4().hex}"
+    holder_connection = _connection(substrate, partition)
+    holder_connection[LEASE_FIELD] = str(leases)
+    child_connection = _connection(substrate, partition)
+    child_connection[LEASE_FIELD] = str(leases / ".." / "leases")
+    with _offline_clients():
+        holder = _boot(substrate, holder_connection)
+        try:
+            status, exc_name, cause_name, message = _run_child(
+                substrate, child_connection
+            )
+        finally:
+            holder.close()
+    assert (status, exc_name, cause_name) == (
+        "REFUSED",
+        "SingleWriterViolation",
+        "WriterLeaseHeld",
+    ), f"child reported {status!r} {exc_name!r} {cause_name!r} {message!r}"
+
+
+@pytest.mark.parametrize("substrate", NETWORK_SUBSTRATES)
+def test_a_relative_lock_dir_is_refused_by_name_at_validation(substrate: str) -> None:
+    """A relative directory resolves per working directory, so it is refused."""
+    from ccf.graph.registry import InvalidBackendConfig
+
+    connection = _connection(substrate, f"relative_{uuid.uuid4().hex}")
+    connection[LEASE_FIELD] = "relative/leases"
+    with _offline_clients():
+        with pytest.raises(InvalidBackendConfig) as refused:
+            _boot(substrate, connection)
+    message = str(refused.value)
+    assert LEASE_FIELD in message
+    assert "absolute path" in message, message
+
+
+@pytest.mark.parametrize("substrate", NETWORK_SUBSTRATES)
+def test_the_fabric_handle_reports_the_held_writer_lease(
+    substrate: str, tmp_path: Path
+) -> None:
+    """SEC-013-C-03 reader: the booted handle says which lease its writer holds.
+
+    And the file it names is the derived one, held: an independent ``flock`` on
+    it is refused while the fabric lives and granted once it closes.
+    """
+    import fcntl
+    import os
+
+    from ccf.graph.leases import lock_file_name
+
+    connection = _connection(substrate, f"handle_{uuid.uuid4().hex}")
+    connection[LEASE_FIELD] = str(tmp_path)
+    with _offline_clients():
+        handle = _boot(substrate, connection)
+        try:
+            identity = _store_identity(substrate, connection)
+            expected = tmp_path.resolve() / lock_file_name(identity)
+            assert handle.writer_lease_scope == "cross-process"
+            assert handle.writer_lease_mechanism == f"flock on {str(expected)!r}"
+            fd = os.open(expected, os.O_RDWR)
+            try:
+                with pytest.raises(BlockingIOError):
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            finally:
+                os.close(fd)
+        finally:
+            handle.close()
+    fd = os.open(expected, os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    finally:
+        os.close(fd)
+
+
+def _store_identity(substrate: str, connection: dict[str, Any]) -> str:
+    """The graph identity the store derives for ``connection``, offline."""
+    store = _store(substrate, connection["partition"], None)
+    try:
+        return str(store.graph_identity)
+    finally:
+        store.close()
+
+
+def test_the_sqlite_fabric_handle_reports_its_substrate_lease(tmp_path: Path) -> None:
+    """The reader is general: the file-backed store's handle reports its own lease."""
+    database_path = tmp_path / "handle.sqlite3"
+    handle = _boot("sqlite", {"database_path": database_path})
+    try:
+        sidecar = f"{database_path.resolve()}.ccf-writer.lock"
+        assert handle.writer_lease_scope == "cross-process"
+        assert handle.writer_lease_mechanism == f"flock on {sidecar!r}"
+    finally:
+        handle.close()
+
+
+def test_a_symlinked_lock_file_is_refused_not_followed(tmp_path: Path) -> None:
+    """``O_NOFOLLOW``: a symbolic link at the derived lock path is refused by name."""
+    from ccf.graph.leases import lock_directory_writer_lease, lock_file_name
+
+    identity = "graph://symlinked"
+    target = tmp_path / "elsewhere"
+    target.write_text("")
+    (tmp_path / lock_file_name(identity)).symlink_to(target)
+    with pytest.raises(RuntimeError, match="symbolic link"):
+        lock_directory_writer_lease(tmp_path)(identity)
+
+
+def test_a_lock_file_owned_by_another_user_is_a_held_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another principal's lock file refuses as ``WriterLeaseHeld``, never ``PermissionError``."""
+    import ccf.graph.leases as leases
+    from ccf.graph.protocols import WriterLeaseHeld
+
+    real_uid = os_geteuid()
+    monkeypatch.setattr(leases.os, "geteuid", lambda: real_uid + 1)
+    with pytest.raises(WriterLeaseHeld, match="owned by another user"):
+        leases.lock_directory_writer_lease(tmp_path)("graph://foreign")
+
+
+def test_an_unopenable_lock_file_is_a_held_refusal(tmp_path: Path) -> None:
+    """A lock file this user cannot open refuses as ``WriterLeaseHeld``."""
+    from ccf.graph.leases import lock_directory_writer_lease, lock_file_name
+    from ccf.graph.protocols import WriterLeaseHeld
+
+    if os_geteuid() == 0:
+        pytest.skip("root opens a mode-000 file; the refusal cannot be provoked")
+    identity = "graph://unopenable"
+    locked = tmp_path / lock_file_name(identity)
+    locked.write_text("")
+    locked.chmod(0)
+    with pytest.raises(WriterLeaseHeld, match="cannot be opened"):
+        lock_directory_writer_lease(tmp_path)(identity)
+
+
+def os_geteuid() -> int:
+    import os
+
+    return os.geteuid()
