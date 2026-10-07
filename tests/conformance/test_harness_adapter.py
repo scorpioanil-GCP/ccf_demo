@@ -461,12 +461,14 @@ def build_harness_leg(param: str) -> HarnessLeg:
         values = _harness_fixture()[param]
 
         def adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
-            return ClaudeAgentAdapter(
+            built = ClaudeAgentAdapter(
                 model=values["model"],
                 mcp_server_name=values["mcp_server_name"],
                 mcp_server_version=values["mcp_server_version"],
                 effects=effects,
             )
+            CLAUDE_ADAPTERS_BUILT.append(built)
+            return built
 
         def execution() -> object:
             return ResultMessage(
@@ -738,6 +740,21 @@ def harness_leg(request: pytest.FixtureRequest) -> HarnessLeg:
 @pytest.fixture
 def world() -> World:
     return World()
+
+
+#: Every Claude adapter a leg built in the current test. Each ``inject_context``
+#: writes the assembled prompt to a 0600 file at rest (TP-05, D-IMPL-361), so
+#: the suite removes them through the adapter's own helper at teardown rather
+#: than leaving product payloads in TMPDIR.
+CLAUDE_ADAPTERS_BUILT: list[Any] = []
+
+
+@pytest.fixture(autouse=True)
+def remove_claude_prompt_directories() -> Iterator[None]:
+    """Teardown: remove every prompt directory a Claude adapter created."""
+    yield
+    while CLAUDE_ADAPTERS_BUILT:
+        CLAUDE_ADAPTERS_BUILT.pop().remove_prompt_directories()
 
 
 @pytest.fixture(autouse=True)

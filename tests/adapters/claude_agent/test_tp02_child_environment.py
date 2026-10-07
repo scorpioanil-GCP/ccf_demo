@@ -32,7 +32,9 @@ from conftest import harness_unavailable
 from conformance.test_harness_adapter import (
     World,
     _harness_fixture,
+    CLAUDE_ADAPTERS_BUILT,
     no_model_reachable,  # noqa: F401 - autouse socket guard, reused not copied
+    remove_claude_prompt_directories,  # noqa: F401 - autouse teardown, reused
 )
 
 pytestmark = [pytest.mark.harness]
@@ -70,13 +72,15 @@ def _adapter(**kwargs: Any) -> Any:
     from ccf_runtime.adapters.claude_agent import ClaudeAgentAdapter
 
     values = _harness_fixture()[LEG]
-    return ClaudeAgentAdapter(
+    built = ClaudeAgentAdapter(
         model=values["model"],
         mcp_server_name=values["mcp_server_name"],
         mcp_server_version=values["mcp_server_version"],
         effects="governed",
         **kwargs,
     )
+    CLAUDE_ADAPTERS_BUILT.append(built)
+    return built
 
 
 def _drive_connect(adapter: Any, carrier: Any) -> None:

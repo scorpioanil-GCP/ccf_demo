@@ -28,7 +28,9 @@ from conformance.test_harness_adapter import (
     World,
     _agent_fixture,
     _harness_fixture,
+    CLAUDE_ADAPTERS_BUILT,
     no_model_reachable,  # noqa: F401 - autouse socket guard, reused not copied
+    remove_claude_prompt_directories,  # noqa: F401 - autouse teardown, reused
 )
 
 pytestmark = [pytest.mark.harness]
@@ -61,12 +63,14 @@ def _adapter(effects: str) -> Any:
     from ccf_runtime.adapters.claude_agent import ClaudeAgentAdapter
 
     values = _harness_fixture()[LEG]
-    return ClaudeAgentAdapter(
+    built = ClaudeAgentAdapter(
         model=values["model"],
         mcp_server_name=values["mcp_server_name"],
         mcp_server_version=values["mcp_server_version"],
         effects=effects,  # type: ignore[arg-type]
     )
+    CLAUDE_ADAPTERS_BUILT.append(built)
+    return built
 
 
 def _call_through_the_vendor_route(

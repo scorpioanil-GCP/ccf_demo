@@ -31,7 +31,9 @@ from conformance.test_harness_adapter import (
     World,
     _harness_fixture,
     _product,
+    CLAUDE_ADAPTERS_BUILT,
     no_model_reachable,  # noqa: F401 - autouse socket guard, reused not copied
+    remove_claude_prompt_directories,  # noqa: F401 - autouse teardown, reused
 )
 
 pytestmark = [pytest.mark.harness]
@@ -45,12 +47,14 @@ def _adapter() -> Any:
     from ccf_runtime.adapters.claude_agent import ClaudeAgentAdapter
 
     values = _harness_fixture()[LEG]
-    return ClaudeAgentAdapter(
+    built = ClaudeAgentAdapter(
         model=values["model"],
         mcp_server_name=values["mcp_server_name"],
         mcp_server_version=values["mcp_server_version"],
         effects="governed",
     )
+    CLAUDE_ADAPTERS_BUILT.append(built)
+    return built
 
 
 def _argv(adapter: Any, carrier: Any) -> list[str]:
@@ -125,3 +129,23 @@ def test_each_inject_context_call_gets_its_own_prompt_directory() -> None:
     assert {str(first_file.parent), str(second_file.parent)} <= set(
         adapter.prompt_directories
     )
+
+
+def test_remove_prompt_directories_removes_every_recorded_directory() -> None:
+    """The adopter's removal helper leaves no prompt payload at rest (TP-05)."""
+    world = World()
+    world.bind(world.grant_a, world.definition_a)
+    product = world.agent_a.consume(_product(world.definition_a), now=BOUNDARY)
+    adapter = _adapter()
+    for _ in range(2):
+        adapter.inject_context(
+            agent=world.agent_a, products=(product,), instructions=world.instructions()
+        )
+    recorded = adapter.prompt_directories
+    assert len(recorded) == 2 and all(Path(path).is_dir() for path in recorded)
+
+    adapter.remove_prompt_directories()
+
+    assert adapter.prompt_directories == ()
+    assert not any(Path(path).exists() for path in recorded)
+    adapter.remove_prompt_directories()  # idempotent

@@ -68,6 +68,7 @@ replay slot seam 4 writes into).
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
@@ -349,10 +350,25 @@ class ClaudeAgentAdapter:
         in a new ``0700`` directory on each call, because the vendor would
         otherwise put the prompt on the ``claude`` argv (D-IMPL-361). The
         directories are **the adopter's to remove** once the session that
-        used the carrier has ended — this adapter runs no background cleaner,
-        because it cannot know when the harness has finished reading the file.
+        used the carrier has ended, with :meth:`remove_prompt_directories` —
+        this adapter runs no background cleaner, because it cannot know when
+        the harness has finished reading the file.
         """
         return tuple(self._prompt_directories)
+
+    def remove_prompt_directories(self) -> None:
+        """Remove every recorded system-prompt directory and forget it (TP-05).
+
+        Synchronous and idempotent: a directory already gone is skipped, and
+        :attr:`prompt_directories` is empty afterwards. Each directory holds
+        the full assembled prompt — rendered instructions and the canonical
+        serialization of every product the carrier delivered — at rest, so a
+        long-lived adapter should call this once the sessions that used its
+        carriers have ended (D-IMPL-361). A carrier whose directory has been
+        removed can no longer start a session.
+        """
+        while self._prompt_directories:
+            shutil.rmtree(self._prompt_directories.pop(), ignore_errors=True)
 
     # --- seam 0: what this adapter declares about itself ---------------------
 
