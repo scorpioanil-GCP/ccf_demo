@@ -75,13 +75,15 @@ def _events_read(unrelated: int) -> tuple[int, str]:
 
 
 def test_fw10_the_head_reads_no_more_events_as_unrelated_events_accumulate() -> None:
-    small_read, small_head = _events_read(10)
-    large_read, large_head = _events_read(2_000)
+    small_read, _small_head = _events_read(10)
+    large_read, _large_head = _events_read(2_000)
     assert large_read == small_read, (
         f"policy_head read {small_read} audit events beside 10 unrelated ones and"
         f" {large_read} beside 2000: its cost grows with the audit log"
     )
-    assert small_head == large_head, "unrelated audit events moved the registration head"
+    # (The two heads come from two registries whose registrations carry their
+    # own instants, so they are not compared; the companion test holds the
+    # value within one registry.)
 
 
 def test_fw10_the_head_is_still_the_registration_history_digest() -> None:

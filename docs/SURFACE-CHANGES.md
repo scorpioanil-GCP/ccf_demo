@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2164 entries**, of which **1892** name a public Python surface.
+**2166 entries**, of which **1894** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1243 entries — 1199 public Python surface, 44 not public Python API.
+1244 entries — 1200 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18447,6 +18447,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-05-final-fix-wave.md`.*
 
+#### ccf.controlplane.audit.REGISTRATION_ACTIONS
+
+- Surface: ccf.controlplane.audit.REGISTRATION_ACTIONS
+- Public surface: true
+- Change type: added
+- Before: absent; the registration actions were named only inside the erasure approval module.
+- After: the frozenset `{"register", "register_typed", "register_versioned"}`: the actions whose resolved events make up the registration history. `AuditLog` now folds each such event, as it is appended, into a digest it serves as the read-only property `AuditLog.registration_head` in O(1) under its lock.
+- Why: FW-10, whole-branch review M-5 (`D-IMPL-374`). `ccf.erasure.approval.policy_head` copied and scanned the whole audit log on every erased read and composition, linear in uptime on a door that audits each request. Red tests: `tests/erasure/test_fw10_policy_head_cost.py`, measured by events read, not time.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29030,7 +29042,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-283 entries — 247 public Python surface, 36 not public Python API.
+284 entries — 248 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33591,6 +33603,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition re-checks that the directory is still its own real path. Ownership and mode are judged at config validation; a deployment constructing the lease directly keeps them itself.
 - Why: PC3.
 - Migration: construct it over the directory's real path.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.approval.policy_head
+
+- Surface: ccf.erasure.approval.policy_head
+- Public surface: true
+- Change type: behavior
+- Before: every call copied the Control Plane's whole audit log and folded its registrations.
+- After: a Control Plane whose audit log serves `registration_head` (the reference registry's) is read in O(1), with the same bytes folded, so the value is unchanged. Any other Control Plane falls back to the fold over its audit events. The docstring states the head's condition: it digests registration metadata, which suffices where a version IS its content (the reference registry), and a third-party Control Plane must uphold that.
+- Why: FW-10.
+- Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
 

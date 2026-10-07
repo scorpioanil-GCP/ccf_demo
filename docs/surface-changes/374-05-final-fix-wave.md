@@ -354,3 +354,23 @@ and X2.
 - After: after the `--local-root` check, a CLI invocation with no embedder authority reports `--local` suspended first, demanding no further flag and building nothing.
 - Why: FW-9, whole-branch review M-9 (`D-IMPL-374`). A suspended mode should not ask for a flag only a working mode would need. The suspension test is restored to pass no key.
 - Migration: none.
+
+## ccf.controlplane.audit.REGISTRATION_ACTIONS
+
+- Surface: ccf.controlplane.audit.REGISTRATION_ACTIONS
+- Public surface: true
+- Change type: added
+- Before: absent; the registration actions were named only inside the erasure approval module.
+- After: the frozenset `{"register", "register_typed", "register_versioned"}`: the actions whose resolved events make up the registration history. `AuditLog` now folds each such event, as it is appended, into a digest it serves as the read-only property `AuditLog.registration_head` in O(1) under its lock.
+- Why: FW-10, whole-branch review M-5 (`D-IMPL-374`). `ccf.erasure.approval.policy_head` copied and scanned the whole audit log on every erased read and composition, linear in uptime on a door that audits each request. Red tests: `tests/erasure/test_fw10_policy_head_cost.py`, measured by events read, not time.
+- Migration: none.
+
+## ccf.erasure.approval.policy_head
+
+- Surface: ccf.erasure.approval.policy_head
+- Public surface: true
+- Change type: behavior
+- Before: every call copied the Control Plane's whole audit log and folded its registrations.
+- After: a Control Plane whose audit log serves `registration_head` (the reference registry's) is read in O(1), with the same bytes folded, so the value is unchanged. Any other Control Plane falls back to the fold over its audit events. The docstring states the head's condition: it digests registration metadata, which suffices where a version IS its content (the reference registry), and a third-party Control Plane must uphold that.
+- Why: FW-10.
+- Migration: none.

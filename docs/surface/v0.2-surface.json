@@ -2298,6 +2298,7 @@
       "AuditLog",
       "AuthzDecisionAuditEvent",
       "AuthzFailingAxis",
+      "REGISTRATION_ACTIONS",
       "WorkflowVerdictIntegrityAuditEvent",
       "WorkflowVerdictIntegrityFailure"
     ],
@@ -2362,6 +2363,10 @@
       "AuthzFailingAxis": {
         "kind": "function",
         "shape": "typing.Literal['tenant', 'action', 'resource', 'mapping']"
+      },
+      "REGISTRATION_ACTIONS": {
+        "kind": "constant",
+        "shape": "frozenset"
       },
       "WorkflowVerdictIntegrityAuditEvent": {
         "kind": "contract",

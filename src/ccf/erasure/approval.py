@@ -223,14 +223,33 @@ def _registrations(control_plane: PinnedPolicySource) -> tuple[AuditEvent, ...]:
 
 
 def policy_head(control_plane: PinnedPolicySource) -> str:
-    """The digest of the Control Plane's registration history (fix round 4, ruling 4).
+    """The digest of the Control Plane's registration history (fix round 4, ruling 4; FW-10, `D-IMPL-374`).
 
     Every resolved registration — key, version and instant, in order — is
     folded into one sha256, so the head changes on ANY registration and on
     nothing else: a resolution audits but does not move it. Two Control Planes
     with the same registration history have the same head; a Control Plane
     object's identity is never part of it.
+
+    **Read without scanning the audit log** (FW-10, whole-branch review M-5).
+    Computed on every read of an erased address and every composition, it used
+    to copy and scan the WHOLE audit log under the lock every request's append
+    takes — linear in uptime on a door that audits each request. A Control
+    Plane whose audit log keeps the registration history's digest as it
+    appends (:attr:`ccf.controlplane.audit.AuditLog.registration_head`, the
+    reference registry's) is read in O(1), the same bytes folded; any other
+    falls back to the fold over its audit events.
+
+    **What the head covers, and its condition.** It digests the registration
+    METADATA — action, key, version, instant — not the content. That suffices
+    where a version IS its content (the reference registry: a version is the
+    content hash and a stored ``(key, version)`` is never overwritten); a
+    third-party Control Plane must uphold the same, or two registration
+    histories with different content could share a head.
     """
+    registration_head = getattr(getattr(control_plane, "audit_log", None), "registration_head", None)
+    if isinstance(registration_head, str):
+        return registration_head
     digest = hashlib.sha256()
     for event in _registrations(control_plane):
         digest.update(f"{event.action}\x1f{event.key}\x1f{event.version}\x1f{event.occurred_at.isoformat()}\x1e".encode())

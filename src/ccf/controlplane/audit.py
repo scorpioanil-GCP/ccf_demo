@@ -42,9 +42,10 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import hashlib
 import threading
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import Field
 
@@ -54,6 +55,7 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
+    "REGISTRATION_ACTIONS",
     "AttributeAssertionRefusedAuditEvent",
     "AuditAction",
     "AuditEvent",
@@ -415,6 +417,21 @@ class AttributeAssertionRefusedAuditEvent(AuditEvent):
     )
 
 
+#: The actions that register an artifact version — the registration history
+#: :attr:`AuditLog.registration_head` digests (FW-10; ``D-IMPL-374``).
+REGISTRATION_ACTIONS: Final[frozenset[str]] = frozenset(
+    {"register", "register_typed", "register_versioned"}
+)
+
+
+def _registration_fold(event: AuditEvent) -> bytes:
+    """One registration's bytes in the registration-history digest (FW-10)."""
+    return (
+        f"{event.action}\x1f{event.key}\x1f{event.version}"
+        f"\x1f{event.occurred_at.isoformat()}\x1e"
+    ).encode()
+
+
 class AuditLog:
     """An append-only sequence of :class:`AuditEvent`.
 
@@ -435,6 +452,10 @@ class AuditLog:
     def __init__(self) -> None:
         self._events: list[AuditEvent] = []
         self._lock = threading.Lock()
+        # FW-10 (whole-branch review M-5; `D-IMPL-374`): the registration
+        # history's digest, folded as each registration is appended, so a
+        # reader never copies the log to compute it.
+        self._registrations = hashlib.sha256()
 
     def __len__(self) -> int:
         with self._lock:
@@ -555,7 +576,25 @@ class AuditLog:
                     artifact_class=artifact_class,
                 )
             self._events.append(event)
+            if event.action in REGISTRATION_ACTIONS and event.resolved:
+                self._registrations.update(_registration_fold(event))
         return event
+
+    @property
+    def registration_head(self) -> str:
+        """The digest of every resolved registration in append order (FW-10; ``D-IMPL-374``).
+
+        The sha256 over each resolved :data:`REGISTRATION_ACTIONS` event's
+        action, key, version and instant, folded as it is appended — the same
+        bytes ``ccf.erasure.approval.policy_head`` folds, so the value is the
+        registration history's digest and moves on a registration and on
+        nothing else. Read in O(1) under the log's lock: no event is copied or
+        scanned. The whole-branch review measured the scan it replaces growing
+        linearly with every unrelated event (13 ms at 400k), under the lock
+        every request's append takes.
+        """
+        with self._lock:
+            return self._registrations.copy().hexdigest()
 
     def events(self) -> tuple[AuditEvent, ...]:
         """Return every recorded event, oldest first.
