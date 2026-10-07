@@ -749,13 +749,16 @@ class ClaudeAgentAdapter:
                 f"transport expected the ClaudeAgentOptions inject_context"
                 f" returned, got {type(carrier).__name__}"
             )
-        prompt = carrier.system_prompt
-        if not (isinstance(prompt, dict) and prompt.get("type") == "file"):
+        prompt: Mapping[str, object] = (
+            carrier.system_prompt if isinstance(carrier.system_prompt, dict) else {}
+        )
+        prompt_path = prompt.get("path")
+        if prompt.get("type") != "file" or not isinstance(prompt_path, str):
             raise PromptFileRefused(
                 "the carrier's system_prompt is not the adapter's file form; build"
                 " the carrier with inject_context (TP-05, I-3, D-IMPL-361)"
             )
-        _verify_prompt_file(Path(str(prompt["path"])))
+        _verify_prompt_file(Path(prompt_path))
         # Clear the fail-closed sentinel ``inject_context`` set, so the vendor
         # resolves the real CLI (bundled, then PATH) for this transport only.
         options = replace(carrier, cli_path=None)
