@@ -290,9 +290,11 @@ def issuance_staleness(
 class SeenNonceSetProtocol(Protocol):
     """Where spent issuance nonces live (Q14-2 (a); `SEC-022`, `SEC-022-C-01`).
 
-    One method, atomic: a deployment with several receivers plugs one shared
-    implementation into every gate, and a replay presented to any of them is
-    refused. Keyed by tenant so one store can serve several tenants' gates.
+    One method, atomic. Every gate in one process already consults one default
+    set (`SEC-022-R1`); a deployment whose receivers run in several processes
+    plugs one shared implementation into every gate, and a replay presented to
+    any of them is refused. Keyed by tenant so one store can serve several
+    tenants' gates.
 
     **Keyed by the signing key, never by a peer id** (`SEC-022-C-01`). A peer
     id is the receiver's label for a sender, and a trust policy may list one
@@ -322,12 +324,16 @@ class InProcessSeenNonceSet:
     Entries are ``(tenant, key thumbprint, nonce)``: the signing key's scope,
     never a peer id's (`SEC-022-C-01`).
 
-    The default each :class:`~ccf.peering.admission.PeeringAdmissionGate`
-    constructs for itself, never shared between gates. **Bound, stated:** it
-    covers one process and one gate, and its entries are retained for the
-    gate's lifetime. The issuance window makes the set boundable — an entry
-    older than ``max_age + skew`` can never be admitted again — but this
-    reference implementation does not prune; the same retention question as the
+    ONE instance of this class is the default every
+    :class:`~ccf.peering.admission.PeeringAdmissionGate` in a process shares
+    when its composition supplies no seen-set (`SEC-022-R1`). **Bound,
+    stated:** it covers one process and lives as long as the process — it is
+    not persisted, so after a restart an envelope still inside its peer's
+    issuance window can be admitted once more, and receivers in several
+    processes share nothing through it. The issuance window makes the set
+    boundable — an entry older than ``max_age + skew`` can never be admitted
+    again — but this reference implementation does not prune; its entries are
+    retained for the process's lifetime, the same retention question as the
     HITL reference transport's seen-nonce set (``CR-363-07``).
     """
 

@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2170 entries**, of which **1898** name a public Python surface.
+**2172 entries**, of which **1900** name a public Python surface.
 
 ## Added
 
@@ -29054,7 +29054,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-287 entries — 251 public Python surface, 36 not public Python API.
+289 entries — 253 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33663,6 +33663,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: verification is offered only the key the protected header's `kid` names in the peer's entry (none when it names no key there; the provider refuses that as before). The nonce is spent under `(tenant, thumbprint of that key)`, so the same signed bytes are refused `replayed` under any peer id whose grant lists the same key. A verification that returns with no key offered (a non-conforming `IdentityProvider`) is refused at the signature check as `UnknownSigningKey`, audited, never admitted. The `replayed` refusal's detail names the signing key's scope
 - Why: SEC-022-C-01, ruled: the replay key is the verified signing key, not the observed or claimed peer id
 - Migration: none for a conforming `IdentityProvider`. Producers must not reuse a nonce under the same signing key, even when the receiver lists that key under more than one peer id
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate (SEC-022-R1)
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `seen=None` (the default) constructed a fresh `InProcessSeenNonceSet` for each gate, so two receivers in one process each admitted the same envelope once
+- After: `seen=None` is ONE `InProcessSeenNonceSet` shared by every gate in the process, so a second receiver built without `seen=` refuses `replayed` what the first admitted. Entries are scoped by tenant and signing key, so gates for different tenants sharing it spend no nonce of each other's. A `seen=` argument is used instead of the default, never beside it. The constructor's signature is unchanged
+- Why: SEC-022-R1: the sharing obligation was documented, not enforced, and a composition that never heard of the seen-set got a gate that refused only the replays it saw itself
+- Migration: none within one process. Receivers in several processes pass one shared `SeenNonceSetProtocol` implementation to every gate, as before. A deployment that relied on two gates in one process each admitting the same envelope passes each gate its own `InProcessSeenNonceSet()`
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.issuance.InProcessSeenNonceSet (SEC-022-R1)
+
+- Surface: ccf.peering.issuance.InProcessSeenNonceSet
+- Public surface: true
+- Change type: behavior
+- Before: one per gate; entries retained for the gate's lifetime
+- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted
+- Why: SEC-022-R1
+- Migration: none
 
 *Recorded by `375-03-sec-022-replay-scope.md`.*
 

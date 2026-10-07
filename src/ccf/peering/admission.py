@@ -55,7 +55,10 @@ The six checks, **in this order, and the order is load-bearing**:
    nonce is spent under the key the signature verified under (its RFC 7638
    thumbprint, :func:`~ccf.peering.identity.jwk_thumbprint`), never under the
    observed peer id: a trust policy listing one key under two peer ids would
-   otherwise admit the same bytes once under each (`SEC-022-C-01`).
+   otherwise admit the same bytes once under each (`SEC-022-C-01`). Unless the
+   composition supplies a seen-set, every gate in the process consults ONE
+   (`SEC-022-R1`): a second receiver built the same way refuses what the first
+   admitted.
    Freshness is judged once, at live admission; no replay path runs this gate,
    so a replayed decision is never re-windowed against a later instant.
 3. **Contract validation.** The verified canonical bytes are parsed and
@@ -163,7 +166,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal, cast
+from typing import Final, Literal, cast
 from types import MappingProxyType
 
 from pydantic import Field, ValidationError, field_validator
@@ -252,6 +255,17 @@ GATE_ISSUANCE = "peering-issuance"
 GATE_CONTRACT = "peering-contract"
 GATE_POLICY_BINDING = "peering-policy-binding"
 GATE_LINEAGE_CONTINUITY = "peering-lineage-continuity"
+
+#: `SEC-022-R1`: the seen-set every :class:`PeeringAdmissionGate` in this
+#: process consults when its composition supplies none. ONE instance, so a
+#: second receiver built without ``seen=`` refuses the replay the first
+#: admitted; a fresh set per gate made that sharing a documented obligation
+#: rather than an enforced one. Its entries are scoped by tenant and signing key
+#: (`SEC-022-C-01`), so sharing it across tenants' gates lets no tenant's
+#: admission spend another's nonce. It covers ONE process: receivers in more
+#: than one process must be handed one shared
+#: :class:`~ccf.peering.issuance.SeenNonceSetProtocol` implementation each.
+_PROCESS_SEEN_NONCES: Final = InProcessSeenNonceSet()
 
 #: The protected-header member an emitter states its producing agent under.
 #: In the *protected* header, so it is covered by the signature: a producer
@@ -795,12 +809,15 @@ class PeeringAdmissionGate:
             ``schema_name``, carrying the pinned MAX_TTL the TTL check runs
             against. Supplied by the deployment; the SDK holds no class list.
         seen: Where spent issuance nonces live (`SEC-022`, Q14-2 (a)).
-            ``None`` constructs a fresh
-            :class:`~ccf.peering.issuance.InProcessSeenNonceSet` for THIS gate
-            — never a shared mutable default — so a deployment running several
-            receivers passes one shared
-            :class:`~ccf.peering.issuance.SeenNonceSetProtocol` to each, or each
-            receiver refuses only the replays it saw itself.
+            ``None`` — the default — is ONE
+            :class:`~ccf.peering.issuance.InProcessSeenNonceSet` shared by every
+            gate in this process (`SEC-022-R1`), so a second receiver built
+            without this argument refuses the replay the first admitted. A seen-set
+            passed here is used instead of it, never beside it. The default
+            covers one process and lives as long as the process: receivers in
+            several processes must each be handed one shared
+            :class:`~ccf.peering.issuance.SeenNonceSetProtocol` implementation,
+            or each process refuses only the replays it saw itself.
     """
 
     def __init__(
@@ -832,8 +849,10 @@ class PeeringAdmissionGate:
         self._ceiling_key = payload_ceiling_key(tenant_id=tenant_id)
         self._payload_ceiling_version = payload_ceiling_version
         self._product_classes = dict(product_classes)
+        # `SEC-022-R1`: absent a seen-set, the process's one default — never a
+        # fresh set per gate.
         self._seen: SeenNonceSetProtocol = (
-            seen if seen is not None else InProcessSeenNonceSet()
+            seen if seen is not None else _PROCESS_SEEN_NONCES
         )
 
     @property

@@ -85,11 +85,18 @@ unchanged, so a product's content address is unchanged.
   keys that share a `kid` label keep separate scopes, so one peer cannot spend
   another key's nonces. Never reusing a nonce under the same signing key is the
   producer's obligation; the SDK ships no generator.
-- **Where spent nonces live.** The reference seen-set
-  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`) covers one gate in one
-  process and is not pruned; **a deployment running more than one receiver
-  must share one** through `src/ccf/peering/issuance.py::SeenNonceSetProtocol`,
-  or each receiver refuses only the replays it saw itself.
+- **Where spent nonces live** (`SEC-022-R1`). Unless a gate is handed a
+  seen-set, every gate in the process consults ONE reference set
+  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`), so a second receiver
+  in the same process refuses the replay the first admitted. A seen-set handed
+  to a gate is used instead of the default, never beside it. The default covers
+  one process only and is not pruned; it is not persisted either, so after a
+  restart an envelope still inside its peer's issuance window can be admitted
+  once more. **Receivers that run in more than one process must share one
+  seen-set**, an implementation of
+  `src/ccf/peering/issuance.py::SeenNonceSetProtocol` over a store they all
+  reach. That is the deployment's obligation, and the SDK ships no such store;
+  without it, each process refuses only the replays it saw itself.
 - **A peered composite child is held to the subject its composite asked**,
   from the question its producer signed (closing SEC-025-U1), by the same check
   every other child leg passes.

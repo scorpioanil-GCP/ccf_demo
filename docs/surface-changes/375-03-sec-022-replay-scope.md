@@ -1,4 +1,4 @@
-# 375-03 — SEC-022 residuals: the replay scope is the signing key
+# 375-03 — SEC-022 residuals: the replay scope is the signing key, and the default seen-set is the process's
 
 Row `SEC-022`, the two residuals the owner's main-merge record `29a3c5a4` held as
 "NOT accepted as closure evidence". Both executed as admitted replays at
@@ -16,8 +16,25 @@ share a `kid` label keep separate scopes, so one peer cannot spend another
 key's nonces. Verification is offered only the key the protected header names,
 so the gate knows which key verified rather than assuming it of the provider.
 
-**What this does NOT do.** It does not prune the reference seen-set (the
-`CR-363-07` retention question, unchanged), and it changes no wire format: the
+**SEC-022-R1 (the executor's ruling, pending the owner's confirmation,
+because it changes Q14's "per gate" to "per process").** A second gate built
+with the default seen-set admitted a replay the first gate had already
+admitted. Each gate constructed a fresh set, so sharing was a documented
+obligation rather than an enforced one. The default is now ONE
+`InProcessSeenNonceSet` shared by every gate in the process, behind the
+unchanged Protocol, and a seen-set handed to a gate is used instead of it. The
+change is one module constant and the constructor's default in
+`src/ccf/peering/admission.py`, so it reverts cleanly if the ruling is
+declined.
+
+**What this does NOT do.** It does not share spent nonces across processes:
+receivers in several processes must each be handed one shared
+`SeenNonceSetProtocol` implementation over a store they all reach. That is the
+deployment's obligation, and the SDK ships no such store and adds no
+dependency. The default is not persisted, so after a restart an envelope still
+inside its peer's issuance window can be admitted once more. It does not prune
+the reference seen-set (the `CR-363-07` retention question, unchanged; its
+entries now live as long as the process). It changes no wire format: the
 envelope, its claims and the refusal shapes are as `371-22` left them.
 
 ## ccf.peering.identity.jwk_thumbprint
@@ -59,3 +76,23 @@ envelope, its claims and the refusal shapes are as `371-22` left them.
 - After: verification is offered only the key the protected header's `kid` names in the peer's entry (none when it names no key there; the provider refuses that as before). The nonce is spent under `(tenant, thumbprint of that key)`, so the same signed bytes are refused `replayed` under any peer id whose grant lists the same key. A verification that returns with no key offered (a non-conforming `IdentityProvider`) is refused at the signature check as `UnknownSigningKey`, audited, never admitted. The `replayed` refusal's detail names the signing key's scope
 - Why: SEC-022-C-01, ruled: the replay key is the verified signing key, not the observed or claimed peer id
 - Migration: none for a conforming `IdentityProvider`. Producers must not reuse a nonce under the same signing key, even when the receiver lists that key under more than one peer id
+
+## ccf.peering.admission.PeeringAdmissionGate (SEC-022-R1)
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `seen=None` (the default) constructed a fresh `InProcessSeenNonceSet` for each gate, so two receivers in one process each admitted the same envelope once
+- After: `seen=None` is ONE `InProcessSeenNonceSet` shared by every gate in the process, so a second receiver built without `seen=` refuses `replayed` what the first admitted. Entries are scoped by tenant and signing key, so gates for different tenants sharing it spend no nonce of each other's. A `seen=` argument is used instead of the default, never beside it. The constructor's signature is unchanged
+- Why: SEC-022-R1: the sharing obligation was documented, not enforced, and a composition that never heard of the seen-set got a gate that refused only the replays it saw itself
+- Migration: none within one process. Receivers in several processes pass one shared `SeenNonceSetProtocol` implementation to every gate, as before. A deployment that relied on two gates in one process each admitting the same envelope passes each gate its own `InProcessSeenNonceSet()`
+
+## ccf.peering.issuance.InProcessSeenNonceSet (SEC-022-R1)
+
+- Surface: ccf.peering.issuance.InProcessSeenNonceSet
+- Public surface: true
+- Change type: behavior
+- Before: one per gate; entries retained for the gate's lifetime
+- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted
+- Why: SEC-022-R1
+- Migration: none
