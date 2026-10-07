@@ -332,6 +332,7 @@ def test_a_caller_typed_subject_is_refused_and_reaches_nothing(
     view = json.loads(_read_text(bridge, url, hitl_queue_uri(tenant=event.tenant)))
     assert [item["event_key"] for item in view["events"]] == [event.event_key]
 
+
 def _unit_server(tmp_path: Path, action_route: Any) -> Any:
     """An authenticated HITL server over stub seams, for direct tool calls."""
     from mcp.server.auth.settings import AuthSettings

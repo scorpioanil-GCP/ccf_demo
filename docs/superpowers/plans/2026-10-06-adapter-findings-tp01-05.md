@@ -42,7 +42,7 @@ the verified facts, the known fix per finding) and `docs/DECISIONS.md` `D-IMPL-3
 ## Task 1 — Claude Agent SDK adapter: TP-01, TP-02, TP-05
 
 Files: `runtime/ccf_runtime/adapters/claude_agent/adapter.py`; tests under `tests/adapters/claude_agent/`
-(create the directory if absent) and the false-green driver in `tests/conformance/test_harness_adapter.py:478-500`.
+(create the directory if absent) and the false-green driver in `tests/conformance/test_harness_adapter.py::build_harness_leg` (the `claude-agent` leg's `refusal` driver).
 
 **TP-01 — a read-only binding must not dispatch.** The vendor (0.2.128) routes CLI `tools/call` straight to the
 in-process handler built by `_skill_handler` (adapter.py ~185-203) with NO Python-side permission check; the
@@ -54,7 +54,7 @@ result is a refusal naming the reason. Today it dispatches. Fix: the same two co
 applies (effects not governed → refuse; skill not in `agent.bound_skill_names` at call time → refuse) inside the
 handler, BEFORE `invoke_skill`, returning an MCP error result (`{"content":[...], "isError": True}`) carrying the
 adapter's own refusal reason. Severing: delete the effects condition inside the handler. Also invert the
-false-green conformance driver at `tests/conformance/test_harness_adapter.py:483-495`: it pokes the vendor gate
+false-green conformance driver at `tests/conformance/test_harness_adapter.py::build_harness_leg` (the `claude-agent` leg's `refusal` driver): it pokes the vendor gate
 with `{}`; add a driver leg that calls the in-process handler with declared arguments so the conformance refusal
 proves the adapter-owned control, not the CLI's.
 
