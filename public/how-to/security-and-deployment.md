@@ -233,12 +233,13 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Four decisions have to be made explicitly. None of them has a safe default
+Five decisions have to be made explicitly. None of them has a safe default
 the SDK could pick for you, which is why each of them is a construction-time
 argument rather than a setting buried in configuration. The first three
 concern the HTTP surface, whose endpoint-by-endpoint contract is on the
 [HTTP API page](../reference/http-api.md); the fourth concerns which transport
-the MCP product door serves on.
+the MCP product door serves on; the fifth concerns what the Claude Agent SDK
+adapter's child process inherits.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -316,19 +317,22 @@ instead, the door recognizes one boot credential and nothing else.
 Stdio has no HTTP application and therefore no authentication channel to
 carry a credential. Its security boundary is process ownership: the server is
 a child the deployment's own client spawned, under the same user, on the same
-host. The door states the one identity that boundary warrants rather than
-admitting an unverified caller, and the consequence is worth stating plainly
-because a deployment has to design around it:
+host. So stdio serves one identity, set once before anything is served, for
+every caller of the process, and the door composes none of its own
+(`D-IMPL-361`):
 
-> `ProductDoor.serve_stdio` serves one pre-set identity for every caller of
-> the process (`ambient_stdio_identity`); a multi-principal deployment uses
-> `serve_loopback` or composes its own transport. The composition control is
-> designed with the harness adapters in 1.0.3 (`D-IMPL-361`).
+> `ProductDoor.serve_stdio` takes the identity as a required argument,
+> `identity=`, which the caller composes — typically with
+> `ambient_stdio_identity` — and passes explicitly. Calling it without one is
+> refused with `StdioIdentityRequired` before the server is built. Stdio
+> remains single-principal by construction; a multi-principal deployment uses
+> `serve_loopback` or composes its own transport.
 
-Two bounds hold on that stated identity, and both are mechanism rather than
-convention. It is scoped to exactly the one tenant the door was opened to
-serve, and it is marked *ambient*, which makes every surface the egress
-registers as mutating refuse it before the authorizer is even asked. Process
+Two bounds hold on an identity composed with `ambient_stdio_identity`, and
+both are mechanism rather than convention. It is scoped to exactly the one
+tenant it names — pass the tenant the door was opened to serve — and it is
+marked *ambient*, which makes every surface the egress registers as mutating
+refuse it before the authorizer is even asked. Process
 ownership is a defensible warrant for reading what the child process exists
 to serve; it is not a warrant for writing on an authority nobody presented.
 
@@ -337,6 +341,17 @@ is for, and it is a legitimate posture. Anything that has to tell two callers
 apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
+
+### 4.5 Declare the Claude adapter's child environment
+
+The Claude Agent SDK adapter's child environment is a deployment-declared
+allowlist: the `claude` child receives exactly the variables named in the
+adapter's `child_environment`, and when none is declared it receives only
+`PATH` and `HOME` (`TP-02`, `D-IMPL-361`). The adopter starts a session with
+`transport=adapter.transport(carrier)`; the carrier fails closed on the
+vendor's default transport, which raises `CLINotFoundError` and starts
+nothing, because that transport would merge the fabric's whole environment
+into the child.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 
