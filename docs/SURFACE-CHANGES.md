@@ -33444,8 +33444,8 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `append` issued one `os.write` and ignored its count.
-- After: `append` writes its whole line or nothing, raising `ErasureIndexWriteFailed` with the file left as it was.
-- Why: PC1.
+- After: `append` writes its whole line or nothing, raising `ErasureIndexWriteFailed` with the file left as it was. A new read-only property `head` returns the chain head (the SHA-256 of the last line read, `GENESIS` when empty), which the decorating store's composition memo is now keyed by (PM4, panel C4): a tail entry rewritten in place keeps the count and a valid chain, and a warm memo served its forged reason where a cold process read `index-unsupported`. An index that exposes no `head` is keyed by the digest of its entries.
+- Why: PC1; PM4. Red tests: `tests/erasure/test_pc1_index_short_write.py`, `tests/erasure/test_pm4_memo_chain_head.py`.
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*

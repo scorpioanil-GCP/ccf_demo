@@ -43,8 +43,11 @@ composition (ruling 3), never a wall clock and never the disputed entry's own
 ``erased_at``.
 
 **Boot validation is memoized per index head** (ruling 4): the key is the
-index's identity (its file path, for the file index), its entry count, the
-store's identity (its root, for a file store), the Control Plane's **policy
+index's identity (its file path, for the file index), its entry count, its
+**chain head** — the hash of its last line, so a tail entry rewritten in place
+is judged again rather than served from a warm memo (PM4, panel C4;
+``D-IMPL-374``) — the store's identity (its root, for a file store), the
+Control Plane's **policy
 head** — :func:`~ccf.erasure.approval.policy_head`, the digest of its
 registration history — the digest of the composed
 :class:`~ccf.erasure.ErasureTrust`, and the **identity provider instance**
@@ -134,7 +137,7 @@ class ErasureIndexUnavailable(TypeError):
 #: read is honored only when the entry's provider IS the reader's. Bounded: the
 #: oldest head is dropped past the bound, which only costs a re-validation.
 _VALIDATED_HEADS: dict[
-    tuple[str, int, str, str, str, int],
+    tuple[str, int, str, str, str, str, int],
     tuple[IdentityProvider, frozenset[tuple[str, str, str]]],
 ] = {}
 _VALIDATED_HEADS_BOUND: Final[int] = 64
@@ -144,6 +147,12 @@ _VALIDATED_HEADS_LOCK = threading.Lock()
 def _identity(subject: object, attribute: str) -> str:
     named = getattr(subject, attribute, None)
     return f"{attribute}:{named}" if named is not None else f"id:{id(subject)}"
+
+
+def _chain_head(index: ErasureIndexProtocol, entries: list[ErasureIndexEntry]) -> str:
+    """The index's chain head, or the digest of its entries when it exposes none (PM4)."""
+    head = getattr(index, "head", None)
+    return head if isinstance(head, str) else str(content_hash(entries))
 
 
 class _Verdicts:
@@ -293,6 +302,13 @@ class ErasureConsultingStore:
         head = (
             _identity(self._index, "path"),
             len(entries),
+            # PM4 (panel C4; `D-IMPL-374`): the index's CHAIN head. The count
+            # does not move when the last line is rewritten in place, and the
+            # chain still verifies because nothing follows the tail — so
+            # without this a warm memo served a tampered tail entry's facts
+            # that a cold process read as index-unsupported. An index that
+            # exposes no chain head is keyed by the digest of its entries.
+            f"chain:{_chain_head(self._index, entries)}",
             _identity(self._inner, "root"),
             f"policies:{policies}",
             f"trust:{self._trust_digest}",

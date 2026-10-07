@@ -329,6 +329,22 @@ class FileErasureIndex:
         """The index file."""
         return self._path
 
+    @property
+    def head(self) -> str:
+        """The chain head: the SHA-256 of the last line read, :data:`GENESIS` when empty (PM4, panel C4; `D-IMPL-374`).
+
+        Part of the decorating store's composition memo key: the entry count
+        alone does not move when the LAST line is rewritten in place, and the
+        chain still verifies because nothing follows the tail — the head is
+        what does move.
+
+        Raises:
+            ccf.erasure.ErasureIndexCorrupt: the index is corrupt.
+        """
+        with self._lock:
+            self._catch_up()
+            return self._head
+
     def _fail(self, detail: str) -> NoReturn:
         self._corrupt = detail
         raise ErasureIndexCorrupt(detail)
