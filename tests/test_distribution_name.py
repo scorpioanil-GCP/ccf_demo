@@ -13,7 +13,7 @@ replay pin (``src/ccf/graph/registry.py::_sdk_version`` into
 ``graph_adapter_version``), so a decision record would carry Microsoft's
 version as the SDK's.
 
-The IMPORT name stays ``ccf``; only the distribution name changes. Four
+The IMPORT name stays ``ccf``; only the distribution name changes. Five
 checks, two of them behavioral:
 
 1. the package metadata (``[project] name`` in ``pyproject.toml``) is
@@ -30,7 +30,14 @@ checks, two of them behavioral:
 4. the version gate, behaviorally: with only a distribution named ``ccf``
    visible it refuses — it found no SDK distribution — rather than certifying
    Microsoft's version; with a ``ccf-sdk`` distribution visible it reads that
-   one.
+   one;
+5. PyPI refuses the real SDK and accepts the placeholder (Dave's ruling,
+   2026-10-07): the SDK's ``[project] classifiers`` carry
+   ``Private :: Do Not Upload`` — PyPI "will always reject packages with
+   classifiers beginning with Private ::" — so a stray upload of the
+   proprietary SDK under the name Dave owns there is refused, while the empty
+   placeholder in ``packaging/pypi-placeholder/`` must carry no ``Private ::``
+   classifier, or the name could not be claimed at all.
 """
 
 from __future__ import annotations
@@ -51,8 +58,9 @@ from ccf.graph.registry import SDK_DISTRIBUTION, resolve
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _PYPROJECT = _REPO_ROOT / "pyproject.toml"
 _GATE = _REPO_ROOT / "tools" / "check_version_stamp.py"
+_PLACEHOLDER_PYPROJECT = _REPO_ROOT / "packaging" / "pypi-placeholder" / "pyproject.toml"
 
-#: The distribution name this SDK publishes under (SEC-027).
+#: The SDK's distribution name (SEC-027). The SDK itself is published to no index.
 EXPECTED_DISTRIBUTION = "ccf-sdk"
 
 #: The PyPI project that is NOT this SDK: Microsoft's Confidential Consortium
@@ -63,6 +71,10 @@ FOREIGN_VERSION = "7.0.18"
 #: A version no real install carries, so reading it proves which distribution
 #: the reader chose.
 PROBE_SDK_VERSION = "9.9.9"
+
+#: PyPI's upload-refusal classifier. PyPI rejects every upload whose metadata
+#: carries a classifier beginning ``Private ::`` (https://pypi.org/classifiers/).
+DO_NOT_UPLOAD = "Private :: Do Not Upload"
 
 #: The built-in adapter every development checkout boots against.
 BUILTIN_ADAPTER = "sqlite"
@@ -244,3 +256,28 @@ def test_the_version_gate_reads_the_ccf_sdk_distribution_beside_a_foreign_ccf(
         "check_version_stamp: HEAD is not an exact 'v[0-9]*' tag; installed"
         f" {EXPECTED_DISTRIBUTION} is {PROBE_SDK_VERSION} — nothing to hold"
     )
+
+
+def test_pypi_refuses_the_sdk_and_accepts_the_placeholder() -> None:
+    """The SDK carries ``Private :: Do Not Upload``; the placeholder carries no ``Private ::``.
+
+    Both files are the distribution ``ccf-sdk``, and Dave's account owns that
+    name on PyPI through the placeholder. Without the classifier, an accidental
+    ``twine upload dist/*`` of the SDK's own build under that account would be
+    accepted and would publish the proprietary SDK. With the classifier on the
+    placeholder, the name could never be claimed.
+    """
+    sdk = _project()
+    placeholder = tomllib.loads(_PLACEHOLDER_PYPROJECT.read_text(encoding="utf-8"))["project"]
+    # Non-vacuity: both documents really are the one distribution name.
+    assert (sdk["name"], placeholder["name"]) == (EXPECTED_DISTRIBUTION, EXPECTED_DISTRIBUTION)
+
+    sdk_classifiers = sdk.get("classifiers", [])
+    assert DO_NOT_UPLOAD in sdk_classifiers, sdk_classifiers
+
+    placeholder_classifiers = placeholder.get("classifiers", [])
+    assert not [
+        classifier
+        for classifier in placeholder_classifiers
+        if classifier.lower().startswith("private ::")
+    ], placeholder_classifiers
