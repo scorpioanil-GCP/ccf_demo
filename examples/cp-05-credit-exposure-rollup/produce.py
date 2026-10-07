@@ -464,7 +464,7 @@ def _governed(*, fabric, control_plane, config, ttl, rollup, business,
             return str(violation)
         return None
 
-    from ccf.erasure import erasure_index_at  # local: committed docs cite this module by line
+    from ccf.erasure import ErasureTrust, erasure_index_at  # local: committed docs cite this module by line
 
     resolver = build_governed_resolver(
         fabric=fabric,
@@ -481,7 +481,7 @@ def _governed(*, fabric, control_plane, config, ttl, rollup, business,
         debt_profile_key="debt_profile",
         artifact_store_root=store_root,
         # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
-        hitl_policy_key="hitl_policy",
+        erasure_trust=ErasureTrust(authorities={}),
         erasure_index=erasure_index_at(store_root),
         max_ttl_seconds=int(ttl["max_ttl_seconds"]),
         product_ttl_seconds=int(ttl["declared_ttl_seconds"]),

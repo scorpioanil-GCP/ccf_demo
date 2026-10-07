@@ -63,15 +63,26 @@ disclosed for every erased input class (ruling 4).
   salts; for a low-entropy identifier the reference is dictionary-reversible
   by a reader of that artifact (U4, as ruled).
 
-* The trust root is fixed at composition (fix round 4): every site passes the
-  deployment's Control Plane and its HITL policy key, and the consult refuses
-  an approval pinning any other key, by the requester, by an ineligible
-  approver, for an undeclared gate, or signed after the pinned policy version's
-  supersession. The signed instant is the signer's claim, so a backdated
-  signature by a dropped key still verifies under the old version; and only
-  the window's supersession bound is enforced, because the in-memory Control
-  Plane re-registers every version at boot. An adopter-supplied identity
-  provider that verifies nothing accepts everything.
+* The trust root is fixed at composition (fix rounds 4 and 5): every site
+  passes the deployment's Control Plane and its :class:`ErasureTrust` — per
+  tenant that may erase, an :class:`ErasureAuthority` naming the HITL policy
+  key its transport is bound to, the content hash of its erasure workflow, and
+  the erasure door's public signing key. The DOOR signs every record it files
+  (:func:`sign_erasure_record`) and the consult verifies that signature before
+  it reads the record (:func:`verify_erasure_entry`), so ``requested_by`` is
+  what the door observed. The consult then refuses an approval for another
+  workflow or tenant, pinning any other HITL key, by the requester, by an
+  approver the declared workflow's gate policy does not name, for a gate that
+  workflow does not declare, or signed after the pinned policy version's
+  supersession; a tenant the trust names no authority for is
+  ``index-unsupported``. The strength of all of it is the custody of three
+  things: the door's private key, the approvers' private keys, and Control
+  Plane registration under each tenant's HITL policy key. The signed instant
+  is the signer's claim, so a backdated signature by a dropped key still
+  verifies under the old version; and only the window's supersession bound is
+  enforced, because the in-memory Control Plane re-registers every version at
+  boot. An adopter-supplied identity provider that verifies nothing accepts
+  everything, door signatures included.
 
 Algorithmic package (CINV-03).
 """
@@ -132,6 +143,15 @@ from ccf.erasure.store import (
     ErasureIndexUnavailable,
     compose_erasure_consult,
 )
+from ccf.erasure.trust import (
+    DOOR_SIGNATURE_ASSERTION,
+    ErasureAuthority,
+    ErasureRecordInvalid,
+    ErasureTrust,
+    sign_erasure_record,
+    verify_door_signature,
+    verify_erasure_entry,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -142,6 +162,13 @@ __all__ = [
     "policy_head",
     "reference_approval_verifier",
     "verify_erasure_approval",
+    "DOOR_SIGNATURE_ASSERTION",
+    "ErasureAuthority",
+    "ErasureRecordInvalid",
+    "ErasureTrust",
+    "sign_erasure_record",
+    "verify_door_signature",
+    "verify_erasure_entry",
     "ERASURE_INDEX_FILENAME",
     "ERASURE_APPROVAL_CLASS",
     "ERASURE_RECORD_CLASS",

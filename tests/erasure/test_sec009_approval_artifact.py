@@ -27,7 +27,7 @@ from tests.erasure import composed
 from tests.erasure import harness as h
 from tests.erasure import signing
 from tests.erasure.test_sec009_fix2 import _entry, _forged_record
-from tests.composition import declared_hitl_policy_key
+from tests.composition import declared_erasure_trust
 
 
 def _erased(plane: h.Plane) -> tuple[Any, Any]:
@@ -51,7 +51,7 @@ def _fresh_consult(plane: h.Plane) -> tuple[Any, Any]:
     composed.register_erasure_workflow(booted, tenant=h.TENANT)
     audit = booted.audit_log
     consulted = h.erasure("compose_erasure_consult")(
-        plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=booted, tenant_id=h.TENANT
+        plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, erasure_trust=declared_erasure_trust(), control_plane=booted, tenant_id=h.TENANT
     )
     return consulted, audit
 
@@ -84,13 +84,15 @@ def test_an_approval_that_does_not_approve_this_request_is_unsupported(tmp_path:
     address = plane.document.content_address
     # Fix round 4: every forgery is SIGNED by the pinned key — a valid signature
     # over a claim set that does not approve THIS request — so what refuses it
-    # is the claims check, not the signature check.
+    # is the claims check, not the signature check. Fix round 5: for the
+    # DECLARED erasure workflow and its gate, and door-signed by the genuine
+    # door key (the strongest forger), so neither R1 nor R2 refuses it first.
     tenant = "beta-bank" if forgery == "another-tenant" else h.TENANT
     request_id = "another-request" if forgery == "another-request" else request.request_id
     verdict = "reject" if forgery == "rejecting-verdict" else "approve"
     issued = h.fabric_clock()
     attestation = signing.sign(
-        tenant=tenant, event_key=f"{tenant}/{request_id}/approval", product_content_hash="1" * 64,
+        tenant=tenant, event_key=f"{tenant}/{request_id}/erasure-approval", product_content_hash="1" * 64,
         subject_id=h.APPROVER, issued_at=issued, action=verdict,
     )
     approver = ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta")
@@ -100,9 +102,9 @@ def test_an_approval_that_does_not_approve_this_request_is_unsupported(tmp_path:
         approver=approver,
         verdict=verdict,
         acted_at=issued,
-        gate="approval",
+        gate="erasure-approval",
         gate_state_hash="1" * 64,
-        workflow_definition_hash="2" * 64,
+        workflow_definition_hash=plane.definition_version,
         submission_hash="3" * 64,
         attestation=attestation,
         hitl_policy_ref=signing.policy_ref(plane.registry),
@@ -112,7 +114,7 @@ def test_an_approval_that_does_not_approve_this_request_is_unsupported(tmp_path:
         DerivedWrite(artifact_class=h.ERASURE_APPROVAL_CLASS, name=f"forged-{forgery}", artifact=approval),
     )
     record = _forged_record(request, address, approval_ref=filed.content_address, actor=approver)
-    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), approval_ref=filed.content_address))
+    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), record=record, approval_ref=filed.content_address))
     plane.store.put(h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name="f" * 64, artifact=record))
     consulted, audit = _fresh_consult(plane)
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:

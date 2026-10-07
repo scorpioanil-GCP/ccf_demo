@@ -63,11 +63,18 @@ product_ttl_seconds: 600
 # Where this deployment files artifacts, relative to this directory.
 artifact_store: artifact-store
 
-# The Control Plane key this deployment's HITL policy is registered under —
-# the key its HITL transport is bound to, and the key every erasure approval
-# must pin (SEC-009, D-IMPL-374 (4), fix round 4, ruling 1). Confined to this
-# deployment's tenant at boot, like the keys above.
-hitl_policy_key: hitl_policy
+# The erasure authority this deployment's erasure consult verifies erasures
+# against (SEC-009, D-IMPL-374 (4), fix round 5). `{}` declares none: this
+# deployment runs no erasure door, so every erasure its index names is withheld
+# as `index-unsupported`. A deployment that runs one states its HITL policy key
+# (confined to its tenant at boot, like the keys above), its erasure workflow
+# definition's content hash, and the erasure door's PUBLIC key by key id:
+#
+#   erasure_authority:
+#     hitl_policy_key: hitl_policy
+#     workflow_definition_hash: <the definition's sha256 content hash>
+#     door_keys: {<key id>: {kty: EC, crv: P-256, x: ..., y: ...}}
+erasure_authority: {}
 
 # D_c's inputs. `half_life_key` and `debt_profile_key` name Control Plane
 # sections; `completeness` and `semantic_consistency` are DECLARED, because the

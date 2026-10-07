@@ -36,7 +36,7 @@ from typing import Any
 import acquisition
 import deployment
 import projection
-from ccf.erasure import erasure_index_at
+from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
@@ -182,7 +182,7 @@ def assemble_and_serve(*, asked: ProductRequest,
             product_gate=product_gate,
             artifact_store=store,
             # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
-            hitl_policy_key="hitl_policy",
+            erasure_trust=ErasureTrust(authorities={}),
             erasure_index=erasure_index_at(store.root),
             replay_record_class="ccf.replay-record",
             query_pin_class="ccf.graph-query",

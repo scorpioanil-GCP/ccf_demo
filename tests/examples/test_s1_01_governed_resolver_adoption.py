@@ -121,7 +121,7 @@ import importlib.util
 import json
 import pathlib
 import sys
-from tests.composition import no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import datetime, timedelta
 from collections.abc import Callable, Iterator
 from typing import Any, NamedTuple
@@ -137,7 +137,6 @@ from ccf.deployment import load_and_boot
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.resolver import build_governed_resolver
 from ccf.replay.record import DecisionReplayRecord
-from tests.composition import declared_hitl_policy_key
 
 pytestmark = pytest.mark.fluree
 
@@ -271,7 +270,7 @@ def _wire(
     resolver = build_governed_resolver(
         fabric=booted,
         control_plane=registry,
-        hitl_policy_key=declared_hitl_policy_key(),
+        erasure_trust=declared_erasure_trust(),
         erasure_index=no_erasures(),
         product_class_key=placed(PRODUCT_CLASS_KEY),
         request_contract_key=placed(REQUEST_CONTRACT_KEY),

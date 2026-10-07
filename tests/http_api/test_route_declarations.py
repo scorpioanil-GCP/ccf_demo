@@ -35,7 +35,7 @@ the tenant assertion is exercised           no route would carry ``{tenant}``
 
 from __future__ import annotations
 
-from tests.composition import declared_hitl_policy_key, no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from typing import Any
 
 import pytest
@@ -230,7 +230,7 @@ class TestTheBootRefusal:
 def _deps(fabric: Fabric) -> Any:
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    return ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+    return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,

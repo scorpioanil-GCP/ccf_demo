@@ -474,6 +474,16 @@ class ErasureRecord(CCFContract):
     Filed as ``ccf.erasure-record`` through the store's one write verb. Nothing
     is deleted: the bytes it names remain on the substrate, and the SDK claims
     no destruction (``D-IMPL-367`` O1).
+
+    **Door-signed** (fix round 5, R2): the erasure door signs this record's
+    canonical bytes with the deployment's door key, and the consult verifies
+    that signature before it reads any field
+    (:func:`~ccf.erasure.verify_erasure_entry`) — so ``requested_by`` is the
+    principal the door observed (the starter the engine recorded), never what a
+    filer wrote. The signature travels in every index entry naming the record.
+    **No approval policy is named here** (R1): the policy an approver is judged
+    eligible under is the declared erasure workflow's gate's, resolved from the
+    Control Plane; the field a filer could write was deleted.
     """
 
     tenant_id: str
@@ -489,7 +499,6 @@ class ErasureRecord(CCFContract):
     actor: ApproverIdentity
     requested_by: str
     authorizing_decision_id: str
-    approval_policy_ref: str
     #: The content address of the filed :class:`ErasureApproval` (fix round 3,
     #: I3 part 2) — what every index entry naming this record must carry, and
     #: what the consult resolves to verify a human approved this request.

@@ -43,6 +43,7 @@ from typing import Any
 import pytest
 import yaml
 
+from ccf.erasure import ErasureTrust
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.products.child_resolver import ChildQuestion
@@ -149,7 +150,7 @@ def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], N
 
 def paved_consumer(tmp_path: pathlib.Path, *, url: str, questions: Any, edit: Callable[[dict[str, Any]], None] | None = None) -> OpenedProduct:
     return open_product(
-        hitl_policy_key="hitl_policy",
+        erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
         config_root=_consumer_tree(tmp_path, edit=edit), scratch=tmp_path / "scratch",
         acquire=fixture.Acquire(), project=fixture.plan_factory, assess=fixture.assess,

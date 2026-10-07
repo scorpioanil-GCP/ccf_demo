@@ -49,6 +49,7 @@ from datetime import datetime
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.erasure.index import ErasureIndexProtocol
+from ccf.erasure.trust import ErasureTrust
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.grants import GrantLedger
@@ -80,6 +81,12 @@ class ApiDependencies:
             the ``replay`` and ``artifact`` routers entire.
         erasure_index: The durable erasure index the store is composed over
             (SEC-009; `D-IMPL-374` (4), C1). **Required.**
+        erasure_trust: The per-tenant erasure authorities the composed store
+            verifies erasures against — for each tenant that may erase, the
+            HITL policy key its HITL transport is bound to, the content hash
+            of its erasure workflow, and the erasure door's public key
+            (SEC-009; `D-IMPL-374` (4), fix round 5, R1, R2, R4).
+            **Required.**
         product_resolver: The deployment's assemble-and-gate path, exactly
             the seam the MCP egress server holds
             (:class:`~ccf_runtime.mcp.egress.ProductResolverProtocol`).
@@ -122,11 +129,12 @@ class ApiDependencies:
     #: store with the erasure consult over it, and a composition without a
     #: declared index refuses by name.
     erasure_index: ErasureIndexProtocol
-    #: SEC-009 (`D-IMPL-374` (4), fix round 4, ruling 1): the deployment's
-    #: HITL policy key — the SAME key its HITL transport is bound to. Every
-    #: erasure approval the composed store verifies must pin it. **Required,
-    #: no default** (CINV-01).
-    hitl_policy_key: str
+    #: SEC-009 (`D-IMPL-374` (4), fix round 5, R1, R2, R4): the deployment's
+    #: erasure trust root, per tenant — the HITL policy key each tenant's
+    #: transport is bound to, its erasure workflow's content hash and the
+    #: erasure door's public key. A tenant it names no authority for has every
+    #: erasure read ``index-unsupported``. **Required, no default** (CINV-01).
+    erasure_trust: ErasureTrust
     product_resolver: ProductResolverProtocol
     workflow_factory: WorkflowFactory | None = None
     workflow_engine: WorkflowEngine | None = None

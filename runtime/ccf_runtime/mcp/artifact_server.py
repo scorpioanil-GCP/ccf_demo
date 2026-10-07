@@ -144,7 +144,7 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
 from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
-from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, compose_erasure_consult
+from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, ErasureTrust, compose_erasure_consult
 from ccf.erasure.approval import PinnedPolicySource
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
@@ -326,7 +326,7 @@ def build_artifact_server(
     audit_log: AuditLog,
     erasure_index: ErasureIndexProtocol,
     control_plane: PinnedPolicySource,
-    hitl_policy_key: str,
+    erasure_trust: ErasureTrust,
 ) -> FastMCP:
     """Build the authenticated, authorized artifact server over ``store``.
 
@@ -384,6 +384,12 @@ def build_artifact_server(
             declares for the approver, and that policy is resolved through this
             Control Plane. An approval that does not verify here is
             ``index-unsupported``.
+        erasure_trust: The deployment's per-tenant erasure authorities
+            (SEC-009; fix round 5, R1, R2, R4). **Required, no default**: for
+            each tenant that may erase, the HITL policy key its transport is
+            bound to, its erasure workflow's content hash and the erasure
+            door's public key — fixed here, never chosen by a filed artifact.
+            A tenant it names no authority for reads ``index-unsupported``.
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -397,8 +403,8 @@ def build_artifact_server(
         audit_log=audit_log,
         clock=entitlement_source.clock,
         control_plane=control_plane,
-        # Fix round 4, ruling 1: the deployment's HITL policy key, fixed here.
-        hitl_policy_key=hitl_policy_key,
+        # Fix round 5, R1, R2, R4: the deployment's per-tenant trust root, fixed here.
+        erasure_trust=erasure_trust,
     )
     door = TenantGuardedServer(
         FastMCP(

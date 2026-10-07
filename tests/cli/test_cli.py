@@ -45,7 +45,7 @@ import yaml
 from ccf.contracts.canonical import content_hash
 
 from cli.conftest import CLI_PRINCIPAL, CLI_ROLE, CLI_TOKEN, Fabric, run_cli
-from tests.composition import declared_hitl_policy_key
+from tests.composition import declared_erasure_trust, declared_hitl_policy_key
 
 CLI_SOURCE = (
     Path(__file__).resolve().parents[2]
@@ -684,7 +684,7 @@ def test_local_bundle_is_the_api_dependencies_type(tmp_path: Path) -> None:
     from ccf_runtime.cli.local import build_local_dependencies
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    bundle = build_local_dependencies(root=tmp_path, hitl_policy_key=declared_hitl_policy_key())
+    bundle = build_local_dependencies(root=tmp_path, hitl_policy_key=declared_hitl_policy_key(), erasure_trust=declared_erasure_trust())
     # by type, not by intent: --local's bundle IS the object create_app
     # consumes (T-07-27; the Codex shared-abstraction finding)
     assert type(bundle) is ApiDependencies

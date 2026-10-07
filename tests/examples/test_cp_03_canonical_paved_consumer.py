@@ -46,6 +46,7 @@ from typing import Any
 import pytest
 import yaml
 
+from ccf.erasure import ErasureTrust
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import MCP_PRODUCER, parse_artifact
@@ -140,7 +141,7 @@ def _tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], None] | No
 def paved(tmp_path: pathlib.Path, *, url: str, tolerance: str = "1.0", edit: Callable[[dict[str, Any]], None] | None = None) -> OpenedProduct:
     """The consuming deployment on the paved road: four declarations, one mapping, one call."""
     return open_product(
-        hitl_policy_key="hitl_policy",
+        erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
         config_root=_tree(tmp_path, edit=edit),
         scratch=tmp_path / "scratch",

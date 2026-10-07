@@ -2,10 +2,12 @@
 
 ``erase(store, index, address)`` plants a GENUINE-SHAPED erasure the way the
 door leaves one — the recorded ``ccf.erasure-approval`` first (fix round 3),
-then the index entry (write-ahead, fix round 1 ruling (ii)), then the
-``ccf.erasure-record`` it names, all under the ``ArtifactErase`` capability
-bound to the request (fix round 2, I3) into the same file store — so the
-consult's boot validation finds an agreeing record and approval.
+then the index entry carrying the door's signature over the record (fix round
+5, R2; write-ahead, fix round 1 ruling (ii)), then the ``ccf.erasure-record`` it
+names, all under the ``ArtifactErase`` capability bound to the request (fix
+round 2, I3) into the same file store — so the consult's boot validation finds
+an agreeing, door-signed record and a verifying approval for the site's
+declared erasure workflow.
 ``assert_consults`` holds a site's store to refusing it.
 
 **This helper BYPASSES THE DOOR ON PURPOSE, and lives under ``tests/`` only**
@@ -33,7 +35,7 @@ from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.registry import ControlPlaneMissing
 from ccf.hitl.principal import ApproverIdentity
 from ccf.workflow.definitions import WORKFLOW_DEFINITION
-from tests.composition import declared_hitl_policy_key, register_versioned_at_composition
+from tests.composition import declared_erasure_authority, register_versioned_at_composition
 from tests.erasure import harness as h
 from tests.erasure import signing
 from tests.hitl.sec006_harness import register_typed_policy
@@ -53,21 +55,34 @@ def approval_policy_uri(tenant: str) -> str:
     return f"ccf-artifact://{tenant}/approval-policy/erasure-officers@1.0.0"
 
 
+def erasure_workflow_definition(tenant: str) -> Any:
+    """The fixture erasure workflow definition under ``tenant`` (unregistered).
+
+    The fixture names ``acme-bank``; under another tenant its tenant field and
+    pinned references are rewritten to that tenant.
+    """
+    fixture = eh._load(h.WORKFLOW_FIXTURE)
+    document = dict(fixture["workflow_definition"])
+    document["tenant"] = tenant
+    document["task_definition_ref"] = f"ccf-artifact://{tenant}/ccf.task-definition/erasure-request@1.0.0"
+    document["gate_policies"] = {GATE: approval_policy_uri(tenant)}
+    return parse_artifact(document, WORKFLOW_DEFINITION)
+
+
+def erasure_workflow_hash(tenant: str) -> str:
+    """The content hash a test deployment declares as ``tenant``'s erasure workflow (fix round 5, R1)."""
+    return str(content_hash(erasure_workflow_definition(tenant)))
+
+
 def register_erasure_workflow(registry: Any, *, tenant: str) -> str:
     """Register the fixture erasure workflow (and its task) under ``tenant``; return the definition's content address.
 
     Idempotent: a registry that already holds the same content under the key
-    is left as it is. The fixture names ``acme-bank``; under another tenant its
-    tenant field and pinned references are rewritten to that tenant.
+    is left as it is.
     """
-    fixture = eh._load(h.WORKFLOW_FIXTURE)
     task_key = f"{tenant}/ccf.task-definition/erasure-request"
     workflow_key = f"{tenant}/workflows/erasure-request"
-    document = dict(fixture["workflow_definition"])
-    document["tenant"] = tenant
-    document["task_definition_ref"] = f"ccf-artifact://{task_key}@1.0.0"
-    document["gate_policies"] = {GATE: approval_policy_uri(tenant)}
-    definition = parse_artifact(document, WORKFLOW_DEFINITION)
+    definition = erasure_workflow_definition(tenant)
     wanted = content_hash(definition)
     if wanted in registry.versions(workflow_key):
         return wanted
@@ -113,6 +128,11 @@ def subject_ref() -> str:
     return str(h.erasure("subject_ref_for")(h.declaration(), h.SUBJECT_CLASS, h.SUBJECT_ID))
 
 
+def _authority_of(store: Any, tenant: str) -> Any:
+    trust = getattr(store, "erasure_trust", None)
+    return None if trust is None else trust.authority_for(tenant)
+
+
 def erase(
     store: Any,
     index: Any,
@@ -121,20 +141,23 @@ def erase(
     control_plane: Any,
     tenant: str = h.TENANT,
     artifact_class: str = h.DOC_CLASS,
-    hitl_policy_key: str | None = None,
+    authority: Any = None,
 ) -> Any:
     """Plant one genuine-shaped erasure of ``address`` under ``tenant``; return the record.
 
-    ``control_plane`` is the site's OWN Control Plane. Everything the consult
-    verifies (fix round 4, rulings 1–4) is registered there: the signed HITL
-    policy pinning the SEC-005 test key for the approver under the site's
-    HITL policy key — ``hitl_policy_key``, or the composed store's own — the
-    approval policy naming the approver eligible, and the fixture erasure
-    workflow whose gate the approval names. The approver is never the
-    requester.
+    ``control_plane`` is the site's OWN Control Plane. ``authority`` is the
+    tenant's erasure authority the site composed with — given, or the composed
+    store's own for ``tenant``, or the declared test authority. Everything the
+    consult verifies (fix rounds 4 and 5) is registered there: the signed HITL
+    policy pinning the SEC-005 test key for the approver under the authority's
+    HITL policy key, the approval policy naming the approver eligible, and the
+    fixture erasure workflow — the one the authority declares — whose gate the
+    approval names. The record is signed with the test DOOR key, whose public
+    half the authority declares (R2). The approver is never the requester.
     """
-    key = hitl_policy_key or getattr(store, "hitl_policy_key", None) or declared_hitl_policy_key(tenant)
-    assert _tenant_of(key) == tenant, (key, tenant)  # the site's key must be in the planting tenant
+    authority = authority or _authority_of(store, tenant) or declared_erasure_authority(tenant)
+    key = authority.hitl_policy_key
+    assert _tenant_of(key) == tenant == authority.tenant_id, (key, tenant)
     ref = subject_ref()
     record_id = content_hash({"tenant_id": tenant, "address": address, "planted": True})
     actor = ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta")
@@ -144,6 +167,8 @@ def erase(
     signing.register_signed_policy(control_plane, subject=h.APPROVER, key=key)
     register_approval_policy(control_plane, tenant=tenant)
     definition_hash = register_erasure_workflow(control_plane, tenant=tenant)
+    # The site's DECLARED erasure workflow must be the fixture's (fix round 5, R1).
+    assert definition_hash == authority.workflow_definition_hash, (definition_hash, authority)
     gate_state = content_hash({"planted-gate-state": address, "tenant": tenant})
     attestation = signing.sign(
         tenant=tenant,
@@ -181,7 +206,6 @@ def erase(
         actor=actor,
         requested_by=h.REQUESTER,
         authorizing_decision_id="authz-decision-erase-planted",
-        approval_policy_ref=approval_policy_uri(tenant),
         approval_ref=approval_ref,
         retention_decision=h.erasure("RetentionDecision")(
             policy_ref=h.POLICY_URI, verdict="admit", reason_code="admitted"
@@ -210,6 +234,10 @@ def erase(
             approval_ref=approval_ref,
             reason=REASON,
             erased_at=ERASED_AT,
+            # The test DOOR key's signature over the record (fix round 5, R2) —
+            # a real signature, never a placeholder.
+            door_signature=h.erasure("sign_erasure_record")(record, signer=signing.door_provider(), key_id=signing.DOOR_KID),
+            door_key_id=signing.DOOR_KID,
         ),
     )
     filer.put(

@@ -29,7 +29,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from tests.erasure import composed
 from tests.erasure import harness as h
 from tests.erasure import signing
-from tests.composition import declared_hitl_policy_key
+from tests.composition import declared_erasure_trust
 
 
 def _full_erasure(plane: h.Plane, door: Any, request: Any) -> Any:
@@ -113,7 +113,7 @@ def test_p5_an_erasure_survives_a_restart(tmp_path: Path) -> None:
     signing.register_signed_policy(booted, subject=h.APPROVER)
     composed.register_approval_policy(booted, tenant=h.TENANT)
     composed.register_erasure_workflow(booted, tenant=h.TENANT)
-    consulted = h.erasure("compose_erasure_consult")(reopened, index=index, audit_log=booted.audit_log, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=booted)
+    consulted = h.erasure("compose_erasure_consult")(reopened, index=index, audit_log=booted.audit_log, clock=h.fabric_clock, erasure_trust=declared_erasure_trust(), control_plane=booted)
     with pytest.raises(h.erasure("ErasedContentRefused")):
         consulted.get(content_address=address)
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:

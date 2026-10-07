@@ -32,14 +32,30 @@ from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.principal import ApproverIdentity
 from tests.erasure import harness as h
+from tests.erasure import signing
+
+#: What an entry carries when the record it names does not exist: no record,
+#: so nothing for a door to have signed (fix round 5) — the read fails first.
+NO_RECORD_TO_SIGN = "no-record-to-sign"
 
 
-def _entry(request: Any, address: str, record_address: str, **overrides: Any) -> Any:
+def _entry(request: Any, address: str, record_address: str, *, record: Any = None, **overrides: Any) -> Any:
+    """An index entry as a holder of ``ArtifactErase`` can append it.
+
+    With ``record``, the entry carries the GENUINE door key's signature over it
+    (fix round 5, R2) — the strongest forger, so whatever refuses the entry is a
+    judgment AFTER the door signature, as each test intends.
+    """
     values: dict[str, Any] = dict(
         tenant_id=h.TENANT, content_address=address, erasure_record_address=record_address,
         subject_class=request.subject_class, request_id=request.request_id,
         subject_ref=request.subject_ref, approval_ref="0" * 64, reason="customer-request",
         erased_at=h.fabric_clock(),
+        door_signature=(
+            NO_RECORD_TO_SIGN if record is None
+            else h.erasure("sign_erasure_record")(record, signer=signing.door_provider(), key_id=signing.DOOR_KID)
+        ),
+        door_key_id=signing.DOOR_KID,
     )
     values.update(overrides)
     return h.erasure("ErasureIndexEntry")(**values)
@@ -53,7 +69,6 @@ def _forged_record(request: Any, address: str, **overrides: Any) -> Any:
         erased_at=h.fabric_clock(),
         actor=ApproverIdentity(subject_id="nobody-approved", identity_provider_ref="x"),
         requested_by=h.REQUESTER, authorizing_decision_id="authz-decision-erase",
-        approval_policy_ref="ccf-artifact://acme-bank/approval-policy/erasure-officers@1.0.0",
         approval_ref="0" * 64,
         retention_decision=h.erasure("RetentionDecision")(policy_ref=h.POLICY_URI, verdict="admit", reason_code="admitted"),
         reason="customer-request", legal_basis="forged",
@@ -65,7 +80,7 @@ def _forged_record(request: Any, address: str, **overrides: Any) -> Any:
 def _consult(plane: h.Plane, audit: Any | None = None) -> Any:
     return h.erasure("compose_erasure_consult")(
         plane.store, index=h.index_of(plane), audit_log=audit or plane.registry.audit_log,
-        clock=h.fabric_clock, hitl_policy_key=plane.hitl_policy_key, control_plane=plane.registry, tenant_id=h.TENANT,
+        clock=h.fabric_clock, erasure_trust=h.trust(plane), control_plane=plane.registry, tenant_id=h.TENANT,
     )
 
 
@@ -74,7 +89,7 @@ def test_a_a_requester_cannot_erase_without_a_recorded_approval(tmp_path: Path) 
     request = h.request(plane)
     address = plane.document.content_address
     record = _forged_record(request, address)
-    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record)))
+    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), record=record))
     plane.store.put(h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name="f" * 64, artifact=record))
     audit = plane.registry.audit_log
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:
@@ -135,7 +150,7 @@ def test_c_the_served_facts_come_from_the_record_and_a_disagreeing_entry_is_unsu
     # A second document, whose entry claims a reason its record does not carry.
     other = h.client_put(plane.store, name="other", document={"customer": {"id": h.SUBJECT_ID}, "n": 2})
     forged = _forged_record(request, other.content_address, record_id="e" * 64)
-    h.index_of(plane).append(h.erase_cap(request), _entry(request, other.content_address, content_hash(forged), reason="court-order-7"))
+    h.index_of(plane).append(h.erase_cap(request), _entry(request, other.content_address, content_hash(forged), record=forged, reason="court-order-7"))
     plane.store.put(h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name="e" * 64, artifact=forged))
     with pytest.raises(h.erasure("ErasedContentRefused")) as disagreeing:
         _consult(plane).get(content_address=other.content_address)
@@ -188,7 +203,7 @@ def test_a_broken_chain_and_a_corrupt_line_fail_closed_with_a_typed_refusal(tmp_
     audit = ControlPlaneRegistry().audit_log
     consulted = h.erasure("compose_erasure_consult")(
         plane.store, index=_LazyIndex(plane.index_path), audit_log=audit, clock=h.fabric_clock,
-        hitl_policy_key=plane.hitl_policy_key, control_plane=plane.registry, tenant_id=h.TENANT,
+        erasure_trust=h.trust(plane), control_plane=plane.registry, tenant_id=h.TENANT,
     )
     untouched = plane.document.content_address
     with pytest.raises(corrupt) as refused:

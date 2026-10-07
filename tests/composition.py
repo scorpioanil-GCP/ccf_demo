@@ -45,6 +45,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from functools import cache
 from typing import Any
 
 from ccf.artifacts.file_store import FileArtifactStore
@@ -340,3 +341,33 @@ def declared_hitl_policy_key(tenant: str = "acme-bank") -> str:
     erasure approval must pin; test vocabulary under the test tenant (CINV-01).
     """
     return f"{tenant}/hitl/erasure-attestation-policy"
+
+
+@cache
+def declared_erasure_authority(tenant: str = "acme-bank") -> Any:
+    """The erasure authority a test deployment declares for ``tenant`` (SEC-009, fix round 5, R1, R2, R4).
+
+    Its HITL policy key (:func:`declared_hitl_policy_key`), the content hash of
+    the fixture erasure workflow rewritten for ``tenant``
+    (``tests/erasure/composed.py``), and the PUBLIC half of the test door key —
+    generated the way the SEC-005 tests generate theirs. Test vocabulary
+    (CINV-01). Imported lazily: the erasure helpers import this module.
+    """
+    from ccf.erasure import ErasureAuthority
+    from tests.erasure import composed, signing
+
+    return ErasureAuthority(
+        tenant_id=tenant,
+        hitl_policy_key=declared_hitl_policy_key(tenant),
+        workflow_definition_hash=composed.erasure_workflow_hash(tenant),
+        door_keys=signing.door_keys(),
+    )
+
+
+@cache
+def declared_erasure_trust(*tenants: str) -> Any:
+    """The erasure trust a test deployment composes with: one declared authority per tenant (``acme-bank`` when none is named)."""
+    from ccf.erasure import ErasureTrust
+
+    named = tenants or ("acme-bank",)
+    return ErasureTrust(authorities={tenant: declared_erasure_authority(tenant) for tenant in named})

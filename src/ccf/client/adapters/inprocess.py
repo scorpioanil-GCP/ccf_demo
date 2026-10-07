@@ -329,9 +329,15 @@ def _boot(
             # resolver composes the consult over it, scoped to this fabric's
             # tenant.
             erasure_index=erasure_index_at(document.artifact_store),
-            # SEC-009 (fix round 4, ruling 1): the deployment's HITL policy key,
-            # declared in its binding document, confined to its tenant.
-            hitl_policy_key=under(document.hitl_policy_key),
+            # SEC-009 (fix round 5, R1, R2, R4): the erasure authority the
+            # deployment declares in its binding document — its HITL policy key
+            # confined to its tenant — or none. NOTE: this adapter boots its OWN
+            # registry from ccf_config.yaml, which registers no HITL policy,
+            # approval policy or erasure workflow (none is manifest-addressable),
+            # so a genuine erasure consulted here reads index-unsupported until
+            # the deployment registers them into that registry; the content stays
+            # withheld either way.
+            erasure_trust=document.erasure_trust(tenant_id=fabric.tenant_id),
             artifact_store=FileArtifactStore(
                 root=document.artifact_store,
                 write_kinds=WriteKinds.declare(

@@ -48,13 +48,13 @@ APPROVAL_POLICY_URI = "ccf-artifact://acme-bank/approval-policy/erasure-officers
 REPO = Path(__file__).resolve().parents[2]
 
 
-def _compose(plane: h.Plane, *, cp: Any = None, provider: Any = None, key: str | None = None) -> tuple[Any, Any]:
+def _compose(plane: h.Plane, *, cp: Any = None, provider: Any = None, trust: Any = None) -> tuple[Any, Any]:
     audit = ControlPlaneRegistry().audit_log
     kw: dict[str, Any] = {} if provider is None else {"identity_provider": provider}
     consulted = h.erasure("compose_erasure_consult")(
         plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock,
         control_plane=cp or plane.registry, tenant_id=h.TENANT,
-        hitl_policy_key=plane.hitl_policy_key if key is None else key, **kw,
+        erasure_trust=h.trust(plane) if trust is None else trust, **kw,
     )
     return consulted, audit
 
@@ -83,7 +83,9 @@ def _plant(
     issued_at: Any = None,
     definition_hash: str | None = None,
 ) -> str:
-    """File an approval, an entry and a record naming it, under the requester's capability only."""
+    """File an approval, an entry and a record naming it, under the requester's capability — and,
+    the strongest forger (fix round 5), the GENUINE door key, so the judgment each test names
+    is what refuses, never the door signature."""
     issued = h.fabric_clock() if issued_at is None else issued_at
     attestation = signing.sign(
         tenant=tenant_claim, event_key=event_key or f"{h.TENANT}/{request.request_id}/{gate}",
@@ -102,9 +104,8 @@ def _plant(
     )
     record = _forged_record(
         request, address, approval_ref=filed.content_address, actor=actor, requested_by=requested_by,
-        approval_policy_ref=APPROVAL_POLICY_URI,
     )
-    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), approval_ref=filed.content_address))
+    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), record=record, approval_ref=filed.content_address))
     plane.store.put(h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name="f" * 64, artifact=record))
     return address
 
@@ -161,7 +162,8 @@ def test_b_a_gate_the_workflow_definition_does_not_declare_is_unsupported(tmp_pa
 
 
 def test_b_a_workflow_definition_hash_the_control_plane_does_not_hold_is_unsupported(tmp_path: Path) -> None:
-    """Ruling 3: the gate is bound to the DEFINITION, resolved by hash, not to free text."""
+    """Ruling 3 (and fix round 5, R1): the gate is bound to the DECLARED definition, fixed at
+    composition by hash, not to free text — any other hash is refused."""
     plane = h.compose(tmp_path)
     request = h.request(plane)
     address = _plant(plane, request, subject=h.APPROVER, directory=signing.key_dir(), policy_ref=_pin(plane), definition_hash="2" * 64)
@@ -188,13 +190,18 @@ def test_c2_a_policy_in_another_tenants_key_space_is_unsupported(tmp_path: Path)
 
 
 def test_c2_the_consult_refuses_a_deployment_key_outside_the_approvals_tenant(tmp_path: Path) -> None:
-    """Ruling 1, second clause: even the composed key must be in the approval's tenant."""
+    """Ruling 1, second clause: even the composed key must be in the approval's tenant — refused
+    now at COMPOSITION (fix round 5, R4): an authority's HITL key lies under its own tenant, and
+    an approval in any other tenant is refused by name (R1)."""
+    from pydantic import ValidationError
+
     plane = h.compose(tmp_path)
-    request = h.request(plane)
     foreign = "evil-tenant/hitl/erasure-attestation-policy"
-    ref = _hitl_policy(plane.registry, foreign, {h.APPROVER: {signing.APPROVER_KID: signing.public_jwk()}})
-    address = _plant(plane, request, subject=h.APPROVER, directory=signing.key_dir(), policy_ref=ref)
-    assert _outcome(plane, address, key=foreign).startswith("unsupported")
+    with pytest.raises(ValidationError, match="does not lie under tenant"):
+        h.erasure("ErasureAuthority")(
+            tenant_id=h.TENANT, hitl_policy_key=foreign,
+            workflow_definition_hash=plane.definition_version, door_keys=signing.door_keys(),
+        )
 
 
 def test_c3_self_approval_by_a_legitimately_pinned_requester_is_unsupported(tmp_path: Path) -> None:
@@ -311,7 +318,7 @@ def test_f_the_global_memo_is_keyed_by_the_policy_head_not_the_control_plane_ide
 
     def fresh() -> None:
         compose(counting, index=h.index_of(plane), audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock,
-                control_plane=plane.registry, tenant_id=h.TENANT, hitl_policy_key=plane.hitl_policy_key)
+                control_plane=plane.registry, tenant_id=h.TENANT, erasure_trust=h.trust(plane))
 
     fresh()
     fresh()
@@ -329,7 +336,7 @@ def test_the_consult_refuses_to_compose_without_the_deployments_control_plane(tm
     with pytest.raises(h.erasure("ErasureCompositionRefused")):
         h.erasure("compose_erasure_consult")(
             plane.store, index=h.index_of(plane), audit_log=plane.registry.audit_log, clock=h.fabric_clock,
-            control_plane=None, tenant_id=h.TENANT, hitl_policy_key=plane.hitl_policy_key,
+            control_plane=None, tenant_id=h.TENANT, erasure_trust=h.trust(plane),
         )
 
 
@@ -341,17 +348,22 @@ def test_open_product_has_no_fresh_registry_fallback(tmp_path: Path) -> None:
         pr._open(root, tmp_path / "scratch", control_plane=None)
 
 
-@pytest.mark.parametrize("axis", ["control_plane", "identity_provider", "hitl_policy_key"])
+@pytest.mark.parametrize("axis", ["control_plane", "identity_provider", "erasure_trust"])
 def test_recomposing_a_composed_store_with_a_different_trust_root_refuses_by_name(tmp_path: Path, axis: str) -> None:
     plane = h.compose(tmp_path)
     compose = h.erasure("compose_erasure_consult")
     arguments: dict[str, Any] = dict(
         index=h.index_of(plane), audit_log=plane.registry.audit_log, clock=h.fabric_clock,
-        control_plane=plane.registry, tenant_id=h.TENANT, hitl_policy_key=plane.hitl_policy_key,
+        control_plane=plane.registry, tenant_id=h.TENANT, erasure_trust=h.trust(plane),
     )
     store = compose(plane.store, **arguments)
     assert compose(store, **arguments) is store
-    different = {"control_plane": ControlPlaneRegistry(), "identity_provider": _AcceptAll(), "hitl_policy_key": "acme-bank/hitl/other"}
+    assert compose(store, **{**arguments, "erasure_trust": h.trust(plane)}) is store  # an EQUAL trust is the same root
+    different = {
+        "control_plane": ControlPlaneRegistry(),
+        "identity_provider": _AcceptAll(),
+        "erasure_trust": h.erasure("ErasureTrust")(authorities={}),
+    }
     with pytest.raises(h.erasure("ErasureCompositionRefused")):
         compose(store, **{**arguments, axis: different[axis]})
 

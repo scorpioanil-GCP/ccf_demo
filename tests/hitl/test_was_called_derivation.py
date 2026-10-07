@@ -19,7 +19,7 @@ anything unverified, and nothing lands on the transport.
 from __future__ import annotations
 
 import json
-from tests.composition import declared_hitl_policy_key, no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -157,7 +157,7 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
 def _deps(fabric: Fabric) -> Any:
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    return ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+    return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,

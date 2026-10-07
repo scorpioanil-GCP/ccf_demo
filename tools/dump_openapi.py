@@ -132,7 +132,7 @@ def build_app(scratch: pathlib.Path) -> Any:
     )
     from ccf.contracts.canonical import content_hash
     from ccf.controlplane.registry import ControlPlaneRegistry
-    from ccf.erasure import ERASURE_INDEX_FILENAME, FileErasureIndex
+    from ccf.erasure import ERASURE_INDEX_FILENAME, ErasureTrust, FileErasureIndex
     from ccf.products.entitlement import (
         PRODUCT_ENTITLEMENT_POLICY,
         ProductEntitlementGrant,
@@ -225,7 +225,9 @@ def build_app(scratch: pathlib.Path) -> Any:
             # file is never written (this tool erases nothing).
             control_plane=ControlPlaneRegistry(),
             artifact_store=unused,
-            hitl_policy_key="ccf-openapi/hitl/policy",
+            # Fix round 5: this tool runs no erasure door, so it declares no
+            # erasure authority.
+            erasure_trust=ErasureTrust(authorities={}),
             erasure_index=FileErasureIndex(
                 pathlib.Path(tempfile.mkdtemp(prefix="ccf-openapi-")) / ERASURE_INDEX_FILENAME
             ),

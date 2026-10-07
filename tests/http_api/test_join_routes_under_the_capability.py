@@ -29,7 +29,7 @@ the capability                         the governed step
 
 from __future__ import annotations
 
-from tests.composition import declared_hitl_policy_key, no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -156,7 +156,7 @@ def _world(tmp_path: Path) -> _World:
     recording = _Recording(inner=seams["authorizer"])
     seams["authorizer"] = recording
     app = create_app(
-        ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=registry,
             artifact_store=store,
             product_resolver=_resolver,
@@ -377,7 +377,7 @@ def _recorder_over(store: Any, registry: ControlPlaneRegistry) -> Any:
 
 
 def _deps(registry: ControlPlaneRegistry, store: Any) -> ApiDependencies:
-    return ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), control_plane=registry, artifact_store=store, product_resolver=_resolver)
+    return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), control_plane=registry, artifact_store=store, product_resolver=_resolver)
 
 
 def test_a_recorder_over_a_store_not_declaring_its_class_is_refused_at_boot(tmp_path: Path) -> None:
@@ -665,7 +665,7 @@ def test_a_read_after_an_allow_sees_only_the_capabilitys_tenant(tmp_path: Path) 
         )
     from ccf.skills.grants import GrantLedger, RefusingApprovalSink
 
-    deps = ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+    deps = ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=registry,
         artifact_store=store,
         product_resolver=_resolver,

@@ -57,14 +57,15 @@ def main() -> None:
     # exactly what the paved-consumer suite measured before this line existed.
     from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: PLC0415
 
-    from tests.composition import declare_wide_temporal_boundary  # noqa: PLC0415
+    from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust  # noqa: PLC0415
 
     control_plane = ControlPlaneRegistry()
     declare_wide_temporal_boundary(
         control_plane, tenant_id=fixture.PRODUCER_TENANT
     )
     with open_product(
-        hitl_policy_key="hitl_policy",
+        # SEC-009 (fix round 5): the producer's erasure trust root.
+        erasure_trust=declared_erasure_trust(fixture.PRODUCER_TENANT),
         config_root=root,
         scratch=workspace / "scratch",
         acquire=fixture.Acquire(),

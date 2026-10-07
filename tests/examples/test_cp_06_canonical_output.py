@@ -53,6 +53,7 @@ from typing import Any
 import pytest
 import yaml
 
+from ccf.erasure import ErasureTrust
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.child_resolver import ChildQuestion
@@ -513,7 +514,7 @@ def test_the_commitment_pi_divides_by_is_the_one_in_the_governed_view(
     parameters = {a.arg for a in constructor.args.kwonlyargs}
     assert "commitment" not in parameters and "enforceable_jurisdictions" not in parameters, parameters
     with open_product(
-        hitl_policy_key="hitl_policy",
+        erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
         config_root=EXAMPLE, scratch=tmp_path,
         acquire=_with_commitment_scaled(deployment, Decimal(2), CP14_FACILITY),
@@ -630,7 +631,7 @@ def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], N
 
 def paved_consumer(tmp_path: pathlib.Path, *, url: str, edit: Callable[[dict[str, Any]], None] | None = None, scope: str = CP14_SCOPE) -> OpenedProduct:
     return open_product(
-        hitl_policy_key="hitl_policy",
+        erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
         config_root=_consumer_tree(tmp_path, edit=edit), scratch=tmp_path / "scratch",
         acquire=fixture.Acquire(), project=fixture.plan_factory, assess=fixture.assess,

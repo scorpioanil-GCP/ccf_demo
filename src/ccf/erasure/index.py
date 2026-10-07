@@ -8,10 +8,11 @@ store construction site.
 
 **The record is the only authority** (U7). Every entry names its erasure
 record's content address, the request it answers, the hashed subject, the
-tenant, the erased address and the approval reference; the decorating store
-validates every entry against its record (:mod:`ccf.erasure.store`) and
-refuses to serve an address whose entry disagrees, auditing
-``erasure_index_unsupported`` (design §8).
+tenant, the erased address and the approval reference, and carries the
+erasure door's signature over the record (fix round 5, R2); the decorating
+store verifies that signature and validates every entry against its record
+(:mod:`ccf.erasure.store`), and refuses to serve an address whose entry
+disagrees, auditing ``erasure_index_unsupported`` (design §8).
 
 **Only the erasure door writes it** (I3). :meth:`ErasureIndexProtocol.append`
 takes the ``ArtifactErase`` capability bound to the entry's own request
@@ -127,6 +128,15 @@ class ErasureIndexEntry(CCFContract):
             record's (N2).
         erased_at: The record's ``erased_at``; served only when it equals the
             record's (N2).
+        door_signature: The erasure door's detached signature
+            (``protected..signature``) over the record's canonical bytes — the
+            bytes the store holds at ``erasure_record_address`` (fix round 5,
+            R2). Carried here rather than in the record because an ES256
+            signature is not deterministic: a retried completion reuses the
+            signature its prior attempt appended, so the write-ahead entries
+            and the record stay byte-identical across retries (I4).
+        door_key_id: The door key the signature was made under — one the
+            tenant's declared authority names.
     """
 
     tenant_id: str
@@ -138,6 +148,8 @@ class ErasureIndexEntry(CCFContract):
     approval_ref: str
     reason: str
     erased_at: datetime
+    door_signature: str
+    door_key_id: str
 
 
 @runtime_checkable

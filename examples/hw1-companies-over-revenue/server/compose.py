@@ -97,7 +97,7 @@ def compose(document: BindingDocument) -> ComposedDeployment:
         ),
         artifact_store=FileArtifactStore(root=document.artifact_store),
         # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
-        hitl_policy_key=document.hitl_policy_key,
+        erasure_trust=document.erasure_trust(tenant_id=fabric.tenant_id),
         erasure_index=erasure_index_at(document.artifact_store),
         replay_record_class=document.replay_record_class,
         query_pin_class=document.query_pin_class,

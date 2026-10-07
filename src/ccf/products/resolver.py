@@ -159,6 +159,7 @@ from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKin
 from ccf.erasure.index import ErasureIndexProtocol
 from ccf.erasure.approval import PinnedPolicySource
 from ccf.erasure.store import ErasureCompositionRefused, compose_erasure_consult
+from ccf.erasure.trust import ErasureTrust
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -4444,11 +4445,12 @@ def build_governed_resolver(
     #: default, is composed with the erasure consult over it, scoped to the
     #: fabric's tenant, and a composition without a declared index refuses.
     erasure_index: ErasureIndexProtocol,
-    #: SEC-009 (`D-IMPL-374` (4), fix round 4, ruling 1): the deployment's HITL
-    #: policy key — the SAME key its HITL transport is bound to — which every
-    #: erasure approval the composed store verifies must pin. REQUIRED, no
-    #: default.
-    hitl_policy_key: str,
+    #: SEC-009 (`D-IMPL-374` (4), fix round 5, R1, R2, R4): the deployment's
+    #: erasure trust root, per tenant — the HITL policy key each tenant's
+    #: transport is bound to, its erasure workflow's content hash and the
+    #: erasure door's public key — which the composed store verifies every
+    #: erasure against. REQUIRED, no default.
+    erasure_trust: ErasureTrust,
     #: `D-IMPL-343` R-3a (`D-IMPL-292` applied): optional, and read from the
     #: deployment's declared `ttl:` binding when omitted. A call stating a
     #: value that DIFFERS from the declaration is refused with both named —
@@ -4633,6 +4635,10 @@ def build_governed_resolver(
         erasure_index: The deployment's durable erasure index (SEC-009;
             `D-IMPL-374` (4), C1). Required: the selected store is composed with
             the erasure consult over it, scoped to the fabric's tenant.
+        erasure_trust: The deployment's per-tenant erasure authorities
+            (SEC-009; `D-IMPL-374` (4), fix round 5). Required: the composed
+            store verifies the door's record signature and every approval
+            against the authority of the record's tenant.
         artifact_store: Where replay records and executed-query bytes land. A
             substrate reached *through* mechanism, never a second writer
             (CLAUDE.md §7.4). Taken as an object rather than a path so this
@@ -4973,10 +4979,10 @@ def build_governed_resolver(
         index=erasure_index,
         audit_log=control_plane.audit_log,
         clock=admission_clock,
-        # Fix round 4: approvals verify against the pinned HITL policy here,
-        # under the deployment's HITL policy key (ruling 1).
+        # Fix rounds 4 and 5: approvals and the door's record signatures
+        # verify here, against the deployment's per-tenant trust root.
         control_plane=control_plane,
-        hitl_policy_key=hitl_policy_key,
+        erasure_trust=erasure_trust,
         tenant_id=fabric.tenant_id,
     )
 

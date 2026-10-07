@@ -103,6 +103,7 @@ from ccf.erasure.store import (
     ErasureIndexUnavailable,
     compose_erasure_consult,
 )
+from ccf.erasure.trust import ErasureTrust
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
@@ -131,7 +132,7 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
-from ccf.controlplane.registry import ControlPlaneRegistry, namespaced_key
+from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import BootedFabric, load_config_and_boot
 from ccf.deployment.classes import resolve_artifact_class
 from ccf.deployment.config import DerivedDeployment, derive_deployment
@@ -451,7 +452,7 @@ class OpenedProduct:
         control_plane: ControlPlaneRegistry,
         artifact_store: ArtifactStoreProtocol,
         erasure_index: ErasureIndexProtocol,
-        hitl_policy_key: str,
+        erasure_trust: ErasureTrust,
         refusal_recorder: ReplayRefusalRecorder,
         acquire: AcquireProtocol,
         project: ProjectionPlanFactoryProtocol,
@@ -484,11 +485,10 @@ class OpenedProduct:
         #: SEC-009 (`D-IMPL-374` (4), C1): the durable erasure index this
         #: product's store consults and every resolver it builds is handed.
         self.erasure_index = erasure_index
-        #: SEC-009 (fix round 4, ruling 1): the deployment's HITL policy key,
-        #: confined to this product's tenant, which every erasure approval the
-        #: store verifies must pin — and which every resolver and door built
-        #: over this product composes with.
-        self.hitl_policy_key = hitl_policy_key
+        #: SEC-009 (fix round 5, R1, R2, R4): the deployment's per-tenant
+        #: erasure trust root the store verifies every erasure against — and
+        #: which every resolver and door built over this product composes with.
+        self.erasure_trust = erasure_trust
         self.refusal_recorder = refusal_recorder
         self.mcp_skills = mcp_skills
         self.agent = agent
@@ -624,7 +624,7 @@ class OpenedProduct:
             "product_gate": self._gate,
             "artifact_store": self.artifact_store,
             "erasure_index": self.erasure_index,
-            "hitl_policy_key": self.hitl_policy_key,
+            "erasure_trust": self.erasure_trust,
             "replay_record_class": self.replay.record_class,
             "query_pin_class": self.replay.query_pin_class,
             "refusal_recorder": self.refusal_recorder,
@@ -913,7 +913,7 @@ def open_product(
     clock: Callable[[], datetime] = _utc_now,
     environ: Mapping[str, str] | None = None,
     control_plane: ControlPlaneRegistry,
-    hitl_policy_key: str,
+    erasure_trust: ErasureTrust,
     artifact_store: ArtifactStoreProtocol | None = None,
     constraint_resolver: PolicyConstraintResolver | None = None,
     capabilities: tuple[TechnicalCapability, ...] | None = None,
@@ -987,10 +987,15 @@ def open_product(
             policy, approval policy and workflow definition through it, so a
             registry that lacked them would mark every genuine erasure
             ``index-unsupported``. ``None`` is refused by name.
-        hitl_policy_key: The deployment's HITL policy key — the SAME key its
-            HITL transport is bound to — confined to this product's tenant the
-            way every deployment key is (`D-IMPL-354`). Every erasure approval
-            the store verifies must pin it (SEC-009, fix round 4, ruling 1).
+        erasure_trust: The deployment's erasure trust root (SEC-009, fix round
+            5, R1, R2, R4): for each tenant that may erase — this product's, for
+            a single-tenant deployment — an
+            :class:`~ccf.erasure.ErasureAuthority` naming the HITL policy key
+            its HITL transport is bound to, its erasure workflow's content hash
+            and the erasure door's public key. The store verifies the door's
+            record signature and every approval against it; a deployment that
+            runs no erasure door declares none (``ErasureTrust(authorities={})``)
+            and every erasure its index names reads ``index-unsupported``.
             **Required, no default** (CINV-01).
         artifact_store: Any :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol`
             (an MCP-backed store, say). Wins under `D-IMPL-282` R-12; the
@@ -1132,7 +1137,6 @@ def open_product(
             " index-unsupported (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
         )
     registry = control_plane
-    confined_hitl_policy_key = namespaced_key(tenant=config.tenant_id, key=hitl_policy_key)
     selected: ArtifactStoreProtocol = (
         artifact_store
         if artifact_store is not None
@@ -1199,10 +1203,10 @@ def open_product(
         index=erasure_index,
         audit_log=registry.audit_log,
         clock=clock,
-        # Fix round 4: approvals verify against the pinned HITL policy here,
-        # under the deployment's HITL policy key (ruling 1).
+        # Fix rounds 4 and 5: approvals and the door's record signatures
+        # verify here, against the deployment's per-tenant trust root.
         control_plane=registry,
-        hitl_policy_key=confined_hitl_policy_key,
+        erasure_trust=erasure_trust,
         tenant_id=config.tenant_id,
     )
     # The bundle pin the boot WILL mint, computed the way the registry mints
@@ -1281,7 +1285,7 @@ def open_product(
         control_plane=registry,
         artifact_store=store,
         erasure_index=erasure_index,
-        hitl_policy_key=confined_hitl_policy_key,
+        erasure_trust=erasure_trust,
         refusal_recorder=recorder,
         acquire=acquire,
         project=project,

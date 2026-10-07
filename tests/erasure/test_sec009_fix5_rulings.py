@@ -177,6 +177,7 @@ def _plant(
     door_key_id: str = signing.DOOR_KID,
     cap_principal: str = h.REQUESTER,
     issued_at: datetime | None = None,
+    gate: str = GATE,
 ) -> str:
     """File an approval, an index entry and a record — all a filer holding only ``ArtifactErase`` can file.
 
@@ -189,13 +190,13 @@ def _plant(
     """
     issued = h.fabric_clock() if issued_at is None else issued_at
     attestation = signing.sign(
-        tenant=h.TENANT, event_key=f"{h.TENANT}/{request.request_id}/{GATE}", product_content_hash="1" * 64,
+        tenant=h.TENANT, event_key=f"{h.TENANT}/{request.request_id}/{gate}", product_content_hash="1" * 64,
         subject_id=approver, issued_at=issued, directory=approver_keys,
     )
     actor = ApproverIdentity(subject_id=approver, identity_provider_ref="x")
     approval = h.erasure("ErasureApproval")(
         tenant_id=h.TENANT, request_id=request.request_id, approver=actor, verdict="approve", acted_at=issued,
-        gate=GATE, gate_state_hash="1" * 64, workflow_definition_hash=definition_hash or plane.definition_version,
+        gate=gate, gate_state_hash="1" * 64, workflow_definition_hash=definition_hash or plane.definition_version,
         submission_hash="3" * 64, attestation=attestation, hitl_policy_ref=policy_ref,
     )
     cap = h.erase_cap(request, principal=cap_principal)
@@ -377,6 +378,53 @@ def test_r1_b2_and_b3_in_their_strongest_form_are_refused_by_name(tmp_path: Path
     address = _plant(plane, request, approver=DAVE, approver_keys=dave, policy_ref=pin, definition_hash=other)
     assert _judgment(plane, address) == "approval-workflow-mismatch"
     assert _outcome(_consult(plane), address).startswith("unsupported")
+
+
+def _two_gate_erasure_workflow(registry: ControlPlaneRegistry, *, review_policy: str) -> str:
+    """A declared erasure workflow with TWO gates: an earlier ``review`` gate bound to
+    ``review_policy``, whose approval leads to the erasure gate, then the erasure gate."""
+    document = dict(eh._load(h.WORKFLOW_FIXTURE)["workflow_definition"])
+    document["name"] = "two-gate-erasure-workflow"
+    document["start"] = "review"
+    document["transitions"] = [
+        {"source": "review", "target": GATE},
+        {"source": "review", "target": "declined"},
+        {"source": GATE, "target": "erased"},
+        {"source": GATE, "target": "declined"},
+    ]
+    document["gate_policies"] = {"review": review_policy, GATE: APPROVAL_POLICY_URI}
+    document["gate_routes"] = {
+        "review": {"approve": GATE, "reject": "declined"},
+        GATE: {"approve": "erased", "reject": "declined"},
+    }
+    definition = parse_artifact(document, WORKFLOW_DEFINITION)
+    registered = register_versioned_at_composition(registry, f"{h.TENANT}/workflows/two-gate-erasure", definition, WORKFLOW_DEFINITION)
+    assert isinstance(registered, str), registered
+    return registered
+
+
+def test_r1_only_the_declared_workflows_erasure_gate_approves_the_erasure(tmp_path: Path) -> None:
+    """R1: the policy is THAT workflow's ERASURE gate's — the gate whose approval completes it —
+    never an earlier gate's. Dave may approve the review gate; he is no erasure officer."""
+    plane = h.compose(tmp_path)
+    request = h.request(plane)
+    dave, pin = _dave_pinned(plane)
+    reviewers = register_typed_policy(plane.registry, f"{h.TENANT}/approval-policy/reviewers", eligible=frozenset({DAVE}))
+    two_gate = _two_gate_erasure_workflow(plane.registry, review_policy=reviewers)
+    trust = _trust(_authority(plane, definition=two_gate))
+    address = _plant(plane, request, approver=DAVE, approver_keys=dave, policy_ref=pin, definition_hash=two_gate, gate="review")
+    assert _judgment(plane, address, trust=trust) == "approval-gate-unknown"
+    assert _outcome(_consult(plane, trust=trust), address).startswith("unsupported")
+    # The control: the erasure gate of the same declared workflow, by an erasure officer.
+    control = h.compose(tmp_path / "control")
+    control_request = h.request(control)
+    two_gate_again = _two_gate_erasure_workflow(
+        control.registry,
+        review_policy=register_typed_policy(control.registry, f"{h.TENANT}/approval-policy/reviewers", eligible=frozenset({DAVE})),
+    )
+    assert two_gate_again == two_gate
+    control_address = _plant(control, control_request, approver=h.APPROVER, approver_keys=signing.key_dir(), policy_ref=_pin(control), definition_hash=two_gate)
+    assert _judgment(control, control_address, trust=trust) == "supported"
 
 
 def test_r1_an_approval_in_another_tenant_is_refused_by_name(tmp_path: Path) -> None:

@@ -42,6 +42,7 @@ from ccf.products.request import ProductRequest
 from ccf.products.resolver import ResolverOutcome
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.erasure import ErasureTrust
 
 HERE = Path(__file__).parent
 
@@ -73,7 +74,7 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     read from.
     """
     return open_product(
-        hitl_policy_key="hitl_policy",
+        erasure_trust=ErasureTrust(authorities={}),
         control_plane=ControlPlaneRegistry(),
         config_root=HERE,
         scratch=scratch,

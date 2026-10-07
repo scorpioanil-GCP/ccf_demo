@@ -43,7 +43,7 @@ vocabulary (CINV-01).
 
 from __future__ import annotations
 
-from tests.composition import declared_hitl_policy_key, no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -169,7 +169,7 @@ def door(fabric: Fabric, tmp_path_factory: pytest.TempPathFactory) -> Any:
         control_plane=_entitlement_registry(fabric), clock=lambda: INSTANT
     )
     app = create_app(
-        ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

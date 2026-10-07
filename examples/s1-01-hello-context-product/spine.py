@@ -80,7 +80,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
-from ccf.erasure import erasure_index_at
+from ccf.erasure import ErasureTrust, erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
@@ -391,7 +391,7 @@ def assemble_and_serve(
             debt_scorer=lambda *, view, evidence=None: scenario.debt(view),
             artifact_store=store,
             # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
-            hitl_policy_key="hitl_policy",
+            erasure_trust=ErasureTrust(authorities={}),
             erasure_index=erasure_index_at(store.root),
             replay_record_class=scenario.replay_record_class,
             query_pin_class=scenario.query_pin_class,

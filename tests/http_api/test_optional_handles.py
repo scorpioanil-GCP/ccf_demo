@@ -45,7 +45,7 @@ Tenant, principal, class and role names are test deployment vocabulary.
 from __future__ import annotations
 
 import json
-from tests.composition import declared_hitl_policy_key, no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -94,7 +94,7 @@ EXECUTION_ID = "optional-handles-execution"
 #: useful app omits any of them.
 #: SEC-009 (D-IMPL-374 (4), fix round 1 C1): ``erasure_index`` joins the
 #: required handles — every store composition declares its durable index.
-REQUIRED_FIELDS = ("control_plane", "artifact_store", "erasure_index", "hitl_policy_key", "product_resolver")
+REQUIRED_FIELDS = ("control_plane", "artifact_store", "erasure_index", "erasure_trust", "product_resolver")
 
 #: The six that default to ``None``. ``None`` is the positive assertion *this
 #: deployment exposes no such route*, not an omission.
@@ -125,7 +125,7 @@ FIELD_TO_ROUTER = {
 
 def _full_deps(fabric: Fabric) -> ApiDependencies:
     """The eight-handle bundle every existing deployment constructs."""
-    return ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+    return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -140,7 +140,7 @@ def _full_deps(fabric: Fabric) -> ApiDependencies:
 
 def _partial_deps(fabric: Fabric) -> ApiDependencies:
     """The three-handle bundle a product-only deployment can now construct."""
-    return ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+    return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -267,7 +267,7 @@ def test_three_handles_construct_without_a_type_error() -> None:
     ``None`` here proves the *signature*, never the behaviour — the behaviour
     claim is the byte-comparison below, which is why both exist.
     """
-    bundle = ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+    bundle = ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=None,  # type: ignore[arg-type]
         artifact_store=None,  # type: ignore[arg-type]
         product_resolver=None,  # type: ignore[arg-type]

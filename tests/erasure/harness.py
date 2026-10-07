@@ -147,6 +147,22 @@ class Plane:
     hitl_policy_key: str
     signed: bool
 
+    @property
+    def authority(self) -> Any:
+        """The plane's erasure authority (fix round 5, R1, R2): its HITL policy key, the erasure
+        workflow it registered, and the test door key's public half."""
+        return erasure("ErasureAuthority")(
+            tenant_id=TENANT,
+            hitl_policy_key=self.hitl_policy_key,
+            workflow_definition_hash=self.definition_version,
+            door_keys=signing.door_keys(),
+        )
+
+
+def trust(plane: Plane) -> Any:
+    """The erasure trust a single-tenant site over ``plane`` composes with: the plane's one authority."""
+    return erasure("ErasureTrust")(authorities={TENANT: plane.authority})
+
 
 def declaration(*, key_paths: tuple[str, ...] = ("customer.id",), identifier_kind: str = "opaque") -> Any:
     return erasure("ErasureSubjectDeclaration")(
@@ -227,14 +243,17 @@ def index_of(plane: Plane) -> Any:
     return erasure("FileErasureIndex")(plane.index_path)
 
 
-def door(plane: Plane) -> Any:
+def door(plane: Plane, *, store: Any = None) -> Any:
+    """The plane's erasure door: its authority, the test door key's signer (fix round 5, R2)."""
     return door_module("ErasureDoor")(
         engine=plane.engine,
         factory=WorkflowFactory(control_plane=plane.registry),
         control_plane=plane.registry,
         transport=plane.transport,
-        hitl_policy_key=plane.hitl_policy_key,
-        store=plane.store,
+        authority=plane.authority,
+        door_signer=signing.door_provider(),
+        door_key_id=signing.DOOR_KID,
+        store=plane.store if store is None else store,
         clock=plane.clock,
         index=index_of(plane),
     )

@@ -34,11 +34,10 @@ from ccf.authz.decision import AuthzDecision
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf_runtime.mcp.artifact_server import build_artifact_server
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant
-from tests.composition import no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from tests.erasure import harness as h
 from tests.mcp import test_artifact_server_authorized as aa
 from tests.mcp.guarded_servers import PRINCIPAL, SCOPE, _entitlement_world, authorizer_granting
-from tests.composition import declared_hitl_policy_key
 
 FOREIGN = "beta-bank"
 
@@ -62,7 +61,7 @@ def _server(tmp_path: pathlib.Path, store: Any) -> Any:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
-        hitl_policy_key=declared_hitl_policy_key(),
+        erasure_trust=declared_erasure_trust(),
         erasure_index=no_erasures(),
         control_plane=ControlPlaneRegistry(),
     )
@@ -161,16 +160,7 @@ def test_an_erasure_through_the_mcp_backed_reference_store_is_verified_and_admit
 
     monkeypatch.setattr(mcp_store_module, "run_with_session", run_with_session)
     client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=_Run(), write_kinds=h.write_kinds())  # type: ignore[arg-type]
-    door = h.door_module("ErasureDoor")(
-        engine=plane.engine,
-        factory=h.WorkflowFactory(control_plane=plane.registry),
-        control_plane=plane.registry,
-        transport=plane.transport,
-        hitl_policy_key=plane.hitl_policy_key,
-        store=client,
-        clock=plane.clock,
-        index=h.index_of(plane),
-    )
+    door = h.door(plane, store=client)
     request = h.request(plane)
     suspended = h.run(
         door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request))
@@ -203,16 +193,7 @@ def test_an_artifact_server_without_the_names_resource_refuses_class_unverifiabl
 
     monkeypatch.setattr(mcp_store_module, "run_with_session", run_with_session)
     client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=_Run(), write_kinds=h.write_kinds())  # type: ignore[arg-type]
-    door = h.door_module("ErasureDoor")(
-        engine=plane.engine,
-        factory=h.WorkflowFactory(control_plane=plane.registry),
-        control_plane=plane.registry,
-        transport=plane.transport,
-        hitl_policy_key=plane.hitl_policy_key,
-        store=client,
-        clock=plane.clock,
-        index=h.index_of(plane),
-    )
+    door = h.door(plane, store=client)
     request = h.request(plane)
     with pytest.raises(h.door_module("ErasureRefused")) as refused:
         h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))

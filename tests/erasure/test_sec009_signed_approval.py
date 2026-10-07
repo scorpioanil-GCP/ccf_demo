@@ -37,19 +37,20 @@ def _consult(plane: h.Plane) -> tuple[Any, Any]:
     audit = ControlPlaneRegistry().audit_log
     consulted = h.erasure("compose_erasure_consult")(
         plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock,
-        hitl_policy_key=plane.hitl_policy_key, control_plane=plane.registry, tenant_id=h.TENANT,
+        erasure_trust=h.trust(plane), control_plane=plane.registry, tenant_id=h.TENANT,
     )
     return consulted, audit
 
 
 def _plant(plane: h.Plane, request: Any, approval: Any) -> str:
-    """File ``approval``, an entry and a record naming it — only the requester's capability."""
+    """File ``approval``, an entry and a record naming it — the requester's capability, and (the
+    strongest forger, fix round 5) the genuine door key, so the APPROVAL's check is what refuses."""
     address = plane.document.content_address
     filed = plane.store.put(
         h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_APPROVAL_CLASS, name="forged", artifact=approval)
     )
     record = _forged_record(request, address, approval_ref=filed.content_address)
-    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), approval_ref=filed.content_address))
+    h.index_of(plane).append(h.erase_cap(request), _entry(request, address, content_hash(record), record=record, approval_ref=filed.content_address))
     plane.store.put(h.erase_cap(request), DerivedWrite(artifact_class=h.ERASURE_RECORD_CLASS, name="f" * 64, artifact=record))
     return address
 
@@ -64,8 +65,9 @@ def _assert_unsupported(plane: h.Plane, address: str) -> None:
 
 
 def _signed_forgery(plane: h.Plane, request: Any, *, directory: Path, event_key: str | None = None) -> Any:
-    """A full-shape approval whose every claim is right for this request."""
-    gate = "approval"
+    """A full-shape approval whose every claim is right for this request — for the DECLARED
+    erasure workflow and its gate (fix round 5, R1), so the signature and claims checks decide."""
+    gate = "erasure-approval"
     issued = h.fabric_clock()
     attestation = signing.sign(
         tenant=h.TENANT,
@@ -79,7 +81,7 @@ def _signed_forgery(plane: h.Plane, request: Any, *, directory: Path, event_key:
         tenant_id=h.TENANT, request_id=request.request_id,
         approver=ApproverIdentity(subject_id="nobody-approved", identity_provider_ref="x"),
         verdict="approve", acted_at=issued, gate=gate, gate_state_hash="1" * 64,
-        workflow_definition_hash="2" * 64, submission_hash="3" * 64,
+        workflow_definition_hash=plane.definition_version, submission_hash="3" * 64,
         attestation=attestation, hitl_policy_ref=signing.policy_ref(plane.registry),
     )
 
@@ -112,7 +114,7 @@ def test_a_genuine_attestation_for_another_request_is_unsupported(tmp_path: Path
     signing.register_signed_policy(plane.registry, subject="nobody-approved")
     request = h.request(plane)
     forged = _signed_forgery(
-        plane, request, directory=signing.key_dir(), event_key=f"{h.TENANT}/another-request/approval"
+        plane, request, directory=signing.key_dir(), event_key=f"{h.TENANT}/another-request/erasure-approval"
     )
     _assert_unsupported(plane, _plant(plane, request, forged))
 

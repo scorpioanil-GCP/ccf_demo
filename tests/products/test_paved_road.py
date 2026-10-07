@@ -68,7 +68,7 @@ from tests.deployment.test_replay_binding import (
     _plan_factory,
     _servable_config,
 )
-from tests.composition import declare_wide_temporal_boundary
+from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust
 
 ASKED_AT = datetime(2026, 3, 2, 12, 0, tzinfo=UTC)
 LIMIT_PARAMETER = "limit"
@@ -169,9 +169,9 @@ def _open(root: pathlib.Path, scratch: pathlib.Path, *, acquire: _Acquire | None
         "assess": _assess,
         "environ": {DSN_VARIABLE: "postgresql://fixture", "PAVED_FIXTURE_TOKEN": "fixture-token"},
         "clock": lambda: ASKED_AT + timedelta(minutes=7),
-        # SEC-009 (fix round 4, ruling 1): the deployment's HITL policy key,
-        # confined under the paved tenant by open_product.
-        "hitl_policy_key": "hitl_policy",
+        # SEC-009 (fix round 5): the deployment's erasure trust root — the
+        # declared test authority for the paved tenant.
+        "erasure_trust": declared_erasure_trust(TENANT),
     }
     arguments.update(overrides)
     if "control_plane" not in arguments:

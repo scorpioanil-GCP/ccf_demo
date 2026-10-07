@@ -26,7 +26,7 @@ would pass a comparison that skipped ``request`` and fail this one (`S7`).
 from __future__ import annotations
 
 import json
-from tests.composition import no_erasures
+from tests.composition import declared_erasure_trust, no_erasures
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -88,7 +88,6 @@ from http_api.composition_authority import (
     register_typed_at_composition,
 )
 from tests.controlplane.capabilities import capability
-from tests.composition import declared_hitl_policy_key
 
 SUBJECT_UNAVAILABLE = REFUSAL_KINDS[SubjectUnavailableRefusal]
 REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
@@ -243,7 +242,7 @@ def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
     deps = ApiDependencies(
         control_plane=registry,
         artifact_store=fabric.store,
-        hitl_policy_key=declared_hitl_policy_key(),
+        erasure_trust=declared_erasure_trust(),
         erasure_index=erasure_index,
         product_resolver=fabric.product_resolver,
     )
@@ -795,7 +794,7 @@ def test_c19_the_level_is_read_through_the_recorder_not_the_source(
         control_plane=door.registry, clock=lambda: AUDIT_INSTANT
     )
     app = create_app(
-        ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=door.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -1001,7 +1000,7 @@ def test_c14_an_unbound_entitlement_seam_is_no_longer_a_configuration(
 
     with pytest.raises(TypeError):
         create_app(  # type: ignore[call-arg]
-            ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -1044,7 +1043,7 @@ def test_the_door_refuses_to_build_with_a_recorder_that_cannot_disclose(
     )
     with pytest.raises(UnrecordableDeliveryBoundaryError, match="disclosure"):
         create_app(
-            ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,

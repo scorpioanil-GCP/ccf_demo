@@ -15,16 +15,22 @@ the decorator is identity.
   tenantless read (the replay engine, ``record_of``, child admission, the MCP
   client lane) WITHHOLDS if any tenant erased the address, with the reason and
   record address REDACTED, so no tenant learns another's erasure.
-* **The record is the only authority (U7, §8, I3).** At composition every
-  entry of every tenant (``tenants()`` → ``entries()``) is validated against
-  its ``ccf.erasure-record``, read through the inner store: the bytes must
-  hash to the entry's record address and the record must name the tenant,
-  the address, the hashed subject and the approval reference the entry
-  carries. An entry that fails — its record missing (a completion that died
-  between the write-ahead entry and the record) or disagreeing — still
-  withholds its address, with the reason ``index-unsupported`` and nothing
-  of the record, and is audited ``erasure_index_unsupported``. An entry
-  appended after composition is validated the first time a read meets it.
+* **The record is the only authority (U7, §8, I3), and it is door-signed
+  (fix round 5, R2).** At composition every entry of every tenant
+  (``tenants()`` → ``entries()``) is validated against its
+  ``ccf.erasure-record``, read through the inner store
+  (:func:`~ccf.erasure.verify_erasure_entry`): the entry's tenant selects its
+  declared :class:`~ccf.erasure.ErasureAuthority` (R4); the bytes must hash to
+  the entry's record address; the erasure DOOR's signature must verify over
+  them under that authority's door keys — before any field of the record is
+  read; and the record must name the tenant, the address, the hashed subject
+  and the approval reference the entry carries. Its approval is then verified
+  against the same authority (:func:`~ccf.erasure.verify_erasure_approval`).
+  An entry that fails — its record missing (a completion that died between
+  the write-ahead entry and the record), unsigned, or disagreeing — still
+  withholds its address, with the reason ``index-unsupported`` and nothing of
+  the record, and is audited ``erasure_index_unsupported``. An entry appended
+  after composition is validated the first time a read meets it.
 * **O(1) per read (I7).** A scoped read is one ``lookup``; a tenantless read
   is one ``lookup`` per tenant. No read scans entries.
 
@@ -38,23 +44,30 @@ composition (ruling 3), never a wall clock and never the disputed entry's own
 
 **Boot validation is memoized per index head** (ruling 4): the key is the
 index's identity (its file path, for the file index), its entry count, the
-store's identity (its root, for a file store) and the Control Plane's
-**policy head** — :func:`~ccf.erasure.approval.policy_head`, the digest of its
-registration history — so a site that composes once per question — the
-governed resolver — does not re-read every record; an append changes the
-count, and ANY Control Plane registration (a rotated HITL policy foremost)
-changes the head, and either invalidates it. The same head keys the verdicts
-a composed store and its tenant views hold: a registration re-judges them on
-the next consult. A verdict is never keyed by a Control Plane object's
-identity (fix round 4, ruling 4). Only SUPPORTED entries are memoized: an
-unsupported one is re-judged, and audited, by every composition.
+store's identity (its root, for a file store), the Control Plane's **policy
+head** — :func:`~ccf.erasure.approval.policy_head`, the digest of its
+registration history — the digest of the composed
+:class:`~ccf.erasure.ErasureTrust`, and the **identity provider instance**
+the verdicts were judged with (fix round 5, R3), held strongly in the memo
+entry so its identity cannot be reused by another object while the entry
+lives. So a site that composes once per question — the governed resolver —
+does not re-read every record; an append changes the count, ANY Control Plane
+registration (a rotated HITL policy foremost) changes the head, and either
+invalidates it; and a verdict judged under one provider — a do-nothing one,
+say — is never served to a site that composed another. The same head keys
+the verdicts a composed store and its tenant views hold: a registration
+re-judges them on the next consult. A verdict is never keyed by a Control
+Plane object's identity (fix round 4, ruling 4). Only SUPPORTED entries are
+memoized: an unsupported one is re-judged, and audited, by every composition.
 
-**The trust root is fixed at composition** (fix round 4, rulings 1 and 5):
-every site passes the deployment's Control Plane and its HITL policy key —
-the same key its HITL transport is bound to — and there is no fresh-registry
-fallback; a composition without them, or a re-composition of an already
-composed store with a different Control Plane, identity provider or key,
-refuses by name (:class:`~ccf.erasure.ErasureCompositionRefused`).
+**The trust root is fixed at composition** (fix round 4, rulings 1 and 5;
+fix round 5, R1, R2, R4): every site passes the deployment's Control Plane and
+its :class:`~ccf.erasure.ErasureTrust` — for each tenant that may erase, the
+HITL policy key its HITL transport is bound to, the content hash of its
+erasure workflow, and the erasure door's public signing key — and there is no
+fresh-registry fallback; a composition without them, or a re-composition of
+an already composed store with a different Control Plane, identity provider
+or trust, refuses by name (:class:`~ccf.erasure.ErasureCompositionRefused`).
 """
 
 from __future__ import annotations
@@ -75,6 +88,7 @@ from ccf.artifacts.protocol import (
     ArtifactWriteAuthority,
     WriteKinds,
 )
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.audit import AuditLog
 from ccf.erasure.approval import (
     ErasureApprovalInvalid,
@@ -86,6 +100,7 @@ from ccf.erasure.approval import (
 from ccf.erasure.contracts import ERASURE_RECORD_CLASS, ErasureApproval, ErasureRecord
 from ccf.erasure.errors import ErasedContentRefused, ErasureCompositionRefused, ErasureIndexCorrupt
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
+from ccf.erasure.trust import ErasureAuthority, ErasureTrust, verify_erasure_entry
 from ccf.peering.identity import IdentityProvider
 
 __ccf_mode__ = "algorithmic"
@@ -112,9 +127,16 @@ class ErasureIndexUnavailable(TypeError):
     """
 
 
-#: Supported-entry keys per (index head, store) — ruling 4. Bounded: the oldest
-#: head is dropped past the bound, which only costs a re-validation.
-_VALIDATED_HEADS: dict[tuple[str, int, str, str], frozenset[tuple[str, str, str]]] = {}
+#: Supported-entry keys per (index head, store, policy head, trust, identity
+#: provider) — ruling 4, and fix round 5 R3. Each value holds the provider
+#: instance the verdicts were judged with, STRONGLY: its identity is part of the
+#: key, so it must not be reused by another object while the entry lives, and a
+#: read is honored only when the entry's provider IS the reader's. Bounded: the
+#: oldest head is dropped past the bound, which only costs a re-validation.
+_VALIDATED_HEADS: dict[
+    tuple[str, int, str, str, str, int],
+    tuple[IdentityProvider, frozenset[tuple[str, str, str]]],
+] = {}
 _VALIDATED_HEADS_BOUND: Final[int] = 64
 _VALIDATED_HEADS_LOCK = threading.Lock()
 
@@ -160,7 +182,7 @@ class ErasureConsultingStore:
         audit_log: AuditLog,
         clock: Callable[[], datetime],
         control_plane: PinnedPolicySource,
-        hitl_policy_key: str,
+        erasure_trust: ErasureTrust,
         tenant_id: str | None,
         identity_provider: IdentityProvider | None = None,
         _verdicts: _Verdicts | None = None,
@@ -170,7 +192,8 @@ class ErasureConsultingStore:
         self._audit_log = audit_log
         self._clock = clock
         self._control_plane = control_plane
-        self._hitl_policy_key = hitl_policy_key
+        self._erasure_trust = erasure_trust
+        self._trust_digest = content_hash(erasure_trust)
         # The provider as DECLARED (``None`` is the reference verifier), kept
         # so a re-composition can be held to the same declaration (ruling 5).
         self._declared_identity_provider = identity_provider
@@ -198,9 +221,9 @@ class ErasureConsultingStore:
         return self._control_plane
 
     @property
-    def hitl_policy_key(self) -> str:
-        """The deployment's HITL policy key every approval must pin (fix round 4, ruling 1)."""
-        return self._hitl_policy_key
+    def erasure_trust(self) -> ErasureTrust:
+        """The per-tenant erasure authorities fixed at composition (SEC-009; `D-IMPL-374` (4), fix round 5, R1, R2, R4)."""
+        return self._erasure_trust
 
     @property
     def identity_provider(self) -> IdentityProvider | None:
@@ -237,7 +260,7 @@ class ErasureConsultingStore:
             audit_log=self._audit_log,
             clock=self._clock,
             control_plane=self._control_plane,
-            hitl_policy_key=self._hitl_policy_key,
+            erasure_trust=self._erasure_trust,
             tenant_id=tenant_id,
             identity_provider=self._declared_identity_provider,
             _verdicts=self._verdicts,
@@ -260,24 +283,31 @@ class ErasureConsultingStore:
         # definition THROUGH it, so a head validated under one registration
         # history is never accepted under another, and any registration — a
         # rotated HITL policy foremost — re-validates (fix round 4, ruling 4).
-        # Never the Control Plane object's identity.
+        # Never the Control Plane object's identity. The composed trust and the
+        # identity provider INSTANCE are part of it too (fix round 5, R3): a
+        # verdict judged under one provider — a do-nothing one, say — is never
+        # served to a site composed with another. The provider is held strongly
+        # in the entry, and honored only when it IS this site's.
         policies = policy_head(self._control_plane)
         self._verdicts.refresh(policies)
         head = (
             _identity(self._index, "path"),
             len(entries),
             _identity(self._inner, "root"),
-            f"policies:{policies}:{self._hitl_policy_key}",
+            f"policies:{policies}",
+            f"trust:{self._trust_digest}",
+            id(self._identity_provider),
         )
         with _VALIDATED_HEADS_LOCK:
-            known = _VALIDATED_HEADS.get(head)
+            cached = _VALIDATED_HEADS.get(head)
+        known = cached[1] if cached is not None and cached[0] is self._identity_provider else None
         keys = {(e.tenant_id, e.content_address, e.erasure_record_address) for e in entries}
         if known is not None:
             self._verdicts.valid |= known & keys
         for entry in entries:
             self._supported(entry)
         with _VALIDATED_HEADS_LOCK:
-            _VALIDATED_HEADS[head] = frozenset(self._verdicts.valid & keys)
+            _VALIDATED_HEADS[head] = (self._identity_provider, frozenset(self._verdicts.valid & keys))
             while len(_VALIDATED_HEADS) > _VALIDATED_HEADS_BOUND:
                 _VALIDATED_HEADS.pop(next(iter(_VALIDATED_HEADS)))
 
@@ -290,21 +320,16 @@ class ErasureConsultingStore:
             return True
         try:
             payload = self._inner.get(content_address=entry.erasure_record_address)
-            record = ErasureRecord.model_validate_json(payload)
-            # Every fact the entry carries must be the RECORD's (U7; N2): the
-            # served reason and instant are therefore the record's own.
-            agrees = (
-                hashlib.sha256(payload).hexdigest() == entry.erasure_record_address
-                and record.tenant_id == entry.tenant_id
-                and record.request_id == entry.request_id
-                and record.subject_class == entry.subject_class
-                and record.subject_ref == entry.subject_ref
-                and record.approval_ref == entry.approval_ref
-                and record.reason == entry.reason
-                and record.erased_at == entry.erased_at
-                and entry.content_address in {a.content_address for a in record.addresses}
-                and self._approved(record)
+            # Fix round 5: the entry's tenant selects its declared authority
+            # (R4); the DOOR's signature is verified over the bytes before any
+            # field of the record is read (R2); then every fact the entry
+            # carries must be the RECORD's (U7; N2) — the served reason and
+            # instant are therefore the record's own — and its approval must
+            # verify against the same authority.
+            record, authority = verify_erasure_entry(
+                entry, payload, trust=self._erasure_trust, identity_provider=self._identity_provider
             )
+            agrees = self._approved(record, authority)
         except (ArtifactStoreError, KeyError, OSError, ValidationError, ValueError):
             agrees = False
         if agrees:
@@ -322,22 +347,23 @@ class ErasureConsultingStore:
             )
         return False
 
-    def _approved(self, record: ErasureRecord) -> bool:
-        """Whether ``record.approval_ref`` resolves to a VERIFIED signed approval of this request (fix round 4).
+    def _approved(self, record: ErasureRecord, authority: ErasureAuthority) -> bool:
+        """Whether ``record.approval_ref`` resolves to a VERIFIED signed approval of this request (fix rounds 4 and 5).
 
         The door filed it before the index append; it is content-addressed and
-        immutable. Its signed HITL attestation is verified against the key the
-        deployment's HITL policy — the key fixed at composition, at the version
-        the approval pins — declares for the signer, resolved through this
-        store's composed Control Plane; its signed claims must name this
-        request's gate, this tenant, the gate's state hash, the record's
-        approver and the approving verdict; the signature must predate that
-        version's supersession; the approver must not be the record's requester
-        and must be eligible under the record's approval policy; and the gate
-        must be one the record's workflow definition declares
-        (:func:`~ccf.erasure.approval.verify_erasure_approval`, rulings 1–4). A
-        missing, unsigned or unverifiable approval raises, and the caller counts
-        that as unsupported.
+        immutable, and the door-signed record names it. It must be for the
+        tenant's DECLARED erasure workflow, in that tenant (fix round 5, R1);
+        its signed HITL attestation is verified against the key the tenant's
+        HITL policy — the key fixed at composition, at the version the approval
+        pins — declares for the signer, resolved through this store's composed
+        Control Plane; its signed claims must name this request's gate, this
+        tenant, the gate's state hash, the record's approver and the approving
+        verdict; the signature must predate that version's supersession; the
+        approver must not be the requester the door signed and must be eligible
+        under the declared workflow's gate policy; and the gate must be one that
+        workflow declares (:func:`~ccf.erasure.approval.verify_erasure_approval`).
+        A missing, unsigned or unverifiable approval raises, and the caller
+        counts that as unsupported.
         """
         payload = self._inner.get(content_address=record.approval_ref)
         if hashlib.sha256(payload).hexdigest() != record.approval_ref:
@@ -350,8 +376,7 @@ class ErasureConsultingStore:
                 request_id=record.request_id,
                 approver=record.actor,
                 requested_by=record.requested_by,
-                approval_policy_ref=record.approval_policy_ref,
-                hitl_policy_key=self._hitl_policy_key,
+                authority=authority,
                 control_plane=self._control_plane,
                 identity_provider=self._identity_provider,
             )
@@ -436,7 +461,7 @@ def compose_erasure_consult(
     audit_log: AuditLog,
     clock: Callable[[], datetime],
     control_plane: PinnedPolicySource,
-    hitl_policy_key: str,
+    erasure_trust: ErasureTrust,
     tenant_id: str | None = None,
     identity_provider: IdentityProvider | None = None,
 ) -> ErasureConsultingStore:
@@ -445,30 +470,35 @@ def compose_erasure_consult(
     Wraps ``store`` over the REQUIRED ``index``, the REQUIRED fabric
     ``clock`` (which stamps the ``index-unsupported`` audit; ruling 3), the
     REQUIRED ``control_plane`` — the DEPLOYMENT's, through which each approval's
-    pinned HITL policy, approval policy and workflow definition are resolved;
-    there is no fresh-registry fallback (fix round 4, ruling 5) — and the
-    REQUIRED ``hitl_policy_key``, the deployment's HITL policy key, the same
-    key its HITL transport is bound to, which every approval must pin (fix
-    round 4, ruling 1). ``identity_provider`` is the verifier the deployment's
-    HITL transport verifies with; ``None`` is the SDK's reference detached-JWS
-    verifier (no signing material). An adopter-supplied provider that verifies
-    nothing accepts everything; that is the adopter's trust choice. It
-    validates every entry against its record (§8; memoized per index head and
-    policy head, ruling 4), and returns the store scoped to ``tenant_id`` — or
-    tenantless (``None``) for a multi-tenant site whose doors take
-    :meth:`ErasureConsultingStore.scoped` views for the caller's verified
-    tenant. A store already composed is re-scoped, never re-wrapped: it must
-    have been composed over the SAME index (M1) and with the SAME Control
-    Plane, identity provider and HITL policy key (ruling 5).
+    pinned HITL policy, the declared erasure workflow and its gate's approval
+    policy are resolved; there is no fresh-registry fallback (fix round 4,
+    ruling 5) — and the REQUIRED ``erasure_trust`` (fix round 5, R1, R2, R4):
+    for each tenant that may erase, its :class:`~ccf.erasure.ErasureAuthority`
+    — the HITL policy key its HITL transport is bound to, the content hash of
+    its erasure workflow, and the erasure door's public signing key. The
+    record's tenant selects the authority; a tenant with none is
+    ``index-unsupported``; a single-tenant site declares one entry, and a site
+    that runs no erasure door declares none. ``identity_provider`` is the
+    verifier the deployment's HITL transport verifies with — and the door
+    signature is verified with it too; ``None`` is the SDK's reference
+    detached-JWS verifier (no signing material). An adopter-supplied provider
+    that verifies nothing accepts everything; that is the adopter's trust
+    choice. It validates every entry against its record (§8; memoized per index
+    head, policy head, trust and provider instance — ruling 4, R3), and returns
+    the store scoped to ``tenant_id`` — or tenantless (``None``) for a
+    multi-tenant site whose doors take :meth:`ErasureConsultingStore.scoped`
+    views for the caller's verified tenant. A store already composed is
+    re-scoped, never re-wrapped: it must have been composed over the SAME index
+    (M1) and with the SAME Control Plane, identity provider and trust (ruling 5).
 
     Raises:
         ErasureIndexUnavailable: ``index`` is not an
             :class:`~ccf.erasure.ErasureIndexProtocol`, or ``store`` was already
             composed over a different index.
         ErasureCompositionRefused: no Control Plane, or one that offers no
-            pinned-read surface; an empty HITL policy key; or ``store`` was
-            already composed with a different Control Plane, identity provider
-            or HITL policy key.
+            pinned-read surface; ``erasure_trust`` is not an
+            :class:`~ccf.erasure.ErasureTrust`; or ``store`` was already
+            composed with a different Control Plane, identity provider or trust.
     """
     if control_plane is None or not isinstance(control_plane, PinnedPolicySource):
         raise ErasureCompositionRefused(
@@ -478,11 +508,13 @@ def compose_erasure_consult(
             " the deployment's HITL policy would mark every genuine erasure"
             " index-unsupported (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
         )
-    if not isinstance(hitl_policy_key, str) or not hitl_policy_key.strip():
+    if not isinstance(erasure_trust, ErasureTrust):
         raise ErasureCompositionRefused(
-            "the erasure consult takes the deployment's HITL policy key — the same"
-            " key its HITL transport is bound to — and every approval must pin it;"
-            f" got {hitl_policy_key!r} (SEC-009; D-IMPL-374 (4), fix round 4, ruling 1)"
+            "the erasure consult takes the deployment's ErasureTrust — for each"
+            " tenant that may erase, its HITL policy key, its erasure workflow's"
+            " content hash and the erasure door's public key, fixed here and never"
+            f" chosen by a filed artifact; got {type(erasure_trust).__name__}"
+            " (SEC-009; D-IMPL-374 (4), fix round 5, R1, R2, R4)"
         )
     if not isinstance(index, ErasureIndexProtocol):
         raise ErasureIndexUnavailable(
@@ -501,12 +533,12 @@ def compose_erasure_consult(
                 " (SEC-009; M1)"
             )
         # Ruling 5: the trust root a store was composed with is never silently
-        # replaced — a different Control Plane, identity provider or HITL
-        # policy key refuses by name.
+        # replaced — a different Control Plane, identity provider or trust
+        # refuses by name.
         for axis, same in (
             ("control_plane", store.control_plane is control_plane),
             ("identity_provider", store.identity_provider is identity_provider),
-            ("hitl_policy_key", store.hitl_policy_key == hitl_policy_key),
+            ("erasure_trust", store.erasure_trust == erasure_trust),
         ):
             if not same:
                 raise ErasureCompositionRefused(
@@ -523,7 +555,7 @@ def compose_erasure_consult(
             audit_log=audit_log,
             clock=clock,
             control_plane=control_plane,
-            hitl_policy_key=hitl_policy_key,
+            erasure_trust=erasure_trust,
             tenant_id=None,
             identity_provider=identity_provider,
             _verdicts=store._verdicts,
@@ -534,7 +566,7 @@ def compose_erasure_consult(
         audit_log=audit_log,
         clock=clock,
         control_plane=control_plane,
-        hitl_policy_key=hitl_policy_key,
+        erasure_trust=erasure_trust,
         tenant_id=tenant_id,
         identity_provider=identity_provider,
     )

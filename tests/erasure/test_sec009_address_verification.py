@@ -81,16 +81,7 @@ class _NoNaming:
 
 def test_a_store_that_answers_no_naming_cannot_verify_a_class_and_refuses(tmp_path: Path) -> None:
     plane = h.compose(tmp_path)
-    door = h.door_module("ErasureDoor")(
-        engine=plane.engine,
-        factory=h.WorkflowFactory(control_plane=plane.registry),
-        control_plane=plane.registry,
-        transport=plane.transport,
-        hitl_policy_key=plane.hitl_policy_key,
-        store=_NoNaming(plane.store),
-        clock=plane.clock,
-        index=h.index_of(plane),
-    )
+    door = h.door(plane, store=_NoNaming(plane.store))
     refused = _request_refused(plane, h.request(plane), door=door)
     assert refused.reason_code == "class-unverifiable"
 

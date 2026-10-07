@@ -29,6 +29,18 @@ The two halves:
   the index entries (write-ahead, I4) and THEN file the
   :class:`~ccf.erasure.ErasureRecord` under the erase capability (I3).
 
+**The door's trust root is fixed at construction** (fix round 5): it takes the
+tenant's :class:`~ccf.erasure.ErasureAuthority` — the SAME one every consult
+composes with — and refuses, by name, a HITL transport bound to any other HITL
+policy key (R5) and a signing key whose signature does not verify under the
+authority's declared door key (R2). It runs only the declared erasure workflow
+(R1, ``workflow-not-declared``), and it SIGNS every record it files over the
+record's canonical bytes (R2): the signature is what lets a consult take
+``requested_by`` — the starter the engine recorded, which the door observed —
+as the door's statement rather than a filer's. It travels in every index entry
+naming the record; a retry reuses its prior attempt's signature, verified, so
+the write-ahead entries and the record stay byte-identical.
+
 No un-erasure verb exists (U6).
 
 Algorithmic module (CINV-03): the clock is injected.
@@ -54,7 +66,7 @@ from ccf.authz.capability import (
     Resume,
     verify,
 )
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import state_key
@@ -77,12 +89,20 @@ from ccf.erasure.approval import (
     reference_approval_verifier,
     verify_erasure_approval,
 )
+from ccf.erasure.errors import ErasureCompositionRefused
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.erasure.store import ErasureIndexUnavailable
+from ccf.erasure.trust import (
+    DOOR_SIGNATURE_ASSERTION,
+    ErasureAuthority,
+    ErasureRecordInvalid,
+    sign_erasure_record,
+    verify_door_signature,
+)
 from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolution
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.mcp.errors import McpServerUnreachable
-from ccf.peering.identity import IdentityProvider
+from ccf.peering.identity import IdentityError, IdentityProvider
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
@@ -95,6 +115,11 @@ from ccf_runtime.workflow.engine import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = ["ErasureDoor", "ErasureRefused", "ErasureWorkflowUngated"]
+
+#: What the door's composition-time probe signature asserts in its protected
+#: header — never the record class, so a probe never verifies as a record
+#: signature (fix round 5, R2).
+_DOOR_PROBE_CLASS = "ccf.erasure-door-probe"
 
 
 class ErasureRefused(PermissionError):
@@ -144,10 +169,18 @@ class ErasureDoor:
         control_plane: Where the declaration and the retention policy resolve
             at their pinned versions, and where the mirror is appended.
         transport: The HITL authority path a presented approval is held to.
-        hitl_policy_key: The deployment's HITL policy key — the SAME key
-            ``transport`` is bound to. Every recorded approval must pin it;
-            an approval pinning any other key is refused by name (fix round
-            4, ruling 1). **Required, no default** (CINV-01).
+            Its bound HITL policy key must be ``authority``'s, or construction
+            refuses by name (fix round 5, R5).
+        authority: The tenant's :class:`~ccf.erasure.ErasureAuthority` — the
+            SAME one every consult composes with: the HITL policy key every
+            recorded approval must pin (fix round 4, ruling 1), the erasure
+            workflow this door runs (fix round 5, R1), and the door's public
+            signing key (R2). **Required, no default** (CINV-01).
+        door_signer: The provider holding the door's PRIVATE signing key —
+            deployment custody, never a requester's (R2).
+        door_key_id: The key id it signs under; one ``authority`` declares,
+            whose signature verifies under the declared public key, or
+            construction refuses by name.
         store: The artifact store the record is filed through.
         clock: The injected fabric clock (``erased_at`` and the judgment's now).
         index: The deployment's durable erasure index (C1). **Required.** The
@@ -157,6 +190,11 @@ class ErasureDoor:
     Raises:
         ccf.erasure.ErasureIndexUnavailable: ``index`` is not an
             :class:`~ccf.erasure.ErasureIndexProtocol`.
+        ccf.erasure.ErasureCompositionRefused: ``authority`` is not an
+            :class:`~ccf.erasure.ErasureAuthority`; ``transport`` is bound to
+            another HITL policy key, or declares none (R5); or ``door_key_id``
+            is not a door key ``authority`` declares, or ``door_signer``'s
+            signature under it does not verify against the declared key (R2).
     """
 
     def __init__(
@@ -166,7 +204,9 @@ class ErasureDoor:
         factory: WorkflowFactory,
         control_plane: ControlPlaneRegistry,
         transport: HITLTransportProtocol,
-        hitl_policy_key: str,
+        authority: ErasureAuthority,
+        door_signer: IdentityProvider,
+        door_key_id: str,
         store: ArtifactStoreProtocol,
         clock: Callable[[], datetime],
         index: ErasureIndexProtocol,
@@ -177,11 +217,29 @@ class ErasureDoor:
                 f"{type(index).__name__} is not an ErasureIndexProtocol; the erasure"
                 " door writes the durable index (SEC-009; D-IMPL-374 (4), C1)"
             )
+        if not isinstance(authority, ErasureAuthority):
+            raise ErasureCompositionRefused(
+                f"the erasure door takes its tenant's ErasureAuthority; got"
+                f" {type(authority).__name__} (SEC-009; D-IMPL-374 (4), fix round 5)"
+            )
+        # Fix round 5, R5: the approvals this door files are the ones ITS
+        # transport admitted under the authority's HITL policy — the same key.
+        bound = getattr(transport, "hitl_policy_key", None)
+        if bound != authority.hitl_policy_key:
+            raise ErasureCompositionRefused(
+                f"the erasure door's HITL policy key {authority.hitl_policy_key!r} is"
+                f" not the key its HITL transport is bound to ({bound!r}); a door"
+                " and a transport judging approvals under different policies would"
+                " file approvals no consult verifies (SEC-009; D-IMPL-374 (4), fix"
+                " round 5, R5)"
+            )
         self._engine = engine
         self._factory = factory
         self._control_plane = control_plane
         self._transport = transport
-        self._hitl_policy_key = hitl_policy_key
+        self._authority = authority
+        self._door_signer = door_signer
+        self._door_key_id = door_key_id
         self._store = store
         self._clock = clock
         self._index = index
@@ -190,6 +248,33 @@ class ErasureDoor:
         self._identity_provider = (
             reference_approval_verifier() if identity_provider is None else identity_provider
         )
+        self._require_door_key()
+
+    def _require_door_key(self) -> None:
+        """Fix round 5, R2: the door's signing key IS the declared door key — refused by name otherwise.
+
+        A probe — asserting a probe class, never the record class, so it can
+        never verify as a record signature — is signed under ``door_key_id``
+        and verified against exactly the key the authority declares for it.
+        """
+        declared = self._authority.door_keys.get(self._door_key_id)
+        if declared is None:
+            raise ErasureCompositionRefused(
+                f"door key {self._door_key_id!r} is not one the authority declares"
+                f" ({sorted(self._authority.door_keys)}) (SEC-009; D-IMPL-374 (4), fix round 5, R2)"
+            )
+        probe = {"probe": _DOOR_PROBE_CLASS, "tenant_id": self._authority.tenant_id}
+        try:
+            envelope = self._door_signer.sign(
+                product=probe, key_id=self._door_key_id, assertions={DOOR_SIGNATURE_ASSERTION: _DOOR_PROBE_CLASS}
+            )
+            self._identity_provider.verify(signed=envelope, public_keys={self._door_key_id: declared})
+        except (IdentityError, ValueError) as unverified:
+            raise ErasureCompositionRefused(
+                f"the door's signing key {self._door_key_id!r} does not verify under the"
+                " door key the authority declares; every record this door signed would"
+                " read index-unsupported (SEC-009; D-IMPL-374 (4), fix round 5, R2)"
+            ) from unverified
 
     # -- the two halves -------------------------------------------------------
 
@@ -333,14 +418,16 @@ class ErasureDoor:
                 reason_code="requester-unrecorded",
             )
         actor = recorded_submission.principal.approver
-        # Fix round 4: the SAME verification the consult runs — the pin must
-        # name THIS deployment's HITL policy key (ruling 1); the signature
+        # Fix rounds 4 and 5: the SAME verification the consult runs — the
+        # approval for THE declared erasure workflow, in its tenant (R1); the
+        # pin naming the authority's HITL policy key (ruling 1); the signature
         # against the key that policy declares for the approver, at the pinned
         # version, signed before that version's supersession (ruling 4); the
         # signed claims against this request's gate, tenant, state and verdict;
-        # the approver not the requester and eligible under the gate's approval
-        # policy (ruling 2); and the gate one the workflow definition declares
-        # (ruling 3). Refused by name before anything is written.
+        # the approver not the requester and eligible under the declared
+        # workflow's erasure-gate policy (ruling 2); and the gate that
+        # workflow's erasure gate (ruling 3). Refused by name before anything
+        # is written.
         try:
             verify_erasure_approval(
                 approval,
@@ -348,8 +435,7 @@ class ErasureDoor:
                 request_id=request.request_id,
                 approver=actor,
                 requested_by=requested_by,
-                approval_policy_ref=str(event.policy_ref),
-                hitl_policy_key=self._hitl_policy_key,
+                authority=self._authority,
                 control_plane=self._control_plane,
                 identity_provider=self._identity_provider,
             )
@@ -408,7 +494,6 @@ class ErasureDoor:
             # retry presents the same erase decision, or its record would not be
             # the one the write-ahead entries name.
             authorizing_decision_id=erase.decision_id,
-            approval_policy_ref=str(event.policy_ref),
             approval_ref=approval_ref,
             retention_decision=decision,
             reason=request.reason,
@@ -421,6 +506,7 @@ class ErasureDoor:
                 " entries name; present the same request and erase decision (SEC-009; I4)",
                 reason_code="retry-mismatch",
             )
+        door_signature, door_key_id = self._door_signature(record, prior)
         # WRITE-AHEAD, BEFORE THE RESUME COMMITS (rulings (ii) and I4): the
         # approval is already recorded by the gate, so the index entries — each
         # naming the record's content address, computed before it exists — are
@@ -449,6 +535,8 @@ class ErasureDoor:
                     approval_ref=record.approval_ref,
                     reason=record.reason,
                     erased_at=erased_at,
+                    door_signature=door_signature,
+                    door_key_id=door_key_id,
                 ),
             )
         if state.status == "suspended":
@@ -466,6 +554,39 @@ class ErasureDoor:
             DerivedWrite(artifact_class=ERASURE_RECORD_CLASS, name=record_id, artifact=record),
         )
         return record
+
+    def _door_signature(
+        self, record: ErasureRecord, prior: tuple[ErasureIndexEntry, ...]
+    ) -> tuple[str, str]:
+        """The door's signature over ``record`` (fix round 5, R2): a retry's prior one, verified, or a new one.
+
+        An ES256 signature is not deterministic, so a retry REUSES the signature
+        its prior attempt appended — the entries must stay identical for the
+        index to take them again — and only after verifying that every prior
+        entry's signature is the door's over exactly this record; otherwise the
+        retry is refused by name rather than completing over an entry the
+        consult will never support.
+        """
+        if not prior:
+            return sign_erasure_record(record, signer=self._door_signer, key_id=self._door_key_id), self._door_key_id
+        payload = canonical_bytes(record)
+        try:
+            for entry in prior:
+                verify_door_signature(
+                    payload,
+                    door_signature=entry.door_signature,
+                    door_key_id=entry.door_key_id,
+                    authority=self._authority,
+                    identity_provider=self._identity_provider,
+                )
+        except ErasureRecordInvalid as invalid:
+            raise ErasureRefused(
+                "a prior attempt's index entry for this request carries no door signature"
+                " that verifies over the record this retry builds; it cannot be completed"
+                " (SEC-009; I4; fix round 5, R2)",
+                reason_code="retry-mismatch",
+            ) from invalid
+        return prior[0].door_signature, prior[0].door_key_id
 
     @staticmethod
     def _approval_not_recorded() -> ErasureRefused:
@@ -504,6 +625,22 @@ class ErasureDoor:
                 f"the request names tenant {request.tenant_id!r} and the capability is for"
                 f" {tenant!r} (SEC-009; D-IMPL-353 §1.3)",
                 reason_code="tenant-mismatch",
+            )
+        # Fix round 5, R1: this door runs the DECLARED erasure workflow, in its
+        # tenant, and nothing else — an approval given under any other workflow
+        # is one no consult verifies, so it is refused before anything starts.
+        if tenant != self._authority.tenant_id:
+            raise ErasureRefused(
+                f"this erasure door is tenant {self._authority.tenant_id!r}'s; the"
+                f" capability is for {tenant!r} (SEC-009; fix round 5, R1)",
+                reason_code="tenant-mismatch",
+            )
+        if content_hash(workflow.definition) != self._authority.workflow_definition_hash:
+            raise ErasureRefused(
+                f"workflow definition {workflow.definition.name!r} is not the erasure"
+                " workflow declared at composition; this door runs that workflow only"
+                " (SEC-009; D-IMPL-374 (4), fix round 5, R1)",
+                reason_code="workflow-not-declared",
             )
         self._require_gated(workflow)
         declaration = resolve_pinned(self._control_plane, request.subject_declaration_ref)

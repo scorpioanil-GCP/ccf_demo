@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2048 entries**, of which **1781** name a public Python surface.
+**2064 entries**, of which **1797** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1191 entries — 1147 public Python surface, 44 not public Python API.
+1206 entries — 1162 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16509,7 +16509,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one artifact class's retention and hold policy: `erasable` (default False), `severity_exempt`, the closed `reasons`, active `holds`, and `minimum_age` in whole days, which is required and has no default (U10).
 - Why: SEC-009; G7 default refuse; U10 rules the minimum age present on the contract with no SDK default.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16521,7 +16521,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The constant `ccf.erasure-record`, the class an erasure record is filed under.
 - Why: SEC-009; G3: the erasure fact is an immutable artifact filed through the store's one write verb.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16533,7 +16533,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The `ArtifactClass` `ccf.erasure-subject-declaration`. Adopter-registered and not manifest-addressable.
 - Why: SEC-009; G1: what a subject is, declared by the deployment.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16545,7 +16545,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one erased artifact on a record: address, class, key paths, `matched` (presence only), and `scope`, which is `whole` this phase (U5).
 - Why: SEC-009; G3: design §2.3 record shape.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16557,7 +16557,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: An `ArtifactStoreError` the decorating store raises on a read of an erased address. It carries the record address, the reason and the instant, and nothing of the subject. It is not an `ArtifactNotFound` and not a `LookupError`.
 - Why: SEC-009; G4/G5: an erasure is a recorded decision, not an absence.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16567,9 +16567,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane`, under the deployment's HITL policy key, readable as `hitl_policy_key`, with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies the erasure door's signature over each record before reading it, then each approval's signed HITL attestation, through the Control Plane it was composed with, readable as `control_plane`, against the per-tenant `ErasureTrust` it was composed with, readable as `erasure_trust` (fix round 5), with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4), and the global validation memo is also keyed by the composed trust and the identity provider instance (fix round 5, R3).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16579,9 +16579,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A contract for one erased address: record address, admitted reason, instant.
+- After: A contract for one erased address within one tenant: the record address, the request, the hashed subject, the approval reference, the admitted reason and instant, and the erasure door's detached signature over the record (`door_signature`, `door_key_id`; fix round 5, R2).
 - Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16591,9 +16591,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval policy, retention decision, reason, legal basis.
+- After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval reference, retention decision, reason, legal basis. Door-signed: the erasure door signs its canonical bytes and the consult verifies that before reading it (fix round 5, R2). It names no approval policy (R1 deleted `approval_policy_ref`).
 - Why: SEC-009; G3; it can be asserted and never retracted (U6).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16605,7 +16605,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: What a requester asks to erase. Its content hash `request_id` is the approval workflow's execution id.
 - Why: SEC-009; U9: the human approves exactly this request.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16617,7 +16617,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: One declared subject class: `class_id`, `key_paths`, `artifact_classes`, `identifier_kind`, and `subject_ref_salt`. A key path that reaches a replay input is refused (U2). A `principal` subject is refused (U1).
 - Why: SEC-009; G1/G2 with U1, U2 and U4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16629,7 +16629,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A versioned artifact listing a tenant's subject classes.
 - Why: SEC-009; G1.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16641,7 +16641,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one active legal hold, matched by salted subject refs or by addresses.
 - Why: SEC-009; G7: a matching hold refuses erasure, by hold id.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16653,7 +16653,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The tuple of Decision Replay record paths that are replay inputs.
 - Why: SEC-009; U2: the SDK's own field names, a mechanism constant; no subject key may reach them.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16665,7 +16665,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The `ArtifactClass` `ccf.retention-hold-policy`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16677,7 +16677,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The judgment's closed code vocabulary (`class-absent`, `not-erasable`, `severity-exempt`, `legal-hold`, `reason-unknown`, `under-minimum-age`, `policy-unresolvable`, `admitted`).
 - Why: SEC-009; G7: a structured audit answer, never a subject identifier.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16689,7 +16689,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: One address a request names, with its class and a requester-declared, human-approved `retained_since`.
 - Why: SEC-009; U10: the store's Protocol records no write instant, so the age is declared and approved.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16701,7 +16701,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The judgment's audit answer: `policy_ref`, `verdict`, `reason_code`, `hold_id`, `address`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16713,7 +16713,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
 - Why: SEC-009; G7 default refuse.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16725,7 +16725,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A pure, fail-closed judgment of a request against a policy at an injected instant.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16737,7 +16737,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Returns `sha256(salt || 0x00 || identifier)` under the declared class's salt.
 - Why: SEC-009; U4: the raw identifier never enters the fabric.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16749,7 +16749,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one artifact class's retention and hold policy: `erasable` (default False), `severity_exempt`, the closed `reasons`, active `holds`, and `minimum_age` in whole days, which is required and has no default (U10).
 - Why: SEC-009; G7 default refuse; U10 rules the minimum age present on the contract with no SDK default.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16761,7 +16761,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The constant `ccf.erasure-record`, the class an erasure record is filed under.
 - Why: SEC-009; G3: the erasure fact is an immutable artifact filed through the store's one write verb.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16773,7 +16773,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The `ArtifactClass` `ccf.erasure-subject-declaration`. Adopter-registered and not manifest-addressable.
 - Why: SEC-009; G1: what a subject is, declared by the deployment.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16785,7 +16785,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one erased artifact on a record: address, class, key paths, `matched` (presence only), and `scope`, which is `whole` this phase (U5).
 - Why: SEC-009; G3: design §2.3 record shape.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16795,9 +16795,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval policy, retention decision, reason, legal basis.
+- After: The immutable erasure fact: tenant, record id, subject class, salted `subject_ref`, addresses, `erased_at`, approver `actor`, `requested_by`, authorizing decision, approval reference, retention decision, reason, legal basis. Door-signed: the erasure door signs its canonical bytes and the consult verifies that before reading it (fix round 5, R2). It names no approval policy (R1 deleted `approval_policy_ref`).
 - Why: SEC-009; G3; it can be asserted and never retracted (U6).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16809,7 +16809,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: What a requester asks to erase. Its content hash `request_id` is the approval workflow's execution id.
 - Why: SEC-009; U9: the human approves exactly this request.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16821,7 +16821,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: One declared subject class: `class_id`, `key_paths`, `artifact_classes`, `identifier_kind`, and `subject_ref_salt`. A key path that reaches a replay input is refused (U2). A `principal` subject is refused (U1).
 - Why: SEC-009; G1/G2 with U1, U2 and U4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16833,7 +16833,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A versioned artifact listing a tenant's subject classes.
 - Why: SEC-009; G1.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16845,7 +16845,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one active legal hold, matched by salted subject refs or by addresses.
 - Why: SEC-009; G7: a matching hold refuses erasure, by hold id.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16857,7 +16857,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The tuple of Decision Replay record paths that are replay inputs.
 - Why: SEC-009; U2: the SDK's own field names, a mechanism constant; no subject key may reach them.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16869,7 +16869,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The `ArtifactClass` `ccf.retention-hold-policy`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16881,7 +16881,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The judgment's closed code vocabulary (`class-absent`, `not-erasable`, `severity-exempt`, `legal-hold`, `reason-unknown`, `under-minimum-age`, `policy-unresolvable`, `admitted`).
 - Why: SEC-009; G7: a structured audit answer, never a subject identifier.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16893,7 +16893,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: One address a request names, with its class and a requester-declared, human-approved `retained_since`.
 - Why: SEC-009; U10: the store's Protocol records no write instant, so the age is declared and approved.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16905,7 +16905,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The judgment's audit answer: `policy_ref`, `verdict`, `reason_code`, `hold_id`, `address`.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16917,7 +16917,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
 - Why: SEC-009; G7 default refuse.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16929,7 +16929,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A pure, fail-closed judgment of a request against a policy at an injected instant.
 - Why: SEC-009; G7.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16941,7 +16941,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Returns `sha256(salt || 0x00 || identifier)` under the declared class's salt.
 - Why: SEC-009; U4: the raw identifier never enters the fabric.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16951,9 +16951,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A contract for one erased address: record address, admitted reason, instant.
+- After: A contract for one erased address within one tenant: the record address, the request, the hashed subject, the approval reference, the admitted reason and instant, and the erasure door's detached signature over the record (`door_signature`, `door_key_id`; fix round 5, R2).
 - Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16965,7 +16965,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: An `ArtifactStoreError` the decorating store raises on a read of an erased address. It carries the record address, the reason and the instant, and nothing of the subject. It is not an `ArtifactNotFound` and not a `LookupError`.
 - Why: SEC-009; G4/G5: an erasure is a recorded decision, not an absence.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16975,9 +16975,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane`, under the deployment's HITL policy key, readable as `hitl_policy_key`, with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies the erasure door's signature over each record before reading it, then each approval's signed HITL attestation, through the Control Plane it was composed with, readable as `control_plane`, against the per-tenant `ErasureTrust` it was composed with, readable as `erasure_trust` (fix round 5), with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4), and the global validation memo is also keyed by the composed trust and the identity provider instance (fix round 5, R3).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -16987,11 +16987,11 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. It takes a REQUIRED `index`, a REQUIRED `hitl_policy_key` (the deployment's, the same key its `transport` is bound to; fix round 4, ruling 1), and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), that pins another key or a key outside the tenant (`approval-policy-key-mismatch`, `approval-policy-tenant-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an ineligible approver (`approver-is-requester`, `approver-not-eligible`), or for a gate the workflow definition does not declare (`approval-gate-unknown`, `approval-gate-policy-mismatch`) (fix round 4).
+- After: The governed door. It takes a REQUIRED `index`; a REQUIRED `authority` (fix round 5), the tenant's `ErasureAuthority` — its HITL policy key, which its `transport` must be bound to or construction refuses by name (R5), its erasure workflow, the only workflow it runs (`workflow-not-declared`, R1), and the door's public key; a REQUIRED `door_signer` and `door_key_id`, the door's private signing key, which must verify under the declared door key or construction refuses by name (R2); and an optional `identity_provider` that verifies signatures (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval for another workflow or tenant (`approval-workflow-mismatch`, `approval-tenant-mismatch`), that is unsigned (`approval-unsigned`), that pins another HITL policy key (`approval-policy-key-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an approver the declared workflow's erasure gate policy does not name (`approver-is-requester`, `approver-not-eligible`), or for a gate that is not that workflow's erasure gate (`approval-gate-unknown`) (fix rounds 4 and 5).
   - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
-  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
+  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it SIGNS the record (R2), appends the index entries carrying that signature FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3). A retry reuses its prior attempt's signature, verified.
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17001,11 +17001,11 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. It takes a REQUIRED `index`, a REQUIRED `hitl_policy_key` (the deployment's, the same key its `transport` is bound to; fix round 4, ruling 1), and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), that pins another key or a key outside the tenant (`approval-policy-key-mismatch`, `approval-policy-tenant-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an ineligible approver (`approver-is-requester`, `approver-not-eligible`), or for a gate the workflow definition does not declare (`approval-gate-unknown`, `approval-gate-policy-mismatch`) (fix round 4).
+- After: The governed door. It takes a REQUIRED `index`; a REQUIRED `authority` (fix round 5), the tenant's `ErasureAuthority` — its HITL policy key, which its `transport` must be bound to or construction refuses by name (R5), its erasure workflow, the only workflow it runs (`workflow-not-declared`, R1), and the door's public key; a REQUIRED `door_signer` and `door_key_id`, the door's private signing key, which must verify under the declared door key or construction refuses by name (R2); and an optional `identity_provider` that verifies signatures (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval for another workflow or tenant (`approval-workflow-mismatch`, `approval-tenant-mismatch`), that is unsigned (`approval-unsigned`), that pins another HITL policy key (`approval-policy-key-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an approver the declared workflow's erasure gate policy does not name (`approver-is-requester`, `approver-not-eligible`), or for a gate that is not that workflow's erasure gate (`approval-gate-unknown`) (fix rounds 4 and 5).
   - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
-  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
+  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it SIGNS the record (R2), appends the index entries carrying that signature FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3). A retry reuses its prior attempt's signature, verified.
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17017,7 +17017,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A `PermissionError` carrying `reason_code` and, for a retention refusal, the `RetentionDecision`.
 - Why: SEC-009; Every refusal is by name and writes nothing.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17029,7 +17029,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A `PermissionError` carrying `reason_code` and, for a retention refusal, the `RetentionDecision`.
 - Why: SEC-009; Every refusal is by name and writes nothing.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17041,7 +17041,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A `ValueError` raised when the deployment's erasure workflow can reach a terminal state without crossing a typed approval gate.
 - Why: SEC-009; U9: the request/approval shape is the deployment's, validated by the door.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17053,7 +17053,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A `ValueError` raised when the deployment's erasure workflow can reach a terminal state without crossing a typed approval gate.
 - Why: SEC-009; U9: the request/approval shape is the deployment's, validated by the door.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17065,7 +17065,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A refusal kind `erased-content`: detail, `erasure_reason`, `erased_at`, `erasure_record_address`. A door renders it only at `reasoned` and `full`. The record address is withheld below `full`.
 - Why: SEC-009; G5/U11: a disclosure-governed reading of an erased address.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17077,7 +17077,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The site token `retained-child-question`.
 - Why: SEC-009; §5.2: names where a replay met an erased member.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17089,7 +17089,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A replay result member reporting one erased retained member: site, address, record address, reason, instant.
 - Why: SEC-009; §5.2: a replay over erased retained content completes, and the erasure is disclosed rather than reported as absent.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17101,7 +17101,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The HTTP status `410` for the `erased-content` kind.
 - Why: SEC-009; U11: 410 at `reasoned`/`full`; the route's not-found rendering at `minimal`.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17116,9 +17116,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   - an audit log;
   - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
   - the DEPLOYMENT's `control_plane` through which each approval's pinned HITL policy, approval policy and workflow definition are resolved (fix round 4); there is no fresh-registry fallback (ruling 5);
-  - the deployment's `hitl_policy_key` — the same key its HITL transport is bound to — which every approval must pin (fix round 4, ruling 1).
+  - the deployment's `erasure_trust` (fix round 5, R1, R2, R4): per tenant that may erase, an `ErasureAuthority` naming the HITL policy key its transport is bound to (fix round 4, ruling 1), its erasure workflow's content hash, and the erasure door's public key.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17133,9 +17133,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   - an audit log;
   - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
   - the DEPLOYMENT's `control_plane` through which each approval's pinned HITL policy, approval policy and workflow definition are resolved (fix round 4); there is no fresh-registry fallback (ruling 5);
-  - the deployment's `hitl_policy_key` — the same key its HITL transport is bound to — which every approval must pin (fix round 4, ruling 1).
+  - the deployment's `erasure_trust` (fix round 5, R1, R2, R4): per tenant that may erase, an `ErasureAuthority` naming the HITL policy key its transport is bound to (fix round 4, ruling 1), its erasure workflow's content hash, and the erasure door's public key.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17195,7 +17195,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A positive replay outcome for a replay that met erased content it would have to read to re-execute: the decision record itself, an admitted child contract, or a re-execution artifact. It carries `record_content_address`, `record` (`None` when the record itself was erased) and a non-empty `erased_content`. No product is reproduced.
 - Why: SEC-009; ruling 4 (design §5.2). Replay stays positive and discloses the erasure for every erased input class. It never refuses by name, and it never re-derives a product from bytes the fabric refuses to serve.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17207,7 +17207,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The site token `child-contract`.
 - Why: SEC-009; ruling 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17219,7 +17219,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The site token `decision-record`.
 - Why: SEC-009; ruling 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17231,7 +17231,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The site token `replay-artifact`, for any other artifact the re-execution reads.
 - Why: SEC-009; ruling 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17471,7 +17471,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The same `ArtifactStoreError` as `ccf.erasure.store.ErasedContentRefused`, defined in the dependency-free errors module that the index and the store both import. Its facts (record address, reason, instant) come from the RECORD, never the index entry (fix round 2, N2).
 - Why: SEC-009; fix round 2, N3: one home for the refusal family, so the index can raise a member of it without importing the store.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17483,7 +17483,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: An `ErasedContentRefused` with reason `index-corrupt` and every fact `None`. The file index raises it on a shrunk file, an unparseable or empty line, a broken hash chain, or a conflicting duplicate. The decorating store raises it on EVERY read under that index: a corrupt index fails CLOSED.
 - Why: SEC-009; fix round 2, N3 and (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17495,7 +17495,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.errors.ErasureIndexCorrupt`.
 - Why: SEC-009; fix round 2, N3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17507,7 +17507,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A `PermissionError` the file index raises, by name, when its file is a symlink or not a regular file, is not owned by the effective user, has a mode other than 0600, or sits in a parent directory that is not owned by the effective user or is open to group or other.
 - Why: SEC-009; fix round 2, (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17519,7 +17519,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.errors.ErasureIndexInsecure`.
 - Why: SEC-009; fix round 2, (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17531,7 +17531,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The reason code `index-corrupt` an `ErasureIndexCorrupt` carries.
 - Why: SEC-009; fix round 2, N3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17543,7 +17543,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.errors.INDEX_CORRUPT`.
 - Why: SEC-009; fix round 2, N3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17555,7 +17555,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The 64-zero predecessor hash the first line of a file index chains from.
 - Why: SEC-009; fix round 2, (a): every line carries the sha256 of the previous line's bytes, and a broken chain is refused at boot.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17567,7 +17567,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.index.GENESIS`.
 - Why: SEC-009; fix round 2, (a).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17579,7 +17579,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The check every `ErasureIndexProtocol.append` makes: the presented capability is a genuine `Authorized[ArtifactErase]` for the resource `<subject_class>/<request_id>` of the entry and for the entry's tenant. Anything else raises `CapabilityBypassError`.
 - Why: SEC-009; fix round 2, I3: an index append is an erasure, so it takes the erase capability bound to its request.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17591,7 +17591,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.index.require_append_authority`.
 - Why: SEC-009; fix round 2, I3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17603,7 +17603,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The artifact class `ccf.erasure-approval`, under which the door files the recorded human approval before the index append. A subject declaration cannot list it as erasable.
 - Why: SEC-009; fix round 3, I3 part 2, option (a): the approval check needs a durable record, and the ArtifactStore already holds replay records.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17615,7 +17615,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.contracts.ERASURE_APPROVAL_CLASS`.
 - Why: SEC-009; fix round 3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17627,7 +17627,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The recorded, SIGNED approval of one erasure request: tenant, request id, approver, verdict, the instant (the attestation's `issued_at`), the gate and the state hash the approver saw, the workflow definition's hash, the submission's hash, the signed HITL attestation verbatim (`attestation`: claim set, signature, key id) and the pinned HITL policy (`hitl_policy_ref`, `key@version`). Its content address is `approval_ref`; the door and the decorating store verify its signature against the key the pinned policy declares for the approver (fix round 4).
 - Why: SEC-009; fix round 3, I3 part 2: a forged `approval_ref`, or one naming another request, tenant or a non-approving verdict, is `index-unsupported`, durably across restarts and processes.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17639,7 +17639,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.contracts.ErasureApproval`.
 - Why: SEC-009; fix round 3.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17649,9 +17649,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The ONE approval check the door and the decorating store run, now taking `requested_by`, `approval_policy_ref` and `hitl_policy_key` as well: require the pin's key to be the deployment's HITL policy key in the approval's tenant (ruling 1); resolve that key at the pinned version; require its key id to be declared for the signer and verify the signature against exactly those keys; require the signed claims to name this request's gate event (`{tenant}/{request_id}/{gate}`), this tenant, the gate's state hash, the approver and the approving verdict, with `acted_at` equal to `issued_at`; require `issued_at` to precede the pinned version's supersession (ruling 4); require the approver not to be the requester and to be eligible under the record's approval policy at its exact version (ruling 2); and require the gate to be one the workflow definition resolved by `workflow_definition_hash` declares, bound to that approval policy (ruling 3). Returns the verified claims or raises `ErasureApprovalInvalid`.
+- After: The ONE approval check the door and the decorating store run, taking `requested_by` (the door-signed record's, fix round 5 R2) and the tenant's `authority` (an `ErasureAuthority`, fix round 5): require the approval to be in the authority's tenant and for its declared erasure workflow (`approval-tenant-mismatch`, `approval-workflow-mismatch`, R1); require the pin's key to be the authority's HITL policy key (ruling 1); resolve that key at the pinned version; require its key id to be declared for the signer and verify the signature against exactly those keys; require the signed claims to name this request's gate event (`{tenant}/{request_id}/{gate}`), this tenant, the gate's state hash, the approver and the approving verdict, with `acted_at` equal to `issued_at`; require `issued_at` to precede the pinned version's supersession (ruling 4); require the approver not to be the requester (ruling 2); resolve the declared workflow by its hash, content-verified, in its tenant; require the gate to be its erasure gate (ruling 3, R1); and require the approver to be eligible under that gate's approval policy at its pinned version (ruling 2, R1). Returns the verified claims or raises `ErasureApprovalInvalid`.
 - Why: SEC-009; fix round 4: the re-review's probe D — an approving approval filed with only the requester's `ArtifactErase` was served as supported.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17663,7 +17663,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.approval.verify_erasure_approval`.
 - Why: SEC-009; fix round 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17673,9 +17673,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A `ValueError` with a `reason_code`: `approval-unsigned`, `approval-policy-key-mismatch`, `approval-policy-tenant-mismatch`, `approval-policy-unresolvable`, `approval-signature-invalid`, `approval-claims-mismatch`, `approval-policy-superseded`, `approval-policy-window-unknown`, `approver-is-requester`, `approver-not-eligible`, `approval-workflow-unresolvable`, `approval-gate-unknown` or `approval-gate-policy-mismatch` (fix round 4, rulings 1–4).
+- After: A `ValueError` with a `reason_code`: `approval-tenant-mismatch`, `approval-workflow-mismatch` (fix round 5, R1), `approval-unsigned`, `approval-policy-key-mismatch`, `approval-policy-unresolvable`, `approval-signature-invalid`, `approval-claims-mismatch`, `approval-policy-superseded`, `approval-policy-window-unknown`, `approver-is-requester`, `approver-not-eligible`, `approval-workflow-unresolvable` or `approval-gate-unknown` (fix round 4, rulings 1–4). Fix round 5 removed `approval-policy-tenant-mismatch` (an authority refuses, at construction, a key outside its tenant) and `approval-gate-policy-mismatch` (the record field it compared was deleted).
 - Why: SEC-009; fix round 4: the door refuses with the same reason code; the consult counts any of them as `index-unsupported`.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17687,7 +17687,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.approval.ErasureApprovalInvalid`.
 - Why: SEC-009; fix round 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17699,7 +17699,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A read-only Protocol: `resolve(key, version)` (exact, never latest), `versions`, `peek`, `artifact_class_of` (the pinned-read surface the eligibility judgment shares with the transport), `keys_of_class` (locating the workflow definition by its hash) and `audit_events` (the registration history the supersession instant and `policy_head` are read from). Every `ControlPlaneRegistry` satisfies it (fix round 4, rulings 2–4).
 - Why: SEC-009; fix round 4: the narrowest read surface the check needs.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17711,7 +17711,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.approval.PinnedPolicySource`.
 - Why: SEC-009; fix round 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17721,9 +17721,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The SDK's reference detached-JWS verifier with no signing material, used where a site supplies no `identity_provider`.
+- After: The SDK's reference detached-JWS verifier with no signing material, used where a site supplies no `identity_provider`. Always the same, stateless instance (fix round 5, R3), so compositions that declare no provider share the validation cache keyed by the provider instance.
 - Why: SEC-009; fix round 4: verification needs a provider; the reference one signs nothing.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17735,7 +17735,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.approval.reference_approval_verifier`.
 - Why: SEC-009; fix round 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17747,7 +17747,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: The signed HITL action that approves: `approve`.
 - Why: SEC-009; fix round 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17759,7 +17759,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: Re-export of `ccf.erasure.approval.APPROVING_VERDICT`.
 - Why: SEC-009; fix round 4.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17769,9 +17769,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback), without a HITL policy key, or re-composes an already composed store with a different Control Plane, identity provider or HITL policy key.
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback) or without an `ErasureTrust`, or re-composes an already composed store with a different Control Plane, identity provider or trust; and when the erasure door is built with a non-`ErasureAuthority`, a HITL transport bound to another key, or a signing key that does not verify under the declared door key (fix round 5).
 - Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
-- Migration: pass `hitl_policy_key=` — the deployment's HITL policy key, the same key its HITL transport is bound to — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+- Migration: pass `erasure_trust=` — per tenant that may erase, its HITL policy key (the key its HITL transport is bound to), its erasure workflow's content hash and the door's public key — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17781,9 +17781,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback), without a HITL policy key, or re-composes an already composed store with a different Control Plane, identity provider or HITL policy key. Re-export.
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback) or without an `ErasureTrust`, or re-composes an already composed store with a different Control Plane, identity provider or trust; and when the erasure door is built with a non-`ErasureAuthority`, a HITL transport bound to another key, or a signing key that does not verify under the declared door key (fix round 5). Re-export.
 - Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
-- Migration: pass `hitl_policy_key=` — the deployment's HITL policy key, the same key its HITL transport is bound to — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+- Migration: pass `erasure_trust=` — per tenant that may erase, its HITL policy key (the key its HITL transport is bound to), its erasure workflow's content hash and the door's public key — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17793,9 +17793,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback), without a HITL policy key, or re-composes an already composed store with a different Control Plane, identity provider or HITL policy key. Re-export.
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback) or without an `ErasureTrust`, or re-composes an already composed store with a different Control Plane, identity provider or trust; and when the erasure door is built with a non-`ErasureAuthority`, a HITL transport bound to another key, or a signing key that does not verify under the declared door key (fix round 5). Re-export.
 - Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
-- Migration: pass `hitl_policy_key=` — the deployment's HITL policy key, the same key its HITL transport is bound to — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+- Migration: pass `erasure_trust=` — per tenant that may erase, its HITL policy key (the key its HITL transport is bound to), its erasure workflow's content hash and the door's public key — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17820,6 +17820,186 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: `policy_head(control_plane) -> str`: the sha256 of the Control Plane's registration history (every resolved `register*` audit event: action, key, version, instant, in order). The decorating store keys its validation cache by it, so any registration re-judges every cached verdict, and a verdict is never keyed by a Control Plane object's identity. Re-export.
 - Why: SEC-009; fix round 4, ruling 4: a cached SUPPORTED survived a key rotation, and the memo was keyed by `id(control_plane)`.
 - Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.ErasureAuthority
+
+- Surface: ccf.erasure.trust.ErasureAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract: what ONE tenant's erasures are verified against, declared at composition — `tenant_id` (the erasure workflow's tenant), `hitl_policy_key` (the key its HITL transport is bound to; refused unless it lies under `tenant_id`), `workflow_definition_hash` (the erasure workflow definition's content hash) and `door_keys` (the erasure door's PUBLIC signing keys by key id; a key carrying private material is refused by name).
+- Why: SEC-009; fix round 5, R1, R2, R4: the requester never chooses the workflow, the policy or who counts as the requester.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureAuthority
+
+- Surface: ccf.erasure.ErasureAuthority
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.ErasureAuthority`.
+- Why: SEC-009; fix round 5, R1, R2, R4: the requester never chooses the workflow, the policy or who counts as the requester.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.ErasureTrust
+
+- Surface: ccf.erasure.trust.ErasureTrust
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A contract: `authorities`, a mapping from each tenant that may erase to its `ErasureAuthority`, keyed by the authority's own tenant; `authority_for(tenant_id)`. Empty declares that a site verifies no erasure as supported — every erased address stays withheld, `index-unsupported`.
+- Why: SEC-009; fix round 5, R4: one deployment-wide HITL key let only that key's tenant erase.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureTrust
+
+- Surface: ccf.erasure.ErasureTrust
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.ErasureTrust`.
+- Why: SEC-009; fix round 5, R4: one deployment-wide HITL key let only that key's tenant erase.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.ErasureRecordInvalid
+
+- Surface: ccf.erasure.trust.ErasureRecordInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` with a `reason_code`: `erasure-tenant-undeclared` (no authority for the entry's tenant), `record-address-mismatch`, `record-signature-invalid` (no door signature verifies over the record's bytes under the tenant's declared door keys) or `record-entry-mismatch`. The consult counts any of them as `index-unsupported`.
+- Why: SEC-009; fix round 5, R2 and R4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureRecordInvalid
+
+- Surface: ccf.erasure.ErasureRecordInvalid
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.ErasureRecordInvalid`.
+- Why: SEC-009; fix round 5, R2 and R4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.DOOR_SIGNATURE_ASSERTION
+
+- Surface: ccf.erasure.trust.DOOR_SIGNATURE_ASSERTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The protected-header member (`ccf_signed_class`) a door signature asserts, with the value `ccf.erasure-record`: a signature the door key made for anything else does not verify as a record signature.
+- Why: SEC-009; fix round 5, R2: domain separation for the door key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.DOOR_SIGNATURE_ASSERTION
+
+- Surface: ccf.erasure.DOOR_SIGNATURE_ASSERTION
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.DOOR_SIGNATURE_ASSERTION`.
+- Why: SEC-009; fix round 5, R2: domain separation for the door key.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.sign_erasure_record
+
+- Surface: ccf.erasure.trust.sign_erasure_record
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `sign_erasure_record(record, *, signer, key_id) -> str`: the door's detached signature (`protected..signature`) over the record's canonical bytes — the bytes the store holds at its content address — asserting `DOOR_SIGNATURE_ASSERTION`.
+- Why: SEC-009; fix round 5, R2: the record is door-signed.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.sign_erasure_record
+
+- Surface: ccf.erasure.sign_erasure_record
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.sign_erasure_record`.
+- Why: SEC-009; fix round 5, R2: the record is door-signed.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.verify_door_signature
+
+- Surface: ccf.erasure.trust.verify_door_signature
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `verify_door_signature(payload, *, door_signature, door_key_id, authority, identity_provider)`: refuses (`ErasureRecordInvalid`, `record-signature-invalid`) unless the signature's key id is `door_key_id`, it verifies over exactly `payload` against the authority's declared door keys, and its protected header asserts it signs an erasure record.
+- Why: SEC-009; fix round 5, R2.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.verify_door_signature
+
+- Surface: ccf.erasure.verify_door_signature
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.verify_door_signature`.
+- Why: SEC-009; fix round 5, R2.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.trust.verify_erasure_entry
+
+- Surface: ccf.erasure.trust.verify_erasure_entry
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `verify_erasure_entry(entry, payload, *, trust, identity_provider) -> (ErasureRecord, ErasureAuthority)`: the consult's judgment of an entry's record, door signature first — the entry's tenant selects its authority (R4); the bytes hash to the entry's record address; the door's signature verifies over them (R2) before any record field is read; and the record carries every fact the entry does.
+- Why: SEC-009; fix round 5: the record a filer writes is not the door's statement until the door's signature says so.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.verify_erasure_entry
+
+- Surface: ccf.erasure.verify_erasure_entry
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Re-export of `ccf.erasure.trust.verify_erasure_entry`.
+- Why: SEC-009; fix round 5: the record a filer writes is not the door's statement until the door's signature says so.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.client.adapters.binding_document.ErasureAuthorityDeclaration
+
+- Surface: ccf.client.adapters.binding_document.ErasureAuthorityDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A frozen dataclass: the erasure authority a deployment declares in `binding.yaml` — `hitl_policy_key`, `workflow_definition_hash`, `door_keys` — minus the tenant, which is the booted fabric's.
+- Why: SEC-009; fix round 5: the in-process adapter's boot is a store construction site, and its trust root is declared in its binding document.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, a HITL policy that requires signed bindings and pins each approver's key, and an `ErasureTrust` naming, per tenant that may erase, that HITL policy's key, the erasure workflow definition's content hash and the erasure door's public signing key — the door holding the private half (fix round 5).
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -18534,7 +18714,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-556 entries — 365 public Python surface, 191 not public Python API.
+557 entries — 366 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -24825,13 +25005,13 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
-- After: three new **required** keywords with no default: `erasure_index: ErasureIndexProtocol`, (fix round 4) `control_plane: PinnedPolicySource`, the deployment's Control Plane through which each erasure approval is verified, and (fix round 4, ruling 1) `hitl_policy_key: str`, the deployment's HITL policy key every approval must pin. The server wraps `store` through `compose_erasure_consult`.
+- After: three new **required** keywords with no default: `erasure_index: ErasureIndexProtocol`, (fix round 4) `control_plane: PinnedPolicySource`, the deployment's Control Plane through which each erasure approval is verified, and (fix round 5) `erasure_trust: ErasureTrust`, the per-tenant erasure authorities every erasure is verified against (replacing fix round 4's `hitl_policy_key`). The server wraps `store` through `compose_erasure_consult`.
   - Every byte read goes through the wrapped store.
   - A governed record follows the authorization-first order (ruling 1).
   - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
   - The naming resource still resolves through `store`, because it returns an address, never bytes (the U8 reasoning).
 - Why: SEC-009; the coordinator's MCP ruling on `D-IMPL-374` (4). This server is the ArtifactStore's persistence transport (CLAUDE.md §7.4), so an erased artifact served over it is exactly the SEC-009 hole.
-- Migration: pass `erasure_index=` with the deployment's durable index, `control_plane=` with its Control Plane and `hitl_policy_key=` with its HITL policy key. The five in-tree call sites are updated.
+- Migration: pass `erasure_index=` with the deployment's durable index, `control_plane=` with its Control Plane and `erasure_trust=` with its per-tenant erasure authorities. Every in-tree call site is updated.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24915,10 +25095,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf_runtime.cli.local.build_local_dependencies
 - Public surface: true
 - Change type: reshaped
-- Before: `build_local_dependencies(*, root)` — the in-memory HITL transport unbound, the erasure consult composed without a HITL policy key.
-- After: `build_local_dependencies(*, root, hitl_policy_key)`: a REQUIRED `hitl_policy_key` (from `--local-hitl-policy-key`) that the in-memory HITL transport is bound to (`control_plane=` the local registry) and that the erasure consult verifies every approval under — the one key, at both sites.
-- Why: SEC-009; fix round 4, ruling 1: every store construction site takes the deployment's HITL policy key, the same key its HITL transport uses.
-- Migration: pass `hitl_policy_key=`; the `--local` arm (suspended under SEC-002) takes `--local-hitl-policy-key`.
+- Before: `build_local_dependencies(*, root)` — the in-memory HITL transport unbound, the erasure consult composed without a trust root.
+- After: `build_local_dependencies(*, root, hitl_policy_key, erasure_trust)`: a REQUIRED `hitl_policy_key` (from `--local-hitl-policy-key`) that the in-memory HITL transport is bound to (fix round 4), and a REQUIRED `erasure_trust` the erasure consult verifies erasures against (fix round 5). The `--local` arm declares none (`ErasureTrust(authorities={})`): the local dev fabric runs no erasure door and registers no erasure workflow, so every erasure its index names is withheld as `index-unsupported`.
+- Why: SEC-009; fix round 4, ruling 1, and fix round 5, R1, R2, R4: every store construction site takes the deployment's trust root.
+- Migration: pass `hitl_policy_key=` and `erasure_trust=`; the `--local` arm (suspended under SEC-002) takes `--local-hitl-policy-key`.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24927,10 +25107,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf.products.product.open_product
 - Public surface: true
 - Change type: reshaped
-- Before: `control_plane: ControlPlaneRegistry | None = None` (a fresh registry when omitted); no HITL policy key.
-- After: `control_plane: ControlPlaneRegistry` is REQUIRED with no default and `None` is refused by name (`ErasureCompositionRefused`); a new REQUIRED `hitl_policy_key: str`, confined under the product's tenant like every deployment key (`D-IMPL-354`), which the composed store verifies every erasure approval under.
-- Why: SEC-009; fix round 4, rulings 1 and 5: the fallback registry lacked the door's HITL policy and marked genuine erasures `index-unsupported`.
-- Migration: pass `control_plane=` (the deployment's registry) and `hitl_policy_key=`. Every in-tree caller is updated; the examples pass their deployment's key beside their other declared keys.
+- Before: `control_plane: ControlPlaneRegistry | None = None` (a fresh registry when omitted); no erasure trust root.
+- After: `control_plane: ControlPlaneRegistry` is REQUIRED with no default and `None` is refused by name (`ErasureCompositionRefused`, fix round 4); a new REQUIRED `erasure_trust: ErasureTrust` (fix round 5; it replaces fix round 4's `hitl_policy_key`), the per-tenant erasure authorities the composed store verifies every erasure against. A deployment that runs no erasure door passes `ErasureTrust(authorities={})`.
+- Why: SEC-009; fix round 4, rulings 1 and 5, and fix round 5, R1, R2, R4: the fallback registry lacked the door's HITL policy, and a trust root read from filed artifacts let a filer choose who counts as the requester and which workflow's gate policy applies.
+- Migration: pass `control_plane=` (the deployment's registry) and `erasure_trust=`. Every in-tree caller is updated; the examples declare no erasure authority, because none runs an erasure door.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24939,10 +25119,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf.products.product.OpenedProduct
 - Public surface: true
 - Change type: reshaped
-- Before: No HITL policy key.
-- After: Carries `hitl_policy_key` (the confined key `open_product` took) and hands it to every resolver it builds through `build_arguments`, so a server composed over an opened product passes `opened.hitl_policy_key` to `ApiDependencies`.
-- Why: SEC-009; fix round 4, ruling 1.
-- Migration: none; read `opened.hitl_policy_key` where a server composes over the product.
+- Before: No erasure trust root.
+- After: Carries `erasure_trust` (the trust `open_product` took) and hands it to every resolver it builds through `build_arguments`, so a server composed over an opened product passes `opened.erasure_trust` to `ApiDependencies`.
+- Why: SEC-009; fix round 5 (it replaces fix round 4's `hitl_policy_key`).
+- Migration: none; read `opened.erasure_trust` where a server composes over the product.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24951,10 +25131,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf.products.resolver.build_governed_resolver
 - Public surface: true
 - Change type: reshaped
-- Before: No HITL policy key; any `ControlPlaneProtocol` accepted.
-- After: A new REQUIRED `hitl_policy_key: str` the composed store verifies every erasure approval under; a `control_plane` offering no pinned-read surface (`PinnedPolicySource`) is refused by name (`ErasureCompositionRefused`).
-- Why: SEC-009; fix round 4, rulings 1 and 5.
-- Migration: pass `hitl_policy_key=` beside the other declared keys; `OpenedProduct.build_arguments` already does.
+- Before: No erasure trust root; any `ControlPlaneProtocol` accepted.
+- After: A new REQUIRED `erasure_trust: ErasureTrust` the composed store verifies every erasure against (fix round 5; it replaces fix round 4's `hitl_policy_key`); a `control_plane` offering no pinned-read surface (`PinnedPolicySource`) is refused by name (`ErasureCompositionRefused`).
+- Why: SEC-009; fix round 4, rulings 1 and 5; fix round 5, R1, R2, R4.
+- Migration: pass `erasure_trust=` beside the other declared keys; `OpenedProduct.build_arguments` already does.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24963,10 +25143,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf_runtime.http_api.dependencies.ApiDependencies
 - Public surface: true
 - Change type: reshaped
-- Before: No HITL policy key.
-- After: A new REQUIRED field `hitl_policy_key: str` — the deployment's HITL policy key, the same key its `hitl_transport` is bound to — which `create_app` composes the erasure consult with.
-- Why: SEC-009; fix round 4, ruling 1.
-- Migration: pass `hitl_policy_key=`. Every in-tree construction is updated.
+- Before: No erasure trust root.
+- After: A new REQUIRED field `erasure_trust: ErasureTrust` — per tenant that may erase, the HITL policy key its `hitl_transport` is bound to, its erasure workflow's content hash and the erasure door's public key — which `create_app` composes the erasure consult with (fix round 5; it replaces fix round 4's `hitl_policy_key`).
+- Why: SEC-009; fix round 4, ruling 1; fix round 5, R1, R2, R4.
+- Migration: pass `erasure_trust=`. Every in-tree construction is updated.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24975,10 +25155,22 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Surface: ccf.client.adapters.binding_document.BindingDocument
 - Public surface: true
 - Change type: reshaped
-- Before: No HITL policy key.
-- After: A new REQUIRED data key `hitl_policy_key` (a plain string, confined under the deployment's tenant at boot) — the key the in-process adapter composes the erasure consult with.
-- Why: SEC-009; fix round 4, ruling 1: the in-process adapter's boot is a store construction site, and its deployment is declared by its binding document.
-- Migration: add `hitl_policy_key: <key>` to `binding.yaml`; the loader refuses a document that omits it.
+- Before: No erasure trust root.
+- After: A new REQUIRED data key `erasure_authority` (fix round 5; it replaces fix round 4's `hitl_policy_key`): `{}` declares none, or a mapping of exactly `hitl_policy_key` (confined under the deployment's tenant at boot), `workflow_definition_hash` and `door_keys` (the erasure door's public JWKs by key id), held as an `ErasureAuthorityDeclaration`. `erasure_trust(*, tenant_id)` builds the `ErasureTrust` the in-process adapter composes the erasure consult with.
+- Why: SEC-009; fix round 4, ruling 1, and fix round 5: the in-process adapter's boot is a store construction site, and its deployment is declared by its binding document.
+- Migration: add `erasure_authority: {}` to `binding.yaml`, or the three fields for a deployment that runs an erasure door; the loader refuses a document that omits the key.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.hitl.transport.InMemoryHitlTransport
+
+- Surface: ccf.hitl.transport.InMemoryHitlTransport
+- Public surface: true
+- Change type: reshaped
+- Before: The bound HITL policy key was private.
+- After: A read-only `hitl_policy_key` property: the Control Plane key the transport's HITL policy resolves under, or `None` when unbound. The erasure door holds its authority's HITL policy key to it at construction and refuses a mismatch by name.
+- Why: SEC-009; fix round 5, R5: a door and a transport judging approvals under different policies would file approvals no consult verifies.
+- Migration: none.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -32243,10 +32435,10 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Surface: ccf.client.adapters.binding_document.load_binding_document
 - Public surface: true
 - Change type: behavior
-- Before: `hitl_policy_key` was not a binding-document key.
-- After: `hitl_policy_key` is a required data key; a document that omits it is refused by name, like every other required key.
-- Why: SEC-009; fix round 4, ruling 1.
-- Migration: add `hitl_policy_key:` to the document.
+- Before: `erasure_authority` was not a binding-document key.
+- After: `erasure_authority` is a required data key; a document that omits it is refused by name, like every other required key, and a value that is neither `{}` nor exactly its three fields is refused by name (`BindingError`).
+- Why: SEC-009; fix round 5 (it replaces fix round 4's `hitl_policy_key`).
+- Migration: add `erasure_authority:` to the document.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

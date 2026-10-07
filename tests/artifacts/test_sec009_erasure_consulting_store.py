@@ -22,7 +22,7 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.contracts.canonical import content_hash
 from tests.erasure import composed
 from tests.erasure import harness as h
-from tests.composition import declared_hitl_policy_key
+from tests.composition import declared_erasure_trust
 
 def _plane(tmp_path: Path) -> tuple[Any, FileArtifactStore, Any, str, str]:
     inner = FileArtifactStore(root=tmp_path / "artifacts", write_kinds=h.write_kinds())
@@ -32,7 +32,7 @@ def _plane(tmp_path: Path) -> tuple[Any, FileArtifactStore, Any, str, str]:
     registry = ControlPlaneRegistry()
     record = composed.erase(inner, index, erased.content_address, control_plane=registry)
     store = h.erasure("compose_erasure_consult")(
-        inner, index=index, audit_log=registry.audit_log, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=registry, tenant_id=h.TENANT
+        inner, index=index, audit_log=registry.audit_log, clock=h.fabric_clock, erasure_trust=declared_erasure_trust(), control_plane=registry, tenant_id=h.TENANT
     )
     return record, inner, store, erased.uri, kept.content_address
 
