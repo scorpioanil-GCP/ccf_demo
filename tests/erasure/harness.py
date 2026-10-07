@@ -47,6 +47,7 @@ from tests.hitl.sec006_harness import (
     register_typed_policy,
     resume_as_principal,
 )
+from tests.erasure import signing
 from tests.workflow import test_engine as eh
 
 TENANT = "acme-bank"
@@ -141,6 +142,10 @@ class Plane:
     definition_version: str
     document: ArtifactRef
     index_path: Path
+    #: The HITL policy the transport and gate are bound to — the SIGNED one
+    #: pinning the SEC-005 test key for the approver, unless composed unsigned.
+    hitl_policy_key: str
+    signed: bool
 
 
 def declaration(*, key_paths: tuple[str, ...] = ("customer.id",), identifier_kind: str = "opaque") -> Any:
@@ -178,8 +183,12 @@ def register_policy(registry: ControlPlaneRegistry, policy: Any) -> None:
     register_typed_at_composition(registry, POLICY_KEY, policy, erasure("RETENTION_HOLD_POLICY"))
 
 
-def compose(tmp_path: Path, *, policy: Any | None = None, gated: bool = True) -> Plane:
+def compose(tmp_path: Path, *, policy: Any | None = None, gated: bool = True, signed: bool = True) -> Plane:
     registry = ControlPlaneRegistry(clock=eh._ticking_clock())
+    # Fix round 4: an erasure approval is bound to a SIGNED HITL attestation,
+    # so the plane's transport and gate run under a signed policy pinning the
+    # SEC-005 test key for the approver (unsigned only when a test asks).
+    hitl_key = signing.register_signed_policy(registry, subject=APPROVER) if signed else plain_hitl_plane(registry)
     register_typed_policy(registry, APPROVAL_KEY, eligible=frozenset({APPROVER}))
     register_typed_at_composition(registry, DECL_KEY, declaration(), erasure("ERASURE_SUBJECT_DECLARATION"))
     register_policy(registry, retention() if policy is None else policy)
@@ -195,7 +204,9 @@ def compose(tmp_path: Path, *, policy: Any | None = None, gated: bool = True) ->
     )
     assert isinstance(version, str), version
     store = FileArtifactStore(root=tmp_path / "artifacts", write_kinds=write_kinds())
-    transport = InMemoryHitlTransport()
+    transport = InMemoryHitlTransport(
+        control_plane=registry, hitl_policy_key=hitl_key, identity_provider=signing.provider()
+    )
     clock = eh._ticking_clock()
     bindings = eh._Bindings(failing=frozenset())
     engine = WorkflowEngine(
@@ -208,7 +219,7 @@ def compose(tmp_path: Path, *, policy: Any | None = None, gated: bool = True) ->
     )
     doc = client_put(store, name="note-1", document={"customer": {"id": SUBJECT_ID}, "note": "kyc"})
     index_path = tmp_path / "artifacts" / ".erasure-index.jsonl"
-    return Plane(registry, store, transport, engine, clock, version, doc, index_path)
+    return Plane(registry, store, transport, engine, clock, version, doc, index_path, hitl_key, signed)
 
 
 def index_of(plane: Plane) -> Any:
@@ -269,13 +280,27 @@ def approve(plane: Plane, event: PendingHitlEvent, *, approver: str = APPROVER) 
         audit=plane.registry.audit_log,
         clock=plane.clock,
         control_plane=plane.registry,
-        hitl_policy_key=plain_hitl_plane(plane.registry),
+        hitl_policy_key=plane.hitl_policy_key,
+        identity_provider=signing.provider(),
+    )
+    principal = door_submission(event, subject_id=approver).principal
+    attestation = (
+        signing.sign(
+            tenant=TENANT,
+            event_key=event.event_key,
+            product_content_hash=event.product_content_hash,
+            subject_id=approver,
+            issued_at=principal.action_time,
+        )
+        if plane.signed
+        else None
     )
     resolution = gate.resolve(
         submit_capability(tenant=TENANT, principal=approver, event_key=event.event_key),
         event_key=event.event_key,
         action="approve",
-        principal=door_submission(event, subject_id=approver).principal,
+        principal=principal,
+        attestation=attestation,
     )
     assert isinstance(resolution, GateResolution), resolution
     return resolution
