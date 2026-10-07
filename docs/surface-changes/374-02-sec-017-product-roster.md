@@ -23,6 +23,20 @@ call, and so are not bound by the roster:** the MCP artifact server, the MCP
 HITL server, and the HTTP `/artifact`, `/hitl`, `/agent`, `/skill`,
 `/workflow`, `/config`, `/schema` and `/backends` routes.
 
+**A server-side asymmetry remains on `invoke_agent` (N-4, the scoped
+re-review of PC2; disclosed, not changed).** For a rostered caller, every
+`invoke_agent` refusal is byte-identical on the wire: an existing on-roster
+agent the authorizer denies, an off-roster agent, an absent agent, an agent
+with no derived classes, a failing directory and no directory all give one
+`(type, text)`. Only the first reaches the authorizer, so only it appends to
+the Control Plane audit log (the authorizer's `authz_decision` deny, after its
+`resolve` of the scope mapping; the other five append nothing), and it is
+slightly slower (the re-review measured an in-process median of 64.6 µs
+against 46.9 µs and 46.7 µs for the off-roster and absent outcomes). The
+SDK's doors append to the audit log and serve none of it, so the difference is
+visible only to whoever can read that log or time the server's answers
+closely, not in what the caller receives.
+
 ## ccf_runtime.mcp.auth.TokenGrant
 
 - Surface: ccf_runtime.mcp.auth.TokenGrant
