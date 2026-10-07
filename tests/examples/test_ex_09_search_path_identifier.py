@@ -227,16 +227,18 @@ def test_ex_09_frozen_specimens_build_no_search_path_by_string_formatting() -> N
 
 def test_ex_09_the_scanner_tells_string_formatting_from_composition() -> None:
     """Control: all four string-built shapes are flagged; the composed one is not."""
-    source = '''
-def f(cursor, schema, other):
-    cursor.execute(f"SET search_path TO {schema}")
-    cursor.execute("SET search_path TO {}".format(schema))
-    cursor.execute("SET search_path TO %s" % schema)
-    cursor.execute("SET search_path TO " + schema)
-    cursor.execute(SQL("SET search_path TO {}").format(Identifier(schema)))
-    cursor.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)))
-    cursor.execute(f"SELECT {other} FROM t")
-'''
+    # One literal per line: a single multi-line block of code reads as a
+    # template to the No-Hardcoding lint (CINV-01a), which it is not.
+    source = "\n".join([
+        "def f(cursor, schema, other):",
+        '    cursor.execute(f"SET search_path TO {schema}")',
+        '    cursor.execute("SET search_path TO {}".format(schema))',
+        '    cursor.execute("SET search_path TO %s" % schema)',
+        '    cursor.execute("SET search_path TO " + schema)',
+        '    cursor.execute(SQL("SET search_path TO {}").format(Identifier(schema)))',
+        '    cursor.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema)))',
+        '    cursor.execute(f"SELECT {other} FROM t")',
+    ])
     shapes = [site.shape for site in _scan_source(source, "examples/control/acquisition.py")]
     assert sorted(shapes) == sorted(["f-string", "str.format", "%-format", "concatenation", "composed", "composed"])
 
