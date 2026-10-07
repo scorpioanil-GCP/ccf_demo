@@ -645,9 +645,15 @@ class ClaudeAgentAdapter:
         refusal are not the same evidence (D-10).
 
         Two conditions deny: a tool outside this agent's currently-bound
-        skill-set, and — when this adapter declared ``effects: unsupported`` —
-        every tool, because a read-only binding must not let the harness reach
-        a dispatch path at all.
+        EXPOSABLE skill-set, and — when this adapter declared ``effects:
+        unsupported`` — every tool, because a read-only binding must not let
+        the harness reach a dispatch path at all.
+
+        **Permitted means bound AND harness-exposable** (``TP-03`` follow-on,
+        ``D-IMPL-361``): a bound ``peering``, ``mcp_product`` or ``procedure``
+        skill is never rendered as a tool (:meth:`_tools`), so the gate denies
+        it too, with the same unbound-reason message — a harness that names a
+        tool it was never shown is refused, not admitted.
         """
 
         async def can_use_tool(
@@ -658,6 +664,8 @@ class ClaudeAgentAdapter:
             permitted = {
                 _qualified_tool_name(self._mcp_server_name, name)
                 for name in agent.bound_skill_names
+                if self._bound_entry(agent, name).skill_type
+                in HARNESS_EXPOSABLE_SKILL_TYPES
             }
             if tool_name not in permitted:
                 return PermissionResultDeny(message=self._unbound_reason(tool_name))

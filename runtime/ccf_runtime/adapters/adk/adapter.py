@@ -606,9 +606,13 @@ class AdkAdapter:
         that nothing happened.
 
         Two conditions refuse: a tool outside this agent's currently-bound
-        skill-set, and — when this adapter declared ``effects: unsupported`` —
-        every tool, because a read-only binding must not let the harness reach
-        a dispatch path at all. The refusal ADK receives is the canonical
+        EXPOSABLE skill-set, and — when this adapter declared ``effects:
+        unsupported`` — every tool, because a read-only binding must not let
+        the harness reach a dispatch path at all. Permitted means bound AND of
+        a type in :data:`~ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+        (``TP-03`` follow-on, ``D-IMPL-361``): a bound ``peering``,
+        ``mcp_product`` or ``procedure`` skill is never a tool here, so the gate
+        refuses it with the same unbound-reason message. The refusal ADK receives is the canonical
         serialization of the same typed
         :class:`~ccf.harness.protocol.EffectRefusal`
         :meth:`capture_effect` returns, so the two cannot describe the refusal
@@ -622,7 +626,13 @@ class AdkAdapter:
                 return self._refusal_response(
                     self._refusal(agent, self._refusal_reason())
                 )
-            if tool.name not in set(agent.bound_skill_names):
+            permitted = {
+                name
+                for name in agent.bound_skill_names
+                if self._bound_entry(agent, name).skill_type
+                in HARNESS_EXPOSABLE_SKILL_TYPES
+            }
+            if tool.name not in permitted:
                 return self._refusal_response(
                     self._refusal(agent, self._unbound_reason(str(tool.name)))
                 )
