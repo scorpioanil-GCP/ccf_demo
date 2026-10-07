@@ -37,7 +37,7 @@ def _consult(plane: h.Plane) -> tuple[Any, Any]:
     audit = ControlPlaneRegistry().audit_log
     consulted = h.erasure("compose_erasure_consult")(
         plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock,
-        control_plane=plane.registry, tenant_id=h.TENANT,
+        hitl_policy_key=plane.hitl_policy_key, control_plane=plane.registry, tenant_id=h.TENANT,
     )
     return consulted, audit
 

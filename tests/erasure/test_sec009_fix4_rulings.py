@@ -239,7 +239,7 @@ def test_d_an_adopter_provider_that_verifies_nothing_accepts_everything_and_the_
     assert _outcome(plane, address, provider=_AcceptAll()) == "supported"
     sentence = "verifies nothing accepts everything"
     for page in ("docs/surface-changes/374-04-sec-009-minimum-erasure.md", "public/how-to/security-and-deployment.md"):
-        assert sentence in (REPO / page).read_text(encoding="utf-8"), page
+        assert sentence in " ".join((REPO / page).read_text(encoding="utf-8").split()), page  # wrap-tolerant
 
 
 # -- ruling 4: revocation and the cache ---------------------------------------------
@@ -372,9 +372,11 @@ def test_a_genuine_erasure_stays_supported_through_a_restart_whose_clock_is_late
     resolution = h.approve(plane, h.pending(plane, suspended.event_key))
     record = h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request)))
     approval = h.erasure("ErasureApproval").model_validate_json(plane.store.get(content_address=record.approval_ref))
-    later = eh._ticking_clock()
-    for _ in range(100):  # the restarted registry's clock is well past the approval's instant
-        later()
+    ticking = eh._ticking_clock()
+
+    def later() -> Any:  # the restarted registry's clock is a day past the approval's instant
+        return ticking() + timedelta(days=1)
+
     assert later() > approval.acted_at
     restarted = ControlPlaneRegistry(clock=later)
     signing.register_signed_policy(restarted, subject=h.APPROVER)

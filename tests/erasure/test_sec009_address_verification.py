@@ -86,6 +86,7 @@ def test_a_store_that_answers_no_naming_cannot_verify_a_class_and_refuses(tmp_pa
         factory=h.WorkflowFactory(control_plane=plane.registry),
         control_plane=plane.registry,
         transport=plane.transport,
+        hitl_policy_key=plane.hitl_policy_key,
         store=_NoNaming(plane.store),
         clock=plane.clock,
         index=h.index_of(plane),

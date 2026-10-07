@@ -43,7 +43,7 @@ from __future__ import annotations
 import inspect
 import pathlib
 import re
-from tests.composition import no_erasures
+from tests.composition import declared_hitl_policy_key, no_erasures
 from typing import Any
 
 import pytest
@@ -107,7 +107,7 @@ class TestTheSignatureHasNoInsecureArm:
 
         with pytest.raises(TypeError):
             create_app(  # type: ignore[call-arg]
-                ApiDependencies(erasure_index=no_erasures(), 
+                ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
                     control_plane=fabric.registry,
                     artifact_store=fabric.store,
                     product_resolver=fabric.product_resolver,

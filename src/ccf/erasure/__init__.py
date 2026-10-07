@@ -63,6 +63,16 @@ disclosed for every erased input class (ruling 4).
   salts; for a low-entropy identifier the reference is dictionary-reversible
   by a reader of that artifact (U4, as ruled).
 
+* The trust root is fixed at composition (fix round 4): every site passes the
+  deployment's Control Plane and its HITL policy key, and the consult refuses
+  an approval pinning any other key, by the requester, by an ineligible
+  approver, for an undeclared gate, or signed after the pinned policy version's
+  supersession. The signed instant is the signer's claim, so a backdated
+  signature by a dropped key still verifies under the old version; and only
+  the window's supersession bound is enforced, because the in-memory Control
+  Plane re-registers every version at boot. An adopter-supplied identity
+  provider that verifies nothing accepts everything.
+
 Algorithmic package (CINV-03).
 """
 
@@ -72,6 +82,7 @@ from ccf.erasure.approval import (
     APPROVING_VERDICT,
     ErasureApprovalInvalid,
     PinnedPolicySource,
+    policy_head,
     reference_approval_verifier,
     verify_erasure_approval,
 )
@@ -98,7 +109,12 @@ from ccf.erasure.contracts import (
     judge_retention,
     subject_ref_for,
 )
-from ccf.erasure.errors import INDEX_CORRUPT, ErasureIndexCorrupt, ErasureIndexInsecure
+from ccf.erasure.errors import (
+    INDEX_CORRUPT,
+    ErasureCompositionRefused,
+    ErasureIndexCorrupt,
+    ErasureIndexInsecure,
+)
 from ccf.erasure.index import (
     ERASURE_INDEX_FILENAME,
     GENESIS,
@@ -123,6 +139,7 @@ __all__ = [
     "APPROVING_VERDICT",
     "ErasureApprovalInvalid",
     "PinnedPolicySource",
+    "policy_head",
     "reference_approval_verifier",
     "verify_erasure_approval",
     "ERASURE_INDEX_FILENAME",
@@ -139,6 +156,7 @@ __all__ = [
     "ErasedAddress",
     "ErasureApproval",
     "ErasedContentRefused",
+    "ErasureCompositionRefused",
     "ErasureConsultingStore",
     "ErasureIndexCorrupt",
     "ErasureIndexEntry",

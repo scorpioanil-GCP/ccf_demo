@@ -23,9 +23,11 @@ from ccf.artifacts.protocol import DerivedWrite
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.principal import ApproverIdentity
+from tests.erasure import composed
 from tests.erasure import harness as h
 from tests.erasure import signing
 from tests.erasure.test_sec009_fix2 import _entry, _forged_record
+from tests.composition import declared_hitl_policy_key
 
 
 def _erased(plane: h.Plane) -> tuple[Any, Any]:
@@ -41,12 +43,15 @@ def _erased(plane: h.Plane) -> tuple[Any, Any]:
 def _fresh_consult(plane: h.Plane) -> tuple[Any, Any]:
     """A consult composed as a RESTARTED process composes it: a fresh registry's
     audit log, the index reopened from its file, nothing in memory — and the
-    deployment's HITL policy re-registered at boot, as every boot does (fix round 4)."""
+    deployment's HITL policy, approval policy and erasure workflow re-registered
+    at boot, as every boot registers what the deployment declares (fix round 4)."""
     booted = ControlPlaneRegistry()
     signing.register_signed_policy(booted, subject=h.APPROVER)
+    composed.register_approval_policy(booted, tenant=h.TENANT)
+    composed.register_erasure_workflow(booted, tenant=h.TENANT)
     audit = booted.audit_log
     consulted = h.erasure("compose_erasure_consult")(
-        plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, control_plane=booted, tenant_id=h.TENANT
+        plane.store, index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=booted, tenant_id=h.TENANT
     )
     return consulted, audit
 

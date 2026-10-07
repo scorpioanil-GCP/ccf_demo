@@ -169,6 +169,9 @@ def _open(root: pathlib.Path, scratch: pathlib.Path, *, acquire: _Acquire | None
         "assess": _assess,
         "environ": {DSN_VARIABLE: "postgresql://fixture", "PAVED_FIXTURE_TOKEN": "fixture-token"},
         "clock": lambda: ASKED_AT + timedelta(minutes=7),
+        # SEC-009 (fix round 4, ruling 1): the deployment's HITL policy key,
+        # confined under the paved tenant by open_product.
+        "hitl_policy_key": "hitl_policy",
     }
     arguments.update(overrides)
     if "control_plane" not in arguments:

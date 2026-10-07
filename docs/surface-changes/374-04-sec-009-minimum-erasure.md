@@ -40,7 +40,10 @@ Disclosed residuals (ruling 5):
 - **An attacker with write access to the index file can un-erase its tail; file modes and the deployment's filesystem controls are the mitigation.** The file index is hash-chained, so an edited, reordered or removed line in the middle is refused at boot (`ErasureIndexCorrupt`, fail closed), and it opens with `O_NOFOLLOW` under an owner-only mode (0600 file, 0700 parent, refused by name otherwise). A chain cannot show that its last lines were cut off, so a truncated tail reads as a shorter, valid index (fix round 2, (a)).
 - **The approval is signature-bound, and verified again on every composition; an in-memory HITL transport still cannot resume a PENDING approval across a restart.** An erasure requires a SIGNED human approval: the door refuses, by name, an approval that is unsigned (`approval-unsigned`) or whose signature does not verify (`approval-signature-invalid`). Before the index append it files the approval as an immutable `ccf.erasure-approval` that carries the signed HITL attestation verbatim (claim set, signature, key id) and the pinned HITL policy version; its content address is the `approval_ref` on the record and the entry. The consult verifies that signature against the key the pinned HITL policy declares for the approver, resolved through its composed Control Plane, and requires the signed claims to name this request's gate, this tenant, the gate's state hash, the approver and an approving verdict; anything else is `index-unsupported` and audited (fix round 4). Holding `ArtifactErase` lets a requester file an approval artifact, not produce a signature the pinned policy accepts. The check survives a restart. A gate still PENDING in `InMemoryHitlTransport` does not: that is the transport's limit, not the record's.
 - **The approval's instant is the human's.** `ErasureApproval.acted_at` is the signed attestation's `issued_at`, so a retry re-files the same approval and leaves no orphan.
-- **The check is as strong as the HITL policy's key custody.** A party who can register a HITL policy in the Control Plane, or who holds an approver's private key, can approve. Both are outside the erasure surface. A deployment whose HITL transport signs under an algorithm other than the SDK's reference detached JWS passes its own `identity_provider` to `compose_erasure_consult` and the door; otherwise its approvals do not verify and fail closed.
+- **The check is as strong as the custody of the deployment's HITL policy key and of the approvers' private keys.** A party who can register a NEW VERSION under the deployment's own HITL policy key, or who holds an eligible approver's private key while that approver's version is current, can approve; registering any other key, in any tenant, no longer helps (fix round 4, ruling 1). A deployment whose HITL transport signs under an algorithm other than the SDK's reference detached JWS passes its own `identity_provider` to `compose_erasure_consult` and the door; otherwise its approvals do not verify and fail closed. **An adopter-supplied identity provider that verifies nothing accepts everything; that is the adopter's trust choice** (ruling 6).
+- **The signed instant is the signer's claim.** Revocation (ruling 4) refuses a signature dated after the pinned version's supersession, but nothing anchors `issued_at` to a clock the signer does not control: a holder of a dropped key who backdates a signature to before the supersession still verifies under the old version. The transport's freshness window applies at the door, not to an artifact filed around it.
+- **The effectivity window is read from the Control Plane's audit plane, and only its upper bound is enforced.** Ruling 4 defines the window from the version's registration instant to its supersession. The reference Control Plane is in-memory and re-registered at every boot, so the registration instant of every version is the boot instant and a lower bound would refuse every approval made before the last restart — measured in `tests/erasure/test_sec009_fix4_rulings.py` (the restart whose clock is later). The supersession bound is enforced; the lower bound is not, and that deviation is reported for a ruling rather than built.
+- **An in-process adapter's Control Plane holds what its `ccf_config.yaml` registers.** `ccf.hitl-policy` is not manifest-addressable, so an erasure consulted through the in-process adapter reads `index-unsupported` until the deployment registers its HITL policy, approval policy and workflow definition into the booted registry by its own code. The content stays withheld either way.
 - **A torn index line fails closed and is repaired by hand.** A process killed mid-append can leave a partial line that the next append merges into; the index is then refused as `ErasureIndexCorrupt` and every read under it is withheld. The repair procedure (evidence copy, truncate to the longest verifying prefix, restore the suffix before readers start) is in the `ccf.erasure.index` module docstring and §4.9 of the security deployment page. The SDK ships no repair tool.
 - **A retry needs the same authorization.** The record names the erase decision id, and the write-ahead entries pin the record's address, so a retry of a completion under a FRESH erase authorization is refused as `retry-mismatch`. Present the same request and the same erase decision.
 - **A refused names read is not told apart from an outage.** When the MCP names resource refuses a governed address, the client receives the refusal shell and reports `McpServerUnreachable`, and the door refuses `class-unverifiable`. That fails closed, but the caller cannot tell a refusal from an unreachable server.
@@ -52,6 +55,52 @@ Disclosed residuals (ruling 5):
 The door requires three things: the distinct `artifact.erase` capability for
 exactly the request, the workflow's `Execute`/`Resume` capabilities, and the
 recorded human approval (ruling 3).
+
+**Fix round 4, rulings 1–6: the requester never chooses the trust root.** The
+re-review measured that the consult trusted whatever `key@version` the
+requester's approval artifact named, so a policy the forger registered, a
+policy in another tenant's key space, and self-approval all verified. Now:
+
+1. **The HITL policy key is fixed at composition.** `compose_erasure_consult`,
+   every site that calls it (`create_app` through `ApiDependencies`,
+   `build_artifact_server`, `open_product`, `build_governed_resolver`, the
+   in-process adapter through its binding document, the local CLI
+   dependencies) and `ErasureDoor` take the deployment's HITL policy key —
+   the same key the HITL transport is bound to. The consult refuses, by name,
+   an approval pinning any other key (`approval-policy-key-mismatch`) or a key
+   whose tenant segment is not the approval's tenant
+   (`approval-policy-tenant-mismatch`). The requester's artifact may name the
+   version, never the key.
+2. **Approver ≠ requester, and eligible.** The consult refuses an approver who
+   is the record's requester (`approver-is-requester`) and one who is not
+   eligible under the approval policy the record names, resolved at its exact
+   version (`approver-not-eligible`) — the transport's door rule
+   (`check_approver_eligibility`), applied again at the consult.
+3. **The gate is the workflow definition's.** The consult resolves the
+   definition by `workflow_definition_hash` (its content address, which is its
+   registered version) and requires `approval.gate` to be one of that
+   definition's HITL gates, bound to the record's approval policy
+   (`approval-workflow-unresolvable`, `approval-gate-unknown`,
+   `approval-gate-policy-mismatch`).
+4. **Revocation.** The signed `issued_at` must precede the pinned HITL policy
+   version's supersession — the instant the Control Plane's audit plane
+   records the next version's registration; the current version's window is
+   open-ended. A signature dated after supersession, under a version whose key
+   was since dropped, refuses by name (`approval-policy-superseded`); an
+   approval made while that version was current stays valid (replay
+   determinism). The validation cache — the per-store verdicts and the
+   per-head memo — is keyed by the Control Plane's **policy head**
+   (`policy_head`, the digest of its registration history), so any
+   registration re-judges every cached verdict; never by a Control Plane
+   object's identity.
+5. **No fresh-registry fallback.** `open_product` takes the deployment's
+   Control Plane, required, and refuses `None` by name; `build_governed_resolver`
+   refuses a Control Plane with no pinned-read surface; and re-composing an
+   already composed store with a different Control Plane, identity provider or
+   HITL policy key refuses by name (`ErasureCompositionRefused`) instead of
+   silently keeping the first.
+6. An adopter-supplied identity provider that verifies nothing accepts
+   everything; that is the adopter's trust choice.
 
 ## ccf.erasure.ClassRetention
 
@@ -109,7 +158,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane` (fix round 4).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane`, under the deployment's HITL policy key, readable as `hitl_policy_key`, with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -449,7 +498,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane` (fix round 4).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`). It verifies each approval's signed HITL attestation through the Control Plane it was composed with, readable as `control_plane`, under the deployment's HITL policy key, readable as `hitl_policy_key`, with the identity provider as declared, readable as `identity_provider` (fix round 4). Its verdicts are keyed by the Control Plane's policy head, so a registration re-judges them (ruling 4).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -459,7 +508,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. It takes a REQUIRED `index`, and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), or whose signed claims do not approve this request (`approval-claims-mismatch`) (fix round 4).
+- After: The governed door. It takes a REQUIRED `index`, a REQUIRED `hitl_policy_key` (the deployment's, the same key its `transport` is bound to; fix round 4, ruling 1), and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), that pins another key or a key outside the tenant (`approval-policy-key-mismatch`, `approval-policy-tenant-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an ineligible approver (`approver-is-requester`, `approver-not-eligible`), or for a gate the workflow definition does not declare (`approval-gate-unknown`, `approval-gate-policy-mismatch`) (fix round 4).
   - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
   - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
@@ -471,7 +520,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. It takes a REQUIRED `index`, and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), or whose signed claims do not approve this request (`approval-claims-mismatch`) (fix round 4).
+- After: The governed door. It takes a REQUIRED `index`, a REQUIRED `hitl_policy_key` (the deployment's, the same key its `transport` is bound to; fix round 4, ruling 1), and an optional `identity_provider` that verifies the approval's signed HITL attestation (`None`: the SDK's reference detached-JWS verifier). It refuses, by name, an approval that is unsigned (`approval-unsigned`), that pins another key or a key outside the tenant (`approval-policy-key-mismatch`, `approval-policy-tenant-mismatch`), whose pinned HITL policy does not resolve (`approval-policy-unresolvable`), whose signature does not verify under the key that policy declares for the approver (`approval-signature-invalid`), whose signed claims do not approve this request (`approval-claims-mismatch`), signed after the pinned version's supersession (`approval-policy-superseded`), by the requester or an ineligible approver (`approver-is-requester`, `approver-not-eligible`), or for a gate the workflow definition does not declare (`approval-gate-unknown`, `approval-gate-policy-mismatch`) (fix round 4).
   - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
   - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
@@ -567,9 +616,10 @@ recorded human approval (ruling 3).
   - a declared erasure index;
   - an audit log;
   - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
-  - the `control_plane` through which each approval's pinned HITL policy is resolved and its signature verified (fix round 4). An optional `identity_provider` is the verifier; `None` is the SDK's reference detached-JWS verifier.
+  - the DEPLOYMENT's `control_plane` through which each approval's pinned HITL policy, approval policy and workflow definition are resolved (fix round 4); there is no fresh-registry fallback (ruling 5);
+  - the deployment's `hitl_policy_key` — the same key its HITL transport is bound to — which every approval must pin (fix round 4, ruling 1).
 
-  It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity), so a site composing once per question does not re-read every record; an append invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+  An optional `identity_provider` is the verifier; `None` is the SDK's reference detached-JWS verifier; one that verifies nothing accepts everything (the adopter's trust choice). It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity) and per Control Plane policy head (`policy_head`), so a site composing once per question does not re-read every record; an append or any Control Plane registration invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index with the same Control Plane, identity provider and HITL policy key, refuses one composed over another index (M1) and refuses, by name, a re-composition with a different trust root (`ErasureCompositionRefused`, ruling 5). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -583,9 +633,10 @@ recorded human approval (ruling 3).
   - a declared erasure index;
   - an audit log;
   - the injected fabric `clock`, which stamps the `index-unsupported` audit event (ruling 3);
-  - the `control_plane` through which each approval's pinned HITL policy is resolved and its signature verified (fix round 4). An optional `identity_provider` is the verifier; `None` is the SDK's reference detached-JWS verifier.
+  - the DEPLOYMENT's `control_plane` through which each approval's pinned HITL policy, approval policy and workflow definition are resolved (fix round 4); there is no fresh-registry fallback (ruling 5);
+  - the deployment's `hitl_policy_key` — the same key its HITL transport is bound to — which every approval must pin (fix round 4, ruling 1).
 
-  It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity), so a site composing once per question does not re-read every record; an append invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+  An optional `identity_provider` is the verifier; `None` is the SDK's reference detached-JWS verifier; one that verifies nothing accepts everything (the adopter's trust choice). It validates every entry against its record. That validation is memoized per index head (index identity, entry count, store identity) and per Control Plane policy head (`policy_head`), so a site composing once per question does not re-read every record; an append or any Control Plane registration invalidates the memo (ruling 4). It is idempotent on a store already composed over the same index with the same Control Plane, identity provider and HITL policy key, refuses one composed over another index (M1) and refuses, by name, a re-composition with a different trust root (`ErasureCompositionRefused`, ruling 5). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -695,13 +746,13 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: reshaped
 - Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
-- After: two new **required** keywords with no default: `erasure_index: ErasureIndexProtocol` and (fix round 4) `control_plane: PinnedPolicySource`, the Control Plane through which each erasure approval's signature is verified. The server wraps `store` through `compose_erasure_consult`.
+- After: three new **required** keywords with no default: `erasure_index: ErasureIndexProtocol`, (fix round 4) `control_plane: PinnedPolicySource`, the deployment's Control Plane through which each erasure approval is verified, and (fix round 4, ruling 1) `hitl_policy_key: str`, the deployment's HITL policy key every approval must pin. The server wraps `store` through `compose_erasure_consult`.
   - Every byte read goes through the wrapped store.
   - A governed record follows the authorization-first order (ruling 1).
   - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
   - The naming resource still resolves through `store`, because it returns an address, never bytes (the U8 reasoning).
 - Why: SEC-009; the coordinator's MCP ruling on `D-IMPL-374` (4). This server is the ArtifactStore's persistence transport (CLAUDE.md §7.4), so an erased artifact served over it is exactly the SEC-009 hole.
-- Migration: pass `erasure_index=` with the deployment's durable index. The five in-tree call sites are updated.
+- Migration: pass `erasure_index=` with the deployment's durable index, `control_plane=` with its Control Plane and `hitl_policy_key=` with its HITL policy key. The five in-tree call sites are updated.
 
 ## ccf_runtime.authz.delivery_boundary.govern_dereference
 
@@ -1122,7 +1173,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The ONE approval check the door and the decorating store run: resolve the approval's pinned HITL policy at its exact version, require its key id to be declared for the signer, verify the signature against exactly those keys, and require the signed claims to name this request's gate event (`{tenant}/{request_id}/{gate}`), this tenant, the gate's state hash, the approver and the approving verdict, with `acted_at` equal to `issued_at`. Returns the verified claims or raises `ErasureApprovalInvalid`.
+- After: The ONE approval check the door and the decorating store run, now taking `requested_by`, `approval_policy_ref` and `hitl_policy_key` as well: require the pin's key to be the deployment's HITL policy key in the approval's tenant (ruling 1); resolve that key at the pinned version; require its key id to be declared for the signer and verify the signature against exactly those keys; require the signed claims to name this request's gate event (`{tenant}/{request_id}/{gate}`), this tenant, the gate's state hash, the approver and the approving verdict, with `acted_at` equal to `issued_at`; require `issued_at` to precede the pinned version's supersession (ruling 4); require the approver not to be the requester and to be eligible under the record's approval policy at its exact version (ruling 2); and require the gate to be one the workflow definition resolved by `workflow_definition_hash` declares, bound to that approval policy (ruling 3). Returns the verified claims or raises `ErasureApprovalInvalid`.
 - Why: SEC-009; fix round 4: the re-review's probe D — an approving approval filed with only the requester's `ArtifactErase` was served as supported.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -1142,7 +1193,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A `ValueError` with a `reason_code`: `approval-unsigned`, `approval-policy-unresolvable`, `approval-signature-invalid` or `approval-claims-mismatch`.
+- After: A `ValueError` with a `reason_code`: `approval-unsigned`, `approval-policy-key-mismatch`, `approval-policy-tenant-mismatch`, `approval-policy-unresolvable`, `approval-signature-invalid`, `approval-claims-mismatch`, `approval-policy-superseded`, `approval-policy-window-unknown`, `approver-is-requester`, `approver-not-eligible`, `approval-workflow-unresolvable`, `approval-gate-unknown` or `approval-gate-policy-mismatch` (fix round 4, rulings 1–4).
 - Why: SEC-009; fix round 4: the door refuses with the same reason code; the consult counts any of them as `index-unsupported`.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -1162,7 +1213,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A Protocol with one method, `resolve(key, version)`: what the approval check reads from the Control Plane — one exact version, never latest. Every `ControlPlaneRegistry` satisfies it.
+- After: A read-only Protocol: `resolve(key, version)` (exact, never latest), `versions`, `peek`, `artifact_class_of` (the pinned-read surface the eligibility judgment shares with the transport), `keys_of_class` (locating the workflow definition by its hash) and `audit_events` (the registration history the supersession instant and `policy_head` are read from). Every `ControlPlaneRegistry` satisfies it (fix round 4, rulings 2–4).
 - Why: SEC-009; fix round 4: the narrowest read surface the check needs.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
 
@@ -1215,3 +1266,123 @@ recorded human approval (ruling 3).
 - After: Re-export of `ccf.erasure.approval.APPROVING_VERDICT`.
 - Why: SEC-009; fix round 4.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in its `WriteKinds`, and a HITL policy that requires signed bindings and pins each approver's key.
+
+## ccf.erasure.errors.ErasureCompositionRefused
+
+- Surface: ccf.erasure.errors.ErasureCompositionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback), without a HITL policy key, or re-composes an already composed store with a different Control Plane, identity provider or HITL policy key.
+- Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
+- Migration: pass `hitl_policy_key=` — the deployment's HITL policy key, the same key its HITL transport is bound to — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+
+## ccf.erasure.ErasureCompositionRefused
+
+- Surface: ccf.erasure.ErasureCompositionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback), without a HITL policy key, or re-composes an already composed store with a different Control Plane, identity provider or HITL policy key. Re-export.
+- Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
+- Migration: pass `hitl_policy_key=` — the deployment's HITL policy key, the same key its HITL transport is bound to — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+
+## ccf.erasure.store.ErasureCompositionRefused
+
+- Surface: ccf.erasure.store.ErasureCompositionRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `TypeError` raised at composition, by name, when a store construction site composes the erasure consult without the deployment's Control Plane (there is no fresh-registry fallback), without a HITL policy key, or re-composes an already composed store with a different Control Plane, identity provider or HITL policy key. Re-export.
+- Why: SEC-009; fix round 4, ruling 5: a silently ignored trust root is a trust root the site did not name.
+- Migration: pass `hitl_policy_key=` — the deployment's HITL policy key, the same key its HITL transport is bound to — and the deployment's own Control Plane; register the HITL policy, the erasure workflow's approval policy and the workflow definition in that Control Plane, as the door's deployment already does.
+
+## ccf.erasure.approval.policy_head
+
+- Surface: ccf.erasure.approval.policy_head
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `policy_head(control_plane) -> str`: the sha256 of the Control Plane's registration history (every resolved `register*` audit event: action, key, version, instant, in order). The decorating store keys its validation cache by it, so any registration re-judges every cached verdict, and a verdict is never keyed by a Control Plane object's identity.
+- Why: SEC-009; fix round 4, ruling 4: a cached SUPPORTED survived a key rotation, and the memo was keyed by `id(control_plane)`.
+- Migration: none.
+
+## ccf.erasure.policy_head
+
+- Surface: ccf.erasure.policy_head
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `policy_head(control_plane) -> str`: the sha256 of the Control Plane's registration history (every resolved `register*` audit event: action, key, version, instant, in order). The decorating store keys its validation cache by it, so any registration re-judges every cached verdict, and a verdict is never keyed by a Control Plane object's identity. Re-export.
+- Why: SEC-009; fix round 4, ruling 4: a cached SUPPORTED survived a key rotation, and the memo was keyed by `id(control_plane)`.
+- Migration: none.
+
+## ccf_runtime.cli.local.build_local_dependencies
+
+- Surface: ccf_runtime.cli.local.build_local_dependencies
+- Public surface: true
+- Change type: reshaped
+- Before: `build_local_dependencies(*, root)` — the in-memory HITL transport unbound, the erasure consult composed without a HITL policy key.
+- After: `build_local_dependencies(*, root, hitl_policy_key)`: a REQUIRED `hitl_policy_key` (from `--local-hitl-policy-key`) that the in-memory HITL transport is bound to (`control_plane=` the local registry) and that the erasure consult verifies every approval under — the one key, at both sites.
+- Why: SEC-009; fix round 4, ruling 1: every store construction site takes the deployment's HITL policy key, the same key its HITL transport uses.
+- Migration: pass `hitl_policy_key=`; the `--local` arm (suspended under SEC-002) takes `--local-hitl-policy-key`.
+
+## ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: reshaped
+- Before: `control_plane: ControlPlaneRegistry | None = None` (a fresh registry when omitted); no HITL policy key.
+- After: `control_plane: ControlPlaneRegistry` is REQUIRED with no default and `None` is refused by name (`ErasureCompositionRefused`); a new REQUIRED `hitl_policy_key: str`, confined under the product's tenant like every deployment key (`D-IMPL-354`), which the composed store verifies every erasure approval under.
+- Why: SEC-009; fix round 4, rulings 1 and 5: the fallback registry lacked the door's HITL policy and marked genuine erasures `index-unsupported`.
+- Migration: pass `control_plane=` (the deployment's registry) and `hitl_policy_key=`. Every in-tree caller is updated; the examples pass their deployment's key beside their other declared keys.
+
+## ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: No HITL policy key.
+- After: Carries `hitl_policy_key` (the confined key `open_product` took) and hands it to every resolver it builds through `build_arguments`, so a server composed over an opened product passes `opened.hitl_policy_key` to `ApiDependencies`.
+- Why: SEC-009; fix round 4, ruling 1.
+- Migration: none; read `opened.hitl_policy_key` where a server composes over the product.
+
+## ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: No HITL policy key; any `ControlPlaneProtocol` accepted.
+- After: A new REQUIRED `hitl_policy_key: str` the composed store verifies every erasure approval under; a `control_plane` offering no pinned-read surface (`PinnedPolicySource`) is refused by name (`ErasureCompositionRefused`).
+- Why: SEC-009; fix round 4, rulings 1 and 5.
+- Migration: pass `hitl_policy_key=` beside the other declared keys; `OpenedProduct.build_arguments` already does.
+
+## ccf_runtime.http_api.dependencies.ApiDependencies
+
+- Surface: ccf_runtime.http_api.dependencies.ApiDependencies
+- Public surface: true
+- Change type: reshaped
+- Before: No HITL policy key.
+- After: A new REQUIRED field `hitl_policy_key: str` — the deployment's HITL policy key, the same key its `hitl_transport` is bound to — which `create_app` composes the erasure consult with.
+- Why: SEC-009; fix round 4, ruling 1.
+- Migration: pass `hitl_policy_key=`. Every in-tree construction is updated.
+
+## ccf.client.adapters.binding_document.BindingDocument
+
+- Surface: ccf.client.adapters.binding_document.BindingDocument
+- Public surface: true
+- Change type: reshaped
+- Before: No HITL policy key.
+- After: A new REQUIRED data key `hitl_policy_key` (a plain string, confined under the deployment's tenant at boot) — the key the in-process adapter composes the erasure consult with.
+- Why: SEC-009; fix round 4, ruling 1: the in-process adapter's boot is a store construction site, and its deployment is declared by its binding document.
+- Migration: add `hitl_policy_key: <key>` to `binding.yaml`; the loader refuses a document that omits it.
+
+## ccf.client.adapters.binding_document.load_binding_document
+
+- Surface: ccf.client.adapters.binding_document.load_binding_document
+- Public surface: true
+- Change type: behavior
+- Before: `hitl_policy_key` was not a binding-document key.
+- After: `hitl_policy_key` is a required data key; a document that omits it is refused by name, like every other required key.
+- Why: SEC-009; fix round 4, ruling 1.
+- Migration: add `hitl_policy_key:` to the document.

@@ -56,7 +56,7 @@ import asyncio
 import json
 import re
 import tempfile
-from tests.composition import no_erasures
+from tests.composition import declared_hitl_policy_key, no_erasures
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -824,7 +824,7 @@ def _http_app(
     that asymmetry is the SDK's, not this fixture's.
     """
     return create_app(
-        ApiDependencies(erasure_index=no_erasures(), 
+        ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
             control_plane=ControlPlaneRegistry(),
             artifact_store=deployment_store(root / "artifacts", REPLAY_ARTIFACT_CLASS),
             product_resolver=resolver,  # type: ignore[arg-type]

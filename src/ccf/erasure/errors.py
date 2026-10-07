@@ -18,6 +18,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "INDEX_CORRUPT",
     "ErasedContentRefused",
+    "ErasureCompositionRefused",
     "ErasureIndexCorrupt",
     "ErasureIndexInsecure",
 ]
@@ -85,4 +86,18 @@ class ErasureIndexInsecure(PermissionError):
     user or not mode ``0600``, or a parent directory not owned by it or open
     beyond ``0700``. Anyone who can write the index can append a forged entry
     or truncate its tail.
+    """
+
+
+class ErasureCompositionRefused(TypeError):
+    """A store construction site composed the erasure consult without its trust root, or over a different one (SEC-009; `D-IMPL-374` (4), fix round 4, ruling 5).
+
+    Raised at composition — where an operator sees it — never at a read, by
+    name: the site passed no Control Plane (there is no fresh-registry
+    fallback; a consult verifying against a registry that lacks the
+    deployment's policies would mark every genuine erasure
+    ``index-unsupported``), or no HITL policy key, or it re-composed a store
+    already composed with a DIFFERENT Control Plane, identity provider or HITL
+    policy key — which would otherwise be silently ignored, leaving the store
+    verifying against a trust root the site did not name.
     """

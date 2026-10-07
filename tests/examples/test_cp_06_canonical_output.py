@@ -67,6 +67,7 @@ from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
+from ccf.controlplane.registry import ControlPlaneRegistry
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
@@ -512,6 +513,8 @@ def test_the_commitment_pi_divides_by_is_the_one_in_the_governed_view(
     parameters = {a.arg for a in constructor.args.kwonlyargs}
     assert "commitment" not in parameters and "enforceable_jurisdictions" not in parameters, parameters
     with open_product(
+        hitl_policy_key="hitl_policy",
+        control_plane=ControlPlaneRegistry(),
         config_root=EXAMPLE, scratch=tmp_path,
         acquire=_with_commitment_scaled(deployment, Decimal(2), CP14_FACILITY),
         project=produce.plan_factory, assess=deployment.assess, gate=deployment.coverage_gate,
@@ -627,6 +630,8 @@ def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], N
 
 def paved_consumer(tmp_path: pathlib.Path, *, url: str, edit: Callable[[dict[str, Any]], None] | None = None, scope: str = CP14_SCOPE) -> OpenedProduct:
     return open_product(
+        hitl_policy_key="hitl_policy",
+        control_plane=ControlPlaneRegistry(),
         config_root=_consumer_tree(tmp_path, edit=edit), scratch=tmp_path / "scratch",
         acquire=fixture.Acquire(), project=fixture.plan_factory, assess=fixture.assess,
         questions=cp14_question_for(scope), environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN}, clock=lambda: ADMITTED_AT,

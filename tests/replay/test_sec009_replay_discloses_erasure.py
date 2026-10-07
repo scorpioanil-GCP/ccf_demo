@@ -35,7 +35,7 @@ pytestmark = [pytest.mark.crossproc]
 
 def _erase(opened: Any, address: str, tenant: str) -> str:
     """Plant a GENUINE erasure in the product's own durable index; return the record address."""
-    record = composed.erase(q._fresh(opened), opened.erasure_index, address, control_plane=opened.control_plane, tenant=tenant)
+    record = composed.erase(q._fresh(opened), opened.erasure_index, address, control_plane=opened.control_plane, tenant=tenant, hitl_policy_key=opened.hitl_policy_key)
     return str(content_hash(record))
 
 
@@ -43,7 +43,7 @@ def _consulting(opened: Any, tenant: str | None) -> Any:
     """The product's store composed over its index — scoped to ``tenant``, or tenantless."""
     return h.erasure("compose_erasure_consult")(
         q._fresh(opened), index=opened.erasure_index, audit_log=opened.control_plane.audit_log, clock=h.fabric_clock,
-        control_plane=opened.control_plane, tenant_id=tenant
+        hitl_policy_key=opened.hitl_policy_key, control_plane=opened.control_plane, tenant_id=tenant
     )
 
 

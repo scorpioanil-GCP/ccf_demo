@@ -64,6 +64,7 @@ def main() -> None:
         control_plane, tenant_id=fixture.PRODUCER_TENANT
     )
     with open_product(
+        hitl_policy_key="hitl_policy",
         config_root=root,
         scratch=workspace / "scratch",
         acquire=fixture.Acquire(),

@@ -104,7 +104,7 @@ from tests.http_api.test_product_declared_obligation_409 import ABSENT_CLASS
 from tests.products.test_disclosure import BY_TOKEN
 
 from http_api.conftest import Fabric
-from tests.composition import no_erasures
+from tests.composition import declared_hitl_policy_key, no_erasures
 
 #: The vocabulary, enumerated. The roster, never a cardinality — a count that
 #: happened to be right about a wrong member would audit clean forever.
@@ -534,7 +534,7 @@ def test_a_recorder_with_no_entitlement_is_no_longer_a_configuration(
     source = _source_over(fabric, tmp_path)
     with pytest.raises(TypeError):
         create_app(  # type: ignore[call-arg]
-            ApiDependencies(erasure_index=no_erasures(), 
+            ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -553,7 +553,7 @@ def test_neither_bound_is_no_longer_a_posture(fabric: Fabric) -> None:
     that argument, including the measurement that the warning was never
     escalated anywhere in CI.
     """
-    deps = ApiDependencies(erasure_index=no_erasures(), 
+    deps = ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -640,7 +640,7 @@ def test_a_builder_that_skips_the_recorder_check_is_red_sabotage(
         # because `SEC-001` made every seam required — which makes the
         # unrecordable configuration something a caller has to *state*.
         return scratch.create_app(
-            ApiDependencies(erasure_index=no_erasures(), 
+            ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -714,7 +714,7 @@ def test_a_door_built_with_no_check_at_all_still_releases_nothing(
 
     # It BUILDS. That is the sabotage landing.
     app = scratch_app.create_app(
-        ApiDependencies(erasure_index=no_erasures(), 
+        ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=_serving_or_absent(fabric),

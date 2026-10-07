@@ -481,6 +481,7 @@ def _governed(*, fabric, control_plane, config, ttl, rollup, business,
         debt_profile_key="debt_profile",
         artifact_store_root=store_root,
         # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
+        hitl_policy_key="hitl_policy",
         erasure_index=erasure_index_at(store_root),
         max_ttl_seconds=int(ttl["max_ttl_seconds"]),
         product_ttl_seconds=int(ttl["declared_ttl_seconds"]),

@@ -233,6 +233,7 @@ def door(plane: Plane) -> Any:
         factory=WorkflowFactory(control_plane=plane.registry),
         control_plane=plane.registry,
         transport=plane.transport,
+        hitl_policy_key=plane.hitl_policy_key,
         store=plane.store,
         clock=plane.clock,
         index=index_of(plane),

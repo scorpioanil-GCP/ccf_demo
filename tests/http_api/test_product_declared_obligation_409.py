@@ -51,7 +51,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-from tests.composition import no_erasures
+from tests.composition import declared_hitl_policy_key, no_erasures
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -495,7 +495,7 @@ def _governed(
     )
     return Governed(
         app=create_app(
-            ApiDependencies(erasure_index=no_erasures(), 
+            ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=resolver,  # type: ignore[arg-type]

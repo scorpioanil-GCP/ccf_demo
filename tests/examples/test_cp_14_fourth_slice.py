@@ -66,6 +66,7 @@ from tests.examples.test_cp_03_canonical_cross_deployment import DEV_TOKEN, prod
 from tests.examples.test_cp_14_first_slice import BGC, BGC_FACILITY, CHILD_CLASSES, CP14_INSTANT, EXAMPLE, modules  # noqa: F401
 from tests.examples.test_cp_14_second_slice import _rows, family_producer
 from tests.examples.test_cp_14_third_slice import collateral_producer
+from ccf.controlplane.registry import ControlPlaneRegistry
 
 pytestmark = [pytest.mark.postgres, pytest.mark.fluree, pytest.mark.mongo]
 
@@ -576,6 +577,8 @@ def test_a_meaningful_child_content_change_changes_the_corresponding_parent_fiel
     base = deployment.MemoQuestions()
     with five_doors(estate) as environ:
         variant = open_product(
+            hitl_policy_key="hitl_policy",
+            control_plane=ControlPlaneRegistry(),
             config_root=EXAMPLE, scratch=tmp_path / "variant", acquire=deployment.acquire, project=produce.MemoPlanFactory(),
             assess=deployment.assess, questions=_variant_questions(base), environ=environ,
         )

@@ -18,6 +18,7 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from tests.erasure import composed
 from tests.erasure import harness as h
+from tests.composition import declared_hitl_policy_key
 
 FABRIC_NOW = datetime(2031, 1, 2, 3, 4, 5, tzinfo=UTC)
 
@@ -28,7 +29,7 @@ def _compose(store: Any, **kwargs: Any) -> Any:
     record reads) rather than a signature error."""
     compose = h.erasure("compose_erasure_consult")
     try:
-        return compose(store, clock=lambda: FABRIC_NOW, **kwargs)
+        return compose(store, clock=lambda: FABRIC_NOW, hitl_policy_key=declared_hitl_policy_key(), **kwargs)
     except TypeError as error:
         if "clock" not in str(error):
             raise

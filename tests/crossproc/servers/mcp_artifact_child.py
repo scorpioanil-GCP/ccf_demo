@@ -76,6 +76,7 @@ from ccf_runtime.mcp.auth import (  # noqa: E402
     FileTokenSource,
     SourceBackedTokenVerifier,
 )
+from tests.composition import declared_hitl_policy_key
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -203,6 +204,7 @@ def build_server(*, workspace: Path) -> FastMCP:
             disclosure_level_for=source.disclosure_level_for,
         ),
         audit_log=registry.audit_log,
+        hitl_policy_key=declared_hitl_policy_key(),
         erasure_index=FileErasureIndex(workspace / ARTIFACTS_DIRNAME / ERASURE_INDEX_FILENAME),
         control_plane=registry,
     )

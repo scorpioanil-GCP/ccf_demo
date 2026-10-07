@@ -122,6 +122,11 @@ class ApiDependencies:
     #: store with the erasure consult over it, and a composition without a
     #: declared index refuses by name.
     erasure_index: ErasureIndexProtocol
+    #: SEC-009 (`D-IMPL-374` (4), fix round 4, ruling 1): the deployment's
+    #: HITL policy key — the SAME key its HITL transport is bound to. Every
+    #: erasure approval the composed store verifies must pin it. **Required,
+    #: no default** (CINV-01).
+    hitl_policy_key: str
     product_resolver: ProductResolverProtocol
     workflow_factory: WorkflowFactory | None = None
     workflow_engine: WorkflowEngine | None = None

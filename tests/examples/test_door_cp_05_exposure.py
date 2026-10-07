@@ -54,6 +54,7 @@ from ccf.replay.serve import ServedProduct
 from tests.deployment.conftest import write_artifact
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
+from ccf.controlplane.registry import ControlPlaneRegistry
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres]
 
@@ -148,6 +149,8 @@ def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], N
 
 def paved_consumer(tmp_path: pathlib.Path, *, url: str, questions: Any, edit: Callable[[dict[str, Any]], None] | None = None) -> OpenedProduct:
     return open_product(
+        hitl_policy_key="hitl_policy",
+        control_plane=ControlPlaneRegistry(),
         config_root=_consumer_tree(tmp_path, edit=edit), scratch=tmp_path / "scratch",
         acquire=fixture.Acquire(), project=fixture.plan_factory, assess=fixture.assess,
         questions=questions, environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN}, clock=lambda: ADMITTED_AT,

@@ -144,6 +144,10 @@ class ErasureDoor:
         control_plane: Where the declaration and the retention policy resolve
             at their pinned versions, and where the mirror is appended.
         transport: The HITL authority path a presented approval is held to.
+        hitl_policy_key: The deployment's HITL policy key — the SAME key
+            ``transport`` is bound to. Every recorded approval must pin it;
+            an approval pinning any other key is refused by name (fix round
+            4, ruling 1). **Required, no default** (CINV-01).
         store: The artifact store the record is filed through.
         clock: The injected fabric clock (``erased_at`` and the judgment's now).
         index: The deployment's durable erasure index (C1). **Required.** The
@@ -162,6 +166,7 @@ class ErasureDoor:
         factory: WorkflowFactory,
         control_plane: ControlPlaneRegistry,
         transport: HITLTransportProtocol,
+        hitl_policy_key: str,
         store: ArtifactStoreProtocol,
         clock: Callable[[], datetime],
         index: ErasureIndexProtocol,
@@ -176,6 +181,7 @@ class ErasureDoor:
         self._factory = factory
         self._control_plane = control_plane
         self._transport = transport
+        self._hitl_policy_key = hitl_policy_key
         self._store = store
         self._clock = clock
         self._index = index
@@ -317,25 +323,6 @@ class ErasureDoor:
         )
         if not recorded:
             raise self._approval_not_recorded()
-        # Fix round 4: the SAME verification the consult runs — the signature
-        # against the key the pinned HITL policy declares for the approver, and
-        # the signed claims against this request's gate, tenant, state and
-        # verdict. Refused by name before anything is written.
-        try:
-            verify_erasure_approval(
-                approval,
-                tenant_id=tenant,
-                request_id=request.request_id,
-                approver=recorded_submission.principal.approver,
-                control_plane=self._control_plane,
-                identity_provider=self._identity_provider,
-            )
-        except ErasureApprovalInvalid as invalid:
-            raise ErasureRefused(
-                f"the recorded approval's signed attestation does not verify for"
-                f" this request ({invalid}) (SEC-009; fix round 4)"[:400],
-                reason_code=invalid.reason_code,
-            ) from invalid
         # The requester is the starter the ENGINE recorded on the execution,
         # and the actor is the approver on the transport's RECORDED submission
         # — never the presented event (I2; probe P3).
@@ -346,6 +333,32 @@ class ErasureDoor:
                 reason_code="requester-unrecorded",
             )
         actor = recorded_submission.principal.approver
+        # Fix round 4: the SAME verification the consult runs — the pin must
+        # name THIS deployment's HITL policy key (ruling 1); the signature
+        # against the key that policy declares for the approver, at the pinned
+        # version, signed before that version's supersession (ruling 4); the
+        # signed claims against this request's gate, tenant, state and verdict;
+        # the approver not the requester and eligible under the gate's approval
+        # policy (ruling 2); and the gate one the workflow definition declares
+        # (ruling 3). Refused by name before anything is written.
+        try:
+            verify_erasure_approval(
+                approval,
+                tenant_id=tenant,
+                request_id=request.request_id,
+                approver=actor,
+                requested_by=requested_by,
+                approval_policy_ref=str(event.policy_ref),
+                hitl_policy_key=self._hitl_policy_key,
+                control_plane=self._control_plane,
+                identity_provider=self._identity_provider,
+            )
+        except ErasureApprovalInvalid as invalid:
+            raise ErasureRefused(
+                f"the recorded approval does not verify for this request"
+                f" ({invalid}) (SEC-009; fix round 4)"[:400],
+                reason_code=invalid.reason_code,
+            ) from invalid
         route = workflow.definition.gate_routes.get(gate, {}).get(GATE_APPROVE)
         if route is None:
             raise ErasureRefused(

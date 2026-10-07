@@ -38,7 +38,7 @@ from __future__ import annotations
 import ast
 import inspect
 import json
-from tests.composition import no_erasures
+from tests.composition import declared_hitl_policy_key, no_erasures
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -143,7 +143,7 @@ def _wide_authorizer(*, tenant: str) -> Any:
 
 
 def _deps(fabric: Fabric) -> ApiDependencies:
-    return ApiDependencies(erasure_index=no_erasures(), 
+    return ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -736,7 +736,7 @@ def test_there_is_no_unbound_posture_to_serve_from(fabric: Fabric) -> None:
 
     with pytest.raises(TypeError):
         create_app(  # type: ignore[call-arg]
-            ApiDependencies(erasure_index=no_erasures(), 
+            ApiDependencies(erasure_index=no_erasures(), hitl_policy_key=declared_hitl_policy_key(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,

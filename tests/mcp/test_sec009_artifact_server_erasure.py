@@ -36,6 +36,7 @@ from tests.mcp.guarded_servers import (
     _entitlement_world,
     authorizer_granting,
 )
+from tests.composition import declared_hitl_policy_key
 
 NOWHERE = "e" * 64
 DOCUMENT = {"customer": {"id": "customer-42"}, "note": "kyc"}
@@ -69,6 +70,7 @@ def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, A
         audit_log=registry.audit_log,
     )
     arguments["erasure_index"] = index
+    arguments["hitl_policy_key"] = declared_hitl_policy_key(TENANT)
     # Fix round 4: the server verifies each approval's signature through this
     # Control Plane, where the erasure plants register the signed HITL policy.
     arguments["control_plane"] = registry

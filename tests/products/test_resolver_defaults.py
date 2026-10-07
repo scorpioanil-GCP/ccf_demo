@@ -119,6 +119,7 @@ from tests.products.test_resolver_seam import (
 )
 from tests.composition import declare_wide_temporal_boundary, declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from tests.composition import declared_hitl_policy_key
 
 # --- what this module adds to the fixture deployment ------------------------
 #
@@ -546,6 +547,7 @@ def _arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
+        "hitl_policy_key": declared_hitl_policy_key(),
         "erasure_index": no_erasures(),
         "product_class_key": PRODUCT_CLASS_KEY,
         "request_contract_key": REQUEST_CONTRACT_KEY,

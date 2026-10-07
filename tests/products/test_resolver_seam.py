@@ -136,6 +136,7 @@ from ccf.artifacts.protocol import WriteKinds
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.products.bound_answer import answered_as_asked
+from tests.composition import declared_hitl_policy_key
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -1465,6 +1466,7 @@ def test_a_binding_to_an_undeclared_argument_is_refused_at_boot(
             build_governed_resolver(
                 fabric=booted.fabric,
                 control_plane=booted.control_plane,
+                hitl_policy_key=declared_hitl_policy_key(),
                 erasure_index=no_erasures(),
                 product_class_key=PRODUCT_CLASS_KEY,
                 request_contract_key=REQUEST_CONTRACT_KEY,

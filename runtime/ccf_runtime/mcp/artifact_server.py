@@ -326,6 +326,7 @@ def build_artifact_server(
     audit_log: AuditLog,
     erasure_index: ErasureIndexProtocol,
     control_plane: PinnedPolicySource,
+    hitl_policy_key: str,
 ) -> FastMCP:
     """Build the authenticated, authorized artifact server over ``store``.
 
@@ -396,6 +397,8 @@ def build_artifact_server(
         audit_log=audit_log,
         clock=entitlement_source.clock,
         control_plane=control_plane,
+        # Fix round 4, ruling 1: the deployment's HITL policy key, fixed here.
+        hitl_policy_key=hitl_policy_key,
     )
     door = TenantGuardedServer(
         FastMCP(

@@ -855,6 +855,10 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     # governed dereference takes the client-lane erased read it renders.
     "ccf_runtime.mcp.artifact_server.build_artifact_server": "374-04-sec-009-minimum-erasure.md",
     "ccf_runtime.authz.delivery_boundary.govern_dereference": "374-04-sec-009-minimum-erasure.md",
+    # SEC-009 fix round 4, ruling 1 (`D-IMPL-374` (4)): every store
+    # construction site takes the deployment's HITL policy key — the local
+    # CLI dependencies included, whose transport is now bound to the same key.
+    "ccf_runtime.cli.local.build_local_dependencies": "374-04-sec-009-minimum-erasure.md",
 }
 
 

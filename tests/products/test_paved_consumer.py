@@ -151,6 +151,9 @@ def _open(root: pathlib.Path, scratch: pathlib.Path, url: str, **overrides: Any)
         "questions": fixture.questions,
         "environ": _environ(url),
         "clock": lambda: ADMITTED_AT,
+        # SEC-009 (fix round 4, ruling 1): the deployment's HITL policy key,
+        # confined under the paved tenant by open_product.
+        "hitl_policy_key": "hitl_policy",
     }
     arguments.update(overrides)
     if "control_plane" not in arguments:
@@ -311,6 +314,8 @@ def test_the_door_refuses_a_floor_its_lane_does_not_satisfy_with_both_lanes_in_i
 
     root = fixture.write_tree(tmp_path / "producer", config=fixture.producer_config(), environment=fixture.producer_environment_text())
     with open_product(
+        hitl_policy_key="hitl_policy",
+        control_plane=ControlPlaneRegistry(),
         config_root=root, scratch=tmp_path / "scratch", acquire=fixture.Acquire(), project=fixture.plan_factory,
         assess=fixture.assess, environ={fixture.CHILD_DSN_VAR: "postgresql://fixture"}, clock=lambda: ADMITTED_AT,
     ) as producer:
@@ -502,6 +507,8 @@ def test_a_missing_endpoint_variable_or_remote_block_is_a_named_deployment_error
     root = _tree(tmp_path / "a")
     with pytest.raises(ProducerEnvironmentMissing, match=ENDPOINT_VAR):
         open_product(
+            hitl_policy_key="hitl_policy",
+            control_plane=ControlPlaneRegistry(),
             config_root=root, scratch=tmp_path / "a" / "scratch", acquire=fixture.Acquire(), project=fixture.plan_factory,
             assess=fixture.assess, questions=fixture.questions, environ={PARENT_DSN_VAR: "x", CREDENTIAL_VAR: DEV_TOKEN},
         )

@@ -192,6 +192,7 @@ from tests.signal_layer.test_cp05_acquisition_boundary import (
 )
 from tests.composition import declaring_store
 from tests.composition import declare_wide_temporal_boundary
+from tests.composition import declared_hitl_policy_key
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -549,6 +550,7 @@ def _resolver(
     return build_governed_resolver(
         fabric=fabric.booted,
         control_plane=fabric.control_plane,
+        hitl_policy_key=declared_hitl_policy_key(),
         erasure_index=no_erasures(),
         # The keys the loader PLACED, not the section names cp-05 wrote: a
         # deployment's bare keys live under its tenant (D-IMPL-354).

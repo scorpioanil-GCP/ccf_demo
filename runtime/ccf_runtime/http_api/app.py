@@ -315,8 +315,10 @@ def create_app(
             deps.artifact_store,
             index=deps.erasure_index,
             audit_log=deps.control_plane.audit_log,
-            # Fix round 4: approvals verify against the pinned HITL policy here.
+            # Fix round 4: approvals verify against the pinned HITL policy here,
+            # under the deployment's HITL policy key (ruling 1).
             control_plane=deps.control_plane,
+            hitl_policy_key=deps.hitl_policy_key,
             # The door's determination clock (ruling 3): the one the entitled
             # reads are already stamped with.
             clock=product_entitlement.clock,

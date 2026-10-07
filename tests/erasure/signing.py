@@ -23,11 +23,13 @@ from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.hitl.identity_binding import HitlActionClaims, SignedHitlAction, sign_hitl_action
 from ccf.hitl.transport import HITL_POLICY
 from ccf.peering.identity import DetachedJwsIdentityProvider, FileBackedKeySource, JsonWebKey
+from tests.composition import declared_hitl_policy_key
 
 #: The SEC-005 tests' key id (`tests/hitl/test_sec005_attestation_controls.py`).
 APPROVER_KID = "sec005-approver-signing-key"
-#: Where the erasure test planes register their signed HITL policy.
-HITL_POLICY_KEY = "acme-bank/hitl/erasure-attestation-policy"
+#: Where the erasure test planes register their signed HITL policy — the ONE
+#: key every test deployment under the test tenant declares (fix round 4).
+HITL_POLICY_KEY = declared_hitl_policy_key("acme-bank")
 #: The window this test-as-deployment states (CINV-01: no SDK default).
 MAX_AGE_SECONDS = 300
 SKEW_SECONDS = 60

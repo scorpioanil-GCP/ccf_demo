@@ -225,6 +225,7 @@ def build_app(scratch: pathlib.Path) -> Any:
             # file is never written (this tool erases nothing).
             control_plane=ControlPlaneRegistry(),
             artifact_store=unused,
+            hitl_policy_key="ccf-openapi/hitl/policy",
             erasure_index=FileErasureIndex(
                 pathlib.Path(tempfile.mkdtemp(prefix="ccf-openapi-")) / ERASURE_INDEX_FILENAME
             ),

@@ -147,6 +147,7 @@ def assemble_and_serve(
             product_gate=deployment.build_staleness_gate(asked=asked),
             artifact_store=store,
             # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
+            hitl_policy_key="hitl_policy",
             erasure_index=erasure_index_at(store.root),
             replay_record_class="ccf.replay-record",
             query_pin_class="ccf.graph-query",

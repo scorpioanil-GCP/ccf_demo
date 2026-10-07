@@ -124,6 +124,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--local-root",
         help="directory for the --local file-backed artifact store",
     )
+    parser.add_argument(
+        "--local-hitl-policy-key",
+        help=(
+            "the deployment's HITL policy key the --local transport and erasure"
+            " consult are bound to (SEC-009)"
+        ),
+    )
     subparsers = parser.add_subparsers(dest="noun", required=True)
     agent.register(subparsers)
     skill.register(subparsers)
@@ -246,10 +253,13 @@ def main(
         if dependencies is None:
             if not args.local_root:
                 parser.error("--local requires --local-root DIR")
+            if not args.local_hitl_policy_key:
+                parser.error("--local requires --local-hitl-policy-key KEY")
             from ccf_runtime.cli.local import build_local_dependencies
 
             dependencies = build_local_dependencies(
-                root=Path(args.local_root)
+                root=Path(args.local_root),
+                hitl_policy_key=args.local_hitl_policy_key,
             )
         if dependencies is not None and authority is not None:
             # The in-process path with a REAL authority: an embedder or a

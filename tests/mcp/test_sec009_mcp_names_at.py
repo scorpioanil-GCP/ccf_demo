@@ -38,6 +38,7 @@ from tests.composition import no_erasures
 from tests.erasure import harness as h
 from tests.mcp import test_artifact_server_authorized as aa
 from tests.mcp.guarded_servers import PRINCIPAL, SCOPE, _entitlement_world, authorizer_granting
+from tests.composition import declared_hitl_policy_key
 
 FOREIGN = "beta-bank"
 
@@ -61,6 +62,7 @@ def _server(tmp_path: pathlib.Path, store: Any) -> Any:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
+        hitl_policy_key=declared_hitl_policy_key(),
         erasure_index=no_erasures(),
         control_plane=ControlPlaneRegistry(),
     )
@@ -164,6 +166,7 @@ def test_an_erasure_through_the_mcp_backed_reference_store_is_verified_and_admit
         factory=h.WorkflowFactory(control_plane=plane.registry),
         control_plane=plane.registry,
         transport=plane.transport,
+        hitl_policy_key=plane.hitl_policy_key,
         store=client,
         clock=plane.clock,
         index=h.index_of(plane),
@@ -205,6 +208,7 @@ def test_an_artifact_server_without_the_names_resource_refuses_class_unverifiabl
         factory=h.WorkflowFactory(control_plane=plane.registry),
         control_plane=plane.registry,
         transport=plane.transport,
+        hitl_policy_key=plane.hitl_policy_key,
         store=client,
         clock=plane.clock,
         index=h.index_of(plane),

@@ -109,12 +109,17 @@ def _no_products_resolver(
     )
 
 
-def build_local_dependencies(*, root: Path) -> ApiDependencies:
+def build_local_dependencies(*, root: Path, hitl_policy_key: str) -> ApiDependencies:
     """Assemble the shared bundle from reference implementations only.
 
     Args:
         root: Operator-chosen directory for the file-backed dev artifact
             store (``--local-root``; required, never defaulted — CINV-01).
+        hitl_policy_key: The deployment's HITL policy key
+            (``--local-hitl-policy-key``; required, never defaulted — CINV-01).
+            The in-memory HITL transport is bound to it, and the erasure
+            consult verifies every approval under it (SEC-009, fix round 4,
+            ruling 1): the one key, at both sites.
 
     Returns:
         The same :class:`ApiDependencies` type ``create_app`` consumes.
@@ -146,13 +151,17 @@ def build_local_dependencies(*, root: Path) -> ApiDependencies:
         index=erasure_index,
         audit_log=registry.audit_log,
         control_plane=registry,
+        hitl_policy_key=hitl_policy_key,
         clock=_utc_now,
     )
-    hitl = InMemoryHitlTransport()
+    # The SAME key the consult verifies under (ruling 1): the transport
+    # resolves the policy registered there per submission (D-16).
+    hitl = InMemoryHitlTransport(control_plane=registry, hitl_policy_key=hitl_policy_key)
     return ApiDependencies(
         control_plane=registry,
         artifact_store=store,
         erasure_index=erasure_index,
+        hitl_policy_key=hitl_policy_key,
         product_resolver=_no_products_resolver,
         workflow_factory=WorkflowFactory(control_plane=registry),
         workflow_engine=WorkflowEngine(

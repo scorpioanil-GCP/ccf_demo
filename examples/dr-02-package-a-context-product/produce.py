@@ -16,6 +16,7 @@ from ccf.products.product import OpenedProduct, open_product
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import ResolverOutcome
 from ccf.projection.plan import Perspective, ProjectionPlan
+from ccf.controlplane.registry import ControlPlaneRegistry
 
 HERE = Path(__file__).parent
 
@@ -46,6 +47,8 @@ def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> Opene
     gate refused.
     """
     return open_product(
+        hitl_policy_key="hitl_policy",
+        control_plane=ControlPlaneRegistry(),
         config_root=HERE,
         scratch=scratch,
         acquire=deployment.acquire,

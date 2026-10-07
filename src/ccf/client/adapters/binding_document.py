@@ -149,6 +149,7 @@ DATA_KEYS: tuple[str, ...] = (
     "product_ttl_seconds",
     "artifact_store",
     "debt",
+    "hitl_policy_key",
 )
 
 #: Keys a binding document may state. ``connection`` carries the declared
@@ -313,6 +314,12 @@ class BindingDocument:
     product_ttl_seconds: int
     artifact_store: Path
     debt: DebtDeclaration
+    #: SEC-009 (`D-IMPL-374` (4), fix round 4, ruling 1): the deployment's
+    #: HITL policy key, confined to its tenant at boot — the key its HITL
+    #: transport is bound to, which the erasure consult verifies every
+    #: approval under. Required: a deployment that declared none would have
+    #: every genuine erasure read as ``index-unsupported``.
+    hitl_policy_key: str
     connection: Mapping[str, object] | None
     server: Path | None
 
@@ -793,6 +800,7 @@ def load_binding_document(root: str | Path) -> BindingDocument:
         ),
         connection=_connection(parsed, root=root_path, document=document),
         server=server,
+        hitl_policy_key=str(parsed["hitl_policy_key"]),
     )
 
 

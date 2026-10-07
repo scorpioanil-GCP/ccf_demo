@@ -37,11 +37,24 @@ composition (ruling 3), never a wall clock and never the disputed entry's own
 ``erased_at``.
 
 **Boot validation is memoized per index head** (ruling 4): the key is the
-index's identity (its file path, for the file index), its entry count and the
-store's identity (its root, for a file store), so a site that composes once
-per question — the governed resolver — does not re-read every record; an
-append changes the count and invalidates it. Only SUPPORTED entries are
-memoized: an unsupported one is re-judged, and audited, by every composition.
+index's identity (its file path, for the file index), its entry count, the
+store's identity (its root, for a file store) and the Control Plane's
+**policy head** — :func:`~ccf.erasure.approval.policy_head`, the digest of its
+registration history — so a site that composes once per question — the
+governed resolver — does not re-read every record; an append changes the
+count, and ANY Control Plane registration (a rotated HITL policy foremost)
+changes the head, and either invalidates it. The same head keys the verdicts
+a composed store and its tenant views hold: a registration re-judges them on
+the next consult. A verdict is never keyed by a Control Plane object's
+identity (fix round 4, ruling 4). Only SUPPORTED entries are memoized: an
+unsupported one is re-judged, and audited, by every composition.
+
+**The trust root is fixed at composition** (fix round 4, rulings 1 and 5):
+every site passes the deployment's Control Plane and its HITL policy key —
+the same key its HITL transport is bound to — and there is no fresh-registry
+fallback; a composition without them, or a re-composition of an already
+composed store with a different Control Plane, identity provider or key,
+refuses by name (:class:`~ccf.erasure.ErasureCompositionRefused`).
 """
 
 from __future__ import annotations
@@ -66,11 +79,12 @@ from ccf.controlplane.audit import AuditLog
 from ccf.erasure.approval import (
     ErasureApprovalInvalid,
     PinnedPolicySource,
+    policy_head,
     reference_approval_verifier,
     verify_erasure_approval,
 )
 from ccf.erasure.contracts import ERASURE_RECORD_CLASS, ErasureApproval, ErasureRecord
-from ccf.erasure.errors import ErasedContentRefused, ErasureIndexCorrupt
+from ccf.erasure.errors import ErasedContentRefused, ErasureCompositionRefused, ErasureIndexCorrupt
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.peering.identity import IdentityProvider
 
@@ -79,6 +93,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "INDEX_UNSUPPORTED",
     "ErasedContentRefused",
+    "ErasureCompositionRefused",
     "ErasureConsultingStore",
     "ErasureIndexUnavailable",
     "compose_erasure_consult",
@@ -110,12 +125,25 @@ def _identity(subject: object, attribute: str) -> str:
 
 
 class _Verdicts:
-    """Validation results shared by a composed store and its tenant views."""
+    """Validation results shared by a composed store and its tenant views.
+
+    Keyed by the Control Plane's policy head (fix round 4, ruling 4): when the
+    head moves — any registration — every SUPPORTED verdict is dropped and
+    re-judged on the next consult. ``audited`` is kept, so an entry already
+    audited unsupported is not audited again for the same reason.
+    """
 
     def __init__(self) -> None:
         self.valid: set[tuple[str, str, str]] = set()
         self.audited: set[tuple[str, str, str]] = set()
         self.corrupt: str | None = None
+        self.head: str | None = None
+
+    def refresh(self, head: str) -> None:
+        """Drop every supported verdict judged under a different policy head."""
+        if head != self.head:
+            self.valid.clear()
+            self.head = head
 
 
 class ErasureConsultingStore:
@@ -132,6 +160,7 @@ class ErasureConsultingStore:
         audit_log: AuditLog,
         clock: Callable[[], datetime],
         control_plane: PinnedPolicySource,
+        hitl_policy_key: str,
         tenant_id: str | None,
         identity_provider: IdentityProvider | None = None,
         _verdicts: _Verdicts | None = None,
@@ -141,6 +170,10 @@ class ErasureConsultingStore:
         self._audit_log = audit_log
         self._clock = clock
         self._control_plane = control_plane
+        self._hitl_policy_key = hitl_policy_key
+        # The provider as DECLARED (``None`` is the reference verifier), kept
+        # so a re-composition can be held to the same declaration (ruling 5).
+        self._declared_identity_provider = identity_provider
         self._identity_provider = (
             reference_approval_verifier() if identity_provider is None else identity_provider
         )
@@ -163,6 +196,16 @@ class ErasureConsultingStore:
     def control_plane(self) -> PinnedPolicySource:
         """The Control Plane each approval's pinned HITL policy is resolved through (fix round 4)."""
         return self._control_plane
+
+    @property
+    def hitl_policy_key(self) -> str:
+        """The deployment's HITL policy key every approval must pin (fix round 4, ruling 1)."""
+        return self._hitl_policy_key
+
+    @property
+    def identity_provider(self) -> IdentityProvider | None:
+        """The identity provider as declared at composition; ``None`` is the SDK's reference verifier."""
+        return self._declared_identity_provider
 
     @property
     def tenant_id(self) -> str | None:
@@ -194,8 +237,9 @@ class ErasureConsultingStore:
             audit_log=self._audit_log,
             clock=self._clock,
             control_plane=self._control_plane,
+            hitl_policy_key=self._hitl_policy_key,
             tenant_id=tenant_id,
-            identity_provider=self._identity_provider,
+            identity_provider=self._declared_identity_provider,
             _verdicts=self._verdicts,
         )
 
@@ -211,14 +255,19 @@ class ErasureConsultingStore:
             # N3: the store composes and then refuses EVERY read — fail closed.
             self._verdicts.corrupt = str(corrupt)
             return
-        # The Control Plane is part of the head: verification resolves the pinned
-        # HITL policy THROUGH it, so a head validated under one Control Plane is
-        # never accepted under another (fix round 4).
+        # The Control Plane's POLICY HEAD is part of the memo key: verification
+        # resolves the pinned HITL policy, the approval policy and the workflow
+        # definition THROUGH it, so a head validated under one registration
+        # history is never accepted under another, and any registration — a
+        # rotated HITL policy foremost — re-validates (fix round 4, ruling 4).
+        # Never the Control Plane object's identity.
+        policies = policy_head(self._control_plane)
+        self._verdicts.refresh(policies)
         head = (
             _identity(self._index, "path"),
             len(entries),
             _identity(self._inner, "root"),
-            f"id:{id(self._control_plane)}",
+            f"policies:{policies}:{self._hitl_policy_key}",
         )
         with _VALIDATED_HEADS_LOCK:
             known = _VALIDATED_HEADS.get(head)
@@ -278,13 +327,17 @@ class ErasureConsultingStore:
 
         The door filed it before the index append; it is content-addressed and
         immutable. Its signed HITL attestation is verified against the key the
-        pinned HITL policy declares for the signer, resolved through this
-        store's composed Control Plane, and its signed claims must name this
+        deployment's HITL policy — the key fixed at composition, at the version
+        the approval pins — declares for the signer, resolved through this
+        store's composed Control Plane; its signed claims must name this
         request's gate, this tenant, the gate's state hash, the record's
-        approver and the approving verdict
-        (:func:`~ccf.erasure.approval.verify_erasure_approval`). A missing,
-        unsigned or unverifiable approval raises, and the caller counts that as
-        unsupported.
+        approver and the approving verdict; the signature must predate that
+        version's supersession; the approver must not be the record's requester
+        and must be eligible under the record's approval policy; and the gate
+        must be one the record's workflow definition declares
+        (:func:`~ccf.erasure.approval.verify_erasure_approval`, rulings 1–4). A
+        missing, unsigned or unverifiable approval raises, and the caller counts
+        that as unsupported.
         """
         payload = self._inner.get(content_address=record.approval_ref)
         if hashlib.sha256(payload).hexdigest() != record.approval_ref:
@@ -296,6 +349,9 @@ class ErasureConsultingStore:
                 tenant_id=record.tenant_id,
                 request_id=record.request_id,
                 approver=record.actor,
+                requested_by=record.requested_by,
+                approval_policy_ref=record.approval_policy_ref,
+                hitl_policy_key=self._hitl_policy_key,
                 control_plane=self._control_plane,
                 identity_provider=self._identity_provider,
             )
@@ -304,6 +360,9 @@ class ErasureConsultingStore:
         return True
 
     def _refusal(self, entry: ErasureIndexEntry, *, disclose: bool) -> ErasedContentRefused:
+        # A registration since the last judgment re-judges (ruling 4); reads
+        # that meet no erased address never touch the Control Plane.
+        self._verdicts.refresh(policy_head(self._control_plane))
         supported = self._supported(entry)
         if not supported:
             return ErasedContentRefused(
@@ -377,29 +436,54 @@ def compose_erasure_consult(
     audit_log: AuditLog,
     clock: Callable[[], datetime],
     control_plane: PinnedPolicySource,
+    hitl_policy_key: str,
     tenant_id: str | None = None,
     identity_provider: IdentityProvider | None = None,
 ) -> ErasureConsultingStore:
     """THE composition helper every store construction site uses (SEC-009; `D-IMPL-374` (4), C1, (i), U12).
 
     Wraps ``store`` over the REQUIRED ``index``, the REQUIRED fabric
-    ``clock`` (which stamps the ``index-unsupported`` audit; ruling 3) and the
-    REQUIRED ``control_plane`` through which each approval's pinned HITL policy
-    — the approver's signing keys — is resolved (fix round 4). ``identity_provider``
-    is the verifier the deployment's HITL transport verifies with; ``None`` is
-    the SDK's reference detached-JWS verifier (no signing material),
-    validates every entry against its record (§8; memoized per index head,
-    ruling 4), and returns the store scoped to ``tenant_id`` — or
+    ``clock`` (which stamps the ``index-unsupported`` audit; ruling 3), the
+    REQUIRED ``control_plane`` — the DEPLOYMENT's, through which each approval's
+    pinned HITL policy, approval policy and workflow definition are resolved;
+    there is no fresh-registry fallback (fix round 4, ruling 5) — and the
+    REQUIRED ``hitl_policy_key``, the deployment's HITL policy key, the same
+    key its HITL transport is bound to, which every approval must pin (fix
+    round 4, ruling 1). ``identity_provider`` is the verifier the deployment's
+    HITL transport verifies with; ``None`` is the SDK's reference detached-JWS
+    verifier (no signing material). An adopter-supplied provider that verifies
+    nothing accepts everything; that is the adopter's trust choice. It
+    validates every entry against its record (§8; memoized per index head and
+    policy head, ruling 4), and returns the store scoped to ``tenant_id`` — or
     tenantless (``None``) for a multi-tenant site whose doors take
     :meth:`ErasureConsultingStore.scoped` views for the caller's verified
-    tenant. A store already composed is re-scoped, never re-wrapped, and must
-    have been composed over the SAME index (M1).
+    tenant. A store already composed is re-scoped, never re-wrapped: it must
+    have been composed over the SAME index (M1) and with the SAME Control
+    Plane, identity provider and HITL policy key (ruling 5).
 
     Raises:
         ErasureIndexUnavailable: ``index`` is not an
             :class:`~ccf.erasure.ErasureIndexProtocol`, or ``store`` was already
             composed over a different index.
+        ErasureCompositionRefused: no Control Plane, or one that offers no
+            pinned-read surface; an empty HITL policy key; or ``store`` was
+            already composed with a different Control Plane, identity provider
+            or HITL policy key.
     """
+    if control_plane is None or not isinstance(control_plane, PinnedPolicySource):
+        raise ErasureCompositionRefused(
+            "the erasure consult is composed over the DEPLOYMENT's Control Plane —"
+            f" got {type(control_plane).__name__}; there is no fresh-registry"
+            " fallback, because a consult verifying against a registry that lacks"
+            " the deployment's HITL policy would mark every genuine erasure"
+            " index-unsupported (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
+        )
+    if not isinstance(hitl_policy_key, str) or not hitl_policy_key.strip():
+        raise ErasureCompositionRefused(
+            "the erasure consult takes the deployment's HITL policy key — the same"
+            " key its HITL transport is bound to — and every approval must pin it;"
+            f" got {hitl_policy_key!r} (SEC-009; D-IMPL-374 (4), fix round 4, ruling 1)"
+        )
     if not isinstance(index, ErasureIndexProtocol):
         raise ErasureIndexUnavailable(
             f"{type(index).__name__} is not an ErasureIndexProtocol; every store"
@@ -416,6 +500,21 @@ def compose_erasure_consult(
                 " re-composing it over another would consult the wrong erasures"
                 " (SEC-009; M1)"
             )
+        # Ruling 5: the trust root a store was composed with is never silently
+        # replaced — a different Control Plane, identity provider or HITL
+        # policy key refuses by name.
+        for axis, same in (
+            ("control_plane", store.control_plane is control_plane),
+            ("identity_provider", store.identity_provider is identity_provider),
+            ("hitl_policy_key", store.hitl_policy_key == hitl_policy_key),
+        ):
+            if not same:
+                raise ErasureCompositionRefused(
+                    f"this store was already composed with a different {axis}; a"
+                    " re-composition that ignored the new one would leave the store"
+                    " verifying against a trust root this site did not name (SEC-009;"
+                    " D-IMPL-374 (4), fix round 4, ruling 5)"
+                )
         if store.tenant_id == tenant_id:
             return store
         return store.scoped(tenant_id) if tenant_id is not None else ErasureConsultingStore(
@@ -424,8 +523,10 @@ def compose_erasure_consult(
             audit_log=audit_log,
             clock=clock,
             control_plane=control_plane,
+            hitl_policy_key=hitl_policy_key,
             tenant_id=None,
             identity_provider=identity_provider,
+            _verdicts=store._verdicts,
         )
     composed = ErasureConsultingStore(
         store,
@@ -433,6 +534,7 @@ def compose_erasure_consult(
         audit_log=audit_log,
         clock=clock,
         control_plane=control_plane,
+        hitl_policy_key=hitl_policy_key,
         tenant_id=tenant_id,
         identity_provider=identity_provider,
     )

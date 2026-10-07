@@ -33,6 +33,7 @@ from ccf.authz.capability import CapabilityBypassError
 from ccf.controlplane.registry import ControlPlaneRegistry
 from tests.erasure import composed
 from tests.erasure import harness as h
+from tests.composition import declared_hitl_policy_key
 
 OTHER = "beta-bank"
 
@@ -85,7 +86,7 @@ def test_composition_without_a_declared_index_refuses_by_name(tmp_path: Path) ->
     # Fix round 4: the Control Plane approvals verify through is required too.
     assert parameters["control_plane"].default is inspect.Parameter.empty
     with pytest.raises(h.erasure("ErasureIndexUnavailable")):
-        compose(_store(tmp_path), index=object(), audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, control_plane=ControlPlaneRegistry())
+        compose(_store(tmp_path), index=object(), audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock, control_plane=ControlPlaneRegistry(), hitl_policy_key=declared_hitl_policy_key())
 
 
 def test_an_entry_whose_record_is_missing_is_withheld_and_audited_index_unsupported(tmp_path: Path) -> None:
@@ -95,7 +96,7 @@ def test_an_entry_whose_record_is_missing_is_withheld_and_audited_index_unsuppor
     composed.append_as(index, _entry(content_address=ref.content_address))  # names a record nobody filed
     registry = ControlPlaneRegistry()
     audit = registry.audit_log
-    consulted = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, control_plane=registry, tenant_id=h.TENANT)
+    consulted = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=registry, tenant_id=h.TENANT)
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:
         consulted.get(content_address=ref.content_address)
     assert refused.value.reason == "index-unsupported"
@@ -110,7 +111,7 @@ def test_a_genuine_record_validates_and_its_facts_are_served_to_its_own_tenant(t
     registry = ControlPlaneRegistry()
     record = composed.erase(store, index, ref.content_address, control_plane=registry)
     audit = registry.audit_log
-    consulted = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, control_plane=registry, tenant_id=h.TENANT)
+    consulted = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=registry, tenant_id=h.TENANT)
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:
         consulted.get(content_address=ref.content_address)
     from ccf.contracts.canonical import content_hash
@@ -128,7 +129,7 @@ def test_an_erasure_withholds_only_within_its_tenant(tmp_path: Path) -> None:
     registry = ControlPlaneRegistry()
     composed.erase(store, index, ref.content_address, control_plane=registry, tenant=h.TENANT)
     audit = registry.audit_log
-    root = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, control_plane=registry)
+    root = h.erasure("compose_erasure_consult")(store, index=index, audit_log=audit, clock=h.fabric_clock, hitl_policy_key=declared_hitl_policy_key(), control_plane=registry)
     # Another tenant's view serves its own bytes and learns nothing.
     assert root.scoped(OTHER).get(content_address=ref.content_address)
     # The erasing tenant's view withholds, with the facts.
@@ -171,7 +172,7 @@ def test_a_scoped_read_costs_one_lookup_and_no_scan(tmp_path: Path) -> None:
     counting = _Counting(inner)
     consulted = h.erasure("compose_erasure_consult")(
         store, index=counting, audit_log=ControlPlaneRegistry().audit_log, clock=h.fabric_clock,
-        control_plane=ControlPlaneRegistry(), tenant_id=h.TENANT,
+        hitl_policy_key=declared_hitl_policy_key(), control_plane=ControlPlaneRegistry(), tenant_id=h.TENANT,
     )
     ref = h.client_put(store, name="n", document={"k": 1})
     for key in counting.calls:
@@ -210,7 +211,7 @@ def test_the_door_writes_the_index_entry_before_the_record(tmp_path: Path) -> No
     audit = ControlPlaneRegistry().audit_log
     consulted = h.erasure("compose_erasure_consult")(
         FileArtifactStore(root=tmp_path / "artifacts", write_kinds=h.write_kinds()),
-        index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, control_plane=plane.registry, tenant_id=h.TENANT,
+        index=h.index_of(plane), audit_log=audit, clock=h.fabric_clock, hitl_policy_key=plane.hitl_policy_key, control_plane=plane.registry, tenant_id=h.TENANT,
     )
     with pytest.raises(h.erasure("ErasedContentRefused")) as refused:
         consulted.get(content_address=plane.document.content_address)

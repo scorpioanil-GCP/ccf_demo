@@ -298,6 +298,7 @@ def assemble_and_serve(
             debt_scorer=debt_scorer,
             artifact_store=store,
             # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
+            hitl_policy_key="hitl_policy",
             erasure_index=erasure_index_at(store.root),
             replay_record_class=scenario.replay_record_class,
             query_pin_class=scenario.query_pin_class,

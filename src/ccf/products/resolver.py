@@ -157,7 +157,8 @@ from typing import Final, Protocol, TypeVar, runtime_checkable
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
 from ccf.erasure.index import ErasureIndexProtocol
-from ccf.erasure.store import compose_erasure_consult
+from ccf.erasure.approval import PinnedPolicySource
+from ccf.erasure.store import ErasureCompositionRefused, compose_erasure_consult
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -4443,6 +4444,11 @@ def build_governed_resolver(
     #: default, is composed with the erasure consult over it, scoped to the
     #: fabric's tenant, and a composition without a declared index refuses.
     erasure_index: ErasureIndexProtocol,
+    #: SEC-009 (`D-IMPL-374` (4), fix round 4, ruling 1): the deployment's HITL
+    #: policy key — the SAME key its HITL transport is bound to — which every
+    #: erasure approval the composed store verifies must pin. REQUIRED, no
+    #: default.
+    hitl_policy_key: str,
     #: `D-IMPL-343` R-3a (`D-IMPL-292` applied): optional, and read from the
     #: deployment's declared `ttl:` binding when omitted. A call stating a
     #: value that DIFFERS from the declaration is refused with both named —
@@ -4953,13 +4959,24 @@ def build_governed_resolver(
     # around whichever store was selected — supplied or default — over this
     # call's Control Plane, so every read the resolver and its recorder make
     # refuses erased content.
+    # Fix round 4, ruling 5: the consult verifies through THIS Control Plane,
+    # which must offer the pinned-read surface; refused by name otherwise.
+    if not isinstance(control_plane, PinnedPolicySource):
+        raise ErasureCompositionRefused(
+            f"{type(control_plane).__name__} offers no pinned-read surface"
+            " (resolve, versions, peek, artifact_class_of, keys_of_class,"
+            " audit_events), so the erasure consult cannot verify an approval"
+            " through it (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
+        )
     store = compose_erasure_consult(
         store,
         index=erasure_index,
         audit_log=control_plane.audit_log,
         clock=admission_clock,
-        # Fix round 4: approvals verify against the pinned HITL policy here.
+        # Fix round 4: approvals verify against the pinned HITL policy here,
+        # under the deployment's HITL policy key (ruling 1).
         control_plane=control_plane,
+        hitl_policy_key=hitl_policy_key,
         tenant_id=fabric.tenant_id,
     )
 

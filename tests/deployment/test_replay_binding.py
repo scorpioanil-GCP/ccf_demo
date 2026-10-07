@@ -66,6 +66,7 @@ from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
 from tests.composition import declaring_store
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
+from tests.composition import declared_hitl_policy_key
 
 # --- cp-05's three declared values, used as inputs and never edited ----------
 #
@@ -486,6 +487,7 @@ def _resolver_arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
+        "hitl_policy_key": declared_hitl_policy_key(TENANT),
         "erasure_index": no_erasures(),
         # The loader placed every derived key under the tenant (D-IMPL-354);
         # the resolver resolves the same strings.

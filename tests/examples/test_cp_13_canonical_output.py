@@ -55,6 +55,7 @@ from ccf.signal.envelope import SignalEnvelope
 from tests.deployment.conftest import write_artifact
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import THRESHOLD_PARAMETER
+from ccf.controlplane.registry import ControlPlaneRegistry
 
 pytestmark = [pytest.mark.fluree, pytest.mark.postgres, pytest.mark.mongo]
 
@@ -577,7 +578,7 @@ def test_the_evidence_pi_serves_is_the_one_in_the_governed_view(estate: None, mo
     parameters = {a.arg for a in constructor.args.kwonlyargs}
     assert not parameters & {"declared", "estate", "sources", "acquisition"}, parameters
     acquire, dropped = _with_one_cited_node_unevidenced(deployment)
-    with open_product(config_root=EXAMPLE, scratch=tmp_path, acquire=acquire, project=produce.plan_factory, assess=deployment.assess, gate=deployment.citation_gate) as opened:
+    with open_product(config_root=EXAMPLE, scratch=tmp_path, acquire=acquire, project=produce.plan_factory, assess=deployment.assess, gate=deployment.citation_gate, control_plane=ControlPlaneRegistry(), hitl_policy_key="hitl_policy") as opened:
         altered = opened.answer(_question(opened, deployment, sources=sources))
     assert isinstance(altered, ServedProduct), getattr(altered, "detail", altered)
     assert dropped["citations"] > 0
@@ -688,6 +689,8 @@ def _consumer_tree(tmp_path: pathlib.Path, *, edit: Callable[[dict[str, Any]], N
 
 def paved_consumer(tmp_path: pathlib.Path, *, url: str, sources: list[str], edit: Callable[[dict[str, Any]], None] | None = None) -> OpenedProduct:
     return open_product(
+        hitl_policy_key="hitl_policy",
+        control_plane=ControlPlaneRegistry(),
         config_root=_consumer_tree(tmp_path, edit=edit), scratch=tmp_path / "scratch",
         acquire=fixture.Acquire(), project=fixture.plan_factory, assess=fixture.assess,
         questions=cp14_question_for(sources), environ={ENDPOINT_VAR: url, CREDENTIAL_VAR: DEV_TOKEN}, clock=lambda: ADMITTED_AT,

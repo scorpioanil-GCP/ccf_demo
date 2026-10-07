@@ -28,12 +28,62 @@ from ccf.artifacts.protocol import DerivedWrite, WriteKinds
 from ccf.authz.capability import mint
 from ccf.authz.decision import AuthzDecision
 from ccf.contracts.canonical import content_hash
+from ccf.agents.definitions import TASK_DEFINITION
+from ccf.controlplane.artifacts import parse_artifact
+from ccf.controlplane.registry import ControlPlaneMissing
 from ccf.hitl.principal import ApproverIdentity
+from ccf.workflow.definitions import WORKFLOW_DEFINITION
+from tests.composition import declared_hitl_policy_key, register_versioned_at_composition
 from tests.erasure import harness as h
 from tests.erasure import signing
+from tests.hitl.sec006_harness import register_typed_policy
+from tests.workflow import test_engine as eh
 
 ERASED_AT = datetime(2026, 7, 30, tzinfo=UTC)
 REASON = "customer-request"
+#: The fixture workflow's one approval gate (fix round 4, ruling 3).
+GATE = "erasure-approval"
+
+
+def _tenant_of(key: str) -> str:
+    return key.partition("/")[0]
+
+
+def approval_policy_uri(tenant: str) -> str:
+    return f"ccf-artifact://{tenant}/approval-policy/erasure-officers@1.0.0"
+
+
+def register_erasure_workflow(registry: Any, *, tenant: str) -> str:
+    """Register the fixture erasure workflow (and its task) under ``tenant``; return the definition's content address.
+
+    Idempotent: a registry that already holds the same content under the key
+    is left as it is. The fixture names ``acme-bank``; under another tenant its
+    tenant field and pinned references are rewritten to that tenant.
+    """
+    fixture = eh._load(h.WORKFLOW_FIXTURE)
+    task_key = f"{tenant}/ccf.task-definition/erasure-request"
+    workflow_key = f"{tenant}/workflows/erasure-request"
+    document = dict(fixture["workflow_definition"])
+    document["tenant"] = tenant
+    document["task_definition_ref"] = f"ccf-artifact://{task_key}@1.0.0"
+    document["gate_policies"] = {GATE: approval_policy_uri(tenant)}
+    definition = parse_artifact(document, WORKFLOW_DEFINITION)
+    wanted = content_hash(definition)
+    if wanted in registry.versions(workflow_key):
+        return wanted
+    task = parse_artifact(eh._load(h.TASK_FIXTURE)["task_definition"], TASK_DEFINITION)
+    register_versioned_at_composition(registry, task_key, task, TASK_DEFINITION)
+    registered = register_versioned_at_composition(registry, workflow_key, definition, WORKFLOW_DEFINITION)
+    assert registered == wanted, registered
+    return wanted
+
+
+def register_approval_policy(registry: Any, *, tenant: str) -> None:
+    key = f"{tenant}/approval-policy/erasure-officers"
+    try:
+        registry.resolve_latest(key)
+    except ControlPlaneMissing:
+        register_typed_policy(registry, key, eligible=frozenset({h.APPROVER}))
 
 
 def _root(store: Any) -> Any:
@@ -71,25 +121,33 @@ def erase(
     control_plane: Any,
     tenant: str = h.TENANT,
     artifact_class: str = h.DOC_CLASS,
+    hitl_policy_key: str | None = None,
 ) -> Any:
     """Plant one genuine-shaped erasure of ``address`` under ``tenant``; return the record.
 
-    ``control_plane`` is the site's OWN Control Plane: the signed HITL policy
-    pinning the SEC-005 test key for the approver is registered there, so the
-    site's consult verifies the planted approval's signature (fix round 4).
+    ``control_plane`` is the site's OWN Control Plane. Everything the consult
+    verifies (fix round 4, rulings 1–4) is registered there: the signed HITL
+    policy pinning the SEC-005 test key for the approver under the site's
+    HITL policy key — ``hitl_policy_key``, or the composed store's own — the
+    approval policy naming the approver eligible, and the fixture erasure
+    workflow whose gate the approval names. The approver is never the
+    requester.
     """
+    key = hitl_policy_key or getattr(store, "hitl_policy_key", None) or declared_hitl_policy_key(tenant)
+    assert _tenant_of(key) == tenant, (key, tenant)  # the site's key must be in the planting tenant
     ref = subject_ref()
     record_id = content_hash({"tenant_id": tenant, "address": address, "planted": True})
     actor = ApproverIdentity(subject_id=h.APPROVER, identity_provider_ref="acme-bank/idp/okta")
     # A REAL signature by the SEC-005 test key, pinned for the approver in a
     # HITL policy registered in the site's own Control Plane — never a
     # placeholder (fix round 4).
-    signing.register_signed_policy(control_plane, subject=h.APPROVER)
-    gate = "approval"
+    signing.register_signed_policy(control_plane, subject=h.APPROVER, key=key)
+    register_approval_policy(control_plane, tenant=tenant)
+    definition_hash = register_erasure_workflow(control_plane, tenant=tenant)
     gate_state = content_hash({"planted-gate-state": address, "tenant": tenant})
     attestation = signing.sign(
         tenant=tenant,
-        event_key=f"{tenant}/{record_id}/{gate}",
+        event_key=f"{tenant}/{record_id}/{GATE}",
         product_content_hash=gate_state,
         subject_id=h.APPROVER,
         issued_at=ERASED_AT,
@@ -100,12 +158,12 @@ def erase(
         approver=actor,
         verdict="approve",
         acted_at=attestation.claims.issued_at,
-        gate=gate,
+        gate=GATE,
         gate_state_hash=gate_state,
-        workflow_definition_hash=content_hash({"planted-workflow": True}),
+        workflow_definition_hash=definition_hash,
         submission_hash=content_hash({"planted-submission": address}),
         attestation=attestation,
-        hitl_policy_ref=signing.policy_ref(control_plane),
+        hitl_policy_ref=signing.policy_ref(control_plane, key),
     )
     approval_ref = content_hash(approval)
     record = h.erasure("ErasureRecord")(
@@ -123,7 +181,7 @@ def erase(
         actor=actor,
         requested_by=h.REQUESTER,
         authorizing_decision_id="authz-decision-erase-planted",
-        approval_policy_ref="ccf-artifact://acme-bank/approval-policy/erasure-officers@1.0.0",
+        approval_policy_ref=approval_policy_uri(tenant),
         approval_ref=approval_ref,
         retention_decision=h.erasure("RetentionDecision")(
             policy_ref=h.POLICY_URI, verdict="admit", reason_code="admitted"

@@ -329,6 +329,9 @@ def _boot(
             # resolver composes the consult over it, scoped to this fabric's
             # tenant.
             erasure_index=erasure_index_at(document.artifact_store),
+            # SEC-009 (fix round 4, ruling 1): the deployment's HITL policy key,
+            # declared in its binding document, confined to its tenant.
+            hitl_policy_key=under(document.hitl_policy_key),
             artifact_store=FileArtifactStore(
                 root=document.artifact_store,
                 write_kinds=WriteKinds.declare(

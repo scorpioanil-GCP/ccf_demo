@@ -540,7 +540,30 @@ default. Decide three things before an erasure is ever approved.
   audit says so. Holding `artifact.erase` lets a requester file an approval
   artifact, not produce a signature the policy accepts, so the strength of an
   erasure's approval is the custody of the approvers' private keys and of
-  Control Plane registration.
+  Control Plane registration under the deployment's own HITL policy key.
+- **Which key, fixed at composition.** Every store construction site —
+  `create_app` (through `ApiDependencies.hitl_policy_key`),
+  `build_artifact_server`, `open_product`, `build_governed_resolver`, the
+  in-process adapter (through `binding.yaml`'s `hitl_policy_key`) and the local
+  CLI dependencies — takes the deployment's HITL policy key, the SAME key its
+  HITL transport is bound to, and so does the erasure door. The consult
+  refuses, by name, an approval that pins any other key or a key outside the
+  approval's tenant; the requester's artifact may name the version, never the
+  key. It also refuses the requester approving their own request, an approver
+  the gate's approval policy does not name (the transport's door rule, applied
+  again), a gate the workflow definition does not declare, and a signature
+  dated after the pinned policy version was superseded by the next one — so a
+  key dropped in a later version cannot sign a new approval under the old one.
+  A legitimate approval made while the old version was current stays valid.
+  The signed instant is the signer's own claim, so a holder of a dropped key
+  who backdates a signature still verifies; and the window's lower bound (the
+  version's registration instant) is not enforced, because the in-memory
+  Control Plane re-registers every version at boot and would refuse every
+  approval made before the last restart. There is no fresh-registry fallback:
+  a site that composes without the deployment's Control Plane, or re-composes a
+  store with a different Control Plane, identity provider or key, is refused
+  by name. **An adopter-supplied identity provider that verifies nothing
+  accepts everything; that is the adopter's trust choice.**
 - **Which HITL transport holds pending approvals.** A completed erasure stays
   verified across restarts and processes, because its approval is in the
   store and its keys are in the pinned policy. A gate still **pending** in the

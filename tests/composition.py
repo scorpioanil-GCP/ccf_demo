@@ -331,3 +331,12 @@ class MemoryErasureIndex:
 def no_erasures() -> MemoryErasureIndex:
     """A fresh, empty declared erasure index for a test composition."""
     return MemoryErasureIndex()
+
+
+def declared_hitl_policy_key(tenant: str = "acme-bank") -> str:
+    """The HITL policy key a test deployment declares (SEC-009, fix round 4, ruling 1).
+
+    The same key the deployment's HITL transport is bound to, and the key every
+    erasure approval must pin; test vocabulary under the test tenant (CINV-01).
+    """
+    return f"{tenant}/hitl/erasure-attestation-policy"

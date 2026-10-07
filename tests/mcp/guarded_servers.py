@@ -61,6 +61,7 @@ from tests.http_api.composition_authority import (
     refusal_recorder,
     register_typed_at_composition,
 )
+from tests.composition import declared_hitl_policy_key
 
 #: The record class this fixture's recorders file into. Test vocabulary.
 REPLAY_RECORD_CLASS = "ccf.decision-replay-record"
@@ -235,6 +236,7 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             entitlement_source=source,
             refusal_recorder=recorder,
             audit_log=ControlPlaneRegistry().audit_log,
+            hitl_policy_key=declared_hitl_policy_key(),
             erasure_index=no_erasures(),
             control_plane=ControlPlaneRegistry(),
         )
