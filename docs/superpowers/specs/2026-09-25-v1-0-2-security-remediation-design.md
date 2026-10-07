@@ -1533,7 +1533,7 @@ that becomes the red-when-fixed inversion. (c) Refusing a `peering` tool-style
 call in `Agent.invoke_skill` is **foreclosed** by Dave's 2026-07-27 ruling
 (`src/ccf/agents/agent.py:387-401`; `src/ccf/agents/factory.py:276-286`; PHASE_I3_GATE row 19)
 and would redden `tests/integration/test_agent_slice.py:534/563/583`; the
-seam is `render_tool_surface` (`src/ccf/skills/toolsurface.py:68-91`), which
+seam is `render_tool_surface` (`src/ccf/skills/toolsurface.py::render_tool_surface`), which
 already refuses `procedure` by type (`D-IMPL-56`) — widening it to `peering`
 and `mcp_product` fixes `TP-03` **and** a live crash (no adapter catches
 `ProcedureHasNoToolSurface`, so a bound `procedure` skill makes `_tools()`

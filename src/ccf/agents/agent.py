@@ -355,7 +355,7 @@ class Agent:
         return product
 
     def invoke_skill(
-        self, name: str, *, arguments: Mapping[str, str] | None = None
+        self, name: str, *, arguments: Mapping[str, object] | None = None
     ) -> (
         SkillCatalogEntry
         | SkillInvocation
@@ -375,7 +375,24 @@ class Agent:
         by construction), so grant and revocation take effect without
         touching agent identity (D-07).
 
+        **One argument rule, enforced here** (``TP-04`` follow-on,
+        ``D-IMPL-361``). Every harness leg crosses this seam, so the presented
+        ``arguments`` are validated against the bound entry's declared
+        ``argument_schema`` here, before anything is dispatched or audited:
+        an undeclared key, a missing required argument, or a value that is not
+        of the declared JSON type is refused by name
+        (:func:`ccf.skills.wire_arguments.refuse_unconforming_arguments`).
+        Adapters therefore hand this method the harness's arguments as they
+        arrived — never pre-stringified, which would erase the type the rule
+        checks. Once they conform, the values are carried to dispatch as the
+        ``Mapping[str, str]`` the invocation records (``str`` of each value,
+        exactly the encoding the adapters applied before this rule existed).
+
         Raises:
+            ccf.skills.wire_arguments.ArgumentRefused: the presented arguments
+                violate the declared ``argument_schema`` (the concrete class is
+                ``UndeclaredArgumentRefused``, ``MissingArgumentRefused`` or
+                ``MistypedArgumentRefused``). Nothing was dispatched.
             SkillNotBound: no grant currently binds ``name`` to this agent.
             ccf.agents.errors.NotYetBound: the bound entry's binding is none
                 of the four this build dispatches — reachable only from a
@@ -423,6 +440,7 @@ class Agent:
             McpProductInvocation,
             dispatch_skill,
         )
+        from ccf.skills.wire_arguments import refuse_unconforming_arguments
 
         if bound.skill_type == "mcp_product":
             # `D-IMPL-340`. A producer is asked a governed question by a
@@ -435,9 +453,12 @@ class Agent:
                 " composite through a ProductQuestion, not through"
                 " Agent.invoke_skill (D-IMPL-340)"
             )
+        refuse_unconforming_arguments(
+            arguments, schema=bound.argument_schema, surface=name
+        )
         dispatched = dispatch_skill(
             bound,
-            arguments=arguments,
+            arguments={key: str(value) for key, value in arguments.items()},
             callable_registry=self._callable_registry,
             mcp_skills=self._mcp_skills,
             peering_skills=self._peering_skills,

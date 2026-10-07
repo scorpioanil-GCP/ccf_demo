@@ -99,6 +99,7 @@ from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events import Event
 from google.adk.tools.function_tool import FunctionTool
+from google.adk.tools.tool_context import ToolContext
 from google.genai import types as genai_types
 
 from ccf.agents.agent import Agent, EmittedEffect
@@ -107,7 +108,12 @@ from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabil
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
-from ccf.skills.toolsurface import RenderedToolSurface, render_tool_surface
+from ccf.skills.toolsurface import (
+    HARNESS_EXPOSABLE_SKILL_TYPES,
+    RenderedToolSurface,
+    render_tool_surface,
+)
+from ccf.skills.wire_arguments import ArgumentRefused, refuse_unconforming_arguments
 
 __all__ = [
     "AGENT_HASH_STATE_KEY",
@@ -192,20 +198,83 @@ class _DeclaredSkillTool(FunctionTool):
     signature transcription while the other two adapters render the entry's
     declared ``argument_schema`` — exactly the divergence D-17 forbids — so
     this subclass overrides the declaration with the one shared derivation's
-    values verbatim (D-IMPL-56). Execution stays ``FunctionTool``'s own.
+    values verbatim (D-IMPL-56).
+
+    **Execution is overridden too** (``TP-04``, ``D-IMPL-361``). ADK's stock
+    ``run_async`` filters the model's arguments to the bound callable's
+    signature (google-adk 2.5.0, ``function_tool.py:220-224``), and a declared
+    schema's property names are arbitrary strings that need not be Python
+    identifiers, so no signature can carry them. Measured before this override:
+    every declared argument was filtered out and ``invoke_skill`` received the
+    empty mapping; an undeclared key was dropped by the same filter. This
+    override receives ADK's raw ``args``, refuses any key the declared schema
+    does not name — through the adapter's typed ``EffectRefusal``, never by
+    dropping it — and hands the rest to dispatch unchanged.
+
+    **The whole argument rule is one call** (``TP-04`` follow-on, ``I-2``,
+    ``D-IMPL-361``). The shared validator
+    (:func:`ccf.skills.wire_arguments.refuse_unconforming_arguments`), run
+    against the currently-bound entry's schema inside the narrow ``try``,
+    refuses an undeclared key, a missing required argument and a wrong-typed
+    value alike, and the tool renders that refusal as the same
+    ``EffectRefusal``. The earlier, separate undeclared-key check was deleted
+    because that call already covers it, which left its severing invisible
+    (the whole-branch review's I-2); the named severing is now "delete the
+    validate call inside the narrow ``try``".
     """
 
     def __init__(
         self,
-        func: Callable[..., Any],
+        func: Callable[[Mapping[str, Any]], str],
         *,
         name: str,
         surface: RenderedToolSurface,
+        refuse: Callable[[ArgumentRefused], dict[str, Any]],
+        validate: Callable[[Mapping[str, Any]], None],
+        admit: Callable[[], dict[str, Any] | None],
     ) -> None:
         super().__init__(func=func)
         self.name = name
         self.description = surface.description
         self._ccf_surface = surface
+        self._ccf_dispatch = func
+        self._ccf_refuse = refuse
+        self._ccf_validate = validate
+        self._ccf_admit = admit
+
+    async def run_async(
+        self, *, args: dict[str, Any], tool_context: ToolContext
+    ) -> Any:
+        """Dispatch the model's declared arguments; refuse any undeclared one.
+
+        ``TP-04`` (``D-IMPL-361``): declared arguments arrive, undeclared ones
+        are refused, never dropped. The whole rule (undeclared, missing,
+        mistyped) is one shared-validator call against the currently-bound
+        entry's schema, before ``invoke_skill`` is reached (``TP-04`` follow-on,
+        ``I-2``). A refused call dispatches nothing.
+
+        **Only this tool's own refusal is rendered** (``TP-04`` follow-on,
+        ``D-IMPL-361``): validation runs inside a narrow ``try`` and dispatch
+        outside it, so an ``ArgumentRefused`` raised inside the skill's own
+        dispatch — a ``local_callable`` refused by some other surface —
+        propagates like every other dispatch failure rather than being reported
+        as this tool's argument refusal.
+
+        **A read-only binding refuses here, before anything else** (``TP-01``,
+        ``I-1``, ``D-IMPL-361``). The ``before_tool`` callback lives on the
+        ``LlmAgent``; a deployment that reuses these tools elsewhere bypasses
+        it. So the tool itself refuses when the adapter declared ``effects``
+        other than ``governed``, independent of the callback, and nothing is
+        dispatched.
+        """
+        refused_by_binding = self._ccf_admit()
+        if refused_by_binding is not None:
+            return refused_by_binding
+        try:
+            self._ccf_validate(args)
+        except ArgumentRefused as refused:
+            return self._ccf_refuse(refused)
+        return self._ccf_dispatch(args)
 
     def _get_declaration(self) -> genai_types.FunctionDeclaration:
         return genai_types.FunctionDeclaration(
@@ -412,9 +481,14 @@ class AdkAdapter:
         (D-IMPL-56) — never adapter-authored and never signature-inferred, so
         all three reference adapters render the identical surface for the
         same entry (D-17); :class:`_DeclaredSkillTool` carries it into ADK's
-        declaration. The declared arguments arrive as named keyword arguments
-        and are carried to :meth:`~ccf.agents.agent.Agent.invoke_skill` as
-        its ``Mapping[str, str]``.
+        declaration. The model's raw argument mapping reaches ``call`` through
+        :meth:`_DeclaredSkillTool.run_async` and is carried to
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as ADK delivered it — not
+        stringified, so the seam's type check sees the real value; a key the
+        declared schema does not name, a missing required argument or a
+        wrong-typed value is refused as this adapter's typed
+        :class:`~ccf.harness.protocol.EffectRefusal`, never dropped or coerced
+        (``TP-04`` and its follow-on, ``D-IMPL-361``).
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
@@ -424,16 +498,37 @@ class AdkAdapter:
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
 
-        def call(**arguments: str) -> str:
-            invocation = agent.invoke_skill(
-                skill_name,
-                arguments={key: str(value) for key, value in arguments.items()},
-            )
+        def call(arguments: Mapping[str, Any]) -> str:
+            invocation = agent.invoke_skill(skill_name, arguments=dict(arguments))
             return canonical_bytes(invocation).decode("utf-8")
+
+        def refuse(refused: ArgumentRefused) -> dict[str, Any]:
+            return self._refusal_response(self._refusal(agent, str(refused)))
+
+        def validate(arguments: Mapping[str, Any]) -> None:
+            refuse_unconforming_arguments(
+                arguments,
+                schema=self._bound_entry(agent, skill_name).argument_schema,
+                surface=skill_name,
+            )
+
+        def admit() -> dict[str, Any] | None:
+            if self._effects != "governed":
+                return self._refusal_response(
+                    self._refusal(agent, self._refusal_reason())
+                )
+            return None
 
         call.__name__ = entry.name
         call.__doc__ = surface.description
-        return _DeclaredSkillTool(call, name=entry.name, surface=surface)
+        return _DeclaredSkillTool(
+            call,
+            name=entry.name,
+            surface=surface,
+            refuse=refuse,
+            validate=validate,
+            admit=admit,
+        )
 
     def _tools(self, agent: Agent) -> tuple[FunctionTool, ...]:
         """The harness-native tools for exactly this agent's bound skill-set.
@@ -444,10 +539,18 @@ class AdkAdapter:
         shared catalog is the over-exposure defect T-06-79 registers, and it is
         invisible with one agent; the D-23 two-agent case is what makes it
         visible.
+
+        Filtered by :data:`~ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+        before rendering (``TP-03``, ``D-IMPL-361``): a bound ``peering``,
+        ``mcp_product`` or ``procedure`` skill is skipped — never rendered and
+        never raised on — so the agent's exposable skills still reach the
+        harness.
         """
         return tuple(
             self._skill_tool(agent, skill_name)
             for skill_name in agent.bound_skill_names
+            if self._bound_entry(agent, skill_name).skill_type
+            in HARNESS_EXPOSABLE_SKILL_TYPES
         )
 
     def expose_skills(self, *, agent: Agent) -> tuple[str, ...]:
@@ -541,9 +644,13 @@ class AdkAdapter:
         that nothing happened.
 
         Two conditions refuse: a tool outside this agent's currently-bound
-        skill-set, and — when this adapter declared ``effects: unsupported`` —
-        every tool, because a read-only binding must not let the harness reach
-        a dispatch path at all. The refusal ADK receives is the canonical
+        EXPOSABLE skill-set, and — when this adapter declared ``effects:
+        unsupported`` — every tool, because a read-only binding must not let
+        the harness reach a dispatch path at all. Permitted means bound AND of
+        a type in :data:`~ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+        (``TP-03`` follow-on, ``D-IMPL-361``): a bound ``peering``,
+        ``mcp_product`` or ``procedure`` skill is never a tool here, so the gate
+        refuses it with the same unbound-reason message. The refusal ADK receives is the canonical
         serialization of the same typed
         :class:`~ccf.harness.protocol.EffectRefusal`
         :meth:`capture_effect` returns, so the two cannot describe the refusal
@@ -557,7 +664,13 @@ class AdkAdapter:
                 return self._refusal_response(
                     self._refusal(agent, self._refusal_reason())
                 )
-            if tool.name not in set(agent.bound_skill_names):
+            permitted = {
+                name
+                for name in agent.bound_skill_names
+                if self._bound_entry(agent, name).skill_type
+                in HARNESS_EXPOSABLE_SKILL_TYPES
+            }
+            if tool.name not in permitted:
                 return self._refusal_response(
                     self._refusal(agent, self._unbound_reason(str(tool.name)))
                 )

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1880 entries**, of which **1614** name a public Python surface.
+**1906 entries**, of which **1640** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1061 entries — 1017 public Python surface, 44 not public Python API.
+1074 entries — 1030 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16057,6 +16057,162 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-08-temporal-write-guard.md`.*
 
+#### ccf_runtime.adapters.claude_agent.adapter.AllowlistedEnvironmentTransport
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.AllowlistedEnvironmentTransport
+- Public surface: true
+- Change type: added
+- Before: absent — the vendor's `SubprocessCLITransport` built the child environment as `{**os.environ, ..., **options.env}` and ran a version probe that inherited the environment whole
+- After: a subclass of the vendor's subprocess transport whose `connect()` spawns the child with exactly `child_environment()` — the carrier's `env` plus the vendor's own mechanism variables — and nothing inherited; the version probe is not run (`TP-02`, `D-IMPL-361`)
+- Why: the env half of `TP-02` cannot be closed from options alone, because `env` merges and cannot subtract. It subclasses a private vendor module (measured against claude-agent-sdk 0.2.128), so a vendor upgrade must be re-measured against it.
+- Migration: none to construct it by hand; obtain it from `ClaudeAgentAdapter.transport(carrier)`
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.adapters.claude_agent.adapter.DEFAULT_CHILD_ENVIRONMENT
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.DEFAULT_CHILD_ENVIRONMENT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `tuple[str, ...] = ("PATH", "HOME")` — the variable NAMES the child receives when the deployment declares no `child_environment` (`TP-02`, `D-IMPL-361`)
+- Why: the controller's ruling is an explicit allowlist with a minimal default; the roster is names, never values, so it is mechanism rather than a deployment value
+- Migration: none; new name. A deployment that needs more declares `child_environment` in full.
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.mcp.product_door.StdioIdentityRequired
+
+- Surface: ccf_runtime.mcp.product_door.StdioIdentityRequired
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `class StdioIdentityRequired(ValueError)`, raised by `ProductDoor.serve_stdio` when no caller-composed `AuthenticatedUser` is passed (`EX-03`/`EX-04`, `D-IMPL-361` §7.3); exported in `ccf_runtime.mcp.product_door.__all__` (M-1)
+- Why: a typed refusal naming the ruling rather than an anonymous `TypeError`. A public method raises it and the security page names it, so it is public surface.
+- Migration: none; catch it by class if a deployment wants to report the omission specially
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.adapters.claude_agent.adapter.PromptFileRefused
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.PromptFileRefused
+- Public surface: true
+- Change type: added
+- Before: absent — `transport(carrier)` admitted a prompt file of any kind, owner or mode, or none at all
+- After: `class PromptFileRefused(ValueError)`, raised by `ClaudeAgentAdapter.transport` before anything connects when the carrier's system prompt is not the adapter's file form, or the file is missing, not a regular file, not owned by the effective uid or not `0600`, or its directory is not a directory owned by the effective uid with mode `0700` (`TP-05`, I-3, `D-IMPL-361`)
+- Why: the prompt directory's name is published on every child's argv; after `remove_prompt_directories()` another local user could recreate it and author the system prompt of an agent holding governed skills
+- Migration: none for a carrier built by `inject_context` and used before `remove_prompt_directories()`; build a new carrier rather than reusing one whose directory was removed
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES
+
+- Surface: ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES
+- Public surface: true
+- Change type: added
+- Before: absent — each adapter rendered every bound skill except `procedure`
+- After: `frozenset[str] = frozenset({"tool", "mcp", "local_callable"})`, the skill types that have a harness tool surface (`TP-03`, `D-IMPL-361`)
+- Why: a `peering` or `mcp_product` skill rendered as a harness tool lets the model call a peer directly, receive products nothing admitted, and drain the queue the admission gate reads (CLAUDE.md §7.2); a bound `procedure` crashed `_tools()` on every leg. The roster is SDK skill-type names, so it is mechanism.
+- Migration: none; new name. An adopter rendering its own harness tools filters the agent's bound entries by this roster.
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.toolsurface.SkillHasNoToolSurface
+
+- Surface: ccf.skills.toolsurface.SkillHasNoToolSurface
+- Public surface: true
+- Change type: added
+- Before: absent — only `ProcedureHasNoToolSurface` existed
+- After: `class SkillHasNoToolSurface(ValueError)`, raised by `render_tool_surface` for every skill type outside `HARNESS_EXPOSABLE_SKILL_TYPES`; `ProcedureHasNoToolSurface` is now its subclass (`TP-03`, `D-IMPL-361`)
+- Why: the derivation's own floor for the roster; the subclass relation keeps every existing catch of `ProcedureHasNoToolSurface` holding
+- Migration: none; catch `SkillHasNoToolSurface` to cover every non-exposable type
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.ArgumentRefused
+
+- Surface: ccf.skills.wire_arguments.ArgumentRefused
+- Public surface: true
+- Change type: added
+- Before: absent — the module `ccf.skills.wire_arguments` did not exist
+- After: `class ArgumentRefused(Exception)`, the base of every argument refusal; carries the undeclared, missing and mistyped names in full. Deliberately not a `ValueError`, so pydantic does not re-type it on the FastMCP leg (`TP-04`, `SEC353-J-01`, `D-IMPL-361`)
+- Why: one defect class, one rule, one refusal family across ADK, LangGraph, the Claude handler, `Agent.invoke_skill` and every FastMCP door
+- Migration: none; new name. Catch it to handle every argument refusal.
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.UndeclaredArgumentRefused
+
+- Surface: ccf.skills.wire_arguments.UndeclaredArgumentRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ArgumentRefused` raised when the first category present is an argument the declared schema does not name (`TP-04`, `D-IMPL-361`)
+- Why: an undeclared argument is refused by name, never dropped
+- Migration: none; new name
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.MissingArgumentRefused
+
+- Surface: ccf.skills.wire_arguments.MissingArgumentRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ArgumentRefused` raised when the first category present is a required argument that is absent (`TP-04` follow-on, `D-IMPL-361`)
+- Why: a missing required argument was dispatched and audited on every leg
+- Migration: none; new name
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.MistypedArgumentRefused
+
+- Surface: ccf.skills.wire_arguments.MistypedArgumentRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the `ArgumentRefused` raised when the first category present is a value whose JSON type is not the declared `type` (`TP-04` follow-on, `D-IMPL-361`)
+- Why: values were stringified, never checked, so a wrong-typed value was dispatched and audited
+- Migration: none; new name
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.refuse_unconforming_arguments
+
+- Surface: ccf.skills.wire_arguments.refuse_unconforming_arguments
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: validates a presented argument mapping against a `SkillArgumentSchema` — undeclared, missing and mistyped, recursing into the one level of declared object members and array elements — and raises the matching `ArgumentRefused` naming each violation by path (`TP-04` follow-on, `D-IMPL-361`)
+- Why: the whole argument rule, enforced once, at the seam every harness leg crosses
+- Migration: none; new name
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.refuse_undeclared_arguments
+
+- Surface: ccf.skills.wire_arguments.refuse_undeclared_arguments
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raises `UndeclaredArgumentRefused` for any key outside a declared name set; the rule the ADK tool and the FastMCP guard run over the raw wire mapping (`TP-04`, `SEC353-J-01`, `D-IMPL-361`)
+- Why: the early, schema-free half of the rule, for the two doors that hold a declared name set before an entry
+- Migration: none; new name. The private `ccf.skills._wire_arguments` re-exports it under its first name.
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.skills.wire_arguments.undeclared_arguments
+
+- Surface: ccf.skills.wire_arguments.undeclared_arguments
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: returns the presented keys outside a declared name set, sorted, without raising (`TP-04`, `D-IMPL-361`)
+- Why: the measurement the refusal is built on, exposed for callers that report rather than refuse
+- Migration: none; new name
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
 #### ccf.artifacts.file_store.InsecureArtifactStoreRoot
 
 - Surface: ccf.artifacts.file_store.InsecureArtifactStoreRoot
@@ -16960,7 +17116,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-534 entries — 344 public Python surface, 190 not public Python API.
+536 entries — 346 public Python surface, 190 not public Python API.
 
 ### Public Python surface
 
@@ -23077,6 +23233,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `358-05-trusted-time.md`.*
 
+#### ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter
+- Public surface: true
+- Change type: reshaped
+- Before: `ClaudeAgentAdapter(*, model, mcp_server_name, mcp_server_version, effects)`; `inject_context` put the joined system prompt on the carrier as a string, and the vendor's default transport spawned `claude` with the fabric's whole environment
+- After: new keywords `child_environment: Mapping[str, str] | None = None` (`TP-02`), the complete environment, names and values, the child receives — `None` gives the child only `DEFAULT_CHILD_ENVIRONMENT`'s names (`PATH`, `HOME`) valued from the fabric; `cwd: str | Path | None = None`, the child's working directory, `None` meaning the per-call `0700` directory (`TP-02` options half, I-4); and `max_turns: int | None = None`, the turn budget, `None` meaning the vendor default (a budget, not a boundary). New members `transport(carrier)` (`TP-02`), `prompt_directories` and `remove_prompt_directories()` (`TP-05`). `inject_context` now writes the prompt to a `0600` file in a new `0700` directory and sets `system_prompt` to the vendor's typed file form; it sets the carrier's `env` to the allowlist, `tools=[]`, `setting_sources=[]`, `strict_mcp_config=True`, and `cli_path` to a path below `os.devnull` that can never exist, so the carrier fails closed on the vendor's default transport (I-3, `D-IMPL-361`)
+- Why: `TP-02` — `ClaudeAgentOptions.env` merges over `os.environ` and cannot subtract, so every fabric secret reached the child; `TP-05` — a string `system_prompt` lands on the `claude` argv as `--system-prompt <text>`, readable by every local process and any process audit
+- Migration: pass `transport=adapter.transport(carrier)` to `ClaudeSDKClient(...)` or `query(...)`; without it the vendor's default transport raises `CLIConnectionError` and starts nothing. Declare `child_environment` with every variable the CLI needs beyond `PATH` and `HOME` (an API key, a proxy). The CLI no longer loads host settings, built-in tools or foreign MCP servers; a deployment that relied on any of those must now provide them as governed skills. Declare `cwd` if the session needs a particular working directory, and `max_turns` if it needs a turn budget. Call `remove_prompt_directories()` once the sessions that used the carriers have ended.
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.adapters.claude_agent.ClaudeAgentAdapter
+
+- Surface: ccf_runtime.adapters.claude_agent.ClaudeAgentAdapter
+- Public surface: true
+- Change type: reshaped
+- Before: the package re-export of the class above, with the old constructor
+- After: the same class, reshaped as recorded under `ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter` (`TP-02`, `TP-05`, I-3, I-4)
+- Why: the package re-exports the class, so the manifest records the reshape under both names
+- Migration: as for `ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter`
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
 #### ccf_runtime.peering.typed_http.TypedHttpWire
 
 - Surface: ccf_runtime.peering.typed_http.TypedHttpWire
@@ -26141,7 +26321,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-238 entries — 206 public Python surface, 32 not public Python API.
+249 entries — 217 public Python surface, 32 not public Python API.
 
 ### Public Python surface
 
@@ -30140,6 +30320,138 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a deployment: `admission_clock` already existed, already defaulted, and is already wired by `build_governed_resolver` and `open_product(clock=)`. **For a test that counts clock reads on a non-composite serve**, the count is now one rather than zero; that is the ruled change and the one in-tree control asserting zero is renamed and re-pointed
 
 *Recorded by `358-04-served-at.md`.*
+
+#### ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.transport
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.transport
+- Public surface: true
+- Change type: behavior
+- Before: absent — an adopter handed the carrier to the vendor and got the vendor's default transport
+- After: `transport(carrier) -> AllowlistedEnvironmentTransport`; first verifies, with `lstat`, that the carrier's system-prompt file is a regular file owned by the effective uid with mode `0600` in a directory owned by the effective uid with mode `0700`, and raises `PromptFileRefused` otherwise (I-3); then clears the carrier's fail-closed `cli_path` sentinel for this transport only and routes the permission prompt over stdio when a `can_use_tool` gate is bound. `TP-02` holds through `adapter.transport(carrier)`; the plain vendor path (`ClaudeSDKClient(options=carrier)` with no transport) fails closed with `CLIConnectionError` (`D-IMPL-361`)
+- Why: the manifest records class shapes, not methods, so this new method is recorded as a behavior entry; it is the one supported way to start a session from the carrier
+- Migration: pass `transport=adapter.transport(carrier)` wherever the carrier is handed to the vendor
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.remove_prompt_directories
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.remove_prompt_directories
+- Public surface: true
+- Change type: behavior
+- Before: absent — no prompt was written at rest
+- After: removes every per-call system-prompt directory recorded on `prompt_directories` and forgets it; synchronous and idempotent (`TP-05`, `D-IMPL-361`). A carrier whose directory was removed cannot start a session on either path: `transport(carrier)` refuses it with `PromptFileRefused` (also when another local user has recreated the directory, which is then not owned by the effective uid), and the vendor's default transport cannot start it because `cli_path` is below `os.devnull` (I-3).
+- Why: each directory holds the full assembled prompt, including the canonical bytes of every delivered product, at rest; the adapter cannot know when the harness has finished reading it, so removal is the adopter's call
+- Migration: call it once the sessions that used the adapter's carriers have ended
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.inject_context
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.inject_context
+- Public surface: true
+- Change type: behavior
+- Before: `system_prompt` was the joined prompt string (it reached the `claude` argv); `env`, `cli_path`, `tools`, `setting_sources`, `strict_mcp_config`, `cwd` and `max_turns` were unset
+- After: `system_prompt` is `{"type": "file", "path": ...}` naming a `0600` file in a new `0700` directory recorded on `prompt_directories` (`TP-05`); `env` is the deployment's allowlist (`TP-02`); `cli_path` is `/dev/null/ccf-no-cli` (below `os.devnull`, never creatable), so the vendor's default transport fails closed with `CLIConnectionError` (`TP-02`, I-3); `tools=[]`, `setting_sources=[]` and `strict_mcp_config=True` unconditionally; `cwd` is the declared one or the per-call `0700` directory; `max_turns` is the declared budget (`TP-02` options half, I-4, `D-IMPL-361`)
+- Why: argv is world-readable on the host; the vendor's default transport merges the fabric's whole environment into the child; with `tools` and `setting_sources` unset the CLI keeps its built-in tools (Bash, the file tools) and loads `~/.claude/settings.json`, whose allow-rules could permit a tool without consulting `can_use_tool` (a stated risk, unmeasured against the live CLI; claude-agent-sdk 0.2.128, `subprocess_cli.py:478-488`, `:599-600`)
+- Migration: as for the class: hand the vendor `adapter.transport(carrier)`, and remove the prompt directories when done
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.expose_skills
+
+- Surface: ccf_runtime.adapters.claude_agent.adapter.ClaudeAgentAdapter.expose_skills
+- Public surface: true
+- Change type: behavior
+- Before: the in-process MCP handler for each bound skill called `invoke_skill` with every argument stringified, and was reachable under `effects: unsupported` and for a skill revoked since the carrier was built, because the vendor routes a CLI `tools/call` to the handler with no Python-side permission check
+- After: the handler is the adapter-owned control (`TP-01`, `D-IMPL-361`): it refuses every call when the binding declared `effects` other than `governed`, refuses a skill not in `agent.bound_skill_names` at call time, and renders an `ArgumentRefused` from the seam as an `is_error` result; arguments reach `invoke_skill` as they arrived, not stringified (`TP-04` follow-on)
+- Why: `allowed_tools` and `can_use_tool` are enforced by the semi-trusted CLI and are defense in depth only
+- Migration: none — a read-only binding never dispatched by design; this makes it hold without the CLI's cooperation
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor.serve_stdio
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor.serve_stdio
+- Public surface: true
+- Change type: behavior
+- Before: `serve_stdio()` composed one identity from the door's own fields with `ambient_stdio_identity` and served it to every caller of the process
+- After: `serve_stdio(*, identity: AuthenticatedUser)` — required in practice; omitting it (or passing anything not an `AuthenticatedUser`) is refused with `StdioIdentityRequired` before the server is built or anything is set. The door composes no identity; the caller composes one (typically with `ccf_runtime.mcp.tenancy.ambient_stdio_identity`) and passes it. Stdio remains single-principal by construction (`EX-03`/`EX-04`, `D-IMPL-361` §7.3)
+- Why: an identity the door fabricates from its own fields is an identity nobody presented; making the caller compose it puts the statement where the deployment can see and own it. The manifest records class shapes, not methods, so this reshape is recorded as a behavior entry.
+- Migration: build the ambient identity at the call site — `door.serve_stdio(identity=AuthenticatedUser(ambient_stdio_identity(credential=..., principal_id=..., scope=..., tenant=...)))` — as the committed examples' `server/serve.py` files now do. A deployment serving more than one principal uses `serve_loopback`.
+
+*Recorded by `361-01-claude-adapter-and-stdio-door.md`.*
+
+#### ccf.skills.toolsurface.render_tool_surface
+
+- Surface: ccf.skills.toolsurface.render_tool_surface
+- Public surface: true
+- Change type: behavior
+- Before: refused `procedure` only; a `peering` or `mcp_product` entry rendered as a tool
+- After: refuses every type outside `HARNESS_EXPOSABLE_SKILL_TYPES` with `SkillHasNoToolSurface` (`ProcedureHasNoToolSurface` for `procedure`, as before) (`TP-03`, `D-IMPL-361`)
+- Why: see `ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+- Migration: a caller rendering a `peering` or `mcp_product` entry now receives a refusal; filter by the roster first
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf_runtime.adapters.adk.adapter.AdkAdapter.expose_skills
+
+- Surface: ccf_runtime.adapters.adk.adapter.AdkAdapter.expose_skills
+- Public surface: true
+- Change type: behavior
+- Before: `_tools()` rendered every bound skill, so `peering` and `mcp_product` skills became harness tools and a bound `procedure` raised; ADK's stock `run_async` filtered the model's arguments to the callable's signature, so every declared argument was dropped, an undeclared one was dropped silently, and every value was stringified
+- After: only skills whose type is in `HARNESS_EXPOSABLE_SKILL_TYPES` are rendered; the others are skipped, never raised on (`TP-03`). The tool receives ADK's raw arguments, refuses an undeclared key, a missing required argument or a wrong-typed value with one shared-validator call (I-2), and hands the rest to `invoke_skill` unstringified; every `ArgumentRefused` renders as the adapter's typed `EffectRefusal` (`TP-04`, `D-IMPL-361`). Under `effects: unsupported` the tool's own `run_async` refuses before dispatch with the typed `EffectRefusal`, independent of the `before_tool` callback, so a deployment that reuses `carrier.llm_agent.tools` elsewhere gets no dispatch path (`TP-01`, I-1). **Disclosed behavior change:** a number sent for a `string`-declared argument is now refused as mistyped, where before it was stringified and dispatched.
+- Why: `TP-03` and `TP-04`, one rule on every leg; `TP-01` — `effects: unsupported` is no dispatch and no write-back on every leg (the controller's I-1 ruling)
+- Migration: a model that sends a number for a declared `string` argument is now refused; declare the argument's real JSON type in the skill's `argument_schema`
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf_runtime.adapters.langgraph.adapter.LangGraphAdapter.expose_skills
+
+- Surface: ccf_runtime.adapters.langgraph.adapter.LangGraphAdapter.expose_skills
+- Public surface: true
+- Change type: behavior
+- Before: the `ToolNode` rendered every bound skill (`peering` and `mcp_product` as tools; a bound `procedure` raised), and each tool stringified every argument before `invoke_skill`, so an undeclared key, a missing required argument and a wrong-typed value were dispatched and audited
+- After: only exposable skill types are rendered (`TP-03`); arguments reach `invoke_skill` as they arrived and the seam's `ArgumentRefused` propagates from the tool call, fail-closed (`TP-04` follow-on, `D-IMPL-361`). Every tool on the carrier's `ToolNode` refuses before dispatch — answering with the typed `EffectRefusal`'s canonical bytes — under `effects: unsupported` and for a skill not bound at call time, so wiring `carrier.tools` into a deployment's own topology grants no dispatch path (`TP-01`, I-1). **Disclosed behavior change:** a number sent for a `string`-declared argument is now refused, where before it was stringified and dispatched.
+- Why: `TP-03` and `TP-04`, one rule on every leg; `TP-01` — measured before I-1, a read-only binding's tool reached `dispatch_skill` through `carrier.tools`
+- Migration: as for `ccf_runtime.adapters.adk.adapter.AdkAdapter.expose_skills`
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf_runtime.mcp.experience.agent_tool_listing
+
+- Surface: ccf_runtime.mcp.experience.agent_tool_listing
+- Public surface: true
+- Change type: behavior
+- Before: omitted `procedure` skills and raised on a bound `peering` or `mcp_product` skill
+- After: lists only skills whose type is in `HARNESS_EXPOSABLE_SKILL_TYPES`; the rest are omitted, never raised on (`TP-03`, `D-IMPL-361`)
+- Why: the experience listing reads the same roster every adapter filters by
+- Migration: none
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf.agents.agent.Agent.invoke_skill
+
+- Surface: ccf.agents.agent.Agent.invoke_skill
+- Public surface: true
+- Change type: behavior
+- Before: `invoke_skill(name, *, arguments: Mapping[str, str] | None = None)`; the presented arguments were dispatched and audited without being checked against the bound entry's declared `argument_schema`
+- After: `invoke_skill(name, *, arguments: Mapping[str, object] | None = None)`. Before anything is dispatched or audited, the arguments are validated with `refuse_unconforming_arguments`: an undeclared key, a missing required argument, or a value not of the declared JSON type is refused by name with the `ArgumentRefused` family. Conforming values are carried to dispatch as `str` of each value, the encoding the adapters applied before (`TP-04` follow-on, `D-IMPL-361`)
+- Why: every harness leg crosses this seam, so the rule enforced here holds on every leg. The manifest records class shapes, not method signatures, so the widened parameter type is recorded in this behavior entry.
+- Migration: hand `invoke_skill` arguments as they arrived, typed — never pre-stringified, which would erase the type the rule checks; a caller that sent an undeclared, missing or mistyped argument now receives an `ArgumentRefused` and nothing is dispatched
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
+
+#### ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+
+- Surface: ccf_runtime.mcp.tenancy.TenantGuardedServer.tool
+- Public surface: true
+- Change type: behavior
+- Before: FastMCP's per-tool argument model ignored extra keys, so an undeclared wire argument was silently dropped and the call served as a different question
+- After: every guarded tool is closed over its declared arguments: an undeclared wire argument is refused with `UndeclaredArgumentRefused` naming the key, before the guard or the body runs, and the advertised `inputSchema` carries `additionalProperties: false` (`SEC353-J-01`, ruled with `TP-04` at `D-IMPL-361`)
+- Why: what a tool advertises is what it enforces; an undeclared argument is refused, never dropped
+- Migration: an MCP client that sent extra keys now receives a tool error naming them; send only the declared arguments
+
+*Recorded by `361-02-exposable-roster-and-argument-rule.md`.*
 
 #### ccf.artifacts.file_store.FileArtifactStore
 

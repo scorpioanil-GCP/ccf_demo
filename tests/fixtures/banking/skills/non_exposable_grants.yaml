@@ -1,0 +1,40 @@
+# Banking fixture grants binding the three skill types that have NO harness
+# tool surface (TP-03; D-IMPL-361; CLAUDE.md §6.2 channel 2, §7.3 seam 2).
+#
+# A `peering` or `mcp_product` skill reaches a peer's Context Products, which
+# are admissible to this fabric only through the Control Plane admission gate;
+# a `procedure` skill's instruction content travels by pinned reference
+# through seam 1 only (D-IMPL-56). Each grant below binds one such entry to
+# the covenant-analytics slice agent, beside the exposable `covenant-metrics`
+# grant that agent already carries, so the adapter suites can assert the
+# exposable skill is still rendered and the non-exposable one never is.
+#
+# The entries themselves are not repeated here: each grant names an existing
+# fixture entry (covenant_metrics_tool.yaml `variants.peering` and
+# `variants.procedure`; exposure_rollup_mcp_product.yaml `entry`) by name and
+# exact version. Values live here, never in test code (§6.4). The
+# agent_definition_hash is derived identity, computed by mechanism at request
+# time (D-IMPL-26) — never a fixture value.
+
+grants:
+  peering:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-analytics-covenant-metrics-remote
+    tenant: acme-bank
+    skill_name: covenant-metrics-remote
+    skill_version: "2.0.0"
+  mcp_product:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-analytics-exposure-rollup-ask
+    tenant: acme-bank
+    skill_name: exposure-rollup-ask
+    skill_version: "1.0.0"
+  procedure:
+    schema_version: "1.0.0"
+    artifact_version: "1.0.0"
+    name: covenant-analytics-covenant-review-procedure
+    tenant: acme-bank
+    skill_name: covenant-review-procedure
+    skill_version: "1.0.0"

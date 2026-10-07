@@ -34,6 +34,8 @@ from ccf_runtime.http_api.app import create_app  # noqa: E402
 from ccf_runtime.http_api.auth import BearerTokenAuth  # noqa: E402
 from ccf_runtime.http_api.dependencies import ApiDependencies  # noqa: E402
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant  # noqa: E402
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: E402
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: E402
 from ccf_runtime.mcp.product_door import ProductDoor, open_door  # noqa: E402
 from ccf.products.entitlement import (  # noqa: E402
     PRODUCT_ENTITLEMENT_POLICY, ProductEntitlementGrant, ProductEntitlementPolicy, product_entitlement_key,
@@ -134,7 +136,17 @@ def http_app(opened: OpenedProduct):  # noqa: ANN201 — a FastAPI app; the type
 
 def serve() -> None:
     with tempfile.TemporaryDirectory(prefix="cp17-door-") as scratch, produce.product(Path(scratch)) as opened:
-        open_wall_door(opened).serve_stdio()
+        door = open_wall_door(opened)
+        door.serve_stdio(
+            identity=AuthenticatedUser(
+                ambient_stdio_identity(
+                    credential=door.credential,
+                    principal_id=door.principal_id,
+                    scope=door.scope,
+                    tenant=door.tenant_id,
+                )
+            )
+        )
 
 
 def loopback(*, announce: Callable[[int], None]) -> None:

@@ -95,7 +95,7 @@ from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabil
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
-from ccf.skills.toolsurface import render_tool_surface
+from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES, render_tool_surface
 
 __all__ = [
     "AGENT_HASH_METADATA_KEY",
@@ -187,7 +187,9 @@ class LangGraphCarrier:
     ``tools`` is the real :class:`~langgraph.prebuilt.ToolNode` assembled from
     the agent's currently-bound skill-set, exposed so a deployment can wire it
     into its own message-passing topology; it holds exactly the tools named in
-    ``state['skills']`` and nothing else.
+    ``state['skills']`` and nothing else. Under ``effects: unsupported`` every
+    one of those tools refuses before dispatch (``TP-01``, ``I-1``,
+    ``D-IMPL-361``), so wiring them elsewhere grants no dispatch path.
     """
 
     graph: Any
@@ -276,24 +278,49 @@ class LangGraphAdapter:
         derivation (:func:`ccf.skills.toolsurface.render_tool_surface`) over
         the entry's own declared ``description`` and ``argument_schema``
         (D-IMPL-56) — never adapter-authored, so all three reference adapters
-        render the identical surface for the same entry (D-17). The declared
-        arguments arrive as named keyword arguments and are carried to
-        :meth:`~ccf.agents.agent.Agent.invoke_skill` as its
-        ``Mapping[str, str]``.
+        render the identical surface for the same entry (D-17). The arguments
+        arrive as named keyword arguments and are carried to
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as they arrived.
+
+        **The argument rule is the seam's** (``TP-04`` follow-on,
+        ``D-IMPL-361``). Measured before it: langchain-core does not validate
+        a plain JSON-Schema ``args_schema``, and this callable stringified every
+        value, so an undeclared key, a missing required argument and a
+        wrong-typed value were all dispatched and audited. Now
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` refuses each by name,
+        before dispatch, with the
+        :class:`~ccf.skills.wire_arguments.ArgumentRefused` family, which this
+        tool call raises — fail-closed — rather than answering.
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
         so a revocation between two turns takes effect on the second one
         without the agent's identity changing (D-07).
+
+        **The tool is the adapter-owned control on the read-only path**
+        (``TP-01``, ``I-1``, ``D-IMPL-361``). A deployment wires
+        :attr:`LangGraphCarrier.tools` into its own topology and calls these
+        tools directly; the adapter's effect node is never on that path, so a
+        write-back refusal alone left every bound skill dispatching under
+        ``effects: unsupported`` (measured at 80e9f7d9 by the whole-branch
+        review). The tool therefore refuses **before**
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` is reached when this
+        adapter declared ``effects`` other than ``governed``, and when the skill
+        is not in ``agent.bound_skill_names`` *at call time*. The refusal is the
+        canonical serialization of the same typed
+        :class:`~ccf.harness.protocol.EffectRefusal` :meth:`capture_effect`
+        returns, returned as the tool's answer — nothing is dispatched or
+        audited.
         """
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
 
-        def call(**arguments: str) -> str:
-            invocation = agent.invoke_skill(
-                skill_name,
-                arguments={key: str(value) for key, value in arguments.items()},
-            )
+        def call(**arguments: Any) -> str:
+            if self._effects != "governed":
+                return self._refused(agent, self._refusal_reason())
+            if skill_name not in agent.bound_skill_names:
+                return self._refused(agent, self._unbound_reason(skill_name))
+            invocation = agent.invoke_skill(skill_name, arguments=arguments)
             return canonical_bytes(invocation).decode("utf-8")
 
         return StructuredTool.from_function(
@@ -312,11 +339,19 @@ class LangGraphAdapter:
         shared catalog is the over-exposure defect T-06-73 registers, and it is
         invisible with one agent; the D-23 two-agent case is what makes it
         visible.
+
+        Filtered by :data:`~ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES`
+        before rendering (``TP-03``, ``D-IMPL-361``): a bound ``peering``,
+        ``mcp_product`` or ``procedure`` skill is skipped — never rendered and
+        never raised on — so the agent's exposable skills still reach the
+        harness.
         """
         return ToolNode(
             [
                 self._skill_tool(agent, skill_name)
                 for skill_name in agent.bound_skill_names
+                if self._bound_entry(agent, skill_name).skill_type
+                in HARNESS_EXPOSABLE_SKILL_TYPES
             ]
         )
 
@@ -439,6 +474,19 @@ class LangGraphAdapter:
     def _refusal_reason(self) -> str:
         """Why a read-only binding refuses, in this adapter's own words."""
         return f"{HARNESS_ID} declared effects={self._effects!r}"
+
+    def _unbound_reason(self, tool_name: str) -> str:
+        """Why a tool outside the bound skill-set is refused (``TP-01``)."""
+        return f"{tool_name!r} is not in the agent's bound skill-set"
+
+    def _refused(self, agent: Agent, reason: str) -> str:
+        """A tool answer that refuses: the typed refusal's canonical bytes (``TP-01``)."""
+        refusal = EffectRefusal(
+            harness_id=HARNESS_ID,
+            agent_definition_hash=agent.identity.definition_hash,
+            reason=reason,
+        )
+        return canonical_bytes(refusal).decode("utf-8")
 
     def capture_effect(
         self, *, agent: Agent, output: Mapping[str, Any]

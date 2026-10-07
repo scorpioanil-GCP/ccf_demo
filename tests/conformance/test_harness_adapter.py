@@ -89,6 +89,7 @@ from ccf.replay.record import (
 )
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
 from ccf.skills.grants import GrantLedger, SkillGrant
+from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES
 from _pytest.outcomes import Failed, Skipped
 from conftest import HARNESS_REQUIRED_ENV, harness_unavailable
 from skills.sinks import ScriptedApprovalSink
@@ -170,8 +171,29 @@ def _carrier_values(carrier: object, *, _depth: int = 0) -> Iterator[object]:
 
 
 def _carrier_strings(carrier: object) -> tuple[str, ...]:
-    """Every string reachable inside a harness-native carrier."""
-    return tuple(v for v in _carrier_values(carrier) if isinstance(v, str))
+    """Every string reachable inside a harness-native carrier.
+
+    A carried **file-form system prompt** — a mapping ``{"type": "file",
+    "path": <path>}`` — is followed: its file's text is yielded too, because a
+    harness handed context by file meets that context by reading the file.
+    TP-05 (D-IMPL-361) moved the Claude leg's system prompt off argv into a
+    ``0600`` file carried in exactly that form, so without this the probe would
+    see the path and never the prompt — and seam 1's "the instruction reached
+    the context surface" would read red for a carrier that delivers it
+    correctly. Only that declared form is followed, never an arbitrary path
+    string, so the probe cannot be satisfied by some unrelated file.
+    """
+    found: list[str] = []
+    for value in _carrier_values(carrier):
+        if isinstance(value, str):
+            found.append(value)
+        elif (
+            isinstance(value, Mapping)
+            and value.get("type") == "file"
+            and isinstance(value.get("path"), str)
+        ):
+            found.append(Path(value["path"]).read_text(encoding="utf-8"))
+    return tuple(found)
 
 
 def _carried(carrier: object, needle: str) -> bool:
@@ -377,6 +399,39 @@ AdapterFactory = Callable[[EffectCapability], HarnessAdapterProtocol]
 RefusalDriver = Callable[[HarnessAdapterProtocol, Agent, str], object | None]
 
 
+class _DispatchRecorder:
+    """Records every call that reaches the fabric's dispatch seam (TP-01, I-1).
+
+    ``Agent.invoke_skill`` without arguments is introspection (every adapter
+    uses it to build its tool surface); with arguments it dispatches. A refusal
+    driver wraps the harness's own tool call in this recorder so "the refusal
+    fired" means **nothing dispatched**, not merely that nothing was written
+    back (D-IMPL-361, the controller's I-1 ruling: ``effects: unsupported`` is
+    no dispatch and no write-back on every leg). Patched on the class and
+    restored on exit, so the recorder cannot outlive the driver call.
+    """
+
+    def __init__(self) -> None:
+        self.reached: list[Mapping[str, Any]] = []
+        self._original: Any = None
+
+    def __enter__(self) -> _DispatchRecorder:
+        original = Agent.invoke_skill
+        reached = self.reached
+
+        def recording(self_: Agent, name: str, *, arguments: Any = None) -> Any:
+            if arguments is not None:
+                reached.append(dict(arguments))
+            return original(self_, name, arguments=arguments)
+
+        self._original = original
+        Agent.invoke_skill = recording  # type: ignore[method-assign]
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        Agent.invoke_skill = self._original  # type: ignore[method-assign]
+
+
 class HarnessLeg(NamedTuple):
     """One harness's entry into the suite.
 
@@ -445,12 +500,14 @@ def build_harness_leg(param: str) -> HarnessLeg:
         values = _harness_fixture()[param]
 
         def adapter(effects: EffectCapability) -> HarnessAdapterProtocol:
-            return ClaudeAgentAdapter(
+            built = ClaudeAgentAdapter(
                 model=values["model"],
                 mcp_server_name=values["mcp_server_name"],
                 mcp_server_version=values["mcp_server_version"],
                 effects=effects,
             )
+            CLAUDE_ADAPTERS_BUILT.append(built)
+            return built
 
         def execution() -> object:
             return ResultMessage(
@@ -480,19 +537,49 @@ def build_harness_leg(param: str) -> HarnessLeg:
         def refusal(
             under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
         ) -> object | None:
-            """Poke the Claude Agent SDK's own permission hook (D-10 (b)).
+            """Drive the adapter-owned control, then the CLI's hook (D-10 (b)).
 
-            ``can_use_tool`` is the hook the harness consults before running a
-            tool and the one it honours ``PermissionResultDeny`` from, so this
-            is the harness refusing rather than CCF declining.
+            TP-01 (D-IMPL-361): the vendor routes a CLI ``tools/call`` straight
+            to the in-process MCP handler with no Python-side permission check
+            (``claude_agent_sdk/_internal/query.py:679-688``), and
+            ``can_use_tool`` is enforced only by the semi-trusted CLI. Poking
+            the gate with ``{}`` alone was therefore a false green: it proved
+            the CLI's control, never the adapter's. So the refusal counts only
+            when the **in-process handler itself** refuses the skill's declared
+            arguments through the vendor's own ``CallToolRequest`` route — and
+            the CLI-side gate, defense in depth, agrees.
             """
+            from mcp.types import CallToolRequest, CallToolRequestParams
+
             carrier = under_test.inject_context(
                 agent=agent, products=(), instructions=()
             )
+            server = carrier.mcp_servers[values["mcp_server_name"]]  # type: ignore[attr-defined]
+            handler = server["instance"].request_handlers[CallToolRequest]
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            result = asyncio.run(
+                handler(
+                    CallToolRequest(
+                        method="tools/call",
+                        params=CallToolRequestParams(
+                            name=skill_name, arguments=declared
+                        ),
+                    )
+                )
+            ).root
             gate = carrier.can_use_tool  # type: ignore[attr-defined]
             qualified = f"mcp__{values['mcp_server_name']}__{skill_name}"
-            decision = asyncio.run(gate(qualified, {}, None))
-            return decision if isinstance(decision, PermissionResultDeny) else None
+            decision = asyncio.run(gate(qualified, declared, None))
+            # The handler's refusal must carry the adapter's own reason: an
+            # error result produced by a raised exception (which the MCP server
+            # also turns into isError) is not the adapter-owned control firing.
+            declared_effects = under_test.capabilities().effects
+            text = " ".join(getattr(item, "text", "") for item in result.content)
+            refused_in_process = bool(result.isError) and (
+                f"effects={declared_effects!r}" in text
+            )
+            refused_by_cli_gate = isinstance(decision, PermissionResultDeny)
+            return result if refused_in_process and refused_by_cli_gate else None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
@@ -581,11 +668,18 @@ def build_harness_leg(param: str) -> HarnessLeg:
         def adk_refusal(
             under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
         ) -> object | None:
-            """Poke ADK's own before-tool hook (D-10 (b)).
+            """Poke ADK's own before-tool hook, then the tool itself (D-10 (b)).
 
             ADK treats any truthy mapping returned from ``before_tool_callback``
             as the tool's response and **does not call the tool**, so a returned
             mapping is the harness short-circuiting rather than CCF declining.
+
+            TP-01 (I-1, D-IMPL-361): the callback lives on the ``LlmAgent``, and
+            a deployment that reuses ``carrier.llm_agent.tools`` elsewhere
+            bypasses it. So the refusal counts only when the tool's own
+            ``run_async``, called with the skill's declared arguments and no
+            callback in the way, also refuses in the adapter's own words with
+            NOTHING dispatched.
             """
             carrier = under_test.inject_context(
                 agent=agent, products=(), instructions=()
@@ -595,7 +689,22 @@ def build_harness_leg(param: str) -> HarnessLeg:
             response = harness_agent.before_tool_callback(
                 tool=bound[skill_name], args={}, tool_context=None
             )
-            return response or None
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            declared_effects = under_test.capabilities().effects
+            with _DispatchRecorder() as recorder:
+                answered = asyncio.run(
+                    bound[skill_name].run_async(args=declared, tool_context=None)
+                )
+            refused_before_dispatch = (
+                recorder.reached == []
+                and isinstance(answered, dict)
+                and f"effects={declared_effects!r}" in " ".join(
+                    str(value) for value in answered.values()
+                )
+            )
+            if response and refused_before_dispatch:
+                return response
+            return None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
@@ -677,7 +786,26 @@ def build_harness_leg(param: str) -> HarnessLeg:
                 carrier.config,  # type: ignore[attr-defined]
             )
             outcome = final.get("effect")
-            return outcome if isinstance(outcome, EffectRefusal) else None
+            written_back_refused = isinstance(outcome, EffectRefusal)
+            # TP-01 (I-1, D-IMPL-361): the write-back refusal alone is the
+            # false-green shape spec §7.1(b) named for the Claude leg. A
+            # deployment wires ``carrier.tools`` into its own topology, so the
+            # tool the ToolNode holds is called with the skill's declared
+            # arguments and must refuse in the adapter's own words with
+            # NOTHING dispatched.
+            tool = carrier.tools.tools_by_name[skill_name]  # type: ignore[attr-defined]
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            declared_effects = under_test.capabilities().effects
+            with _DispatchRecorder() as recorder:
+                answered = tool.invoke(declared)
+            refused_before_dispatch = (
+                recorder.reached == []
+                and isinstance(answered, str)
+                and f"effects={declared_effects!r}" in answered
+            )
+            if written_back_refused and refused_before_dispatch:
+                return outcome
+            return None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
@@ -699,6 +827,21 @@ def harness_leg(request: pytest.FixtureRequest) -> HarnessLeg:
 @pytest.fixture
 def world() -> World:
     return World()
+
+
+#: Every Claude adapter a leg built in the current test. Each ``inject_context``
+#: writes the assembled prompt to a 0600 file at rest (TP-05, D-IMPL-361), so
+#: the suite removes them through the adapter's own helper at teardown rather
+#: than leaving product payloads in TMPDIR.
+CLAUDE_ADAPTERS_BUILT: list[Any] = []
+
+
+@pytest.fixture(autouse=True)
+def remove_claude_prompt_directories() -> Iterator[None]:
+    """Teardown: remove every prompt directory a Claude adapter created."""
+    yield
+    while CLAUDE_ADAPTERS_BUILT:
+        CLAUDE_ADAPTERS_BUILT.pop().remove_prompt_directories()
 
 
 @pytest.fixture(autouse=True)
@@ -839,16 +982,42 @@ def test_the_adapter_holds_no_fabric_write_surface(
 # --- seam 2: skill exposure ---------------------------------------------------
 
 
+def _exposable_bound_names(agent: Agent) -> set[str]:
+    """The bound skills whose catalog entry's type is harness-exposable.
+
+    Seam 2's contract as ``src/ccf/harness/protocol.py`` states it after
+    ``TP-03`` (``D-IMPL-361``): exactly the currently-bound EXPOSABLE
+    skill-set, not every bound skill. Each type is read off the bound catalog
+    entry (``invoke_skill``'s introspection form), never assumed.
+    """
+    exposable: set[str] = set()
+    for name in agent.bound_skill_names:
+        entry = agent.invoke_skill(name)
+        assert isinstance(entry, SkillCatalogEntry)
+        if entry.skill_type in HARNESS_EXPOSABLE_SKILL_TYPES:
+            exposable.add(name)
+    return exposable
+
+
 def test_seam_2_exposes_exactly_the_bound_skill_set(
     harness_leg: HarnessLeg, world: World
 ) -> None:
-    """Set equality, not containment: an ungranted skill must not exist."""
+    """Set equality, not containment: an ungranted skill must not exist.
+
+    Compared against the EXPOSABLE subset of the bound skill-set (``TP-03``,
+    ``D-IMPL-361``) — the re-read of D-IMPL-25 in ``ccf.harness.protocol``.
+    With these fixtures every bound skill is exposable, so the subset equals
+    the bound set and the assertion is still set equality over all of it.
+    """
     adapter = harness_leg.adapter("governed")
     assert set(adapter.expose_skills(agent=world.agent_a)) == set()
 
     world.bind(world.grant_a, world.definition_a)
     exposed = adapter.expose_skills(agent=world.agent_a)
-    assert set(exposed) == set(world.agent_a.bound_skill_names)
+    # Precondition: with these fixtures the exposable subset IS the bound set,
+    # so the equality below is no weaker than the old one against it.
+    assert _exposable_bound_names(world.agent_a) == set(world.agent_a.bound_skill_names)
+    assert set(exposed) == _exposable_bound_names(world.agent_a)
     assert set(exposed) == {world.grant_a.skill_name}
 
 
@@ -866,8 +1035,8 @@ def test_seam_2_follows_a_revocation_without_re_declaring_the_agent(
         revoke_capability(grant_hash, tenant=world.definition_a.tenant, principal=world.actor)
     )
     assert adapter.expose_skills(agent=world.agent_a) == ()
-    assert set(adapter.expose_skills(agent=world.agent_a)) == set(
-        world.agent_a.bound_skill_names
+    assert set(adapter.expose_skills(agent=world.agent_a)) == _exposable_bound_names(
+        world.agent_a
     )
     # The skill-set changed; the agent's identity did not (D-07).
     assert world.agent_a.identity == identity_before
