@@ -300,8 +300,11 @@ Ten decisions have to be made explicitly, and §4.8 records two limitations the
 SDK discloses rather than fixes. Each decision is a construction-time argument
 or a declared artifact rather than a setting buried in configuration; where the
 SDK behaves a particular way when nothing is declared, its section says so. The
-first three concern the HTTP surface, whose endpoint-by-endpoint contract is on
-the [HTTP API page](../reference/http-api.md); the fourth concerns which
+first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
+the [HTTP API page](../reference/http-api.md): whether it authenticates at all,
+and the authorization posture it applies; the third is where signing-key
+custody lives, a decision about the key-source Protocol rather than about any
+one surface; the fourth concerns which
 transport the MCP product door serves on; the fifth concerns what the Claude
 Agent SDK adapter's child process inherits; the sixth is how many processes may
 boot one graph, which depends on the graph store; the seventh is which sources
