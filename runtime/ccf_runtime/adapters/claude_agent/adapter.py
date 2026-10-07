@@ -68,6 +68,7 @@ replay slot seam 4 writes into).
 from __future__ import annotations
 
 import os
+import tempfile
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -88,6 +89,7 @@ from claude_agent_sdk import (
     tool,
 )
 from claude_agent_sdk._internal._task_compat import spawn_detached
+from claude_agent_sdk.types import SystemPromptFile
 from claude_agent_sdk._internal.transport.subprocess_cli import (
     _ACTIVE_CHILDREN,
     SubprocessCLITransport,
@@ -138,6 +140,31 @@ _VENDOR_CHECKPOINTING_VARIABLE = "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"
 #: bound, and a pre-built transport never sees that copy — so a transport built
 #: from the carrier must carry it itself, or the CLI never consults the gate.
 _PERMISSION_PROMPT_OVER_STDIO = "stdio"
+
+#: Owner-only modes for the per-call system-prompt directory and file (TP-05,
+#: D-IMPL-361; the controller's ruling). ``tempfile.mkdtemp`` already creates
+#: the directory ``0700``; the file is created ``0600`` and re-asserted with
+#: ``fchmod`` so a permissive umask cannot widen it.
+_PROMPT_FILE_MODE = 0o600
+_PROMPT_FILE_NAME = "system-prompt"
+
+
+def _write_prompt_file(prompt: str) -> Path:
+    """Write ``prompt`` to a fresh ``0600`` file in a fresh ``0700`` directory.
+
+    The directory is created per call by ``tempfile.mkdtemp`` (owner-only by
+    construction) and the file with ``O_EXCL``, so no other carrier's prompt
+    file is ever reused or overwritten.
+    """
+    directory = Path(tempfile.mkdtemp())
+    path = directory / _PROMPT_FILE_NAME
+    descriptor = os.open(
+        path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _PROMPT_FILE_MODE
+    )
+    with os.fdopen(descriptor, "wb") as handle:
+        os.fchmod(handle.fileno(), _PROMPT_FILE_MODE)
+        handle.write(prompt.encode("utf-8"))
+    return path
 
 def _qualified_tool_name(server_name: str, skill_name: str) -> str:
     """The name the harness sees for an in-process MCP tool.
@@ -303,6 +330,20 @@ class ClaudeAgentAdapter:
         self._declared_child_environment: dict[str, str] | None = (
             None if child_environment is None else dict(child_environment)
         )
+        self._prompt_directories: list[str] = []
+
+    @property
+    def prompt_directories(self) -> tuple[str, ...]:
+        """Every per-call system-prompt directory this adapter created (TP-05).
+
+        :meth:`inject_context` writes the assembled prompt to a ``0600`` file
+        in a new ``0700`` directory on each call, because the vendor would
+        otherwise put the prompt on the ``claude`` argv (D-IMPL-361). The
+        directories are **the adopter's to remove** once the session that
+        used the carrier has ended — this adapter runs no background cleaner,
+        because it cannot know when the harness has finished reading the file.
+        """
+        return tuple(self._prompt_directories)
 
     # --- seam 0: what this adapter declares about itself ---------------------
 
@@ -423,9 +464,21 @@ class ClaudeAgentAdapter:
 
         Returns a ``ClaudeAgentOptions`` — the harness-native carrier — with
         the already-rendered instructions and the canonical serialization of
-        each already-admitted Context Product on ``system_prompt``, this
-        agent's tools on an in-process MCP server, ``allowed_tools`` set to
-        exactly those tools, and the permission gate bound.
+        each already-admitted Context Product joined into the system prompt,
+        this agent's tools on an in-process MCP server, ``allowed_tools`` set
+        to exactly those tools, and the permission gate bound.
+
+        **The system prompt reaches the CLI by file, never by argv (TP-05,
+        D-IMPL-361).** A string ``system_prompt`` is placed on the ``claude``
+        command line as ``--system-prompt <text>`` (claude-agent-sdk 0.2.128,
+        ``subprocess_cli.py:467-468``), where every local process and any
+        central process audit can read it. So the joined prompt is written to
+        a ``0600`` file in a new ``0700`` directory per call, and
+        ``system_prompt`` carries the vendor's typed file form
+        (``{"type": "file", "path": ...}``), which the vendor renders as the
+        single option ``--system-prompt-file <path>`` (lines 469-473). The
+        directory is recorded on :attr:`prompt_directories` for the adopter to
+        remove.
 
         ``products`` are products the agent already admitted through
         :meth:`~ccf.agents.agent.Agent.consume`; they are serialized
@@ -445,9 +498,12 @@ class ClaudeAgentAdapter:
         serialized_products = tuple(
             canonical_bytes(product).decode("utf-8") for product in products
         )
+        prompt_file = _write_prompt_file("\n".join((*instructions, *serialized_products)))
+        self._prompt_directories.append(str(prompt_file.parent))
+        system_prompt: SystemPromptFile = {"type": "file", "path": str(prompt_file)}
         carrier: object = ClaudeAgentOptions(
             model=self._model,
-            system_prompt="\n".join((*instructions, *serialized_products)),
+            system_prompt=system_prompt,
             mcp_servers={self._mcp_server_name: server},
             allowed_tools=[
                 _qualified_tool_name(self._mcp_server_name, handler.name)

@@ -170,8 +170,24 @@ def _carrier_values(carrier: object, *, _depth: int = 0) -> Iterator[object]:
 
 
 def _carrier_strings(carrier: object) -> tuple[str, ...]:
-    """Every string reachable inside a harness-native carrier."""
-    return tuple(v for v in _carrier_values(carrier) if isinstance(v, str))
+    """Every string reachable inside a harness-native carrier.
+
+    A carried string that is the absolute path of an existing regular file is
+    followed: its text is yielded too, because a harness handed context **by
+    file** meets that context by reading the file. TP-05 (D-IMPL-361) moved the
+    Claude leg's system prompt off argv into a ``0600`` file the carrier names,
+    so without this the probe would see the path and never the prompt — and
+    seam 1's "the instruction reached the context surface" would read red for
+    a carrier that delivers it correctly.
+    """
+    found: list[str] = []
+    for value in _carrier_values(carrier):
+        if not isinstance(value, str):
+            continue
+        found.append(value)
+        if value.startswith("/") and "\n" not in value and Path(value).is_file():
+            found.append(Path(value).read_text(encoding="utf-8"))
+    return tuple(found)
 
 
 def _carried(carrier: object, needle: str) -> bool:
