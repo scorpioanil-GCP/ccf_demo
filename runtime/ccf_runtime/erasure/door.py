@@ -80,6 +80,7 @@ from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolutio
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
+from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
     WorkflowEngine,
@@ -220,30 +221,46 @@ class ErasureDoor:
         event = resolution.record.event
         submission = resolution.record.submission
         suspension = state_key(tenant=tenant, record_id=request.request_id)
-        gate = event.event_key.removeprefix(f"{suspension}/")
+        # I2 (fix round 1): the FABRIC's own record of this suspension — the
+        # engine-written state — not anything the caller presents.
+        state = self._control_plane.state_store.get(WORKFLOW_STATE, suspension)
+        gate = state.current_state if isinstance(state, WorkflowStateRecord) else ""
+        recorded_submission = next(
+            (s for s in self._transport.submissions(tenant=tenant) if s == submission),
+            None,
+        )
         recorded = (
-            resolution.record.approved
-            and submission.action == GATE_APPROVE
+            isinstance(state, WorkflowStateRecord)
+            and state.status == "suspended"
+            and resolution.record.approved
+            and recorded_submission is not None
+            and recorded_submission.action == GATE_APPROVE
+            and recorded_submission.event_key == f"{suspension}/{gate}"
+            and recorded_submission.principal.product_content_hash == content_hash(state)
+            and event.event_key == recorded_submission.event_key
             and event.event_class == GATE_EVENT_CLASS
             and event.tenant == tenant
             and event.workflow_state_ref == suspension
             and gate in workflow.definition.gate_policies
             and event.policy_ref == workflow.definition.gate_policies[gate]
-            and submission in self._transport.submissions(tenant=tenant)
         )
-        if not recorded:
+        if not recorded or recorded_submission is None or not isinstance(state, WorkflowStateRecord):
             raise ErasureRefused(
                 "the presented approval is not one the HITL authority path recorded for"
                 " this request's suspension; an erasure is written only on a recorded"
                 " human approval (SEC-009; D-IMPL-367 §4.1; D-IMPL-366)",
                 reason_code="approval-not-recorded",
             )
-        requested_by = event.requested_by
+        # The requester is the starter the ENGINE recorded on the suspended
+        # state, and the actor is the approver on the transport's RECORDED
+        # submission — never the presented event (I2; probe P3).
+        requested_by = state.started_by
         if requested_by is None:
             raise ErasureRefused(
-                "the approval's event names no requester (SEC-009; D-IMPL-366 G1)",
+                "the suspended execution records no starter (SEC-009; D-IMPL-366 G1)",
                 reason_code="requester-unrecorded",
             )
+        actor = recorded_submission.principal.approver
         route = workflow.definition.gate_routes.get(gate, {}).get(GATE_APPROVE)
         if route is None:
             raise ErasureRefused(
@@ -284,7 +301,7 @@ class ErasureDoor:
             subject_ref=request.subject_ref,
             addresses=addresses,
             erased_at=erased_at,
-            actor=submission.principal.approver,
+            actor=actor,
             requested_by=requested_by,
             # The authorizer's allow for the ERASE door kind (design §2.3).
             authorizing_decision_id=erase.decision_id,
