@@ -813,10 +813,15 @@ def test_no_known_refusal_kind_reaches_served_answer(
         f" {type(answer.escaped).__name__} escaped instead of a response"
         f" ({answer.escaped}); no known governed refusal may become 500"
     )
-    assert answer.status == STATUS_BY_KIND[kind], answer.body
+    # SEC-009 I5 (D-IMPL-374 (4)): a kind TRANSLATED_AT_MINIMAL crosses at the
+    # door's default (minimal) level as its target kind's shell.
+    from ccf.products.disclosure import TRANSLATED_AT_MINIMAL
+
+    crossed = TRANSLATED_AT_MINIMAL.get(kind, kind)
+    assert answer.status == STATUS_BY_KIND[crossed], answer.body
     assert answer.status != 500
     assert set(answer.body) == {"kind", "refusal_type", "refusal"}
-    assert answer.body["kind"] == kind
+    assert answer.body["kind"] == crossed
 
 
 def test_the_existing_refusal_statuses_are_unchanged(

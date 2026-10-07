@@ -282,12 +282,18 @@ def test_every_kind_answers_its_row_in_the_one_body(
         f" {type(answer.escaped).__name__} escaped instead of a response"
         f" ({answer.escaped}); no known governed refusal may become 500"
     )
-    assert answer.status == STATUS_BY_KIND[kind]
+    # SEC-009 I5 (D-IMPL-374 (4)): a kind TRANSLATED_AT_MINIMAL crosses at the
+    # door's default (minimal) level as its target kind's shell — the erasure
+    # is not disclosed there; the record keeps the determination.
+    from ccf.products.disclosure import TRANSLATED_AT_MINIMAL
+
+    crossed = TRANSLATED_AT_MINIMAL.get(kind, kind)
+    assert answer.status == STATUS_BY_KIND[crossed]
     assert answer.status != 500
     assert set(answer.body) == {"kind", "refusal_type", "refusal"}
-    assert answer.body["kind"] == kind
-    assert answer.body["refusal_type"] == BY_TOKEN[kind].__name__
-    assert answer.body["refusal"]["kind"] == kind
+    assert answer.body["kind"] == crossed
+    assert answer.body["refusal_type"] == BY_TOKEN[crossed].__name__
+    assert answer.body["refusal"]["kind"] == crossed
 
 
 def test_a_kind_the_vocabulary_does_not_hold_still_escapes(

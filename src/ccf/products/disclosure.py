@@ -124,6 +124,7 @@ __all__ = [
     "INDISTINGUISHABLE_BELOW_FULL",
     "PERMITTED_AT_MINIMAL",
     "SUPPRESSED_BELOW_FULL",
+    "TRANSLATED_AT_MINIMAL",
     "WITHHELD",
     "DisclosureDecision",
     "DisclosureLevel",
@@ -540,6 +541,18 @@ SUPPRESSED_BELOW_FULL: Final[Mapping[str, Mapping[str, frozenset[str]]]] = {
 }
 
 
+#: Kinds whose consumer-visible shell at ``minimal`` is ANOTHER kind's
+#: rendering, while the internal envelope the record keeps is unchanged
+#: (SEC-009; ``D-IMPL-374`` (4), fix round 1 I5). ``erased-content`` is
+#: disclosed at ``minimal`` as the not-found rendering — the erasure is not
+#: disclosed — and dimension 5 records the ``erased-content`` determination
+#: plus a :class:`DisclosureDecision` whose ``external_kind`` says what crossed.
+#: This is the case :attr:`DisclosureDecision.external_kind` was kept for.
+TRANSLATED_AT_MINIMAL: Final[Mapping[str, str]] = {
+    "erased-content": "subject-unavailable",
+}
+
+
 class DisclosureDecision(CCFContract):
     """What the Disclosure layer decided, recorded so replay can reconstruct it.
 
@@ -726,6 +739,33 @@ def disclose(
             " add it to EXTERNAL_STATEMENTS and PERMITTED_AT_MINIMAL in"
             " `src/ccf/products/disclosure.py`. A shell with no permitted"
             " statement cannot cross a consumer boundary"
+        )
+
+    if level == DISCLOSURE_MINIMAL and kind in TRANSLATED_AT_MINIMAL:
+        # SEC-009 I5: the shell that crosses is the target kind's own minimal
+        # rendering, built from a value of that kind carrying none of this
+        # envelope's determination (so nothing of it can leak), disclosed by
+        # this same function; the decision records what was determined.
+        from ccf.products.refusal import (  # deferred: see the TYPE_CHECKING note
+            SubjectUnavailableRefusal,
+            envelope_for,
+        )
+
+        target = TRANSLATED_AT_MINIMAL[kind]
+        substitute = envelope_for(
+            SubjectUnavailableRefusal(
+                cause="nonexistent", detail=EXTERNAL_STATEMENTS[target]
+            ),
+            request=envelope.request,
+            resource=envelope.resource,
+            policy_bindings=envelope.policy_bindings,
+        )
+        shell, translated = disclose(substitute, level=level, policy=policy)
+        return shell, translated.model_copy(
+            update={
+                "internal_kind": kind,
+                "withheld": tuple(sorted(set(translated.withheld) | {"kind"})),
+            }
         )
 
     if level == "full":

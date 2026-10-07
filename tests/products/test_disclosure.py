@@ -265,6 +265,21 @@ def test_minimal_withholds_everything_outside_the_permitted_set(
     internal = _internal(token)
     shell, decision = disclose(internal, level="minimal", policy=None)
 
+    from ccf.products.disclosure import TRANSLATED_AT_MINIMAL
+
+    if token in TRANSLATED_AT_MINIMAL:
+        # SEC-009 I5 (D-IMPL-374 (4)): this kind crosses at `minimal` as its
+        # target kind's own minimal shell; the decision records both kinds.
+        target = TRANSLATED_AT_MINIMAL[token]
+        assert shell.kind == shell.reason == target
+        assert shell.detail == EXTERNAL_STATEMENTS[target]
+        assert shell.request == internal.request
+        assert all(value == canonical_bytes(WITHHELD).decode("utf-8") for value in shell.fields.values())
+        assert not set(shell.fields) & set(internal.fields)
+        assert (decision.internal_kind, decision.external_kind) == (token, target)
+        assert "kind" in decision.withheld
+        return
+
     assert shell.detail == EXTERNAL_STATEMENTS[token]
     # Field PRESENCE is identical (`D-IMPL-253` amendment 2 (4)): keys are
     # kept and only values are replaced, so a consumer counting keys learns

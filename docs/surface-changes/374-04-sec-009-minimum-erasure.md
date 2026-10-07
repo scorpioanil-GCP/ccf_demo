@@ -824,6 +824,16 @@ recorded human approval (ruling 3).
 - Why: SEC-009; rulings 1 and MCP on `D-IMPL-374` (4).
 - Migration: none.
 
+## ccf.products.disclosure.TRANSLATED_AT_MINIMAL
+
+- Surface: ccf.products.disclosure.TRANSLATED_AT_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent. Every kind crossed as itself at every level (`DisclosureDecision.external_kind == internal_kind`).
+- After: `{"erased-content": "subject-unavailable"}`. At `minimal`, `disclose` renders an `erased-content` determination as the not-found shell, built from a fresh `SubjectUnavailableRefusal` that carries nothing of the determination. The replay record keeps the `erased-content` envelope, and the `DisclosureDecision` records `internal_kind = erased-content`, `external_kind = subject-unavailable`, with `kind` withheld.
+- Why: SEC-009; fix round 1, I5 on `D-IMPL-374` (4). The wire must not disclose an erasure at `minimal`, and the audit trail must not record a false "nonexistent".
+- Migration: none. A consumer at `minimal` sees exactly the not-found shell it saw before.
+
 ## ccf.replay.engine.ReplayOutcome
 
 - Surface: ccf.replay.engine.ReplayOutcome

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2001 entries**, of which **1734** name a public Python surface.
+**2002 entries**, of which **1735** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1156 entries — 1112 public Python surface, 44 not public Python API.
+1157 entries — 1113 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -17386,6 +17386,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: The site token `replay-artifact`, for any other artifact the re-execution reads.
 - Why: SEC-009; ruling 4.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.disclosure.TRANSLATED_AT_MINIMAL
+
+- Surface: ccf.products.disclosure.TRANSLATED_AT_MINIMAL
+- Public surface: true
+- Change type: added
+- Before: absent. Every kind crossed as itself at every level (`DisclosureDecision.external_kind == internal_kind`).
+- After: `{"erased-content": "subject-unavailable"}`. At `minimal`, `disclose` renders an `erased-content` determination as the not-found shell, built from a fresh `SubjectUnavailableRefusal` that carries nothing of the determination. The replay record keeps the `erased-content` envelope, and the `DisclosureDecision` records `internal_kind = erased-content`, `external_kind = subject-unavailable`, with `kind` withheld.
+- Why: SEC-009; fix round 1, I5 on `D-IMPL-374` (4). The wire must not disclose an erasure at `minimal`, and the audit trail must not record a false "nonexistent".
+- Migration: none. A consumer at `minimal` sees exactly the not-found shell it saw before.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

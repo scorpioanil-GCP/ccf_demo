@@ -1140,15 +1140,13 @@ def govern_dereference(
 
     def erased_reading(erased: ErasedContentRefused) -> RefusalEnvelope:
         # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.3, U11): the level
-        # in force for THIS principal decides — `minimal` is the not-found
-        # rendering, `reasoned`/`full` the `erased-content` shell (410 at HTTP).
-        level, _policy = refusal_recorder.disclosure_level_for(
-            tenant=refusal_recorder.tenant_id, principal_id=principal
-        )
-        if level == DISCLOSURE_MINIMAL:
-            return refuse(
-                cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
-            )
+        # in force for THIS principal decides what CROSSES — `minimal` is the
+        # not-found rendering, `reasoned`/`full` the `erased-content` shell
+        # (410 at HTTP) — and the disclosure step decides it.
+        # At every level the RECORDED determination is `erased-content` (I5);
+        # at `minimal` the disclosure step renders it as the not-found shell
+        # (`ccf.products.disclosure.TRANSLATED_AT_MINIMAL`), so the wire says
+        # nothing and the audit trail stays honest.
         return refuse(
             cause="nonexistent",
             error_code=ERROR_EVIDENCE_ABSENT,
