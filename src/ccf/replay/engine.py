@@ -614,9 +614,13 @@ class RefusalReplayOutcome(CCFContract):
         record_content_address: Where the record was resolved from.
         assembly_refusal: Dimension 5's refusal block — the refusal envelope's
             canonical bytes — rehydrated and re-canonicalized equal.
-        child_contract_addresses: Every admitted child row's content address,
-            each resolved from the store and re-hashed to itself. Empty when
-            the decision admitted no child, which is a positive statement.
+        child_contract_addresses: Every admitted child row's content address
+            that was resolved from the store and re-hashed to itself. Empty
+            when the decision admitted no child, which is a positive
+            statement. An admitted child whose retained contract was ERASED is
+            not here — it was never read, so nothing about it was re-hashed —
+            and is reported on :attr:`erased_content` instead (PM7, panel C7;
+            ``D-IMPL-374``).
         graph_snapshot_id: :data:`~ccf.replay.record.NO_FABRIC_READ` for a
             refusal reached before any projection ran; otherwise the snapshot
             id the re-execution derived, equal by construction to the
@@ -1327,7 +1331,10 @@ def _children_of(
     ``None`` — rather than an empty view — when the decision admitted no
     child, so a non-composite record keeps taking exactly the plan-resolution
     path it always took. The addresses returned are the rows' own; each has
-    resolved and re-hashed by the time this returns.
+    resolved and re-hashed by the time this returns. An ERASED child's address
+    is not among them — its bytes were never read, so nothing about it was
+    re-hashed — and it is reported in the erased members instead (PM7, panel
+    C7; ``D-IMPL-374``).
     """
     path = record.content_generation_path
     admitted_rows = tuple(
@@ -1336,10 +1343,12 @@ def _children_of(
     if not admitted_rows:
         return None, (), ()
     children, erased = _reconstruct_child_contracts(store=store, rows=admitted_rows)
+    erased_addresses = {member.content_address for member in erased}
     addresses = tuple(
         row.child_content_address
         for row in admitted_rows
         if row.child_content_address is not None
+        and row.child_content_address not in erased_addresses
     )
     return children, addresses, erased
 

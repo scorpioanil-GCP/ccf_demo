@@ -254,3 +254,13 @@ and X2.
 - After: a `TypeError` `govern_dereference` raises for such a store, after the capability check and before anything is read, recorded or clocked. The message names `ccf.erasure.compose_erasure_consult`.
 - Why: PM5, panel C5 (`D-IMPL-374`); U12.
 - Migration: an out-of-tree door composes its store with `compose_erasure_consult` before calling `govern_dereference`.
+
+## ccf.replay.engine.RefusalReplayOutcome
+
+- Surface: ccf.replay.engine.RefusalReplayOutcome
+- Public surface: true
+- Change type: behavior
+- Before: `child_contract_addresses`, documented as every admitted child "resolved from the store and re-hashed to itself", also listed an admitted child whose retained contract was erased. The no-fabric-read path skips that child unread and discloses it on `erased_content`.
+- After: an erased child's address is not in `child_contract_addresses`; it is reported, positively, on `erased_content`. The docstrings say so.
+- Why: PM7, panel C7 (`D-IMPL-374`). The evidence type's own field overstated what was verified. Red test: `tests/replay/test_pm7_refusal_children_exclude_erased.py`.
+- Migration: a caller that compared `child_contract_addresses` with the record's admitted rows also reads `erased_content`.
