@@ -969,27 +969,40 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   fsynced, and the append raises `ErasureIndexWriteFailed`, which the door's
   completion propagates by name, filing no record (PC1). The completion can
   be retried once the cause is cleared.
-- **Another tenant's filing of identical bytes does not change the owner's
-  reads (C8, D-IMPL-376).** The MCP artifact server decides whether an
-  address is governed evidence over the names the caller's own tenant filed
-  it under, never another tenant's. A tenant's blob, presence and names
-  answers, and its erasure door over the MCP-backed store, are the same
-  whether or not any other tenant filed the same bytes, under any class, so
-  they also tell a tenant nothing about what other tenants hold. This rests
-  on one property of the store: a name is filed only together with its bytes.
-  The address is derived from the bytes `put` receives
+- **Another tenant's filings do not change a tenant's answers (C8 and C-2,
+  D-IMPL-376).** The MCP artifact server decides whether an address is
+  governed evidence over the names the caller's own tenant filed it under,
+  never another tenant's. An address the caller's tenant never filed goes to
+  the governed evidence read
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`),
+  which holds the caller to the tenant a record was decided under before any
+  other hold: another tenant's record answers exactly as a missing address
+  does, `nonexistent`, at every disclosure level. The HTTP evidence routes
+  (`/replay/decisions`, `/replay/resolutions`, `/artifact`) read through the
+  same function and hold the same way. Within a tenant nothing changes: the
+  owner reads its own record, and another principal's genuine record answers
+  `unauthorized` at `full`. So a tenant's blob, presence and names answers,
+  and its erasure door over the MCP-backed store, do not depend on whether
+  any other tenant filed the same bytes, under any class. Two properties of
+  the store keep that attribution sound. A name is filed only together with
+  its bytes: the address is derived from the bytes `put` receives
   (`src/ccf/artifacts/protocol.py::ArtifactStoreProtocol.put`), and no verb
   registers a name for an address by reference. A deployment's own substrate
   behind the artifact server
   (`runtime/ccf_runtime/mcp/artifact_server.py::ArtifactSubstrate`) must keep
-  that property; one that can register a name without receiving the bytes must
-  not back a store several tenants share. A governed
-  filing by the caller's own tenant still takes the governed read for every
-  principal of that tenant. What still crosses tenants is the tenantless
-  reading described above: an erasure destroys no bytes and is recorded for
-  the erasing tenant only, so once tenant A erases an address that tenant B
-  also filed, B's tenant-scoped reads still serve it and every tenantless
-  read of it withholds it, with the reason redacted.
+  that property; one that can register a name without receiving the bytes
+  must not back a store several tenants share. And a tenant id is one naming
+  segment: a write whose tenant contains `/` is refused at the store's write
+  boundary (`src/ccf/artifacts/protocol.py::authorized_write_target`), because
+  the naming index is read back by splitting `tenant/class/name` and such a
+  filing would be attributed to another tenant (M-4). Names filed before that
+  refusal existed are not re-read: a store that already holds a filing under a
+  tenant id containing `/` still attributes it to the id's prefix. Erasure
+  still crosses tenants on tenantless reads, as described above: an erasure
+  destroys no bytes and is recorded for the erasing tenant only, so once
+  tenant A erases an address that tenant B also filed, B's tenant-scoped reads
+  still serve it and every tenantless read of it withholds it, with the
+  reason redacted.
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the

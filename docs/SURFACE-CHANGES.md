@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2185 entries**, of which **1911** name a public Python surface.
+**2187 entries**, of which **1913** name a public Python surface.
 
 ## Added
 
@@ -29126,7 +29126,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-296 entries — 258 public Python surface, 38 not public Python API.
+298 entries — 260 public Python surface, 38 not public Python API.
 
 ### Public Python surface
 
@@ -33816,11 +33816,35 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: the blob (`ccf-artifact-blob://`) and presence (`ccf-artifact-meta://`) resources took the governed dereference when ANY tenant's name for the address had a class declared under `ReplayMint`, and the names resource (`ccf-artifact-names://`) answered the governed refusal's shell in the same case. A tenant's own client-lane filing therefore read as `subject-unavailable` once another tenant filed identical bytes under a governed class, and the names resource answered `[]` for an unknown address but the shell for an address only another tenant had filed governed.
-- After: "governed" is judged over the names the caller's own tenant filed the address under, never another tenant's. A tenant's blob, presence and names answers for an address are byte-identical whether or not any other tenant filed the same bytes, under any class. Unchanged: a governed filing by the caller's own tenant still takes the governed dereference for every principal of that tenant (N4, `D-IMPL-345`); an address the caller's tenant never filed still answers the blob and presence resources with the `nonexistent` shell, and the names resource with `[]`; the client lane's read still appends the `D-IMPL-345` R-5 `authz_decision` event under the caller's class.
+- After: "governed" is judged over the names the caller's own tenant filed the address under, never another tenant's. For an address the caller's own tenant filed on its client lane, the blob, presence and names answers are byte-identical whether or not any other tenant filed the same bytes, under any class. For an address the caller's tenant never filed, the names resource answers `[]` whatever other tenants filed, and the blob and presence resources take the governed dereference. That read held the caller to a record's principal but not to its tenant, so another tenant's genuine replay record was not answered as a missing address in two cases: a caller whose principal id matched the record's, entitled in the record's tenant and at `full` in its own, read it; and at `full` it answered `unauthorized` where a missing address answers `nonexistent`. Both close with hold 0 of `govern_dereference` (`377-06`). Unchanged: a governed filing by the caller's own tenant still takes the governed dereference for every principal of that tenant (N4, `D-IMPL-345`); the client lane's read still appends the `D-IMPL-345` R-5 `authz_decision` event under the caller's class.
 - Why: C8 (`D-IMPL-376` ruling (6)). Red tests: `tests/mcp/test_c8_governed_judged_per_tenant.py::test_another_tenants_governed_filing_does_not_change_the_owners_reads`, `::test_the_owners_answers_do_not_depend_on_any_other_tenants_filing` (both parametrizations) and `::test_the_owners_erasure_over_the_mcp_backed_store_is_not_refused_by_another_tenants_governed_filing`.
 - Migration: none for a single-tenant store. Where tenants share one artifact store, an owner's reads and erasure requests no longer depend on other tenants' filings. Erasure is unchanged: it is a per-tenant fact and destroys no bytes. Measured on the file-backed door, identically before and after this change: once tenant A erases an address tenant B also filed, B's filing and the bytes stay, B's tenant-scoped reads (`ErasureConsultingStore.scoped`, which the client lane and the governed dereference's erasure consult use) still serve them, and a tenantless read (`ErasureConsultingStore.get` with no tenant; SEC-009 ruling (i) names the replay engine, `record_of` and child admission) withholds them with the reason redacted. Over the MCP-backed store A's request was refused `class-unverifiable` before this change, so that state was reachable only through a door on the file-backed store; it is now reachable through either.
 
 *Recorded by `377-02-c8-governed-judged-per-tenant.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: three holds — the record's principal, the product grant re-decided under the tenant the record was decided under, and `full` disclosure. The capability's tenant was compared with the record's nowhere, so another tenant's record crossed to a caller whose principal id matched the record's principal, entitled in the record's tenant and at `full` in its own; and at `full` another tenant's record answered `unauthorized` / `evidence-principal-mismatch` where a missing address answers `nonexistent` / `evidence-absent`.
+- After: hold 0 runs first: the tenant the record was decided under (`_decided_identity`; the record's own `tenant_id` when no identity is recoverable) must equal `authorized.tenant`, or the read is refused exactly as a missing address is — `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level. Hold 2 therefore only ever re-decides a grant under the capability's own tenant. Every caller inherits it: the HTTP `/replay/decisions`, `/replay/resolutions` and `/artifact` routes and the MCP artifact server's governed reads. Unchanged within a tenant: the owner reads its own record, and another principal's genuine record answers `unauthorized` at `full` (R-4). A read-refusal record is decided under the tenant of the recorder that wrote it, so a caller of another tenant whose read was refused at that door cannot read the refusal record back.
+- Why: C-2 (`D-IMPL-345` R-2; the `D-IMPL-376` close-out). Red tests: `tests/http_api/test_c2_tenant_hold_http.py::test_another_tenants_record_with_a_colliding_principal_answers_as_a_missing_address_does` and `::test_at_full_another_tenants_record_answers_as_a_missing_address_does`, and the same two in `tests/mcp/test_c2_tenant_hold_mcp.py`; each asks one address before and after another tenant files its record there and requires the same bytes.
+- Migration: none where each principal reads its records through a capability for the tenant they were decided under. A deployment that read a record decided under one tenant through a capability for another now receives `nonexistent`; read it through a capability for the record's tenant.
+
+*Recorded by `377-06-c2-tenant-hold-and-m4-tenant-segment.md`.*
+
+#### ccf.artifacts.protocol.authorized_write_target
+
+- Surface: ccf.artifacts.protocol.authorized_write_target
+- Public surface: true
+- Change type: behavior
+- Before: a capability whose tenant contained `NAME_SEGMENT_SEPARATOR` (`/`) was filed. `FileArtifactStore.names_at` split the naming key at its first two separators, so the filing was attributed to the tenant id's prefix, and the MCP artifact server served it to that tenant on its client lane.
+- After: refused with `ArtifactWriteRefused` naming the tenant, after `verify_any` and before anything is canonicalized, addressed or opened, so no bytes and no name are filed. Every shipped store's `put` runs it first (`FileArtifactStore`, `McpArtifactStore`; `ErasureConsultingStore` passes its writes to the store it wraps). A tenant id is one naming segment, as a declared class already is (SEC-004).
+- Why: M-4 (the `D-IMPL-376` close-out review). Red tests: `tests/artifacts/test_m4_tenant_segment_refused.py` (the addressed write, the derived write, and the artifact-server scenario end to end).
+- Migration: a deployment whose tenant ids contain `/` renames them before writing artifacts. Names filed before this change are not re-read: a store that already holds a filing under such a tenant id still attributes it to the prefix.
+
+*Recorded by `377-06-c2-tenant-hold-and-m4-tenant-segment.md`.*
 
 ### Not public Python API
 
