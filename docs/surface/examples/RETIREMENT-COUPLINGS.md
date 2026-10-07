@@ -251,9 +251,9 @@ Rows by coupling shape:
 | `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 514 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 516 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 435 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 437 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
-| `runtime/ccf_runtime/mcp/experience.py` | 654 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 439 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 441 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
+| `runtime/ccf_runtime/mcp/experience.py` | 658 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
@@ -307,9 +307,9 @@ Rows by coupling shape:
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 606 | `examples/external/00-hello-context` | `tmp_path-synthetic` | survives | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 627 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_s1_00_provision_write_fence.py` | 21 | `examples/s1-00-companies-over-revenue` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-00-companies-over-revenue/scenario/provision.py` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 144 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 469 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
-| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 598 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 145 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 477 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
+| `tests/examples/test_s1_01_governed_resolver_adoption.py` | 606 | `tests/examples/test_s1_01_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/examples/test_source_estate.py` | 50 | `examples/s1-01-hello-context-product` | `path-construction` | live | - | - | 17-08 | constructed as `examples/s1-01-hello-context-product` |
 | `tests/examples/test_spine_separation.py` | 60 | `archive/examples/00-quickstart` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/halflife/test_debt.py` | 707 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |

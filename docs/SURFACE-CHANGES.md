@@ -18441,7 +18441,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent. A declared lock directory was checked only for being absolute, and it was resolved at each acquisition.
-- After: `require_private_lock_directory(value) -> str`, the config-validation half of the lock-directory rule. It refuses, by name, a path that differs from its real path (any symbolic-link component; the message names the real path to declare), one that does not exist or is not a directory, one not owned by the effective user, and one that is group- or world-writable.
+- After: `require_private_lock_directory(value) -> str`, the lock-directory rule, judged at config validation and again at every lease acquisition (N-5). It refuses, by name, a path that differs from its real path (any symbolic-link component; the message names the real path to declare), one that does not exist or is not a directory, one not owned by the effective user, and one that is group- or world-writable.
 - Why: PC3, panel C3 (`D-IMPL-374`; SEC-013). A link retargeted between two writers' acquisitions gave one network graph two lock files, and both writers minted (two processes measured). Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`.
 - Migration: declare the lock directory's real path, owned by the user every writer runs as, mode `0700` or `0755`.
 
@@ -25842,7 +25842,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Before: `control_plane: ControlPlaneRegistry | None = None` (a fresh registry when omitted); no erasure trust root.
 - After: `control_plane: ControlPlaneRegistry` is REQUIRED with no default and `None` is refused by name (`ErasureCompositionRefused`, fix round 4); a new REQUIRED `erasure_trust: ErasureTrust` (fix round 5; it replaces fix round 4's `hitl_policy_key`), the per-tenant erasure authorities the composed store verifies every erasure against. A deployment that runs no erasure door passes `ErasureTrust(authorities={})`.
 - Why: SEC-009; fix round 4, rulings 1 and 5, and fix round 5, R1, R2, R4: the fallback registry lacked the door's HITL policy, and a trust root read from filed artifacts let a filer choose who counts as the requester and which workflow's gate policy applies.
-- Migration: pass `control_plane=` (the deployment's registry) and `erasure_trust=`. Every in-tree caller is updated; the examples declare no erasure authority, because none runs an erasure door.
+- Migration: pass `control_plane=` (the deployment's registry) and `erasure_trust=`. Every in-tree caller is updated; the examples declare no erasure authority, because none runs an erasure door. **The examples pass a fresh registry inline (M-10, disclosed, not changed):** 16 `open_product` call sites under `examples/`, one in each of 16 `produce.py` files (counted by AST), pass `control_plane=ControlPlaneRegistry()`. That is harmless there, because each declares `ErasureTrust(authorities={})` and no example runs an erasure door, but it teaches the pattern ruling 5 forbids. A deployment that runs an erasure door passes the Control Plane its HITL policy, approval policy and erasure workflow are registered in, never a fresh one.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -25912,8 +25912,8 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: every boot minted a boot token, so every boot built a writer and took the store's writer lease. Beside a live writer on a persistent store the boot was refused with `SingleWriterViolation`.
-- After: a keyword `read_only: bool = False`. `True` resolves and type-checks the pinned resolution spec, builds L2 over it (validating and auditing the policy-bundle pin as before), mints the classification authority through the same private mint path as the writer boot, and returns a handle whose reader is governed exactly like a writer boot's. It mints no boot token, so no writer exists, no writer lease is taken, no graph is marked live, and no invalidation-register capability is minted. `False` is the writer boot. Separately (PM10, panel C10), every step after a writer boot's mint — the worker build, the SEC-023 authority wrap and the handle's construction — now runs inside one guard that retires the writer and gives back its writer lease on failure; before, only the worker build did, and a raise in the other two stranded the writer in this process and its cross-process lease for the process's life.
-- Why: FW-2, whole-branch review I-1 (`D-IMPL-374`). Whitepaper §7.10 replay must be able to read a classification decision beside the live writer. PM10: a corrected retry must boot. Red tests: `tests/replay/test_fw2_read_only_replay.py`, `tests/graph/test_pm10_boot_strand.py`.
+- After: a keyword `read_only: bool = False`. `True` resolves and type-checks the pinned resolution spec, builds L2 over it (validating and auditing the policy-bundle pin as before), mints the classification authority through the same private mint path as the writer boot, and returns a handle whose reader is governed exactly like a writer boot's. It mints no boot token, so no writer exists, no writer lease is taken, no graph is marked live, and no invalidation-register capability is minted. It writes no graph content, but opening the store still runs the store's own open-time setup (schema creation; Fluree ledger creation), as at a writer boot (N-6). Because it takes no lease, it sets the connection's writer-lease setting (`writer_lease_lock_dir`) aside before validation: that setting is neither validated nor handed to the store (N-2, the scoped re-review), so an examiner on another host or under another account boots read-only with the deployment's settings unchanged. `False` is the writer boot. Separately (PM10, panel C10), every step after a writer boot's mint — the worker build, the SEC-023 authority wrap and the handle's construction — now runs inside one guard that retires the writer and gives back its writer lease on failure; before, only the worker build did, and a raise in the other two stranded the writer in this process and its cross-process lease for the process's life.
+- Why: FW-2, whole-branch review I-1 (`D-IMPL-374`). Whitepaper §7.10 replay must be able to read a classification decision beside the live writer. PM10: a corrected retry must boot. N-2: a read-only boot was refused for a lock directory only a writer uses. Red tests: `tests/replay/test_fw2_read_only_replay.py`, `tests/graph/test_pm10_boot_strand.py`, `tests/deployment/test_n2_read_only_boot_lease_settings.py`.
 - Migration: none for a writer boot. A process that only reads a graph a live writer holds (a replay tool, an audit export) passes `read_only=True`.
 
 *Recorded by `374-05-final-fix-wave.md`.*
@@ -25936,7 +25936,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a manifest deployment without a writer.
-- After: a keyword `read_only: bool = False`, handed to `ccf.boot.boot` unchanged. The registration loop runs either way, into the caller's registry.
+- After: a keyword `read_only: bool = False`, handed to `ccf.boot.boot` unchanged. The registration loop runs either way, into the caller's registry. With `True`, the connection preflight sets the writer-lease setting aside as the boot does, so it is neither validated nor used (N-2).
 - Why: FW-2. `ccf.replay.environment.RecordedEnvironment` takes a `BootedFabric`, which the deployment doors build. Without the keyword the replay road would boot a writer.
 - Migration: none.
 
@@ -25948,7 +25948,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a manifest deployment without a writer.
-- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_and_boot` re-exports).
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_and_boot` re-exports). With `True`, the writer-lease setting is neither validated nor used (N-2).
 - Why: FW-2.
 - Migration: none.
 
@@ -25960,7 +25960,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a single-file deployment without a writer.
-- After: a keyword `read_only: bool = False`, handed through the shared registration spine to `ccf.boot.boot`.
+- After: a keyword `read_only: bool = False`, handed through the shared registration spine to `ccf.boot.boot`. With `True`, the connection preflight sets the writer-lease setting aside as the boot does, so it is neither validated nor used (N-2).
 - Why: FW-2. This is the door the paved road's replay reopens a fabric through.
 - Migration: none. To replay beside a live writer, pass `read_only=True`.
 
@@ -25972,7 +25972,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a single-file deployment without a writer.
-- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_config_and_boot` re-exports).
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_config_and_boot` re-exports). With `True`, the writer-lease setting is neither validated nor used (N-2).
 - Why: FW-2.
 - Migration: none.
 
@@ -33288,7 +33288,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `tool()` and `resource()` took `action`, `subject`, `resource`, `mutating`. Nothing held a product roster.
-- After: `tool()` and `resource()` also require `products: ProductReach` (keyword-only, no default), from four new static readers. After the tenant floor and before the authorizer, a grant's declared roster is held to it, and a call off the roster is refused with `ProductOutsideRosterRefused`: no allow is recorded and nothing is minted. The grant handed to the authorizer now carries `products`. For a directory-resolved reach (`invoke_agent`), every outcome (unknown, not exposed, no derived classes, off-roster) gets one opaque refusal that names no agent and no class. The specific reason is logged at INFO on `ccf_runtime.mcp.tenancy` (fix round 2, I-NEW-1).
+- After: `tool()` and `resource()` also require `products: ProductReach` (keyword-only, no default), from four new static readers. After the tenant floor and before the authorizer, a grant's declared roster is held to it, and a call off the roster is refused with `ProductOutsideRosterRefused`: no allow is recorded and nothing is minted. The grant handed to the authorizer now carries `products`. For a directory-resolved reach (`invoke_agent`), every outcome (unknown, not exposed, no derived classes, off-roster) gets one opaque refusal that names no agent and no class. The specific reason is logged at INFO on `ccf_runtime.mcp.tenancy` (fix round 2, I-NEW-1). Disclosed, not changed (N-4): the wire is identical for every rostered outcome, but only an existing on-roster agent reaches the authorizer, so only that outcome appends audit events (`resolve` and an `authz_decision` deny) and it answers slightly slower; the asymmetry is server-side.
 - Why: SEC-017 fix round 1, IMPORTANTS 1 and 2.
 - Migration: a deployment registering its own surfaces on the guard adds `products=` to each: `door.products_unknown("<why>")` for a surface that knows no product class at the call.
 
@@ -33492,7 +33492,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: an `ErasedContentRefused` raised by the product resolver or by the `get_context`, `get_lineage` or `get_replay_record` seam crossed as the tool's or resource's error text, naming the erased address, at every level. A deployment directory's own exception on `invoke_agent`, raised before authorization while reading a rostered caller's reach, crossed as its text.
-- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log.
+- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log. An erasure raised by the deployment's agent invoker on `invoke_agent` is not mapped: it crosses as the exception's text at every level, naming no address but stating that an erasure occurred (N-3, the scoped re-review; disclosed in §4.10 of the security deployment page, because mapping it needs a product identity for an agent dispatch's determination that no ruling names).
 - Why: FW-3, probe X1; the SEC-017 carry "a deployment directory exception propagates unchanged".
 - Migration: none.
 
@@ -33600,9 +33600,9 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: the declared directory was resolved at each acquisition, through any symbolic link.
-- After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition re-checks that the directory is still its own real path. Ownership and mode are judged at config validation; a deployment constructing the lease directly keeps them itself.
-- Why: PC3.
-- Migration: construct it over the directory's real path.
+- After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition judges the whole of `require_private_lock_directory` again: its own real path, existing, a directory, owned by the effective user, and not group- or world-writable (N-5, the scoped re-review). A directory widened, swapped or reassigned after validation, and one a direct constructor never made private, is refused at acquisition with `ValueError`, before a lock file is opened in it. The directory's ancestors are judged for symbolic links only, never for owner or mode.
+- Why: PC3. N-5: an acquisition re-checked only the real path, so a directory changed to `0777` after validation, or swapped for another real `0777` directory, was acquired. Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`, `tests/graph/test_n5_lease_acquisition_rechecks.py`.
+- Migration: construct it over the directory's real path, owned by the user every writer runs as, mode `0700` or `0755`; keep every ancestor writable only by that user or root.
 
 *Recorded by `374-05-final-fix-wave.md`.*
 
