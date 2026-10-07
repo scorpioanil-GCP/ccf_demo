@@ -666,3 +666,80 @@ def test_r5_the_docs_no_longer_claim_what_was_measured_false() -> None:
         assert "cannot sign a new approval under the old one" not in text, page
     section = flat(PAGE).split("### 4.9", 1)[1].split(" ## ", 1)[0]  # up to the next level-2 heading
     assert "in-process adapter" in section
+
+
+# -- F. controls added with the fix: each isolates one check the severings sever ----
+
+
+def test_r3_a_verdict_judged_under_one_trust_never_serves_another(tmp_path: Path) -> None:
+    """The memo is keyed by the composed trust too: a record SUPPORTED under one door key is
+    re-judged — and refused — by a site that declares another, even over the same store,
+    index, Control Plane and (reference) verifier."""
+    plane = h.compose(tmp_path)
+    request = h.request(plane)
+    address = _plant(plane, request, approver=h.APPROVER, approver_keys=signing.key_dir(), policy_ref=_pin(plane))
+    assert _outcome(_consult(plane), address) == "supported"
+    elsewhere = _trust(_authority(plane, door_keys=signing.door_keys(signing.forger_door_key_dir())))
+    assert _outcome(_consult(plane, trust=elsewhere), address) == "unsupported(index-unsupported)"
+
+
+def test_r1_the_door_refuses_a_tenant_its_authority_is_not_for(tmp_path: Path) -> None:
+    """The door is its authority's tenant's: a request in any other tenant is refused before anything starts."""
+    plane = h.compose(tmp_path)
+    beta_key = f"{OTHER}/hitl/erasure-attestation-policy"
+    beta = _authority(plane, tenant=OTHER, hitl_key=beta_key)
+    transport = InMemoryHitlTransport(control_plane=plane.registry, hitl_policy_key=beta_key, identity_provider=signing.provider())
+    door = _door(plane, transport=transport, authority=beta)
+    request = h.request(plane)
+    with pytest.raises(h.door_module("ErasureRefused")) as refused:
+        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))
+    assert refused.value.reason_code == "tenant-mismatch"
+    assert not plane.transport.pending(tenant=h.TENANT) and not transport.pending(tenant=h.TENANT)
+
+
+class _TamperedPriorSignature:
+    """The plane's index, answering ``lookup`` with the stored entry's door signature replaced."""
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    def lookup(self, *, tenant_id: str, content_address: str) -> Any:
+        found = self._inner.lookup(tenant_id=tenant_id, content_address=content_address)
+        return None if found is None else found.model_copy(update={"door_signature": "not-the-doors-signature"})
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+@pytest.mark.parametrize("tampered", [False, True])
+def test_r2_a_retry_reuses_its_prior_door_signature_only_after_verifying_it(tmp_path: Path, tampered: bool) -> None:
+    """A completion that dies filing the record leaves door-signed entries; the retry reuses that
+    signature — and refuses ``retry-mismatch`` when the prior entry's signature does not verify."""
+    plane = h.compose(tmp_path)
+    request = h.request(plane)
+    first = _door(plane)
+    suspended = h.run(first.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))
+    resolution = h.approve(plane, h.pending(plane, suspended.event_key))
+    real_put = plane.store.put
+
+    def dying_put(authorized: Any, artifact: Any) -> Any:
+        if isinstance(artifact, DerivedWrite) and artifact.artifact_class == h.ERASURE_RECORD_CLASS:
+            raise OSError("process killed while filing the erasure record")
+        return real_put(authorized, artifact)
+
+    plane.store.put = dying_put  # type: ignore[method-assign]
+    with pytest.raises(OSError):
+        h.run(first.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request)))
+    plane.store.put = real_put  # type: ignore[method-assign]
+    entry = h.index_of(plane).lookup(tenant_id=h.TENANT, content_address=plane.document.content_address)
+    assert entry is not None and entry.door_key_id == signing.DOOR_KID
+    retry = _door(plane)
+    if tampered:
+        retry._index = _TamperedPriorSignature(retry._index)
+        with pytest.raises(h.door_module("ErasureRefused")) as refused:
+            h.run(retry.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request)))
+        assert refused.value.reason_code == "retry-mismatch"
+        return
+    record = h.run(retry.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request)))
+    assert content_hash(record) == entry.erasure_record_address
+    assert _outcome(_consult(plane), plane.document.content_address) == "supported"
