@@ -25,7 +25,11 @@ The ruled repair, held here surface by surface:
   ``ccf-runtime-failure:<id>`` and records nothing, and above it the recorded
   ``erased-content`` shell;
 * a deployment directory's own failure on ``invoke_agent``, before
-  authorization, is the existing opaque pre-authorization roster refusal.
+  authorization, is the existing opaque pre-authorization roster refusal;
+* an erasure the deployment's agent invoker raises on ``invoke_agent`` (N-3,
+  the scoped re-review) answers ``minimal`` with the same opaque failure and
+  records nothing. Above ``minimal`` it is not mapped: the exception's text
+  crosses, as it always has (§4.10 of the security deployment page).
 
 In-process, offline: the shipped servers over scratch stores.
 """
@@ -412,6 +416,96 @@ def test_a_directory_failure_on_invoke_agent_is_the_opaque_pre_authorization_ref
     # The log names the failure's type, never its text (SEC-024).
     assert "RuntimeError" in "\n".join(record.getMessage() for record in caplog.records)
     assert secret not in "\n".join(record.getMessage() for record in caplog.records)
+
+
+# --- invoke_agent: an erasure the deployment's agent invoker raises (N-3) ------
+
+INVOKE_ARGUMENTS = {
+    "tenant": TENANT, "definition_key": "agent-x", "definition_version": "1.0.0", "skill": "s", "arguments": {},
+}
+
+
+def _recorded(root: pathlib.Path) -> set[str]:
+    """The content addresses filed under ``root``: what the door's recorder wrote there."""
+    return {path.name for path in root.iterdir() if len(path.name) == 64}
+
+
+def _agent_door(
+    tmp_path: pathlib.Path, *, level: str | None, reached: list[str]
+) -> tuple[Any, pathlib.Path, set[str]]:
+    """The Experience door with ``invoke_agent`` alone, over an invoker that raises an erasure.
+
+    Returns the server, the root of the store its recorder files into, and what that
+    store held after one determination the door DOES record: the product resource's
+    typed absence. That read is the observer's positive control, so "nothing was
+    recorded" in a test is a measurement and not a lister that sees nothing whatever
+    happens.
+    """
+    from ccf_runtime.mcp.experience import (
+        ExperienceProductNotServable,
+        INVOKE_AGENT_TOOL,
+        build_experience_server,
+        experience_product_uri,
+    )
+
+    def invoker(**_: Any) -> Any:
+        reached.append("invoked")
+        raise _erased()
+
+    source, recorder = _recorder(tmp_path, level)
+    server = build_experience_server(
+        server_name="n3-experience",
+        product_resolver=_raising(ExperienceProductNotServable("absent")),
+        agent_invoker=invoker,
+        invoke_agent_description="n3",
+        tool_allowlist=frozenset({INVOKE_AGENT_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=authorizer_granting(),
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+    root = recorder.artifact_store.root
+    _read(server, experience_product_uri(tenant=TENANT, product_class=PRODUCT_CLASS, version=VERSION))
+    baseline = _recorded(root)
+    assert baseline, "the observer saw nothing of the determination this door recorded for a typed absence"
+    return server, root, baseline
+
+
+@pytest.mark.parametrize("level", [pytest.param(None, id="default-level"), pytest.param("minimal", id="pinned")])
+def test_invoke_agent_at_minimal_answers_an_invokers_erasure_opaquely_and_records_nothing(
+    level: str | None, tmp_path: pathlib.Path
+) -> None:
+    """N-3: at ``minimal`` the fact that content was erased does not cross the invoker seam."""
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL
+
+    reached: list[str] = []
+    server, root, baseline = _agent_door(tmp_path, level=level, reached=reached)
+    served, raised = _call(server, INVOKE_AGENT_TOOL, INVOKE_ARGUMENTS)
+    assert reached == ["invoked"], "the invoker was never reached, so no erasure was met at this seam"
+    assert served is None and raised is not None, served
+    _no_disclosure(str(raised))
+    assert OPAQUE.match(str(raised)), str(raised)
+    assert _recorded(root) == baseline, "invoke_agent recorded a determination for an erasure it answers opaquely"
+
+
+@pytest.mark.parametrize("level", ["reasoned", "full"])
+def test_invoke_agent_above_minimal_keeps_an_invokers_erasure_text_and_records_nothing(
+    level: str, tmp_path: pathlib.Path
+) -> None:
+    """The residual N-3 keeps above ``minimal`` (§4.10): the exception's text crosses, naming no address."""
+    from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL
+
+    reached: list[str] = []
+    server, root, baseline = _agent_door(tmp_path, level=level, reached=reached)
+    served, raised = _call(server, INVOKE_AGENT_TOOL, INVOKE_ARGUMENTS)
+    assert reached == ["invoked"], "the invoker was never reached, so no erasure was met at this seam"
+    assert served is None and raised is not None, served
+    assert str(_erased()) in str(raised), str(raised)
+    assert ADDRESS not in str(raised) and RECORD_ADDRESS not in str(raised), str(raised)
+    assert not OPAQUE.match(str(raised)), str(raised)
+    assert _recorded(root) == baseline, "invoke_agent recorded a determination the disclosed residual says it does not"
 
 
 def test_the_experience_door_states_the_egress_failure_token() -> None:
