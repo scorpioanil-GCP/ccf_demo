@@ -174,3 +174,62 @@ def test_an_erasure_through_the_mcp_backed_reference_store_is_verified_and_admit
     assert getattr(suspended, "event_key", None), suspended
     names = client.names_at(content_address=plane.document.content_address)
     assert {(n.tenant_id, n.artifact_class) for n in names} == {(h.TENANT, h.DOC_CLASS)}
+
+
+def test_an_artifact_server_without_the_names_resource_refuses_class_unverifiable(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fix round 2, (d): an older server that omits the names resource — the read
+    fails, which the client's session runner reports as McpServerUnreachable —
+    is refused by name, ``class-unverifiable``, never read as "no class"."""
+    from ccf.mcp.errors import McpServerUnreachable
+
+    plane = h.compose(tmp_path)
+    server = _server(tmp_path, plane.store)
+    session = _InProcessSession(server)
+
+    async def run_with_session(*, url: str, operation: Any, http_client_factory: Any) -> Any:
+        class _OlderServer:
+            async def read_resource(self, uri: Any) -> Any:
+                if str(uri).startswith("ccf-artifact-names://"):
+                    raise McpServerUnreachable("Unknown resource")
+                return await session.read_resource(uri)
+
+        return await operation(_OlderServer())
+
+    monkeypatch.setattr(mcp_store_module, "run_with_session", run_with_session)
+    client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=_Run(), write_kinds=h.write_kinds())  # type: ignore[arg-type]
+    door = h.door_module("ErasureDoor")(
+        engine=plane.engine,
+        factory=h.WorkflowFactory(control_plane=plane.registry),
+        control_plane=plane.registry,
+        transport=plane.transport,
+        store=client,
+        clock=plane.clock,
+        index=h.index_of(plane),
+    )
+    request = h.request(plane)
+    with pytest.raises(h.door_module("ErasureRefused")) as refused:
+        h.run(door.request(h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)))
+    assert refused.value.reason_code == "class-unverifiable"
+
+
+def test_the_names_resource_requires_the_entitlement_a_governed_read_requires(tmp_path: pathlib.Path) -> None:
+    """Fix round 2, N4: naming a GOVERNED artifact (a class the substrate declares
+    under ReplayMint) takes the same governed dereference the blob read takes,
+    minus bytes. A holder of bare ``artifact.read`` without the record's
+    entitlement learns no governed class or name."""
+    from ccf.artifacts.protocol import DerivedWrite
+    from tests.http_api.composition_authority import composition_replay_mint, deployment_store
+    from tests.mcp.guarded_servers import REPLAY_RECORD_CLASS
+
+    store = deployment_store(tmp_path / "governed", REPLAY_RECORD_CLASS)
+    server = _server(tmp_path, store)
+    pin = store.put(
+        composition_replay_mint(ControlPlaneRegistry(), tenant=h.TENANT, artifact_class=REPLAY_RECORD_CLASS),
+        DerivedWrite(artifact_class=REPLAY_RECORD_CLASS, name="pin", artifact={"seeds": ["s"]}),
+    )
+    (answer,) = _read(server, _names_uri(pin.content_address))
+    text = answer.content if isinstance(answer.content, str) else answer.content.decode("utf-8")
+    assert REPLAY_RECORD_CLASS not in text, text
+    assert "pin" not in json.loads(text) if isinstance(json.loads(text), list) else True

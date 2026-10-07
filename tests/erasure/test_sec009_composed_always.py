@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.resolver import ServedProduct
 from ccf_runtime.cli.local import build_local_dependencies
@@ -58,3 +59,37 @@ def test_the_local_cli_dependencies_compose_the_consult(tmp_path: Path) -> None:
     composed.assert_consults(deps.artifact_store, deps.erasure_index, name="deps")
     assert deps.workflow_engine is not None
     composed.assert_consults(deps.workflow_engine.artifact_store, deps.erasure_index, name="engine")
+
+
+def test_open_product_refuses_a_raw_supplied_store_that_comes_without_its_index(tmp_path: Path) -> None:
+    """Fix round 2, N1: a supplied store is consulted against ITS OWN index. A
+    raw store supplied with no index would be consulted against an unrelated,
+    empty one derived from scratch — refused by name instead."""
+    root = pr._write_tree(tmp_path)
+    with pr._open(root, tmp_path / "first") as first:
+        kinds = first.artifact_store.write_kinds
+    raw = FileArtifactStore(root=tmp_path / "elsewhere", write_kinds=kinds)
+    with pytest.raises(h.erasure("ErasureIndexUnavailable")):
+        pr._open(root, tmp_path / "scratch", artifact_store=raw)
+
+
+def test_open_product_accepts_a_supplied_store_with_its_index_by_path_identity(tmp_path: Path) -> None:
+    """Fix round 2, N1: a pre-composed store, or a raw one with ``erasure_index``,
+    is accepted when its index is the same index — compared by PATH and tenant
+    scope, never by object identity."""
+    root = pr._write_tree(tmp_path)
+    with pr._open(root, tmp_path / "first") as first:
+        kinds = first.artifact_store.write_kinds
+        tenant = first.tenant_id
+    raw = FileArtifactStore(root=tmp_path / "elsewhere", write_kinds=kinds)
+    index_path = tmp_path / "elsewhere" / ".erasure-index.jsonl"
+    precomposed = h.erasure("compose_erasure_consult")(
+        raw, index=h.erasure("FileErasureIndex")(index_path), audit_log=ControlPlaneRegistry().audit_log,
+        clock=h.fabric_clock, tenant_id=tenant,
+    )
+    with pr._open(root, tmp_path / "scratch-a", artifact_store=precomposed) as opened:
+        assert opened.erasure_index.path == index_path
+    with pr._open(
+        root, tmp_path / "scratch-b", artifact_store=raw, erasure_index=h.erasure("FileErasureIndex")(index_path)
+    ) as opened:
+        assert opened.erasure_index.path == index_path
