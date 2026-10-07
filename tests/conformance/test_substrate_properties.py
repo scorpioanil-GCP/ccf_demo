@@ -106,6 +106,7 @@ from ccf.operators.registry import OperatorRegistry
 from ccf.signal.envelope import SourceIdentity
 
 from tests.properties.strategies import (
+    AUTHORITY,
     BOUNDARY,
     CLASSIFICATION_ATTRIBUTE,
     CONTROL,
@@ -170,7 +171,12 @@ def _frozen(
     entities: Sequence[EntityRecord],
     relationships: Sequence[RelationshipRecord],
 ) -> GraphView:
-    """Freeze an answer for canonical-bytes comparison (GQ-22 ordering)."""
+    """Freeze an answer for canonical-bytes comparison (GQ-22 ordering).
+
+    Stamped with the harness's classification authority (SEC-023,
+    ``D-IMPL-374``): the stamp is outside the canonical bytes compared here,
+    and a Policy operator refuses an unstamped view.
+    """
     return GraphView(
         tenant_id=TENANT,
         as_of=BOUNDARY,
@@ -178,7 +184,7 @@ def _frozen(
         relationships=tuple(
             sorted(relationships, key=lambda r: r.relationship_key)
         ),
-    )
+    ).with_classification_authority(AUTHORITY)
 
 
 def _survives(record: EntityRecord | RelationshipRecord) -> bool:

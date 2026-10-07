@@ -516,8 +516,14 @@ def boot(
         shutdown()
         raise
 
+    # SEC-023 (`D-IMPL-374` ruling (3) (a)): the reader a booted fabric hands
+    # out stamps every view with the authority its L2 enforces, and refuses a
+    # classification query that authority does not cover. Imported here so the
+    # module's line anchors other records cite stay where they were.
+    from ccf.graph.governed_reader import governed_reader
+
     return FabricHandle(
-        reader=store.reader,
+        reader=governed_reader(store.reader, spec.classification_authority()),
         worker=worker,
         registry=registry,
         # Reference names, never the fields they filled and never a value.

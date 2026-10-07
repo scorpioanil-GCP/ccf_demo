@@ -43,6 +43,7 @@ from ccf.operators.planner import CATEGORY_ORDER, build_operator_plan, compose
 from ccf.projection.engine import ProjectionEngine
 
 from .strategies import (
+    AUTHORITY,
     BOUNDARY,
     TENANT,
     CuratedGraph,
@@ -119,7 +120,7 @@ class FixedViewReader:
             relationships=tuple(
                 sorted(relationships, key=lambda record: record.relationship_key)
             ),
-        )
+        ).with_classification_authority(AUTHORITY)
 
     @property
     def attestation(self) -> SourceAttestation:

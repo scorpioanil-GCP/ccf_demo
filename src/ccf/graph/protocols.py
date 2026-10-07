@@ -55,7 +55,7 @@ from datetime import datetime
 from types import TracebackType
 from typing import Final, Literal, Protocol, runtime_checkable
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
@@ -66,6 +66,9 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "NO_STORE_SNAPSHOT_PIN",
+    "ClassificationAuthority",
+    "ClassificationAuthorityMissing",
+    "UngovernedClassificationAttribute",
     "TEMPORAL_AXES",
     "WRITER_LEASE_SCOPES",
     "EntityRecord",
@@ -86,6 +89,7 @@ __all__ = [
     "TraversalDirection",
     "TraversalSpec",
     "UpsertResult",
+    "require_classification_authority",
     "WriterLease",
     "WriterLeaseHeld",
     "WriterLeaseScope",
@@ -217,6 +221,140 @@ class RelationshipRecord(CCFContract):
     superseded_at: datetime | None = None
 
 
+class UngovernedClassificationAttribute(ValueError):
+    """A classification consumer names an attribute no source authority governs.
+
+    SEC-023 (``D-IMPL-372``, ruling Q15 (a); ``D-IMPL-374`` ruling (3) (a):
+    enforce at the construction of the consumer). Whitepaper §7.4 (the Policy
+    operator admits on the attribute a Control Plane document names) and §7.3
+    (L2 is the only writer, so the only place an assertion can be refused).
+
+    Raised when a classification map — ``entity_class -> attribute`` on a
+    ``PolicyFilterParametersArtifact``, a :class:`PolicyFilter
+    <ccf.operators.categories.PolicyFilter>`'s parameters, or a
+    :class:`GraphQuery` — names an attribute the resolution spec in force
+    writes from the source payload (``attribute_keys``) with no
+    ``attribute_authorities`` declaration. Without the declaration ANY source
+    relabels the attribute that decides access merely by speaking later
+    (``src/ccf/graph/_writer.py::BaseGraphWriter._restitch_chain``). There is
+    no default to fall back on: the deployment names the sources, or the
+    consumer is not built.
+
+    Raised from two places: at boot by ``load_and_boot`` / ``load_config_and_boot``
+    (the early, artifact-time refusal, ``operator_key`` the manifest key) and
+    by :meth:`ClassificationAuthority.require` wherever a consumer is built
+    into a registry or used (``operator_key`` names that consumer). A class no
+    rule writes the attribute for is not refused — nothing source-asserts it,
+    and the Policy operator admits such an entity to nobody.
+
+    Attributes:
+        operator_key: The manifest key or consumer that names the map.
+        entity_class: The class whose classification attribute is ungoverned.
+        attribute: The attribute.
+    """
+
+    def __init__(self, *, operator_key: str, entity_class: str, attribute: str) -> None:
+        self.operator_key, self.entity_class, self.attribute = (
+            operator_key, entity_class, attribute
+        )
+        super().__init__(
+            f"UngovernedClassificationAttribute: policy parameters {operator_key!r}"
+            f" admit {entity_class!r} on attribute {attribute!r}, which the"
+            " resolution spec in force writes from the source payload with no"
+            " attribute_authorities declaration; any source could relabel it."
+            f" Declare attribute_authorities: {{{attribute}: [<system id>, ...]}}"
+            f" on every {entity_class!r} rule that carries it (SEC-023)"
+        )
+
+
+class ClassificationAuthorityMissing(ValueError):
+    """A classification consumer met graph state that carries no authority.
+
+    SEC-023 (``D-IMPL-374`` ruling (3) (a) and its ruling (2): a view with no
+    authority stamp that meets a classification consumer is refused by name,
+    fail closed). A :class:`GraphView` produced by a booted fabric's reader
+    (``ccf.boot.boot``) carries the :class:`ClassificationAuthority` of the
+    resolution spec that fabric enforces at L2. A view built by hand, or read
+    from a store reader no boot composed, carries none — and a classification
+    map applied over it would admit on a label nobody can say who asserted.
+
+    Attributes:
+        consumer: The consumer that refused — a manifest key, an operator key,
+            or ``GraphQuery``.
+    """
+
+    def __init__(self, *, consumer: str) -> None:
+        self.consumer = consumer
+        super().__init__(
+            f"ClassificationAuthorityMissing: {consumer!r} admits on a"
+            " classification map, and the graph view it was given carries no"
+            " classification authority — it was not read through a booted"
+            " fabric's reader, so nothing says which sources may assert the"
+            " attributes it admits on. Read the view through"
+            " FabricHandle.reader, or stamp it with the authority of the"
+            " resolution spec in force"
+            " (GraphView.with_classification_authority) (SEC-023)"
+        )
+
+
+class ClassificationAuthority(CCFContract):
+    """Which sources may assert each source-written attribute — the spec's authority.
+
+    SEC-023 (``D-IMPL-374`` ruling (3) (a)); whitepaper §7.3 (L2 is the only
+    writer) and §7.4 (the Policy operator). Derived from one
+    :class:`~ccf.assembly.worker.EntityResolutionSpec` by
+    :meth:`~ccf.assembly.worker.EntityResolutionSpec.classification_authority`,
+    and carried on every :class:`GraphView` a booted fabric's reader returns,
+    so a classification consumer built or used over that view can check that
+    the attributes it admits on are governed by the authority L2 enforces.
+
+    Attributes:
+        governed: Entity class -> governed attribute -> authorized
+            ``SourceIdentity.system_id`` values (the spec's
+            ``attribute_authorities``).
+        written: Entity class -> every attribute a rule of that class writes
+            from the source payload (the spec's ``attribute_keys``).
+    """
+
+    governed: Mapping[str, Mapping[str, frozenset[str]]]
+    written: Mapping[str, frozenset[str]]
+
+    def require(self, by_class: Mapping[str, str], *, consumer: str) -> None:
+        """Refuse ``by_class`` unless every source-written attribute it names is governed.
+
+        Raises:
+            UngovernedClassificationAttribute: a class's attribute is written
+                from the payload with no authority declaration. Checked in
+                sorted order, so the refusal names the same pair every time.
+        """
+        for entity_class, attribute in sorted(by_class.items()):
+            if attribute not in self.written.get(entity_class, frozenset()):
+                continue
+            if attribute not in self.governed.get(entity_class, {}):
+                raise UngovernedClassificationAttribute(
+                    operator_key=consumer, entity_class=entity_class, attribute=attribute
+                )
+
+
+def require_classification_authority(
+    view: "GraphView", by_class: Mapping[str, str] | None, *, consumer: str
+) -> None:
+    """The one check every classification consumer runs against its view (SEC-023).
+
+    ``D-IMPL-374`` ruling (3) (a). A ``None`` map is no classification
+    consumer and passes. Otherwise the view must carry an authority
+    (:class:`ClassificationAuthorityMissing` when it does not — fail closed,
+    ruling (2)) and that authority must govern every source-written attribute
+    the map names (:class:`UngovernedClassificationAttribute`).
+    """
+    if by_class is None:
+        return
+    authority = view.classification_authority
+    if authority is None:
+        raise ClassificationAuthorityMissing(consumer=consumer)
+    authority.require(by_class, consumer=consumer)
+
+
 class GraphView(CCFContract):
     """An immutable as-of view of one tenant's graph state.
 
@@ -237,6 +375,41 @@ class GraphView(CCFContract):
     as_of: datetime
     entities: tuple[EntityRecord, ...] = ()
     relationships: tuple[RelationshipRecord, ...] = ()
+
+    # SEC-023 (`D-IMPL-374` ruling (3) (a); coordinator ruling (1)): the
+    # authority of the resolution spec the fabric that read this view enforces
+    # at L2. A PRIVATE attribute, not a field, so it is outside the canonical
+    # form entirely — a view's content hash, and every record built from one,
+    # is the same stamped or not — and outside equality (`__eq__` below).
+    _classification_authority: ClassificationAuthority | None = PrivateAttr(default=None)
+
+    @property
+    def classification_authority(self) -> ClassificationAuthority | None:
+        """The authority this view was read under, or ``None`` for a hand-built view.
+
+        SEC-023 (``D-IMPL-374``). Set by a booted fabric's reader
+        (``ccf.boot.boot``); a classification consumer refuses a view without
+        one (:func:`require_classification_authority`).
+        """
+        return self._classification_authority
+
+    def with_classification_authority(self, authority: ClassificationAuthority) -> "GraphView":
+        """This view, carrying ``authority`` — the same records, the same hash.
+
+        SEC-023 (``D-IMPL-374``). A copy: the view is frozen, and the stamp is
+        not content. A composition root that reads a store directly stamps its
+        views with ``spec.classification_authority()`` of the spec its L2
+        enforces; stamping with any other authority is a false declaration.
+        """
+        stamped = self.model_copy()
+        stamped._classification_authority = authority
+        return stamped
+
+    def __eq__(self, other: object) -> bool:
+        """Equal by content: the authority stamp is provenance, not state (SEC-023)."""
+        if not isinstance(other, BaseModel):
+            return NotImplemented
+        return type(self) is type(other) and self.__dict__ == other.__dict__
 
 
 class UpsertResult(CCFContract):

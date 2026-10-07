@@ -258,3 +258,83 @@ def test_a_view_carrying_no_authority_refuses_every_classification_consumer() ->
             policy_bundle_key=POLICY_KEY,
         )
     assert type(built.value).__name__ == "ClassificationAuthorityMissing"
+
+
+# --- the stamp is not content: record identity is unchanged (coordinator ruling (1)) ---
+
+
+def _unstamped(view: GraphView) -> GraphView:
+    """The view as the base tree produced it: the same records, no authority."""
+    return GraphView(
+        tenant_id=view.tenant_id,
+        as_of=view.as_of,
+        entities=view.entities,
+        relationships=view.relationships,
+    )
+
+
+def test_the_authority_stamp_leaves_every_record_identity_unchanged() -> None:
+    """A record built from a stamped view hashes as one built from an unstamped view.
+
+    ``D-IMPL-374`` ruling (3) (a) puts the authority ON the view; the
+    coordinator's ruling (1) requires it to be hash-transparent, proven by
+    record identity — which is also why no replay record changes and no panel
+    is owed. Measured three ways over the property harness's curated graph:
+    the view itself; the engine's whole :class:`ExecutionResult` (state
+    watermark, steps, provenance, executed queries, projection) for a plan the
+    unstamped base-tree view can still run; and, for a plan whose Policy
+    operator now refuses an unstamped view, the stamped result against its own
+    unstamped rebuild.
+    """
+    from ccf.contracts.canonical import canonical_bytes, content_hash
+    from ccf.projection.engine import ExecutionResult, ProjectionEngine
+    from tests.properties.strategies import (
+        AUTHORITY,
+        BOUNDARY,
+        TENANT as HARNESS_TENANT,
+        curated_edge_graphs,
+        harness_perspective,
+        shipped_operators,
+        slice_projection_plan,
+    )
+    from tests.properties.test_staged_vs_direct import FixedViewReader
+
+    class UnstampedReader(FixedViewReader):
+        def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
+            return _unstamped(super().as_of(tenant_id=tenant_id, at=at))
+
+        def query(self, q: GraphQuery) -> GraphView:
+            return _unstamped(super().query(q))
+
+    view = next(case.view for case in curated_edge_graphs() if case.view.entities)
+    assert view.classification_authority == AUTHORITY
+    bare = _unstamped(view)
+    assert bare.classification_authority is None
+    assert view == bare
+    assert canonical_bytes(view) == canonical_bytes(bare)
+    assert content_hash(view) == content_hash(bare)
+
+    registry = shipped_operators()
+
+    def run(reader: FixedViewReader, keys: tuple[str, ...]) -> ExecutionResult:
+        return ProjectionEngine(reader=reader, registry=registry).execute(
+            plan=slice_projection_plan(keys),
+            perspective=harness_perspective(),
+            tenant_id=HARNESS_TENANT,
+            temporal_boundary=BOUNDARY,
+        )
+
+    no_policy = ("temporal.as-of-boundary", "traversal.typed-neighborhood")
+    stamped = run(FixedViewReader(view), no_policy)
+    base_tree = run(UnstampedReader(view), no_policy)
+    assert stamped.view.classification_authority == AUTHORITY
+    assert base_tree.view.classification_authority is None
+    assert content_hash(stamped) == content_hash(base_tree)
+    assert stamped.state_watermark() == base_tree.state_watermark()
+
+    with_policy = ("policy.principal-subgraph", *no_policy)
+    governed = run(FixedViewReader(view), with_policy)
+    rebuilt = governed.model_copy(update={"view": _unstamped(governed.view)})
+    assert rebuilt.view.classification_authority is None
+    assert content_hash(governed) == content_hash(rebuilt)
+    assert governed.state_watermark() == rebuilt.state_watermark()

@@ -53,7 +53,7 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.artifact_base import VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph.protocols import GraphWriter, UpsertResult
+from ccf.graph.protocols import ClassificationAuthority, GraphWriter, UpsertResult
 from ccf.peering.admission import AdmittedProduct, verify_admission_provenance
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -350,6 +350,25 @@ class EntityResolutionSpec(VersionedArtifact):
             for attribute, sources in rule.attribute_authorities.items():
                 governed.setdefault(rule.entity_class, {})[attribute] = frozenset(sources)
         return governed
+
+    def classification_authority(self) -> ClassificationAuthority:
+        """The authority this spec enforces at L2, as a classification consumer reads it.
+
+        SEC-023 (``D-IMPL-374`` ruling (3) (a): enforce at the construction of
+        the consumer). ``ccf.boot.boot`` stamps it onto every
+        :class:`~ccf.graph.protocols.GraphView` the booted fabric's reader
+        returns, so a ``PolicyFilter`` built into a registry or applied, and a
+        ``GraphQuery`` answered, refuse a classification map naming an
+        attribute this spec writes from the payload without declaring who may
+        assert it (:meth:`~ccf.graph.protocols.ClassificationAuthority.require`).
+        """
+        written: dict[str, set[str]] = {}
+        for rule in self.entity_rules:
+            written.setdefault(rule.entity_class, set()).update(rule.attribute_keys)
+        return ClassificationAuthority(
+            governed=self.governed_attributes(),
+            written={cls: frozenset(attrs) for cls, attrs in written.items()},
+        )
 
 
 class FederatedIngestSpec(CCFContract):
@@ -1023,6 +1042,13 @@ class AssemblyWorker:
         non-authoritative source refuse every serve whose acquisition touched
         it (``src/ccf/products/resolver.py::SDK_SEAM_REFUSALS``).
 
+        **An omission is audited and admitted** (SEC-023-C-01, ``D-IMPL-374``
+        ruling (3)): an entity from a source outside a governed attribute's
+        set that does NOT carry the attribute is written — its claim
+        supersedes the attribute dict and so blanks the label — and each such
+        attribute is appended as ``governed_attribute_omitted``
+        (``resolved=True``, ``refused_value_present=False``).
+
         A strategy that exposes no :class:`EntityResolutionSpec` declares no
         authorities, so nothing is governed — the ``_relationship_rules``
         posture.
@@ -1042,6 +1068,29 @@ class AssemblyWorker:
                 if attribute in item.attributes and source not in sources
             )
             if not unauthorized:
+                # SEC-023-C-01 (`D-IMPL-374` ruling (3); audit AND admit): a
+                # claim supersedes the whole attribute dict, so a source not
+                # authorized for a governed attribute that OMITS it blanks the
+                # label. Admitted — an omission asserts no value, and a refusal
+                # would be a lever over every serve — but never silent.
+                for attribute in sorted(
+                    attribute
+                    for attribute, sources in authorities.items()
+                    if attribute not in item.attributes and source not in sources
+                ):
+                    self._registry.audit_log.append(
+                        action="governed_attribute_omitted",
+                        key=item.entity_uri,
+                        version=self._policy_bundle_version,
+                        resolved=True,
+                        occurred_at=envelope.ingestion_timestamp,
+                        artifact_class=_RESOLUTION_SPEC_CLASS_ID,
+                        refused_entity_class=item.entity_class,
+                        refused_attribute=attribute,
+                        refused_source_system_id=source,
+                        refused_envelope_id=envelope.envelope_id,
+                        refused_value_present=False,
+                    )
                 admitted.append(item)
                 continue
             for attribute in unauthorized:

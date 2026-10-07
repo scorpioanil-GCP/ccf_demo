@@ -283,14 +283,26 @@ def test_a_governed_attribute_with_no_authorized_source_is_fail_closed(
 def test_an_undeclared_attribute_stays_source_asserted(
     boot_fabric: Callable[[EntityResolutionSpec], tuple["FabricHandle", str, ControlPlaneRegistry]],
 ) -> None:
-    """Optional declaration: an attribute the rule does not govern behaves as before."""
+    """Optional declaration: at L2 an attribute the rule does not govern behaves as before.
+
+    The write side is unchanged: B's later claim lands and nothing is refused.
+    What changed under ``D-IMPL-374`` ruling (3) (a) is the READ side: a
+    Policy operator admitting on that source-asserted attribute is a
+    classification consumer without covering authority and refuses to run,
+    so the relabel no longer reaches a principal.
+    """
+    from ccf.graph.protocols import UngovernedClassificationAttribute
+
     handle, policy_version, registry = boot_fabric(_spec(None))
     handle.worker.ingest(_envelope("env-a", AUTHORITATIVE, T1, "restricted"))
     second = handle.worker.ingest(_envelope("env-b", UNAUTHORIZED, T2, "public"))
     assert len(second.entities) == 1
     assert second.refused_assertions == ()
     assert _refusals(registry) == []
-    assert _served(handle, policy_version, "public") == 1
+    view = handle.reader.query(GraphQuery(tenant_id=TENANT, as_of=AS_OF))
+    assert view.entities[0].claim.attributes["classification"] == "public"
+    with pytest.raises(UngovernedClassificationAttribute):
+        _served(handle, policy_version, "public")
 
 
 def test_a_refused_entity_mints_no_relationship(
