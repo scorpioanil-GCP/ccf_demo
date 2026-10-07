@@ -22,6 +22,8 @@ standing rule; INV-CH7-10).
 
 from __future__ import annotations
 
+from tests.classification_authority import stamp
+
 import functools
 from datetime import datetime
 
@@ -111,7 +113,7 @@ class FixedViewReader:
         entities, relationships = answer(
             self._view.entities, self._view.relationships, query=q
         )
-        return GraphView(
+        return stamp(GraphView(
             tenant_id=q.tenant_id,
             as_of=q.as_of,
             entities=tuple(
@@ -120,7 +122,7 @@ class FixedViewReader:
             relationships=tuple(
                 sorted(relationships, key=lambda record: record.relationship_key)
             ),
-        ).with_classification_authority(AUTHORITY)
+        ), AUTHORITY)
 
     @property
     def attestation(self) -> SourceAttestation:

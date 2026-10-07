@@ -53,7 +53,7 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, content_hash
 from ccf.contracts.claims import EntityClaim, LineageEntry, RelationshipClaim
 from ccf.controlplane.artifact_base import VersionedArtifact
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.graph.protocols import ClassificationAuthority, GraphWriter, UpsertResult
+from ccf.graph.protocols import GraphWriter, UpsertResult
 from ccf.peering.admission import AdmittedProduct, verify_admission_provenance
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
@@ -350,25 +350,6 @@ class EntityResolutionSpec(VersionedArtifact):
             for attribute, sources in rule.attribute_authorities.items():
                 governed.setdefault(rule.entity_class, {})[attribute] = frozenset(sources)
         return governed
-
-    def classification_authority(self) -> ClassificationAuthority:
-        """The authority this spec enforces at L2, as a classification consumer reads it.
-
-        SEC-023 (``D-IMPL-374`` ruling (3) (a): enforce at the construction of
-        the consumer). ``ccf.boot.boot`` stamps it onto every
-        :class:`~ccf.graph.protocols.GraphView` the booted fabric's reader
-        returns, so a ``PolicyFilter`` built into a registry or applied, and a
-        ``GraphQuery`` answered, refuse a classification map naming an
-        attribute this spec writes from the payload without declaring who may
-        assert it (:meth:`~ccf.graph.protocols.ClassificationAuthority.require`).
-        """
-        written: dict[str, set[str]] = {}
-        for rule in self.entity_rules:
-            written.setdefault(rule.entity_class, set()).update(rule.attribute_keys)
-        return ClassificationAuthority(
-            governed=self.governed_attributes(),
-            written={cls: frozenset(attrs) for cls, attrs in written.items()},
-        )
 
 
 class FederatedIngestSpec(CCFContract):
@@ -1045,9 +1026,13 @@ class AssemblyWorker:
         **An omission is audited and admitted** (SEC-023-C-01, ``D-IMPL-374``
         ruling (3)): an entity from a source outside a governed attribute's
         set that does NOT carry the attribute is written — its claim
-        supersedes the attribute dict and so blanks the label — and each such
-        attribute is appended as ``governed_attribute_omitted``
-        (``resolved=True``, ``refused_value_present=False``).
+        supersedes the attribute dict, so it blanks the label if one was
+        present — and each such attribute is appended as
+        ``governed_attribute_omitted`` (``resolved=True``,
+        ``refused_value_present=False``). The event records the omission, not
+        a measured blanking: it fires on every such ingest, including a first
+        observation where there was no label to blank, so its volume scales
+        with non-authoritative ingest of a governed class.
 
         A strategy that exposes no :class:`EntityResolutionSpec` declares no
         authorities, so nothing is governed — the ``_relationship_rules``
@@ -1070,8 +1055,8 @@ class AssemblyWorker:
             if not unauthorized:
                 # SEC-023-C-01 (`D-IMPL-374` ruling (3); audit AND admit): a
                 # claim supersedes the whole attribute dict, so a source not
-                # authorized for a governed attribute that OMITS it blanks the
-                # label. Admitted — an omission asserts no value, and a refusal
+                # authorized for a governed attribute that OMITS it blanks any
+                # label present (recorded whether or not one was). Admitted — an omission asserts no value, and a refusal
                 # would be a lever over every serve — but never silent.
                 for attribute in sorted(
                     attribute

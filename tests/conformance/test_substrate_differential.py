@@ -57,6 +57,8 @@ Two disciplines inherited from ``tests/conformance/test_graphstore.py``:
 
 from __future__ import annotations
 
+from tests.classification_authority import stamp
+
 from collections.abc import Callable, Sequence
 from datetime import timedelta
 from pathlib import Path
@@ -302,9 +304,9 @@ def substrate_fabric(
     """One booted fabric per backend param — or the mounted tier-2 source."""
     if request.param == "product":
         return MountedProductHandle(
-            handle=fabric_boot(backend="memory"), work_dir=tmp_path / "tier2"
+            handle=fabric_boot(backend="memory", governed_classification=AUTHORITY.governed), work_dir=tmp_path / "tier2"
         )
-    return fabric_boot(backend=str(request.param))
+    return fabric_boot(backend=str(request.param), governed_classification=AUTHORITY.governed)
 
 
 def _frozen_at(
@@ -373,7 +375,7 @@ def test_every_backend_answers_byte_identical_to_the_fallback(
     identity, never raw-row comparison — and a second asking answers the
     identical bytes.
     """
-    handle = fabric_boot(backend=backend_name)
+    handle = fabric_boot(backend=backend_name, governed_classification=AUTHORITY.governed)
     _write_case(handle, case)
     for q in build_queries(
         case, policy_bundle_version=handle.worker.policy_bundle_version
@@ -411,7 +413,7 @@ def test_every_backend_answers_byte_identical_to_the_fallback_under_admission(
     25 admission cases byte-identical to the fallback, whether it honors
     the field natively, in Python, or declines it (`GQ-32`, D-04).
     """
-    handle = fabric_boot(backend=backend_name)
+    handle = fabric_boot(backend=backend_name, governed_classification=AUTHORITY.governed)
     _write_case(handle, case)
     for q in build_queries(
         case, policy_bundle_version=handle.worker.policy_bundle_version
@@ -451,7 +453,7 @@ def test_every_backend_answers_byte_identical_to_the_fallback_under_direction(
     pushdown that walked undirected under ``"forward"`` diverges on the
     chain's target, which the oracle never reaches.
     """
-    handle = fabric_boot(backend=backend_name)
+    handle = fabric_boot(backend=backend_name, governed_classification=AUTHORITY.governed)
     _write_case(handle, case)
     for q in build_queries(
         case, policy_bundle_version=handle.worker.policy_bundle_version
@@ -489,7 +491,7 @@ def test_the_mounted_product_answers_byte_identical_to_the_fallback(
     fact: a mounted product answers exactly what the substrate it was
     carried from answers.
     """
-    handle = fabric_boot(backend="memory")
+    handle = fabric_boot(backend="memory", governed_classification=AUTHORITY.governed)
     entity_uris: set[str] = set()
     relationship_keys: set[str] = set()
     for claim in case.entities:
@@ -510,7 +512,7 @@ def test_the_mounted_product_answers_byte_identical_to_the_fallback(
     for q in build_queries(
         case, policy_bundle_version=handle.worker.policy_bundle_version
     ):
-        declared = q.with_classification_authority(AUTHORITY)
+        declared = stamp(q, AUTHORITY)
         answered = source.query(declared)
         expected = _expected(handle, q)
         assert canonical_bytes(answered) == canonical_bytes(expected), (
@@ -645,7 +647,7 @@ def test_hop_admissibility_holds_directly_on_each_reader(
             tenant_id=TENANT, claim=edge
         )
 
-    q = GraphQuery(
+    q = stamp(GraphQuery(
         tenant_id=TENANT,
         as_of=ON_BOUNDARY,
         traverse=CHAIN_TRAVERSE,
@@ -654,7 +656,7 @@ def test_hop_admissibility_holds_directly_on_each_reader(
         ),
         classification_attribute_by_class=dict(CLASSIFICATION_ATTRIBUTE),
         permitted_classifications=frozenset(PERMITTED_CLASSIFICATIONS),
-    ).with_classification_authority(AUTHORITY)
+    ), AUTHORITY)
     answered = {
         record.claim.entity_uri
         for record in substrate_fabric.reader.query(q).entities
@@ -806,7 +808,7 @@ def test_repeat_query_answers_are_deterministic_on_each_reader(
             tenant_id=TENANT, claim=edge
         )
     seed_uri, mid_uri, target_uri = chain_uris()
-    q = GraphQuery(
+    q = stamp(GraphQuery(
         tenant_id=TENANT,
         as_of=ON_BOUNDARY,
         require_valid_at_boundary=True,
@@ -817,7 +819,7 @@ def test_repeat_query_answers_are_deterministic_on_each_reader(
         ),
         classification_attribute_by_class=dict(CLASSIFICATION_ATTRIBUTE),
         permitted_classifications=frozenset(PERMITTED_CLASSIFICATIONS),
-    ).with_classification_authority(AUTHORITY)
+    ), AUTHORITY)
     first = substrate_fabric.reader.query(q)
     second = substrate_fabric.reader.query(q)
     assert canonical_bytes(first) == canonical_bytes(second)

@@ -73,6 +73,8 @@ type is written in this file.
 
 from __future__ import annotations
 
+from tests.classification_authority import stamp
+
 from collections.abc import Sequence
 
 import pytest
@@ -177,14 +179,14 @@ def _frozen(
     ``D-IMPL-374``): the stamp is outside the canonical bytes compared here,
     and a Policy operator refuses an unstamped view.
     """
-    return GraphView(
+    return stamp(GraphView(
         tenant_id=TENANT,
         as_of=BOUNDARY,
         entities=tuple(sorted(entities, key=lambda r: r.claim.entity_uri)),
         relationships=tuple(
             sorted(relationships, key=lambda r: r.relationship_key)
         ),
-    ).with_classification_authority(AUTHORITY)
+    ), AUTHORITY)
 
 
 def _survives(record: EntityRecord | RelationshipRecord) -> bool:

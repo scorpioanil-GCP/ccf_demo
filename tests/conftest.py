@@ -405,15 +405,24 @@ def fabric_boot(
         database_path: Path | None = None,
         backend: str = "sqlite",
         tenant_ids: tuple[str, ...] = FIXTURE_TENANTS,
+        governed_classification: Any = None,
     ) -> "FabricHandle":
         counter["n"] += 1
         registry = ControlPlaneRegistry()
+        # SEC-023 (D-IMPL-374 fix round 1, I-1 (a)): a fabric whose tests ask
+        # classification questions declares the attributes its spec governs;
+        # an authority covers nothing it does not govern.
+        spec = _resolution_spec()
+        if governed_classification is not None:
+            from tests.classification_authority import spec_governing
+
+            spec = spec_governing(spec, governed_classification)
         # This factory IS the test suite's composition root (D-IMPL-354): the
         # two artifacts the fabric resolves at boot are registered under a
         # `Register` capability minted by the recipe in `tests/composition.py`,
         # one per key, each audited on this registry's own log.
         spec_version = register_at_composition(
-            registry, RESOLUTION_SPEC_KEY, _resolution_spec()
+            registry, RESOLUTION_SPEC_KEY, spec
         )
         policy_version = register_at_composition(
             registry, POLICY_BUNDLE_KEY, _policy_bundle()

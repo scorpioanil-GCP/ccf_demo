@@ -52,10 +52,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from types import TracebackType
-from typing import Final, Literal, Protocol, runtime_checkable
+from types import MappingProxyType, TracebackType
+from typing import Any, Final, Literal, Protocol, runtime_checkable
 
-from pydantic import BaseModel, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
@@ -68,6 +68,7 @@ __all__ = [
     "NO_STORE_SNAPSHOT_PIN",
     "ClassificationAuthority",
     "ClassificationAuthorityMissing",
+    "ClassificationAuthorityNotMinted",
     "UngovernedClassificationAttribute",
     "TEMPORAL_AXES",
     "WRITER_LEASE_SCOPES",
@@ -259,10 +260,13 @@ class UngovernedClassificationAttribute(ValueError):
             operator_key, entity_class, attribute
         )
         super().__init__(
-            f"UngovernedClassificationAttribute: policy parameters {operator_key!r}"
-            f" admit {entity_class!r} on attribute {attribute!r}, which the"
-            " resolution spec in force writes from the source payload with no"
-            " attribute_authorities declaration; any source could relabel it."
+            f"UngovernedClassificationAttribute: classification consumer"
+            f" {operator_key!r} admits {entity_class!r} on attribute"
+            f" {attribute!r}, which the resolution spec in force does not govern"
+            " — it writes it from the source payload with no"
+            " attribute_authorities declaration (any source could relabel it),"
+            " or it knows nothing about it (an authority covers only what it"
+            " governs)."
             f" Declare attribute_authorities: {{{attribute}: [<system id>, ...]}}"
             f" on every {entity_class!r} rule that carries it (SEC-023)"
         )
@@ -275,11 +279,11 @@ class ClassificationAuthorityMissing(ValueError):
     authority stamp that meets a classification consumer is refused by name,
     fail closed). Also raised by a store reader for a classification
     :class:`GraphQuery` that carries no authority
-    (:func:`require_query_classification_authority`). A :class:`GraphView` produced by a booted fabric's reader
-    (``ccf.boot.boot``) carries the :class:`ClassificationAuthority` of the
-    resolution spec that fabric enforces at L2. A view built by hand, or read
-    from a store reader no boot composed, carries none — and a classification
-    map applied over it would admit on a label nobody can say who asserted.
+    (:func:`require_query_classification_authority`). Only ``ccf.boot.boot``
+    mints an authority, and only its reader stamps one, so a view built by
+    hand, read from a store no boot composed, or mounted from a peer product
+    carries none — and a classification map applied over it would admit on a
+    label nobody can say who asserted.
 
     Attributes:
         consumer: The consumer that refused — a manifest key, an operator key,
@@ -290,53 +294,137 @@ class ClassificationAuthorityMissing(ValueError):
         self.consumer = consumer
         super().__init__(
             f"ClassificationAuthorityMissing: {consumer!r} admits on a"
-            " classification map, and the graph view it was given carries no"
+            " classification map, and the graph state it was given carries no"
             " classification authority — it was not read through a booted"
-            " fabric's reader, so nothing says which sources may assert the"
-            " attributes it admits on. Read the view through"
-            " FabricHandle.reader, or stamp it with the authority of the"
-            " resolution spec in force"
-            " (GraphView.with_classification_authority) (SEC-023)"
+            " fabric's reader (FabricHandle.reader), so nothing says which"
+            " sources may assert the attributes it admits on (SEC-023)"
         )
+
+
+class ClassificationAuthorityNotMinted(ValueError):
+    """A classification consumer met an authority ``ccf.boot.boot`` did not mint.
+
+    SEC-023 (``D-IMPL-374`` fix round 1, I-1 (b)). A
+    :class:`ClassificationAuthority` is minted only by the composition root,
+    from the resolution spec its L2 enforces, through a module-private mint key
+    (the ``BootToken`` pattern). One built by hand, or rebuilt by a
+    serialization round trip, declares something nobody minted — so it is
+    refused by name, whatever it says it governs.
+
+    Attributes:
+        consumer: The consumer that refused.
+    """
+
+    def __init__(self, *, consumer: str) -> None:
+        self.consumer = consumer
+        super().__init__(
+            f"ClassificationAuthorityNotMinted: {consumer!r} was given a"
+            " classification authority that ccf.boot.boot did not mint; only"
+            " the booted fabric's reader can vouch for which sources the"
+            " resolution spec in force authorizes (SEC-023)"
+        )
+
+
+#: SEC-023 (`D-IMPL-374` fix round 1, I-1 (b)): the module-private key without
+#: which a ClassificationAuthority is not minted — the `BootToken` / `_MINT_KEY`
+#: pattern (`src/ccf/graph/_writer.py::BootToken`). Referenced only here and by
+#: `_mint_classification_authority`, whose one caller is `ccf.boot.boot`
+#: (pinned by `tests/deployment/test_classification_authority_consumer.py`).
+_AUTHORITY_MINT_KEY: Final = object()
+
+
+def _frozen_authority_map(value: object) -> object:
+    """Coerce the authority's mappings to read-only views (M-3 of fix round 1)."""
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {key: _frozen_authority_map(item) for key, item in value.items()}
+        )
+    return value
 
 
 class ClassificationAuthority(CCFContract):
     """Which sources may assert each source-written attribute — the spec's authority.
 
-    SEC-023 (``D-IMPL-374`` ruling (3) (a)); whitepaper §7.3 (L2 is the only
-    writer) and §7.4 (the Policy operator). Derived from one
-    :class:`~ccf.assembly.worker.EntityResolutionSpec` by
-    :meth:`~ccf.assembly.worker.EntityResolutionSpec.classification_authority`,
-    and carried on every :class:`GraphView` a booted fabric's reader returns,
-    so a classification consumer built or used over that view can check that
-    the attributes it admits on are governed by the authority L2 enforces.
+    SEC-023 (``D-IMPL-374`` ruling (3) (a) and fix round 1, I-1); whitepaper
+    §7.3 (L2 is the only writer) and §7.4 (the Policy operator). **Minted only
+    by** ``ccf.boot.boot``, from the resolution spec its
+    :class:`~ccf.assembly.worker.AssemblyWorker` enforces, and carried on every
+    :class:`GraphView` (and checked :class:`GraphQuery`) the booted fabric's
+    reader returns. A consumer refuses one that was not minted
+    (:class:`ClassificationAuthorityNotMinted`): a value anyone can construct is
+    a declaration, and this one has to be an attestation of what L2 enforces.
 
     Attributes:
+        spec_address: Content address of the resolution spec it was minted
+            from.
         governed: Entity class -> governed attribute -> authorized
             ``SourceIdentity.system_id`` values (the spec's
-            ``attribute_authorities``).
+            ``attribute_authorities``). Read-only.
         written: Entity class -> every attribute a rule of that class writes
-            from the source payload (the spec's ``attribute_keys``).
+            from the source payload (the spec's ``attribute_keys``). Read-only.
     """
 
+    spec_address: str
     governed: Mapping[str, Mapping[str, frozenset[str]]]
     written: Mapping[str, frozenset[str]]
+    _mint: object = PrivateAttr(default=None)
+
+    @field_validator("governed", "written", mode="after")
+    @classmethod
+    def _read_only(cls, value: Any) -> Any:
+        return _frozen_authority_map(value)
+
+    @property
+    def minted(self) -> bool:
+        """Whether ``ccf.boot.boot`` minted this authority (SEC-023, ``D-IMPL-374``)."""
+        return self._mint is _AUTHORITY_MINT_KEY
 
     def require(self, by_class: Mapping[str, str], *, consumer: str) -> None:
-        """Refuse ``by_class`` unless every source-written attribute it names is governed.
+        """Refuse ``by_class`` unless this authority governs every attribute it names.
+
+        An attribute the spec writes with no authority declaration is refused,
+        and so is one the spec neither writes nor governs: an authority that
+        knows nothing about an attribute covers nothing (fix round 1, I-1 (a)).
+        Checked in sorted order, so the refusal names the same pair every time.
 
         Raises:
-            UngovernedClassificationAttribute: a class's attribute is written
-                from the payload with no authority declaration. Checked in
-                sorted order, so the refusal names the same pair every time.
+            UngovernedClassificationAttribute: an attribute is not governed.
         """
         for entity_class, attribute in sorted(by_class.items()):
-            if attribute not in self.written.get(entity_class, frozenset()):
+            if attribute in self.governed.get(entity_class, {}):
                 continue
-            if attribute not in self.governed.get(entity_class, {}):
-                raise UngovernedClassificationAttribute(
-                    operator_key=consumer, entity_class=entity_class, attribute=attribute
-                )
+            raise UngovernedClassificationAttribute(
+                operator_key=consumer, entity_class=entity_class, attribute=attribute
+            )
+
+
+def _mint_classification_authority(
+    *,
+    spec_address: str,
+    governed: Mapping[str, Mapping[str, frozenset[str]]],
+    written: Mapping[str, frozenset[str]],
+) -> ClassificationAuthority:
+    """Mint the authority of one resolution spec — the composition root's only.
+
+    SEC-023 (``D-IMPL-374`` fix round 1, I-1 (b)). Module-private by name;
+    its one caller is ``ccf.boot.boot``, which passes the spec its L2 worker
+    enforces. Not a supported surface.
+    """
+    authority = ClassificationAuthority(
+        spec_address=spec_address, governed=governed, written=written
+    )
+    authority._mint = _AUTHORITY_MINT_KEY
+    return authority
+
+
+def _require_minted(
+    authority: ClassificationAuthority | None, *, consumer: str
+) -> ClassificationAuthority:
+    if authority is None:
+        raise ClassificationAuthorityMissing(consumer=consumer)
+    if not authority.minted:
+        raise ClassificationAuthorityNotMinted(consumer=consumer)
+    return authority
 
 
 def require_classification_authority(
@@ -346,16 +434,16 @@ def require_classification_authority(
 
     ``D-IMPL-374`` ruling (3) (a). A ``None`` map is no classification
     consumer and passes. Otherwise the view must carry an authority
-    (:class:`ClassificationAuthorityMissing` when it does not — fail closed,
-    ruling (2)) and that authority must govern every source-written attribute
-    the map names (:class:`UngovernedClassificationAttribute`).
+    (:class:`ClassificationAuthorityMissing` — fail closed, ruling (2)) that
+    ``ccf.boot.boot`` minted (:class:`ClassificationAuthorityNotMinted`) and
+    that governs every attribute the map names
+    (:class:`UngovernedClassificationAttribute`).
     """
     if by_class is None:
         return
-    authority = view.classification_authority
-    if authority is None:
-        raise ClassificationAuthorityMissing(consumer=consumer)
-    authority.require(by_class, consumer=consumer)
+    _require_minted(view.classification_authority, consumer=consumer).require(
+        by_class, consumer=consumer
+    )
 
 
 def require_query_classification_authority(q: "GraphQuery") -> None:
@@ -363,22 +451,23 @@ def require_query_classification_authority(q: "GraphQuery") -> None:
 
     ``D-IMPL-374``; coordinator ruling (1) on the fifth path, under ruling (2).
     A query with no classification map passes. One with a map must carry the
-    authority a booted fabric's reader checked it against
-    (:class:`ClassificationAuthorityMissing` when it does not — a store opened
-    without ``ccf.boot.boot``, or a mounted peer product, has no authority to
-    offer, so it fails closed), and that authority must cover the map
+    minted authority a booted fabric's reader checked it against —
+    :class:`ClassificationAuthorityMissing` when it carries none (a store
+    opened without ``ccf.boot.boot``, or a mounted peer product, has none to
+    offer), :class:`ClassificationAuthorityNotMinted` for a hand-built one —
+    and that authority must cover the map
     (:class:`UngovernedClassificationAttribute`). Called by
     ``BaseGraphReader.query``, ``MemoryGraphReader.query``,
     ``FlureeGraphReader.query_pinned`` and ``ProductSource.query`` before any
-    substrate I/O.
+    substrate I/O. An out-of-tree reader that does not subclass
+    ``BaseGraphReader`` must call it itself; nothing enforces that it does.
     """
     by_class = q.classification_attribute_by_class
     if by_class is None:
         return
-    authority = q.classification_authority
-    if authority is None:
-        raise ClassificationAuthorityMissing(consumer="GraphQuery")
-    authority.require(by_class, consumer="GraphQuery")
+    _require_minted(q.classification_authority, consumer="GraphQuery").require(
+        by_class, consumer="GraphQuery"
+    )
 
 
 class GraphView(CCFContract):
@@ -419,13 +508,14 @@ class GraphView(CCFContract):
         """
         return self._classification_authority
 
-    def with_classification_authority(self, authority: ClassificationAuthority) -> "GraphView":
+    def _with_classification_authority(self, authority: ClassificationAuthority) -> "GraphView":
         """This view, carrying ``authority`` — the same records, the same hash.
 
-        SEC-023 (``D-IMPL-374``). A copy: the view is frozen, and the stamp is
-        not content. A composition root that reads a store directly stamps its
-        views with ``spec.classification_authority()`` of the spec its L2
-        enforces; stamping with any other authority is a false declaration.
+        SEC-023 (``D-IMPL-374``; fix round 1, I-1 (b): private). A copy: the
+        view is frozen, and the stamp is not content. Called by the booted
+        fabric's reader (``ccf.graph.governed_reader``) and by the shipped
+        operators carrying their input view's stamp forward; not a supported
+        surface. A consumer refuses a stamp ``ccf.boot.boot`` did not mint.
         """
         stamped = self.model_copy()
         stamped._classification_authority = authority
@@ -653,15 +743,15 @@ class GraphQuery(CCFContract):
         """The authority this query was checked against, or ``None`` (SEC-023, ``D-IMPL-374``)."""
         return self._classification_authority
 
-    def with_classification_authority(self, authority: ClassificationAuthority) -> "GraphQuery":
+    def _with_classification_authority(self, authority: ClassificationAuthority) -> "GraphQuery":
         """This query, carrying ``authority`` — the same question, the same hash.
 
-        SEC-023 (``D-IMPL-374``). Set by the booted fabric's reader
-        (``ccf.graph.governed_reader``) after it has checked the classification
-        map; a composition root that queries a store directly stamps with
-        ``spec.classification_authority()`` of the spec its L2 enforces, and a
-        store reader refuses a classification query that carries none
-        (:func:`require_query_classification_authority`).
+        SEC-023 (``D-IMPL-374``; fix round 1, I-1 (b): private). Set by the
+        booted fabric's reader (``ccf.graph.governed_reader``) after it has
+        checked the classification map; a store reader refuses a
+        classification query that carries no minted authority
+        (:func:`require_query_classification_authority`). Not a supported
+        surface.
         """
         stamped = self.model_copy()
         stamped._classification_authority = authority

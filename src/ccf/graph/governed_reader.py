@@ -22,6 +22,7 @@ from typing import Any
 
 from ccf.graph.protocols import (
     ClassificationAuthority,
+    ClassificationAuthorityNotMinted,
     EntityRecord,
     GraphQuery,
     GraphReader,
@@ -57,11 +58,15 @@ class _ClassificationGovernedReader:
     """
 
     def __init__(self, inner: GraphReader, authority: ClassificationAuthority) -> None:
+        if not authority.minted:
+            # Fix round 1, I-1 (b): a reader wrapped with a hand-built authority
+            # would stamp views every consumer refuses; refuse it here, early.
+            raise ClassificationAuthorityNotMinted(consumer="governed_reader")
         self._inner = inner
         self._authority = authority
 
     def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
-        return self._inner.as_of(tenant_id=tenant_id, at=at).with_classification_authority(
+        return self._inner.as_of(tenant_id=tenant_id, at=at)._with_classification_authority(
             self._authority
         )
 
@@ -73,8 +78,8 @@ class _ClassificationGovernedReader:
             # Checked: hand the store the stamped question, which is what lets
             # a store reader refuse every classification query that did not
             # come through here (the fifth path).
-            q = q.with_classification_authority(self._authority)
-        return self._inner.query(q).with_classification_authority(self._authority)
+            q = q._with_classification_authority(self._authority)
+        return self._inner.query(q)._with_classification_authority(self._authority)
 
     @property
     def attestation(self) -> SourceAttestation:
@@ -119,9 +124,9 @@ class _PinnableClassificationGovernedReader(_ClassificationGovernedReader):
     def query_pinned(self, q: GraphQuery, *, pin: StoreSnapshotPin) -> GraphView:
         if q.classification_attribute_by_class is not None:
             self._authority.require(q.classification_attribute_by_class, consumer="GraphQuery")
-            q = q.with_classification_authority(self._authority)
+            q = q._with_classification_authority(self._authority)
         view: GraphView = self._inner.query_pinned(q, pin=pin)
-        return view.with_classification_authority(self._authority)
+        return view._with_classification_authority(self._authority)
 
 
 def governed_reader(
@@ -130,9 +135,10 @@ def governed_reader(
     """Wrap ``inner`` so every view it returns carries ``authority``.
 
     SEC-023 (``D-IMPL-374`` ruling (3) (a)). Called once, by
-    :func:`ccf.boot.boot`, with the store's reader and
-    ``spec.classification_authority()`` of the resolution spec the fabric's
-    :class:`~ccf.assembly.worker.AssemblyWorker` enforces. The result is
+    :func:`ccf.boot.boot`, with the store's reader and the authority boot
+    minted from the resolution spec the fabric's
+    :class:`~ccf.assembly.worker.AssemblyWorker` enforces; an authority boot
+    did not mint is refused (:class:`~ccf.graph.protocols.ClassificationAuthorityNotMinted`). The result is
     :class:`~ccf.graph.protocols.SnapshotPinnable` exactly when ``inner`` is.
     A ``GraphQuery`` (or a pinned query) carrying a classification map is
     refused with :class:`~ccf.graph.protocols.UngovernedClassificationAttribute`

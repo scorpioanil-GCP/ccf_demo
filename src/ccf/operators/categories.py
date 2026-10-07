@@ -106,7 +106,7 @@ def _substitute(
     authority = view.classification_authority
     if authority is None:
         return substituted
-    return substituted.with_classification_authority(authority)
+    return substituted._with_classification_authority(authority)
 
 
 

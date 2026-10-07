@@ -393,21 +393,38 @@ def _unstamped(view: GraphView) -> GraphView:
     )
 
 
+#: Captured on the BASE tree e5206048 (before SEC-023's consumer-time
+#: enforcement existed, so its views carried no stamp and its PolicyFilter
+#: checked nothing) by running exactly the executions below over the property
+#: harness's curated `policy-filtered` graph: content_hash(ExecutionResult) and
+#: state_watermark(). Fix round 1, M-1: the stamped run at head must reproduce
+#: the base tree's own records, not merely an unstamped copy of itself.
+_BASE_TREE_RECORDS = {
+    ("temporal.as-of-boundary", "traversal.typed-neighborhood"): (
+        "5ab13353a48c5b1698988d1db71b252f983ada5aa2eb8518de8c24a89322550b",
+        "46b1de6bfd052456471a553bf20e7f9222f6646a6cfdaf418ec4d80838b8df44",
+    ),
+    ("policy.principal-subgraph", "temporal.as-of-boundary", "traversal.typed-neighborhood"): (
+        "ce389cea044b221824b5366d4e3ea347d0b098c5bb7465e715ccd5380f20726d",
+        "fa0ec5b151db5354c4f20ffbb90a5d81f02147f00b41e01ff1c04bb67039c86b",
+    ),
+}
+
+
 def test_the_authority_stamp_leaves_every_record_identity_unchanged() -> None:
-    """A record built from a stamped view hashes as one built from an unstamped view.
+    """A record built from a stamped view is the record the base tree built.
 
     ``D-IMPL-374`` ruling (3) (a) puts the authority ON the view; the
     coordinator's ruling (1) requires it to be hash-transparent, proven by
     record identity — which is also why no replay record changes and no panel
-    is owed. Measured three ways over the property harness's curated graph:
-    the view itself; the engine's whole :class:`ExecutionResult` (state
-    watermark, steps, provenance, executed queries, projection) for a plan the
-    unstamped base-tree view can still run; and, for a plan whose Policy
-    operator now refuses an unstamped view, the stamped result against its own
-    unstamped rebuild.
+    is owed. Two checks: the view's own hash and bytes, stamped vs not; and
+    the engine's whole :class:`ExecutionResult` (state watermark, steps,
+    provenance, executed queries, projection), for a plan without and with the
+    Policy operator, against the content addresses the BASE tree produced for
+    the same execution (``_BASE_TREE_RECORDS``).
     """
     from ccf.contracts.canonical import canonical_bytes, content_hash
-    from ccf.projection.engine import ExecutionResult, ProjectionEngine
+    from ccf.projection.engine import ProjectionEngine
     from tests.properties.strategies import (
         AUTHORITY,
         BOUNDARY,
@@ -419,14 +436,9 @@ def test_the_authority_stamp_leaves_every_record_identity_unchanged() -> None:
     )
     from tests.properties.test_staged_vs_direct import FixedViewReader
 
-    class UnstampedReader(FixedViewReader):
-        def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
-            return _unstamped(super().as_of(tenant_id=tenant_id, at=at))
-
-        def query(self, q: GraphQuery) -> GraphView:
-            return _unstamped(super().query(q))
-
-    view = next(case.view for case in curated_edge_graphs() if case.view.entities)
+    case = next(case for case in curated_edge_graphs() if case.view.entities)
+    assert case.name == "policy-filtered"
+    view = case.view
     assert view.classification_authority == AUTHORITY
     bare = _unstamped(view)
     assert bare.classification_authority is None
@@ -434,27 +446,100 @@ def test_the_authority_stamp_leaves_every_record_identity_unchanged() -> None:
     assert canonical_bytes(view) == canonical_bytes(bare)
     assert content_hash(view) == content_hash(bare)
 
-    registry = shipped_operators()
-
-    def run(reader: FixedViewReader, keys: tuple[str, ...]) -> ExecutionResult:
-        return ProjectionEngine(reader=reader, registry=registry).execute(
+    for keys, (base_hash, base_watermark) in _BASE_TREE_RECORDS.items():
+        result = ProjectionEngine(reader=FixedViewReader(view), registry=shipped_operators()).execute(
             plan=slice_projection_plan(keys),
             perspective=harness_perspective(),
             tenant_id=HARNESS_TENANT,
             temporal_boundary=BOUNDARY,
         )
+        assert result.view.classification_authority == AUTHORITY
+        assert content_hash(result) == base_hash, keys
+        assert result.state_watermark() == base_watermark, keys
 
-    no_policy = ("temporal.as-of-boundary", "traversal.typed-neighborhood")
-    stamped = run(FixedViewReader(view), no_policy)
-    base_tree = run(UnstampedReader(view), no_policy)
-    assert stamped.view.classification_authority == AUTHORITY
-    assert base_tree.view.classification_authority is None
-    assert content_hash(stamped) == content_hash(base_tree)
-    assert stamped.state_watermark() == base_tree.state_watermark()
 
-    with_policy = ("policy.principal-subgraph", *no_policy)
-    governed = run(FixedViewReader(view), with_policy)
-    rebuilt = governed.model_copy(update={"view": _unstamped(governed.view)})
-    assert rebuilt.view.classification_authority is None
-    assert content_hash(governed) == content_hash(rebuilt)
-    assert governed.state_watermark() == rebuilt.state_watermark()
+def test_only_the_composition_root_mints_a_classification_authority() -> None:
+    """I-1 (b): the mint key and the mint function are referenced nowhere else.
+
+    The `BootToken` pattern: the key is module-private to
+    ``ccf.graph.protocols`` and the one caller of the mint is ``ccf.boot``.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    referencing = sorted(
+        str(path.relative_to(root))
+        for tree in ("src", "runtime")
+        for path in (root / tree).rglob("*.py")
+        if "_mint_classification_authority" in path.read_text(encoding="utf-8")
+        or "_AUTHORITY_MINT_KEY" in path.read_text(encoding="utf-8")
+    )
+    assert referencing == ["src/ccf/boot.py", "src/ccf/graph/protocols.py"]
+
+
+def test_a_booted_authority_is_read_only_and_names_its_spec(
+    boot_fabric: Callable[[bool], Booted],
+) -> None:
+    """M-3: one authority stamps every view, so it must not be mutable through them."""
+    from ccf.contracts.canonical import content_hash
+
+    handle, _version = boot_fabric(True)
+    authority = handle.reader.as_of(tenant_id=TENANT, at=AS_OF).classification_authority
+    assert authority is not None and authority.minted
+    assert authority.spec_address == content_hash(_spec(governed=True))
+    with pytest.raises(TypeError):
+        authority.written["counterparty"] = frozenset()  # type: ignore[index]
+    with pytest.raises(TypeError):
+        authority.governed["counterparty"]["classification"] = frozenset()  # type: ignore[index]
+
+
+def test_the_pinnable_governed_reader_checks_and_stamps_a_pinned_query() -> None:
+    """M-6: the pinnable wrapper's ``query_pinned`` refuses an uncovered map and stamps."""
+    from ccf.graph.governed_reader import governed_reader
+    from ccf.graph.protocols import SnapshotPinnable, StoreSnapshotPin
+    from tests.properties.strategies import AUTHORITY
+
+    seen: list[GraphQuery] = []
+
+    class _PinnableStandIn:
+        def as_of(self, *, tenant_id: str, at: datetime) -> GraphView:
+            return GraphView(tenant_id=tenant_id, as_of=at)
+
+        def query(self, q: GraphQuery) -> GraphView:
+            return GraphView(tenant_id=q.tenant_id, as_of=q.as_of)
+
+        @property
+        def attestation(self) -> Any:
+            return None
+
+        def entity_history(self, *, tenant_id: str, entity_uri: str) -> tuple[Any, ...]:
+            return ()
+
+        def relationship_history(self, *, tenant_id: str, relationship_key: str) -> tuple[Any, ...]:
+            return ()
+
+        def snapshot_pin(self) -> StoreSnapshotPin:
+            return StoreSnapshotPin(substrate="stand-in", pin="1")
+
+        def query_pinned(self, q: GraphQuery, *, pin: StoreSnapshotPin) -> GraphView:
+            seen.append(q)
+            return GraphView(tenant_id=q.tenant_id, as_of=q.as_of)
+
+    reader: Any = governed_reader(_PinnableStandIn(), AUTHORITY)  # type: ignore[arg-type]
+    assert isinstance(reader, SnapshotPinnable)
+    pin = reader.snapshot_pin()
+    with pytest.raises(UngovernedClassificationAttribute):
+        reader.query_pinned(_query("v1"), pin=pin)
+    assert seen == [], "the refusal must precede the substrate"
+    from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE
+
+    covered = GraphQuery(
+        tenant_id=TENANT,
+        as_of=AS_OF,
+        permitted_policy_bundle_versions=frozenset({"v1"}),
+        classification_attribute_by_class=dict(CLASSIFICATION_ATTRIBUTE),
+        permitted_classifications=frozenset({"public"}),
+    )
+    view = reader.query_pinned(covered, pin=pin)
+    assert view.classification_authority == AUTHORITY
+    assert seen[0].classification_authority == AUTHORITY
