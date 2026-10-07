@@ -31,7 +31,8 @@ stating what each part is doing:
   ``D-IMPL-374``). ``boot(..., read_only=True)`` opens the reader and mints the
   classification authority from the pinned resolution spec through the same
   private mint path as the writer boot, but never mints a boot token, so it
-  takes no writer lease and marks no graph live. Its worker's writer refuses
+  takes no writer lease and marks no graph live. It neither validates nor
+  uses the connection's writer-lease setting (N-2). Its worker's writer refuses
   every write by name (:class:`ReadOnlyFabricRefused`). It exists so replay —
   whitepaper §7.10 — can read a classification decision beside the live
   writer of a persistent store, in another process.
@@ -75,6 +76,7 @@ from ccf.graph.protocols import (
     WriterLeaseScope,
 )
 from ccf.controlplane.invalidation import ControlPlaneInvalidationSink, register_key
+from ccf.graph.leases import _without_lock_directory_setting
 from ccf.graph.registry import (
     AdapterPin,
     BackendStore,
@@ -518,6 +520,12 @@ def boot(
             gets, unchanged. Whether a WRITER boot takes a lease stays the
             store's declaration, never the caller's (SEC-013): this flag does
             not skip a lease, it declines the writer the lease exists for.
+            Because it takes none, a read-only boot sets the connection's
+            writer-lease setting (``writer_lease_lock_dir``) aside before
+            validation, so that setting is neither validated nor handed to
+            the store (N-2, ``D-IMPL-374``): an examiner on another host or
+            under another account boots read-only with the deployment's
+            settings unchanged.
 
     Raises:
         ValueError: ``tenant_ids`` is empty, repeats a tenant, or carries a
@@ -525,7 +533,8 @@ def boot(
         ccf.graph.registry.UnknownBackend: no installed adapter registers
             ``backend``.
         ccf.graph.registry.InvalidBackendConfig: ``connection`` does not
-            satisfy the resolved adapter's contract.
+            satisfy the resolved adapter's contract (for a read-only boot,
+            once its writer-lease setting is set aside).
         ValueError: ``secrets`` names a field the resolved adapter does not
             declare as a credential field; or a supplied credential is keyed by
             a field its own record does not name; or discovery found a
@@ -559,7 +568,12 @@ def boot(
     composed = _composed_tenants(tenant_ids)
     record = resolve(backend)
     registration = record.registration
-    config = validate_connection(registration, connection or {})
+    settings: Mapping[str, object] = connection or {}
+    if read_only:
+        # N-2 (`D-IMPL-374`): a read-only boot takes no writer lease, so the
+        # setting that declares one is neither validated nor handed to the store.
+        settings = _without_lock_directory_setting(registration.config_model, settings)
+    config = validate_connection(registration, settings)
     resolved_secrets = dict(secrets or {})
     _refuse_undeclared_secrets(
         registration.name, registration.secret_fields, resolved_secrets

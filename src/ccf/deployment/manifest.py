@@ -110,6 +110,7 @@ from ccf.deployment.pins import ArtifactPin, ResolvedPins
 # SEC-023 (`D-IMPL-374`): the refusal now lives beside the view the
 # consumer-time check reads; re-exported here under its batch-5 name.
 from ccf.graph.protocols import UngovernedClassificationAttribute
+from ccf.graph.leases import _without_lock_directory_setting
 from ccf.graph.registry import (
     ResolvedBackend,
     ResolvedSecret,
@@ -277,8 +278,14 @@ def _document_inside_the_deployment(root: Path, entry: ManifestEntry) -> Path:
 def _preflight_adapter(
     manifest: DeploymentManifest,
     connection: Mapping[str, object],
+    *,
+    read_only: bool = False,
 ) -> ResolvedBackend:
     """Refuse an adapter declaration this deployment cannot satisfy (D-08).
+
+    ``read_only`` validates what a read-only boot validates (N-2;
+    ``D-IMPL-374``): the connection without the writer-lease setting, because
+    a read-only boot takes no writer lease (``ccf.boot.boot``).
 
     **This runs before any artifact is parsed and before anything is
     registered**, and that ordering is the whole point — it is why this is a
@@ -347,7 +354,12 @@ def _preflight_adapter(
     # rendering because it is shorter. That rendering reproduces the value that
     # was supplied, and on this path one of those values is a credential. Do
     # not build a refusal here; call this.
-    validate_connection(record.registration, connection)
+    validate_connection(
+        record.registration,
+        _without_lock_directory_setting(record.registration.config_model, connection)
+        if read_only
+        else connection,
+    )
     _refuse_undeclared_secret_fields(manifest, record)
     return record
 
@@ -960,7 +972,9 @@ def load_and_boot(
             ``ccf.boot.boot(..., read_only=True)`` (FW-2, whole-branch review
             I-1; ``D-IMPL-374``): a governed reader, no writer and no writer
             lease — the fabric Decision Replay reads through beside a live
-            writer. ``False`` (the default) is the writer boot, unchanged.
+            writer. The preflight and the boot both set the connection's
+            writer-lease setting aside, so it is neither validated nor used
+            (N-2). ``False`` (the default) is the writer boot, unchanged.
 
     Raises:
         ccf.graph.registry.UnknownBackend: the manifest names an adapter no
@@ -1016,7 +1030,7 @@ def load_and_boot(
     resolved_tenant = _resolve_tenant(manifest, tenant_id)
     root = manifest_file.parent
     document_paths = _preflight_entries(manifest, root)
-    adapter = _preflight_adapter(manifest, connection or {})
+    adapter = _preflight_adapter(manifest, connection or {}, read_only=read_only)
     # After the preflight, deliberately: a reference the adapter cannot use is
     # refused above, without the environment ever being read, so the only
     # variables read here are ones the declared adapter actually accepts. Still

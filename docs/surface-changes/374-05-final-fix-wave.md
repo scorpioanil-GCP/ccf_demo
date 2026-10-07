@@ -49,8 +49,8 @@ module docstring counts five required handles and six optional ones.
 - Public surface: true
 - Change type: reshaped
 - Before: every boot minted a boot token, so every boot built a writer and took the store's writer lease. Beside a live writer on a persistent store the boot was refused with `SingleWriterViolation`.
-- After: a keyword `read_only: bool = False`. `True` resolves and type-checks the pinned resolution spec, builds L2 over it (validating and auditing the policy-bundle pin as before), mints the classification authority through the same private mint path as the writer boot, and returns a handle whose reader is governed exactly like a writer boot's. It mints no boot token, so no writer exists, no writer lease is taken, no graph is marked live, and no invalidation-register capability is minted. `False` is the writer boot. Separately (PM10, panel C10), every step after a writer boot's mint — the worker build, the SEC-023 authority wrap and the handle's construction — now runs inside one guard that retires the writer and gives back its writer lease on failure; before, only the worker build did, and a raise in the other two stranded the writer in this process and its cross-process lease for the process's life.
-- Why: FW-2, whole-branch review I-1 (`D-IMPL-374`). Whitepaper §7.10 replay must be able to read a classification decision beside the live writer. PM10: a corrected retry must boot. Red tests: `tests/replay/test_fw2_read_only_replay.py`, `tests/graph/test_pm10_boot_strand.py`.
+- After: a keyword `read_only: bool = False`. `True` resolves and type-checks the pinned resolution spec, builds L2 over it (validating and auditing the policy-bundle pin as before), mints the classification authority through the same private mint path as the writer boot, and returns a handle whose reader is governed exactly like a writer boot's. It mints no boot token, so no writer exists, no writer lease is taken, no graph is marked live, and no invalidation-register capability is minted. Because it takes no lease, it sets the connection's writer-lease setting (`writer_lease_lock_dir`) aside before validation: that setting is neither validated nor handed to the store (N-2, the scoped re-review), so an examiner on another host or under another account boots read-only with the deployment's settings unchanged. `False` is the writer boot. Separately (PM10, panel C10), every step after a writer boot's mint — the worker build, the SEC-023 authority wrap and the handle's construction — now runs inside one guard that retires the writer and gives back its writer lease on failure; before, only the worker build did, and a raise in the other two stranded the writer in this process and its cross-process lease for the process's life.
+- Why: FW-2, whole-branch review I-1 (`D-IMPL-374`). Whitepaper §7.10 replay must be able to read a classification decision beside the live writer. PM10: a corrected retry must boot. N-2: a read-only boot was refused for a lock directory only a writer uses. Red tests: `tests/replay/test_fw2_read_only_replay.py`, `tests/graph/test_pm10_boot_strand.py`, `tests/deployment/test_n2_read_only_boot_lease_settings.py`.
 - Migration: none for a writer boot. A process that only reads a graph a live writer holds (a replay tool, an audit export) passes `read_only=True`.
 
 ## ccf.boot.ReadOnlyFabricRefused
@@ -99,7 +99,7 @@ module docstring counts five required handles and six optional ones.
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a manifest deployment without a writer.
-- After: a keyword `read_only: bool = False`, handed to `ccf.boot.boot` unchanged. The registration loop runs either way, into the caller's registry.
+- After: a keyword `read_only: bool = False`, handed to `ccf.boot.boot` unchanged. The registration loop runs either way, into the caller's registry. With `True`, the connection preflight sets the writer-lease setting aside as the boot does, so it is neither validated nor used (N-2).
 - Why: FW-2. `ccf.replay.environment.RecordedEnvironment` takes a `BootedFabric`, which the deployment doors build. Without the keyword the replay road would boot a writer.
 - Migration: none.
 
@@ -109,7 +109,7 @@ module docstring counts five required handles and six optional ones.
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a manifest deployment without a writer.
-- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_and_boot` re-exports).
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_and_boot` re-exports). With `True`, the writer-lease setting is neither validated nor used (N-2).
 - Why: FW-2.
 - Migration: none.
 
@@ -119,7 +119,7 @@ module docstring counts five required handles and six optional ones.
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a single-file deployment without a writer.
-- After: a keyword `read_only: bool = False`, handed through the shared registration spine to `ccf.boot.boot`.
+- After: a keyword `read_only: bool = False`, handed through the shared registration spine to `ccf.boot.boot`. With `True`, the connection preflight sets the writer-lease setting aside as the boot does, so it is neither validated nor used (N-2).
 - Why: FW-2. This is the door the paved road's replay reopens a fabric through.
 - Migration: none. To replay beside a live writer, pass `read_only=True`.
 
@@ -129,7 +129,7 @@ module docstring counts five required handles and six optional ones.
 - Public surface: true
 - Change type: reshaped
 - Before: no way to boot a single-file deployment without a writer.
-- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_config_and_boot` re-exports).
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_config_and_boot` re-exports). With `True`, the writer-lease setting is neither validated nor used (N-2).
 - Why: FW-2.
 - Migration: none.
 

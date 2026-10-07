@@ -481,7 +481,10 @@ graph a live writer serves this way, an examiner's replay first of all
 (`ccf.replay.environment.RecordedEnvironment` reads through such a fabric, see
 §4.7). The handle reports `lease_scope` as `read-only`, its worker refuses
 every write with `ReadOnlyFabricRefused`, and its `close` closes only the
-store. A read-only boot is not coordinated with the writer: it reads what the
+store. Because it takes no lease, a read-only boot sets `writer_lease_lock_dir`
+aside before validation and never uses it (N-2, D-IMPL-374), so an examiner on
+another host or under another account declares the deployment's connection
+settings unchanged. A read-only boot is not coordinated with the writer: it reads what the
 store returns at each read. Replay reads the recorded snapshot boundary, which
 an append-only graph does not move.
 

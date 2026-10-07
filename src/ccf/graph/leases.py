@@ -49,11 +49,12 @@ import errno
 import hashlib
 import os
 import stat
+from collections.abc import Mapping
 from pathlib import Path
 from types import TracebackType
-from typing import Annotated
+from typing import Annotated, Final
 
-from pydantic import AfterValidator
+from pydantic import AfterValidator, BaseModel
 
 from ccf.graph.protocols import (
     WriterLease,
@@ -82,6 +83,33 @@ __all__ = [
 
 #: Appended to the identity digest to name a graph's lock file.
 LOCK_FILE_SUFFIX = ".lock"
+
+#: The connection setting a deployment declares this module's lease by: the
+#: field every network adapter's connection contract types as
+#: :data:`AbsoluteLockDirectory`. Named once, for the read-only boot (N-2).
+_LOCK_DIRECTORY_SETTING: Final = "writer_lease_lock_dir"
+
+
+def _without_lock_directory_setting(
+    config_model: type[BaseModel], connection: Mapping[str, object]
+) -> dict[str, object]:
+    """``connection`` without the lock-directory setting, where ``config_model`` declares it (N-2; ``D-IMPL-374``).
+
+    What a read-only boot validates and hands to the store. A read-only boot
+    (FW-2) mints no writer and takes no writer lease, so the setting that
+    declares the lease is neither validated nor used: an examiner on another
+    host or under another account boots read-only with the deployment's
+    connection settings unchanged, although the writers' lock directory is
+    absent there or not private to that account. A key the adapter's contract
+    does not declare is kept, so the contract still refuses it by name.
+    """
+    if _LOCK_DIRECTORY_SETTING not in config_model.model_fields:
+        return dict(connection)
+    return {
+        key: value
+        for key, value in connection.items()
+        if key != _LOCK_DIRECTORY_SETTING
+    }
 
 
 def lock_file_name(graph_identity: str) -> str:
