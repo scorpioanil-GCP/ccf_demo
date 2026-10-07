@@ -402,12 +402,21 @@ boot token records it.
 | SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
 | Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
 | In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
-| Fluree, MongoDB, Neo4j | `process` | **Nothing across processes. The single-writer invariant is not enforced there.** |
+| Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | An exclusive `flock` on `<writer_lease_lock_dir>/<sha256(graph identity)>.lock`; the deployment declares only the absolute directory |
 
-**The last row is an open gap, not a guarantee.** On those persistent network
-stores a second process booting the same graph is *not* refused. SEC-013 is
-recorded as partial for that reason: run one writing process per graph on
-those stores until a native lease is ruled and built.
+**On the persistent network stores the deployment declares the lease, and a
+boot with none declared is refused with `WriterLeaseRequired` (SEC-013,
+D-IMPL-374).** The SDK derives the lock file from the graph identity, so every
+writer of one graph that declares the same directory contends for the same
+file; a relative directory is refused by name. **A file lease excludes only
+writers that share that filesystem with real `flock` semantics: across hosts it
+enforces nothing, unless the directory is on a shared filesystem whose locks
+work across hosts, and two writers declaring different directories are not
+excluded at all.** A cross-host lock (the reference advisory-lock lease) is
+reachable only by constructing the store directly with `writer_lease=`;
+`ccf.boot.boot` cannot declare it, because the connection settings carry no
+credential for it. The booted `FabricHandle` reports the lease in force as
+`lease_scope` and `lease_mechanism`.
 
 Consequences for a deployment on the stores that do lease:
 

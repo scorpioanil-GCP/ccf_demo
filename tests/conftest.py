@@ -446,6 +446,9 @@ def fabric_boot(
             location = {
                 "uri": request.getfixturevalue("neo4j_uri"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
+                # SEC-013 (D-IMPL-374): a persistent network store mints a
+                # writer only under a declared, held cross-process lease.
+                "writer_lease_lock_dir": str(tmp_path),
             }
         elif backend == "mongo":
             # Plan 15.2-13: a fresh partition per boot, exactly as the neo4j
@@ -454,6 +457,9 @@ def fabric_boot(
             location = {
                 "uri": request.getfixturevalue("mongo_uri"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
+                # SEC-013 (D-IMPL-374): a persistent network store mints a
+                # writer only under a declared, held cross-process lease.
+                "writer_lease_lock_dir": str(tmp_path),
             }
         elif backend == "demo":
             # Plan 15.4-10: the out-of-tree adapter, installed from
@@ -474,6 +480,9 @@ def fabric_boot(
             location = {
                 "url": request.getfixturevalue("fluree_url"),
                 "partition": f"ccf_test_{uuid.uuid4().hex}",
+                # SEC-013 (D-IMPL-374): a persistent network store mints a
+                # writer only under a declared, held cross-process lease.
+                "writer_lease_lock_dir": str(tmp_path),
             }
         else:
             raise NotImplementedError(backend)

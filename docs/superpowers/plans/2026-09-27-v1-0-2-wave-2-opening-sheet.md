@@ -206,7 +206,7 @@ Three measured problems with D6(d) as written:
 2. **The writer never learns a tenant, so it cannot resolve a per-tenant policy
    once.** `AssemblyWorker.__init__` (`src/ccf/assembly/worker.py:595-611`) stores writer,
    resolution, registry and the pinned bundle — **nothing tenant-shaped**.
-   `boot(tenant_ids=…)` (`src/ccf/boot.py:303`) holds the roster and does not pass it.
+   `boot(tenant_ids=…)` (`src/ccf/boot.py::boot`) holds the roster and does not pass it.
    D5 rules the policy **per-tenant**; D6(d) puts the guard in a component with
    no tenant. **This is the sheet's most load-bearing gap.**
 3. **Resolving per envelope writes an audit event per envelope.**

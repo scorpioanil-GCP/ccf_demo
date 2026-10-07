@@ -9,10 +9,11 @@ put a real second process (``multiprocessing``, spawn) against a graph the
 first process holds and assert the second is refused **by name**.
 
 Scope of what is proven here, stated so nobody reads more into it: the SQLite
-and Postgres stores take a cross-process lease. The memory, fluree, mongo,
-neo4j and demo stores declare ``process`` scope — a disclosure, NOT
-enforcement; the single-writer invariant is not enforced across processes on
-those substrates and SEC-013 remains OPEN for them.
+and Postgres stores take a cross-process lease. The memory and demo stores
+declare ``process`` scope, exact there because no second process can reach
+their graph. The persistent network stores take a deployment-declared lease and
+refuse to mint without one (D-IMPL-374); that is proven in
+``tests/graph/test_network_store_writer_lease.py``.
 
 Synchronization: the parent boots and holds *before* the child starts; the
 child reports its outcome (status, exception class NAME, message) over a queue

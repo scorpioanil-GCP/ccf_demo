@@ -58,7 +58,7 @@ from ccf.authz.capability import (
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.graph._writer import adopt_writer, mint_boot_token, release_boot_token
-from ccf.graph.protocols import GraphReader
+from ccf.graph.protocols import GraphReader, WriterLeaseScope
 from ccf.controlplane.invalidation import ControlPlaneInvalidationSink, register_key
 from ccf.graph.registry import (
     AdapterPin,
@@ -95,6 +95,17 @@ class FabricHandle:
         adapter: The replay pin for the adapter that answered this boot. Three
             fields, none of which can hold a credential: a name, a version, and
             the *names* of the references the credentials came from.
+        lease_scope: The scope of the writer lease this fabric's writer
+            holds (SEC-013-C-03, D-IMPL-374 (1)), read off the boot token:
+            ``"cross-process"`` when a substrate or declared lease excludes
+            other processes, ``"process"`` when only this process's live-writer
+            table does. ``None`` only for a handle built without a boot.
+        lease_mechanism: Which lease that is, credential-free (the lease
+            kind and the resource it is keyed on, for example the lock file a
+            network store's declared lease holds), read off the boot token.
+            Deliberately not part of :attr:`adapter`, so the replay pin is
+            unchanged; and neither name contains "writ", so the handle still
+            offers nothing a caller could mistake for a write path.
     """
 
     def __init__(
@@ -105,11 +116,15 @@ class FabricHandle:
         registry: ControlPlaneProtocol,
         adapter: AdapterPin,
         shutdown: Callable[[], None],
+        lease_scope: WriterLeaseScope | None = None,
+        lease_mechanism: str | None = None,
     ) -> None:
         self.reader = reader
         self.worker = worker
         self.registry = registry
         self.adapter = adapter
+        self.lease_scope = lease_scope
+        self.lease_mechanism = lease_mechanism
         self._shutdown = shutdown
         self._closed = False
 
@@ -531,4 +546,6 @@ def boot(
             ),
         ),
         shutdown=shutdown,
+        lease_scope=token.lease_scope,
+        lease_mechanism=token.lease_mechanism,
     )

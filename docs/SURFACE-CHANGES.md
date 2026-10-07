@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1922 entries**, of which **1655** name a public Python surface.
+**1941 entries**, of which **1672** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1082 entries — 1038 public Python surface, 44 not public Python API.
+1092 entries — 1048 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16501,6 +16501,126 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
 
+#### ccf.graph.protocols.WriterLeaseSource
+
+- Surface: ccf.graph.protocols.WriterLeaseSource
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `Callable[[str], WriterLease]`: a declared, not-yet-held writer lease. A persistent network store calls it with its own credential-free graph identity, only from `writer_lease()`, which only the boot mint calls.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: none for a deployment that declares `writer_lease_lock_dir`. A deployment that wants another lease passes a callable taking the identity as the store's `writer_lease=`.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.protocols.WriterLeaseRequired
+
+- Surface: ccf.graph.protocols.WriterLeaseRequired
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `RuntimeError` a persistent network store's `writer_lease()` raises, on the boot mint (`ccf.graph._writer.mint_boot_token`), when no lease was declared or the declared lease's scope is not `"cross-process"`. It reaches the caller of `ccf.boot.boot` unchanged, before any token exists, so nothing is marked live and a corrected, leased retry boots. The message names the substrate and the credential-free graph identity and cites SEC-013 and D-IMPL-374.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment booting a network store declares a lease, or the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.protocols.acquire_declared_writer_lease
+
+- Surface: ccf.graph.protocols.acquire_declared_writer_lease
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `acquire_declared_writer_lease(source, *, substrate, graph_identity) -> WriterLease`. Refuses with `WriterLeaseRequired` when `source` is `None`; calls `source(graph_identity)`; lets `WriterLeaseHeld` propagate; releases and refuses a lease whose scope is not `"cross-process"`.
+- Why: SEC-013. One implementation every network store delegates to, so the refusal cannot drift between adapters.
+- Migration: none. An out-of-tree adapter over a store a second process can reach may delegate its `writer_lease()` to it.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.LockFileWriterLease
+
+- Surface: ccf.graph.leases.LockFileWriterLease
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `LockFileWriterLease(*, path)`: an exclusive non-blocking `flock` on `path`, opened `O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW` with mode `0o600`, scope `"cross-process"`, `mechanism` `flock on '<path>'`. A held lock, a file this user cannot open, or a file another user owns refuses as `WriterLeaseHeld`; a symbolic link at the path is refused by name (`RuntimeError`), never followed.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.lock_directory_writer_lease
+
+- Surface: ccf.graph.leases.lock_directory_writer_lease
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `lock_directory_writer_lease(lock_dir) -> WriterLeaseSource`: refuses a relative `lock_dir` (`ValueError`); the source acquires `LockFileWriterLease` on `<resolved lock_dir>/<lock_file_name(identity)>`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.declared_lock_directory_lease
+
+- Surface: ccf.graph.leases.declared_lock_directory_lease
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `declared_lock_directory_lease(lock_dir: str | None) -> WriterLeaseSource | None`: the one helper every network adapter's `_open_store` calls with its `writer_lease_lock_dir` setting.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.lock_file_name
+
+- Surface: ccf.graph.leases.lock_file_name
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `lock_file_name(graph_identity) -> str`: the SHA-256 hex of the identity plus `LOCK_FILE_SUFFIX`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.LOCK_FILE_SUFFIX
+
+- Surface: ccf.graph.leases.LOCK_FILE_SUFFIX
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `".lock"`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.require_absolute_lock_directory
+
+- Surface: ccf.graph.leases.require_absolute_lock_directory
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `require_absolute_lock_directory(value) -> str`: returns an absolute path, refuses a relative one by name (`ValueError`, naming `writer_lease_lock_dir`).
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.leases.AbsoluteLockDirectory
+
+- Surface: ccf.graph.leases.AbsoluteLockDirectory
+- Public surface: true
+- Change type: added
+- Before: absent; the module is new.
+- After: `Annotated[str, AfterValidator(require_absolute_lock_directory)]`, the connection-settings type of `writer_lease_lock_dir`.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -17212,7 +17332,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-541 entries — 350 public Python surface, 191 not public Python API.
+549 entries — 357 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -23473,6 +23593,90 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
 
+#### ccf.graph.backends.fluree.FlureeGraphStore
+
+- Surface: ccf.graph.backends.fluree.FlureeGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease()` returned `ProcessScopedWriterLease`, a disclosure that excluded nothing across processes.
+- After: the constructor takes `writer_lease: WriterLeaseSource | None = None`, and `writer_lease()` acquires it through `acquire_declared_writer_lease` with the store's graph identity. With none declared the boot mint is refused with `WriterLeaseRequired`. The lease is never taken at open, so a read-only store needs none.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment that boots a writer over this store declares `writer_lease_lock_dir` in its connection settings, or passes `writer_lease=` when constructing the store directly; otherwise the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.mongo.MongoGraphStore
+
+- Surface: ccf.graph.backends.mongo.MongoGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease()` returned `ProcessScopedWriterLease`, a disclosure that excluded nothing across processes.
+- After: the constructor takes `writer_lease: WriterLeaseSource | None = None`, and `writer_lease()` acquires it through `acquire_declared_writer_lease` with the store's graph identity. With none declared the boot mint is refused with `WriterLeaseRequired`. The lease is never taken at open, so a read-only store needs none.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment that boots a writer over this store declares `writer_lease_lock_dir` in its connection settings, or passes `writer_lease=` when constructing the store directly; otherwise the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.neo4j.Neo4jGraphStore
+
+- Surface: ccf.graph.backends.neo4j.Neo4jGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease()` returned `ProcessScopedWriterLease`, a disclosure that excluded nothing across processes.
+- After: the constructor takes `writer_lease: WriterLeaseSource | None = None`, and `writer_lease()` acquires it through `acquire_declared_writer_lease` with the store's graph identity. With none declared the boot mint is refused with `WriterLeaseRequired`. The lease is never taken at open, so a read-only store needs none.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: a deployment that boots a writer over this store declares `writer_lease_lock_dir` in its connection settings, or passes `writer_lease=` when constructing the store directly; otherwise the boot is refused.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.fluree_write.FlureeConnection
+
+- Surface: ccf.graph.backends.fluree_write.FlureeConnection
+- Public surface: true
+- Change type: reshaped
+- Before: no lease setting.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so an omitted value hashes as before). A relative path is refused at validation, by name. When set, the store's lease is the lock-directory lease over it: the file is `<dir>/<sha256(graph identity)>.lock`, derived, never chosen.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: add `writer_lease_lock_dir` (absolute) to the connection settings of every deployment that boots a writer over this store, the same directory for every process that may write the graph. Across hosts this excludes nothing unless the directory is a shared, lock-capable filesystem.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.mongo_write.MongoConnection
+
+- Surface: ccf.graph.backends.mongo_write.MongoConnection
+- Public surface: true
+- Change type: reshaped
+- Before: no lease setting.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so an omitted value hashes as before). A relative path is refused at validation, by name. When set, the store's lease is the lock-directory lease over it: the file is `<dir>/<sha256(graph identity)>.lock`, derived, never chosen.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: add `writer_lease_lock_dir` (absolute) to the connection settings of every deployment that boots a writer over this store, the same directory for every process that may write the graph. Across hosts this excludes nothing unless the directory is a shared, lock-capable filesystem.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.graph.backends.neo4j_write.Neo4jConnection
+
+- Surface: ccf.graph.backends.neo4j_write.Neo4jConnection
+- Public surface: true
+- Change type: reshaped
+- Before: no lease setting.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so an omitted value hashes as before). A relative path is refused at validation, by name. When set, the store's lease is the lock-directory lease over it: the file is `<dir>/<sha256(graph identity)>.lock`, derived, never chosen.
+- Why: SEC-013, `D-IMPL-374` (1), fix round 1. The lease file is derived from the graph identity by mechanism, never chosen by the deployment, so two writers of one graph that declare one directory always contend for one file.
+- Migration: add `writer_lease_lock_dir` (absolute) to the connection settings of every deployment that boots a writer over this store, the same directory for every process that may write the graph. Across hosts this excludes nothing unless the directory is a shared, lock-capable filesystem.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
+#### ccf.boot.FabricHandle
+
+- Surface: ccf.boot.FabricHandle
+- Public surface: true
+- Change type: reshaped
+- Before: no report of the writer lease in force; `BootToken.lease_scope` had no reader (SEC-013-C-03).
+- After: two attributes read off the boot token at boot, `lease_scope` (`"cross-process"` or `"process"`) and `lease_mechanism` (the lease kind and resource, credential-free), both keyword arguments defaulting to `None`. Deliberately not part of `adapter`, so the replay pin is unchanged.
+- Why: SEC-013-C-03. The lease the writer holds is now readable by the deployment that booted it.
+- Migration: none.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -25837,6 +26041,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `372-13-sec-013-writer-lease.md`.*
 
+#### ccf.graph._writer.BootToken
+
+- Surface: ccf.graph._writer.BootToken
+- Public surface: false
+- Change type: reshaped
+- Before: the token recorded `lease_scope` only.
+- After: the token also records `lease_mechanism`, the held lease's `mechanism`, at the mint. `ccf.boot.boot` copies both onto `FabricHandle`.
+- Why: SEC-013-C-03.
+- Migration: none. The module is private.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -26477,7 +26693,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-252 entries — 220 public Python surface, 32 not public Python API.
+253 entries — 220 public Python surface, 33 not public Python API.
 
 ### Public Python surface
 
@@ -31579,3 +31795,15 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller — the type still exists. The writer itself raises no `TemporalWriteRefused` (it judges no instant); a low-road composition that composes `IngressTemporalBound` and invokes `refuse_outside_window` before its own `ingest` receives the raw exception from that call, and one that does not compose the guard receives nothing. A consumer of the product doors that keys on `cause` alone cannot distinguish this refusal from a missing subject below `full`; a consumer entitled to `full` reads `error_code` `temporal-write-refused`. An operator reads the replay record. A deployment whose serves take longer than the tenant's declared past reach between `asked_at` and the seam's `ingress_at` will see this refusal on otherwise-sound questions; the remedy is the tenant's `TemporalBoundaryPolicy`, not the question.
 
 *Recorded by `364-01-temporal-write-refused-converts-at-the-seam.md`.*
+
+#### ccf.graph._writer.mint_boot_token
+
+- Surface: ccf.graph._writer.mint_boot_token
+- Public surface: false
+- Change type: behavior
+- Before: a network store's `writer_lease()` returned the `"process"` disclosure, so the mint always succeeded past the in-process table.
+- After: the mint's lease acquisition now raises `WriterLeaseRequired` from a persistent network store with no held cross-process lease declared, before any token exists, and records the lease's `mechanism` on the token.
+- Why: SEC-013, `D-IMPL-374` (1). A second process could reach the graph, so the `"process"` disclosure excluded nothing across processes.
+- Migration: none outside the SDK.
+
+*Recorded by `374-01-sec-013-network-store-lease.md`.*

@@ -50,7 +50,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from types import TracebackType
 from typing import Final, Literal, Protocol, runtime_checkable
@@ -88,7 +88,10 @@ __all__ = [
     "UpsertResult",
     "WriterLease",
     "WriterLeaseHeld",
+    "WriterLeaseRequired",
     "WriterLeaseScope",
+    "WriterLeaseSource",
+    "acquire_declared_writer_lease",
 ]
 
 #: The three time axes a graph read can be bounded on — closed vocabulary,
@@ -934,7 +937,10 @@ class WriterLease(Protocol):
 
     :attr:`scope` says what the exclusion covers. A ``"process"`` lease is a
     disclosure, not enforcement — the invariant is not enforced across
-    processes on that substrate, and SEC-013 remains open for it.
+    processes on that substrate, so it is correct only where no second
+    process can reach the graph; a persistent network store mints only under
+    a declared ``"cross-process"`` lease (:func:`acquire_declared_writer_lease`,
+    SEC-013, D-IMPL-374).
 
     :meth:`release` must be idempotent. The lease is also a context manager
     whose exit releases it.
@@ -971,10 +977,10 @@ class ProcessScopedWriterLease:
     releasing it do nothing; the only exclusion on such a substrate is the
     composition root's in-process live-writer table, so two *processes* over
     one graph on this substrate are NOT refused. Exact for a store whose graph
-    no second process can reach (an in-process dict); for a persistent network
-    store it is a gap, not a guarantee, and SEC-013 remains open for every
-    such store until a native cross-process lease is ruled and built. Each
-    store's ``writer_lease`` docstring says which case it is.
+    no second process can reach (an in-process dict). A persistent network
+    store does not return it: it mints only under a deployment-declared
+    ``"cross-process"`` lease, and :func:`acquire_declared_writer_lease`
+    refuses a declared ``"process"`` lease by name (SEC-013, D-IMPL-374).
 
     Args:
         substrate: The adapter's name, so the declaration says whose it is.
@@ -1010,3 +1016,94 @@ class ProcessScopedWriterLease:
 
     def __repr__(self) -> str:
         return f"ProcessScopedWriterLease(substrate={self._substrate!r})"
+
+
+#: A declared, not-yet-held writer lease: calling it with the store's graph
+#: identity ACQUIRES the lease for that graph.
+#:
+#: SEC-013 (D-IMPL-374 (1)); SDK extension of whitepaper §7.3 / INV-CH7-10.
+#: What a deployment hands a persistent network store's constructor
+#: (``writer_lease=``). The store never calls it at open — only its
+#: ``writer_lease()`` does, which only the composition root's mint
+#: (``src/ccf/graph/_writer.py::mint_boot_token``) calls — so a read-only store
+#: over a live graph still takes no lease. The store passes its own
+#: credential-free graph identity, so a lease keyed by mechanism on the
+#: identity cannot be pointed at a resource a second writer of the same graph
+#: does not also reach: the reference lock-directory lease
+#: (``src/ccf/graph/leases.py::lock_directory_writer_lease``) derives its lock
+#: file from the identity's SHA-256 inside a declared absolute directory. A
+#: deployment may instead declare a lease keyed on a resource it names (the
+#: reference advisory-lock lease over a session and a lease schema); it then
+#: owns making every writer of the graph name the same resource.
+WriterLeaseSource = Callable[[str], WriterLease]
+
+
+class WriterLeaseRequired(RuntimeError):
+    """A persistent network store refused to mint: no held cross-process lease was declared.
+
+    SEC-013 (D-IMPL-374 (1)); an SDK extension of whitepaper §7.3 /
+    INV-CH7-10. Refuse-when-undeclared, the temporal window's posture: a
+    store whose graph a second process can reach must not mint a writer under
+    the ``"process"`` disclosure, because that disclosure excludes nothing
+    across processes (the hole SEC-013 names: the live-writer table is
+    process-local). Raised by :func:`acquire_declared_writer_lease`, from the
+    store's ``writer_lease()``, on the mint path — before any token exists, so
+    a refused mint marks nothing live and a corrected, leased retry boots.
+    The message names the substrate and the credential-free graph identity,
+    never a credential.
+    """
+
+
+def acquire_declared_writer_lease(
+    source: WriterLeaseSource | None, *, substrate: str, graph_identity: str
+) -> WriterLease:
+    """Acquire a persistent network store's declared writer lease, or refuse by name.
+
+    SEC-013 (D-IMPL-374 (1)); SDK extension of whitepaper §7.3 / INV-CH7-10.
+    The one implementation every persistent network store's ``writer_lease()``
+    delegates to, so the refusal cannot drift between adapters:
+
+    * ``source`` is ``None`` — no lease was declared: refuse with
+      :class:`WriterLeaseRequired`.
+    * Calling ``source`` raises :class:`WriterLeaseHeld` — another holder, in
+      any process, has the lease: propagated unchanged, so the mint refuses it
+      as the same ``SingleWriterViolation`` an in-process second boot raises.
+    * The acquired lease's scope is not ``"cross-process"`` — a declared
+      ``"process"`` disclosure is no lease at all: the lease is released and
+      the mint is refused with :class:`WriterLeaseRequired`.
+
+    Args:
+        source: The deployment-declared lease, or ``None`` when none was.
+        substrate: The adapter's name, for the refusal.
+        graph_identity: The store's credential-free graph identity.
+
+    Returns:
+        The HELD lease, for the mint to keep for the writer's life.
+
+    Raises:
+        WriterLeaseRequired: no lease was declared, or the declared lease does
+            not exclude across processes.
+        WriterLeaseHeld: another holder has the declared lease.
+    """
+    if source is None:
+        raise WriterLeaseRequired(
+            f"the {substrate} store for graph {graph_identity!r} has no declared"
+            " writer lease; a persistent network store mints a writer only"
+            " under a held cross-process lease the deployment declares"
+            " (SEC-013, D-IMPL-374)"
+        )
+    lease = source(graph_identity)
+    scope = getattr(lease, "scope", None)
+    if scope != "cross-process":
+        try:
+            release = getattr(lease, "release", None)
+            if callable(release):
+                release()
+        finally:
+            raise WriterLeaseRequired(
+                f"the writer lease declared for the {substrate} store for graph"
+                f" {graph_identity!r} has scope {scope!r}; a persistent network"
+                " store mints a writer only under a held 'cross-process' lease"
+                " (SEC-013, D-IMPL-374)"
+            )
+    return lease

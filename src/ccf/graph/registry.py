@@ -271,7 +271,17 @@ class BackendStore(Protocol):
         * ``"process"`` — return
           ``src/ccf/graph/protocols.py::ProcessScopedWriterLease``. This is a
           **disclosure, not enforcement**: the single-writer invariant is then
-          NOT enforced across processes on this substrate.
+          NOT enforced across processes on this substrate, so it is correct
+          only for a store whose graph no second process can reach.
+
+        **A store whose graph a second process can reach** (a persistent
+        network store) takes a deployment-declared
+        ``src/ccf/graph/protocols.py::WriterLeaseSource`` at construction and
+        delegates here to
+        ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, which
+        refuses by name (``WriterLeaseRequired``) when none was declared or the
+        declared lease is not ``"cross-process"`` — refuse-when-undeclared
+        (SEC-013, D-IMPL-374 (1)).
 
         A store that lacks this member is refused at the mint by name.
         """
