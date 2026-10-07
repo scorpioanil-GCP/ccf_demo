@@ -109,6 +109,9 @@ in this order:
    capability's tenant in an undeclared (client-lane) class — or the workflow
    engine's trace class, declared under ``Execute | Resume`` — is served: the
    exact stored bytes, with one ``authz_decision`` audit event naming the read.
+   Whatever their shape: a client-lane artifact is never read as a governed
+   record, even when its bytes are shaped as one, and the answer does not say
+   which lane served it — evidence is what a governed read returns.
    An address filed under **no** name of the capability's tenant — another
    tenant's, or nothing at all — goes through the governed dereference too,
    which holds the caller to the tenant a record was decided under before any
@@ -116,8 +119,10 @@ in this order:
    :func:`~ccf_runtime.authz.delivery_boundary.govern_dereference`, C-2): it
    answers the ``nonexistent`` shell, at every disclosure level, byte-identical
    up to the reference asked and the record it produced to a missing address —
-   another tenant's genuine replay record included. A caller cannot learn from
-   this door that another tenant holds bytes at an address it names.
+   another tenant's genuine replay record included, and so are bytes shaped as
+   a record that the fabric's record writer did not file (the governed read's
+   provenance check). A caller cannot learn from this door that another tenant
+   holds bytes at an address it names.
 
 The blob handler's ``-> bytes`` annotation is load-bearing: it produces
 ``BlobResourceContents`` (base64) and preserves canonical bytes exactly, where
