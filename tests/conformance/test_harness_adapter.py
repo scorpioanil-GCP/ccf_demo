@@ -89,6 +89,7 @@ from ccf.replay.record import (
 )
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY, SkillCatalog, SkillCatalogEntry
 from ccf.skills.grants import GrantLedger, SkillGrant
+from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES
 from _pytest.outcomes import Failed, Skipped
 from conftest import HARNESS_REQUIRED_ENV, harness_unavailable
 from skills.sinks import ScriptedApprovalSink
@@ -907,16 +908,42 @@ def test_the_adapter_holds_no_fabric_write_surface(
 # --- seam 2: skill exposure ---------------------------------------------------
 
 
+def _exposable_bound_names(agent: Agent) -> set[str]:
+    """The bound skills whose catalog entry's type is harness-exposable.
+
+    Seam 2's contract as ``src/ccf/harness/protocol.py`` states it after
+    ``TP-03`` (``D-IMPL-361``): exactly the currently-bound EXPOSABLE
+    skill-set, not every bound skill. Each type is read off the bound catalog
+    entry (``invoke_skill``'s introspection form), never assumed.
+    """
+    exposable: set[str] = set()
+    for name in agent.bound_skill_names:
+        entry = agent.invoke_skill(name)
+        assert isinstance(entry, SkillCatalogEntry)
+        if entry.skill_type in HARNESS_EXPOSABLE_SKILL_TYPES:
+            exposable.add(name)
+    return exposable
+
+
 def test_seam_2_exposes_exactly_the_bound_skill_set(
     harness_leg: HarnessLeg, world: World
 ) -> None:
-    """Set equality, not containment: an ungranted skill must not exist."""
+    """Set equality, not containment: an ungranted skill must not exist.
+
+    Compared against the EXPOSABLE subset of the bound skill-set (``TP-03``,
+    ``D-IMPL-361``) — the re-read of D-IMPL-25 in ``ccf.harness.protocol``.
+    With these fixtures every bound skill is exposable, so the subset equals
+    the bound set and the assertion is still set equality over all of it.
+    """
     adapter = harness_leg.adapter("governed")
     assert set(adapter.expose_skills(agent=world.agent_a)) == set()
 
     world.bind(world.grant_a, world.definition_a)
     exposed = adapter.expose_skills(agent=world.agent_a)
-    assert set(exposed) == set(world.agent_a.bound_skill_names)
+    # Precondition: with these fixtures the exposable subset IS the bound set,
+    # so the equality below is no weaker than the old one against it.
+    assert _exposable_bound_names(world.agent_a) == set(world.agent_a.bound_skill_names)
+    assert set(exposed) == _exposable_bound_names(world.agent_a)
     assert set(exposed) == {world.grant_a.skill_name}
 
 
@@ -934,8 +961,8 @@ def test_seam_2_follows_a_revocation_without_re_declaring_the_agent(
         revoke_capability(grant_hash, tenant=world.definition_a.tenant, principal=world.actor)
     )
     assert adapter.expose_skills(agent=world.agent_a) == ()
-    assert set(adapter.expose_skills(agent=world.agent_a)) == set(
-        world.agent_a.bound_skill_names
+    assert set(adapter.expose_skills(agent=world.agent_a)) == _exposable_bound_names(
+        world.agent_a
     )
     # The skill-set changed; the agent's identity did not (D-07).
     assert world.agent_a.identity == identity_before
