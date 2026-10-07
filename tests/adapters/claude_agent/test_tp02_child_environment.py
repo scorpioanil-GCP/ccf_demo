@@ -55,6 +55,12 @@ RULED_DEFAULT = ("PATH", "HOME")
 #: plus these, so re-adding any selective inheritance turns the test red.
 VENDOR_MECHANISM = ("CLAUDE_CODE_ENTRYPOINT", "CLAUDE_AGENT_SDK_VERSION")
 
+#: The working-directory variable the vendor sets whenever ``cwd`` is set
+#: (``subprocess_cli.py:727-728``). Since I-4 the carrier always sets ``cwd``
+#: (the per-call ``0700`` directory unless declared), so the child always
+#: receives it — valued from the carrier's ``cwd``, never from the fabric.
+WORKING_DIRECTORY = "PWD"
+
 
 class _Refused(Exception):
     """Raised by the recorder so ``connect()`` never starts a process."""
@@ -153,10 +159,12 @@ def test_an_unrelated_fabric_variable_does_not_reach_the_claude_child(
         assert not any(value == SECRET_VALUE for value in environment.values())
         for name in RULED_DEFAULT:
             assert environment.get(name) == os.environ[name], name
-        assert set(environment) == {*RULED_DEFAULT, *VENDOR_MECHANISM}, (
+        assert environment.get(WORKING_DIRECTORY) == str(carrier.cwd)
+        expected = {*RULED_DEFAULT, *VENDOR_MECHANISM, WORKING_DIRECTORY}
+        assert set(environment) == expected, (
             "the child's environment is not exactly the ruled allowlist plus the"
             f" vendor's mechanism variables; extra names:"
-            f" {sorted(set(environment) - {*RULED_DEFAULT, *VENDOR_MECHANISM})}"
+            f" {sorted(set(environment) - expected)}"
         )
 
 
@@ -183,9 +191,10 @@ def test_a_declared_child_environment_is_exactly_what_the_child_receives(
         assert not inherited_home, "an undeclared HOME reached the child"
         for name, value in declared.items():
             assert environment.get(name) == value, name
-        assert set(environment) == {*declared, *VENDOR_MECHANISM}, (
-            f"extra names reached the child:"
-            f" {sorted(set(environment) - {*declared, *VENDOR_MECHANISM})}"
+        assert environment.get(WORKING_DIRECTORY) == str(carrier.cwd)
+        expected = {*declared, *VENDOR_MECHANISM, WORKING_DIRECTORY}
+        assert set(environment) == expected, (
+            f"extra names reached the child: {sorted(set(environment) - expected)}"
         )
 
 

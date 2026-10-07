@@ -396,6 +396,16 @@ class ClaudeAgentAdapter:
             ``ClaudeAgentOptions.env`` and enforced by the transport from
             :meth:`transport`, because the vendor's default transport merges
             ``env`` over the fabric's whole environment.
+        cwd: The ``claude`` child's working directory, deployment-declared
+            (TP-02 options half, I-4, D-IMPL-361). ``None`` (the default) is
+            the per-call ``0700`` directory :meth:`inject_context` creates for
+            the prompt file — never the fabric's own working directory, whose
+            project files the CLI would otherwise read.
+        max_turns: The conversation-turn budget placed on
+            ``ClaudeAgentOptions.max_turns`` (TP-02 options half, I-4,
+            D-IMPL-361). ``None`` (the default) is the vendor default, which
+            emits no ``--max-turns``. A budget, not a boundary: it bounds how
+            long a session runs, never what a turn may do.
     """
 
     def __init__(
@@ -406,8 +416,12 @@ class ClaudeAgentAdapter:
         mcp_server_version: str,
         effects: EffectCapability,
         child_environment: Mapping[str, str] | None = None,
+        cwd: str | Path | None = None,
+        max_turns: int | None = None,
     ) -> None:
         self._model = model
+        self._cwd: str | Path | None = cwd
+        self._max_turns: int | None = max_turns
         self._mcp_server_name = mcp_server_name
         self._mcp_server_version = mcp_server_version
         self._effects: EffectCapability = effects
@@ -633,6 +647,20 @@ class ClaudeAgentAdapter:
         records. The harness touches no L3 handle and no raw signal, because
         nothing on this seam can reach either.
 
+        **The CLI is isolated from the host's own configuration (TP-02
+        options half, I-4, D-IMPL-361).** Measured in claude-agent-sdk 0.2.128
+        (``subprocess_cli.py``): ``tools=None`` emits no ``--tools`` and the CLI
+        keeps its default built-in tool set (lines 478-488); ``setting_sources``
+        ``None`` emits no ``--setting-sources`` and the CLI loads every
+        filesystem settings source, ``~/.claude/settings.json`` included, whose
+        allow-rules are evaluated before ``can_use_tool`` (lines 599-600). So
+        the carrier sets, unconditionally, ``tools=[]`` (``--tools ""``: no
+        built-in tools, only this agent's MCP tools), ``setting_sources=[]``
+        (``--setting-sources=``: SDK isolation mode) and
+        ``strict_mcp_config=True`` (``--strict-mcp-config``, lines 587-588: no
+        MCP server but the carrier's). ``cwd`` is the declared one or the
+        per-call ``0700`` directory; ``max_turns`` is the declared budget.
+
         ``instructions`` are rendered strings. This method resolves no
         artifact and renders no template (T-06-64).
         """
@@ -659,6 +687,11 @@ class ClaudeAgentAdapter:
             can_use_tool=self._permission_gate(agent),
             env=self._child_environment(),
             cli_path=_NO_CLI_PATH,
+            tools=[],
+            setting_sources=[],
+            strict_mcp_config=True,
+            cwd=prompt_file.parent if self._cwd is None else self._cwd,
+            max_turns=self._max_turns,
         )
         return carrier
 
