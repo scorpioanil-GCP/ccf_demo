@@ -121,19 +121,29 @@ AUTH_POSTURE_SENTENCE = (
 
 
 class HttpAuthority(TypedDict):
-    """The five seams :func:`create_app` requires, as one typed bundle.
+    """The keyword-only parameters :func:`create_app` requires, as one typed bundle.
 
-    For embedders that build the app somewhere other than a deployment's own
-    composition — the CLI's in-process leg (:func:`ccf_runtime.cli.main.main`),
-    a test fixture — and hand the seams along as a unit. Every key is required
-    and every value type is the seam's own, so a bundle missing a seam is a
-    type error where the bundle is written, and ``**bundle`` at
-    :func:`create_app` is checked key by key. This replaces the one call site
-    that carried ``# type: ignore[arg-type]`` over an untyped mapping
-    (``D-IMPL-353`` §4 rule 6).
+    Five authority seams and one declared value. For embedders that build the
+    app somewhere other than a deployment's own composition — the CLI's
+    in-process leg (:func:`ccf_runtime.cli.main.main`), a test fixture — and
+    hand them along as a unit. Every key is required and every value type is
+    the parameter's own, so a bundle missing one is a type error where the
+    bundle is written, and ``**bundle`` at :func:`create_app` is checked key by
+    key. This replaces the one call site that carried
+    ``# type: ignore[arg-type]`` over an untyped mapping (``D-IMPL-353`` §4
+    rule 6).
+
+    ``replay_record_product_class`` is the declared value, and it is required
+    like the seams (``SEC-017``; ``D-IMPL-374`` (2)): a bundle that leaves the
+    key out is a type error, not a quiet ``None``. ``None`` is a value the
+    embedder states rather than a default the bundle supplies. It declares that
+    no replay record class is named, and a caller whose grant declares a product
+    roster is then refused every replay read, so it fails closed. The SDK names
+    no class.
+
     ``tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams``
-    holds the keys and types equal to :func:`create_app`'s keyword seams, so
-    the two cannot drift apart.
+    holds the keys and types equal to :func:`create_app`'s keyword-only
+    parameters, so the two cannot drift apart.
     """
 
     auth: HttpAuthProtocol
@@ -141,6 +151,7 @@ class HttpAuthority(TypedDict):
     product_entitlement: ProductEntitlementSourceProtocol
     perspective_resolver: PerspectiveResolverProtocol
     refusal_recorder: RefusalRecorderProtocol
+    replay_record_product_class: str | None
 
 
 class GovernedWiringError(ValueError):
@@ -229,7 +240,7 @@ def create_app(
     product_entitlement: ProductEntitlementSourceProtocol,
     perspective_resolver: PerspectiveResolverProtocol,
     refusal_recorder: RefusalRecorderProtocol,
-    replay_record_product_class: str | None = None,
+    replay_record_product_class: str | None,
 ) -> FastAPI:
     """Build the skeleton over ``deps`` — built, never hosted.
 
@@ -269,8 +280,14 @@ def create_app(
         replay_record_product_class: The Context Product class the
             ``/replay/...`` routes' records are held to for a bearer whose
             grant declares a product roster (``SEC-017``; ``D-IMPL-374`` (2)).
-            A deployment value; the SDK names no class. ``None`` means a
-            rostered caller is refused every replay read.
+            A deployment value; the SDK names no class. **Required**, with no
+            default, like every other keyword-only parameter here
+            (``D-IMPL-353`` §4 rule 1; :class:`HttpAuthority` names it too): a
+            deployment states it, so leaving it out is a ``TypeError`` and not
+            a quiet ``None``. ``None`` is the value you pass to declare no
+            class, and it fails closed: a rostered caller is refused every
+            replay read. A caller whose grant declares no roster is unaffected
+            by either value.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and

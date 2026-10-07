@@ -219,6 +219,7 @@ def _app(fabric: Fabric, tmp_path: Path, deps: ApiDependencies) -> Any:
         # the recorder is bound and never fires — one keyword, and nothing else
         # here moves.
         refusal_recorder=_recorder(fabric, tmp_path, source=source),
+        replay_record_product_class=None,
     )
 
 

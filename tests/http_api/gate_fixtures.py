@@ -318,7 +318,11 @@ def build_gate_app(
         product_entitlement=entitlement_source,
         perspective_resolver=perspective_resolver,
         refusal_recorder=recorder,
-        **(app_options or {}),
+        # `SEC-017`; `D-IMPL-374`: `create_app` requires the declared replay
+        # record class, so the fixture states it. `None` — none declared —
+        # fails a rostered caller closed on every replay read; the suites
+        # that are about the roster supply their own through `app_options`.
+        **{"replay_record_product_class": None, **(app_options or {})},
     )
     return GateApp(
         app=app,
@@ -440,6 +444,7 @@ def authority(
     product_entitlement: Any,
     perspective_resolver: Any,
     refusal_recorder: Any,
+    replay_record_product_class: str | None = None,
     clock_at: datetime = AUDIT_INSTANT,
 ) -> dict[str, Any]:
     """Every argument ``create_app`` now requires, as one keyword bundle.
@@ -447,7 +452,12 @@ def authority(
     For the suites whose subject is something other than the gate: the
     evidence dereference, the HITL identity derivation, the signed-binding
     door. Each still has to bind five seams, and building them separately in
-    each file is five chances to build a permissive one.
+    each file is five chances to build a permissive one. The bundle also
+    carries the sixth required key, ``replay_record_product_class``
+    (``SEC-017``; ``D-IMPL-374``): ``create_app`` has no default for it, so
+    this helper states ``None`` — none declared, a rostered caller refused
+    every replay read — unless a suite that is about the roster passes its
+    own.
 
     Splat it and override what the suite is actually about::
 
@@ -466,4 +476,5 @@ def authority(
         "product_entitlement": product_entitlement,
         "perspective_resolver": perspective_resolver,
         "refusal_recorder": refusal_recorder,
+        "replay_record_product_class": replay_record_product_class,
     }

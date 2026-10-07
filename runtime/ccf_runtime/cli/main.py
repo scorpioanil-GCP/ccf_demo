@@ -212,10 +212,14 @@ def main(
         dependencies: Optional injected bundle (tests; embedding). When
             supplied, the command runs in-process over these handles —
             the same type ``create_app`` consumes.
-        authority: The five seams ``create_app`` requires, as one
-            :class:`~ccf_runtime.http_api.app.HttpAuthority` bundle, for
-            the in-process path — typed, so an incomplete bundle is a
-            type error where it is written. **Required whenever
+        authority: The keyword-only parameters ``create_app`` requires, as
+            one :class:`~ccf_runtime.http_api.app.HttpAuthority` bundle —
+            five authority seams and the declared
+            ``replay_record_product_class``, which is required too (``None``
+            is a value the embedder states, and means a rostered caller is
+            refused every replay read; ``SEC-017``; ``D-IMPL-374``) — for the
+            in-process path, typed, so an incomplete bundle is a type error
+            where it is written. **Required whenever
             ``dependencies`` is supplied**: the gate has no arm in which
             authentication is skipped (``SEC-002``), so an in-process app
             is built with a real authority or not at all. There is no
@@ -253,7 +257,7 @@ def main(
             )
         if dependencies is not None and authority is not None:
             # The in-process path with a REAL authority: an embedder or a
-            # test supplies the same five seams a deployment does, so the
+            # test supplies the same authority a deployment does, so the
             # app the CLI drives is the app everyone else gets.
             from ccf_runtime.http_api.app import create_app
 
@@ -290,7 +294,8 @@ def main(
         #
         # Reviving the mode means declaring a real local deployment — a
         # scope mapping, a token source, an entitlement source, a perspective
-        # resolver and a refusal recorder. That is a decision about what
+        # resolver, a refusal recorder and a replay record product class
+        # (`SEC-017`; `None` declares none). That is a decision about what
         # `--local` MEANS, not a wiring detail, so it is Dave's and is not
         # taken here. Refusing is the honest interim: the remote leg is
         # unaffected and fully functional.
@@ -304,16 +309,19 @@ def main(
             parser.error(
                 "in-process invocation needs `authority=`: `create_app`"
                 " requires an auth hook, an authorizer, an entitlement"
-                " source, a perspective resolver and a refusal recorder,"
-                " and none of them has a default (`SEC-002`)."
+                " source, a perspective resolver, a refusal recorder and a"
+                " declared replay record product class (`None` declares"
+                " none), and none of them has a default (`SEC-002`;"
+                " `SEC-017`)."
             )
         parser.error(
             "`--local` is suspended: it built an app with"
             " `acknowledge_insecure_default`, and that posture is deleted."
             " The mode returns once a local deployment declares a scope"
             " mapping, a token source, an entitlement source, a perspective"
-            " resolver and a refusal recorder. Use `--base-url` against a"
-            " running deployment meanwhile (`SEC-002`)."
+            " resolver, a refusal recorder and a replay record product"
+            " class. Use `--base-url` against a running deployment"
+            " meanwhile (`SEC-002`)."
         )
         raise AssertionError("unreachable: parser.error exits")  # pragma: no cover
     else:

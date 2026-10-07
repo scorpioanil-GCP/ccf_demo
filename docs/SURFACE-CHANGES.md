@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1988 entries**, of which **1717** name a public Python surface.
+**1989 entries**, of which **1718** name a public Python surface.
 
 ## Added
 
@@ -17560,7 +17560,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-564 entries — 372 public Python surface, 192 not public Python API.
+565 entries — 373 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -24007,9 +24007,21 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no replay class.
-- After: adds the keyword `replay_record_product_class: str | None = None`. The SDK names no class, and `None` means a rostered bearer is refused every replay read.
-- Why: SEC-017 fix round 1.
-- Migration: a deployment that issues rostered grants and serves replay over HTTP declares it.
+- After: adds the required keyword-only `replay_record_product_class: str | None`, with no default. The SDK names no class, and a `None` passed explicitly means a rostered bearer is refused every replay read. An omitted argument is a `TypeError`.
+- Why: SEC-017 fix round 1. `D-IMPL-353` §4 rule 1 holds every keyword-only parameter of `create_app` required, and `HttpAuthority` names each one with its own type. A deployment states this declaration; it is never read as `None` by omission.
+- Migration: every caller of `create_app` passes `replay_record_product_class=`. Pass `None` unless the deployment issues rostered grants and serves replay over HTTP, in which case pass the class its replay records are held to.
+
+*Recorded by `374-02-sec-017-product-roster.md`.*
+
+#### ccf_runtime.http_api.app.HttpAuthority
+
+- Surface: ccf_runtime.http_api.app.HttpAuthority
+- Public surface: true
+- Change type: reshaped
+- Before: a `TypedDict` naming `create_app`'s five required keyword seams.
+- After: adds the required key `replay_record_product_class: str | None`, the same type as `create_app`'s parameter, so the bundle names every keyword-only parameter of `create_app`. A bundle that leaves it out is a mypy error where it is written, and `None` is a value the embedder states.
+- Why: SEC-017; `D-IMPL-374` (2). `create_app` requires the declared replay class, and `tests/cli/test_authority_bundle.py::test_the_bundle_names_exactly_create_apps_keyword_seams` holds the two equal.
+- Migration: an embedder that builds an `HttpAuthority` for `ccf_runtime.cli.main.main(authority=...)` or `create_app(deps, **authority)` adds `"replay_record_product_class": None`, or the class its replay records are held to.
 
 *Recorded by `374-02-sec-017-product-roster.md`.*
 

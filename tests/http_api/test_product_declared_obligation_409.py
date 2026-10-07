@@ -506,6 +506,7 @@ def _governed(
             product_entitlement=source,
             perspective_resolver=_perspective,
             refusal_recorder=recorder,
+            replay_record_product_class=None,
         ),
         source=source,
         recorder=recorder,

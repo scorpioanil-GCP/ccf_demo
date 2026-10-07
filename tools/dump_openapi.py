@@ -268,6 +268,10 @@ def build_app(scratch: pathlib.Path) -> Any:
             policy_bundle_pin=None,
             disclosure_level_for=entitlement.disclosure_level_for,
         ),
+        # Required, and stated: this app is never served, so no replay record
+        # class is declared (`SEC-017`; `D-IMPL-374`). `None` fails closed —
+        # a rostered caller would be refused every replay read.
+        replay_record_product_class=None,
     )
 
 
