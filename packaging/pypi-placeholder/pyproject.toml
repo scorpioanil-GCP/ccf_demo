@@ -1,0 +1,32 @@
+# The PyPI name-reservation placeholder for `ccf-sdk` (SEC-027; D-IMPL-376
+# ruling 4). It is NOT the SDK and must never become it: no packages, no
+# modules, no dependencies, no entry points. Its only job is to own the name
+# `ccf-sdk` on public PyPI so nobody else can publish under it, which closes
+# the dependency-confusion path the rename would otherwise leave open (the
+# SDK's distribution is `ccf-sdk`; the SDK itself is published to no index).
+#
+# The upload is Dave's action, from his own PyPI account; nothing in this
+# repository uploads anything, and no gate or workflow builds this directory.
+#
+# Version 0.0.0 on purpose: an index that serves both this placeholder and a
+# real build of the SDK resolves to the real one, because every real version is
+# higher. Never add the `Private :: Do Not Upload` classifier here: PyPI refuses
+# any upload that carries it.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccf-sdk"
+version = "0.0.0"
+description = "Reserved name for the Cognitive Context Fabric SDK. This package contains no code."
+readme = "README.md"
+dependencies = []
+
+[tool.setuptools]
+# Explicitly empty, so setuptools' automatic discovery cannot pick up anything
+# that happens to sit beside this file.
+packages = []
+py-modules = []
+include-package-data = false
