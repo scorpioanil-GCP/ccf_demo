@@ -284,3 +284,63 @@ and X2.
 - After: an empty `declared` is refused at construction with `ValueError`, like an empty `argument`, `undeclared` or `unknown`.
 - Why: PM9, panel C9 (`D-IMPL-374`). An adopter registration that derives its classes from configuration and gets an empty set would otherwise be silently roster-unbound. Red test: `tests/mcp/test_pm9_empty_declared_reach.py`.
 - Migration: a registration whose declared classes can be empty declares an `undeclared` or `unknown` reach instead.
+
+## ccf.graph.leases.require_private_lock_directory
+
+- Surface: ccf.graph.leases.require_private_lock_directory
+- Public surface: true
+- Change type: added
+- Before: absent. A declared lock directory was checked only for being absolute, and it was resolved at each acquisition.
+- After: `require_private_lock_directory(value) -> str`, the config-validation half of the lock-directory rule. It refuses, by name, a path that differs from its real path (any symbolic-link component; the message names the real path to declare), one that does not exist or is not a directory, one not owned by the effective user, and one that is group- or world-writable.
+- Why: PC3, panel C3 (`D-IMPL-374`; SEC-013). A link retargeted between two writers' acquisitions gave one network graph two lock files, and both writers minted (two processes measured). Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`.
+- Migration: declare the lock directory's real path, owned by the user every writer runs as, mode `0700` or `0755`.
+
+## ccf.graph.leases.AbsoluteLockDirectory
+
+- Surface: ccf.graph.leases.AbsoluteLockDirectory
+- Public surface: true
+- Change type: reshaped
+- Before: `Annotated[str, AfterValidator(require_absolute_lock_directory)]`.
+- After: `Annotated[str, AfterValidator(require_absolute_lock_directory), AfterValidator(require_private_lock_directory)]`.
+- Why: PC3.
+- Migration: as above.
+
+## ccf.graph.leases.lock_directory_writer_lease
+
+- Surface: ccf.graph.leases.lock_directory_writer_lease
+- Public surface: true
+- Change type: behavior
+- Before: the declared directory was resolved at each acquisition, through any symbolic link.
+- After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition re-checks that the directory is still its own real path. Ownership and mode are judged at config validation; a deployment constructing the lease directly keeps them itself.
+- Why: PC3.
+- Migration: construct it over the directory's real path.
+
+## ccf.graph.backends.fluree_write.FlureeConnection
+
+- Surface: ccf.graph.backends.fluree_write.FlureeConnection
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease_lock_dir` was validated as an absolute path.
+- After: it is also validated by `require_private_lock_directory` (PC3).
+- Why: PC3.
+- Migration: as for `require_private_lock_directory`.
+
+## ccf.graph.backends.mongo_write.MongoConnection
+
+- Surface: ccf.graph.backends.mongo_write.MongoConnection
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease_lock_dir` was validated as an absolute path.
+- After: it is also validated by `require_private_lock_directory` (PC3).
+- Why: PC3.
+- Migration: as for `require_private_lock_directory`.
+
+## ccf.graph.backends.neo4j_write.Neo4jConnection
+
+- Surface: ccf.graph.backends.neo4j_write.Neo4jConnection
+- Public surface: true
+- Change type: reshaped
+- Before: `writer_lease_lock_dir` was validated as an absolute path.
+- After: it is also validated by `require_private_lock_directory` (PC3).
+- Why: PC3.
+- Migration: as for `require_private_lock_directory`.

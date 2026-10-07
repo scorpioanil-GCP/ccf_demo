@@ -20,6 +20,16 @@ a session and a lease schema the deployment names) is reachable only by
 constructing the store directly with `writer_lease=`: the connection contracts
 carry no credential by environment name, so `ccf.boot.boot` cannot declare it.
 
+**The declared directory is its own real path, private to the writers' user**
+(the final fix wave, PC3; panel C3). The directory was resolved at each
+acquisition, so a symbolic link retargeted between two writers' acquisitions
+gave one graph two lock files and both writers minted. Connection validation
+now refuses a directory reached through a link (naming the real path to
+declare), a missing or non-directory path, one not owned by the effective user,
+and one that is group- or world-writable; direct construction refuses the link
+and every acquisition re-checks it. The entries are in
+`374-05-final-fix-wave.md`.
+
 ## ccf.graph.protocols.WriterLeaseSource
 
 - Surface: ccf.graph.protocols.WriterLeaseSource

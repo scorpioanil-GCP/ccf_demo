@@ -466,7 +466,10 @@ def test_two_spellings_of_one_lock_dir_lock_one_file_across_processes(
     second is refused.
     """
     leases = tmp_path / "leases"
-    leases.mkdir()
+    # PC3 (panel C3; `D-IMPL-374`): a declared lock directory must be private
+    # to the writer's user — not group- or world-writable — so it is created
+    # 0700 rather than with the process umask.
+    leases.mkdir(mode=0o700)
     partition = f"spelled_{uuid.uuid4().hex}"
     holder_connection = _connection(substrate, partition)
     holder_connection[LEASE_FIELD] = str(leases)

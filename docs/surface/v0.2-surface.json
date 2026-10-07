@@ -3833,7 +3833,7 @@
         "shape": {
           "partition": "str | None",
           "url": "<class 'str'>",
-          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]]"
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>), AfterValidator(func=<function require_private_lock_directory>)]]"
         }
       },
       "FlureeGraphWriter": {
@@ -3921,7 +3921,7 @@
         "shape": {
           "partition": "str | None",
           "uri": "<class 'str'>",
-          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]]"
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>), AfterValidator(func=<function require_private_lock_directory>)]]"
         }
       },
       "MongoGraphWriter": {
@@ -3972,7 +3972,7 @@
         "shape": {
           "partition": "str | None",
           "uri": "<class 'str'>",
-          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]]"
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>), AfterValidator(func=<function require_private_lock_directory>)]]"
         }
       },
       "Neo4jGraphWriter": {
@@ -4119,12 +4119,13 @@
       "declared_lock_directory_lease",
       "lock_directory_writer_lease",
       "lock_file_name",
-      "require_absolute_lock_directory"
+      "require_absolute_lock_directory",
+      "require_private_lock_directory"
     ],
     "exports": {
       "AbsoluteLockDirectory": {
         "kind": "function",
-        "shape": "typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>)]"
+        "shape": "typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>), AfterValidator(func=<function require_private_lock_directory>)]"
       },
       "LOCK_FILE_SUFFIX": {
         "kind": "constant",
@@ -4147,6 +4148,10 @@
         "shape": "(graph_identity: 'str') -> 'str'"
       },
       "require_absolute_lock_directory": {
+        "kind": "function",
+        "shape": "(value: 'str') -> 'str'"
+      },
+      "require_private_lock_directory": {
         "kind": "function",
         "shape": "(value: 'str') -> 'str'"
       }

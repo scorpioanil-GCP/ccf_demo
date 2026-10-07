@@ -418,6 +418,20 @@ reachable only by constructing the store directly with `writer_lease=`;
 credential for it. The booted `FabricHandle` reports the lease in force as
 `lease_scope` and `lease_mechanism`.
 
+**Declare the lock directory by its real path, private to the writers' user
+(PC3, D-IMPL-374).** Connection validation refuses, by name, a
+`writer_lease_lock_dir` reached through a symbolic link in any component (the
+refusal names the real path to declare instead), one that does not exist or is
+not a directory, one not owned by the booting process's effective user, and one
+that is group- or world-writable. The link is refused because the directory was
+resolved at each acquisition: a link retargeted between two writers'
+acquisitions, as at a release cut-over through `/srv/ccf/current`, gave one
+graph two lock files and both writers minted. A lease constructed directly with
+`ccf.graph.leases.lock_directory_writer_lease` refuses a linked directory too
+and re-checks it at every acquisition; its ownership and mode are then the
+deployment's to keep. Every process that writes the graph therefore runs as the
+directory's owner.
+
 Consequences for a deployment on the stores that do lease:
 
 - **Two processes that each boot the same deployment are mutually exclusive.**

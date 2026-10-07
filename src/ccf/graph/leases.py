@@ -16,6 +16,19 @@ they spell differently, and a deployment cannot point two writers of one graph
 at two files. A relative directory is refused by name, because it would
 resolve against each process's working directory.
 
+**The declared directory is its own real path, private to the writer's user**
+(PC3, panel C3; ``D-IMPL-374``). A directory reached through a symbolic link
+was resolved at each acquisition, so a link retargeted between two writers'
+acquisitions — a release cut-over through ``/srv/ccf/current`` — gave one
+graph two lock files, and both writers minted. Config validation
+(:data:`AbsoluteLockDirectory`) therefore refuses, by name, a declared
+directory whose path differs from its real path, naming the real path to
+declare; one that does not exist or is not a directory; one not owned by this
+process's effective user; and one that is group- or world-writable (the
+erasure index's directory posture). Direct construction
+(:func:`lock_directory_writer_lease`) refuses the symlinked directory too, and
+every acquisition re-checks that the directory is still its own real path.
+
 **What a file lease covers, disclosed rather than implied.** An exclusive
 ``flock`` excludes only writers that share that filesystem with real
 ``flock`` semantics. Across hosts it enforces nothing, unless the directory is
@@ -35,6 +48,7 @@ from __future__ import annotations
 import errno
 import hashlib
 import os
+import stat
 from pathlib import Path
 from types import TracebackType
 from typing import Annotated
@@ -63,6 +77,7 @@ __all__ = [
     "lock_directory_writer_lease",
     "lock_file_name",
     "require_absolute_lock_directory",
+    "require_private_lock_directory",
 ]
 
 #: Appended to the identity digest to name a graph's lock file.
@@ -100,9 +115,76 @@ def require_absolute_lock_directory(value: str) -> str:
     return value
 
 
+def _require_real_lock_directory(value: str) -> str:
+    """Return ``value``'s real path if it names its directory without a symbolic link; refuse it otherwise (PC3).
+
+    Raises:
+        ValueError: a component of ``value`` is a symbolic link.
+    """
+    real = os.path.realpath(value)
+    if real != os.path.normpath(value):
+        raise ValueError(
+            f"writer_lease_lock_dir {value!r} reaches its directory through a"
+            f" symbolic link; declare its real path {real!r}. A lock directory"
+            " reached through a link can be retargeted between two writers'"
+            " acquisitions, giving one graph two lock files and two writers"
+            " (SEC-013; PC3, D-IMPL-374)"
+        )
+    return real
+
+
+def require_private_lock_directory(value: str) -> str:
+    """Return ``value`` if it names, by its real path, an existing directory private to this user; refuse it by name otherwise.
+
+    PC3, panel C3 (``D-IMPL-374``; SEC-013). The config-validation half of the
+    lock-directory rule (:data:`AbsoluteLockDirectory`): the declared path must
+    be its own real path (no symbolic link in any component — the message names
+    the real path to declare), must exist and be a directory, must be owned by
+    this process's effective user, and must not be group- or world-writable —
+    the erasure index's directory posture, because anyone who can write the
+    directory can replace the lock file another writer is about to take.
+
+    Raises:
+        ValueError: any of the above, by name.
+    """
+    real = _require_real_lock_directory(value)
+    try:
+        status = os.stat(real)
+    except FileNotFoundError:
+        raise ValueError(
+            f"writer_lease_lock_dir {value!r} must exist: the lease's lock file"
+            " is created inside it at the boot mint (SEC-013; PC3, D-IMPL-374)"
+        ) from None
+    if not stat.S_ISDIR(status.st_mode):
+        raise ValueError(
+            f"writer_lease_lock_dir {value!r} is not a directory"
+            " (SEC-013; PC3, D-IMPL-374)"
+        )
+    if status.st_uid != os.geteuid():
+        raise ValueError(
+            f"writer_lease_lock_dir {value!r} must be owned by this process's"
+            " user: another principal could replace the lock file a writer"
+            " takes (SEC-013; PC3, D-IMPL-374)"
+        )
+    if stat.S_IMODE(status.st_mode) & 0o022:
+        raise ValueError(
+            f"writer_lease_lock_dir {value!r} is group- or world-writable"
+            f" (mode {oct(stat.S_IMODE(status.st_mode))}); a lock directory must"
+            " not be writable by anyone but its owner, who could otherwise"
+            " replace the lock file a writer takes (SEC-013; PC3, D-IMPL-374)"
+        )
+    return value
+
+
 #: A connection-settings type for a lock directory: a string refused at
-#: validation unless it is an absolute path (SEC-013, D-IMPL-374 (1)).
-AbsoluteLockDirectory = Annotated[str, AfterValidator(require_absolute_lock_directory)]
+#: validation unless it is an absolute path (SEC-013, D-IMPL-374 (1)) naming,
+#: by its own real path, an existing directory owned by this process's user
+#: and writable by no one else (PC3, panel C3).
+AbsoluteLockDirectory = Annotated[
+    str,
+    AfterValidator(require_absolute_lock_directory),
+    AfterValidator(require_private_lock_directory),
+]
 
 
 class LockFileWriterLease:
@@ -198,18 +280,29 @@ def lock_directory_writer_lease(lock_dir: str | Path) -> WriterLeaseSource:
     """The declared lease over the absolute directory ``lock_dir``, not yet held.
 
     SEC-013 (D-IMPL-374 (1)). Calling the result with a graph identity acquires
-    :class:`LockFileWriterLease` on ``<resolved lock_dir>/``
-    :func:`lock_file_name`. The directory is resolved at acquisition, so two
-    spellings of one directory reach one file. The directory must exist.
+    :class:`LockFileWriterLease` on ``<lock_dir>/`` :func:`lock_file_name`. Two
+    symlink-free spellings of one directory (``a/../a``) reach one file. The
+    directory must exist.
+
+    **A directory reached through a symbolic link is refused** (PC3, panel C3),
+    here and again at every acquisition: a link retargeted between two writers'
+    acquisitions would give one graph two lock files. Ownership and mode are
+    judged at config validation (:func:`require_private_lock_directory`); a
+    deployment constructing this lease directly owns those itself.
 
     Raises:
-        ValueError: ``lock_dir`` is not an absolute path.
+        ValueError: ``lock_dir`` is not an absolute path, or reaches its
+            directory through a symbolic link (the message names the real
+            path); and, from an acquisition, the directory has since become
+            reachable only through one.
     """
-    directory = Path(require_absolute_lock_directory(str(lock_dir)))
+    declared = require_absolute_lock_directory(str(lock_dir))
+    directory = Path(_require_real_lock_directory(declared))
 
     def acquire(graph_identity: str) -> WriterLease:
         return LockFileWriterLease(
-            path=directory.resolve() / lock_file_name(graph_identity)
+            path=Path(_require_real_lock_directory(str(directory)))
+            / lock_file_name(graph_identity)
         )
 
     return acquire
