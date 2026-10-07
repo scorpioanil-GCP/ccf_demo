@@ -941,7 +941,10 @@ def test_c18_the_mcp_artifact_resource_inherits_the_same_refusal(
     from ccf_runtime.mcp import artifact_server
 
     source = inspect.getsource(artifact_server)
-    assert "return store.get(content_address=content_address)" in source
+    # SEC-009 (D-IMPL-374 (4), MCP ruling): the handler reads through the
+    # erasure-consulting composition of the same store, which adds no shape
+    # check of its own and delegates the address to the store's `get`.
+    assert "payload = consulted.get(content_address=content_address)" in source
     assert "CONTENT_ADDRESS_PATTERN" not in source, (
         "the MCP role must not grow its own shape check — one invariant, at"
         " the store, or two implementations will disagree"
