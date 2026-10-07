@@ -248,7 +248,7 @@ Rows by coupling shape:
 | `public/reference/artifacts/skill-grants.md` | 25 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/task-definitions.md` | 16 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 22 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `pyproject.toml` | 91 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
+| `pyproject.toml` | 100 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 514 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 516 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 445 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |

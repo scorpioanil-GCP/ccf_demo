@@ -17,6 +17,15 @@ description = "Cognitive Context Fabric SDK — governed, typed, replay-ready co
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 authors = [{ name = "drcastillo" }]
+# SEC-027 (D-IMPL-376; Dave's ruling 2026-10-07): PyPI "will always reject
+# packages with classifiers beginning with Private ::"
+# (https://pypi.org/classifiers/). This SDK's distribution name `ccf-sdk` is
+# held on PyPI by Dave's account through the empty placeholder in
+# packaging/pypi-placeholder/, so without this classifier a stray
+# `twine upload dist/*` of this proprietary SDK under that account would be
+# accepted. The placeholder must never carry it, or the name could not be
+# claimed; tests/test_distribution_name.py holds both.
+classifiers = ["Private :: Do Not Upload"]
 
 # Pins per 04-RESEARCH.md Standard Stack (all slopcheck-audited 2026-07-25).
 # Pins per 06-RESEARCH.md Standard Stack (slopcheck-audited 2026-07-26) — the four
