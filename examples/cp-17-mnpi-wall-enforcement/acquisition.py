@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import urllib.error
 import urllib.request
@@ -32,6 +33,7 @@ from typing import Any
 
 import psycopg
 import yaml
+from psycopg.sql import SQL, Identifier
 from pymongo import MongoClient
 
 HERE = Path(__file__).parent
@@ -158,7 +160,7 @@ class _Relational:
 
     def rows(self, sql: str, params: Sequence[Any] = ()) -> list[dict[str, Any]]:
         with psycopg.connect(self._dsn) as connection:
-            connection.execute(f"SET search_path TO {self._schema}")
+            connection.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
             cursor = connection.execute(sql, params)
             names = [column.name for column in cursor.description]
             return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
@@ -313,6 +315,23 @@ def required_classes(plan: Plan, terms: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(sorted(classes))
 
 
+# --- placing a request value in SPARQL ----------------------------------------
+
+#: What may stand between a SPARQL string literal's quotes WITHOUT an escape.
+#: SPARQL 1.1 `STRING_LITERAL2` excludes `"`, `\`, LF and CR; this holds the
+#: text tighter, to no control character at all. A value outside it is REFUSED,
+#: never escaped, so no escape processing — an `ECHAR`, or the `\u` pre-pass
+#: SPARQL 1.1 §19.2 applies before parsing — ever reads request text (`EX-01`).
+_LITERAL_TEXT = re.compile(r'[^"\\\x00-\x1f\x7f]*')
+
+
+def _literal(value: str) -> str:
+    """`value` as a quoted SPARQL string literal, or refused before any read."""
+    if not _LITERAL_TEXT.fullmatch(value):
+        raise ValueError(f"{value!r} cannot be placed in a SPARQL string literal")
+    return f'"{value}"'
+
+
 # --- the wall, the Reg FD event ------------------------------------------------
 
 
@@ -325,7 +344,7 @@ def _over_wall(graph: _Graph, terms: Mapping[str, Any], *, principal_id: str, le
         f" ?s a <{g['prefix']}{g['types']['wall_crossing']}> ;"
         f" {p['principal_id']} ?principal ; {p['lei']} ?lei ;"
         f" {p['valid_from']} ?validFrom ; {p['asserted_at']} ?assertedAt ."
-        f" FILTER(STR(?principal) = \"{principal_id}\" && STR(?lei) = \"{lei}\") }}"
+        f" FILTER(STR(?principal) = {_literal(principal_id)} && STR(?lei) = {_literal(lei)}) }}"
     )
     for row in rows:
         valid_from, asserted_at = _as_date(row["validFrom"]), _as_date(row["assertedAt"])
@@ -341,7 +360,7 @@ def _reg_fd(graph: _Graph, terms: Mapping[str, Any], *, lei: str, at: date) -> M
         f"SELECT ?event ?validFrom ?widens FROM <LEDGER> WHERE {{"
         f" ?event a <{g['prefix']}{g['types']['reg_fd_event']}> ; {p['lei']} ?lei ;"
         f" {p['valid_from']} ?validFrom ; {p['widens_access']} ?widens ."
-        f" FILTER(STR(?lei) = \"{lei}\") }}"
+        f" FILTER(STR(?lei) = {_literal(lei)}) }}"
     )
     events = []
     for row in rows:
@@ -466,7 +485,7 @@ def _family(graph: _Graph, terms: Mapping[str, Any], *, lei: str) -> list[tuple[
             rows = graph.select(
                 f"SELECT ?memberLei ?memberLabel FROM <LEDGER> WHERE {{ {direction}"
                 f" ?member {lei_predicate} ?memberLei . OPTIONAL {{ ?member {label} ?memberLabel }}"
-                f" FILTER(STR(?issuerLei) = \"{lei}\") }}"
+                f" FILTER(STR(?issuerLei) = {_literal(lei)}) }}"
             )
             for row in rows:
                 found.append((relation, {"lei": row["memberLei"], "legal_name": row.get("memberLabel", "")}))

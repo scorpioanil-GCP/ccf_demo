@@ -189,10 +189,11 @@ class _Relational:
     def rows(self, sql: str, args: tuple[Any, ...] = ()) -> list[Mapping[str, Any]]:
         import psycopg  # noqa: PLC0415
         from psycopg.rows import dict_row  # noqa: PLC0415
+        from psycopg.sql import SQL, Identifier  # noqa: PLC0415
 
         with psycopg.connect(self._dsn, autocommit=True) as connection:
             with connection.cursor(row_factory=dict_row) as cursor:
-                cursor.execute(f"set search_path to {self._schema}")  # noqa: S608
+                cursor.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
                 cursor.execute(sql, args)
                 return [dict(row) for row in cursor.fetchall()]
 

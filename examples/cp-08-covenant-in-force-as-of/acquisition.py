@@ -31,6 +31,7 @@ from typing import Any, Mapping, Sequence
 
 import httpx
 import psycopg
+from psycopg.sql import SQL, Identifier
 
 
 @dataclass(frozen=True)
@@ -295,7 +296,7 @@ def acquire(*, facility_id: str, as_of: str, graph_url: str, graph_ledger: str,
     facility_uri = f"{g['node_namespace']}{facility_id}"
 
     with psycopg.connect(postgres_dsn) as conn, conn.cursor() as cur:
-        cur.execute(f'SET search_path TO "{postgres_schema}"')
+        cur.execute(SQL("SET search_path TO {}").format(Identifier(postgres_schema)))
         cur.execute(
             f'SELECT 1 FROM "{a["facility_table"]}" WHERE {a["facility_key_column"]} = %s',
             (facility_id,),

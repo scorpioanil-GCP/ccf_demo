@@ -263,3 +263,12 @@ granularity above its role's ceiling; and what the answer cost.
 a numeric distance for a formula-defined threshold; loan-level borrower
 attributes at any sample size; or the filed servicer figure agreeing with the
 in-force definition after an amendment.
+
+## Security remediation — `EX-01`, `EX-09` (2026-10-07)
+
+Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B before the change: §B.4, the example's own code rather than the SDK. Changed under `D-IMPL-261`'s "objectively wrong" reason, authorized by `D-IMPL-376` ruling (7): *"SDK input rejection is useful defense, but leaves fragile example code for adopters to copy."* The SDK half — `ProductRequest.subject` had no shape — was closed by `D-IMPL-357`'s subject floor, which refuses these values at the door; the guard here holds in-process, below it.
+
+- **`EX-01`.** The deal IRI — the configured prefix plus the caller's deal id — was spliced into a SPARQL `<…>` position in `acquisition.py::_Graph.triggers`, which `acquisition.py::acquire` reaches for the watermark BEFORE the deal-existence check, so the splice fired whether or not the deal exists. The IRI now passes through `acquisition.py::_iri` — cp-14's approach, held to the whole SPARQL 1.1 `IRIREF` grammar and matched whole, so a trailing newline is refused too — before any store is read.
+- **`EX-09`.** `acquisition.py::_Relational.rows` and `::_Relational.rows_and_cost` built `SET search_path TO {schema}` by f-string (security review 2026-09-23). It now composes the statement with the driver's own `psycopg.sql` — `SQL("SET search_path TO {}").format(Identifier(schema))` — so the configured schema reaches PostgreSQL as one quoted identifier, whatever it contains. The documented schema `ccf_v2` is one lowercase identifier, so it names the same schema quoted or not.
+
+No served output moves: for every value the guard admits, the query text is byte-identical to before (measured on the demonstration subjects). Evidence: `tests/examples/test_ex_01_sparql_value_placement.py`, `tests/examples/test_ex_09_search_path_identifier.py`.

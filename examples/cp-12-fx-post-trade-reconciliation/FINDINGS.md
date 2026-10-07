@@ -265,3 +265,11 @@ three rungs that a text-quoting instrument would have done so, after cp-11's
 gate 20 and this rung's own `FXR-G19` (where `d_c` is a substring of
 `estate_designated_class`). The spec paragraph now carries the corrected figure
 with the correction marked, rather than being quietly overwritten.
+
+## Security remediation — `EX-09` (2026-10-07)
+
+Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B before the change: §B.4, the example's own code rather than the SDK. Changed under `D-IMPL-261`'s "objectively wrong" reason, authorized by `D-IMPL-376` ruling (7): *"SDK input rejection is useful defense, but leaves fragile example code for adopters to copy."*
+
+- **`EX-09`.** `acquisition.py::_Relational.rows` built `SET search_path TO {schema}` by f-string (security review 2026-09-23). It now composes the statement with the driver's own `psycopg.sql` — `SQL("SET search_path TO {}").format(Identifier(schema))` — so the configured schema reaches PostgreSQL as one quoted identifier, whatever it contains. The documented schema `ccf_v2` is one lowercase identifier, so it names the same schema quoted or not.
+
+Evidence: `tests/examples/test_ex_09_search_path_identifier.py`.

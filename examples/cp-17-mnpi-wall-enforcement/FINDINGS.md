@@ -175,3 +175,12 @@ construction rather than a mutation of the tree). `MWE-G18`'s sabotage also
 reddens `MWE-G15`'s byte-equality clause and is not isolable by
 construction. **Three strict expected failures** keep `CP17-F-08`, `F-09`
 and `F-10` executable; none is a passing assertion.
+
+## Security remediation — `EX-01`, `EX-09` (2026-10-07)
+
+Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B before the change: §B.4, the example's own code rather than the SDK. Changed under `D-IMPL-261`'s "objectively wrong" reason, authorized by `D-IMPL-376` ruling (7): *"SDK input rejection is useful defense, but leaves fragile example code for adopters to copy."* The SDK half — `ProductRequest.subject` had no shape — was closed by `D-IMPL-357`'s subject floor, which refuses these values at the door; the guard here holds in-process, below it.
+
+- **`EX-01`.** `acquisition.py::_over_wall`, `::_reg_fd` and `::_family` spliced the subject LEI — and, in `_over_wall`, the verified principal — into `FILTER` string literals by f-string. Each value now passes through `acquisition.py::_literal`, which refuses — never escapes — any text a SPARQL string literal cannot carry unescaped (`"`, `\`, any control character), before any store is read. Every one of these reads already sat behind the bound issuer lookup in `acquisition.py::acquire` (ruling C6's regrade); the guard does not rely on it.
+- **`EX-09`.** `acquisition.py::_Relational.rows` built `SET search_path TO {schema}` by f-string (security review 2026-09-23). It now composes the statement with the driver's own `psycopg.sql` — `SQL("SET search_path TO {}").format(Identifier(schema))` — so the configured schema reaches PostgreSQL as one quoted identifier, whatever it contains. The documented schema `ccf_v2` is one lowercase identifier, so it names the same schema quoted or not.
+
+No served output moves: for every value the guard admits, the query text is byte-identical to before (measured on the demonstration subjects). Evidence: `tests/examples/test_ex_01_sparql_value_placement.py`, `tests/examples/test_ex_09_search_path_identifier.py`.

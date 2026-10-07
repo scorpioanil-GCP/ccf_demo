@@ -39,6 +39,7 @@ from typing import Any
 
 import psycopg
 import yaml
+from psycopg.sql import SQL, Identifier
 
 HERE = Path(__file__).parent
 VOCABULARY = HERE / "artifacts" / "source-vocabulary.yaml"
@@ -209,7 +210,7 @@ class _Relational:
 
     def rows(self, sql: str, params: Sequence[Any] = ()) -> list[tuple[Any, ...]]:
         with psycopg.connect(self._dsn) as connection:
-            connection.execute(f"SET search_path TO {self._schema}")
+            connection.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
             return connection.execute(sql, params).fetchall()
 
 

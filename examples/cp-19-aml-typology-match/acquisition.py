@@ -157,9 +157,10 @@ class _Relational:
 
     def rows(self, sql: str, params: Sequence[Any] = ()) -> list[dict[str, Any]]:
         import psycopg  # noqa: PLC0415 - the driver is the deployment's
+        from psycopg.sql import SQL, Identifier  # noqa: PLC0415
 
         with psycopg.connect(self._dsn) as connection, connection.cursor() as cursor:
-            cursor.execute(f"set search_path to {self._schema}")
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
             cursor.execute(sql, params)
             names = [column.name for column in cursor.description or ()]
             return [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
