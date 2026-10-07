@@ -168,3 +168,55 @@ def test_a_declared_child_environment_is_exactly_what_the_child_receives(
         assert not inherited_home, "an undeclared HOME reached the child"
         for name, value in declared.items():
             assert environment.get(name) == value, name
+
+
+def test_the_vendor_default_transport_built_from_the_carrier_cannot_spawn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TP-02 fails closed on the default path, not open.
+
+    An adopter who hands the carrier to ``ClaudeSDKClient(options=carrier)`` or
+    ``query(options=carrier)`` without ``adapter.transport(carrier)`` gets the
+    vendor's own ``SubprocessCLITransport``, which merges the fabric's whole
+    environment into the child. That path must not be able to start the CLI at
+    all. The recorder below behaves like the OS: a command naming no existing
+    file raises ``FileNotFoundError``; a command naming a real binary is
+    recorded as a spawn that *would have happened* and is then refused.
+    """
+    import anyio
+    from claude_agent_sdk import CLINotFoundError
+    from claude_agent_sdk._internal.transport.subprocess_cli import (
+        SubprocessCLITransport,
+    )
+
+    would_spawn: list[str] = []
+
+    async def like_the_os(command: Any, **kwargs: Any) -> Any:
+        executable = str(list(command)[0])
+        if not os.path.isfile(executable):
+            raise FileNotFoundError(executable)
+        would_spawn.append(" ".join(list(command)[1:2]))
+        raise _Refused(command)
+
+    monkeypatch.setattr(anyio, "open_process", like_the_os)
+    world = World()
+    world.bind(world.grant_a, world.definition_a)
+    adapter = _adapter()
+    carrier = adapter.inject_context(agent=world.agent_a, products=(), instructions=())
+
+    vendor_default = SubprocessCLITransport(prompt="", options=carrier)
+    with pytest.raises(Exception) as raised:
+        asyncio.run(vendor_default.connect())
+
+    assert would_spawn == [], (
+        f"the vendor's default transport built from the carrier spawned the"
+        f" claude CLI ({would_spawn!r}) with the fabric's whole environment —"
+        " TP-02 fails open on the path an adopter takes by omitting"
+        " adapter.transport(carrier)"
+    )
+    assert isinstance(raised.value, CLINotFoundError), type(raised.value).__name__
+
+    # The adapter's own transport is the one that can find the CLI.
+    governed = adapter.transport(carrier)
+    resolved = governed._options.cli_path or governed._find_cli()
+    assert os.path.isfile(str(resolved)), resolved
