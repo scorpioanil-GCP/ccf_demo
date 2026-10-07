@@ -186,6 +186,14 @@ def test_two_concurrent_resumptions_at_the_door_pass_the_gate_once(
     assert IN_FLIGHT in refused.json()["reason"], refused.json()
     # The sequential refusal's body: the refusal contract and nothing else.
     assert set(refused.json()) == {"tenant", "execution_id", "reason"}
+    refusal_rows = [
+        event.actor
+        for event in fabric.registry.audit_log.events()
+        if event.key == f"{tenant}/{EXECUTION}"
+        and event.action == "workflow_resumed"
+        and not event.resolved
+    ]
+    assert refusal_rows == [None], refusal_rows
 
 
 def test_sequential_resumptions_at_the_door_refuse_the_second_for_its_authority(

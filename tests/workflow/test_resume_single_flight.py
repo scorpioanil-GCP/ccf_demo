@@ -242,6 +242,13 @@ def assert_one_passage(
     assert [o.gate for o in progressed] == [NEXT_GATE], outcomes
     assert len(refused) == 1, outcomes
     assert IN_FLIGHT in refused[0].reason, refused[0].reason
+    # The refusal is audited as one, with no human named: nobody's verdict refused it.
+    refusal_rows = [
+        event
+        for event in registry.audit_log.events()
+        if event.key == key and event.action == "workflow_resumed" and not event.resolved
+    ]
+    assert [event.actor for event in refusal_rows] == [None], refusal_rows
 
 
 def test_two_resumes_of_one_approval_on_one_event_loop_pass_the_gate_once(
