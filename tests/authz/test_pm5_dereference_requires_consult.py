@@ -28,7 +28,12 @@ from tests.controlplane.capabilities import capability
 
 def test_pm5_an_uncomposed_store_is_refused_by_name_before_anything_is_read(tmp_path: pathlib.Path) -> None:
     world = _World(tmp_path)
-    raw = world.store
+    raw = getattr(world, "raw", world.store)  # the world's own store, never composed here
+    composed = compose_erasure_consult(
+        raw, index=no_erasures(), audit_log=world.registry.audit_log, clock=lambda: world.source.clock(),
+        control_plane=world.registry, erasure_trust=declared_erasure_trust(TENANT),
+    )
+    world.store = raw
     before = world.addresses()
     with pytest.raises(TypeError) as refused:
         world.dereference(capability(ArtifactRead, tenant=TENANT, resource=NOWHERE, principal=PRINCIPAL))
@@ -40,9 +45,6 @@ def test_pm5_an_uncomposed_store_is_refused_by_name_before_anything_is_read(tmp_
     assert world.read_trail() == []
 
     # The control: the same read over the same store, composed, is decided.
-    world.store = compose_erasure_consult(
-        raw, index=no_erasures(), audit_log=world.registry.audit_log, clock=lambda: world.source.clock(),
-        control_plane=world.registry, erasure_trust=declared_erasure_trust(TENANT),
-    )
+    world.store = composed
     decided = world.dereference(capability(ArtifactRead, tenant=TENANT, resource=NOWHERE, principal=PRINCIPAL))
     assert type(decided).__name__ == "RefusalEnvelope"

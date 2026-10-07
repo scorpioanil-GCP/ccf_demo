@@ -189,8 +189,8 @@ and X2.
 - Public surface: true
 - Change type: behavior
 - Before: on the by-URI path the naming check after the holds called the TENANTLESS store's `resolve_uri`, and an `ErasedContentRefused` there was recorded as `cause="nonexistent"`. Another tenant's entry naming the caller's record address (genuine, or forged and unsupported) therefore made an entitled examiner read "absent" by URI while the by-address read served.
-- After: the naming check reads the same view the consult read, the caller's verified tenant's. Another tenant's entry changes nothing for the caller, and an erasure the check meets in the caller's own tenant is the erased reading at the caller's level (the not-found shell at `minimal`, `erased-content` above it), not an absence.
-- Why: FW-7, whole-branch review M-3 (`D-IMPL-374`); probe X4. Red tests: `tests/http_api/test_fw7_by_uri_naming_check.py`.
+- After: the naming check reads the same view the consult read, the caller's verified tenant's. Another tenant's entry changes nothing for the caller, and an erasure the check meets in the caller's own tenant is the erased reading at the caller's level (the not-found shell at `minimal`, `erased-content` above it), not an absence. Separately (PM5, panel C5), a `store` that is not an `ErasureConsultingStore` is refused with `UnconsultedDeliveryBoundaryError`, right after the capability check and before anything is read, recorded or clocked; before, the consult was skipped and an uncomposed store served erased bytes. Every shipped caller (the HTTP artifact and replay routes, the MCP artifact server) passes a composed store.
+- Why: FW-7, whole-branch review M-3 (`D-IMPL-374`); probe X4. PM5: U12, composed always. Red tests: `tests/http_api/test_fw7_by_uri_naming_check.py`, `tests/authz/test_pm5_dereference_requires_consult.py`.
 - Migration: none.
 
 **The cross-AI panel's verified findings (PC1-PC3, PM4-PM10), folded into this wave.**
@@ -244,3 +244,13 @@ and X2.
 - After: `approval-policy-ambiguous` (the same function, re-exported).
 - Why: PM6.
 - Migration: as above.
+
+## ccf_runtime.authz.delivery_boundary.UnconsultedDeliveryBoundaryError
+
+- Surface: ccf_runtime.authz.delivery_boundary.UnconsultedDeliveryBoundaryError
+- Public surface: true
+- Change type: added
+- Before: absent; `govern_dereference` skipped the erasure consult for a store that was not an `ErasureConsultingStore`.
+- After: a `TypeError` `govern_dereference` raises for such a store, after the capability check and before anything is read, recorded or clocked. The message names `ccf.erasure.compose_erasure_consult`.
+- Why: PM5, panel C5 (`D-IMPL-374`); U12.
+- Migration: an out-of-tree door composes its store with `compose_erasure_consult` before calling `govern_dereference`.

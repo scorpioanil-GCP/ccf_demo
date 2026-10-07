@@ -10930,6 +10930,7 @@
       "SURFACE_HTTP_ROUTE",
       "SURFACE_MCP_RESOURCE",
       "SURFACE_MCP_TOOL",
+      "UnconsultedDeliveryBoundaryError",
       "UnrecordableDeliveryBoundaryError",
       "disclosing_boundary",
       "govern_absence",
@@ -10986,6 +10987,10 @@
       "SURFACE_MCP_TOOL": {
         "kind": "constant",
         "shape": "str"
+      },
+      "UnconsultedDeliveryBoundaryError": {
+        "kind": "class",
+        "shape": "type"
       },
       "UnrecordableDeliveryBoundaryError": {
         "kind": "class",

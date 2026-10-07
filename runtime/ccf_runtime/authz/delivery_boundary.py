@@ -141,6 +141,7 @@ __all__ = [
     "DereferenceRequest",
     "DereferencedEvidence",
     "DisclosingRecorderProtocol",
+    "UnconsultedDeliveryBoundaryError",
     "UnrecordableDeliveryBoundaryError",
     "disclosing_boundary",
     "govern_absence",
@@ -231,6 +232,20 @@ class UnrecordableDeliveryBoundaryError(ValueError):
     construction-refusal posture: a boot that cannot satisfy an invariant stops
     at construction rather than at the first request
     (*"Prefer fail-at-construction/boot where practical"*).
+    """
+
+
+class UnconsultedDeliveryBoundaryError(TypeError):
+    """A governed evidence read was handed a store that does not consult the erasure index (SEC-009; PM5, panel C5; `D-IMPL-374`).
+
+    U12: the erasure consult is composed ALWAYS, at every store construction
+    site (:func:`~ccf.erasure.compose_erasure_consult`).
+    :func:`govern_dereference` is public, and it read the consult only when its
+    store happened to be an :class:`~ccf.erasure.ErasureConsultingStore` — so a
+    door built outside the SDK over a store it never composed served erased
+    bytes with no refusal at all. Raised after the capability check and before
+    anything is read, recorded or clocked: a wiring defect, refused where an
+    operator sees it, never a determination about a caller.
     """
 
 
@@ -1023,7 +1038,9 @@ def govern_dereference(
         authorized: The capability for this read. Verified first.
         reference: What was asked for, verbatim — and the resource the
             capability is bound to.
-        store: The artifact store the door was built over.
+        store: The artifact store the door was built over — composed with
+            the erasure consult (:func:`~ccf.erasure.compose_erasure_consult`;
+            U12), or refused (PM5).
         entitlement_source: The deployment's entitlement seam and the holder
             of the determination clock.
         refusal_recorder: The ONE minting seam, which also states the level.
@@ -1052,6 +1069,10 @@ def govern_dereference(
             fabricated, retargeted, of a kind other than the two evidence-read
             kinds, or bound to a resource other than ``reference.reference``.
             Raised before the clock is read and before anything is recorded.
+        UnconsultedDeliveryBoundaryError: ``store`` is not an
+            :class:`~ccf.erasure.ErasureConsultingStore` (PM5, panel C5;
+            U12). Raised right after the capability check, before anything
+            is read, recorded or clocked.
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
             ``@latest``. A request-shape refusal raised by the shared parser
             before any lookup, which reveals nothing and which the route
@@ -1062,6 +1083,16 @@ def govern_dereference(
     kind = verify_any(
         authorized, kinds=EVIDENCE_READ_KINDS, resource=reference.reference
     )
+    if not isinstance(store, ErasureConsultingStore):
+        # PM5 (panel C5; `D-IMPL-374`): U12 composes the consult ALWAYS; a
+        # store that does not consult would serve erased bytes unrefused.
+        raise UnconsultedDeliveryBoundaryError(
+            f"govern_dereference was handed a {type(store).__name__}, which does not"
+            " consult the erasure index; compose it with"
+            " ccf.erasure.compose_erasure_consult first — a governed evidence read"
+            " over an unconsulted store would serve erased content (SEC-009; U12;"
+            " D-IMPL-374)"
+        )
     principal = authorized.principal
     # The one seam that still takes a grant: handed the capability's principal
     # and tenant, nothing the caller supplied.
@@ -1186,9 +1217,7 @@ def govern_dereference(
     # are read INTERNALLY for the rights check only and NEVER leave the door
     # (accepted as recorded by the coordinator): what crosses comes from the
     # consulted read below, after the holds.
-    authorization_store = (
-        store.inner if isinstance(store, ErasureConsultingStore) else store
-    )
+    authorization_store = store.inner
     try:
         content_address = held_content_address(candidate)
         record = resolve_artifact(
@@ -1262,11 +1291,7 @@ def govern_dereference(
         # I6 (fix round 1, ruling (i)): the view for the caller's VERIFIED
         # tenant — an erasure withholds within its tenant, and another
         # tenant's reason or record address never reaches this caller.
-        tenant_view = (
-            store.scoped(authorized.tenant)
-            if isinstance(store, ErasureConsultingStore)
-            else store
-        )
+        tenant_view = store.scoped(authorized.tenant)
         consulted = tenant_view.get(content_address=content_address)
     except ErasedContentRefused as erased:
         return erased_reading(erased)
