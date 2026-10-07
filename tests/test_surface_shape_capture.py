@@ -850,6 +850,11 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     # fragment names both and says why.
     "ccf.replay.engine.replay": "374-04-sec-009-minimum-erasure.md",
     "ccf.replay.engine.replay_refusal": "374-04-sec-009-minimum-erasure.md",
+    # SEC-009 MCP ruling (`D-IMPL-374` (4)): the artifact server takes a
+    # REQUIRED `control_plane` (the erasure consult it composes), and the
+    # governed dereference takes the client-lane erased read it renders.
+    "ccf_runtime.mcp.artifact_server.build_artifact_server": "374-04-sec-009-minimum-erasure.md",
+    "ccf_runtime.authz.delivery_boundary.govern_dereference": "374-04-sec-009-minimum-erasure.md",
 }
 
 

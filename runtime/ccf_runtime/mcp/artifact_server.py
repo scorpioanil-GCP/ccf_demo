@@ -144,6 +144,7 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
 from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
+from ccf.erasure import ErasedContentRefused, ErasureIndexSource, compose_erasure_consult
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -308,6 +309,7 @@ def build_artifact_server(
     entitlement_source: ProductEntitlementSourceProtocol,
     refusal_recorder: DisclosingRecorderProtocol,
     audit_log: AuditLog,
+    control_plane: ErasureIndexSource,
 ) -> FastMCP:
     """Build the authenticated, authorized artifact server over ``store``.
 
@@ -346,12 +348,26 @@ def build_artifact_server(
         audit_log: The Control Plane's own append-only log, where every
             dereference — governed or client-lane — appends the trail of its
             read (``D-IMPL-345`` R-5).
+        control_plane: The Control Plane whose registry mirror of erasure
+            records the server consults (SEC-009; ``D-IMPL-374`` (4), MCP
+            ruling). **Required, no default**: this server is the
+            ArtifactStore's persistence transport (CLAUDE.md §7.4), so it
+            composes ``store`` through
+            :func:`~ccf.erasure.compose_erasure_consult` itself. Every byte read
+            goes through the composed store: a governed record follows
+            ``govern_dereference``'s authorization-first order, and an erased
+            client-lane artifact crosses as the erased reading — the not-found
+            shell at ``minimal``, ``erased-content`` above it — never as bytes.
+            The naming resource still resolves through ``store``: it returns
+            an address, never bytes (the ``exists`` reasoning, U8).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
         address is chosen here — hosting is the deployment's decision, and a
         library that picked an interface would be picking an exposure surface.
     """
+    # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
+    consulted = compose_erasure_consult(store, control_plane=control_plane)
     door = TenantGuardedServer(
         FastMCP(
             server_name,
@@ -392,7 +408,7 @@ def build_artifact_server(
                 reference=DereferenceRequest(
                     reference=content_address, by_uri=False, wants_bytes=True
                 ),
-                store=store,
+                store=consulted,
                 entitlement_source=entitlement_source,
                 refusal_recorder=refusal_recorder,
                 audit_log=audit_log,
@@ -406,6 +422,26 @@ def build_artifact_server(
         # (4) The client lane: filed under the capability's tenant in a class
         # the deployment did not declare governed. Served tenant-scoped, and
         # the read leaves the same trail a governed one does (D-IMPL-345 R-5).
+        try:
+            payload = consulted.get(content_address=content_address)
+        except ErasedContentRefused as erased:
+            # SEC-009: the caller owns this client-lane artifact (decided by the
+            # split above), so it receives the erased reading at its level.
+            decided = govern_dereference(
+                authorized,
+                reference=DereferenceRequest(
+                    reference=content_address, by_uri=False, wants_bytes=True
+                ),
+                store=consulted,
+                entitlement_source=entitlement_source,
+                refusal_recorder=refusal_recorder,
+                audit_log=audit_log,
+                surface=SURFACE_MCP_RESOURCE,
+                address=address,
+                erased_client_read=erased,
+            )
+            assert isinstance(decided, RefusalEnvelope)  # an erased read only refuses
+            return decided
         audit_log.append(
             action="authz_decision",
             key=content_address,
@@ -418,7 +454,7 @@ def build_artifact_server(
             authz_matched_pattern=None,
             authz_resource=content_address,
         )
-        return store.get(content_address=content_address)
+        return payload
 
     @door.resource(
         BLOB_URI_TEMPLATE,
@@ -572,6 +608,6 @@ def build_artifact_server(
                 "refusing to file bytes under an address a reader would not "
                 "recompute"
             )
-        return store.put(authorized, artifact)
+        return consulted.put(authorized, artifact)
 
     return door.build()

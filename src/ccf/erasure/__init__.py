@@ -39,10 +39,6 @@ erased input class (ruling 4).
   approval binds to the request's content identity, this field included.
 * ``ClassRetention.minimum_age`` is expressed in **whole days**, because the
   canonical form has no rendering for a duration and a policy must hash.
-* The MCP artifact server (``ccf_runtime.mcp.artifact_server``) holds no
-  Control Plane and therefore does not compose the consult itself; a
-  deployment hands it a store already composed with
-  :func:`compose_erasure_consult` (ruling 2, named and stopped).
 
 Algorithmic package (CINV-03).
 """

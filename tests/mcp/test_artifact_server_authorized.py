@@ -252,7 +252,8 @@ def _world(tmp_path: pathlib.Path, *, authorizer: Any = None) -> _World:
     recording = _RecordingAuthorizer(
         inner=authorizer if authorizer is not None else authorizer_granting()
     )
-    audit_log = ControlPlaneRegistry().audit_log
+    plane = ControlPlaneRegistry()
+    audit_log = plane.audit_log
     server = build_artifact_server(
         server_name="authorized-artifact",
         store=store,  # type: ignore[arg-type]  # the §1.2 write shape, ahead of the join
@@ -268,6 +269,7 @@ def _world(tmp_path: pathlib.Path, *, authorizer: Any = None) -> _World:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=audit_log,
+        control_plane=plane,
     )
     return _World(server=server, store=store, authorizer=recording, audit_log=audit_log)
 
@@ -443,7 +445,9 @@ def test_the_blob_read_goes_through_the_governed_dereference(
     verify(asked["authorized"], kind=ArtifactRead, resource=ADDRESS)
     assert getattr(asked["authorized"], "tenant") == TENANT
     assert asked["reference"] == DereferenceRequest(reference=ADDRESS, by_uri=False, wants_bytes=True)
-    assert asked["store"] is world.store
+    # SEC-009 (D-IMPL-374 (4), MCP ruling): the dereference reads through the
+    # erasure-consulting composition of the server's store.
+    assert asked["store"].inner is world.store
     assert asked["audit_log"] is world.audit_log
     assert asked["surface"] == SURFACE_MCP_RESOURCE
     assert asked["address"] == artifact_blob_uri(content_address=ADDRESS)
@@ -585,6 +589,7 @@ def _real_world(tmp_path: pathlib.Path) -> tuple[FastMCP, FileArtifactStore]:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
+        control_plane=ControlPlaneRegistry(),
     )
     return server, store
 
@@ -681,7 +686,8 @@ def test_a_client_lane_read_leaves_the_same_audit_trail_a_governed_one_does(
     the address read, the principal, and the artifact.read action."""
     source, recorder = _entitlement_world(tmp_path)
     store = deployment_store(tmp_path / "artifacts", REPLAY_RECORD_CLASS)
-    audit_log = ControlPlaneRegistry().audit_log
+    plane = ControlPlaneRegistry()
+    audit_log = plane.audit_log
     server = build_artifact_server(
         server_name="authorized-artifact-audit",
         store=store,
@@ -697,6 +703,7 @@ def test_a_client_lane_read_leaves_the_same_audit_trail_a_governed_one_does(
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=audit_log,
+        control_plane=plane,
     )
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), {"k": 1})
     before = len(audit_log.events())

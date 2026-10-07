@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1999 entries**, of which **1732** name a public Python surface.
+**2001 entries**, of which **1734** name a public Python surface.
 
 ## Added
 
@@ -17275,7 +17275,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17287,7 +17287,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -18100,7 +18100,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-544 entries — 353 public Python surface, 191 not public Python API.
+546 entries — 355 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -24382,6 +24382,37 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: returns `RefusalReplayOutcome | ErasedReplayOutcome`. When nothing reads the children (the no-read path), an erased child is disclosed on the `RefusalReplayOutcome` and the reconstruction completes.
 - Why: SEC-009; ruling 4.
 - Migration: as for `replay`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: reshaped
+- Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
+- After: a new **required** keyword `control_plane: ErasureIndexSource`, with no default. The server wraps `store` through `compose_erasure_consult`.
+  - Every byte read goes through the wrapped store.
+  - A governed record follows the authorization-first order (ruling 1).
+  - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
+  - The naming resource still resolves through `store`, because it returns an address, never bytes (the U8 reasoning).
+- Why: SEC-009; the coordinator's MCP ruling on `D-IMPL-374` (4). This server is the ArtifactStore's persistence transport (CLAUDE.md §7.4), so an erased artifact served over it is exactly the SEC-009 hole.
+- Migration: pass `control_plane=` with the deployment's `ControlPlaneRegistry`, the same registry the erasure door appends its mirror to. The five in-tree call sites are updated.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure handling.
+- After:
+  - Authorization runs first: the principal and grant holds read the record through the unconsulted inner store. Those bytes are used only for the rights check and never leave the door.
+  - Only then does the consulted read run. An erased address becomes the erased reading at the entitled caller's level.
+  - A new keyword `erased_client_read: ErasedContentRefused | None = None` lets the MCP artifact server render an erased client-lane artifact the same way. It can only ever produce a refusal, never bytes.
+- Why: SEC-009; rulings 1 and MCP on `D-IMPL-374` (4).
+- Migration: none.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

@@ -202,6 +202,7 @@ def build_server(*, workspace: Path) -> FastMCP:
             disclosure_level_for=source.disclosure_level_for,
         ),
         audit_log=registry.audit_log,
+        control_plane=registry,
     )
 
 

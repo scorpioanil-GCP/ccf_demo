@@ -12,7 +12,7 @@ before the consult (ruling 1).
 
 Three behavior changes apply to existing public names:
 
-- `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies compose their store through `compose_erasure_consult`.
+- `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies compose their store through `compose_erasure_consult`.
 - `resolve_artifact` and `resolve_artifact_at_uri` re-raise `ErasedContentRefused` by name. They do not turn it into `ReplayUnresolvable`.
 - `govern_dereference` runs the principal and grant holds first, against the unconsulted inner store. It then maps an erased address by the entitled caller's disclosure level:
   - at `minimal`, the route's not-found shell (404);
@@ -32,7 +32,6 @@ Disclosed residuals (ruling 5):
 
 - `RequestedAddress.retained_since` is the instant the minimum age is measured from. It is requester-declared and human-approved, not derived from the store, because the `ArtifactStoreProtocol` records no write instant.
 - `ClassRetention.minimum_age` is in whole days.
-- The MCP artifact server holds no Control Plane, so it does not compose the consult itself. A deployment passes it a store already composed with `compose_erasure_consult` (ruling 2, named and stopped).
 
 The door requires three things: the distinct `artifact.erase` capability for
 exactly the request, the workflow's `Execute`/`Resume` capabilities, and the
@@ -684,7 +683,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -694,7 +693,7 @@ recorded human approval (ruling 3).
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -797,6 +796,33 @@ recorded human approval (ruling 3).
 - After: returns `RefusalReplayOutcome | ErasedReplayOutcome`. When nothing reads the children (the no-read path), an erased child is disclosed on the `RefusalReplayOutcome` and the reconstruction completes.
 - Why: SEC-009; ruling 4.
 - Migration: as for `replay`.
+
+## ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: reshaped
+- Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
+- After: a new **required** keyword `control_plane: ErasureIndexSource`, with no default. The server wraps `store` through `compose_erasure_consult`.
+  - Every byte read goes through the wrapped store.
+  - A governed record follows the authorization-first order (ruling 1).
+  - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
+  - The naming resource still resolves through `store`, because it returns an address, never bytes (the U8 reasoning).
+- Why: SEC-009; the coordinator's MCP ruling on `D-IMPL-374` (4). This server is the ArtifactStore's persistence transport (CLAUDE.md §7.4), so an erased artifact served over it is exactly the SEC-009 hole.
+- Migration: pass `control_plane=` with the deployment's `ControlPlaneRegistry`, the same registry the erasure door appends its mirror to. The five in-tree call sites are updated.
+
+## ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure handling.
+- After:
+  - Authorization runs first: the principal and grant holds read the record through the unconsulted inner store. Those bytes are used only for the rights check and never leave the door.
+  - Only then does the consulted read run. An erased address becomes the erased reading at the entitled caller's level.
+  - A new keyword `erased_client_read: ErasedContentRefused | None = None` lets the MCP artifact server render an erased client-lane artifact the same way. It can only ever produce a refusal, never bytes.
+- Why: SEC-009; rulings 1 and MCP on `D-IMPL-374` (4).
+- Migration: none.
 
 ## ccf.replay.engine.ReplayOutcome
 
