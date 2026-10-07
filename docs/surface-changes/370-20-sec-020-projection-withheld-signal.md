@@ -1,4 +1,4 @@
-# 370-20 — SEC-020: a projection can withhold a subject, and a withheld subject reads as a nonexistent one
+# 370-20 — SEC-020: a projection can withhold a subject, and the product renders from what a nonexistent subject's walk reads (SEC-020 stays open: see 377-01)
 
 `D-IMPL-370` (and `D-IMPL-368`/`D-IMPL-369`), row SEC-020, ruling Q12 (a) of
 `docs/superpowers/specs/2026-10-05-remaining-rows-rulings-batch.md`
@@ -34,13 +34,14 @@ The signal is the only key into the branch. An empty payload without it keeps
 the debt and finding its real view earned.
 
 **Scope, as amended by `377-01` (`D-IMPL-376` (3), route A).** As first
-integrated, equality held with a nonexistent subject asked on the SAME fabric.
-On the paved road, acquisition populates each question's fabric with the asked
-subject's claims before the plan runs, so the unseeded walk still read them,
-while a nonexistent subject's own question walks a fabric acquisition added
-nothing to. `377-01` renders the withheld subject over the fabric as it stood
-before its question's acquisition; its own scope note says for which
-acquisition shape that is exact.
+integrated, the served product matched a nonexistent subject's asked on the
+SAME fabric (the five controls). On the paved road, acquisition populates each
+question's fabric with the asked subject's claims before the plan runs, so the
+unseeded walk still read them, while a nonexistent subject's own question walks
+a fabric acquisition added nothing to. `377-01` renders the withheld subject
+over the fabric as it stood before its question's acquisition, and lists what
+that makes equal, as measured, and the channels that still tell a withheld
+subject from a nonexistent one. SEC-020 stays OPEN.
 
 ## ccf.projection.plan.ProjectionOutput
 
@@ -69,5 +70,5 @@ acquisition shape that is exact.
 - Change type: reshaped
 - Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
 - After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
-- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes the pre-existing divergence for every empty-finding product.
-- Migration: none for records. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`, and its replay still fails with `ReplayDivergence`: measured with a computed-empty product's record filed without the member, as a writer before this change filed it.
+- Migration: none is possible for a record written before this change: records are immutable, it carries no finding to copy, and its replay still diverges. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.

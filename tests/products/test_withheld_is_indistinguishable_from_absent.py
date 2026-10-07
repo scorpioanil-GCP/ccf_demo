@@ -58,6 +58,7 @@ from typing import Any
 
 import pytest
 
+from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
@@ -974,3 +975,98 @@ def test_control_4_on_the_class_seeded_paved_road_each_decision_replays_to_its_o
     )
     assert content_hash(outcome.product) == recorded == content_hash(served.product)
     assert outcome.product.computed_empty == served.product.computed_empty
+
+
+# --- channel C-1: the answer's replay reference names the REAL read (SEC-020 OPEN) -----
+#
+# Every answer names its decision record: `ServedProduct.replay_ref` (and the
+# doors' copies of it) or a refusal's `replay_reference`.
+# `src/ccf/replay/serve.py::ReplayWriter` files the record under dimension 1's
+# `graph_snapshot_id`, a hash of what the plan actually READ, and dimension 1
+# keeps the real read by ruling. So on a plan whose walk reaches the subject's
+# acquired records, the withheld answer's record NAME differs from a nonexistent
+# subject's while the vessels match: `_assert_indistinguishable` drops
+# `replay_reference` and compares the vessel only, so it cannot see this. Held
+# here as a STRICT expected failure. It fails today for exactly that reason; the
+# day the channel closes it XPASSes, which strict mode reports as a failure, so
+# the marker must be removed and the closure claimed on evidence (security
+# how-to, section 4.12).
+
+
+def _record_name(outcome: Any) -> str:
+    """The name an answer's replay reference files its decision record under."""
+    if isinstance(outcome, ServedProduct):
+        return str(outcome.replay_ref.name)
+    if isinstance(outcome, RefusalEnvelope):
+        return parse_artifact_uri(outcome.replay_reference).name
+    pytest.fail(f"neither served nor refused: {outcome!r}")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "SEC-020 OPEN, channel C-1 (security how-to, section 4.12): the replay"
+        " record is named by dimension 1's graph_snapshot_id, which keeps the"
+        " REAL read, so a withheld answer's replay-reference name differs from a"
+        " nonexistent subject's. When this passes, remove the marker."
+    ),
+)
+@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
+def test_c1_a_withheld_answer_carries_the_record_name_a_nonexistent_subject_gets(
+    tmp_path: pathlib.Path, anchor: str
+) -> None:
+    """C-1: the replay-reference NAME, on the class-seeded paved road, both anchors.
+
+    Every precondition fails through `pytest.fail`, never an `AssertionError`,
+    so the strict expected failure can only be the C-1 comparison itself: two
+    nonexistent subjects must share one record name (the instrument), and the
+    withheld decision's real read must have reached the acquired subject (the
+    case is constructed).
+    """
+    from tests.products.test_paved_road import ASKED_AT as PAVED_ASKED_AT  # noqa: PLC0415
+    from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
+    from tests.deployment.test_replay_binding import (  # noqa: PLC0415
+        THRESHOLD_PARAMETER as PAVED_THRESHOLD,
+    )
+
+    root = _write_tree(tmp_path, config=_paved_config(anchor=anchor, seeding=CLASS_SEEDED))
+    with _open(
+        root,
+        tmp_path / "scratch",
+        acquire=_RecordingAcquireForSubject(),
+        project=_paved_withholding_project,
+    ) as opened:
+
+        def ask(subject: str) -> Any:
+            return opened.answer(
+                opened.question(
+                    subject=subject, asked_at=PAVED_ASKED_AT, intent="fixture-intent",
+                    freshness="fixture-freshness", parameters={PAVED_THRESHOLD: 1000},
+                )
+            )
+
+        withheld = ask(PAVED_WITHHELD)
+        nonexistent = ask(PAVED_ABSENT)
+        other_nonexistent = ask(_uri("acct-paved-absent-2"))
+        withheld_record = opened.record_of(withheld)
+
+    names = {
+        "withheld": _record_name(withheld),
+        "nonexistent": _record_name(nonexistent),
+        "other nonexistent": _record_name(other_nonexistent),
+    }
+    if names["nonexistent"] != names["other nonexistent"]:
+        pytest.fail(
+            f"[{anchor}] instrument broken: two nonexistent subjects' answers carry"
+            f" different record names {names}"
+        )
+    if PAVED_WITHHELD not in withheld_record.context_fabric_snapshot.touched_entities:
+        pytest.fail(
+            f"[{anchor}] case not constructed: the real read did not reach the"
+            " acquired subject"
+        )
+    assert names["withheld"] == names["nonexistent"], (
+        f"[{anchor}] channel C-1: the withheld answer's replay reference names record"
+        f" {names['withheld']}; a nonexistent subject's names {names['nonexistent']}"
+    )

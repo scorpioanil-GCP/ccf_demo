@@ -519,17 +519,21 @@ class ProjectionEngine:
     ) -> ExecutionResult:
         """Re-execute ``plan`` exactly as ``executed`` ran, minus the request seed.
 
-        SEC-020; ``D-IMPL-371`` (SDK-defined, CLAUDE.md §11). Read by the
-        governed resolver when Π raised the typed withheld signal
-        (``src/ccf/projection/plan.py::ProjectionOutput``). A withheld subject
-        must render as a subject that names nothing renders, and the ONLY way a
-        question's subject reaches the operator stage is the request seed
-        (`GQ-11`: walk starts are the union of the plan's seed classes and the
-        request seed). So the walk here starts exactly where a never-ingested
-        identifier's starts — the class seeds and nothing else — and the
-        withheld subject's own records are in the view if and only if a class
-        seed reaches them, exactly as they are for that identifier. No record
-        is masked; seeding semantics are untouched.
+        SEC-020; ``D-IMPL-371`` (SDK-defined, CLAUDE.md §11). SEC-020 is OPEN
+        (the security how-to, section 4.12). Read by the governed resolver when
+        Π raised the typed withheld signal
+        (``src/ccf/projection/plan.py::ProjectionOutput``). It yields the walk
+        a subject that names nothing gets, which is what the resolver computes
+        a withheld subject's debt, empty finding and TTL anchor from; it does
+        not, by itself, make the withheld answer indistinguishable from a
+        nonexistent subject's (section 4.12 names what still differs). The
+        ONLY way a question's subject reaches the operator stage is the request
+        seed (`GQ-11`: walk starts are the union of the plan's seed classes and
+        the request seed). So the walk here starts exactly where a
+        never-ingested identifier's starts — the class seeds and nothing else —
+        and the withheld subject's own records are in the view if and only if a
+        class seed reaches them, exactly as they are for that identifier. No
+        record is masked; seeding semantics are untouched.
 
         **Which fabric the walk reads** (``D-IMPL-376`` (3), route A). A
         subject that names nothing has nothing acquired for it by a source
@@ -537,10 +541,10 @@ class ProjectionEngine:
         its question's acquisition — and that is what this walk reads too. An
         acquisition that ingests the same content whatever is asked gives a
         nonexistent subject that content as well, and this walk does not read
-        it (measured; disclosed in the security how-to, section 4.12). ``before_acquisition`` is that state
-        for this request: the as-of read the governed resolver takes
-        immediately before its declared acquisition seam
-        (``src/ccf/products/resolver.py::GovernedResolver``). When it is given,
+        it (measured; disclosed in the security how-to, section 4.12).
+        ``before_acquisition`` is that state for this request: the as-of read
+        the governed resolver takes immediately before its declared acquisition
+        seam (``src/ccf/products/resolver.py::GovernedResolver``). When it is given,
         every query is answered over it by the reference semantics, so nothing
         this request's acquisition ingested for the asked subject is walked.
         ``None`` means no acquisition ran for this request (no seam declared):
@@ -549,7 +553,13 @@ class ProjectionEngine:
 
         Every other input is the shadowed execution's: the same plan, boundary
         and perspective, on a fresh engine sharing this one's registry and
-        survivor cap (so this engine's telemetry is not replaced). Content the
+        survivor cap (so this engine's telemetry is not replaced). The governed
+        resolver built that registry from the view read AFTER this request's
+        acquisition, so an index-backed operator in it — the similarity
+        operator's corpus — holds text the acquisition wrote although the walk
+        does not read the acquired records: measured to tell a withheld subject
+        from a nonexistent one when the acquisition refreshed an entity the
+        fabric already held (review finding I-2; section 4.12). Content the
         real execution acquired at decision time is RE-FED rather than
         re-acquired (the replay posture, INV-CH7-31). The result carries the
         real execution's attestation and pin.
