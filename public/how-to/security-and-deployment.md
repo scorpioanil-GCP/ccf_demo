@@ -962,12 +962,49 @@ A registered `ccf.policy-constraint` whose `maximum`, `minimum` or
 `allowed_set` reaches a parameter the caller omitted and no default fills is
 never skipped: the request is refused as `constraint-refusal` with reason
 `required-absent` and the constraint's `policy` authority
-(`src/ccf/products/constraints.py::resolve_effective_request`), and the
-tolerance step refuses an absent `debt_tolerance` that a policy bounds the
-same way instead of serving it at any Context Debt
-(`src/ccf/products/gates.py::refuse_over_tolerance`), so declare a default
-for every bounded parameter a caller may leave out, because the SDK supplies
-none.
+(`src/ccf/products/constraints.py::resolve_effective_request`). Declare a
+default for every bounded parameter a caller may leave out, because the SDK
+supplies none: the class's serve obligation `default_debt_tolerance` for the
+tolerance, or the request contract's `defaults` or `relative_defaults` for any
+parameter. The tolerance step refuses an absent `debt_tolerance` that a policy
+bounds in the same way, instead of serving it at any Context Debt, but only
+for a caller that composes it directly and states the bound
+(`src/ccf/products/gates.py::refuse_over_tolerance`, whose `policy_bound`
+argument is required).
+
+- **Narrow a constraint's `applies_to` to the classes that declare its
+  parameter.** A constraint that reaches a class whose request contract does
+  not declare the parameter now refuses every request to that class in its
+  scope: as `required-absent` when the caller omits the parameter, and as
+  `undeclared-parameter` when the caller supplies it, so nothing the caller
+  can send cures it. An `applies_to` with no `product_class` reaches every
+  class, so an enterprise-wide constraint is the usual way to meet this. The
+  fix is in the constraint, not the request: narrow `applies_to` to the
+  classes that carry the parameter.
+- **A deployment's own `PolicyConstraintResolver` must refuse the case
+  itself.** On the governed path the tolerance step is handed no policy bound
+  for an absent tolerance, because the governed resolver relies on the
+  resolution having refused a bounded one already; the step's refusal above is
+  a second line for a direct caller only. A resolver that skips an absent
+  bounded tolerance therefore has the product served at any Context Debt, and
+  one that skips any other absent bounded parameter has the request served as
+  though the bound did not exist. Adopt the same rule, or delegate to
+  `resolve_effective_request`.
+- **A numeric bound on a non-numeric parameter holds vacuously.** A `maximum`
+  or `minimum` on a parameter its request contract declares as something other
+  than a number, a string for example, admits every value of it, and the
+  replay record's effective request still shows the parameter as bounded by
+  that policy. The SDK does not check a constraint's bound against the
+  parameter's declared type, so declare `maximum` and `minimum` on numeric
+  parameters only, and `allowed_set` for the rest. This predates SEC-019 and is
+  disclosed rather than changed.
+- **The reference resolver's `1.1.0` label is pinnable, not yet pinned.**
+  `PolicyConstraintResolver` carries `resolver_id` and `resolver_version` so
+  that the resolver in force can be pinned into replay, and the reference
+  resolver moved from `1.0.0` to `1.1.0` for this refusal. Nothing in the SDK
+  yet reads either property into a Decision Replay record, so no record shows
+  which resolver version made its resolution; do not read the version bump as
+  already replay-pinned.
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

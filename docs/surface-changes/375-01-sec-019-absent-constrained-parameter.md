@@ -27,7 +27,9 @@ a bound declares the default itself.
 **The reference resolver's version moves with its behavior.** The reference
 resolution now refuses a case it used to skip, so
 `REFERENCE_CONSTRAINT_RESOLVER_VERSION` goes from `1.0.0` to `1.1.0`, and a
-test pins the label to a fingerprint of the behavior it names.
+test pins the label to a fingerprint of the behavior it names. The label is
+pinnable into replay by design (`D-IMPL-253` Q8), but nothing yet reads it into
+a record.
 
 ## ccf.products.constraints.resolve_effective_request
 
@@ -55,7 +57,7 @@ test pins the label to a fingerprint of the behavior it names.
 - Public surface: true
 - Change type: behavior
 - Before: `"1.0.0"`, reported by `ReferencePolicyConstraintResolver.resolver_version`. The label named the resolution that skipped an absent bounded parameter.
-- After: `"1.1.0"`, the resolution that refuses it (`required-absent`). `tests/products/test_reference_resolver_version.py` pins the label together with a fingerprint of the behavior it names: nineteen fixed questions put to the reference resolver over a real Control Plane, reaching every decision the resolution makes. A behavior change that keeps the label is a red build, and `1.0.0` and `1.1.0` are recorded as differing in exactly the three absent-bounded questions.
+- After: `"1.1.0"`, the resolution that refuses it (`required-absent`). `tests/products/test_reference_resolver_version.py` pins the label together with a fingerprint of the behavior it names: nineteen fixed questions put to the reference resolver over a real Control Plane, reaching every decision the resolution makes. A behavior change that keeps the label is a red build, and `1.0.0` and `1.1.0` are recorded as differing in exactly the three absent-bounded questions. Pinnable by design, not yet pinned: nothing in `src/` or `runtime/` reads `resolver_id` or `resolver_version` into a Decision Replay record, so the bump is not visible in any record today.
 - Why: SEC-019 (`D-IMPL-356` D11). `D-IMPL-253` Q8 puts `resolver_version` on the Protocol so the resolver in force can be pinned into replay, which makes the version a claim about behavior: a label that outlives a change in what it labels is a false pin.
 - Migration: none, unless a consumer compares `resolver_version` against `"1.0.0"`; it reads `"1.1.0"` now.
 
