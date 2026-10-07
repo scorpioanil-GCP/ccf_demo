@@ -164,8 +164,10 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ARTIFACT_BLOB_URI_SCHEME",
     "ARTIFACT_META_URI_SCHEME",
+    "ARTIFACT_NAMES_URI_SCHEME",
     "BLOB_URI_TEMPLATE",
     "META_URI_TEMPLATE",
+    "NAMES_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
     "PUT_ARTIFACT_TOOL",
     "ArtifactPresence",
@@ -189,6 +191,13 @@ ARTIFACT_META_URI_SCHEME = "ccf-artifact-meta"
 
 BLOB_URI_TEMPLATE = f"{ARTIFACT_BLOB_URI_SCHEME}://{{content_address}}"
 META_URI_TEMPLATE = f"{ARTIFACT_META_URI_SCHEME}://{{content_address}}"
+
+#: The naming resource (SEC-009; ``D-IMPL-374`` (4), ruling 2): every
+#: ``(tenant, class, name)`` an address was filed under, scoped to the caller's
+#: verified tenant — what the erasure door reads to verify an address's STORED
+#: class and tenant over the §7.4 reference store. Naming only, never bytes.
+ARTIFACT_NAMES_URI_SCHEME = "ccf-artifact-names"
+NAMES_URI_TEMPLATE = f"{ARTIFACT_NAMES_URI_SCHEME}://{{content_address}}"
 
 #: The naming surface, mirroring :func:`ccf.artifacts.protocol.artifact_uri`
 #: segment for segment. Built from the shared scheme constant rather than
@@ -297,6 +306,11 @@ def artifact_blob_uri(*, content_address: str) -> str:
 def artifact_meta_uri(*, content_address: str) -> str:
     """Render the presence URI for one content address."""
     return f"{ARTIFACT_META_URI_SCHEME}://{content_address}"
+
+
+def artifact_names_uri(*, content_address: str) -> str:
+    """Render the naming URI for one content address (SEC-009; `D-IMPL-374` (4), ruling 2)."""
+    return f"{ARTIFACT_NAMES_URI_SCHEME}://{content_address}"
 
 
 def build_artifact_server(
@@ -518,6 +532,32 @@ def build_artifact_server(
         if isinstance(served, RefusalEnvelope):
             return canonical_bytes(served).decode("utf-8")
         return canonical_bytes(ArtifactPresence(found=True)).decode("utf-8")
+
+    @door.resource(
+        NAMES_URI_TEMPLATE,
+        action=ACTION_ARTIFACT_READ,
+        subject=door.from_grant(),
+        resource=door.resource_argument("content_address"),
+        mutating=False,
+        mime_type=_JSON_MIME_TYPE,
+    )
+    def artifact_names(authorized: Authorized[ArtifactRead], content_address: str) -> str:
+        """Every ``(tenant, class, name)`` this address was filed under — the caller's tenant only.
+
+        SEC-009 (``D-IMPL-374`` (4), ruling 2): the backing store's naming
+        introspection, so the erasure door can verify an address's STORED
+        class and tenant through the MCP-backed reference store. Scoped to the
+        capability's verified tenant: another tenant's filing of the same bytes
+        never crosses (I6). Naming only — no artifact byte is read; a malformed
+        address answers the empty list, as the store's ``names_at`` does.
+        """
+        verify(authorized, kind=ArtifactRead, resource=content_address)
+        own = tuple(
+            named
+            for named in store.names_at(content_address=content_address)
+            if named.tenant_id == authorized.tenant
+        )
+        return canonical_bytes(own).decode("utf-8")
 
     @door.resource(
         NAME_URI_TEMPLATE,

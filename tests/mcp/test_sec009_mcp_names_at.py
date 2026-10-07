@@ -134,10 +134,16 @@ class _InProcessSession:
 
 
 class _Run:
+    """The bridge's contract — run a coroutine to completion from sync code —
+    on its own thread, as the real ``SyncMcpBridge`` does, so it works when the
+    caller (the async door) is itself inside an event loop."""
+
     def run(self, coroutine: Any) -> Any:
         import asyncio
+        from concurrent.futures import ThreadPoolExecutor
 
-        return asyncio.run(coroutine)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coroutine).result()
 
 
 def test_an_erasure_through_the_mcp_backed_reference_store_is_verified_and_admitted(

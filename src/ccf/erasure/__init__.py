@@ -47,9 +47,9 @@ disclosed for every erased input class (ruling 4).
   approval binds to the request's content identity, this field included.
 * ``ClassRetention.minimum_age`` is expressed in **whole days**, because the
   canonical form has no rendering for a duration and a policy must hash.
-* **No erasure through** ``McpArtifactStore`` (ruling (iii), fallback): it
-  answers no naming, so the door refuses ``class-unverifiable``; reads through
-  it are still consulted.
+* A third-party store with no ``names_at`` cannot be erased through: the
+  door refuses ``class-unverifiable``. The §7.4 reference store answers
+  ``names_at`` through the MCP artifact server's names resource (ruling 2).
 * **Enumeration is the deployment's** (ruling (iv)): the fabric verifies the
   addresses a request names; where a subject's artifacts are is the
   deployment's to know (:class:`ErasureSubjectLocator`, declared without a

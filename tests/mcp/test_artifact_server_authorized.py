@@ -553,16 +553,21 @@ def test_no_surface_on_the_artifact_server_is_untenanted(tmp_path: pathlib.Path)
     # The ledger is per FastMCP; reach it through the module's weak map the
     # same way `unguarded_surfaces` does, since the builder returns the server.
     ledger = tenancy._LEDGERS[world.server]
+    # SEC-009 ruling 2 (D-IMPL-374 (4)): the names resource joins the roster,
+    # hash-addressed and grant-tenanted like the blob and presence resources.
+    from ccf_runtime.mcp.artifact_server import NAMES_URI_TEMPLATE
+
     assert set(ledger) == {
-        BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAME_URI_TEMPLATE, PUT_ARTIFACT_TOOL
+        BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAMES_URI_TEMPLATE, NAME_URI_TEMPLATE, PUT_ARTIFACT_TOOL
     }
     assert ledger[BLOB_URI_TEMPLATE].subject.grant is True
     assert ledger[META_URI_TEMPLATE].subject.grant is True
+    assert ledger[NAMES_URI_TEMPLATE].subject.grant is True
     assert ledger[NAME_URI_TEMPLATE].subject.argument == "tenant"
     assert ledger[PUT_ARTIFACT_TOOL].subject.grant is True
     assert ledger[PUT_ARTIFACT_TOOL].action == ACTION_ARTIFACT_WRITE
     assert ledger[PUT_ARTIFACT_TOOL].resource.template == "{artifact_class}/{name}"
-    for uri in (BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAME_URI_TEMPLATE):
+    for uri in (BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAMES_URI_TEMPLATE, NAME_URI_TEMPLATE):
         assert ledger[uri].action == ACTION_ARTIFACT_READ
         assert ledger[uri].mutating is False
 

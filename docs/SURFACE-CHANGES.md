@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2007 entries**, of which **1740** name a public Python surface.
+**2010 entries**, of which **1743** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1159 entries — 1115 public Python surface, 44 not public Python API.
+1161 entries — 1117 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -17435,6 +17435,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
+#### ccf_runtime.mcp.artifact_server.ARTIFACT_NAMES_URI_SCHEME
+
+- Surface: ccf_runtime.mcp.artifact_server.ARTIFACT_NAMES_URI_SCHEME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The scheme `ccf-artifact-names`.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The erasure door verifies an address's STORED class and tenant through `names_at`, and the §7.4 MCP-backed reference store must not be excluded from that.
+- Migration: none. A deployment running an older artifact server must upgrade it before erasing through `McpArtifactStore`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.mcp.artifact_server.NAMES_URI_TEMPLATE
+
+- Surface: ccf_runtime.mcp.artifact_server.NAMES_URI_TEMPLATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ccf-artifact-names://{content_address}`. It is a resource, grant-tenanted and declared under `artifact.read`, that answers every `(tenant, class, name)` the backing store filed the address under. It returns the caller's verified tenant only, and only naming, never bytes.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The erasure door verifies an address's STORED class and tenant through `names_at`, and the §7.4 MCP-backed reference store must not be excluded from that.
+- Migration: none. A deployment running an older artifact server must upgrade it before erasing through `McpArtifactStore`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -18146,7 +18170,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-549 entries — 358 public Python surface, 191 not public Python API.
+550 entries — 359 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -24495,6 +24519,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: a new **required** field `erasure_index: ErasureIndexProtocol`, with no default. `create_app` composes `artifact_store` over it, together with `control_plane.audit_log`.
 - Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
 - Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: reshaped
+- Before: the four Protocol verbs, plus `url` and `write_kinds`.
+- After: adds `names_at(*, content_address)`. It reads the server's names resource for this credential's tenant. A malformed address returns `()` with no round trip. An answer that is not a list of names raises `McpServerUnreachable`.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The same naming introspection `FileArtifactStore.names_at` offers, so an erasure through the §7.4 reference store is verified and admitted.
+- Migration: none.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

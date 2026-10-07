@@ -36,7 +36,7 @@ What this change does not do:
 
 Disclosed residuals (ruling 5):
 
-- **`McpArtifactStore` cannot be erased through (ruling (iii), the fallback taken).** The erasure door reads the stored class and tenant through the store's naming (`names_at`). `McpArtifactStore`, the §7.4 MCP client store, answers no naming, so an erasure requested through a door that files via it is refused by name: `class-unverifiable`. Reads through it are still consulted. A `names_at` resource on the MCP artifact server and the matching client method are NOT built this round.
+- **A third-party store with no `names_at` cannot be erased through.** The door refuses by name, `class-unverifiable`, because it reads an address's stored class and tenant through the store's naming. The §7.4 reference store is NOT excluded: the MCP artifact server answers names through a resource, and `McpArtifactStore.names_at` reads it (ruling 2).
 - **Receivers that compose nothing.** `replay()`, `replay_refusal()` and `GrantBoundChildResolver` consult only if the store they are handed is composed (M5). The frozen `dr-01` example replays over a raw store. A child decision record that was erased still propagates `ErasedContentRefused` out of child admission (M4, not built).
 
 - `RequestedAddress.retained_since` is the instant the minimum age is measured from. It is requester-declared and human-approved, not derived from the store, because the `ArtifactStoreProtocol` records no write instant.
@@ -906,6 +906,36 @@ recorded human approval (ruling 3).
 - After: a new **required** field `erasure_index: ErasureIndexProtocol`, with no default. `create_app` composes `artifact_store` over it, together with `control_plane.audit_log`.
 - Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
 - Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+## ccf_runtime.mcp.artifact_server.ARTIFACT_NAMES_URI_SCHEME
+
+- Surface: ccf_runtime.mcp.artifact_server.ARTIFACT_NAMES_URI_SCHEME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The scheme `ccf-artifact-names`.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The erasure door verifies an address's STORED class and tenant through `names_at`, and the §7.4 MCP-backed reference store must not be excluded from that.
+- Migration: none. A deployment running an older artifact server must upgrade it before erasing through `McpArtifactStore`.
+
+## ccf_runtime.mcp.artifact_server.NAMES_URI_TEMPLATE
+
+- Surface: ccf_runtime.mcp.artifact_server.NAMES_URI_TEMPLATE
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `ccf-artifact-names://{content_address}`. It is a resource, grant-tenanted and declared under `artifact.read`, that answers every `(tenant, class, name)` the backing store filed the address under. It returns the caller's verified tenant only, and only naming, never bytes.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The erasure door verifies an address's STORED class and tenant through `names_at`, and the §7.4 MCP-backed reference store must not be excluded from that.
+- Migration: none. A deployment running an older artifact server must upgrade it before erasing through `McpArtifactStore`.
+
+## ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: reshaped
+- Before: the four Protocol verbs, plus `url` and `write_kinds`.
+- After: adds `names_at(*, content_address)`. It reads the server's names resource for this credential's tenant. A malformed address returns `()` with no round trip. An answer that is not a list of names raises `McpServerUnreachable`.
+- Why: SEC-009; ruling 2 on `D-IMPL-374` (4). The same naming introspection `FileArtifactStore.names_at` offers, so an erasure through the §7.4 reference store is verified and admitted.
+- Migration: none.
 
 ## ccf.replay.engine.ReplayOutcome
 
