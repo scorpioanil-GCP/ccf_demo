@@ -84,7 +84,7 @@ from ccf.artifacts.protocol import (
 from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
 from ccf.contracts.base import CCFContract
-from ccf.erasure.store import ErasedContentRefused
+from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
@@ -971,10 +971,12 @@ def govern_dereference(
     a caller allowed to consult it before the holds could confirm those three
     facts about a record it may not read by varying the segments.
 
-    **An erased address** (SEC-009; ``D-IMPL-374`` (4), U11) is the one
-    exception, decided before the holds because the store the door holds
-    refuses to read its bytes: at ``minimal`` it is the same absence as below;
-    at ``reasoned`` and ``full`` it is an ``erased-content`` shell (410),
+    **An erased address** (SEC-009; ``D-IMPL-374`` (4), U11, ruling 1) is
+    decided AFTER holds 1 and 2 — authorization first: the holds read the
+    record through the unconsulted inner store, so a caller not entitled to
+    the record receives exactly the rendering it received before the erasure.
+    An entitled caller then meets the consult: at ``minimal`` the same absence
+    as below; at ``reasoned`` and ``full`` an ``erased-content`` shell (410)
     carrying the erasure's reason and instant, and its record address only at
     ``full``.
 
@@ -1132,37 +1134,20 @@ def govern_dereference(
         candidate = parsed.artifact_version
     else:
         candidate = reference.reference
+    # SEC-009 ruling 1 (`D-IMPL-374` (4)): AUTHORIZATION FIRST. The record the
+    # holds judge is read through the UNCONSULTED inner store, so an erased
+    # address is authorized exactly as it was before its erasure; its bytes are
+    # never served from this read — what crosses comes from the consulted read
+    # below, after the holds.
+    authorization_store = (
+        store.inner if isinstance(store, ErasureConsultingStore) else store
+    )
     try:
         content_address = held_content_address(candidate)
         record = resolve_artifact(
-            store=store,
+            store=authorization_store,
             content_address=content_address,
             contract=DecisionReplayRecord,
-        )
-    except ErasedContentRefused as erased:
-        # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.3, U11): the store
-        # the door holds refused to serve an erased address. The bytes are not
-        # read, so no record hold can run; the disclosure level in force for
-        # THIS principal decides the reading — at `minimal` the route's own
-        # not-found rendering (the erasure is not disclosed), at `reasoned` and
-        # `full` an `erased-content` shell the door renders 410.
-        level, _policy = refusal_recorder.disclosure_level_for(
-            tenant=refusal_recorder.tenant_id, principal_id=principal
-        )
-        if level == DISCLOSURE_MINIMAL:
-            return refuse(
-                cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
-            )
-        return refuse(
-            cause="nonexistent",
-            error_code=ERROR_EVIDENCE_ABSENT,
-            detail=absent,
-            refusal=ErasedContentRefusal(
-                detail="the requested content was erased by a recorded decision and is not served",
-                erasure_reason=erased.reason,
-                erased_at=erased.erased_at,
-                erasure_record_address=erased.erasure_record_address,
-            ),
         )
     except (
         ArtifactNotFound,
@@ -1221,10 +1206,34 @@ def govern_dereference(
                 policy=refused.policy,
             )
 
-    # --- hold 3: the level that disclosed the serve -------------------------
+    # --- the erasure consult: after the holds, before disclosure -------------
+    # SEC-009 (`D-IMPL-374` (4), ruling 1; design `D-IMPL-367` §5.3): only a
+    # caller entitled to this record reaches here. At `minimal` an erased
+    # address is the route's not-found rendering; at `reasoned` and `full` it
+    # is the `erased-content` shell the door renders 410.
     level, _policy = refusal_recorder.disclosure_level_for(
         tenant=refusal_recorder.tenant_id, principal_id=principal
     )
+    try:
+        consulted = store.get(content_address=content_address)
+    except ErasedContentRefused as erased:
+        if level == DISCLOSURE_MINIMAL:
+            return refuse(
+                cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+            )
+        return refuse(
+            cause="nonexistent",
+            error_code=ERROR_EVIDENCE_ABSENT,
+            detail=absent,
+            refusal=ErasedContentRefusal(
+                detail="the requested content was erased by a recorded decision and is not served",
+                erasure_reason=erased.reason,
+                erased_at=erased.erased_at,
+                erasure_record_address=erased.erasure_record_address,
+            ),
+        )
+
+    # --- hold 3: the level that disclosed the serve -------------------------
     if level != DISCLOSURE_FULL:
         return refuse(
             cause="unauthorized",
@@ -1252,11 +1261,7 @@ def govern_dereference(
                 detail=absent,
             )
 
-    payload = (
-        store.get(content_address=content_address)
-        if reference.wants_bytes
-        else None
-    )
+    payload = consulted if reference.wants_bytes else None
     audited(delivered=content_address, allowed=True)
     return DereferencedEvidence(
         content_address=content_address, record=record, payload=payload
