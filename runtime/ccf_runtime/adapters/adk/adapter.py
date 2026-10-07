@@ -107,13 +107,13 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.harness.protocol import EffectCapability, EffectRefusal, HarnessCapabilities
 from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
-from ccf.skills._wire_arguments import UndeclaredArgumentRefused, undeclared_arguments
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import (
     HARNESS_EXPOSABLE_SKILL_TYPES,
     RenderedToolSurface,
     render_tool_surface,
 )
+from ccf.skills.wire_arguments import ArgumentRefused, refuse_undeclared_arguments
 
 __all__ = [
     "AGENT_HASH_STATE_KEY",
@@ -210,6 +210,15 @@ class _DeclaredSkillTool(FunctionTool):
     override receives ADK's raw ``args``, refuses any key the declared schema
     does not name — through the adapter's typed ``EffectRefusal``, never by
     dropping it — and hands the rest to dispatch unchanged.
+
+    **The whole argument rule is the seam's** (``TP-04`` follow-on,
+    ``D-IMPL-361``). This early undeclared-key refusal stays, delegating to the
+    shared validator (:func:`ccf.skills.wire_arguments.refuse_undeclared_arguments`)
+    so its message is the family's; a missing required argument and a
+    wrong-typed value are refused by
+    :meth:`~ccf.agents.agent.Agent.invoke_skill`, which receives the args as
+    ADK delivered them (not stringified), and the tool renders that refusal as
+    the same ``EffectRefusal``.
     """
 
     def __init__(
@@ -218,7 +227,7 @@ class _DeclaredSkillTool(FunctionTool):
         *,
         name: str,
         surface: RenderedToolSurface,
-        refuse: Callable[[UndeclaredArgumentRefused], dict[str, Any]],
+        refuse: Callable[[ArgumentRefused], dict[str, Any]],
     ) -> None:
         super().__init__(func=func)
         self.name = name
@@ -233,17 +242,20 @@ class _DeclaredSkillTool(FunctionTool):
         """Dispatch the model's declared arguments; refuse any undeclared one.
 
         ``TP-04`` (``D-IMPL-361``): declared arguments arrive, undeclared ones
-        are refused, never dropped. The refusal is decided before
-        ``invoke_skill`` is reached, so a refused call dispatches nothing.
+        are refused, never dropped. The undeclared-key refusal is decided before
+        ``invoke_skill`` is reached; the rest of the rule (missing, mistyped) is
+        refused inside ``invoke_skill`` before dispatch (``TP-04`` follow-on).
+        Either way a refused call dispatches nothing.
         """
-        undeclared = undeclared_arguments(
-            args, declared=self._ccf_surface.input_schema["properties"]
-        )
-        if undeclared:
-            return self._ccf_refuse(
-                UndeclaredArgumentRefused(surface=self.name, undeclared=undeclared)
+        try:
+            refuse_undeclared_arguments(
+                args,
+                declared=self._ccf_surface.input_schema["properties"],
+                surface=self.name,
             )
-        return self._ccf_dispatch(args)
+            return self._ccf_dispatch(args)
+        except ArgumentRefused as refused:
+            return self._ccf_refuse(refused)
 
     def _get_declaration(self) -> genai_types.FunctionDeclaration:
         return genai_types.FunctionDeclaration(
@@ -452,11 +464,12 @@ class AdkAdapter:
         same entry (D-17); :class:`_DeclaredSkillTool` carries it into ADK's
         declaration. The model's raw argument mapping reaches ``call`` through
         :meth:`_DeclaredSkillTool.run_async` and is carried to
-        :meth:`~ccf.agents.agent.Agent.invoke_skill` as its
-        ``Mapping[str, str]``; a key the declared schema does not name is
-        refused there as this adapter's typed
-        :class:`~ccf.harness.protocol.EffectRefusal`, never dropped (``TP-04``,
-        ``D-IMPL-361``).
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as ADK delivered it — not
+        stringified, so the seam's type check sees the real value; a key the
+        declared schema does not name, a missing required argument or a
+        wrong-typed value is refused as this adapter's typed
+        :class:`~ccf.harness.protocol.EffectRefusal`, never dropped or coerced
+        (``TP-04`` and its follow-on, ``D-IMPL-361``).
 
         Dispatch is the fabric's, every time the harness calls the tool:
         binding is re-resolved from the ledger-backed view at each invocation,
@@ -467,13 +480,10 @@ class AdkAdapter:
         surface = render_tool_surface(entry)
 
         def call(arguments: Mapping[str, Any]) -> str:
-            invocation = agent.invoke_skill(
-                skill_name,
-                arguments={key: str(value) for key, value in arguments.items()},
-            )
+            invocation = agent.invoke_skill(skill_name, arguments=dict(arguments))
             return canonical_bytes(invocation).decode("utf-8")
 
-        def refuse(refused: UndeclaredArgumentRefused) -> dict[str, Any]:
+        def refuse(refused: ArgumentRefused) -> dict[str, Any]:
             return self._refusal_response(self._refusal(agent, str(refused)))
 
         call.__name__ = entry.name

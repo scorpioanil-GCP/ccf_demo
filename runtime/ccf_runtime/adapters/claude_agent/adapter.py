@@ -103,6 +103,7 @@ from ccf.products.contract import ContextProductContract
 from ccf.replay.record import NO_HARNESS, HarnessTrace
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES, render_tool_surface
+from ccf.skills.wire_arguments import ArgumentRefused
 
 __all__ = [
     "DEFAULT_CHILD_ENVIRONMENT",
@@ -429,6 +430,15 @@ class ClaudeAgentAdapter:
         MCP error result (the vendor's ``is_error`` key, which it carries to
         ``CallToolResult.isError`` at ``claude_agent_sdk/__init__.py:521``)
         whose text is this adapter's own reason.
+
+        **The argument rule is the seam's** (``TP-04`` follow-on,
+        ``D-IMPL-361``). The harness's arguments are handed to
+        :meth:`~ccf.agents.agent.Agent.invoke_skill` as they arrived — not
+        pre-stringified — and the seam refuses an undeclared key, a missing
+        required argument or a wrong-typed value before dispatch, as the
+        :class:`~ccf.skills.wire_arguments.ArgumentRefused` family. The handler
+        renders that refusal as the same ``is_error`` result, so nothing is
+        dispatched or audited for a call the declared schema does not admit.
         """
         entry = self._bound_entry(agent, skill_name)
         surface = render_tool_surface(entry)
@@ -443,9 +453,10 @@ class ClaudeAgentAdapter:
                         _qualified_tool_name(self._mcp_server_name, skill_name)
                     )
                 )
-            invocation = agent.invoke_skill(
-                skill_name, arguments={key: str(value) for key, value in args.items()}
-            )
+            try:
+                invocation = agent.invoke_skill(skill_name, arguments=dict(args))
+            except ArgumentRefused as refused:
+                return _refused(str(refused))
             payload = canonical_bytes(invocation).decode("utf-8")
             return {"content": [{"type": "text", "text": payload}]}
 
