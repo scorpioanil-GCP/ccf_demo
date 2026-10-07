@@ -1105,6 +1105,56 @@ question walks, and the two products match member for member.
   included. The record is the audit plane, so protect access to it as you
   would the subject itself.
 
+### 4.13 Resume a suspended run from one process, and serialize resumes beyond it (D-IMPL-377)
+
+A resumption takes a single-flight claim on its execution before it reads
+the execution's state record, and gives the claim back on every exit:
+completion, refusal, exception and cancellation
+(`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). The claim
+is keyed by the Control Plane state store the record lives in and by the
+execution's state key, and every engine in the process over that store
+shares it. While one resumption of an execution is in flight in the
+process, a second is refused rather than queued. The refusal is a
+`WorkflowResumeRefused` audited `resolved=False`, and
+`POST /workflow/resumptions` answers it with the same 409 it gives the
+sequential refusal. Before the claim existed, two resumptions of one
+approved suspension both passed the gate. On one human approval, the step
+after the gate ran twice, two `workflow_resumed` rows named the one
+approver, and the next gate held two pending events, one of them bound to a
+state record that had already been overwritten.
+
+- **Present a refused resumption again only after the other one has
+  returned.** The 409 means another resumption of the same execution is in
+  flight in this process. A repeat presented after that one has returned is
+  judged on the execution as it then stands: if the other passed the gate,
+  at the gate the execution now waits on.
+- **Serialize resumptions per execution in front of the door when more
+  than one process can resume.** The claim lives in one process's memory.
+  It does not cover several processes, or several state-store objects that
+  front one durable store, because the state-store Protocol has no
+  compare-and-set (`src/ccf/controlplane/state.py::ControlPlaneStateStore`).
+  The shipped `InMemoryStateStore` is per process, so the shipped
+  composition never shares an execution between processes. A deployment
+  that supplies a shared store must route every resumption of one
+  execution through one process, or take its own per-execution lock before
+  the door.
+- **Keep the steps after a gate idempotent.** A resumption that fails or is
+  cancelled after its step has started gives the claim back, so a retry is
+  admitted and runs that step again.
+- **A verdict recorded while a resumption is in flight is still not seen.
+  This remains open.** A rejection recorded between a resumption's conflict
+  check and its commit is outvoted: the execution completes at the
+  approving terminal with both verdicts on record
+  (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`,
+  residual 2(b)). The claim cannot reach this, because verdicts are recorded
+  through the HITL transport
+  (`src/ccf/hitl/transport.py::HITLTransportProtocol`), which the claim
+  never touches. Covering it means the submission path taking the same
+  per-execution claim, which changes the transport's contract for every
+  transport a deployment supplies. Until then, reconcile: find every
+  execution that has left a gate whose suspension holds both an approve and
+  a reject verdict, and route it to human review.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value
