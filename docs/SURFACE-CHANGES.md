@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2185 entries**, of which **1911** name a public Python surface.
+**2186 entries**, of which **1912** name a public Python surface.
 
 ## Added
 
@@ -29126,7 +29126,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-296 entries — 258 public Python surface, 38 not public Python API.
+297 entries — 259 public Python surface, 38 not public Python API.
 
 ### Public Python surface
 
@@ -33821,6 +33821,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a single-tenant store. Where tenants share one artifact store, an owner's reads and erasure requests no longer depend on other tenants' filings. Erasure is unchanged: it is a per-tenant fact and destroys no bytes. Measured on the file-backed door, identically before and after this change: once tenant A erases an address tenant B also filed, B's filing and the bytes stay, B's tenant-scoped reads (`ErasureConsultingStore.scoped`, which the client lane and the governed dereference's erasure consult use) still serve them, and a tenantless read (`ErasureConsultingStore.get` with no tenant; SEC-009 ruling (i) names the replay engine, `record_of` and child admission) withholds them with the reason redacted. Over the MCP-backed store A's request was refused `class-unverifiable` before this change, so that state was reachable only through a door on the file-backed store; it is now reachable through either.
 
 *Recorded by `377-02-c8-governed-judged-per-tenant.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `resume` took no claim on the execution. Two concurrent resumptions of one suspension each read the state record before either wrote over it. Both passed the gate's authority and conflict checks and ran the node after the gate, and each appended an attributed `workflow_resumed` row for the one approval.
+- After: `resume` takes a single-flight claim on the execution before it reads the record and gives it back on every exit: completion, refusal, exception and cancellation. The claim is keyed by the Control Plane state store the record lives in and by the execution's state key, and every engine in the process over that store shares it. A second resumption of the same execution while one is in flight returns `WorkflowResumeRefused`, whose reason says the execution "already has a resumption in flight in this process". It is audited `resolved=False` with no actor, and the HTTP door answers it 409, as it answers the sequential refusal. Nothing is queued, and no lock is held across an await.
+- Why: `D-IMPL-377` (Dave, 2026-10-07: *"Small fix now"*): one human approval must authorize one passage past its gate.
+- Migration: a caller that resumes one execution concurrently in one process now receives a refusal for every request but one, and presents it again after the first has returned. A deployment that can resume one execution from several processes, or through several state-store objects fronting one durable store, must still serialize resumptions per execution in front of the door. Keep the steps after a gate idempotent.
+
+*Recorded by `377-05-resume-single-flight.md`.*
 
 ### Not public Python API
 
