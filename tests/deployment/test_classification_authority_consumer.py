@@ -92,16 +92,24 @@ def boot_fabric() -> Iterator[Callable[[bool], Booted]]:
             tenant_ids=(TENANT,),
         )
         handles.append(handle)
-        handle.worker.ingest(
-            SignalEnvelope(
-                tenant_id=TENANT,
-                envelope_id="env-a",
-                source=SourceIdentity(system_id="source-a"),
-                ingestion_timestamp=datetime(2026, 2, 1, tzinfo=UTC),
-                observed_time=datetime(2026, 1, 31, tzinfo=UTC),
-                raw_payload={"counterparty_lei": "LEI-1", "classification": "public"},
+        # The row's exploit, as measured on the base: the authoritative source
+        # classifies the entity `restricted`, then another source relabels it
+        # `public` by speaking later. Under an ungoverned spec L2 admits the
+        # relabel; under a governed one it refuses it.
+        for envelope_id, system_id, day, label in (
+            ("env-a", "source-a", 1, "restricted"),
+            ("env-b", "source-b", 2, "public"),
+        ):
+            handle.worker.ingest(
+                SignalEnvelope(
+                    tenant_id=TENANT,
+                    envelope_id=envelope_id,
+                    source=SourceIdentity(system_id=system_id),
+                    ingestion_timestamp=datetime(2026, 2, day, tzinfo=UTC),
+                    observed_time=datetime(2026, 1, 31, tzinfo=UTC),
+                    raw_payload={"counterparty_lei": "LEI-1", "classification": label},
+                )
             )
-        )
         return handle, policy_version
 
     try:
@@ -154,10 +162,42 @@ def _artifact() -> PolicyFilterParametersArtifact:
     )
 
 
-def _assert_names_the_hole(refused: pytest.ExceptionInfo[UngovernedClassificationAttribute]) -> None:
-    assert refused.value.entity_class == "counterparty"
-    assert refused.value.attribute == "classification"
-    assert "SEC-023" in str(refused.value)
+def _assert_names_the_hole(refused: UngovernedClassificationAttribute) -> None:
+    assert refused.entity_class == "counterparty"
+    assert refused.attribute == "classification"
+    assert "SEC-023" in str(refused)
+
+
+def _outcome(attempt: Callable[[], int]) -> int | Exception:
+    """The relabeled entities a public-only principal was served, or the refusal."""
+    try:
+        return attempt()
+    except ValueError as error:
+        return error
+
+
+def _assert_relabel_not_served_and_refused(outcome: int | Exception) -> None:
+    """The row's hole as worded: the RELABELED entity must not be served.
+
+    On the base each path SERVED it — the first assertion fails there with the
+    count — and after the repair each path refuses by name instead.
+    """
+    assert not isinstance(outcome, int), (
+        f"the source-relabeled entity was served to a public-only principal"
+        f" ({outcome} entity) — no classification authority was enforced"
+    )
+    assert isinstance(outcome, UngovernedClassificationAttribute), outcome
+    _assert_names_the_hole(outcome)
+
+
+def _policy_operator_of(registry: Any) -> Any:
+    (registration,) = registry.by_category("policy")
+    return registration.operator
+
+
+def _served_by(operator: Any, view: GraphView) -> int:
+    out = operator.apply(view=view, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=())
+    return len(out.view.entities)
 
 
 def test_path_1_a_graph_query_only_classification_map_refuses(
@@ -165,12 +205,12 @@ def test_path_1_a_graph_query_only_classification_map_refuses(
 ) -> None:
     """The fabric's reader answers a classification query only under covering authority."""
     governed, governed_version = boot_fabric(True)
-    assert len(governed.reader.query(_query(governed_version)).entities) == 1
+    assert len(governed.reader.query(_query(governed_version)).entities) == 0
 
     handle, policy_version = boot_fabric(False)
-    with pytest.raises(UngovernedClassificationAttribute) as refused:
-        handle.reader.query(_query(policy_version))
-    _assert_names_the_hole(refused)
+    _assert_relabel_not_served_and_refused(
+        _outcome(lambda: len(handle.reader.query(_query(policy_version)).entities))
+    )
 
 
 def test_path_2_a_hand_built_policy_filter_in_deployment_operators_refuses(
@@ -178,24 +218,30 @@ def test_path_2_a_hand_built_policy_filter_in_deployment_operators_refuses(
 ) -> None:
     """``deployment_operators`` carries no artifact, so the door check never saw it."""
     governed, governed_version = boot_fabric(True)
-    build_operator_registry(
+    view = governed.reader.as_of(tenant_id=TENANT, at=AS_OF)
+    registry = build_operator_registry(
         parameters={},
-        view=governed.reader.as_of(tenant_id=TENANT, at=AS_OF),
+        view=view,
         pins=_pins(governed_version),
         policy_bundle_key=POLICY_KEY,
         deployment_operators=[_filter(governed_version)],
     )
+    assert _served_by(_policy_operator_of(registry), view) == 0
 
     handle, policy_version = boot_fabric(False)
-    with pytest.raises(UngovernedClassificationAttribute) as refused:
-        build_operator_registry(
+
+    def attempt() -> int:
+        view = handle.reader.as_of(tenant_id=TENANT, at=AS_OF)
+        registry = build_operator_registry(
             parameters={},
-            view=handle.reader.as_of(tenant_id=TENANT, at=AS_OF),
+            view=view,
             pins=_pins(policy_version),
             policy_bundle_key=POLICY_KEY,
             deployment_operators=[_filter(policy_version)],
         )
-    _assert_names_the_hole(refused)
+        return _served_by(_policy_operator_of(registry), view)
+
+    _assert_relabel_not_served_and_refused(_outcome(attempt))
 
 
 def test_path_3_a_hand_composed_boot_cannot_apply_an_ungoverned_policy_filter(
@@ -204,18 +250,16 @@ def test_path_3_a_hand_composed_boot_cannot_apply_an_ungoverned_policy_filter(
     """``ccf.boot.boot`` never sees operator parameters; the operator's use must refuse."""
     governed, governed_version = boot_fabric(True)
     view = governed.reader.as_of(tenant_id=TENANT, at=AS_OF)
-    out = _filter(governed_version).apply(
-        view=view, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=()
-    )
-    assert len(out.view.entities) == 1
+    assert _served_by(_filter(governed_version), view) == 0
 
     handle, policy_version = boot_fabric(False)
-    view = handle.reader.as_of(tenant_id=TENANT, at=AS_OF)
-    with pytest.raises(UngovernedClassificationAttribute) as refused:
-        _filter(policy_version).apply(
-            view=view, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=()
+    _assert_relabel_not_served_and_refused(
+        _outcome(
+            lambda: _served_by(
+                _filter(policy_version), handle.reader.as_of(tenant_id=TENANT, at=AS_OF)
+            )
         )
-    _assert_names_the_hole(refused)
+    )
 
 
 def test_path_4_a_per_request_registry_from_a_parsed_policy_artifact_refuses(
@@ -223,23 +267,99 @@ def test_path_4_a_per_request_registry_from_a_parsed_policy_artifact_refuses(
 ) -> None:
     """A registry built per request, with no ``load_and_boot`` spine, must refuse too."""
     governed, governed_version = boot_fabric(True)
-    build_operator_registry(
+    view = governed.reader.as_of(tenant_id=TENANT, at=AS_OF)
+    registry = build_operator_registry(
         parameters={"test/policy.principal-subgraph": _artifact()},
-        view=governed.reader.as_of(tenant_id=TENANT, at=AS_OF),
+        view=view,
         pins=_pins(governed_version),
         policy_bundle_key=POLICY_KEY,
     )
+    assert _served_by(_policy_operator_of(registry), view) == 0
 
     handle, policy_version = boot_fabric(False)
-    with pytest.raises(UngovernedClassificationAttribute) as refused:
-        build_operator_registry(
+
+    def attempt() -> int:
+        view = handle.reader.as_of(tenant_id=TENANT, at=AS_OF)
+        registry = build_operator_registry(
             parameters={"test/policy.principal-subgraph": _artifact()},
-            view=handle.reader.as_of(tenant_id=TENANT, at=AS_OF),
+            view=view,
             pins=_pins(policy_version),
             policy_bundle_key=POLICY_KEY,
         )
-    _assert_names_the_hole(refused)
-    assert refused.value.operator_key == "test/policy.principal-subgraph"
+        return _served_by(_policy_operator_of(registry), view)
+
+    outcome = _outcome(attempt)
+    _assert_relabel_not_served_and_refused(outcome)
+    assert isinstance(outcome, UngovernedClassificationAttribute)
+    assert outcome.operator_key == "test/policy.principal-subgraph"
+
+
+# --- I-1: the stamp is minted only by boot, and covers only what it knows ---
+
+
+def _hand_built(governed: dict[str, dict[str, frozenset[str]]], written: dict[str, frozenset[str]]) -> Any:
+    """A ClassificationAuthority built by hand — not by ``ccf.boot.boot``."""
+    from ccf.graph.protocols import ClassificationAuthority
+
+    fields: dict[str, Any] = {"governed": governed, "written": written}
+    if "spec_address" in ClassificationAuthority.model_fields:
+        fields["spec_address"] = "sha256:hand-built"
+    return ClassificationAuthority(**fields)
+
+
+def _forge(value: Any, authority: Any) -> Any:
+    """Put ``authority`` on a view or query the way a caller without boot would."""
+    forged = value.model_copy()
+    forged._classification_authority = authority
+    return forged
+
+
+def test_an_empty_hand_built_authority_covers_no_classification_map() -> None:
+    """``D-IMPL-374`` fix round 1, I-1 (a): an authority knowing nothing covers nothing."""
+    empty = _hand_built({}, {})
+    with pytest.raises(ValueError) as refused:
+        empty.require(CLASS_MAP, consumer="test")
+    assert "SEC-023" in str(refused.value)
+
+
+def test_a_hand_built_stamp_is_refused_at_every_consumer() -> None:
+    """I-1 (b): only boot mints the stamp; a hand-built one is refused by name.
+
+    The forged authority even DECLARES the attribute governed — the refusal is
+    for who minted it, not for what it says.
+    """
+    from ccf.graph.backends.memory import MemoryGraphStore
+
+    forged_authority = _hand_built(
+        {"counterparty": {"classification": frozenset({"source-a"})}},
+        {"counterparty": frozenset({"classification"})},
+    )
+    view = _forge(GraphView(tenant_id=TENANT, as_of=AS_OF), forged_authority)
+    refusals: list[Exception] = []
+    for attempt in (
+        lambda: _filter("v1").apply(
+            view=view, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=()
+        ),
+        lambda: build_operator_registry(
+            parameters={"test/policy.principal-subgraph": _artifact()},
+            view=view,
+            pins=_pins("v1"),
+            policy_bundle_key=POLICY_KEY,
+        ),
+        lambda: MemoryGraphStore().reader.query(_forge(_query("v1"), forged_authority)),
+    ):
+        outcome = _outcome(lambda: (attempt(), 0)[1])
+        assert isinstance(outcome, Exception), "a hand-built authority stamp was accepted"
+        refusals.append(outcome)
+    for refusal in refusals:
+        assert type(refusal).__name__ == "ClassificationAuthorityNotMinted", refusal
+        assert "SEC-023" in str(refusal)
+
+
+def test_the_stamp_has_no_public_setter() -> None:
+    """I-1 (b): ``with_classification_authority`` is not public on a view or a query."""
+    assert not hasattr(GraphView, "with_classification_authority")
+    assert not hasattr(GraphQuery, "with_classification_authority")
 
 
 def test_a_view_carrying_no_authority_refuses_every_classification_consumer() -> None:
