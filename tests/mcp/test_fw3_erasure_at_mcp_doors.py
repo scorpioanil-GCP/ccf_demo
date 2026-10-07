@@ -30,6 +30,10 @@ The ruled repair, held here surface by surface:
   the scoped re-review) answers ``minimal`` with the same opaque failure and
   records nothing. Above ``minimal`` it is not mapped: the exception's text
   crosses, as it always has (§4.10 of the security deployment page).
+* an erasure the deployment's agent directory raises on ``list_agents`` (M-1,
+  the last read of the Experience door) is held to the same rule: ``minimal``
+  answers the same opaque failure and records nothing, and above ``minimal``
+  the exception's text crosses (§4.10 of the security deployment page).
 
 In-process, offline: the shipped servers over scratch stores.
 """
@@ -506,6 +510,88 @@ def test_invoke_agent_above_minimal_keeps_an_invokers_erasure_text_and_records_n
     assert ADDRESS not in str(raised) and RECORD_ADDRESS not in str(raised), str(raised)
     assert not OPAQUE.match(str(raised)), str(raised)
     assert _recorded(root) == baseline, "invoke_agent recorded a determination the disclosed residual says it does not"
+
+
+# --- list_agents: an erasure the deployment's agent directory raises (M-1) ----
+
+LIST_ARGUMENTS = {"tenant": TENANT}
+
+
+def _listing_door(
+    tmp_path: pathlib.Path, *, level: str | None, reached: list[str]
+) -> tuple[Any, pathlib.Path, set[str]]:
+    """The Experience door with ``list_agents`` alone, over a directory that raises an erasure.
+
+    Returns the server, the root of the store its recorder files into, and what that
+    store held after one determination the door DOES record: the product resource's
+    typed absence. As for ``invoke_agent``, that read is the observer's positive
+    control, so "nothing was recorded" is a measurement.
+    """
+    from ccf_runtime.mcp.experience import (
+        ExperienceProductNotServable,
+        LIST_AGENTS_TOOL,
+        build_experience_server,
+        experience_product_uri,
+    )
+
+    def directory(*, tenant: str) -> Any:
+        reached.append("listed")
+        raise _erased()
+
+    source, recorder = _recorder(tmp_path, level)
+    server = build_experience_server(
+        server_name="m1-experience",
+        product_resolver=_raising(ExperienceProductNotServable("absent")),
+        agent_directory=directory,
+        list_agents_description="m1",
+        tool_allowlist=frozenset({LIST_AGENTS_TOOL}),
+        token_verifier=_verifier(),
+        auth_settings=_auth(),
+        authorizer=authorizer_granting(),
+        entitlement_source=source,
+        perspective_resolver=_perspective,
+        refusal_recorder=recorder,
+    )
+    root = recorder.artifact_store.root
+    _read(server, experience_product_uri(tenant=TENANT, product_class=PRODUCT_CLASS, version=VERSION))
+    baseline = _recorded(root)
+    assert baseline, "the observer saw nothing of the determination this door recorded for a typed absence"
+    return server, root, baseline
+
+
+@pytest.mark.parametrize("level", [pytest.param(None, id="default-level"), pytest.param("minimal", id="pinned")])
+def test_list_agents_at_minimal_answers_a_directorys_erasure_opaquely_and_records_nothing(
+    level: str | None, tmp_path: pathlib.Path
+) -> None:
+    """M-1: at ``minimal`` the fact that content was erased does not cross the directory seam."""
+    from ccf_runtime.mcp.experience import LIST_AGENTS_TOOL
+
+    reached: list[str] = []
+    server, root, baseline = _listing_door(tmp_path, level=level, reached=reached)
+    served, raised = _call(server, LIST_AGENTS_TOOL, LIST_ARGUMENTS)
+    assert reached == ["listed"], "the directory was never reached, so no erasure was met at this seam"
+    assert served is None and raised is not None, served
+    _no_disclosure(str(raised))
+    assert OPAQUE.match(str(raised)), str(raised)
+    assert _recorded(root) == baseline, "list_agents recorded a determination for an erasure it answers opaquely"
+
+
+@pytest.mark.parametrize("level", ["reasoned", "full"])
+def test_list_agents_above_minimal_keeps_a_directorys_erasure_text_and_records_nothing(
+    level: str, tmp_path: pathlib.Path
+) -> None:
+    """The control: above ``minimal`` the behavior is unchanged, the exception's text crossing and naming no address."""
+    from ccf_runtime.mcp.experience import LIST_AGENTS_TOOL
+
+    reached: list[str] = []
+    server, root, baseline = _listing_door(tmp_path, level=level, reached=reached)
+    served, raised = _call(server, LIST_AGENTS_TOOL, LIST_ARGUMENTS)
+    assert reached == ["listed"], "the directory was never reached, so no erasure was met at this seam"
+    assert served is None and raised is not None, served
+    assert str(_erased()) in str(raised), str(raised)
+    assert ADDRESS not in str(raised) and RECORD_ADDRESS not in str(raised), str(raised)
+    assert not OPAQUE.match(str(raised)), str(raised)
+    assert _recorded(root) == baseline, "list_agents recorded a determination the disclosed residual says it does not"
 
 
 def test_the_experience_door_states_the_egress_failure_token() -> None:
