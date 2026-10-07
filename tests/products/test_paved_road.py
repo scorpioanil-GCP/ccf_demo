@@ -34,6 +34,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -51,6 +52,7 @@ from ccf.projection.plan import Perspective
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from ccf_runtime.mcp.product_door import open_door
+from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 
 from tests.products.paved_fixture import granted_control_plane
 from tests.deployment.conftest import write_artifact
@@ -469,7 +471,16 @@ def test_a_missing_door_url_is_refused_with_the_remedy_on_stdio_only(tree: tuple
         door = open_door(opened, environ={})
         assert door.credential, "minted per boot when the variable is unset"
         with pytest.raises(EnvironmentMissing, match="export the issuer"):
-            door.serve_stdio()
+            door.serve_stdio(
+                identity=AuthenticatedUser(
+                    ambient_stdio_identity(
+                        credential=door.credential,
+                        principal_id=door.principal_id,
+                        scope=door.scope,
+                        tenant=door.tenant_id,
+                    )
+                )
+            )
 
 
 def test_the_facade_holds_no_fabric_between_questions_and_boots_nothing_at_open(
