@@ -113,11 +113,7 @@ from ccf.skills.toolsurface import (
     RenderedToolSurface,
     render_tool_surface,
 )
-from ccf.skills.wire_arguments import (
-    ArgumentRefused,
-    refuse_unconforming_arguments,
-    refuse_undeclared_arguments,
-)
+from ccf.skills.wire_arguments import ArgumentRefused, refuse_unconforming_arguments
 
 __all__ = [
     "AGENT_HASH_STATE_KEY",
@@ -215,14 +211,16 @@ class _DeclaredSkillTool(FunctionTool):
     does not name — through the adapter's typed ``EffectRefusal``, never by
     dropping it — and hands the rest to dispatch unchanged.
 
-    **The whole argument rule is the seam's** (``TP-04`` follow-on,
-    ``D-IMPL-361``). This early undeclared-key refusal stays, delegating to the
-    shared validator (:func:`ccf.skills.wire_arguments.refuse_undeclared_arguments`)
-    so its message is the family's; a missing required argument and a
-    wrong-typed value are refused by
-    :meth:`~ccf.agents.agent.Agent.invoke_skill`, which receives the args as
-    ADK delivered them (not stringified), and the tool renders that refusal as
-    the same ``EffectRefusal``.
+    **The whole argument rule is one call** (``TP-04`` follow-on, ``I-2``,
+    ``D-IMPL-361``). The shared validator
+    (:func:`ccf.skills.wire_arguments.refuse_unconforming_arguments`), run
+    against the currently-bound entry's schema inside the narrow ``try``,
+    refuses an undeclared key, a missing required argument and a wrong-typed
+    value alike, and the tool renders that refusal as the same
+    ``EffectRefusal``. The earlier, separate undeclared-key check was deleted
+    because that call already covers it, which left its severing invisible
+    (the whole-branch review's I-2); the named severing is now "delete the
+    validate call inside the narrow ``try``".
     """
 
     def __init__(
@@ -250,11 +248,10 @@ class _DeclaredSkillTool(FunctionTool):
         """Dispatch the model's declared arguments; refuse any undeclared one.
 
         ``TP-04`` (``D-IMPL-361``): declared arguments arrive, undeclared ones
-        are refused, never dropped. The undeclared-key refusal is decided before
-        ``invoke_skill`` is reached; the rest of the rule (missing, mistyped) is
-        refused by the shared validator against the currently-bound entry's
-        schema, also before dispatch (``TP-04`` follow-on). Either way a
-        refused call dispatches nothing.
+        are refused, never dropped. The whole rule (undeclared, missing,
+        mistyped) is one shared-validator call against the currently-bound
+        entry's schema, before ``invoke_skill`` is reached (``TP-04`` follow-on,
+        ``I-2``). A refused call dispatches nothing.
 
         **Only this tool's own refusal is rendered** (``TP-04`` follow-on,
         ``D-IMPL-361``): validation runs inside a narrow ``try`` and dispatch
@@ -274,11 +271,6 @@ class _DeclaredSkillTool(FunctionTool):
         if refused_by_binding is not None:
             return refused_by_binding
         try:
-            refuse_undeclared_arguments(
-                args,
-                declared=self._ccf_surface.input_schema["properties"],
-                surface=self.name,
-            )
             self._ccf_validate(args)
         except ArgumentRefused as refused:
             return self._ccf_refuse(refused)
