@@ -274,3 +274,13 @@ and X2.
 - After: for that caller on that surface, the authorizer's deny is the same opaque pre-authorization refusal, byte-identical to every other outcome; the specific reason is logged server-side only. The unrostered path, and every surface whose reach is an argument or a declaration, is unchanged.
 - Why: PC2, panel C2 (`D-IMPL-374`); the residual of SEC-017's I-NEW-1 class. Red test: `tests/mcp/test_pc2_invoke_oracle.py`, which compares all six rostered outcomes pairwise.
 - Migration: none.
+
+## ccf_runtime.mcp.tenancy.ProductReach
+
+- Surface: ccf_runtime.mcp.tenancy.ProductReach
+- Public surface: true
+- Change type: behavior
+- Before: `ProductReach(declared=frozenset())` constructed, although the class promises no empty statement, and the roster hold then passed every call, an empty roster's included.
+- After: an empty `declared` is refused at construction with `ValueError`, like an empty `argument`, `undeclared` or `unknown`.
+- Why: PM9, panel C9 (`D-IMPL-374`). An adopter registration that derives its classes from configuration and gets an empty set would otherwise be silently roster-unbound. Red test: `tests/mcp/test_pm9_empty_declared_reach.py`.
+- Migration: a registration whose declared classes can be empty declares an `undeclared` or `unknown` reach instead.

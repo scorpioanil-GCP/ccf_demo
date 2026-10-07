@@ -450,7 +450,11 @@ class ProductReach:
                 "a product reach states exactly one reading — argument,"
                 " declared, undeclared, resolve or unknown (SEC-017)"
             )
-        for name in ("argument", "undeclared", "unknown"):
+        # PM9 (panel C9; `D-IMPL-374`): `declared` included — an empty
+        # declared set reaches no class, so the roster hold would pass every
+        # call, an empty roster's too, and the surface would be silently
+        # roster-unbound.
+        for name in ("argument", "declared", "undeclared", "unknown"):
             value = getattr(self, name)
             if value is not None and not value:
                 raise ValueError(

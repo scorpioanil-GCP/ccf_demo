@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2156 entries**, of which **1885** name a public Python surface.
+**2157 entries**, of which **1886** name a public Python surface.
 
 ## Added
 
@@ -28970,7 +28970,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-280 entries — 245 public Python surface, 35 not public Python API.
+281 entries — 246 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33507,6 +33507,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: for that caller on that surface, the authorizer's deny is the same opaque pre-authorization refusal, byte-identical to every other outcome; the specific reason is logged server-side only. The unrostered path, and every surface whose reach is an argument or a declaration, is unchanged.
 - Why: PC2, panel C2 (`D-IMPL-374`); the residual of SEC-017's I-NEW-1 class. Red test: `tests/mcp/test_pc2_invoke_oracle.py`, which compares all six rostered outcomes pairwise.
 - Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.tenancy.ProductReach
+
+- Surface: ccf_runtime.mcp.tenancy.ProductReach
+- Public surface: true
+- Change type: behavior
+- Before: `ProductReach(declared=frozenset())` constructed, although the class promises no empty statement, and the roster hold then passed every call, an empty roster's included.
+- After: an empty `declared` is refused at construction with `ValueError`, like an empty `argument`, `undeclared` or `unknown`.
+- Why: PM9, panel C9 (`D-IMPL-374`). An adopter registration that derives its classes from configuration and gets an empty set would otherwise be silently roster-unbound. Red test: `tests/mcp/test_pm9_empty_declared_reach.py`.
+- Migration: a registration whose declared classes can be empty declares an `undeclared` or `unknown` reach instead.
 
 *Recorded by `374-05-final-fix-wave.md`.*
 
