@@ -164,6 +164,7 @@ def main() -> None:
             http_client_factory=lambda: httpx.AsyncClient(timeout=30.0),
             clock=lambda: assembled.servable.product.temporal_boundary,
             rpc_path=lf_values["rpc_path"],
+            max_request_bytes=consumer_values["max_request_bytes"],
             max_message_bytes=consumer_values["max_request_bytes"],
             max_pending=consumer_values["max_pending"],
         )

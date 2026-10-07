@@ -266,6 +266,7 @@ def _build_lf_a2a(stack: contextlib.ExitStack) -> LfA2AWire:
         http_client_factory=httpx.AsyncClient,
         clock=lambda: _SCAN_INSTANT,
         rpc_path=lf_values["rpc_path"],
+        max_request_bytes=FEDERATION["consumer"]["max_request_bytes"],
         max_message_bytes=FEDERATION["consumer"]["max_request_bytes"],
         max_pending=FEDERATION["consumer"]["max_pending"],
     )

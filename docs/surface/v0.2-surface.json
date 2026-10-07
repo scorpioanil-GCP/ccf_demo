@@ -13083,7 +13083,7 @@
       },
       "LfA2AWire": {
         "kind": "class",
-        "shape": "(*, local_peer_id: 'str', agent_card: 'AgentCard', cards: 'PeerCardResolver', http_client_factory: 'Callable[[], httpx.AsyncClient]', clock: 'Callable[[], datetime]', rpc_path: 'str', max_message_bytes: 'int', max_pending: 'int') -> 'None'"
+        "shape": "(*, local_peer_id: 'str', agent_card: 'AgentCard', cards: 'PeerCardResolver', http_client_factory: 'Callable[[], httpx.AsyncClient]', clock: 'Callable[[], datetime]', rpc_path: 'str', max_request_bytes: 'int', max_message_bytes: 'int', max_pending: 'int') -> 'None'"
       },
       "PEER_ID_METADATA": {
         "kind": "constant",
