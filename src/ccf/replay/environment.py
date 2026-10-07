@@ -32,6 +32,18 @@ sequence, a wrong parameter set fails the parameter hash, a wrong envelope
 fails the content address. This module makes the environment *easy to build
 correctly*; the engine is still what makes it *true*.
 
+**Its fabric is a READ-ONLY boot** (FW-2, whole-branch review I-1;
+``D-IMPL-374``). Replay is read-only throughout, yet the reader that can answer
+a classification read — every Policy-operator replay makes one — carries an
+authority only ``ccf.boot.boot`` mints, and a writer boot takes the store's
+cross-process writer lease. Beside a live serving writer on a persistent store
+that boot is refused, so the replay road is
+``load_config_and_boot(..., read_only=True)`` (or ``load_and_boot`` /
+``ccf.boot.boot`` with the same keyword): the same governed reader, its views
+stamped with the boot-minted authority, and no writer and no lease. A writer
+boot still serves where no live writer holds the graph — a per-question
+substrate reopened after its question closed it.
+
 Algorithmic module (CINV-03).
 """
 
@@ -77,7 +89,14 @@ class RecordedEnvironment:
             class from becoming a second architecture: the resolver rebuilt
             below is the same one the serve path builds, from the same mapping.
         fabric: The booted fabric to read through. The caller opens this at the
-            snapshot it wants; this class does not choose a substrate.
+            snapshot it wants; this class does not choose a substrate. Open it
+            READ-ONLY — ``load_config_and_boot(..., read_only=True)`` — so the
+            replay takes no writer lease and runs beside the live writer, in
+            another process if need be; its reader stamps every view with the
+            classification authority the boot mints from the pinned resolution
+            spec, which is what lets a Policy operator re-execute (FW-2,
+            whole-branch review I-1; ``D-IMPL-374``). A writer boot is
+            accepted where no live writer holds the graph.
 
     Raises:
         RecordedEnvironmentUnbuildable: the record carries no request identity

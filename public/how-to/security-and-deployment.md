@@ -439,6 +439,20 @@ Consequences for a deployment on the stores that do lease:
   `locktype = 'advisory'`, and it shares the database's advisory-lock key
   space with anything else using it.
 
+**A process that only reads boots read-only, and takes no lease (FW-2,
+D-IMPL-374).** The exclusion above is between *writers*. `ccf.boot.boot(...,
+read_only=True)`, and `load_and_boot` or `load_config_and_boot` with the same
+keyword, opens the store and the same governed reader a writer boot hands out,
+but mints no writer: it takes no writer lease, marks no graph live, and is
+never refused because a writer holds the graph. Boot anything that only reads a
+graph a live writer serves this way, an examiner's replay first of all
+(`ccf.replay.environment.RecordedEnvironment` reads through such a fabric, see
+§4.7). The handle reports `lease_scope` as `read-only`, its worker refuses
+every write with `ReadOnlyFabricRefused`, and its `close` closes only the
+store. A read-only boot is not coordinated with the writer: it reads what the
+store returns at each read. Replay reads the recorded snapshot boundary, which
+an append-only graph does not move.
+
 ### 4.7 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
 
 The Policy operator admits an entity by the value of one attribute, the one
@@ -506,6 +520,19 @@ attribute without declaring it in `read_intent` is not checked when it is
 registered, so its own `apply` must call `require_classification_authority`);
 and a source that is authorized for an attribute may set it in either
 direction, including by omitting it, without an event.
+
+**Replaying a classification decision beside a live writer needs a read-only
+boot (FW-2, D-IMPL-374).** Only a booted reader carries an authority, and a
+writer boot takes the store's writer lease (§4.6). On a persistent store that
+a live writer holds, the writer boot is refused and a raw store reader refuses
+the classification query, so a replay tool in another process had no road.
+`boot(..., read_only=True)` is that road. It resolves the pinned resolution
+spec and mints the authority from it through the same private mint as a writer
+boot, so its views carry an authority `ClassificationAuthorityNotMinted` does
+not refuse, and the Policy operator re-executes. It mints no writer and takes
+no lease. Open the fabric you pass to `RecordedEnvironment` this way. A raw
+store reader is still refused, and an authority built by hand is still refused
+on a read-only view.
 
 ### 4.8 Two deployment limitations, disclosed rather than fixed
 

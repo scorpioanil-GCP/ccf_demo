@@ -610,8 +610,14 @@ def _register_and_boot(
     secrets: Mapping[str, ResolvedSecret],
     resolved_tenant: str,
     keys: DeploymentKeys | None = None,
+    read_only: bool = False,
 ) -> BootedFabric:
     """Register the ``role: register`` entries and boot — the spine both doors share.
+
+    ``read_only`` is handed to :func:`ccf.boot.boot` unchanged (FW-2;
+    ``D-IMPL-374``): the registration loop runs either way, into the caller's
+    registry, because the pins a read-only fabric reads under are the same
+    pins.
 
     Phase two of the three-phase ordering :func:`load_and_boot`'s own
     docstring states, extracted rather than duplicated (`16-30`). Three
@@ -656,6 +662,7 @@ def _register_and_boot(
         # the fabric is composed for; `boot` mints its invalidation-register
         # capability from this and nothing else.
         tenant_ids=(resolved_tenant,),
+        read_only=read_only,
     )
     return BootedFabric(
         handle=handle,
@@ -833,6 +840,7 @@ def load_and_boot(
     registry: ControlPlaneProtocol,
     connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
+    read_only: bool = False,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
 
@@ -948,6 +956,11 @@ def load_and_boot(
             reference to a credential (``backend_secrets``), which is auditable
             and holds nothing secret.
         tenant_id: The deployment's tenant, when the manifest does not name it.
+        read_only: ``True`` boots the fabric read-only through
+            ``ccf.boot.boot(..., read_only=True)`` (FW-2, whole-branch review
+            I-1; ``D-IMPL-374``): a governed reader, no writer and no writer
+            lease — the fabric Decision Replay reads through beside a live
+            writer. ``False`` (the default) is the writer boot, unchanged.
 
     Raises:
         ccf.graph.registry.UnknownBackend: the manifest names an adapter no
@@ -1026,4 +1039,5 @@ def load_and_boot(
         connection=connection,
         secrets=secrets,
         resolved_tenant=resolved_tenant,
+        read_only=read_only,
     )

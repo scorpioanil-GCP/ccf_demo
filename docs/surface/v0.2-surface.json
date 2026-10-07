@@ -1277,16 +1277,31 @@
   "ccf.boot": {
     "__all__": [
       "FabricHandle",
+      "READ_ONLY_LEASE_MECHANISM",
+      "READ_ONLY_LEASE_SCOPE",
+      "ReadOnlyFabricRefused",
       "boot"
     ],
     "exports": {
       "FabricHandle": {
         "kind": "class",
-        "shape": "(*, reader: 'GraphReader', worker: 'AssemblyWorker', registry: 'ControlPlaneProtocol', adapter: 'AdapterPin', shutdown: 'Callable[[], None]', lease_scope: 'WriterLeaseScope | None' = None, lease_mechanism: 'str | None' = None) -> 'None'"
+        "shape": "(*, reader: 'GraphReader', worker: 'AssemblyWorker', registry: 'ControlPlaneProtocol', adapter: 'AdapterPin', shutdown: 'Callable[[], None]', lease_scope: \"WriterLeaseScope | Literal['read-only'] | None\" = None, lease_mechanism: 'str | None' = None) -> 'None'"
+      },
+      "READ_ONLY_LEASE_MECHANISM": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "READ_ONLY_LEASE_SCOPE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ReadOnlyFabricRefused": {
+        "kind": "class",
+        "shape": "type"
       },
       "boot": {
         "kind": "function",
-        "shape": "(*, backend: 'str', connection: 'Mapping[str, object] | None' = None, secrets: 'Mapping[str, ResolvedSecret] | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str', tenant_ids: 'Sequence[str]') -> 'FabricHandle'"
+        "shape": "(*, backend: 'str', connection: 'Mapping[str, object] | None' = None, secrets: 'Mapping[str, ResolvedSecret] | None' = None, registry: 'ControlPlaneProtocol', resolution_spec_key: 'str', resolution_spec_version: 'str', policy_bundle_key: 'str', policy_bundle_version: 'str', tenant_ids: 'Sequence[str]', read_only: 'bool' = False) -> 'FabricHandle'"
       }
     }
   },
@@ -2724,11 +2739,11 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
       },
       "load_config_and_boot": {
         "kind": "function",
-        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
       },
       "load_environment_document": {
         "kind": "function",
@@ -2829,7 +2844,7 @@
       },
       "load_config_and_boot": {
         "kind": "function",
-        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
       }
     }
   },
@@ -2943,7 +2958,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
       },
       "manifest_under_tenant": {
         "kind": "function",

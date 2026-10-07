@@ -1586,6 +1586,7 @@ def load_config_and_boot(
     registry: ControlPlaneProtocol,
     connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
+    read_only: bool = False,
 ) -> BootedFabric:
     """Load a `ccf_config.yaml`, derive what a manifest would have named, and boot.
 
@@ -1664,6 +1665,11 @@ def load_config_and_boot(
             field of `DeploymentConfig` may name a connection value either
             (D-08, T-16-28-02).
         tenant_id: The deployment's tenant, when the config does not name it.
+        read_only: ``True`` boots read-only — a governed reader, no writer and
+            no writer lease (FW-2, whole-branch review I-1; ``D-IMPL-374``);
+            the fabric :class:`~ccf.replay.environment.RecordedEnvironment`
+            reads through beside a live writer. See ``load_and_boot``'s own
+            docstring. ``False`` (the default) is the writer boot, unchanged.
 
     Raises:
         See `load_and_boot`'s own `Raises:` block — every refusal there
@@ -1711,4 +1717,5 @@ def load_config_and_boot(
         secrets=secrets,
         resolved_tenant=resolved_tenant,
         keys=derived.keys,
+        read_only=read_only,
     )

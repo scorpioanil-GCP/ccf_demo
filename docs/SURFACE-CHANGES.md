@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2131 entries**, of which **1860** name a public Python surface.
+**2141 entries**, of which **1870** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1235 entries — 1191 public Python surface, 44 not public Python API.
+1238 entries — 1194 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18351,6 +18351,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
+#### ccf.boot.ReadOnlyFabricRefused
+
+- Surface: ccf.boot.ReadOnlyFabricRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `RuntimeError` the worker of a read-only boot raises for every write (`ingest`, `ingest_admitted`, `admit_entity_claim`, `admit_relationship_claim`), before anything reaches the store. It names the verb and cites FW-2 and `D-IMPL-374`.
+- Why: FW-2. A read-only fabric holds no writer; a write through it would be a second writer, which INV-CH7-10 forbids.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.boot.READ_ONLY_LEASE_SCOPE
+
+- Surface: ccf.boot.READ_ONLY_LEASE_SCOPE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the constant `"read-only"`, which `FabricHandle.lease_scope` reports for a read-only boot.
+- Why: FW-2. The handle reports the read-only state rather than a lease it does not hold.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.boot.READ_ONLY_LEASE_MECHANISM
+
+- Surface: ccf.boot.READ_ONLY_LEASE_MECHANISM
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the text `FabricHandle.lease_mechanism` reports for a read-only boot: no writer was minted and no writer lease was taken.
+- Why: FW-2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19062,7 +19098,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-581 entries — 389 public Python surface, 192 not public Python API.
+587 entries — 395 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -25798,6 +25834,78 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: reshaped
+- Before: every boot minted a boot token, so every boot built a writer and took the store's writer lease. Beside a live writer on a persistent store the boot was refused with `SingleWriterViolation`.
+- After: a keyword `read_only: bool = False`. `True` resolves and type-checks the pinned resolution spec, builds L2 over it (validating and auditing the policy-bundle pin as before), mints the classification authority through the same private mint path as the writer boot, and returns a handle whose reader is governed exactly like a writer boot's. It mints no boot token, so no writer exists, no writer lease is taken, no graph is marked live, and no invalidation-register capability is minted. `False` is the writer boot, unchanged.
+- Why: FW-2, whole-branch review I-1 (`D-IMPL-374`). Whitepaper §7.10 replay must be able to read a classification decision beside the live writer. Red tests: `tests/replay/test_fw2_read_only_replay.py`.
+- Migration: none for a writer boot. A process that only reads a graph a live writer holds (a replay tool, an audit export) passes `read_only=True`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.boot.FabricHandle
+
+- Surface: ccf.boot.FabricHandle
+- Public surface: true
+- Change type: reshaped
+- Before: `lease_scope: WriterLeaseScope | None`.
+- After: `lease_scope: WriterLeaseScope | Literal["read-only"] | None`. A read-only handle keeps the whole contract: its `worker` is L2 over a writer that refuses every write by name, and its `close` closes the store only.
+- Why: FW-2. The handle has to say it is read-only, and `WriterLeaseScope` names the scopes of leases that are held.
+- Migration: a reader of `lease_scope` that matched exhaustively on the two lease scopes adds `"read-only"`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a manifest deployment without a writer.
+- After: a keyword `read_only: bool = False`, handed to `ccf.boot.boot` unchanged. The registration loop runs either way, into the caller's registry.
+- Why: FW-2. `ccf.replay.environment.RecordedEnvironment` takes a `BootedFabric`, which the deployment doors build. Without the keyword the replay road would boot a writer.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a manifest deployment without a writer.
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_and_boot` re-exports).
+- Why: FW-2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.load_config_and_boot
+
+- Surface: ccf.deployment.load_config_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a single-file deployment without a writer.
+- After: a keyword `read_only: bool = False`, handed through the shared registration spine to `ccf.boot.boot`.
+- Why: FW-2. This is the door the paved road's replay reopens a fabric through.
+- Migration: none. To replay beside a live writer, pass `read_only=True`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: reshaped
+- Before: no way to boot a single-file deployment without a writer.
+- After: a keyword `read_only: bool = False` (the same function `ccf.deployment.load_config_and_boot` re-exports).
+- Why: FW-2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -28814,7 +28922,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-268 entries — 233 public Python surface, 35 not public Python API.
+269 entries — 234 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33209,6 +33317,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: add `erasure_authority:` to the document.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: its `fabric` was documented only as "the booted fabric to read through". Every boot took the writer lease, so beside a live writer there was no fabric to pass.
+- After: its documented fabric is a read-only boot (`load_config_and_boot(..., read_only=True)`), which reads beside the live writer with a boot-minted authority on every view. A writer boot is still accepted where no live writer holds the graph. The class's code and signature are unchanged.
+- Why: FW-2, whole-branch review I-1.
+- Migration: a replay tool that reopens a fabric beside a live writer passes `read_only=True` to the deployment door it boots through.
+
+*Recorded by `374-05-final-fix-wave.md`.*
 
 ### Not public Python API
 
