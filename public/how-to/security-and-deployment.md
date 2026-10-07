@@ -85,17 +85,35 @@ unchanged, so a product's content address is unchanged.
   every other child leg passes.
 
 **A request body is bounded before it is parsed, on both legs** (`SEC-021-U1`,
-`D-IMPL-370`). The typed-HTTP leg checks the declared length and counts the
-streamed body against `max_request_bytes` before it parses anything. The LF
-leg now does the same in front of `a2a-sdk`'s JSON-RPC dispatcher, against
-`max_message_bytes`: a declared `Content-Length` over the limit is answered
-`413` without being read, and any other body is counted as it arrives and
-answered `413` the moment it crosses the limit, whether or not a length was
-declared. The dispatcher is never handed more than the limit
-(`runtime/ccf_runtime/peering/lf_a2a.py::LfA2AWire.routes`; exploit tests in
-`tests/peering/test_request_body_is_bounded_before_parsing.py`).
+`D-IMPL-370`). Each Peering transport declares its size limits, with no SDK
+default, and each limit bounds one thing:
 
-What the bound does not do:
+- **The body cap, `max_request_bytes`, on both legs, bounds the HTTP request
+  body before anything parses it.** A declared `Content-Length` over it is
+  answered `413` without being read. Any other body is counted as it arrives
+  and answered `413` the moment it crosses the limit, whether or not a length
+  was declared. On the LF leg this happens in front of `a2a-sdk`'s JSON-RPC
+  dispatcher, which is never handed more than the limit
+  (`runtime/ccf_runtime/peering/lf_a2a.py::LfA2AWire.routes`; exploit tests in
+  `tests/peering/test_request_body_is_bounded_before_parsing.py`).
+- **The document cap bounds the carried document.** On the typed-HTTP leg the
+  body *is* the canonical document, so `max_request_bytes` is also its
+  document cap. On the LF leg the body is a JSON-RPC request that carries the
+  document base64-encoded, so the leg declares a second limit,
+  `max_message_bytes`, checked on the decoded document after parsing and on
+  the outbound document in `emit`.
+- **Declare the LF body cap for the encoded request.** A request carrying a
+  document of `max_message_bytes` is larger than that document: about four
+  thirds of it, plus a JSON-RPC envelope that depends on your identifiers.
+  Measure it and set `max_request_bytes` above it, or the body cap refuses that
+  document first (the sender sees `PeerUnreachable`). The SDK derives neither
+  limit from the other.
+- **The authoritative ceiling is the Control Plane's.**
+  `InboundPayloadCeiling.max_payload_bytes` is applied by the admission gate on
+  both legs before anything canonicalizes (`src/ccf/peering/admission.py`). The
+  transport limits are defense in depth.
+
+What the body cap does not do:
 
 - **It is per request.** It does not limit how many requests are in flight at
   once, so the bytes held across concurrent requests can reach the limit times
@@ -103,12 +121,6 @@ What the bound does not do:
 - **It cannot bound what the ASGI server buffers** before it hands the
   application a message, nor what the server does with the bytes the
   application never reads. Configure those limits in your server.
-- **It narrows the largest LF document.** The JSON-RPC binding carries the
-  document base64-encoded inside the request, so the largest document the LF
-  leg accepts is about three quarters of `max_message_bytes`, less the JSON-RPC
-  envelope. A sender declaring the same value can emit a document the receiver
-  answers `413`; the sender sees `PeerUnreachable`. Set `max_message_bytes` for
-  the encoded request, not for the document alone.
 
 ### 1.2 SignedHitlAction (D-IMPL-21 / D-IMPL-363, HITL identity)
 
