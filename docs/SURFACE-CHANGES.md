@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2141 entries**, of which **1870** name a public Python surface.
+**2146 entries**, of which **1875** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1238 entries — 1194 public Python surface, 44 not public Python API.
+1239 entries — 1195 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18387,6 +18387,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-05-final-fix-wave.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.govern_erasure
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_erasure
+- Public surface: true
+- Change type: added
+- Before: absent. An `ErasedContentRefused` raised under an MCP product door or an Experience seam reached the transport, which rendered its text.
+- After: the governed determination for an erasure a door met while answering. It envelopes an `ErasedContentRefusal` under the surface's own request and resource identity, records it through the door's recorder at every level, and returns it disclosed: at `minimal` the not-found shell (`TRANSLATED_AT_MINIMAL`, the shell `govern_absence` answers), at `reasoned` with the reason and instant, at `full` with the record address too. Dimension 2 states `ResolutionNotApplicable("no-resolution-step")`. The erased address is in no envelope.
+- Why: FW-3, whole-branch review I-2 (`D-IMPL-374`); U11. Red tests: `tests/mcp/test_fw3_erasure_at_mcp_doors.py`.
+- Migration: none. A deployment-built door that catches `ErasedContentRefused` calls it the way the SDK's doors do.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -28922,7 +28934,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-269 entries — 234 public Python surface, 35 not public Python API.
+273 entries — 238 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33327,6 +33339,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - After: its documented fabric is a read-only boot (`load_config_and_boot(..., read_only=True)`), which reads beside the live writer with a boot-minted authority on every view. A writer boot is still accepted where no live writer holds the graph. The class's code and signature are unchanged.
 - Why: FW-2, whole-branch review I-1.
 - Migration: a replay tool that reopens a fabric beside a live writer passes `read_only=True` to the deployment door it boots through.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.errors.ErasedContentRefused
+
+- Surface: ccf.erasure.errors.ErasedContentRefused
+- Public surface: true
+- Change type: behavior
+- Before: the text was `'<content address>' was erased and is not served (SEC-009)`.
+- After: the text names no address: `the requested content was erased by a recorded decision and is not served (SEC-009)`. `content_address`, `erasure_record_address`, `reason` and `erased_at` are unchanged structured attributes.
+- Why: FW-3. The text is what a transport that renders exception prose puts on a wire, and the review measured exactly that.
+- Migration: an in-process caller that parsed the address out of the text reads `content_address`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.erasure.ErasedContentRefused
+
+- Surface: ccf.erasure.ErasedContentRefused
+- Public surface: true
+- Change type: behavior
+- Before: the text named the erased address.
+- After: the text names no address (the same class `ccf.erasure.errors.ErasedContentRefused`, re-exported).
+- Why: FW-3.
+- Migration: read `content_address`.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: an `ErasedContentRefused` from the resolver left the product tool, the addressed resource and the standing resource as the exception's prose, at every level.
+- After: it is `govern_erasure`'s recorded determination, delivered through each surface's one emission site: the not-found shell at `minimal`, the `erased-content` shell above it. The egress resources still have no opaque wrapper for other exceptions (pre-existing); this adds the erasure case only.
+- Why: FW-3, probe X2.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: behavior
+- Before: an `ErasedContentRefused` raised by the product resolver or by the `get_context`, `get_lineage` or `get_replay_record` seam crossed as the tool's or resource's error text, naming the erased address, at every level. A deployment directory's own exception on `invoke_agent`, raised before authorization while reading a rostered caller's reach, crossed as its text.
+- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log.
+- Why: FW-3, probe X1; the SEC-017 carry "a deployment directory exception propagates unchanged".
+- Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
 

@@ -10925,6 +10925,7 @@
       "govern_absence",
       "govern_dereference",
       "govern_entitlement",
+      "govern_erasure",
       "recorded_boundary"
     ],
     "exports": {
@@ -10995,6 +10996,10 @@
       "govern_entitlement": {
         "kind": "function",
         "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', requested_role: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', entitlement_source: 'ProductEntitlementSourceProtocol', perspective_resolver: 'PerspectiveResolverProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'Perspective | RefusalEnvelope'"
+      },
+      "govern_erasure": {
+        "kind": "function",
+        "shape": "(*, grant: 'TokenGrant', tenant: 'str', product_class: 'str', product_version: 'str | None', parameters: 'Mapping[str, Any]', asked_at: 'datetime | None', surface: 'str', address: 'str', perspective: 'Perspective', erased: 'ErasedContentRefused', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'RefusalRecorderProtocol') -> 'RefusalEnvelope'"
       },
       "recorded_boundary": {
         "kind": "function",

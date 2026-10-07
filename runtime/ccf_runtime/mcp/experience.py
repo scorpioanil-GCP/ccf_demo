@@ -185,6 +185,18 @@ scope is exactly those three paths and the mechanism they need — *"not a
 general experience-server rewrite"* — so ``ToolError`` on these paths remains
 what it always was, the seams' own failures, and is not widened here.
 
+**One class of seam failure is mapped, by disclosure level: an erasure** (FW-3,
+whole-branch review I-2; ``D-IMPL-374``). An
+:class:`~ccf.erasure.ErasedContentRefused` a seam or the product resolver meets
+reading through an erasure-composed store is the recorded ``erased-content``
+determination above ``minimal``
+(:func:`~ccf_runtime.authz.delivery_boundary.govern_erasure`). At ``minimal`` the
+product resource answers the same not-found shell its typed absence answers,
+and the three tools, which have no not-found rendering of their own, answer
+the opaque ``ccf-runtime-failure:<id>`` and record nothing. Before this, the
+exception's prose — naming the erased address — crossed as the tool error at
+every level.
+
 Server name, bind address, token values, tenant identifiers, agent names,
 principal identifiers, role names, and skill vocabulary are all deployment
 values supplied by the caller. This module holds none of them (CINV-01).
@@ -194,12 +206,16 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import logging
+import traceback
 from collections.abc import Callable, Mapping
 from typing import Any, Final, Protocol, runtime_checkable
+from uuid import uuid4
 
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import Field, ValidationInfo, model_validator
 
 from ccf.authz.actions import (
@@ -217,19 +233,25 @@ from ccf.authz.capability import (
 )
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import HASH_TRANSPARENT_KEY, canonical_bytes
+from ccf.erasure.errors import ErasedContentRefused
+from ccf.products.disclosure import DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.door import door_refusal, served_answer
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.serve import ServedProduct
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
+from ccf.replay.record import NO_ROLE_RESOLVED
 from ccf.skills.catalog import SkillCatalogEntry
 from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES, render_tool_surface
 from ccf_runtime.authz.delivery_boundary import (
+    DEREFERENCE_PRODUCT_ID,
     SURFACE_MCP_RESOURCE,
     SURFACE_MCP_TOOL,
+    DisclosingRecorderProtocol,
     govern_absence,
     govern_entitlement,
+    govern_erasure,
     recorded_boundary,
 )
 from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
@@ -811,6 +833,53 @@ def _granted_roster() -> frozenset[str] | None:
     return verified_grant().products
 
 
+_LOGGER = logging.getLogger(__name__)
+
+#: The opaque failure's wire token — the egress door's ``CCF_FAILURE_PREFIX``
+#: (``ccf_runtime.mcp.egress``), stated here because the role-separation
+#: invariant forbids this door importing that sibling
+#: (``tests/invariants/test_mcp_role_separation.py``); FW-3's tests hold the
+#: two equal.
+_RUNTIME_FAILURE_PREFIX: Final[str] = "ccf-runtime-failure"
+
+
+def _opaque_failure(exc: BaseException) -> ToolError:
+    """Log a failure under a fresh id; return the opaque ``ccf-runtime-failure:<id>`` (FW-3; ``D-IMPL-374``).
+
+    The egress door's posture (``D-IMPL-253`` Q20): no message, no type name
+    and no traceback crosses — only an id an operator finds in this module's
+    log beside the failure's type name and frames, never its text or a value
+    (``SEC-024``, ``D-IMPL-369`` choice C).
+    """
+    failure_id = uuid4().hex
+    kind = type(exc)
+    _LOGGER.error(
+        "the Experience door failed: %s:%s\n%s.%s\n%s",
+        _RUNTIME_FAILURE_PREFIX,
+        failure_id,
+        kind.__module__,
+        kind.__qualname__,
+        "".join(traceback.format_tb(exc.__traceback__)),
+    )
+    return ToolError(f"{_RUNTIME_FAILURE_PREFIX}:{failure_id}")
+
+
+def _level_in_force(recorder: RefusalRecorderProtocol, principal_id: str) -> DisclosureLevel:
+    """The disclosure level in force for ``principal_id`` at this door (FW-3).
+
+    Read as the evidence doors read it — through the recorder that discloses,
+    under the recorder's own tenant (``D-IMPL-345`` R-2). A recorder that
+    cannot state a level is read at the safe default,
+    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL`.
+    """
+    if isinstance(recorder, DisclosingRecorderProtocol):
+        level, _policy = recorder.disclosure_level_for(
+            tenant=recorder.tenant_id, principal_id=principal_id
+        )
+        return level
+    return DISCLOSURE_MINIMAL
+
+
 def _agent_reach(
     directory: AgentDirectoryProtocol | None,
 ) -> Callable[[str, Mapping[str, Any]], frozenset[str]]:
@@ -836,9 +905,21 @@ def _agent_reach(
                 f"no agent directory is configured, so the classes {named}"
                 " reaches cannot be read",
             )
+        try:
+            listed = tuple(directory(tenant=tenant))
+        except Exception as failed:  # noqa: BLE001 — every directory failure is the one opaque refusal
+            # FW-3 (`D-IMPL-374`): the deployment directory's own failure,
+            # before the authorizer is asked, is the same opaque refusal as
+            # every other directory outcome; its TYPE reaches the server-side
+            # log and its text reaches nothing (SEC-024).
+            raise roster_refusal(
+                INVOKE_AGENT_TOOL,
+                f"the agent directory failed ({type(failed).__name__}) while reading"
+                f" the classes {named} reaches",
+            ) from None
         exposed = tuple(
             agent
-            for agent in directory(tenant=tenant)
+            for agent in listed
             if agent.definition_key == key and agent.definition_version == version
         )
         if not exposed:
@@ -1090,6 +1171,42 @@ def build_experience_server(
         refusal_recorder=refusal_recorder, builder="build_experience_server"
     )
 
+    def erased_tool_answer(
+        erased: ErasedContentRefused,
+        *,
+        tool: str,
+        tenant: str,
+        product_class: str,
+        parameters: Mapping[str, Any],
+        role: str,
+    ) -> str:
+        """An erasure a tool's seam met, by disclosure level (FW-3; ``D-IMPL-374``).
+
+        These tools have no not-found rendering of their own, so ``minimal``
+        is the opaque runtime failure and nothing is recorded; above it, the
+        recorded ``erased-content`` shell. The erased address crosses at no
+        level: neither the failure nor the shell carries it.
+        """
+        grant = verified_grant()
+        if _level_in_force(recorder, grant.client_id) == DISCLOSURE_MINIMAL:
+            raise _opaque_failure(erased) from erased
+        return canonical_bytes(
+            govern_erasure(
+                grant=grant,
+                tenant=tenant,
+                product_class=product_class,
+                product_version=None,
+                parameters=parameters,
+                asked_at=None,
+                surface=SURFACE_MCP_TOOL,
+                address=_tool_address(tool=tool, tenant=tenant, product_class=product_class),
+                perspective=Perspective(principal_id=grant.client_id, role=role),
+                erased=erased,
+                entitlement_source=entitlement_source,
+                refusal_recorder=recorder,
+            )
+        ).decode("utf-8")
+
     if tool_allowlist is not None:
         unknown = frozenset(tool_allowlist) - EXPERIENCE_TOOLS
         if unknown:
@@ -1239,6 +1356,26 @@ def build_experience_server(
                     address=addressed,
                     perspective=decided,
                     absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
+            ).decode("utf-8")
+        except ErasedContentRefused as erased:
+            # FW-3 (`D-IMPL-374`): the recorded `erased-content`
+            # determination, disclosed by level — this resource's not-found
+            # shell at `minimal` — never the exception's prose.
+            return canonical_bytes(
+                govern_erasure(
+                    grant=verified_grant(),
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters={},
+                    asked_at=None,
+                    surface=SURFACE_MCP_RESOURCE,
+                    address=addressed,
+                    perspective=decided,
+                    erased=erased,
                     entitlement_source=entitlement_source,
                     refusal_recorder=recorder,
                 )
@@ -1483,9 +1620,19 @@ def build_experience_server(
             )
             if isinstance(decided, RefusalEnvelope):
                 return canonical_bytes(decided).decode("utf-8")
-            return context_seam(
-                tenant=tenant, entity=entity, perspective=decided
-            )
+            try:
+                return context_seam(
+                    tenant=tenant, entity=entity, perspective=decided
+                )
+            except ErasedContentRefused as erased:
+                return erased_tool_answer(
+                    erased,
+                    tool=GET_CONTEXT_TOOL,
+                    tenant=tenant,
+                    product_class=context_class,
+                    parameters={"entity": entity},
+                    role=decided.role,
+                )
 
     if GET_LINEAGE_TOOL in allowed:
         if lineage_provider is None or get_lineage_description is None:
@@ -1561,12 +1708,20 @@ def build_experience_server(
             )
             if isinstance(decided, RefusalEnvelope):
                 return canonical_bytes(decided).decode("utf-8")
-            # Bound, and then deliberately dropped in the open rather than
-            # discarded silently: `LineageProviderProtocol` was not widened,
-            # and its docstring says why. The decision is what mattered here,
-            # not the conditioning.
-            del decided
-            return lineage_seam()
+            # The seam is not handed the conditioning: `LineageProviderProtocol`
+            # was not widened, and its docstring says why. The decision is what
+            # mattered here; its role is read again only to record an erasure.
+            try:
+                return lineage_seam()
+            except ErasedContentRefused as erased:
+                return erased_tool_answer(
+                    erased,
+                    tool=GET_LINEAGE_TOOL,
+                    tenant=authorized.tenant,
+                    product_class=lineage_class,
+                    parameters={},
+                    role=decided.role,
+                )
 
     if GET_REPLAY_RECORD_TOOL in allowed:
         if replay_record_reader is None or get_replay_record_description is None:
@@ -1624,6 +1779,19 @@ def build_experience_server(
             # it was made — for `replay.read` under the declared tenant —
             # before this body ran (D-IMPL-353 §1.2).
             del authorized
-            return replay_seam()
+            try:
+                return replay_seam()
+            except ErasedContentRefused as erased:
+                # No product class is resolved on a replay read: the record
+                # identity names the evidence-read constant, never a class
+                # recovered from the record (the dereference rule, D-IMPL-345 R-4).
+                return erased_tool_answer(
+                    erased,
+                    tool=GET_REPLAY_RECORD_TOOL,
+                    tenant=replay_tenant,
+                    product_class=DEREFERENCE_PRODUCT_ID,
+                    parameters={},
+                    role=NO_ROLE_RESOLVED,
+                )
 
     return door.build()

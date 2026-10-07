@@ -40,9 +40,18 @@ class ErasedContentRefused(ArtifactStoreError):
     read scoped to the erasing tenant and an entry its record supports — the
     facts are the RECORD's (fix round 2, N2); a tenantless read, an
     unsupported entry and a corrupt index carry ``None`` there (I6; §8; N3).
-    Never anything of the subject, and the message carries no record address
-    (M8). The bytes it withholds remain on the substrate; no destruction is
-    claimed.
+    Never anything of the subject. The bytes it withholds remain on the
+    substrate; no destruction is claimed.
+
+    **Its text names no address at all** — neither the erased content address
+    nor the record address (M8; FW-3, whole-branch review I-2, ``D-IMPL-374``).
+    The addresses are structured attributes for an in-process caller. The text
+    is what a transport that renders exception prose would put on a wire, and
+    the whole-branch review measured exactly that: this text, naming the erased
+    address, reached a ``minimal`` principal through the MCP doors. Every SDK
+    door now maps the class by disclosure level instead
+    (``ccf_runtime.authz.delivery_boundary.govern_erasure``), and the text stays
+    address-free for any door that does not.
     """
 
     def __init__(
@@ -53,7 +62,9 @@ class ErasedContentRefused(ArtifactStoreError):
         reason: str | None,
         erased_at: datetime | None,
     ) -> None:
-        super().__init__(f"{content_address!r} was erased and is not served (SEC-009)")
+        super().__init__(
+            "the requested content was erased by a recorded decision and is not served (SEC-009)"
+        )
         self.content_address = content_address
         self.erasure_record_address = erasure_record_address
         self.reason = reason

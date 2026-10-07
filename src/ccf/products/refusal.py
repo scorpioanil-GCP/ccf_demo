@@ -290,7 +290,12 @@ class ErasedContentRefusal(CCFContract):
     **SDK-defined**, built to design ``D-IMPL-367`` §5: the reading of an erased
     address is disclosure-governed. A door renders this kind only at
     ``reasoned`` and ``full``; at ``minimal`` the door answers with its own
-    not-found rendering instead, so the erasure is not disclosed (U11). Below
+    not-found rendering instead, so the erasure is not disclosed (U11). Every
+    SDK door does, MCP included since FW-3 (``D-IMPL-374``;
+    ``ccf_runtime.authz.delivery_boundary.govern_erasure``); a surface with no
+    not-found rendering of its own (the Experience ``get_context``,
+    ``get_lineage`` and ``get_replay_record`` tools) answers ``minimal`` with
+    its opaque runtime failure instead. Below
     ``full`` the erasure record's address is withheld
     (:data:`~ccf.products.disclosure.INDISTINGUISHABLE_BELOW_FULL`), so a
     ``reasoned`` reader learns the reason and the instant and an entitled

@@ -114,3 +114,61 @@ are `tests/replay/test_fw2_read_only_replay.py`.
 - After: its documented fabric is a read-only boot (`load_config_and_boot(..., read_only=True)`), which reads beside the live writer with a boot-minted authority on every view. A writer boot is still accepted where no live writer holds the graph. The class's code and signature are unchanged.
 - Why: FW-2, whole-branch review I-1.
 - Migration: a replay tool that reopens a fabric beside a live writer passes `read_only=True` to the deployment door it boots through.
+
+**FW-3 (I-2, SEC-009 x SEC-024).** An erasure crossed the SDK's MCP doors as
+raw exception prose naming the erased address, at every disclosure level. The
+egress tool's opaque clause did not cover the class, and the Experience seams
+passed it through. The ruled repair renders an erasure by disclosure level
+exactly as the HTTP doors and the MCP artifact server already did. The red
+tests are `tests/mcp/test_fw3_erasure_at_mcp_doors.py`, including probes X1
+and X2.
+
+## ccf_runtime.authz.delivery_boundary.govern_erasure
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_erasure
+- Public surface: true
+- Change type: added
+- Before: absent. An `ErasedContentRefused` raised under an MCP product door or an Experience seam reached the transport, which rendered its text.
+- After: the governed determination for an erasure a door met while answering. It envelopes an `ErasedContentRefusal` under the surface's own request and resource identity, records it through the door's recorder at every level, and returns it disclosed: at `minimal` the not-found shell (`TRANSLATED_AT_MINIMAL`, the shell `govern_absence` answers), at `reasoned` with the reason and instant, at `full` with the record address too. Dimension 2 states `ResolutionNotApplicable("no-resolution-step")`. The erased address is in no envelope.
+- Why: FW-3, whole-branch review I-2 (`D-IMPL-374`); U11. Red tests: `tests/mcp/test_fw3_erasure_at_mcp_doors.py`.
+- Migration: none. A deployment-built door that catches `ErasedContentRefused` calls it the way the SDK's doors do.
+
+## ccf.erasure.errors.ErasedContentRefused
+
+- Surface: ccf.erasure.errors.ErasedContentRefused
+- Public surface: true
+- Change type: behavior
+- Before: the text was `'<content address>' was erased and is not served (SEC-009)`.
+- After: the text names no address: `the requested content was erased by a recorded decision and is not served (SEC-009)`. `content_address`, `erasure_record_address`, `reason` and `erased_at` are unchanged structured attributes.
+- Why: FW-3. The text is what a transport that renders exception prose puts on a wire, and the review measured exactly that.
+- Migration: an in-process caller that parsed the address out of the text reads `content_address`.
+
+## ccf.erasure.ErasedContentRefused
+
+- Surface: ccf.erasure.ErasedContentRefused
+- Public surface: true
+- Change type: behavior
+- Before: the text named the erased address.
+- After: the text names no address (the same class `ccf.erasure.errors.ErasedContentRefused`, re-exported).
+- Why: FW-3.
+- Migration: read `content_address`.
+
+## ccf_runtime.mcp.egress.build_egress_server
+
+- Surface: ccf_runtime.mcp.egress.build_egress_server
+- Public surface: true
+- Change type: behavior
+- Before: an `ErasedContentRefused` from the resolver left the product tool, the addressed resource and the standing resource as the exception's prose, at every level.
+- After: it is `govern_erasure`'s recorded determination, delivered through each surface's one emission site: the not-found shell at `minimal`, the `erased-content` shell above it. The egress resources still have no opaque wrapper for other exceptions (pre-existing); this adds the erasure case only.
+- Why: FW-3, probe X2.
+- Migration: none.
+
+## ccf_runtime.mcp.experience.build_experience_server
+
+- Surface: ccf_runtime.mcp.experience.build_experience_server
+- Public surface: true
+- Change type: behavior
+- Before: an `ErasedContentRefused` raised by the product resolver or by the `get_context`, `get_lineage` or `get_replay_record` seam crossed as the tool's or resource's error text, naming the erased address, at every level. A deployment directory's own exception on `invoke_agent`, raised before authorization while reading a rostered caller's reach, crossed as its text.
+- After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log.
+- Why: FW-3, probe X1; the SEC-017 carry "a deployment directory exception propagates unchanged".
+- Migration: none.

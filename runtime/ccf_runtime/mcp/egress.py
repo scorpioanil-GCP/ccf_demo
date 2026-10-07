@@ -930,6 +930,11 @@ def build_egress_server(
     recorder = recorded_boundary(
         refusal_recorder=refusal_recorder, builder="build_egress_server"
     )
+    # FW-3 (whole-branch review I-2; `D-IMPL-374`). Imported here, not at the
+    # module top, so the line anchors other records cite stay where they were.
+    from ccf.erasure.errors import ErasedContentRefused
+    from ccf_runtime.authz.delivery_boundary import govern_erasure
+
     if not expose_product_resource and not expose_product_tool:
         raise ValueError(
             "expose_product_resource=False together with"
@@ -1135,6 +1140,29 @@ def build_egress_server(
                         refusal_recorder=recorder,
                     )
                 ).decode("utf-8")
+            except ErasedContentRefused as erased:
+                # FW-3 (`D-IMPL-374`): an erasure met while answering is the
+                # recorded `erased-content` determination, disclosed by level —
+                # this resource's not-found shell at `minimal` — never the
+                # exception's prose on the wire.
+                return canonical_bytes(
+                    govern_erasure(
+                        grant=verified_grant(),
+                        tenant=tenant,
+                        product_class=product_class,
+                        product_version=version,
+                        parameters={},
+                        asked_at=None,
+                        surface=SURFACE_MCP_RESOURCE,
+                        address=product_uri(
+                            tenant=tenant, product_class=product_class, version=version
+                        ),
+                        perspective=decided,
+                        erased=erased,
+                        entitlement_source=entitlement_source,
+                        refusal_recorder=recorder,
+                    )
+                ).decode("utf-8")
             refusal = door_refusal(resolved)
             if refusal is not None:
                 return canonical_bytes(refusal).decode("utf-8")
@@ -1295,6 +1323,28 @@ def build_egress_server(
                     address=address,
                     perspective=decided,
                     absent=absent,
+                    entitlement_source=entitlement_source,
+                    refusal_recorder=recorder,
+                )
+            except ErasedContentRefused as erased:
+                # FW-3 (whole-branch review I-2; `D-IMPL-374`): an erasure met
+                # while answering — out of child admission, say — is the
+                # recorded `erased-content` determination, disclosed by level
+                # (this tool's not-found shell at `minimal`) and delivered
+                # through the one emission site. It is outside the fault
+                # tuple below, so before this clause its prose, naming the
+                # erased address, crossed as the tool error.
+                resolved = govern_erasure(
+                    grant=verified_grant(),
+                    tenant=tenant,
+                    product_class=product_class,
+                    product_version=version,
+                    parameters=asked.parameters,
+                    asked_at=asked_at,
+                    surface=surface,
+                    address=address,
+                    perspective=decided,
+                    erased=erased,
                     entitlement_source=entitlement_source,
                     refusal_recorder=recorder,
                 )

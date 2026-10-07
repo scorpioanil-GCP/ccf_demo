@@ -146,6 +146,7 @@ __all__ = [
     "govern_absence",
     "govern_dereference",
     "govern_entitlement",
+    "govern_erasure",
     "recorded_boundary",
 ]
 
@@ -1301,4 +1302,108 @@ def govern_dereference(
     audited(delivered=content_address, allowed=True)
     return DereferencedEvidence(
         content_address=content_address, record=record, payload=payload
+    )
+
+
+def govern_erasure(
+    *,
+    grant: TokenGrant,
+    tenant: str,
+    product_class: str,
+    product_version: str | None,
+    parameters: Mapping[str, Any],
+    asked_at: datetime | None,
+    surface: str,
+    address: str,
+    perspective: Perspective,
+    erased: ErasedContentRefused,
+    entitlement_source: ProductEntitlementSourceProtocol,
+    refusal_recorder: RefusalRecorderProtocol,
+) -> RefusalEnvelope:
+    """The governed determination for an erasure a door met while answering (FW-3, whole-branch review I-2; ``D-IMPL-374``).
+
+    SEC-009's U11 (``ccf.products.refusal.ErasedContentRefusal``): an erased
+    address's reading is disclosure-governed — a door renders the erasure only
+    at ``reasoned`` and ``full``, and at ``minimal`` answers with its own
+    not-found rendering. The HTTP doors and the MCP artifact server did that
+    through :func:`govern_dereference`; the whole-branch review measured the
+    MCP egress tool and resources and the Experience seams passing
+    :class:`~ccf.erasure.ErasedContentRefused` to the wire as exception prose
+    naming the erased address, at every level. This is the mapping they call.
+
+    The mirror of :func:`govern_absence`: the ``erased-content`` determination
+    is enveloped under this surface's request and resource identity, RECORDED
+    through the one recorder the door holds — at every level, so the audit
+    trail is honest (the design's I5) — and returned DISCLOSED. The disclosure
+    step decides what crosses: at ``minimal`` it renders the not-found shell
+    (``ccf.products.disclosure.TRANSLATED_AT_MINIMAL``, the shell
+    :func:`govern_absence` answers), at ``reasoned`` the reason and instant, at
+    ``full`` the record address too. The erased address is never in the
+    envelope: an :class:`~ccf.products.refusal.ErasedContentRefusal` has no
+    address field.
+
+    **Dimension 2 states** ``ResolutionNotApplicable("no-resolution-step")``:
+    the ``erased-content`` determination is the store consult's, made at a
+    read, and a door holds no resolver evidence to record — it states that no
+    resolution step belongs to this determination rather than manufacturing
+    one (the :func:`govern_absence` precedent).
+
+    A door whose surface has NO not-found rendering (the Experience
+    ``get_context``, ``get_lineage`` and ``get_replay_record`` seams) calls
+    this only above ``minimal``, and answers ``minimal`` with its opaque
+    runtime failure instead.
+
+    Args:
+        grant: The verified caller.
+        tenant: The tenant the caller addressed.
+        product_class: The class the surface answers for.
+        product_version: The class's lane, or ``None``.
+        parameters: What the caller supplied, for the request identity.
+        asked_at: The instant asked as-of, or ``None``.
+        surface: One of the surface tokens.
+        address: What the caller addressed, verbatim.
+        perspective: The perspective the door already authorized, or the
+            positive no-role perspective where the surface resolves none.
+        erased: The consult's refusal. Its facts are what the store's view
+            disclosed to the door — ``None`` where the read was tenantless.
+        entitlement_source: The source whose declared clock stamps the
+            determination.
+        refusal_recorder: The seam that mints the record and discloses.
+
+    Returns:
+        The disclosed shell, carrying the replay reference of its own record.
+
+    Raises:
+        Exception: whatever the recorder's store raises on append,
+            deliberately uncaught — a failure to record is a failure to decide.
+    """
+    determined_at = _determined_at(entitlement_source)
+    envelope = envelope_for(
+        ErasedContentRefusal(
+            detail="the requested content was erased by a recorded decision and is not served",
+            erasure_reason=erased.reason,
+            erased_at=erased.erased_at,
+            erasure_record_address=erased.erasure_record_address,
+        ),
+        request=RequestIdentity(
+            product_id=product_class,
+            product_version=product_version,
+            parameters=parameters,
+            temporal_boundary=asked_at,
+        ),
+        resource=ResourceRequestIdentity(
+            surface=surface,
+            address=address,
+            tenant_id=tenant,
+            determined_at=determined_at,
+        ),
+        policy_bindings=(),
+    )
+    return refusal_recorder.record(
+        envelope,
+        perspective=Perspective(principal_id=grant.client_id, role=perspective.role),
+        recorded_at=asked_at if asked_at is not None else determined_at,
+        served_at=determined_at,
+        policy_bindings=(),
+        resolution=ResolutionNotApplicable(reason="no-resolution-step"),
     )

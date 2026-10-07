@@ -412,3 +412,10 @@ def test_a_directory_failure_on_invoke_agent_is_the_opaque_pre_authorization_ref
     # The log names the failure's type, never its text (SEC-024).
     assert "RuntimeError" in "\n".join(record.getMessage() for record in caplog.records)
     assert secret not in "\n".join(record.getMessage() for record in caplog.records)
+
+
+def test_the_experience_door_states_the_egress_failure_token() -> None:
+    """The role-separation invariant keeps the two doors from importing each other; this holds the token equal."""
+    from ccf_runtime.mcp import egress, experience
+
+    assert experience._RUNTIME_FAILURE_PREFIX == egress.CCF_FAILURE_PREFIX
