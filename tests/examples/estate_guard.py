@@ -27,6 +27,12 @@ into the curated address — and any name that resolves to it would have passed
 the same way. Every destination and every curated declaration is now reduced to
 the addresses it reaches (:func:`_addresses`), and a destination whose host
 cannot be resolved is refused by name rather than assumed safe.
+
+**And it judges the destination libpq will actually use** (`377-FENCE2`): a
+Postgres target is read with PGHOST and PGHOSTADDR filling what its connection
+string leaves out, a libpq service is refused by name because it can redirect the
+connection anywhere, and an EMPTY ``CCF_CURATED_ESTATE_HOSTS`` means the default
+rather than switching the fence off (:func:`curated_hosts_in_force`).
 """
 
 from __future__ import annotations
@@ -51,9 +57,32 @@ CURATED_HOSTS_ENV = "CCF_CURATED_ESTATE_HOSTS"
 DEFAULT_CURATED_HOSTS = "192.168.4.76"
 
 
-def _curated_hosts() -> frozenset[str]:
-    raw = os.environ.get(CURATED_HOSTS_ENV, DEFAULT_CURATED_HOSTS)
+def _declared(raw: str) -> frozenset[str]:
+    """The hosts a comma-separated declaration names, blanks dropped."""
     return frozenset(part.strip() for part in raw.split(",") if part.strip())
+
+
+def curated_hosts_in_force() -> tuple[tuple[str, ...], str]:
+    """The curated declarations the fence applies, and where they came from.
+
+    **An EMPTY declaration means the default** (`377-FENCE2`). Set but empty — or
+    blank, or only separators — the variable declares nothing; it used to switch
+    the fence OFF while the make gate still printed the default. It now means the
+    default exactly as an unset variable does, so the fence cannot be disabled by
+    accident, and a second estate is still declared by naming it. The make gate
+    prints this (`tools/estate_fence.py::main`), so what it reports is what the
+    guard enforces.
+    """
+    raw = os.environ.get(CURATED_HOSTS_ENV)
+    declared = _declared(raw or "")
+    if declared:
+        return tuple(sorted(declared)), f"declared in {CURATED_HOSTS_ENV}"
+    why = "unset" if raw is None else "set but empty"
+    return tuple(sorted(_declared(DEFAULT_CURATED_HOSTS))), f"the default; {CURATED_HOSTS_ENV} is {why}"
+
+
+def _curated_hosts() -> frozenset[str]:
+    return frozenset(curated_hosts_in_force()[0])
 
 
 #: The password-bearing shapes a connection target can carry. **BOTH PostgreSQL
@@ -271,6 +300,87 @@ def _curated() -> tuple[frozenset[str], frozenset[Address]]:
     return frozenset(spellings), frozenset(addresses)
 
 
+#: libpq reads these when the connection string leaves the parameter OUT
+#: (`377-FENCE2`): ``host`` from PGHOST, and ``hostaddr`` — the address libpq
+#: actually connects to, ``host`` then only naming the server — from PGHOSTADDR.
+#: PGPORT is libpq's port default and, like every port, takes no part in the
+#: decision: the fence is host-level (`D-IMPL-358` ruling 12).
+_LIBPQ_DESTINATION_DEFAULTS: tuple[tuple[str, str], ...] = (
+    ("host", "PGHOST"),
+    ("hostaddr", "PGHOSTADDR"),
+)
+
+#: What makes libpq consult a service file, which fills every parameter the
+#: connection string leaves out — host and hostaddr included — from a file the
+#: fence does not read. The string's own ``service=`` is the third.
+_LIBPQ_SERVICE_VARIABLES: tuple[str, ...] = ("PGSERVICE", "PGSERVICEFILE")
+
+#: The source recorded for a value the connection string states itself.
+_FROM_THE_STRING = "the connection string"
+
+
+def _looks_like_postgres(target: str) -> bool:
+    """A libpq connection string, in URI or keyword form."""
+    return target.startswith(("postgres://", "postgresql://")) or (
+        "=" in target and "://" not in target
+    )
+
+
+def _libpq_effective(
+    parsed: dict[str, str],
+) -> tuple[dict[str, tuple[str, str]], str | None]:
+    """The destination libpq will actually connect with, and any service it consults.
+
+    Returns ``(destination, service)``. ``destination`` maps ``host`` and
+    ``hostaddr`` to ``(value, source)``: the connection string's own value when it
+    states one — even an empty one, because libpq reads the environment only for a
+    parameter left OUT — else the environment default, the source naming the
+    variable. ``service`` names what makes libpq consult a service file — the
+    string's ``service=``, PGSERVICE or PGSERVICEFILE — or is ``None``.
+    """
+    destination: dict[str, tuple[str, str]] = {}
+    for key, variable in _LIBPQ_DESTINATION_DEFAULTS:
+        if key in parsed:
+            destination[key] = (str(parsed[key]), _FROM_THE_STRING)
+        elif variable in os.environ:
+            destination[key] = (os.environ[variable], variable)
+    if "service" in parsed:
+        return destination, f"service={parsed['service']} in the connection string"
+    for variable in _LIBPQ_SERVICE_VARIABLES:
+        if variable in os.environ:
+            return destination, variable
+    return destination, None
+
+
+def _target_destinations(target: str) -> tuple[dict[str, str], str | None] | None:
+    """Every host ``target`` will reach, each with its source, and any libpq service.
+
+    ``None`` when no destination can be read. A Postgres target is judged as libpq
+    will connect it (`377-FENCE2`): PGHOST and PGHOSTADDR fill what the string
+    leaves out. Every other target is judged by its own authority, which no libpq
+    variable can touch. A host's source is empty when the target states it.
+    """
+    if not target or not target.strip():
+        return None
+    if not _looks_like_postgres(target):
+        hosts = _hosts_from_url(target)
+        return None if hosts is None else ({host: "" for host in hosts}, None)
+    try:
+        parsed = conninfo_to_dict(target)
+    except Exception:
+        return None
+    destination, service = _libpq_effective(parsed)
+    found: dict[str, str] = {}
+    for raw, source in destination.values():
+        for part in raw.split(","):
+            host = _normalize_host(part)
+            if host:
+                found.setdefault(host, "" if source == _FROM_THE_STRING else source)
+    if service is not None:
+        return found, service
+    return (found, None) if found else None
+
+
 def _why_refused(
     target: str, curated: tuple[frozenset[str], frozenset[Address]]
 ) -> str | None:
@@ -292,20 +402,28 @@ def _why_refused(
     Structural parsing throughout, never a substring test: a curated address
     appearing inside a password is not a destination.
     """
-    destinations = _destinations(target)
-    if destinations is None:
+    view = _target_destinations(target)
+    if view is None:
         return "no destination could be read from it"
+    found, service = view
+    if service is not None:
+        return (
+            f"a libpq service ({service}) fills the host and hostaddr a connection"
+            " string leaves out from a file the fence does not read, so it can"
+            " redirect the connection anywhere; refused rather than assumed safe"
+        )
     spellings, addresses = curated
-    for host in sorted(destinations, key=lambda name: (_numeric(name) is None, name)):
+    for host in sorted(found, key=lambda name: (_numeric(name) is None, name)):
+        named = f"host {host!r}" + (f" (from {found[host]})" if found[host] else "")
         reached = _addresses(host)
         hit = sorted(str(address) for address in (reached or frozenset()) & addresses)
         if hit:
-            return f"host {host!r} reaches the curated address {hit[0]}"
+            return f"{named} reaches the curated address {hit[0]}"
         if host in spellings:
-            return f"host {host!r} is declared curated in {CURATED_HOSTS_ENV}"
+            return f"{named} is declared curated in {CURATED_HOSTS_ENV}"
         if reached is None:
             return (
-                f"host {host!r} could not be resolved to a network address, so it is"
+                f"{named} could not be resolved to a network address, so it is"
                 " refused rather than assumed safe"
             )
     return None
@@ -348,6 +466,7 @@ def refuse_to_write_the_curated_estate(*targets: str) -> None:
     present = [target for target in targets if target]
     if not present:
         return
+    in_force, source = curated_hosts_in_force()
     curated = _curated()
     offending = []
     for target in present:
@@ -358,8 +477,8 @@ def refuse_to_write_the_curated_estate(*targets: str) -> None:
         raise RuntimeError(
             "refusing to SEED a curated store: "
             + ", ".join(sorted(offending))
-            + f". Hosts in {CURATED_HOSTS_ENV} (default {DEFAULT_CURATED_HOSTS})"
-            " hold the curated estate, compared as the network addresses they"
+            + f". Curated hosts in force: {', '.join(in_force)} ({source}),"
+            " compared as the network addresses they"
             " reach: every spelling of a curated address, and every name that"
             " resolves to one, is that host. A seeded Fluree ledger there is"
             " PERMANENT — the store is append-only — and a seeded PostgreSQL"
