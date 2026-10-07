@@ -988,7 +988,11 @@ def govern_dereference(
     (M7): an entitled caller naming an erased address under a wrong
     ``(tenant, class, name)`` triple receives the erased reading where a
     non-erased record would answer not-found — it learns nothing its
-    entitlement to the record did not already admit.
+    entitlement to the record did not already admit. The naming check itself
+    reads the SAME tenant view (FW-7, whole-branch review M-3;
+    ``D-IMPL-374``): another tenant's entry naming the address cannot make it
+    refuse what the view served, and an erasure it meets is the erased
+    reading at the caller's level, never recorded as ``nonexistent``.
 
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
@@ -1283,8 +1287,15 @@ def govern_dereference(
 
     # --- the URI's naming, checked LAST -------------------------------------
     if reference.by_uri:
+        # FW-7 (whole-branch review M-3; `D-IMPL-374`): through the SAME view
+        # the consult above read — the caller's verified tenant's — so another
+        # tenant's entry naming this address cannot make the naming check
+        # refuse what the tenant view served; and an erasure met here is the
+        # erased reading at the caller's level, never recorded as an absence.
         try:
-            registered = store.resolve_uri(uri=reference.reference)
+            registered = tenant_view.resolve_uri(uri=reference.reference)
+        except ErasedContentRefused as erased:
+            return erased_reading(erased)
         except (ArtifactStoreError, LookupError):
             return refuse(
                 cause="nonexistent",

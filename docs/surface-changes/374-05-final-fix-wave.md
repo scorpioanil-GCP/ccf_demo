@@ -182,3 +182,13 @@ and X2.
 - After: the resolution reads the caller's own tenant view of the consulting store. An erased address answers the resolution's own not-found rendering (`found: false`, no address), so `ccf.artifacts.mcp_store.McpArtifactStore.resolve_uri` refuses it as the in-process consulting store does.
 - Why: FW-6, whole-branch review M-2 (`D-IMPL-374`); the CLAUDE.md §7.4 parity claim. Red test: `tests/mcp/test_fw6_artifact_resolution_consults.py`.
 - Migration: none.
+
+## ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: on the by-URI path the naming check after the holds called the TENANTLESS store's `resolve_uri`, and an `ErasedContentRefused` there was recorded as `cause="nonexistent"`. Another tenant's entry naming the caller's record address (genuine, or forged and unsupported) therefore made an entitled examiner read "absent" by URI while the by-address read served.
+- After: the naming check reads the same view the consult read, the caller's verified tenant's. Another tenant's entry changes nothing for the caller, and an erasure the check meets in the caller's own tenant is the erased reading at the caller's level (the not-found shell at `minimal`, `erased-content` above it), not an absence.
+- Why: FW-7, whole-branch review M-3 (`D-IMPL-374`); probe X4. Red tests: `tests/http_api/test_fw7_by_uri_naming_check.py`.
+- Migration: none.

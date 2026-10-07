@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2147 entries**, of which **1876** name a public Python surface.
+**2148 entries**, of which **1877** name a public Python surface.
 
 ## Added
 
@@ -28934,7 +28934,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-274 entries — 239 public Python surface, 35 not public Python API.
+275 entries — 240 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33398,6 +33398,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: the name-resolution resource resolved a versioned URI through the raw store, so an address the caller's tenant erased answered `found: true` with the address. The blob, presence and names resources beside it already read through the consulting store.
 - After: the resolution reads the caller's own tenant view of the consulting store. An erased address answers the resolution's own not-found rendering (`found: false`, no address), so `ccf.artifacts.mcp_store.McpArtifactStore.resolve_uri` refuses it as the in-process consulting store does.
 - Why: FW-6, whole-branch review M-2 (`D-IMPL-374`); the CLAUDE.md §7.4 parity claim. Red test: `tests/mcp/test_fw6_artifact_resolution_consults.py`.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: on the by-URI path the naming check after the holds called the TENANTLESS store's `resolve_uri`, and an `ErasedContentRefused` there was recorded as `cause="nonexistent"`. Another tenant's entry naming the caller's record address (genuine, or forged and unsupported) therefore made an entitled examiner read "absent" by URI while the by-address read served.
+- After: the naming check reads the same view the consult read, the caller's verified tenant's. Another tenant's entry changes nothing for the caller, and an erasure the check meets in the caller's own tenant is the erased reading at the caller's level (the not-found shell at `minimal`, `erased-content` above it), not an absence.
+- Why: FW-7, whole-branch review M-3 (`D-IMPL-374`); probe X4. Red tests: `tests/http_api/test_fw7_by_uri_naming_check.py`.
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
