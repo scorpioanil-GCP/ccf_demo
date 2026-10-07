@@ -69,15 +69,6 @@ def _consult(plane: h.Plane, audit: Any | None = None) -> Any:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "BLOCKED (fix round 2, I3 part 2): 'validation checks approval_ref against the"
-        " audit plane' has no durable plane to check — AuditLog is in-memory per"
-        " registry and InMemoryHitlTransport is the only HITL transport, so a genuine"
-        " approval is unfindable after a restart or in another process. Awaiting a ruling."
-    ),
-)
 def test_a_a_requester_cannot_erase_without_a_recorded_approval(tmp_path: Path) -> None:
     plane = h.compose(tmp_path)
     request = h.request(plane)

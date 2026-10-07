@@ -64,6 +64,7 @@ DECL_URI = f"ccf-artifact://{TENANT}/ccf.erasure-subject-declaration/subjects@1.
 WORKFLOW_FIXTURE = "workflows/erasure_request_workflow.yaml"
 TASK_FIXTURE = "tasks/erasure_request_task.yaml"
 ERASURE_RECORD_CLASS = "ccf.erasure-record"
+ERASURE_APPROVAL_CLASS = "ccf.erasure-approval"
 NOW = datetime(2026, 7, 30, tzinfo=UTC)
 STORED_LONG_AGO = NOW - timedelta(days=4000)
 
@@ -123,6 +124,9 @@ def write_kinds() -> WriteKinds:
         {
             WORKFLOW_TRACE_CLASS: (Execute, Resume),
             ERASURE_RECORD_CLASS: (contract("ccf.authz.capability", "ArtifactErase"),),
+            # Fix round 3, I3 part 2: the recorded approval, filed by the door
+            # under the same ERASE kind before the index append.
+            ERASURE_APPROVAL_CLASS: (contract("ccf.authz.capability", "ArtifactErase"),),
         }
     )
 
