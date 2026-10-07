@@ -56,9 +56,12 @@ disclosed for every erased input class (ruling 4).
   reference implementation).
 * A tenantless read (the replay engine, ``record_of``, child admission, the MCP
   client lane) withholds an address ANY tenant erased, redacted (ruling (i)).
-* The ``erasure_index_unsupported`` audit event carries the disputed entry's
-  own ``erased_at`` as its instant (the decorating store reads no clock); the
-  audit log's sequence number orders it.
+* The ``erasure_index_unsupported`` audit event is stamped with the fabric
+  clock injected at composition (ruling 3) — never a wall clock read by the
+  store, never the disputed entry's own ``erased_at``; it does not say WHICH
+  judgment refused the entry (the reason codes are the verification
+  functions' own, :class:`ErasureRecordInvalid` and
+  :class:`ErasureApprovalInvalid`).
 * ``subject_ref_salt`` sits in a Control Plane artifact beside the hashes it
   salts; for a low-entropy identifier the reference is dictionary-reversible
   by a reader of that artifact (U4, as ruled).
