@@ -38,6 +38,9 @@ The six checks, **in this order, and the order is load-bearing**:
    *from the peer's own trust-policy entry*, so the key that proves the
    signature is one that peer was entitled to sign with. A header naming a key
    belonging to a different peer therefore fails here, not later (T-06-37).
+   Verification is offered **only** that one key, never the whole entry, so a
+   verification that returns has verified under a key the gate knows — the
+   replay consult's scope (`SEC-022-C-01`).
    **2b. Issuance — `SEC-022`.** Immediately after verification, before the
    payload is parsed: the protected header must carry the
    :data:`~ccf.peering.issuance.ISSUANCE_CLAIMS_HEADER` member (refused
@@ -48,7 +51,14 @@ The six checks, **in this order, and the order is load-bearing**:
    through :class:`~ccf.peering.issuance.SeenNonceSetProtocol` immediately
    before the :class:`AdmissionRecord` is persisted — so a second presentation
    of admitted bytes is refused ``replayed`` and writes no second record, while
-   a presentation refused for any other reason leaves its nonce unspent.
+   a presentation refused for any other reason leaves its nonce unspent. The
+   nonce is spent under the key the signature verified under (its RFC 7638
+   thumbprint, :func:`~ccf.peering.identity.jwk_thumbprint`), never under the
+   observed peer id: a trust policy listing one key under two peer ids would
+   otherwise admit the same bytes once under each (`SEC-022-C-01`). Unless the
+   composition supplies a seen-set, every gate in the process consults ONE
+   (`SEC-022-R1`): a second receiver built the same way refuses what the first
+   admitted.
    Freshness is judged once, at live admission; no replay path runs this gate,
    so a replayed decision is never re-windowed against a later instant.
 3. **Contract validation.** The verified canonical bytes are parsed and
@@ -156,7 +166,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Literal, cast
+from typing import Final, Literal, cast
 from types import MappingProxyType
 
 from pydantic import Field, ValidationError, field_validator
@@ -172,7 +182,13 @@ from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import ControlPlaneProtocol
-from ccf.peering.identity import IdentityError, IdentityProvider
+from ccf.peering.identity import (
+    IdentityError,
+    IdentityProvider,
+    JsonWebKey,
+    UnknownSigningKey,
+    jwk_thumbprint,
+)
 from ccf.peering.issuance import (
     ISSUANCE_CLAIMS_HEADER,
     InProcessSeenNonceSet,
@@ -239,6 +255,17 @@ GATE_ISSUANCE = "peering-issuance"
 GATE_CONTRACT = "peering-contract"
 GATE_POLICY_BINDING = "peering-policy-binding"
 GATE_LINEAGE_CONTINUITY = "peering-lineage-continuity"
+
+#: `SEC-022-R1`: the seen-set every :class:`PeeringAdmissionGate` in this
+#: process consults when its composition supplies none. ONE instance, so a
+#: second receiver built without ``seen=`` refuses the replay the first
+#: admitted; a fresh set per gate made that sharing a documented obligation
+#: rather than an enforced one. Its entries are scoped by tenant and signing key
+#: (`SEC-022-C-01`), so sharing it across tenants' gates lets no tenant's
+#: admission spend another's nonce. It covers ONE process: receivers in more
+#: than one process must be handed one shared
+#: :class:`~ccf.peering.issuance.SeenNonceSetProtocol` implementation each.
+_PROCESS_SEEN_NONCES: Final = InProcessSeenNonceSet()
 
 #: The protected-header member an emitter states its producing agent under.
 #: In the *protected* header, so it is covered by the signature: a producer
@@ -350,7 +377,8 @@ class IssuanceRefusal(AdmissionRefusal):
         failure: ``claims-missing`` — the signed header carries no readable
             issuance claims; ``stale-issuance`` — ``issued_at`` lies outside
             the peer grant's declared window; ``replayed`` — the nonce was
-            already spent by an admission.
+            already spent by an admission under the same signing key, whichever
+            peer id presented it (`SEC-022-C-01`).
         issued_at: The claimed issuance instant, or ``None`` when the claims
             could not be read.
         max_age_seconds: The grant's ``signature_max_age_seconds``.
@@ -705,6 +733,32 @@ class AdmittedProduct:
         return self._issuance
 
 
+def _key_verified_under(
+    *, offered: Mapping[str, JsonWebKey], declared_key_id: str | None
+) -> str:
+    """The thumbprint of the key a returned verification verified under (`SEC-022-C-01`).
+
+    Called only after :meth:`~ccf.peering.identity.IdentityProvider.verify`
+    returned. The gate offers it at most the one key the protected header
+    names, so that key IS the key the signature verified under, and its RFC 7638
+    thumbprint (:func:`~ccf.peering.identity.jwk_thumbprint`) is the scope the
+    replay consult spends the nonce under.
+
+    Raises:
+        UnknownSigningKey: no key was offered — a verification that returned
+            anyway proved nothing about a key this peer may sign with, so the
+            gate refuses it as the conforming provider would have.
+        KeyUnavailable: the offered key has no RFC 7638 thumbprint, so the
+            replay consult would have no scope to spend the nonce under.
+    """
+    if declared_key_id is None or declared_key_id not in offered:
+        raise UnknownSigningKey(
+            "verification returned although no key was offered; a key this"
+            " peer may sign with was never checked (SEC-022-C-01)"
+        )
+    return jwk_thumbprint(offered[declared_key_id])
+
+
 class PeeringAdmissionGate:
     """The one gate every inbound Peering product passes before L2 (D-12).
 
@@ -755,12 +809,15 @@ class PeeringAdmissionGate:
             ``schema_name``, carrying the pinned MAX_TTL the TTL check runs
             against. Supplied by the deployment; the SDK holds no class list.
         seen: Where spent issuance nonces live (`SEC-022`, Q14-2 (a)).
-            ``None`` constructs a fresh
-            :class:`~ccf.peering.issuance.InProcessSeenNonceSet` for THIS gate
-            — never a shared mutable default — so a deployment running several
-            receivers passes one shared
-            :class:`~ccf.peering.issuance.SeenNonceSetProtocol` to each, or each
-            receiver refuses only the replays it saw itself.
+            ``None`` — the default — is ONE
+            :class:`~ccf.peering.issuance.InProcessSeenNonceSet` shared by every
+            gate in this process (`SEC-022-R1`), so a second receiver built
+            without this argument refuses the replay the first admitted. A seen-set
+            passed here is used instead of it, never beside it. The default
+            covers one process and lives as long as the process: receivers in
+            several processes must each be handed one shared
+            :class:`~ccf.peering.issuance.SeenNonceSetProtocol` implementation,
+            or each process refuses only the replays it saw itself.
     """
 
     def __init__(
@@ -792,8 +849,10 @@ class PeeringAdmissionGate:
         self._ceiling_key = payload_ceiling_key(tenant_id=tenant_id)
         self._payload_ceiling_version = payload_ceiling_version
         self._product_classes = dict(product_classes)
+        # `SEC-022-R1`: absent a seen-set, the process's one default — never a
+        # fresh set per gate.
         self._seen: SeenNonceSetProtocol = (
-            seen if seen is not None else InProcessSeenNonceSet()
+            seen if seen is not None else _PROCESS_SEEN_NONCES
         )
 
     @property
@@ -1058,9 +1117,22 @@ class PeeringAdmissionGate:
             declared_key_id: str | None = inbound.signed.declared_key_id()
         except IdentityError:
             declared_key_id = None
+        # `SEC-022-C-01`: verification is offered ONLY the key the protected
+        # header names, never the whole entry, so a verification that returns
+        # has verified under exactly that key — known here by construction, not
+        # by the provider's discipline. A header naming no key of this entry is
+        # offered none, and the provider refuses it as it always did.
+        offered: dict[str, JsonWebKey] = (
+            {declared_key_id: grant.signing_keys[declared_key_id]}
+            if declared_key_id is not None and declared_key_id in grant.signing_keys
+            else {}
+        )
         try:
             verified = self._identity.verify(
-                signed=inbound.signed, public_keys=grant.signing_keys
+                signed=inbound.signed, public_keys=offered
+            )
+            signing_key = _key_verified_under(
+                offered=offered, declared_key_id=declared_key_id
             )
         except IdentityError as failure:
             return self._refuse(
@@ -1236,9 +1308,11 @@ class PeeringAdmissionGate:
         # Check-and-insert in one atomic step, after every other check and
         # immediately before the record: a presentation refused above leaves
         # its nonce unspent, and a second presentation of admitted bytes is
-        # refused here and writes no second record (`SEC-022`).
+        # refused here and writes no second record (`SEC-022`). Scoped by the
+        # key the signature verified under, never by the observed peer id
+        # (`SEC-022-C-01`).
         if not self._seen.admit_once(
-            tenant_id=self._tenant_id, peer_id=peer.peer_id, nonce=issuance.nonce
+            tenant_id=self._tenant_id, key_thumbprint=signing_key, nonce=issuance.nonce
         ):
             return self._refuse(
                 IssuanceRefusal(
@@ -1250,8 +1324,9 @@ class PeeringAdmissionGate:
                     **window,
                     detail=(
                         f"peer {peer.peer_id!r}'s envelope carries a nonce an"
-                        " earlier admission already spent; the same issuance"
-                        " is admitted once (SEC-022)"
+                        " earlier admission under the same signing key already"
+                        " spent; the same issuance is admitted once, whichever"
+                        " peer id presents it (SEC-022, SEC-022-C-01)"
                     ),
                 ),
                 content_address=content_address,

@@ -74,12 +74,29 @@ unchanged, so a product's content address is unchanged.
   (`stale-issuance`).
 - **Replays are refused** (`replayed`) and write no second admission record.
   Only an admission spends a nonce, so a presentation refused for any other
-  reason can be admitted later. The reference seen-set
-  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`) covers one gate in one
-  process and is not pruned; **a deployment running more than one receiver
-  must share one** through `src/ccf/peering/issuance.py::SeenNonceSetProtocol`,
-  or each receiver refuses only the replays it saw itself. Nonce uniqueness per
-  peer is the producer's obligation; the SDK ships no generator.
+  reason can be admitted later.
+- **The replay scope is the signing key, not the peer id** (`SEC-022-C-01`).
+  A nonce is spent under the key the envelope's signature verified under,
+  named by its RFC 7638 thumbprint
+  (`src/ccf/peering/identity.py::jwk_thumbprint`); verification is offered
+  only the key the protected header names, so the gate knows which key that
+  was. The same signed bytes are therefore refused under any peer id whose
+  grant lists that key, however the grant writes the key, while two different
+  keys that share a `kid` label keep separate scopes, so one peer cannot spend
+  another key's nonces. Never reusing a nonce under the same signing key is the
+  producer's obligation; the SDK ships no generator.
+- **Where spent nonces live** (`SEC-022-R1`). Unless a gate is handed a
+  seen-set, every gate in the process consults ONE reference set
+  (`src/ccf/peering/issuance.py::InProcessSeenNonceSet`), so a second receiver
+  in the same process refuses the replay the first admitted. A seen-set handed
+  to a gate is used instead of the default, never beside it. The default covers
+  one process only and is not pruned; it is not persisted either, so after a
+  restart an envelope still inside its peer's issuance window can be admitted
+  once more. **Receivers that run in more than one process must share one
+  seen-set**, an implementation of
+  `src/ccf/peering/issuance.py::SeenNonceSetProtocol` over a store they all
+  reach. That is the deployment's obligation, and the SDK ships no such store;
+  without it, each process refuses only the replays it saw itself.
 - **A peered composite child is held to the subject its composite asked**,
   from the question its producer signed (closing SEC-025-U1), by the same check
   every other child leg passes.

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2166 entries**, of which **1894** name a public Python surface.
+**2172 entries**, of which **1900** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1244 entries — 1200 public Python surface, 44 not public Python API.
+1245 entries — 1201 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18459,6 +18459,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-05-final-fix-wave.md`.*
 
+#### ccf.peering.identity.jwk_thumbprint
+
+- Surface: ccf.peering.identity.jwk_thumbprint
+- Public surface: true
+- Change type: added
+- Before: absent; nothing in the SDK named a key by its key material
+- After: `jwk_thumbprint(public_key) -> str`, the RFC 7638 SHA-256 thumbprint (unpadded base64url) over the required members of an `EC`, `OKP` or `RSA` public JWK only, so `kid`, `use` and `alg` do not move it. Raises `KeyUnavailable` for a symmetric (`oct`) or unknown key type, or for a missing required member. Equal to `joserfc`'s `thumbprint()` for the same key
+- Why: SEC-022-C-01: the replay scope must be the key the signature verified under, and a `kid` is a label two peers' grants can both use for different keys
+- Migration: none; a deployment's shared `SeenNonceSetProtocol` store receives this value and need not compute it
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29042,7 +29054,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-284 entries — 248 public Python surface, 36 not public Python API.
+289 entries — 253 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33617,6 +33629,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.peering.issuance.SeenNonceSetProtocol
+
+- Surface: ccf.peering.issuance.SeenNonceSetProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `admit_once(*, tenant_id, peer_id, nonce) -> bool`; spent nonces scoped by the observed peer id
+- After: `admit_once(*, tenant_id, key_thumbprint, nonce) -> bool`; spent nonces scoped by the RFC 7638 thumbprint of the key the envelope's signature verified under. No peer id is offered, so an implementation cannot key on one. The manifest records a Protocol's shape as `(*args, **kwargs)`, so this keyword change is visible only here
+- Why: SEC-022-C-01: scoped by a peer id, a key listed under two peer ids let the same signed bytes cross once per id
+- Migration: a deployment's own implementation renames the `peer_id` keyword to `key_thumbprint` and keys its store on `(tenant_id, key_thumbprint, nonce)`. An implementation left on the old keyword fails loudly with `TypeError` at the first admission rather than silently keeping the per-peer scope. A persistent store's entries spent under peer ids are not found under thumbprints: an envelope admitted shortly before the upgrade, still inside its peer's issuance window, can be admitted once more after it unless those entries are re-keyed under the thumbprints of that peer's grant keys
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.issuance.InProcessSeenNonceSet
+
+- Surface: ccf.peering.issuance.InProcessSeenNonceSet
+- Public surface: true
+- Change type: behavior
+- Before: entries `(tenant_id, peer_id, nonce)`
+- After: entries `(tenant_id, key_thumbprint, nonce)`, through the Protocol's renamed keyword
+- Why: SEC-022-C-01
+- Migration: none for callers of the gate; a direct caller of `admit_once` renames the keyword
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: verification was offered the peer's whole `signing_keys` entry, and the replay consult spent the nonce under `(tenant, observed peer id)`
+- After: verification is offered only the key the protected header's `kid` names in the peer's entry (none when it names no key there; the provider refuses that as before). The nonce is spent under `(tenant, thumbprint of that key)`, so the same signed bytes are refused `replayed` under any peer id whose grant lists the same key. A verification that returns with no key offered (a non-conforming `IdentityProvider`) is refused at the signature check as `UnknownSigningKey`, audited, never admitted. The `replayed` refusal's detail names the signing key's scope
+- Why: SEC-022-C-01, ruled: the replay key is the verified signing key, not the observed or claimed peer id
+- Migration: none for a conforming `IdentityProvider`. Producers must not reuse a nonce under the same signing key, even when the receiver lists that key under more than one peer id
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate (SEC-022-R1)
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `seen=None` (the default) constructed a fresh `InProcessSeenNonceSet` for each gate, so two receivers in one process each admitted the same envelope once
+- After: `seen=None` is ONE `InProcessSeenNonceSet` shared by every gate in the process, so a second receiver built without `seen=` refuses `replayed` what the first admitted. Entries are scoped by tenant and signing key, so gates for different tenants sharing it spend no nonce of each other's. A `seen=` argument is used instead of the default, never beside it. The constructor's signature is unchanged
+- Why: SEC-022-R1: the sharing obligation was documented, not enforced, and a composition that never heard of the seen-set got a gate that refused only the replays it saw itself
+- Migration: none within one process. Receivers in several processes pass one shared `SeenNonceSetProtocol` implementation to every gate, as before. A deployment that relied on two gates in one process each admitting the same envelope passes each gate its own `InProcessSeenNonceSet()`
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
+
+#### ccf.peering.issuance.InProcessSeenNonceSet (SEC-022-R1)
+
+- Surface: ccf.peering.issuance.InProcessSeenNonceSet
+- Public surface: true
+- Change type: behavior
+- Before: one per gate; entries retained for the gate's lifetime
+- After: one instance is the process-wide default every gate shares when handed no seen-set; entries are retained for the process's lifetime and are neither pruned nor persisted
+- Why: SEC-022-R1
+- Migration: none
+
+*Recorded by `375-03-sec-022-replay-scope.md`.*
 
 ### Not public Python API
 

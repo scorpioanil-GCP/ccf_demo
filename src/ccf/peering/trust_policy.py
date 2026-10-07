@@ -104,11 +104,13 @@ class PeerTrustGrant(CCFContract):
 
     Attributes:
         signing_keys: Public JWKs this peer may sign with, keyed by the ``kid``
-            its protected header will declare. The admission gate hands this
-            mapping to :meth:`~ccf.peering.identity.IdentityProvider.verify`, which
-            is how a peer's identity is bound to its entitlements: a product
-            signed by a key outside this mapping is not this peer's, whatever
-            the header claims.
+            its protected header will declare. The admission gate offers
+            :meth:`~ccf.peering.identity.IdentityProvider.verify` the one entry
+            an envelope's header names, which is how a peer's identity is bound
+            to its entitlements: a product signed by a key outside this mapping
+            is not this peer's, whatever the header claims. The key that
+            verified, not this peer's id, scopes the envelope's nonce
+            (`SEC-022-C-01`).
         permitted_producer_hashes: The ``producer_agent_definition_hash``
             values this peer may claim to have produced under.
         permitted_schema_names: The Context Product classes it may send.

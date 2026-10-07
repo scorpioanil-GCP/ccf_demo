@@ -147,8 +147,10 @@ extends the consumer's; it never replaces it:
 > `src/ccf/peering/issuance.py::IssuanceClaims` and
 > `src/ccf/peering/admission.py::IssuanceRefusal`. The producer signs the
 > claims: an `issued_at`, a nonce of its own, and the question it answered. The
-> seen-nonce set is per gate by default; a deployment with several receivers
-> passes one shared `src/ccf/peering/issuance.py::SeenNonceSetProtocol` to each.
+> seen-nonce set was per gate by default when this note was written; since
+> `SEC-022-R1` (2026-10-07) every gate in one process shares one by default,
+> and a deployment whose receivers run in several processes passes one shared
+> `src/ccf/peering/issuance.py::SeenNonceSetProtocol` to each.
 > The archived producer above signs no claims, so its envelopes are now refused.
 
 Before anything is reported admitted, an immutable admission record is
