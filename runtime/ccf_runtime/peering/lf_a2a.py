@@ -150,7 +150,11 @@ from a2a.types import (
     SendMessageRequest,
 )
 from pydantic import ValidationError
-from starlette.routing import BaseRoute
+from starlette.responses import Response
+from starlette.routing import BaseRoute, Route
+from starlette.status import HTTP_413_CONTENT_TOO_LARGE
+from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import Message as AsgiMessage
 
 from ccf.peering.identity import SignatureMalformed, SignedContextProduct
 from ccf.peering.protocol import EmitReceipt, InboundProduct, PeerRef
@@ -291,6 +295,108 @@ class UnsupportedCarriageOperation(WireTransportError):
     """
 
 
+class _RequestBodyLimit:
+    """Hold a request body to ``max_bytes`` before the app behind it reads any
+    of it (SEC-021-U1, ``D-IMPL-370`` (3)).
+
+    ``a2a-sdk``'s JSON-RPC dispatcher begins with ``await request.json()``,
+    which reads the whole body and parses it before anything in this module
+    runs. :meth:`LfA2AWire.routes` puts this layer in front of it on the route,
+    so the dispatcher is never handed more than the limit:
+
+    * a declared ``Content-Length`` over the limit is answered 413 before a
+      byte of the body is read;
+    * otherwise the body is read here and counted as ``receive()`` yields it,
+      and it is answered 413 the moment the count exceeds the limit. A length
+      is a claim a peer can understate, so the count is kept whether or not a
+      length was declared;
+    * a body within the limit is handed on whole, as one ``http.request``
+      message, and every later ``receive()`` is the peer's own, so disconnect
+      detection behind this layer is unchanged.
+
+    Over the limit the app behind this layer is never called. The layer keeps
+    at most the limit, and does not keep the message that crossed it. A peer
+    that goes away before its body is complete is handed to nobody. The layer
+    cannot bound what the ASGI server buffers before it hands a message over,
+    nor what the server does with the bytes this layer never reads; those are
+    the server's concern.
+
+    The limit is per request. It does not bound how many requests are in
+    flight at once, so the bytes held across concurrent requests can reach the
+    limit times the number of requests the server admits.
+
+    A framing check, like every other check in this module: it decides nothing
+    about the peer, the signature or the trust policy.
+    """
+
+    def __init__(self, app: ASGIApp, *, max_bytes: int) -> None:
+        self._app = app
+        self._max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+        if self._declared_over(scope):
+            await self._refuse(scope, receive, send)
+            return
+        chunks: list[bytes] = []
+        received = 0
+        while True:
+            message = await receive()
+            if message["type"] != "http.request":
+                # The peer disconnected before its body was complete. There is
+                # no one to answer and nothing whole to hand on.
+                return
+            chunk: bytes = message.get("body", b"")
+            received += len(chunk)
+            if received > self._max_bytes:
+                await self._refuse(scope, receive, send)
+                return
+            chunks.append(chunk)
+            if not message.get("more_body", False):
+                break
+        await self._app(scope, _replayed(b"".join(chunks), receive), send)
+
+    def _declared_over(self, scope: Scope) -> bool:
+        """Whether any declared ``Content-Length`` exceeds the limit.
+
+        Only an all-digit value is read, and anything else is left to the
+        count, which is the authoritative check. A digit string longer than the
+        limit's own digits is over without being converted, so no declared
+        value is too long to compare.
+        """
+        ceiling = str(self._max_bytes)
+        for name, value in scope.get("headers", ()):
+            if name.lower() != b"content-length":
+                continue
+            digits = value.strip().lstrip(b"0") or b"0"
+            if not digits.isdigit():
+                continue
+            if len(digits) > len(ceiling) or int(digits) > self._max_bytes:
+                return True
+        return False
+
+    @staticmethod
+    async def _refuse(scope: Scope, receive: Receive, send: Send) -> None:
+        """Answer 413 Content Too Large, as the typed-HTTP leg does."""
+        await Response(status_code=HTTP_413_CONTENT_TOO_LARGE)(scope, receive, send)
+
+
+def _replayed(body: bytes, receive: Receive) -> Receive:
+    """A ``receive`` that yields ``body`` once, whole, and then the peer's own."""
+    delivered = False
+
+    async def replay() -> AsgiMessage:
+        nonlocal delivered
+        if delivered:
+            return await receive()
+        delivered = True
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    return replay
+
+
 class _InboundExecutor(AgentExecutor):
     """The ``a2a-sdk`` executor that frames one inbound message and queues it.
 
@@ -379,11 +485,22 @@ class LfA2AWire:
         rpc_path: The route the JSON-RPC endpoint is mounted at. A deployment
             value with no default — a library that picked a path would be picking
             a piece of a deployment's URL space.
-        max_message_bytes: The largest carried document this endpoint will
-            accept. No default (D-IMPL-38): how large a legitimate federated
-            product is, is something only the deployment knows, and a limit
-            nobody chose is either an availability hole or an outage. Defence in
-            depth, not the rule — the authoritative ceiling is the Control
+        max_message_bytes: The largest request body this endpoint will read,
+            and so also the largest carried document it will accept. No
+            default (D-IMPL-38): how large a legitimate federated product is,
+            is something only the deployment knows, and a limit nobody chose is
+            either an availability hole or an outage. It is applied twice. On
+            the JSON-RPC route it bounds the whole request body before
+            ``a2a-sdk`` reads it (SEC-021-U1, ``D-IMPL-370`` (3); see
+            :meth:`routes`), and in :meth:`_accept` it bounds the carried
+            document. The JSON-RPC binding carries the document base64-encoded
+            inside the request, so the body limit is the tighter of the two:
+            the largest document a peer can deliver is about three quarters of
+            this value, less the JSON-RPC envelope around it. :meth:`emit`
+            checks only the document, so a sender declaring the same value can
+            emit a document this endpoint answers 413, which the sender sees as
+            :class:`~ccf_runtime.peering.typed_http.PeerUnreachable`. Defense
+            in depth, not the rule — the authoritative ceiling is the Control
             Plane's, applied by the gate before anything canonicalizes.
         max_pending: The most received messages this endpoint will hold before
             :meth:`receive` drains them (SEC-021, ``D-IMPL-369``). Required,
@@ -632,16 +749,55 @@ class LfA2AWire:
         hosting is the deployment's decision, and a library that picked an
         interface would be picking an exposure surface. Both route sets come
         from ``a2a-sdk`` — this module composes them and writes none of them.
+
+        **The JSON-RPC route reads at most ``max_message_bytes`` of a request
+        body before ``a2a-sdk`` parses it** (SEC-021-U1, ``D-IMPL-370`` (3)).
+        Its dispatcher reads and parses the whole body before :meth:`_accept`
+        runs, so the route's application is wrapped in a body limit. This is
+        the same composition Starlette's own per-route ``middleware=`` performs.
+        A declared ``Content-Length`` over the limit is answered 413 without
+        the body being read. A body is otherwise counted as it arrives and
+        answered 413 the moment the count crosses the limit. Over the limit the
+        dispatcher is never called. The Agent Card routes answer ``GET`` and
+        read no body, so they are mounted as given.
+
+        Raises:
+            TypeError: ``a2a-sdk`` built its JSON-RPC endpoint as something
+                other than a :class:`starlette.routing.Route`, so this
+                transport cannot put the limit in front of it. Refused rather
+                than mounted unbounded.
         """
         handler = DefaultRequestHandler(
             agent_executor=_InboundExecutor(wire=self),
             task_store=InMemoryTaskStore(),
             agent_card=self._agent_card,
         )
+        # Typed as the base class on purpose: the check in `_bounded` guards
+        # against a vendor change at run time, and must not read as unreachable.
+        jsonrpc: Sequence[BaseRoute] = create_jsonrpc_routes(handler, self._rpc_path)
         return [
             *create_agent_card_routes(self._agent_card),
-            *create_jsonrpc_routes(handler, self._rpc_path),
+            *(self._bounded(route) for route in jsonrpc),
         ]
+
+    def _bounded(self, route: BaseRoute) -> Route:
+        """Put the request-body limit in front of one ``a2a-sdk`` JSON-RPC route.
+
+        The route's own application is wrapped in place, so whatever
+        ``a2a-sdk`` composed on the route stays behind the limit.
+
+        Raises:
+            TypeError: see :meth:`routes`.
+        """
+        if not isinstance(route, Route):
+            raise TypeError(
+                f"a2a-sdk built its JSON-RPC endpoint as a {type(route).__name__},"
+                " not a starlette Route, so its request body cannot be held to"
+                " max_message_bytes before it is parsed; refusing to mount it"
+                " unbounded (SEC-021-U1)"
+            )
+        route.app = _RequestBodyLimit(route.app, max_bytes=self._max_message_bytes)
+        return route
 
     def _enqueue(self, inbound: InboundProduct) -> None:
         """Queue one framed envelope for :meth:`receive` to yield, or refuse it.

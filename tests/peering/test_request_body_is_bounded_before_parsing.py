@@ -64,9 +64,11 @@ from a2a.types import Message, Part, Role, SendMessageRequest
 from a2a.utils.constants import PROTOCOL_VERSION_CURRENT, VERSION_HEADER
 from google.protobuf.json_format import MessageToDict
 from starlette.applications import Starlette
+from starlette.routing import Mount
 
 from ccf.contracts.canonical import canonical_bytes
 from ccf.peering.identity import SignedContextProduct
+from ccf_runtime.peering import lf_a2a
 from ccf_runtime.peering.lf_a2a import (
     PEER_ID_METADATA,
     PEER_TENANT_METADATA,
@@ -309,7 +311,12 @@ def dispatcher(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[int]]:
 
 def _lf_receiver() -> tuple[LfA2AWire, Starlette]:
     """An LF receiver declaring ``LF_LIMIT``, mounted as a deployment mounts it."""
-    wire = LfA2AWire(
+    wire = _lf_wire()
+    return wire, Starlette(routes=list(wire.routes()))
+
+
+def _lf_wire() -> LfA2AWire:
+    return LfA2AWire(
         local_peer_id=CONSUMER["peer_id"],
         agent_card=build_agent_card(
             name=LF_A2A["card"]["name"],
@@ -324,7 +331,6 @@ def _lf_receiver() -> tuple[LfA2AWire, Starlette]:
         max_message_bytes=LF_LIMIT,
         max_pending=CONSUMER["max_pending"],
     )
-    return wire, Starlette(routes=list(wire.routes()))
 
 
 def _assert_the_dispatcher_never_parsed_it(
@@ -425,6 +431,27 @@ def test_lf_a2a_hands_a_body_exactly_at_the_limit_to_the_dispatcher_whole(
         f"the dispatcher was handed {dispatcher}, not the whole {LF_LIMIT}-byte body"
     )
     assert len(wire._received) == 1, "the at-limit carriage was not queued"
+
+
+def test_lf_a2a_refuses_to_mount_a_jsonrpc_endpoint_it_cannot_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fail closed: an endpoint the limit cannot wrap is refused, not mounted.
+
+    The limit wraps a :class:`starlette.routing.Route`. Were a later
+    ``a2a-sdk`` to build its JSON-RPC endpoint some other way, mounting it as
+    given would reopen SEC-021-U1 with nothing to show for it, so
+    ``routes()`` refuses at the deployment's composition root instead.
+    """
+    real = lf_a2a.create_jsonrpc_routes
+
+    def as_a_mount(handler: Any, rpc_url: str, *args: Any, **kwargs: Any) -> list[Any]:
+        return [Mount(rpc_url, app=Starlette(routes=real(handler, rpc_url, *args, **kwargs)))]
+
+    monkeypatch.setattr(lf_a2a, "create_jsonrpc_routes", as_a_mount)
+
+    with pytest.raises(TypeError, match="SEC-021-U1"):
+        _lf_wire().routes()
 
 
 # -- typed-HTTP leg: the measurement, pinned ----------------------------------
