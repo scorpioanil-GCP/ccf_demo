@@ -124,6 +124,7 @@ __all__ = [
     "INDISTINGUISHABLE_BELOW_FULL",
     "PERMITTED_AT_MINIMAL",
     "SUPPRESSED_BELOW_FULL",
+    "TRANSLATED_AT_MINIMAL",
     "WITHHELD",
     "DisclosureDecision",
     "DisclosureLevel",
@@ -330,6 +331,10 @@ EXTERNAL_STATEMENTS: Final[Mapping[str, str]] = {
         "the requested subject is not available to this principal under this"
         " product"
     ),
+    # SEC-009 (`D-IMPL-374` (4)). Never rendered at `minimal` by a door (the
+    # door answers with its not-found rendering there, U11); stated so
+    # `disclose` stays total over the kinds.
+    "erased-content": "the requested content was erased and is not served",
 }
 
 
@@ -456,6 +461,8 @@ PERMITTED_AT_MINIMAL: Final[Mapping[str, frozenset[str]]] = {
     # Nothing. The type declares only the internal cause and the internal code,
     # and both are exactly what `D-IMPL-253` Q27 makes indistinguishable.
     "subject-unavailable": frozenset(),
+    # SEC-009: nothing at `minimal` — the erasure itself is not disclosed there.
+    "erased-content": frozenset(),
 }
 
 
@@ -505,6 +512,10 @@ INDISTINGUISHABLE_BELOW_FULL: Final[Mapping[str, frozenset[str]]] = {
     "subject-unavailable": frozenset(
         {"detail", "cause", "error_code", "policy_bindings", "resource"}
     ),
+    # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.1): below `full` the
+    # erasure record's address is withheld — `reasoned` discloses the reason
+    # and the instant, `full` the record an examiner can dereference.
+    "erased-content": frozenset({"erasure_record_address"}),
 }
 
 #: Per kind, per ``fields`` key, the SUB-MEMBERS of a rendered value that are
@@ -527,6 +538,18 @@ INDISTINGUISHABLE_BELOW_FULL: Final[Mapping[str, frozenset[str]]] = {
 #: (``D-IMPL-253`` amendment 2 (4)).
 SUPPRESSED_BELOW_FULL: Final[Mapping[str, Mapping[str, frozenset[str]]]] = {
     "constraint-refusal": {"bound": frozenset({"source", "policy_id", "reason"})},
+}
+
+
+#: Kinds whose consumer-visible shell at ``minimal`` is ANOTHER kind's
+#: rendering, while the internal envelope the record keeps is unchanged
+#: (SEC-009; ``D-IMPL-374`` (4), fix round 1 I5). ``erased-content`` is
+#: disclosed at ``minimal`` as the not-found rendering — the erasure is not
+#: disclosed — and dimension 5 records the ``erased-content`` determination
+#: plus a :class:`DisclosureDecision` whose ``external_kind`` says what crossed.
+#: This is the case :attr:`DisclosureDecision.external_kind` was kept for.
+TRANSLATED_AT_MINIMAL: Final[Mapping[str, str]] = {
+    "erased-content": "subject-unavailable",
 }
 
 
@@ -716,6 +739,33 @@ def disclose(
             " add it to EXTERNAL_STATEMENTS and PERMITTED_AT_MINIMAL in"
             " `src/ccf/products/disclosure.py`. A shell with no permitted"
             " statement cannot cross a consumer boundary"
+        )
+
+    if level == DISCLOSURE_MINIMAL and kind in TRANSLATED_AT_MINIMAL:
+        # SEC-009 I5: the shell that crosses is the target kind's own minimal
+        # rendering, built from a value of that kind carrying none of this
+        # envelope's determination (so nothing of it can leak), disclosed by
+        # this same function; the decision records what was determined.
+        from ccf.products.refusal import (  # deferred: see the TYPE_CHECKING note
+            SubjectUnavailableRefusal,
+            envelope_for,
+        )
+
+        target = TRANSLATED_AT_MINIMAL[kind]
+        substitute = envelope_for(
+            SubjectUnavailableRefusal(
+                cause="nonexistent", detail=EXTERNAL_STATEMENTS[target]
+            ),
+            request=envelope.request,
+            resource=envelope.resource,
+            policy_bindings=envelope.policy_bindings,
+        )
+        shell, translated = disclose(substitute, level=level, policy=policy)
+        return shell, translated.model_copy(
+            update={
+                "internal_kind": kind,
+                "withheld": tuple(sorted(set(translated.withheld) | {"kind"})),
+            }
         )
 
     if level == "full":

@@ -401,3 +401,17 @@ addresses.
   `gross ≥ adjusted` does not watch for under-counting — and it is why
   `expected.yaml` is written from the estate rather than from a run. It is how
   the defect was found.
+
+## Specimen change — 2026-10-07 (SEC-009, `D-IMPL-374` (4) C1)
+
+`produce.py` now passes `erasure_index=erasure_index_at(store_root)` to
+`build_governed_resolver`. The SDK changed the surface this specimen consumes
+on purpose: every store construction site must declare its durable erasure
+index, and a composition without one is refused by name. `D-IMPL-261` permits a
+frozen specimen to change in exactly that case. Nothing else in the specimen
+changed. The index file sits beside the declared store root, and this example
+erases nothing.
+
+The pin that diffs this specimen against `main`'s merge base is red on the
+branch and green once the change merges, the same as `SEC-023`'s re-pin of
+cp-04 and cp-05.

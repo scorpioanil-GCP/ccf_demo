@@ -105,6 +105,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.erasure.index import erasure_index_at
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
 from ccf.client.adapters.binding_document import (
@@ -323,6 +324,20 @@ def _boot(
             # `ReplayMint`. This adapter is a composition site; the resolver it
             # builds mints its own capabilities against this declaration and
             # refuses at construction if a class it files is missing.
+            # SEC-009 (`D-IMPL-374` (4), ruling 2; fix round 1 C1, (i)): the
+            # durable erasure index lives beside the declared store root; the
+            # resolver composes the consult over it, scoped to this fabric's
+            # tenant.
+            erasure_index=erasure_index_at(document.artifact_store),
+            # SEC-009 (fix round 5, R1, R2, R4): the erasure authority the
+            # deployment declares in its binding document — its HITL policy key
+            # confined to its tenant — or none. NOTE: this adapter boots its OWN
+            # registry from ccf_config.yaml, which registers no HITL policy,
+            # approval policy or erasure workflow (none is manifest-addressable),
+            # so a genuine erasure consulted here reads index-unsupported until
+            # the deployment registers them into that registry; the content stays
+            # withheld either way.
+            erasure_trust=document.erasure_trust(tenant_id=fabric.tenant_id),
             artifact_store=FileArtifactStore(
                 root=document.artifact_store,
                 write_kinds=WriteKinds.declare(

@@ -69,6 +69,7 @@ from ccf.authz.actions import (
     ACTION_AGENT_READ,
     ACTION_AGENT_VERSIONS,
     ACTION_ARTIFACT_READ,
+    ACTION_ARTIFACT_ERASE,
     ACTION_ARTIFACT_WRITE,
     ACTION_BACKENDS_READ,
     ACTION_CONFIG_KEYS_READ,
@@ -105,6 +106,7 @@ __all__ = [
     "AgentList",
     "AgentRead",
     "AgentVersions",
+    "ArtifactErase",
     "ArtifactRead",
     "ArtifactWrite",
     "Authorized",
@@ -270,10 +272,21 @@ class CompositionRegister(ActionKind, action_id="composition.register"):
     """
 
 
+class ArtifactErase(ActionKind, action_id=ACTION_ARTIFACT_ERASE):
+    """The erasure door's kind (SEC-009; `D-IMPL-374` (4), ruling 3; design `D-IMPL-367` §4.1).
+
+    Minted only by :func:`mint` from an authorizer's allow for
+    ``"<subject_class>/<request_id>"`` — never at composition (it is not in
+    ``COMPOSITION_KINDS``). The erasure door requires it IN ADDITION to the
+    recorded human approval, so a principal holding general workflow
+    ``Execute``/``Resume`` cannot have an erasure written.
+    """
+
+
 _KINDS_BY_ACTION: Final[dict[str, type[ActionKind]]] = {
     kind.action_id: kind
     for kind in (
-        ArtifactRead, ArtifactWrite, AgentDeclare, AgentList, AgentRead,
+        ArtifactErase, ArtifactRead, ArtifactWrite, AgentDeclare, AgentList, AgentRead,
         AgentVersions, BackendsRead, ConfigKeysRead, ConfigVersionsRead,
         ConfigResolve, ConfigRegister, DocsRead, HealthRead, HitlQueueRead,
         HitlSubmit, OpenApiRead, ProductRetrieve, ReplayRead, SchemaList,

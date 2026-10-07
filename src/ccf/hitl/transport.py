@@ -1076,6 +1076,17 @@ class InMemoryHitlTransport:
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
 
+    @property
+    def hitl_policy_key(self) -> str | None:
+        """The Control Plane key this transport's HITL policy resolves under; ``None`` when unbound.
+
+        Read-only (SEC-009; `D-IMPL-374` (4), fix round 5, R5): the erasure
+        door holds its authority's HITL policy key to THIS key at composition
+        and refuses a mismatch by name, so the approvals it files are the ones
+        this transport judged under the same policy.
+        """
+        return self._hitl_policy_key
+
     def _signed_binding_required(self) -> bool:
         """Whether the policy in force requires a signed binding.
 

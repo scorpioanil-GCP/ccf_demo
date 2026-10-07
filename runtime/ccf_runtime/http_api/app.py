@@ -53,12 +53,14 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TypedDict
 
 from fastapi import FastAPI
 
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import ReplayMint
+from ccf.erasure import compose_erasure_consult
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf_runtime.authz.delivery_boundary import (
     disclosing_boundary,
@@ -289,6 +291,12 @@ def create_app(
             replay read. A caller whose grant declares no roster is unaffected
             by either value.
 
+    **The erasure consult is composed always** (SEC-009; ``D-IMPL-374`` (4),
+    U12): the store ``deps`` carries is wrapped in
+    :class:`~ccf.erasure.ErasureConsultingStore` over the registry mirror of
+    ``deps.control_plane``, so no route can serve an erased address's bytes;
+    on an empty index it is identity.
+
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and
         bound to nothing — hosting is the deployment's decision.
@@ -320,6 +328,25 @@ def create_app(
     # `tests/http_api/test_product_refusal_statuses.py` severs by literal, is
     # unchanged.)
     governed_wiring(refusal_recorder=refusal_recorder, builder="create_app")
+
+    # SEC-009 (`D-IMPL-374` (4), U12): the erasure consult is composed ALWAYS,
+    # around whatever store the deployment handed in, so every route reads
+    # through it; on an empty index it is identity.
+    deps = replace(
+        deps,
+        artifact_store=compose_erasure_consult(
+            deps.artifact_store,
+            index=deps.erasure_index,
+            audit_log=deps.control_plane.audit_log,
+            # Fix rounds 4 and 5: approvals and the door's record signatures
+            # verify here, against the deployment's per-tenant trust root.
+            control_plane=deps.control_plane,
+            erasure_trust=deps.erasure_trust,
+            # The door's determination clock (ruling 3): the one the entitled
+            # reads are already stamped with.
+            clock=product_entitlement.clock,
+        ),
+    )
 
     app = FastAPI(
         title="CCF HTTP API",

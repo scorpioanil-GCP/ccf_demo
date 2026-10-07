@@ -93,6 +93,8 @@ from typing import Any
 import yaml
 
 from ccf.client.errors import BindingError
+from ccf.controlplane.registry import namespaced_key
+from ccf.erasure.trust import ErasureAuthority, ErasureTrust
 from ccf.products.resolver import ProjectionPlanFactoryProtocol
 from ccf.projection.plan import Perspective
 
@@ -106,6 +108,7 @@ __all__ = [
     "RULED_OUT_KEYS",
     "BindingDocument",
     "DebtDeclaration",
+    "ErasureAuthorityDeclaration",
     "QuestionDeclaration",
     "conforming_plan_factory",
     "load_binding_document",
@@ -149,6 +152,7 @@ DATA_KEYS: tuple[str, ...] = (
     "product_ttl_seconds",
     "artifact_store",
     "debt",
+    "erasure_authority",
 )
 
 #: Keys a binding document may state. ``connection`` carries the declared
@@ -257,6 +261,32 @@ class DebtDeclaration:
     semantic_consistency: Decimal
 
 
+#: The fields an ``erasure_authority:`` mapping states — all three, or none.
+_ERASURE_AUTHORITY_FIELDS: tuple[str, ...] = ("hitl_policy_key", "workflow_definition_hash", "door_keys")
+
+
+@dataclass(frozen=True, kw_only=True)
+class ErasureAuthorityDeclaration:
+    """The erasure authority a deployment declares in ``binding.yaml`` (SEC-009; `D-IMPL-374` (4), fix round 5).
+
+    What :class:`~ccf.erasure.ErasureAuthority` takes, minus the tenant, which
+    is the booted fabric's: the HITL policy key (confined to the tenant at
+    boot, like every key in the document — `D-IMPL-354`), the content hash of
+    the deployment's erasure workflow definition (R1), and the erasure door's
+    PUBLIC signing key(s) by key id (R2).
+
+    Attributes:
+        hitl_policy_key: The Control Plane key of the HITL policy the erasure
+            gate runs under.
+        workflow_definition_hash: The erasure workflow definition's content hash.
+        door_keys: The door's public JWKs, by key id.
+    """
+
+    hitl_policy_key: str
+    workflow_definition_hash: str
+    door_keys: Mapping[str, Mapping[str, str]]
+
+
 @dataclass(frozen=True, kw_only=True)
 class BindingDocument:
     """One deployment root's wiring: data, plus the single permitted reference.
@@ -313,8 +343,37 @@ class BindingDocument:
     product_ttl_seconds: int
     artifact_store: Path
     debt: DebtDeclaration
+    #: SEC-009 (`D-IMPL-374` (4), fix round 5, R1, R2, R4): the erasure
+    #: authority this deployment's consult verifies erasures against, or
+    #: ``None`` when the document declares none (``erasure_authority: {}``) —
+    #: a deployment that runs no erasure door, every erasure its index names
+    #: then reading ``index-unsupported``. The key is required: silence is not
+    #: a declaration.
+    erasure_authority: ErasureAuthorityDeclaration | None
     connection: Mapping[str, object] | None
     server: Path | None
+
+    def erasure_trust(self, *, tenant_id: str) -> ErasureTrust:
+        """The :class:`~ccf.erasure.ErasureTrust` this deployment composes with, under its booted tenant (SEC-009; `D-IMPL-374` (4), fix round 5).
+
+        One authority — the declared one, its HITL policy key confined to
+        ``tenant_id`` — or none when the document declares none.
+
+        Raises:
+            pydantic.ValidationError: the declared authority is not one
+                :class:`~ccf.erasure.ErasureAuthority` admits (a door key with
+                private material, say).
+        """
+        declared = self.erasure_authority
+        if declared is None:
+            return ErasureTrust(authorities={})
+        authority = ErasureAuthority(
+            tenant_id=tenant_id,
+            hitl_policy_key=namespaced_key(tenant=tenant_id, key=declared.hitl_policy_key),
+            workflow_definition_hash=declared.workflow_definition_hash,
+            door_keys=declared.door_keys,
+        )
+        return ErasureTrust(authorities={tenant_id: authority})
 
 
 def looks_like_a_reference(value: object) -> bool:
@@ -793,6 +852,45 @@ def load_binding_document(root: str | Path) -> BindingDocument:
         ),
         connection=_connection(parsed, root=root_path, document=document),
         server=server,
+        erasure_authority=_erasure_authority(parsed["erasure_authority"], document=document),
+    )
+
+
+def _erasure_authority(value: object, *, document: Path) -> ErasureAuthorityDeclaration | None:
+    """``erasure_authority:`` — ``{}`` declares none; otherwise exactly its three fields (SEC-009; fix round 5).
+
+    Shape only, refused by name: the full judgment — a content hash, public
+    door keys — is :class:`~ccf.erasure.ErasureAuthority`'s, at boot, where the
+    tenant is known.
+    """
+    if not isinstance(value, Mapping):
+        raise BindingError(
+            f"`erasure_authority:` in {document} parsed as `{type(value).__name__}`;"
+            " it is `{}` (this deployment runs no erasure door) or a mapping of"
+            f" {', '.join(f'`{name}`' for name in _ERASURE_AUTHORITY_FIELDS)}"
+            " (SEC-009; D-IMPL-374 (4), fix round 5)"
+        )
+    if not value:
+        return None
+    if sorted(str(key) for key in value) != sorted(_ERASURE_AUTHORITY_FIELDS):
+        raise BindingError(
+            f"`erasure_authority:` in {document} states"
+            f" {sorted(str(key) for key in value)}; it states exactly"
+            f" {', '.join(f'`{name}`' for name in _ERASURE_AUTHORITY_FIELDS)}, or is `{{}}`"
+            " (SEC-009; D-IMPL-374 (4), fix round 5)"
+        )
+    door_keys = value["door_keys"]
+    if not isinstance(door_keys, Mapping) or not door_keys or not all(
+        isinstance(kid, str) and isinstance(jwk, Mapping) for kid, jwk in door_keys.items()
+    ):
+        raise BindingError(
+            f"`erasure_authority.door_keys` in {document} is a non-empty mapping of"
+            " key id to the door's public JWK (SEC-009; fix round 5, R2)"
+        )
+    return ErasureAuthorityDeclaration(
+        hitl_policy_key=str(value["hitl_policy_key"]),
+        workflow_definition_hash=str(value["workflow_definition_hash"]),
+        door_keys={kid: {str(k): str(v) for k, v in jwk.items()} for kid, jwk in door_keys.items()},
     )
 
 

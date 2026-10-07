@@ -62,7 +62,7 @@ from ccf.skills.dispatch import ChildQuestionIdentity, ProductQuestion, question
 from tests.products import paved_fixture as fixture
 from tests.products.paved_fixture import ASKED_AT, CHILD_CLASS, CONSUMER_TENANT, THRESHOLD_PARAMETER
 from tests.products.test_paved_consumer import _open, _producer, _question, _the_row, _tree
-from tests.composition import declaring_store
+from tests.composition import declaring_store, no_erasures
 from tests.replay.authority import mechanism_put
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 
@@ -374,7 +374,7 @@ def test_c_b10_a_store_that_cannot_file_the_question_leaves_the_producer_unasked
             refuse_class=CHILD_QUESTION_CLASS,
         )
         root = _tree(tmp_path)
-        with _open(root, tmp_path / "scratch", counter.url, artifact_store=store) as opened:
+        with _open(root, tmp_path / "scratch", counter.url, artifact_store=store, erasure_index=no_erasures()) as opened:
             before = counter.connections
             with pytest.raises(OSError, match="refused to file"):
                 opened.answer(_question(opened))

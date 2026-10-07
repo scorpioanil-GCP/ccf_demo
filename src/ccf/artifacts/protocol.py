@@ -53,7 +53,7 @@ from collections.abc import Iterable, Mapping
 from typing import Final, Protocol, TypeAlias, runtime_checkable
 
 from ccf.authz.capability import (
-    ActionKind,
+    ActionKind, ArtifactErase,  # same line: committed specs cite this module by line range
     ArtifactWrite,
     Authorized,
     Execute,
@@ -425,6 +425,10 @@ ArtifactWriteAuthority: TypeAlias = (
     | Authorized[ReplayMint]
     | Authorized[Execute]
     | Authorized[Resume]
+    # SEC-009 (`D-IMPL-374` (4), I3): the erasure door files its records
+    # under the ERASE kind, which the deployment declares for
+    # `ccf.erasure-record` — never a workflow's Resume.
+    | Authorized[ArtifactErase]
 )
 
 

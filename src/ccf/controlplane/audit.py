@@ -174,6 +174,10 @@ AuditAction = Literal[
     "composition",
     "attribute_assertion_refused",
     "governed_attribute_omitted",
+    # SEC-009 (`D-IMPL-374` (4), design §8): an erasure index entry whose
+    # record is missing or disagrees — the address is withheld and this is
+    # the audit answer.
+    "erasure_index_unsupported",
 ]
 
 

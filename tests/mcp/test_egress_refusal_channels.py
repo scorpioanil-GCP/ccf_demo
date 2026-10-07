@@ -1273,4 +1273,8 @@ def test_no_kind_in_the_vocabulary_is_ever_a_tool_error(
     assert is_error is False, text
     outcome = _decode(text)
     assert outcome.refusal is not None
-    assert outcome.refusal.kind == kind
+    # SEC-009 I5 (D-IMPL-374 (4)): a kind TRANSLATED_AT_MINIMAL crosses at the
+    # default (minimal) level as its target kind's shell.
+    from ccf.products.disclosure import TRANSLATED_AT_MINIMAL
+
+    assert outcome.refusal.kind == TRANSLATED_AT_MINIMAL.get(kind, kind)

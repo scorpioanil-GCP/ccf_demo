@@ -156,6 +156,10 @@ from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
+from ccf.erasure.index import ErasureIndexProtocol
+from ccf.erasure.approval import PinnedPolicySource
+from ccf.erasure.store import ErasureCompositionRefused, compose_erasure_consult
+from ccf.erasure.trust import ErasureTrust
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
     DebtProfile,
@@ -4436,6 +4440,17 @@ def build_governed_resolver(
     operator_parameter_keys: tuple[str, ...],
     policy_bundle_key: str,
     plan_factory: ProjectionPlanFactoryProtocol,
+    #: SEC-009 (`D-IMPL-374` (4), fix round 1 C1): the deployment's durable
+    #: erasure index. REQUIRED, no default — the resolver's store, supplied or
+    #: default, is composed with the erasure consult over it, scoped to the
+    #: fabric's tenant, and a composition without a declared index refuses.
+    erasure_index: ErasureIndexProtocol,
+    #: SEC-009 (`D-IMPL-374` (4), fix round 5, R1, R2, R4): the deployment's
+    #: erasure trust root, per tenant — the HITL policy key each tenant's
+    #: transport is bound to, its erasure workflow's content hash and the
+    #: erasure door's public key — which the composed store verifies every
+    #: erasure against. REQUIRED, no default.
+    erasure_trust: ErasureTrust,
     #: `D-IMPL-343` R-3a (`D-IMPL-292` applied): optional, and read from the
     #: deployment's declared `ttl:` binding when omitted. A call stating a
     #: value that DIFFERS from the declaration is refused with both named —
@@ -4617,6 +4632,13 @@ def build_governed_resolver(
         plan_factory: The deployment's Π factory. The **one** thing measurement
             said cannot be data (Amendment A.2), and therefore the one thing
             this helper cannot default.
+        erasure_index: The deployment's durable erasure index (SEC-009;
+            `D-IMPL-374` (4), C1). Required: the selected store is composed with
+            the erasure consult over it, scoped to the fabric's tenant.
+        erasure_trust: The deployment's per-tenant erasure authorities
+            (SEC-009; `D-IMPL-374` (4), fix round 5). Required: the composed
+            store verifies the door's record signature and every approval
+            against the authority of the record's tenant.
         artifact_store: Where replay records and executed-query bytes land. A
             substrate reached *through* mechanism, never a second writer
             (CLAUDE.md §7.4). Taken as an object rather than a path so this
@@ -4938,6 +4960,31 @@ def build_governed_resolver(
                 }
             ),
         )
+
+    # SEC-009 (`D-IMPL-374` (4), ruling 2): the erasure consult is composed
+    # around whichever store was selected — supplied or default — over this
+    # call's Control Plane, so every read the resolver and its recorder make
+    # refuses erased content.
+    # Fix round 4, ruling 5: the consult verifies through THIS Control Plane,
+    # which must offer the pinned-read surface; refused by name otherwise.
+    if not isinstance(control_plane, PinnedPolicySource):
+        raise ErasureCompositionRefused(
+            f"{type(control_plane).__name__} offers no pinned-read surface"
+            " (resolve, versions, peek, artifact_class_of, keys_of_class,"
+            " audit_events), so the erasure consult cannot verify an approval"
+            " through it (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
+        )
+    store = compose_erasure_consult(
+        store,
+        index=erasure_index,
+        audit_log=control_plane.audit_log,
+        clock=admission_clock,
+        # Fix rounds 4 and 5: approvals and the door's record signatures
+        # verify here, against the deployment's per-tenant trust root.
+        control_plane=control_plane,
+        erasure_trust=erasure_trust,
+        tenant_id=fabric.tenant_id,
+    )
 
     # `D-IMPL-343` R-3a, THIRD: the two TTL figures, from the call or from the
     # declared `ttl:` binding, held EQUAL when both speak and refused when

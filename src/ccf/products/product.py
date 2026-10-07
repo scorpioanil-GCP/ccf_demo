@@ -96,6 +96,14 @@ from typing import Any, Protocol, runtime_checkable
 from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
+from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
+from ccf.erasure.store import (
+    ErasureCompositionRefused,
+    ErasureConsultingStore,
+    ErasureIndexUnavailable,
+    compose_erasure_consult,
+)
+from ccf.erasure.trust import ErasureTrust
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
     Authorized,
@@ -443,6 +451,8 @@ class OpenedProduct:
         sources: Mapping[str, Mapping[str, str]],
         control_plane: ControlPlaneRegistry,
         artifact_store: ArtifactStoreProtocol,
+        erasure_index: ErasureIndexProtocol,
+        erasure_trust: ErasureTrust,
         refusal_recorder: ReplayRefusalRecorder,
         acquire: AcquireProtocol,
         project: ProjectionPlanFactoryProtocol,
@@ -472,6 +482,13 @@ class OpenedProduct:
         self.sources = sources
         self.control_plane = control_plane
         self.artifact_store = artifact_store
+        #: SEC-009 (`D-IMPL-374` (4), C1): the durable erasure index this
+        #: product's store consults and every resolver it builds is handed.
+        self.erasure_index = erasure_index
+        #: SEC-009 (fix round 5, R1, R2, R4): the deployment's per-tenant
+        #: erasure trust root the store verifies every erasure against — and
+        #: which every resolver and door built over this product composes with.
+        self.erasure_trust = erasure_trust
         self.refusal_recorder = refusal_recorder
         self.mcp_skills = mcp_skills
         self.agent = agent
@@ -606,6 +623,8 @@ class OpenedProduct:
             "evidence_clock_key": keys.half_life,
             "product_gate": self._gate,
             "artifact_store": self.artifact_store,
+            "erasure_index": self.erasure_index,
+            "erasure_trust": self.erasure_trust,
             "replay_record_class": self.replay.record_class,
             "query_pin_class": self.replay.query_pin_class,
             "refusal_recorder": self.refusal_recorder,
@@ -893,7 +912,8 @@ def open_product(
     questions: ChildQuestions | None = None,
     clock: Callable[[], datetime] = _utc_now,
     environ: Mapping[str, str] | None = None,
-    control_plane: ControlPlaneRegistry | None = None,
+    control_plane: ControlPlaneRegistry,
+    erasure_trust: ErasureTrust,
     artifact_store: ArtifactStoreProtocol | None = None,
     constraint_resolver: PolicyConstraintResolver | None = None,
     capabilities: tuple[TechnicalCapability, ...] | None = None,
@@ -901,6 +921,7 @@ def open_product(
     children: CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None = None,
     build_children: ChildResolverFactory | None = None,
     packaging_trace: PackagingTraceProtocol | None = None,
+    erasure_index: ErasureIndexProtocol | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -960,7 +981,22 @@ def open_product(
             producer endpoints and credentials — are resolved from;
             ``os.environ`` when omitted. Passed in rather than reached for,
             so a test supplies a mapping.
-        control_plane: A registry to open INTO, or ``None`` for a fresh one.
+        control_plane: The DEPLOYMENT's registry, opened INTO. **Required, no
+            default and no fresh-registry fallback** (SEC-009, fix round 4,
+            ruling 5): the erasure consult verifies every approval's HITL
+            policy, approval policy and workflow definition through it, so a
+            registry that lacked them would mark every genuine erasure
+            ``index-unsupported``. ``None`` is refused by name.
+        erasure_trust: The deployment's erasure trust root (SEC-009, fix round
+            5, R1, R2, R4): for each tenant that may erase — this product's, for
+            a single-tenant deployment — an
+            :class:`~ccf.erasure.ErasureAuthority` naming the HITL policy key
+            its HITL transport is bound to, its erasure workflow's content hash
+            and the erasure door's public key. The store verifies the door's
+            record signature and every approval against it; a deployment that
+            runs no erasure door declares none (``ErasureTrust(authorities={})``)
+            and every erasure its index names reads ``index-unsupported``.
+            **Required, no default** (CINV-01).
         artifact_store: Any :class:`~ccf.artifacts.protocol.ArtifactStoreProtocol`
             (an MCP-backed store, say). Wins under `D-IMPL-282` R-12; the
             declared ``store_dirname`` is then unread. ``None`` builds the
@@ -988,6 +1024,12 @@ def open_product(
             deployment composes with. The SDK registers ``producers:`` and the
             deployment builds everything else the low road builds. Refused
             beside ``children=``, ``questions=``, ``agent:`` or ``skills:``.
+        erasure_index: The supplied ``artifact_store``'s own durable erasure
+            index (SEC-009; fix round 2, N1). Required with a raw supplied
+            store; a store already composed through
+            :func:`~ccf.erasure.compose_erasure_consult` carries its own, and
+            one presented beside it must be the same index by path. ``None``
+            with no supplied store derives the index from the scratch root.
 
     Raises:
         ValueError: any open-time refusal in the module docstring — each
@@ -998,6 +1040,9 @@ def open_product(
             names is unset; the document's remedy is the message.
         ccf.skills.producers.ProducerEnvironmentMissing: a variable a producer
             registration names is unset.
+        ccf.erasure.ErasureIndexUnavailable: a raw supplied store came without
+            its erasure index, a composed one is scoped to another tenant, or
+            the ``erasure_index`` presented is not the selected store's own.
     """
     root = Path(config_root).resolve()
     scratch_root = Path(scratch).resolve()
@@ -1081,8 +1126,18 @@ def open_product(
     sources = resolve_values(environment.sources, resolved_environ)
 
     scratch_root.mkdir(parents=True, exist_ok=True)
-    registry = control_plane if control_plane is not None else ControlPlaneRegistry()
-    store: ArtifactStoreProtocol = (
+    # SEC-009 (fix round 4, ruling 5): no fresh-registry fallback. The consult
+    # verifies against THIS registry, so it must be the deployment's.
+    if control_plane is None:
+        raise ErasureCompositionRefused(
+            "open_product takes the deployment's Control Plane (control_plane=);"
+            " there is no fresh-registry fallback, because the erasure consult"
+            " verifies every approval through it and a registry lacking the"
+            " deployment's HITL policy would mark every genuine erasure"
+            " index-unsupported (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
+        )
+    registry = control_plane
+    selected: ArtifactStoreProtocol = (
         artifact_store
         if artifact_store is not None
         # The deployment's declaration of what its own mechanism writes and
@@ -1101,6 +1156,58 @@ def open_product(
                 }
             ),
         )
+    )
+    # SEC-009 (`D-IMPL-374` (4), ruling 2; fix round 1 C1, (i)): the erasure
+    # consult is composed around whichever store was selected — supplied or
+    # default — over the deployment's durable erasure index, which this
+    # in-process site takes from its declared scratch root, scoped to the
+    # tenant it serves, so `record_of` and every resolver read refuse erased
+    # content.
+    #
+    # Fix round 2, N1: the index is the SELECTED store's own. A supplied store
+    # already composed carries its index (its tenant scope must be this
+    # product's, or none); a raw supplied store must come with its index; only
+    # the default store derives one from the scratch root. Any index presented
+    # alongside must be the same index, by path.
+    if isinstance(artifact_store, ErasureConsultingStore):
+        if artifact_store.tenant_id not in (None, config.tenant_id):
+            raise ErasureIndexUnavailable(
+                f"the supplied store is scoped to tenant {artifact_store.tenant_id!r},"
+                f" not this product's {config.tenant_id!r} (SEC-009; N1)"
+            )
+        own_index: ErasureIndexProtocol = artifact_store.index
+    elif artifact_store is not None:
+        if erasure_index is None:
+            raise ErasureIndexUnavailable(
+                "a supplied artifact store must come with its own erasure index"
+                " (pass erasure_index=, or supply a store composed through"
+                " compose_erasure_consult); consulting it against an index derived"
+                " from the scratch root would miss every erasure filed against it"
+                " (SEC-009; D-IMPL-374 (4), N1)"
+            )
+        own_index = erasure_index
+    else:
+        own_index = erasure_index_at(scratch_root / replay.store_dirname)
+    if (
+        erasure_index is not None
+        and erasure_index is not own_index
+        and getattr(erasure_index, "path", object()) != getattr(own_index, "path", None)
+    ):
+        raise ErasureIndexUnavailable(
+            "the erasure_index presented is not the selected store's own index"
+            " (compared by path; SEC-009; N1)"
+        )
+    erasure_index = own_index
+    store: ArtifactStoreProtocol = compose_erasure_consult(
+        selected,
+        index=erasure_index,
+        audit_log=registry.audit_log,
+        clock=clock,
+        # Fix rounds 4 and 5: approvals and the door's record signatures
+        # verify here, against the deployment's per-tenant trust root.
+        control_plane=registry,
+        erasure_trust=erasure_trust,
+        tenant_id=config.tenant_id,
     )
     # The bundle pin the boot WILL mint, computed the way the registry mints
     # it — the content address of the parsed artifact (`D-IMPL-26`) — so the
@@ -1177,6 +1284,8 @@ def open_product(
         sources=sources,
         control_plane=registry,
         artifact_store=store,
+        erasure_index=erasure_index,
+        erasure_trust=erasure_trust,
         refusal_recorder=recorder,
         acquire=acquire,
         project=project,

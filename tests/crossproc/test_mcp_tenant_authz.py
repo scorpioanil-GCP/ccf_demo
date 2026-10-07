@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 import traceback
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -530,7 +531,7 @@ def _http_outcome(
     )
     seams["authorizer"] = harness.authorizer
 
-    deps = ApiDependencies(
+    deps = ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=harness.registry,
         artifact_store=cast(Any, None),
         product_resolver=cast(Any, None),

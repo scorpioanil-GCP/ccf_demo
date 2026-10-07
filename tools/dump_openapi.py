@@ -132,6 +132,7 @@ def build_app(scratch: pathlib.Path) -> Any:
     )
     from ccf.contracts.canonical import content_hash
     from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.erasure import ERASURE_INDEX_FILENAME, ErasureTrust, FileErasureIndex
     from ccf.products.entitlement import (
         PRODUCT_ENTITLEMENT_POLICY,
         ProductEntitlementGrant,
@@ -218,8 +219,18 @@ def build_app(scratch: pathlib.Path) -> Any:
 
     return create_app(
         ApiDependencies(
-            control_plane=unused,
+            # SEC-009 (D-IMPL-374 (4), C1): create_app composes the store with
+            # the erasure consult at construction, over the declared index and
+            # the Control Plane's audit log, so both are real here; the index
+            # file is never written (this tool erases nothing).
+            control_plane=ControlPlaneRegistry(),
             artifact_store=unused,
+            # Fix round 5: this tool runs no erasure door, so it declares no
+            # erasure authority.
+            erasure_trust=ErasureTrust(authorities={}),
+            erasure_index=FileErasureIndex(
+                pathlib.Path(tempfile.mkdtemp(prefix="ccf-openapi-")) / ERASURE_INDEX_FILENAME
+            ),
             product_resolver=unused,
             workflow_factory=unused,
             workflow_engine=unused,

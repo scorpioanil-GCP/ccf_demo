@@ -16,21 +16,22 @@ from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import Execute, Resume
 from ccf_runtime.cli.local import build_local_dependencies
 from ccf_runtime.workflow.engine import WORKFLOW_TRACE_ARTIFACT_CLASS
+from tests.composition import declared_erasure_trust, declared_hitl_policy_key
 
 
 def test_the_local_store_declares_the_trace_class_under_execute_and_resume(tmp_path: Path) -> None:
-    store = build_local_dependencies(root=tmp_path).artifact_store
+    store = build_local_dependencies(root=tmp_path, hitl_policy_key=declared_hitl_policy_key(), erasure_trust=declared_erasure_trust()).artifact_store
     kinds = getattr(store, "write_kinds", None)
     assert isinstance(kinds, WriteKinds)
     assert kinds.for_class(WORKFLOW_TRACE_ARTIFACT_CLASS) == (Execute, Resume)
 
 
 def test_the_local_store_declares_nothing_it_does_not_write(tmp_path: Path) -> None:
-    store = build_local_dependencies(root=tmp_path).artifact_store
+    store = build_local_dependencies(root=tmp_path, hitl_policy_key=declared_hitl_policy_key(), erasure_trust=declared_erasure_trust()).artifact_store
     assert store.write_kinds.declared_classes == frozenset({WORKFLOW_TRACE_ARTIFACT_CLASS})
 
 
 def test_the_engine_and_the_store_are_the_same_deployment(tmp_path: Path) -> None:
-    bundle = build_local_dependencies(root=tmp_path)
+    bundle = build_local_dependencies(root=tmp_path, hitl_policy_key=declared_hitl_policy_key(), erasure_trust=declared_erasure_trust())
     assert bundle.workflow_engine is not None
     assert bundle.workflow_engine.artifact_store is bundle.artifact_store

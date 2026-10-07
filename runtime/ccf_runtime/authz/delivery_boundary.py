@@ -83,13 +83,16 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
-from ccf.products.disclosure import DISCLOSURE_FULL, DisclosureLevel
+from ccf.contracts.base import CCFContract
+from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
+from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
     NO_REPLAY_REFERENCE,
     GovernedRefusalRaised,
     ResolvedByTheResolver,
     RefusalEnvelope,
+    ErasedContentRefusal,
     RequestIdentity,
     ResourceRequestIdentity,
     SubjectUnavailableRefusal,
@@ -927,6 +930,7 @@ def govern_dereference(
     audit_log: AuditLog,
     surface: str,
     address: str,
+    erased_client_read: ErasedContentRefused | None = None,
 ) -> DereferencedEvidence | RefusalEnvelope:
     """Decide one dereference of governed evidence (``D-IMPL-345``).
 
@@ -967,6 +971,23 @@ def govern_dereference(
     exact ``(tenant, class, name)`` triple a version was registered under, so
     a caller allowed to consult it before the holds could confirm those three
     facts about a record it may not read by varying the segments.
+
+    **An erased address** (SEC-009; ``D-IMPL-374`` (4), U11, ruling 1) is
+    decided AFTER holds 1 and 2 — authorization first: the holds read the
+    record through the unconsulted inner store — bytes read INTERNALLY for the
+    rights check only, which never leave the door — so a caller not entitled
+    to the record receives exactly the rendering it received before the
+    erasure.
+    An entitled caller then meets the consult: at ``minimal`` the same absence
+    as below; at ``reasoned`` and ``full`` an ``erased-content`` shell (410)
+    carrying the erasure's reason and instant, and its record address only at
+    ``full``. The consult reads through the view for the caller's verified tenant, so
+    an erasure withholds only within its tenant (fix round 1, I6). On the
+    by-URI path the erased reading is decided BEFORE the URI's naming check
+    (M7): an entitled caller naming an erased address under a wrong
+    ``(tenant, class, name)`` triple receives the erased reading where a
+    non-erased record would answer not-found — it learns nothing its
+    entitlement to the record did not already admit.
 
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
@@ -1009,6 +1030,14 @@ def govern_dereference(
         surface: :data:`SURFACE_HTTP_REPLAY_READ` or
             :data:`SURFACE_HTTP_ARTIFACT_READ`.
         address: The route path the caller asked, for the resource identity.
+        erased_client_read: SEC-009 (``D-IMPL-374`` (4), MCP ruling): the
+            erasure refusal a door met reading a CLIENT-LANE artifact it had
+            already decided the caller owns (the MCP artifact server's tenant
+            split). When given, no record is resolved and no record hold runs —
+            there is no record — and the caller receives the erased reading at
+            its disclosure level: the not-found shell at ``minimal``,
+            ``erased-content`` above it. It can only ever produce a refusal,
+            never bytes.
 
     Returns:
         The evidence, or the disclosed shell carrying its own record's address.
@@ -1056,9 +1085,12 @@ def govern_dereference(
         error_code: str,
         detail: str,
         policy: ProvenanceSource | None = None,
+        refusal: CCFContract | None = None,
     ) -> RefusalEnvelope:
         envelope = envelope_for(
-            SubjectUnavailableRefusal(
+            refusal
+            if refusal is not None
+            else SubjectUnavailableRefusal(
                 cause=cause,  # type: ignore[arg-type]
                 detail=detail,
                 error_code=error_code,
@@ -1112,6 +1144,30 @@ def govern_dereference(
 
     absent = "the requested evidence is not available to this principal"
 
+    def erased_reading(erased: ErasedContentRefused) -> RefusalEnvelope:
+        # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.3, U11): the level
+        # in force for THIS principal decides what CROSSES — `minimal` is the
+        # not-found rendering, `reasoned`/`full` the `erased-content` shell
+        # (410 at HTTP) — and the disclosure step decides it.
+        # At every level the RECORDED determination is `erased-content` (I5);
+        # at `minimal` the disclosure step renders it as the not-found shell
+        # (`ccf.products.disclosure.TRANSLATED_AT_MINIMAL`), so the wire says
+        # nothing and the audit trail stays honest.
+        return refuse(
+            cause="nonexistent",
+            error_code=ERROR_EVIDENCE_ABSENT,
+            detail=absent,
+            refusal=ErasedContentRefusal(
+                detail="the requested content was erased by a recorded decision and is not served",
+                erasure_reason=erased.reason,
+                erased_at=erased.erased_at,
+                erasure_record_address=erased.erasure_record_address,
+            ),
+        )
+
+    if erased_client_read is not None:
+        return erased_reading(erased_client_read)
+
     # --- resolution: every failure below is the SAME absence -----------------
     if reference.by_uri:
         # `@latest` raises MovingTargetRefused here, before any lookup.
@@ -1119,10 +1175,19 @@ def govern_dereference(
         candidate = parsed.artifact_version
     else:
         candidate = reference.reference
+    # SEC-009 ruling 1 (`D-IMPL-374` (4)): AUTHORIZATION FIRST. The record the
+    # holds judge is read through the UNCONSULTED inner store, so an erased
+    # address is authorized exactly as it was before its erasure. Those bytes
+    # are read INTERNALLY for the rights check only and NEVER leave the door
+    # (accepted as recorded by the coordinator): what crosses comes from the
+    # consulted read below, after the holds.
+    authorization_store = (
+        store.inner if isinstance(store, ErasureConsultingStore) else store
+    )
     try:
         content_address = held_content_address(candidate)
         record = resolve_artifact(
-            store=store,
+            store=authorization_store,
             content_address=content_address,
             contract=DecisionReplayRecord,
         )
@@ -1183,6 +1248,24 @@ def govern_dereference(
                 policy=refused.policy,
             )
 
+    # --- the erasure consult: after the holds, before disclosure -------------
+    # SEC-009 (`D-IMPL-374` (4), ruling 1; design `D-IMPL-367` §5.3): only a
+    # caller entitled to this record reaches here. At `minimal` an erased
+    # address is the route's not-found rendering; at `reasoned` and `full` it
+    # is the `erased-content` shell the door renders 410.
+    try:
+        # I6 (fix round 1, ruling (i)): the view for the caller's VERIFIED
+        # tenant — an erasure withholds within its tenant, and another
+        # tenant's reason or record address never reaches this caller.
+        tenant_view = (
+            store.scoped(authorized.tenant)
+            if isinstance(store, ErasureConsultingStore)
+            else store
+        )
+        consulted = tenant_view.get(content_address=content_address)
+    except ErasedContentRefused as erased:
+        return erased_reading(erased)
+
     # --- hold 3: the level that disclosed the serve -------------------------
     level, _policy = refusal_recorder.disclosure_level_for(
         tenant=refusal_recorder.tenant_id, principal_id=principal
@@ -1214,11 +1297,7 @@ def govern_dereference(
                 detail=absent,
             )
 
-    payload = (
-        store.get(content_address=content_address)
-        if reference.wants_bytes
-        else None
-    )
+    payload = consulted if reference.wants_bytes else None
     audited(delivered=content_address, allowed=True)
     return DereferencedEvidence(
         content_address=content_address, record=record, payload=payload

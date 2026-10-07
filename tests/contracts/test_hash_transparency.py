@@ -757,6 +757,12 @@ _MARKED_IN_THE_TREE = frozenset(
         # can reach under it.
         "ccf.products.request.ArgumentDomain.pattern",
         "ccf.products.request.ProductRequestContract.subject_domain",
+        # SEC-009 (`D-IMPL-374` (4); design `D-IMPL-367` §5.2): the replay
+        # RESULT's erasure disclosure. A result, never a persisted record; the
+        # sentinel `()` says nothing was erased, so an outcome renders exactly
+        # as it did before the field existed.
+        "ccf.replay.engine.ReplayOutcome.erased_content",
+        "ccf.replay.engine.RefusalReplayOutcome.erased_content",
     }
 )
 

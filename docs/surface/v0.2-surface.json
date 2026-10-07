@@ -722,7 +722,7 @@
       },
       "ArtifactWriteAuthority": {
         "kind": "function",
-        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ArtifactWrite], ccf.authz.capability.Authorized[ccf.authz.capability.ReplayMint], ccf.authz.capability.Authorized[ccf.authz.capability.Execute], ccf.authz.capability.Authorized[ccf.authz.capability.Resume]]"
+        "shape": "typing.Union[ccf.authz.capability.Authorized[ccf.authz.capability.ArtifactWrite], ccf.authz.capability.Authorized[ccf.authz.capability.ReplayMint], ccf.authz.capability.Authorized[ccf.authz.capability.Execute], ccf.authz.capability.Authorized[ccf.authz.capability.Resume], ccf.authz.capability.Authorized[ccf.authz.capability.ArtifactErase]]"
       },
       "ArtifactWriteRefused": {
         "kind": "class",
@@ -898,6 +898,7 @@
       "ACTION_AGENT_LIST",
       "ACTION_AGENT_READ",
       "ACTION_AGENT_VERSIONS",
+      "ACTION_ARTIFACT_ERASE",
       "ACTION_ARTIFACT_READ",
       "ACTION_ARTIFACT_WRITE",
       "ACTION_BACKENDS_READ",
@@ -936,6 +937,10 @@
         "shape": "str"
       },
       "ACTION_AGENT_VERSIONS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ACTION_ARTIFACT_ERASE": {
         "kind": "constant",
         "shape": "str"
       },
@@ -1040,6 +1045,7 @@
       "AgentList",
       "AgentRead",
       "AgentVersions",
+      "ArtifactErase",
       "ArtifactRead",
       "ArtifactWrite",
       "Authorized",
@@ -1095,6 +1101,10 @@
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
       "AgentVersions": {
+        "kind": "class",
+        "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
+      },
+      "ArtifactErase": {
         "kind": "class",
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
@@ -1312,6 +1322,7 @@
       "BindingDocument",
       "DATA_KEYS",
       "DebtDeclaration",
+      "ErasureAuthorityDeclaration",
       "OPTIONAL_KEYS",
       "QuestionDeclaration",
       "REFERENCE_KEYS",
@@ -1328,7 +1339,7 @@
       },
       "BindingDocument": {
         "kind": "class",
-        "shape": "(*, root: 'Path', config: 'Path', plan: 'str', question: 'QuestionDeclaration', perspective: 'Perspective', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'Path', debt: 'DebtDeclaration', connection: 'Mapping[str, object] | None', server: 'Path | None') -> None"
+        "shape": "(*, root: 'Path', config: 'Path', plan: 'str', question: 'QuestionDeclaration', perspective: 'Perspective', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', artifact_store: 'Path', debt: 'DebtDeclaration', erasure_authority: 'ErasureAuthorityDeclaration | None', connection: 'Mapping[str, object] | None', server: 'Path | None') -> None"
       },
       "DATA_KEYS": {
         "kind": "constant",
@@ -1337,6 +1348,10 @@
       "DebtDeclaration": {
         "kind": "class",
         "shape": "(*, half_life_key: 'str', debt_profile_key: 'str', completeness: 'Decimal', semantic_consistency: 'Decimal') -> None"
+      },
+      "ErasureAuthorityDeclaration": {
+        "kind": "class",
+        "shape": "(*, hitl_policy_key: 'str', workflow_definition_hash: 'str', door_keys: 'Mapping[str, Mapping[str, str]]') -> None"
       },
       "OPTIONAL_KEYS": {
         "kind": "constant",
@@ -2275,7 +2290,7 @@
       "AttributeAssertionRefusedAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2292,12 +2307,12 @@
       },
       "AuditAction": {
         "kind": "function",
-        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']"
+        "shape": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']"
       },
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2314,7 +2329,7 @@
       "AuthzDecisionAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "authz_action_id": "str | None",
@@ -2336,7 +2351,7 @@
       "WorkflowVerdictIntegrityAuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2380,7 +2395,7 @@
       "AuditEvent": {
         "kind": "contract",
         "shape": {
-          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted']",
+          "action": "typing.Literal['register', 'register_typed', 'register_versioned', 'resolve', 'resolve_latest', 'grant_requested', 'grant_pending_approval', 'grant_effective', 'grant_refused', 'grant_revoked', 'peering_admitted', 'peering_admission_refused', 'skill_invoked', 'state_written', 'workflow_transition', 'workflow_suspended', 'workflow_resumed', 'workflow_exception', 'workflow_completed', 'hitl_action', 'authz_decision', 'composition', 'attribute_assertion_refused', 'governed_attribute_omitted', 'erasure_index_unsupported']",
           "actor": "str | None",
           "artifact_class": "str | None",
           "key": "<class 'str'>",
@@ -2981,6 +2996,762 @@
       "UnpinnedArtifactError": {
         "kind": "class",
         "shape": "type"
+      }
+    }
+  },
+  "ccf.erasure": {
+    "__all__": [
+      "APPROVING_VERDICT",
+      "ClassRetention",
+      "DOOR_SIGNATURE_ASSERTION",
+      "ERASURE_APPROVAL_CLASS",
+      "ERASURE_INDEX_FILENAME",
+      "ERASURE_RECORD_CLASS",
+      "ERASURE_SUBJECT_DECLARATION",
+      "ErasedAddress",
+      "ErasedContentRefused",
+      "ErasureApproval",
+      "ErasureApprovalInvalid",
+      "ErasureAuthority",
+      "ErasureCompositionRefused",
+      "ErasureConsultingStore",
+      "ErasureIndexCorrupt",
+      "ErasureIndexEntry",
+      "ErasureIndexEntryExists",
+      "ErasureIndexInsecure",
+      "ErasureIndexProtocol",
+      "ErasureIndexUnavailable",
+      "ErasureRecord",
+      "ErasureRecordInvalid",
+      "ErasureRequest",
+      "ErasureSubjectClass",
+      "ErasureSubjectDeclaration",
+      "ErasureSubjectLocator",
+      "ErasureTrust",
+      "FileErasureIndex",
+      "GENESIS",
+      "INDEX_CORRUPT",
+      "INDEX_UNSUPPORTED",
+      "LegalHold",
+      "PinnedPolicySource",
+      "REPLAY_INPUT_PATHS",
+      "RETENTION_HOLD_POLICY",
+      "RETENTION_REASON_CODES",
+      "RequestedAddress",
+      "RetentionDecision",
+      "RetentionHoldPolicy",
+      "RetentionReasonCode",
+      "compose_erasure_consult",
+      "erasure_index_at",
+      "judge_retention",
+      "policy_head",
+      "reference_approval_verifier",
+      "require_append_authority",
+      "sign_erasure_record",
+      "subject_ref_for",
+      "verify_door_signature",
+      "verify_erasure_approval",
+      "verify_erasure_entry"
+    ],
+    "exports": {
+      "APPROVING_VERDICT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ClassRetention": {
+        "kind": "contract",
+        "shape": {
+          "erasable": "<class 'bool'>",
+          "holds": "tuple[ccf.erasure.contracts.LegalHold, ...]",
+          "minimum_age": "int | None",
+          "reasons": "tuple[str, ...]",
+          "severity_exempt": "<class 'bool'>"
+        }
+      },
+      "DOOR_SIGNATURE_ASSERTION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASURE_APPROVAL_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASURE_INDEX_FILENAME": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASURE_RECORD_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASURE_SUBJECT_DECLARATION": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "ErasedAddress": {
+        "kind": "contract",
+        "shape": {
+          "artifact_class": "<class 'str'>",
+          "content_address": "<class 'str'>",
+          "key_paths": "tuple[str, ...]",
+          "scope": "typing.Literal['whole']"
+        }
+      },
+      "ErasedContentRefused": {
+        "kind": "class",
+        "shape": "(*, content_address: 'str', erasure_record_address: 'str | None', reason: 'str | None', erased_at: 'datetime | None') -> 'None'"
+      },
+      "ErasureApproval": {
+        "kind": "contract",
+        "shape": {
+          "acted_at": "<class 'datetime.datetime'>",
+          "approver": "<class 'ccf.hitl.principal.ApproverIdentity'>",
+          "attestation": "<class 'ccf.hitl.identity_binding.SignedHitlAction'>",
+          "gate": "<class 'str'>",
+          "gate_state_hash": "<class 'str'>",
+          "hitl_policy_ref": "<class 'str'>",
+          "request_id": "<class 'str'>",
+          "submission_hash": "<class 'str'>",
+          "tenant_id": "<class 'str'>",
+          "verdict": "<class 'str'>",
+          "workflow_definition_hash": "<class 'str'>"
+        }
+      },
+      "ErasureApprovalInvalid": {
+        "kind": "class",
+        "shape": "(detail: 'str', *, reason_code: 'str') -> 'None'"
+      },
+      "ErasureAuthority": {
+        "kind": "contract",
+        "shape": {
+          "door_keys": "collections.abc.Mapping[str, collections.abc.Mapping[str, str]]",
+          "hitl_policy_key": "<class 'str'>",
+          "tenant_id": "<class 'str'>",
+          "workflow_definition_hash": "<class 'str'>"
+        }
+      },
+      "ErasureCompositionRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureConsultingStore": {
+        "kind": "class",
+        "shape": "(inner: 'ArtifactStoreProtocol', *, index: 'ErasureIndexProtocol', audit_log: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust', tenant_id: 'str | None', identity_provider: 'IdentityProvider | None' = None, _verdicts: '_Verdicts | None' = None) -> 'None'"
+      },
+      "ErasureIndexCorrupt": {
+        "kind": "class",
+        "shape": "(detail: 'str', *, content_address: 'str' = '') -> 'None'"
+      },
+      "ErasureIndexEntry": {
+        "kind": "contract",
+        "shape": {
+          "approval_ref": "<class 'str'>",
+          "content_address": "<class 'str'>",
+          "door_key_id": "<class 'str'>",
+          "door_signature": "<class 'str'>",
+          "erased_at": "<class 'datetime.datetime'>",
+          "erasure_record_address": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "request_id": "<class 'str'>",
+          "subject_class": "<class 'str'>",
+          "subject_ref": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureIndexEntryExists": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureIndexInsecure": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureIndexProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "ErasureIndexUnavailable": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureRecord": {
+        "kind": "contract",
+        "shape": {
+          "actor": "<class 'ccf.hitl.principal.ApproverIdentity'>",
+          "addresses": "tuple[ccf.erasure.contracts.ErasedAddress, ...]",
+          "approval_ref": "<class 'str'>",
+          "authorizing_decision_id": "<class 'str'>",
+          "erased_at": "<class 'datetime.datetime'>",
+          "legal_basis": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "record_id": "<class 'str'>",
+          "request_id": "<class 'str'>",
+          "requested_by": "<class 'str'>",
+          "retention_decision": "<class 'ccf.erasure.contracts.RetentionDecision'>",
+          "subject_class": "<class 'str'>",
+          "subject_ref": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureRecordInvalid": {
+        "kind": "class",
+        "shape": "(detail: 'str', *, reason_code: 'str') -> 'None'"
+      },
+      "ErasureRequest": {
+        "kind": "contract",
+        "shape": {
+          "addresses": "tuple[ccf.erasure.contracts.RequestedAddress, ...]",
+          "legal_basis": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "retention_policy_ref": "<class 'str'>",
+          "subject_class": "<class 'str'>",
+          "subject_declaration_ref": "<class 'str'>",
+          "subject_ref": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureSubjectClass": {
+        "kind": "contract",
+        "shape": {
+          "artifact_classes": "tuple[str, ...]",
+          "class_id": "<class 'str'>",
+          "identifier_kind": "typing.Literal['opaque', 'principal']",
+          "key_paths": "tuple[str, ...]",
+          "subject_ref_salt": "<class 'str'>"
+        }
+      },
+      "ErasureSubjectDeclaration": {
+        "kind": "contract",
+        "shape": {
+          "semver": "<class 'str'>",
+          "subjects": "tuple[ccf.erasure.contracts.ErasureSubjectClass, ...]",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureSubjectLocator": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "ErasureTrust": {
+        "kind": "contract",
+        "shape": {
+          "authorities": "collections.abc.Mapping[str, ccf.erasure.trust.ErasureAuthority]"
+        }
+      },
+      "FileErasureIndex": {
+        "kind": "class",
+        "shape": "(path: 'Path | str') -> 'None'"
+      },
+      "GENESIS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "INDEX_CORRUPT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "INDEX_UNSUPPORTED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "LegalHold": {
+        "kind": "contract",
+        "shape": {
+          "addresses": "tuple[str, ...] | None",
+          "basis": "<class 'str'>",
+          "hold_id": "<class 'str'>",
+          "placed_at": "<class 'datetime.datetime'>",
+          "placed_by": "<class 'str'>",
+          "subject_refs": "tuple[str, ...] | None"
+        }
+      },
+      "PinnedPolicySource": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "REPLAY_INPUT_PATHS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "RETENTION_HOLD_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "RETENTION_REASON_CODES": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "RequestedAddress": {
+        "kind": "contract",
+        "shape": {
+          "artifact_class": "<class 'str'>",
+          "content_address": "<class 'str'>",
+          "retained_since": "<class 'datetime.datetime'>"
+        }
+      },
+      "RetentionDecision": {
+        "kind": "contract",
+        "shape": {
+          "address": "str | None",
+          "hold_id": "str | None",
+          "policy_ref": "<class 'str'>",
+          "reason_code": "typing.Literal['admitted', 'class-absent', 'not-erasable', 'severity-exempt', 'legal-hold', 'reason-unknown', 'under-minimum-age', 'policy-unresolvable', 'replay-input']",
+          "verdict": "typing.Literal['admit', 'refuse']"
+        }
+      },
+      "RetentionHoldPolicy": {
+        "kind": "contract",
+        "shape": {
+          "classes": "collections.abc.Mapping[str, ccf.erasure.contracts.ClassRetention]",
+          "semver": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "RetentionReasonCode": {
+        "kind": "function",
+        "shape": "typing.Literal['admitted', 'class-absent', 'not-erasable', 'severity-exempt', 'legal-hold', 'reason-unknown', 'under-minimum-age', 'policy-unresolvable', 'replay-input']"
+      },
+      "compose_erasure_consult": {
+        "kind": "function",
+        "shape": "(store: 'ArtifactStoreProtocol', *, index: 'ErasureIndexProtocol', audit_log: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust', tenant_id: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'ErasureConsultingStore'"
+      },
+      "erasure_index_at": {
+        "kind": "function",
+        "shape": "(store_root: 'Path | str') -> 'FileErasureIndex'"
+      },
+      "judge_retention": {
+        "kind": "function",
+        "shape": "(policy: 'RetentionHoldPolicy', *, policy_ref: 'str', request: 'ErasureRequest', now: 'datetime') -> 'RetentionDecision'"
+      },
+      "policy_head": {
+        "kind": "function",
+        "shape": "(control_plane: 'PinnedPolicySource') -> 'str'"
+      },
+      "reference_approval_verifier": {
+        "kind": "function",
+        "shape": "() -> 'IdentityProvider'"
+      },
+      "require_append_authority": {
+        "kind": "function",
+        "shape": "(authorized: 'Authorized[ArtifactErase]', entry: 'ErasureIndexEntry') -> 'None'"
+      },
+      "sign_erasure_record": {
+        "kind": "function",
+        "shape": "(record: 'ErasureRecord', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
+      },
+      "subject_ref_for": {
+        "kind": "function",
+        "shape": "(declaration: 'ErasureSubjectDeclaration', subject_class: 'str', identifier: 'str') -> 'str'"
+      },
+      "verify_door_signature": {
+        "kind": "function",
+        "shape": "(payload: 'bytes', *, door_signature: 'str', door_key_id: 'str', authority: 'ErasureAuthority', identity_provider: 'IdentityProvider') -> 'None'"
+      },
+      "verify_erasure_approval": {
+        "kind": "function",
+        "shape": "(approval: 'ErasureApproval', *, tenant_id: 'str', request_id: 'str', approver: 'ApproverIdentity', requested_by: 'str', authority: 'ErasureAuthority', control_plane: 'PinnedPolicySource', identity_provider: 'IdentityProvider') -> 'HitlActionClaims'"
+      },
+      "verify_erasure_entry": {
+        "kind": "function",
+        "shape": "(entry: 'ErasureIndexEntry', payload: 'bytes', *, trust: 'ErasureTrust', identity_provider: 'IdentityProvider') -> 'tuple[ErasureRecord, ErasureAuthority]'"
+      }
+    }
+  },
+  "ccf.erasure.approval": {
+    "__all__": [
+      "APPROVING_VERDICT",
+      "ErasureApprovalInvalid",
+      "PinnedPolicySource",
+      "policy_head",
+      "reference_approval_verifier",
+      "verify_erasure_approval"
+    ],
+    "exports": {
+      "APPROVING_VERDICT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ErasureApprovalInvalid": {
+        "kind": "class",
+        "shape": "(detail: 'str', *, reason_code: 'str') -> 'None'"
+      },
+      "PinnedPolicySource": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "policy_head": {
+        "kind": "function",
+        "shape": "(control_plane: 'PinnedPolicySource') -> 'str'"
+      },
+      "reference_approval_verifier": {
+        "kind": "function",
+        "shape": "() -> 'IdentityProvider'"
+      },
+      "verify_erasure_approval": {
+        "kind": "function",
+        "shape": "(approval: 'ErasureApproval', *, tenant_id: 'str', request_id: 'str', approver: 'ApproverIdentity', requested_by: 'str', authority: 'ErasureAuthority', control_plane: 'PinnedPolicySource', identity_provider: 'IdentityProvider') -> 'HitlActionClaims'"
+      }
+    }
+  },
+  "ccf.erasure.contracts": {
+    "__all__": [
+      "ClassRetention",
+      "ERASURE_APPROVAL_CLASS",
+      "ERASURE_RECORD_CLASS",
+      "ERASURE_SUBJECT_DECLARATION",
+      "ErasedAddress",
+      "ErasureApproval",
+      "ErasureRecord",
+      "ErasureRequest",
+      "ErasureSubjectClass",
+      "ErasureSubjectDeclaration",
+      "ErasureSubjectLocator",
+      "LegalHold",
+      "REPLAY_INPUT_PATHS",
+      "RETENTION_HOLD_POLICY",
+      "RETENTION_REASON_CODES",
+      "RequestedAddress",
+      "RetentionDecision",
+      "RetentionHoldPolicy",
+      "RetentionReasonCode",
+      "judge_retention",
+      "subject_ref_for"
+    ],
+    "exports": {
+      "ClassRetention": {
+        "kind": "contract",
+        "shape": {
+          "erasable": "<class 'bool'>",
+          "holds": "tuple[ccf.erasure.contracts.LegalHold, ...]",
+          "minimum_age": "int | None",
+          "reasons": "tuple[str, ...]",
+          "severity_exempt": "<class 'bool'>"
+        }
+      },
+      "ERASURE_APPROVAL_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASURE_RECORD_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASURE_SUBJECT_DECLARATION": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "ErasedAddress": {
+        "kind": "contract",
+        "shape": {
+          "artifact_class": "<class 'str'>",
+          "content_address": "<class 'str'>",
+          "key_paths": "tuple[str, ...]",
+          "scope": "typing.Literal['whole']"
+        }
+      },
+      "ErasureApproval": {
+        "kind": "contract",
+        "shape": {
+          "acted_at": "<class 'datetime.datetime'>",
+          "approver": "<class 'ccf.hitl.principal.ApproverIdentity'>",
+          "attestation": "<class 'ccf.hitl.identity_binding.SignedHitlAction'>",
+          "gate": "<class 'str'>",
+          "gate_state_hash": "<class 'str'>",
+          "hitl_policy_ref": "<class 'str'>",
+          "request_id": "<class 'str'>",
+          "submission_hash": "<class 'str'>",
+          "tenant_id": "<class 'str'>",
+          "verdict": "<class 'str'>",
+          "workflow_definition_hash": "<class 'str'>"
+        }
+      },
+      "ErasureRecord": {
+        "kind": "contract",
+        "shape": {
+          "actor": "<class 'ccf.hitl.principal.ApproverIdentity'>",
+          "addresses": "tuple[ccf.erasure.contracts.ErasedAddress, ...]",
+          "approval_ref": "<class 'str'>",
+          "authorizing_decision_id": "<class 'str'>",
+          "erased_at": "<class 'datetime.datetime'>",
+          "legal_basis": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "record_id": "<class 'str'>",
+          "request_id": "<class 'str'>",
+          "requested_by": "<class 'str'>",
+          "retention_decision": "<class 'ccf.erasure.contracts.RetentionDecision'>",
+          "subject_class": "<class 'str'>",
+          "subject_ref": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureRequest": {
+        "kind": "contract",
+        "shape": {
+          "addresses": "tuple[ccf.erasure.contracts.RequestedAddress, ...]",
+          "legal_basis": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "retention_policy_ref": "<class 'str'>",
+          "subject_class": "<class 'str'>",
+          "subject_declaration_ref": "<class 'str'>",
+          "subject_ref": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureSubjectClass": {
+        "kind": "contract",
+        "shape": {
+          "artifact_classes": "tuple[str, ...]",
+          "class_id": "<class 'str'>",
+          "identifier_kind": "typing.Literal['opaque', 'principal']",
+          "key_paths": "tuple[str, ...]",
+          "subject_ref_salt": "<class 'str'>"
+        }
+      },
+      "ErasureSubjectDeclaration": {
+        "kind": "contract",
+        "shape": {
+          "semver": "<class 'str'>",
+          "subjects": "tuple[ccf.erasure.contracts.ErasureSubjectClass, ...]",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureSubjectLocator": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "LegalHold": {
+        "kind": "contract",
+        "shape": {
+          "addresses": "tuple[str, ...] | None",
+          "basis": "<class 'str'>",
+          "hold_id": "<class 'str'>",
+          "placed_at": "<class 'datetime.datetime'>",
+          "placed_by": "<class 'str'>",
+          "subject_refs": "tuple[str, ...] | None"
+        }
+      },
+      "REPLAY_INPUT_PATHS": {
+        "kind": "constant",
+        "shape": "tuple"
+      },
+      "RETENTION_HOLD_POLICY": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "RETENTION_REASON_CODES": {
+        "kind": "constant",
+        "shape": "frozenset"
+      },
+      "RequestedAddress": {
+        "kind": "contract",
+        "shape": {
+          "artifact_class": "<class 'str'>",
+          "content_address": "<class 'str'>",
+          "retained_since": "<class 'datetime.datetime'>"
+        }
+      },
+      "RetentionDecision": {
+        "kind": "contract",
+        "shape": {
+          "address": "str | None",
+          "hold_id": "str | None",
+          "policy_ref": "<class 'str'>",
+          "reason_code": "typing.Literal['admitted', 'class-absent', 'not-erasable', 'severity-exempt', 'legal-hold', 'reason-unknown', 'under-minimum-age', 'policy-unresolvable', 'replay-input']",
+          "verdict": "typing.Literal['admit', 'refuse']"
+        }
+      },
+      "RetentionHoldPolicy": {
+        "kind": "contract",
+        "shape": {
+          "classes": "collections.abc.Mapping[str, ccf.erasure.contracts.ClassRetention]",
+          "semver": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "RetentionReasonCode": {
+        "kind": "function",
+        "shape": "typing.Literal['admitted', 'class-absent', 'not-erasable', 'severity-exempt', 'legal-hold', 'reason-unknown', 'under-minimum-age', 'policy-unresolvable', 'replay-input']"
+      },
+      "judge_retention": {
+        "kind": "function",
+        "shape": "(policy: 'RetentionHoldPolicy', *, policy_ref: 'str', request: 'ErasureRequest', now: 'datetime') -> 'RetentionDecision'"
+      },
+      "subject_ref_for": {
+        "kind": "function",
+        "shape": "(declaration: 'ErasureSubjectDeclaration', subject_class: 'str', identifier: 'str') -> 'str'"
+      }
+    }
+  },
+  "ccf.erasure.errors": {
+    "__all__": [
+      "ErasedContentRefused",
+      "ErasureCompositionRefused",
+      "ErasureIndexCorrupt",
+      "ErasureIndexInsecure",
+      "INDEX_CORRUPT"
+    ],
+    "exports": {
+      "ErasedContentRefused": {
+        "kind": "class",
+        "shape": "(*, content_address: 'str', erasure_record_address: 'str | None', reason: 'str | None', erased_at: 'datetime | None') -> 'None'"
+      },
+      "ErasureCompositionRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureIndexCorrupt": {
+        "kind": "class",
+        "shape": "(detail: 'str', *, content_address: 'str' = '') -> 'None'"
+      },
+      "ErasureIndexInsecure": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "INDEX_CORRUPT": {
+        "kind": "constant",
+        "shape": "str"
+      }
+    }
+  },
+  "ccf.erasure.index": {
+    "__all__": [
+      "ERASURE_INDEX_FILENAME",
+      "ErasureIndexEntry",
+      "ErasureIndexEntryExists",
+      "ErasureIndexProtocol",
+      "FileErasureIndex",
+      "GENESIS",
+      "erasure_index_at",
+      "require_append_authority"
+    ],
+    "exports": {
+      "ERASURE_INDEX_FILENAME": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ErasureIndexEntry": {
+        "kind": "contract",
+        "shape": {
+          "approval_ref": "<class 'str'>",
+          "content_address": "<class 'str'>",
+          "door_key_id": "<class 'str'>",
+          "door_signature": "<class 'str'>",
+          "erased_at": "<class 'datetime.datetime'>",
+          "erasure_record_address": "<class 'str'>",
+          "reason": "<class 'str'>",
+          "request_id": "<class 'str'>",
+          "subject_class": "<class 'str'>",
+          "subject_ref": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "ErasureIndexEntryExists": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureIndexProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
+      "FileErasureIndex": {
+        "kind": "class",
+        "shape": "(path: 'Path | str') -> 'None'"
+      },
+      "GENESIS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "erasure_index_at": {
+        "kind": "function",
+        "shape": "(store_root: 'Path | str') -> 'FileErasureIndex'"
+      },
+      "require_append_authority": {
+        "kind": "function",
+        "shape": "(authorized: 'Authorized[ArtifactErase]', entry: 'ErasureIndexEntry') -> 'None'"
+      }
+    }
+  },
+  "ccf.erasure.store": {
+    "__all__": [
+      "ErasedContentRefused",
+      "ErasureCompositionRefused",
+      "ErasureConsultingStore",
+      "ErasureIndexUnavailable",
+      "INDEX_UNSUPPORTED",
+      "compose_erasure_consult"
+    ],
+    "exports": {
+      "ErasedContentRefused": {
+        "kind": "class",
+        "shape": "(*, content_address: 'str', erasure_record_address: 'str | None', reason: 'str | None', erased_at: 'datetime | None') -> 'None'"
+      },
+      "ErasureCompositionRefused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "ErasureConsultingStore": {
+        "kind": "class",
+        "shape": "(inner: 'ArtifactStoreProtocol', *, index: 'ErasureIndexProtocol', audit_log: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust', tenant_id: 'str | None', identity_provider: 'IdentityProvider | None' = None, _verdicts: '_Verdicts | None' = None) -> 'None'"
+      },
+      "ErasureIndexUnavailable": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "INDEX_UNSUPPORTED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "compose_erasure_consult": {
+        "kind": "function",
+        "shape": "(store: 'ArtifactStoreProtocol', *, index: 'ErasureIndexProtocol', audit_log: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust', tenant_id: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'ErasureConsultingStore'"
+      }
+    }
+  },
+  "ccf.erasure.trust": {
+    "__all__": [
+      "DOOR_SIGNATURE_ASSERTION",
+      "ErasureAuthority",
+      "ErasureRecordInvalid",
+      "ErasureTrust",
+      "sign_erasure_record",
+      "verify_door_signature",
+      "verify_erasure_entry"
+    ],
+    "exports": {
+      "DOOR_SIGNATURE_ASSERTION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ErasureAuthority": {
+        "kind": "contract",
+        "shape": {
+          "door_keys": "collections.abc.Mapping[str, collections.abc.Mapping[str, str]]",
+          "hitl_policy_key": "<class 'str'>",
+          "tenant_id": "<class 'str'>",
+          "workflow_definition_hash": "<class 'str'>"
+        }
+      },
+      "ErasureRecordInvalid": {
+        "kind": "class",
+        "shape": "(detail: 'str', *, reason_code: 'str') -> 'None'"
+      },
+      "ErasureTrust": {
+        "kind": "contract",
+        "shape": {
+          "authorities": "collections.abc.Mapping[str, ccf.erasure.trust.ErasureAuthority]"
+        }
+      },
+      "sign_erasure_record": {
+        "kind": "function",
+        "shape": "(record: 'ErasureRecord', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
+      },
+      "verify_door_signature": {
+        "kind": "function",
+        "shape": "(payload: 'bytes', *, door_signature: 'str', door_key_id: 'str', authority: 'ErasureAuthority', identity_provider: 'IdentityProvider') -> 'None'"
+      },
+      "verify_erasure_entry": {
+        "kind": "function",
+        "shape": "(entry: 'ErasureIndexEntry', payload: 'bytes', *, trust: 'ErasureTrust', identity_provider: 'IdentityProvider') -> 'tuple[ErasureRecord, ErasureAuthority]'"
       }
     }
   },
@@ -6731,6 +7502,7 @@
       "INDISTINGUISHABLE_BELOW_FULL",
       "PERMITTED_AT_MINIMAL",
       "SUPPRESSED_BELOW_FULL",
+      "TRANSLATED_AT_MINIMAL",
       "WITHHELD",
       "disclose"
     ],
@@ -6774,6 +7546,10 @@
         "shape": "dict"
       },
       "SUPPRESSED_BELOW_FULL": {
+        "kind": "constant",
+        "shape": "dict"
+      },
+      "TRANSLATED_AT_MINIMAL": {
         "kind": "constant",
         "shape": "dict"
       },
@@ -7252,11 +8028,11 @@
       },
       "OpenedProduct": {
         "kind": "class",
-        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
       },
       "open_product": {
         "kind": "function",
-        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry | None' = None, artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None) -> 'OpenedProduct'"
+        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None) -> 'OpenedProduct'"
       }
     }
   },
@@ -7333,6 +8109,7 @@
   },
   "ccf.products.refusal": {
     "__all__": [
+      "ErasedContentRefusal",
       "GovernedRefusalRaised",
       "NON_PRODUCT_REFUSALS",
       "NON_VALUE_VIOLATIONS",
@@ -7350,6 +8127,15 @@
       "refuse_temporal_bound"
     ],
     "exports": {
+      "ErasedContentRefusal": {
+        "kind": "contract",
+        "shape": {
+          "detail": "<class 'str'>",
+          "erased_at": "datetime.datetime | None",
+          "erasure_reason": "str | None",
+          "erasure_record_address": "str | None"
+        }
+      },
       "GovernedRefusalRaised": {
         "kind": "class",
         "shape": "(refusal: 'object', *, resolution: 'object', request: 'RequestIdentity | None' = None) -> 'None'"
@@ -7704,7 +8490,7 @@
       },
       "build_governed_resolver": {
         "kind": "function",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', max_ttl_seconds: 'int | None' = None, product_ttl_seconds: 'int | None' = None, decision_instant_parameter: 'str | None' = None, source_refresh_recency: 'SourceRefreshRecency' = None, composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, admission_clock: 'Callable[[], datetime]' = <function _utc_now>, artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, evidence_clock_key: 'str | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None, acquisition: 'AcquisitionSeamProtocol | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None) -> 'GovernedResolver'"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', max_ttl_seconds: 'int | None' = None, product_ttl_seconds: 'int | None' = None, decision_instant_parameter: 'str | None' = None, source_refresh_recency: 'SourceRefreshRecency' = None, composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, admission_clock: 'Callable[[], datetime]' = <function _utc_now>, artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, evidence_clock_key: 'str | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None, acquisition: 'AcquisitionSeamProtocol | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None) -> 'GovernedResolver'"
       },
       "declared_refusal_recorder": {
         "kind": "function",
@@ -7934,6 +8720,12 @@
   "ccf.replay.engine": {
     "__all__": [
       "CompositeReplayEnvironment",
+      "ERASED_SITE_CHILD_CONTRACT",
+      "ERASED_SITE_DECISION_RECORD",
+      "ERASED_SITE_REPLAY_ARTIFACT",
+      "ERASED_SITE_RETAINED_CHILD_QUESTION",
+      "ErasedContent",
+      "ErasedReplayOutcome",
       "RefusalReplayOutcome",
       "ReplayDivergence",
       "ReplayEnvironment",
@@ -7954,11 +8746,46 @@
         "kind": "class",
         "shape": "(*args, **kwargs)"
       },
+      "ERASED_SITE_CHILD_CONTRACT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASED_SITE_DECISION_RECORD": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASED_SITE_REPLAY_ARTIFACT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERASED_SITE_RETAINED_CHILD_QUESTION": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ErasedContent": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "<class 'str'>",
+          "erased_at": "datetime.datetime | None",
+          "erasure_record_address": "str | None",
+          "reason": "str | None",
+          "site": "<class 'str'>"
+        }
+      },
+      "ErasedReplayOutcome": {
+        "kind": "contract",
+        "shape": {
+          "erased_content": "tuple[ccf.replay.engine.ErasedContent, ...]",
+          "record": "ccf.replay.record.DecisionReplayRecord | None",
+          "record_content_address": "<class 'str'>"
+        }
+      },
       "RefusalReplayOutcome": {
         "kind": "contract",
         "shape": {
           "assembly_refusal": "<class 'str'>",
           "child_contract_addresses": "tuple[str, ...]",
+          "erased_content": "tuple[ccf.replay.engine.ErasedContent, ...]",
           "graph_snapshot_id": "<class 'str'>",
           "record": "<class 'ccf.replay.record.DecisionReplayRecord'>",
           "record_content_address": "<class 'str'>"
@@ -7983,6 +8810,7 @@
       "ReplayOutcome": {
         "kind": "contract",
         "shape": {
+          "erased_content": "tuple[ccf.replay.engine.ErasedContent, ...]",
           "graph_snapshot_id": "<class 'str'>",
           "product": "<class 'ccf.products.contract.ContextProductContract'>",
           "product_content_address": "<class 'str'>",
@@ -8004,11 +8832,11 @@
       },
       "replay": {
         "kind": "function",
-        "shape": "(*, record_address: 'str', store: 'ArtifactStoreProtocol', reader: 'GraphReader', control_plane: 'ControlPlaneProtocol', environment: 'ReplayEnvironment') -> 'ReplayOutcome'"
+        "shape": "(*, record_address: 'str', store: 'ArtifactStoreProtocol', reader: 'GraphReader', control_plane: 'ControlPlaneProtocol', environment: 'ReplayEnvironment') -> 'ReplayOutcome | ErasedReplayOutcome'"
       },
       "replay_refusal": {
         "kind": "function",
-        "shape": "(*, record_address: 'str', store: 'ArtifactStoreProtocol', reader: 'GraphReader', control_plane: 'ControlPlaneProtocol', environment: 'ReplayEnvironment') -> 'RefusalReplayOutcome'"
+        "shape": "(*, record_address: 'str', store: 'ArtifactStoreProtocol', reader: 'GraphReader', control_plane: 'ControlPlaneProtocol', environment: 'ReplayEnvironment') -> 'RefusalReplayOutcome | ErasedReplayOutcome'"
       },
       "resolve_artifact": {
         "kind": "function",
@@ -10147,7 +10975,7 @@
       },
       "govern_dereference": {
         "kind": "function",
-        "shape": "(authorized: 'EvidenceReadAuthority', *, reference: 'DereferenceRequest', store: 'ArtifactStoreProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'DisclosingRecorderProtocol', audit_log: 'AuditLog', surface: 'str', address: 'str') -> 'DereferencedEvidence | RefusalEnvelope'"
+        "shape": "(authorized: 'EvidenceReadAuthority', *, reference: 'DereferenceRequest', store: 'ArtifactStoreProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'DisclosingRecorderProtocol', audit_log: 'AuditLog', surface: 'str', address: 'str', erased_client_read: 'ErasedContentRefused | None' = None) -> 'DereferencedEvidence | RefusalEnvelope'"
       },
       "govern_entitlement": {
         "kind": "function",
@@ -10777,7 +11605,7 @@
     "exports": {
       "build_local_dependencies": {
         "kind": "function",
-        "shape": "(*, root: 'Path') -> 'ApiDependencies'"
+        "shape": "(*, root: 'Path', hitl_policy_key: 'str', erasure_trust: 'ErasureTrust') -> 'ApiDependencies'"
       }
     }
   },
@@ -10794,6 +11622,48 @@
       "main": {
         "kind": "function",
         "shape": "(argv: 'Sequence[str] | None' = None, *, dependencies: 'ApiDependencies | None' = None, authority: 'HttpAuthority | None' = None, credential: 'SecretStr | None' = None) -> 'int'"
+      }
+    }
+  },
+  "ccf_runtime.erasure": {
+    "__all__": [
+      "ErasureDoor",
+      "ErasureRefused",
+      "ErasureWorkflowUngated"
+    ],
+    "exports": {
+      "ErasureDoor": {
+        "kind": "class",
+        "shape": "(*, engine: 'WorkflowEngine', factory: 'WorkflowFactory', control_plane: 'ControlPlaneRegistry', transport: 'HITLTransportProtocol', authority: 'ErasureAuthority', door_signer: 'IdentityProvider', door_key_id: 'str', store: 'ArtifactStoreProtocol', clock: 'Callable[[], datetime]', index: 'ErasureIndexProtocol', identity_provider: 'IdentityProvider | None' = None) -> 'None'"
+      },
+      "ErasureRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, reason_code: 'str', decision: 'RetentionDecision | None' = None) -> 'None'"
+      },
+      "ErasureWorkflowUngated": {
+        "kind": "class",
+        "shape": "type"
+      }
+    }
+  },
+  "ccf_runtime.erasure.door": {
+    "__all__": [
+      "ErasureDoor",
+      "ErasureRefused",
+      "ErasureWorkflowUngated"
+    ],
+    "exports": {
+      "ErasureDoor": {
+        "kind": "class",
+        "shape": "(*, engine: 'WorkflowEngine', factory: 'WorkflowFactory', control_plane: 'ControlPlaneRegistry', transport: 'HITLTransportProtocol', authority: 'ErasureAuthority', door_signer: 'IdentityProvider', door_key_id: 'str', store: 'ArtifactStoreProtocol', clock: 'Callable[[], datetime]', index: 'ErasureIndexProtocol', identity_provider: 'IdentityProvider | None' = None) -> 'None'"
+      },
+      "ErasureRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, reason_code: 'str', decision: 'RetentionDecision | None' = None) -> 'None'"
+      },
+      "ErasureWorkflowUngated": {
+        "kind": "class",
+        "shape": "type"
       }
     }
   },
@@ -10846,7 +11716,7 @@
     "exports": {
       "ApiDependencies": {
         "kind": "class",
-        "shape": "(*, control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', product_resolver: 'ProductResolverProtocol', workflow_factory: 'WorkflowFactory | None' = None, workflow_engine: 'WorkflowEngine | None' = None, hitl_transport: 'HITLTransportProtocol | None' = None, skill_catalog: 'SkillCatalog | None' = None, grant_ledger: 'GrantLedger | None' = None, clock: 'Callable[[], datetime] | None' = None) -> None"
+        "shape": "(*, control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', product_resolver: 'ProductResolverProtocol', workflow_factory: 'WorkflowFactory | None' = None, workflow_engine: 'WorkflowEngine | None' = None, hitl_transport: 'HITLTransportProtocol | None' = None, skill_catalog: 'SkillCatalog | None' = None, grant_ledger: 'GrantLedger | None' = None, clock: 'Callable[[], datetime] | None' = None) -> None"
       }
     }
   },
@@ -11062,6 +11932,7 @@
     "__all__": [
       "STATUS_BY_KIND",
       "STATUS_FULFILLMENT_WITHHELD",
+      "STATUS_GONE",
       "STATUS_REQUEST",
       "STATUS_UNAVAILABLE",
       "status_for"
@@ -11072,6 +11943,10 @@
         "shape": "mappingproxy"
       },
       "STATUS_FULFILLMENT_WITHHELD": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "STATUS_GONE": {
         "kind": "constant",
         "shape": "int"
       },
@@ -11385,11 +12260,13 @@
     "__all__": [
       "ARTIFACT_BLOB_URI_SCHEME",
       "ARTIFACT_META_URI_SCHEME",
+      "ARTIFACT_NAMES_URI_SCHEME",
       "ArtifactPresence",
       "ArtifactResolution",
       "ArtifactSubstrate",
       "BLOB_URI_TEMPLATE",
       "META_URI_TEMPLATE",
+      "NAMES_URI_TEMPLATE",
       "NAME_URI_TEMPLATE",
       "NonCanonicalPayload",
       "PUT_ARTIFACT_TOOL",
@@ -11403,6 +12280,10 @@
         "shape": "str"
       },
       "ARTIFACT_META_URI_SCHEME": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ARTIFACT_NAMES_URI_SCHEME": {
         "kind": "constant",
         "shape": "str"
       },
@@ -11431,6 +12312,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NAMES_URI_TEMPLATE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NAME_URI_TEMPLATE": {
         "kind": "constant",
         "shape": "str"
@@ -11453,7 +12338,7 @@
       },
       "build_artifact_server": {
         "kind": "function",
-        "shape": "(*, server_name: 'str', store: 'ArtifactSubstrate', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', authorizer: 'TenantAuthorizerProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'DisclosingRecorderProtocol', audit_log: 'AuditLog') -> 'FastMCP'"
+        "shape": "(*, server_name: 'str', store: 'ArtifactSubstrate', token_verifier: 'TokenVerifier', auth_settings: 'AuthSettings', authorizer: 'TenantAuthorizerProtocol', entitlement_source: 'ProductEntitlementSourceProtocol', refusal_recorder: 'DisclosingRecorderProtocol', audit_log: 'AuditLog', erasure_index: 'ErasureIndexProtocol', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust') -> 'FastMCP'"
       }
     }
   },

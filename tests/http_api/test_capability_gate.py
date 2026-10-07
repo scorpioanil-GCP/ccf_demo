@@ -45,6 +45,7 @@ import inspect
 import json
 import pathlib
 import re
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import Mock
@@ -294,7 +295,7 @@ class TestP1TheRealCredentialOpensTheDoor:
             control_plane=_entitlement_registry(fabric), clock=lambda: INSTANT
         )
         return create_app(
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -855,7 +856,7 @@ class TestCreateAppRefusesMismatchedWiring:
     def _deps(self, fabric: Fabric) -> Any:
         from ccf_runtime.http_api.dependencies import ApiDependencies
 
-        return ApiDependencies(
+        return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

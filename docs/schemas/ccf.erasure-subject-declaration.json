@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "ErasureSubjectClass": {
+      "additionalProperties": false,
+      "description": "What a subject is, for one deployment-declared subject class (G1; SEC-009, `D-IMPL-374` (4)).\n\nAttributes:\n    class_id: Deployment vocabulary for the subject class; never an SDK value.\n    key_paths: Dotted canonical-document paths at which an identifier of\n        this class appears in artifacts of :attr:`artifact_classes`.\n    artifact_classes: The artifact classes whose documents may carry it.\n    identifier_kind: ``\"opaque\"`` only this phase; a ``\"principal\"``\n        subject is refused (U1 \u2014 principals reach replay inputs and audit\n        actors, and pseudonymization-at-write, U3, is not built).\n    subject_ref_salt: The deployment-declared salt a subject identifier is\n        hashed with into an erasure record's ``subject_ref`` (U4).",
+      "properties": {
+        "artifact_classes": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Artifact Classes",
+          "type": "array"
+        },
+        "class_id": {
+          "minLength": 1,
+          "title": "Class Id",
+          "type": "string"
+        },
+        "identifier_kind": {
+          "enum": [
+            "opaque",
+            "principal"
+          ],
+          "title": "Identifier Kind",
+          "type": "string"
+        },
+        "key_paths": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Key Paths",
+          "type": "array"
+        },
+        "subject_ref_salt": {
+          "minLength": 1,
+          "title": "Subject Ref Salt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "class_id",
+        "key_paths",
+        "artifact_classes",
+        "identifier_kind",
+        "subject_ref_salt"
+      ],
+      "title": "ErasureSubjectClass",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A deployment's subject classes (G1). Adopter-registered; NOT manifest-addressable (SEC-009; `D-IMPL-374` (4)).",
+  "properties": {
+    "semver": {
+      "title": "Semver",
+      "type": "string"
+    },
+    "subjects": {
+      "items": {
+        "$ref": "#/$defs/ErasureSubjectClass"
+      },
+      "minItems": 1,
+      "title": "Subjects",
+      "type": "array"
+    },
+    "tenant_id": {
+      "minLength": 1,
+      "title": "Tenant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "semver",
+    "tenant_id",
+    "subjects"
+  ],
+  "title": "ErasureSubjectDeclaration",
+  "type": "object",
+  "x-ccf-class-id": "ccf.erasure-subject-declaration"
+}

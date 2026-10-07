@@ -24,6 +24,7 @@ guard.
 
 from __future__ import annotations
 
+from tests.composition import declared_erasure_trust, no_erasures
 from datetime import UTC, datetime
 from typing import Any
 
@@ -81,7 +82,7 @@ def deps(fabric: Fabric) -> Any:
     if _AUTHORITY is None:
         _AUTHORITY = cli_authority(fabric, _FABRIC_ROOT)
 
-    return ApiDependencies(
+    return ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,

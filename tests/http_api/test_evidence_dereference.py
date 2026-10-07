@@ -26,6 +26,7 @@ would pass a comparison that skipped ``request`` and fail this one (`S7`).
 from __future__ import annotations
 
 import json
+from tests.composition import declared_erasure_trust, no_erasures
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,6 +36,7 @@ import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import artifact_uri
+from ccf.erasure import erasure_index_at
 from ccf.authz.capability import ArtifactWrite
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -132,6 +134,8 @@ class Governed:
     registry: ControlPlaneRegistry
     tenant: str
     product_class: str
+    #: SEC-009 (fix round 1, C1): the deployment's durable erasure index.
+    erasure_index: Any = None
 
     def record_at(self, address: str) -> DecisionReplayRecord:
         return DecisionReplayRecord.model_validate_json(
@@ -234,9 +238,12 @@ def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
         policy_bundle_pin=None,
         disclosure_level_for=source.disclosure_level_for,
     )
+    erasure_index = erasure_index_at(tmp_path / "erasure")
     deps = ApiDependencies(
         control_plane=registry,
         artifact_store=fabric.store,
+        erasure_trust=declared_erasure_trust(),
+        erasure_index=erasure_index,
         product_resolver=fabric.product_resolver,
     )
     app = create_app(
@@ -262,6 +269,7 @@ def _governed(fabric: Fabric, tmp_path: Path) -> Governed:
         registry=registry,
         tenant=address.tenant,
         product_class=address.product_class,
+        erasure_index=erasure_index,
     )
 
 
@@ -787,7 +795,7 @@ def test_c19_the_level_is_read_through_the_recorder_not_the_source(
         control_plane=door.registry, clock=lambda: AUDIT_INSTANT
     )
     app = create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=door.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -943,7 +951,12 @@ def test_c18_the_mcp_artifact_resource_inherits_the_same_refusal(
     from ccf_runtime.mcp import artifact_server
 
     source = inspect.getsource(artifact_server)
-    assert "return store.get(content_address=content_address)" in source
+    # SEC-009 (D-IMPL-374 (4), MCP ruling): the handler reads through the
+    # erasure-consulting composition of the same store, which adds no shape
+    # check of its own and delegates the address to the store's `get`.
+    # Fix round 1, I6: the read goes through the caller's tenant view of the
+    # same composed store.
+    assert "payload = consulted.scoped(authorized.tenant).get(content_address=content_address)" in source
     assert "CONTENT_ADDRESS_PATTERN" not in source, (
         "the MCP role must not grow its own shape check — one invariant, at"
         " the store, or two implementations will disagree"
@@ -989,7 +1002,7 @@ def test_c14_an_unbound_entitlement_seam_is_no_longer_a_configuration(
 
     with pytest.raises(TypeError):
         create_app(  # type: ignore[call-arg]
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,
@@ -1032,7 +1045,7 @@ def test_the_door_refuses_to_build_with_a_recorder_that_cannot_disclose(
     )
     with pytest.raises(UnrecordableDeliveryBoundaryError, match="disclosure"):
         create_app(
-            ApiDependencies(
+            ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
                 control_plane=fabric.registry,
                 artifact_store=fabric.store,
                 product_resolver=fabric.product_resolver,

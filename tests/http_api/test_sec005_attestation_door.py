@@ -23,6 +23,7 @@ Fixture vocabulary is deployment vocabulary (CINV-01), following
 from __future__ import annotations
 
 import json
+from tests.composition import declared_erasure_trust, no_erasures
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -189,7 +190,7 @@ def _build_app(fabric: Fabric, transport: InMemoryHitlTransport, tmp_path: Path,
     )
     seams["auth"] = BearerTokenAuth(token_source=StaticTokenSource(grants=_grants()))
     return create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), erasure_trust=declared_erasure_trust(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

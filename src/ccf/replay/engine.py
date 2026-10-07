@@ -85,7 +85,10 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Final, Protocol, TypeVar, runtime_checkable
+
+from pydantic import Field
 
 from ccf.artifacts.protocol import (
     ArtifactStoreError,
@@ -93,7 +96,13 @@ from ccf.artifacts.protocol import (
     MovingTargetRefused,
 )
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import canonical_bytes, content_hash, generation_mismatch
+from ccf.erasure.store import ErasedContentRefused
+from ccf.contracts.canonical import (
+    HASH_TRANSPARENT_KEY,
+    canonical_bytes,
+    content_hash,
+    generation_mismatch,
+)
 from ccf.controlplane.artifacts import PolicyConstraint
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
@@ -134,6 +143,12 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ReplayDivergence",
     "CompositeReplayEnvironment",
+    "ERASED_SITE_CHILD_CONTRACT",
+    "ERASED_SITE_DECISION_RECORD",
+    "ERASED_SITE_REPLAY_ARTIFACT",
+    "ERASED_SITE_RETAINED_CHILD_QUESTION",
+    "ErasedContent",
+    "ErasedReplayOutcome",
     "ReplayEnvironment",
     "ReplayError",
     "ReplayGenerationMismatch",
@@ -474,6 +489,81 @@ class CompositeReplayEnvironment(ReplayEnvironment, Protocol):
         ...
 
 
+#: The replay site an erased member was met at (SEC-009; design `D-IMPL-367`
+#: §5.2). Mechanism vocabulary: the retained child question.
+ERASED_SITE_RETAINED_CHILD_QUESTION: Final = "retained-child-question"
+#: An admitted child contract the decision consumed (ruling 4).
+ERASED_SITE_CHILD_CONTRACT: Final = "child-contract"
+#: The Decision Replay record itself (ruling 4).
+ERASED_SITE_DECISION_RECORD: Final = "decision-record"
+#: Any other artifact the re-execution reads (a query pin, …) (ruling 4).
+ERASED_SITE_REPLAY_ARTIFACT: Final = "replay-artifact"
+
+
+class ErasedContent(CCFContract):
+    """One erased RETAINED member a replay met — reported positively, never as an absence (SEC-009; `D-IMPL-374` (4)).
+
+    Design ``D-IMPL-367`` §5.2: a replay whose inputs are intact and whose
+    retained content is erased completes, and this member says what was erased
+    where, under which record. Distinct from :class:`ReplayUnresolvable` (the
+    artifact is not there) and from a row that never retained anything (a
+    different fact). Carries nothing of the subject.
+
+    Attributes:
+        site: Where the replay met it (:data:`ERASED_SITE_RETAINED_CHILD_QUESTION`).
+        content_address: The erased member's address.
+        erasure_record_address: The authority record.
+        reason: The admitted erasure reason.
+        erased_at: The record's instant.
+    """
+
+    site: str
+    content_address: str
+    #: ``None`` when the read was tenantless or the index entry is not
+    #: supported by its record (fix round 1, I6 / §8): redacted, never another
+    #: tenant's facts.
+    erasure_record_address: str | None
+    reason: str | None
+    erased_at: datetime | None
+
+
+def _erased_member(refused: ErasedContentRefused, site: str) -> ErasedContent:
+    """The disclosure-layer reading of one erased read (SEC-009)."""
+    return ErasedContent(
+        site=site,
+        content_address=refused.content_address,
+        erasure_record_address=refused.erasure_record_address,
+        reason=refused.reason,
+        erased_at=refused.erased_at,
+    )
+
+
+class ErasedReplayOutcome(CCFContract):
+    """A replay that met erased content it could not re-execute over — positive, the erasure disclosed (SEC-009; `D-IMPL-374` (4), ruling 4).
+
+    Design ``D-IMPL-367`` §5.2: a replay meeting an erased address never "does
+    not find" it and never refuses by name. When the erased member is one the
+    re-execution would READ — the decision record itself, an admitted child
+    contract the plan consumes, an artifact the re-execution resolves — the
+    erased reading is substituted for it here: every intact input the replay
+    could check has been checked (the record at its address with its bindings
+    and resolution claim, when the record itself is not the erased member; every
+    retained question), the erased members are listed, and NO product is
+    reproduced, because re-executing over erased content would derive a product
+    from bytes the fabric refuses to serve.
+
+    Attributes:
+        record_content_address: The address replay was asked for.
+        record: The verified record, or ``None`` when the record itself is the
+            erased member.
+        erased_content: The erased members, never empty.
+    """
+
+    record_content_address: str
+    record: DecisionReplayRecord | None
+    erased_content: tuple[ErasedContent, ...] = Field(min_length=1)
+
+
 class ReplayOutcome(CCFContract):
     """A verified reproduction. Constructed only after every check has passed.
 
@@ -489,6 +579,8 @@ class ReplayOutcome(CCFContract):
             equal by construction to the one the record carries.
         graph_snapshot_id: Snapshot id derived from the re-execution, equal by
             construction to the recorded one.
+        erased_content: The erased RETAINED members this replay met and
+            disclosed (SEC-009; `D-IMPL-374` (4); design `D-IMPL-367` §5.2).
     """
 
     record: DecisionReplayRecord
@@ -496,6 +588,12 @@ class ReplayOutcome(CCFContract):
     record_content_address: str
     product_content_address: str
     graph_snapshot_id: str
+    #: SEC-009 (`D-IMPL-374` (4)): the erased retained members this replay met,
+    #: disclosed. Hash-transparent at ``()`` — an outcome with nothing erased
+    #: renders exactly as it did before the field existed.
+    erased_content: tuple[ErasedContent, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 
@@ -523,6 +621,8 @@ class RefusalReplayOutcome(CCFContract):
             refusal reached before any projection ran; otherwise the snapshot
             id the re-execution derived, equal by construction to the
             recorded one.
+        erased_content: As :attr:`ReplayOutcome.erased_content` (SEC-009;
+            `D-IMPL-374` (4)).
     """
 
     record: DecisionReplayRecord
@@ -530,6 +630,10 @@ class RefusalReplayOutcome(CCFContract):
     assembly_refusal: str
     child_contract_addresses: tuple[str, ...]
     graph_snapshot_id: str
+    #: SEC-009 (`D-IMPL-374` (4)): as :attr:`ReplayOutcome.erased_content`.
+    erased_content: tuple[ErasedContent, ...] = Field(
+        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 def resolve_artifact(
     *,
@@ -581,9 +685,16 @@ def resolve_artifact(
     Raises:
         ReplayUnresolvable: nothing is stored at that address.
         ReplayDivergence: the stored bytes do not hash to the address asked for.
+        ccf.erasure.ErasedContentRefused: the address was erased
+            (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
     """
     try:
         payload = store.get(content_address=content_address)
+    except ErasedContentRefused:
+        # SEC-009 (`D-IMPL-374` (4)): an erasure is a recorded decision, never
+        # an absence — propagated by name, not softened into "unresolvable"
+        # (design `D-IMPL-367` §3, the G5 silent-absence defect).
+        raise
     except (ArtifactStoreError, KeyError) as missing:
         raise ReplayUnresolvable(
             f"no {contract.__name__} is stored at {content_address!r}; "
@@ -633,10 +744,12 @@ def resolve_artifact_at_uri(
             names a version whose bytes are absent.
         ReplayDivergence: the resolved bytes do not hash to the address the name
             pointed at.
+        ccf.erasure.ErasedContentRefused: the named version was erased
+            (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
     """
     try:
         content_address = store.resolve_uri(uri=uri)
-    except MovingTargetRefused:
+    except (MovingTargetRefused, ErasedContentRefused):
         raise
     except (ArtifactStoreError, LookupError) as unresolvable:
         raise ReplayUnresolvable(
@@ -804,7 +917,7 @@ def _verify_resolution_claim(
 
 def _reconstruct_child_contracts(
     *, store: ArtifactStoreProtocol, rows: tuple[ChildResolution, ...]
-) -> ChildContractView:
+) -> tuple[ChildContractView, tuple[ErasedContent, ...]]:
     """Rebuild the parent's child-contract view from RETAINED bytes (`D-IMPL-339`).
 
     Each admitted row names its child by content address; the deciding fabric
@@ -819,6 +932,7 @@ def _reconstruct_child_contracts(
         ReplayDivergence: the bytes found do not hash to the row's address.
     """
     contracts: dict[str, ContextProductContract] = {}
+    erased: list[ErasedContent] = []
     for row in rows:
         address = row.child_content_address
         if address is None:
@@ -829,6 +943,11 @@ def _reconstruct_child_contracts(
             )
         try:
             stored = store.get(content_address=address)
+        except ErasedContentRefused as refused:
+            # SEC-009 ruling 4: the erased reading is substituted for the
+            # child in the disclosure layer; the view omits it.
+            erased.append(_erased_member(refused, ERASED_SITE_CHILD_CONTRACT))
+            continue
         except (LookupError, OSError) as missing:
             raise ReplayUnresolvable(
                 f"the child contract {address!r} consumed for"
@@ -856,7 +975,7 @@ def _reconstruct_child_contracts(
                 " decision consumed is not the child the store now answers"
             )
         contracts[row.required_product_class] = contract
-    return ChildContractView(contracts)
+    return ChildContractView(contracts), tuple(erased)
 
 
 def replay(
@@ -866,7 +985,7 @@ def replay(
     reader: GraphReader,
     control_plane: ControlPlaneProtocol,
     environment: ReplayEnvironment,
-) -> ReplayOutcome:
+) -> ReplayOutcome | ErasedReplayOutcome:
     """Reproduce the decision recorded at ``record_address``, exactly.
 
     Args:
@@ -880,7 +999,11 @@ def replay(
         environment: The deployment's plan, operators, and product envelope.
 
     Returns:
-        A :class:`ReplayOutcome`, which exists only if every check passed.
+        A :class:`ReplayOutcome`, which exists only if every check passed; or,
+        when the replay met erased content it would have to READ to re-execute
+        (the record itself, an admitted child contract, a re-execution
+        artifact), an :class:`ErasedReplayOutcome` disclosing it — positive,
+        never a refusal by name (SEC-009; `D-IMPL-374` (4), ruling 4).
 
     Raises:
         ReplayUnresolvable: the record, a binding, the plan, or an operator
@@ -915,9 +1038,17 @@ def replay(
             re-execution left the recorded snapshot's scope. Likewise a
             ``LookupError`` outside :class:`ReplayError`, propagated as raised.
     """
-    record = _prologue(
-        record_address=record_address, store=store, control_plane=control_plane
-    )
+    try:
+        record = _prologue(
+            record_address=record_address, store=store, control_plane=control_plane
+        )
+    except ErasedContentRefused as refused:
+        # SEC-009 ruling 4: the record itself was erased.
+        return ErasedReplayOutcome(
+            record_content_address=record_address,
+            record=None,
+            erased_content=(_erased_member(refused, ERASED_SITE_DECISION_RECORD),),
+        )
     _hold_kind(
         record,
         content_address=record_address,
@@ -926,11 +1057,23 @@ def replay(
     )
     # `D-IMPL-339`: the view is rebuilt BEFORE the child-dependent plan, from
     # the contracts the deciding fabric retained by address.
-    children, _addresses = _children_of(store=store, record=record)
-    _hold_retained_questions(store=store, record=record)
-    execution, reproduced_snapshot = _re_execute(
-        record=record, reader=reader, environment=environment, children=children
-    )
+    children, _addresses, erased_children = _children_of(store=store, record=record)
+    erased = erased_children + _hold_retained_questions(store=store, record=record)
+    if erased_children:
+        # SEC-009 ruling 4: the plan would consume an erased child.
+        return ErasedReplayOutcome(
+            record_content_address=record_address, record=record, erased_content=erased
+        )
+    try:
+        execution, reproduced_snapshot = _re_execute(
+            record=record, reader=reader, environment=environment, children=children
+        )
+    except ErasedContentRefused as refused:
+        return ErasedReplayOutcome(
+            record_content_address=record_address,
+            record=record,
+            erased_content=erased + (_erased_member(refused, ERASED_SITE_REPLAY_ARTIFACT),),
+        )
     path = record.content_generation_path
     product = environment.rehydrate_product(
         record=record, projection=execution.projection
@@ -951,6 +1094,7 @@ def replay(
         record_content_address=record_address,
         product_content_address=reproduced_address,
         graph_snapshot_id=reproduced_snapshot.graph_snapshot_id,
+        erased_content=erased,
     )
 
 
@@ -961,7 +1105,7 @@ def replay_refusal(
     reader: GraphReader,
     control_plane: ControlPlaneProtocol,
     environment: ReplayEnvironment,
-) -> RefusalReplayOutcome:
+) -> RefusalReplayOutcome | ErasedReplayOutcome:
     """Reconstruct the REFUSED decision recorded at ``record_address``.
 
     `D-IMPL-344`, the other half of :func:`replay`: the same prologue (the
@@ -1007,7 +1151,11 @@ def replay_refusal(
             the post-projection path.
 
     Returns:
-        A :class:`RefusalReplayOutcome`, which exists only if every check passed.
+        A :class:`RefusalReplayOutcome`, which exists only if every check
+        passed (an erased child on the no-read path is disclosed on it); or an
+        :class:`ErasedReplayOutcome` when the record itself, or a child or
+        artifact the re-execution would read, was erased (SEC-009;
+        `D-IMPL-374` (4), ruling 4).
 
     Raises:
         ReplayUnresolvable: the record, a binding, an admitted child's retained
@@ -1024,9 +1172,17 @@ def replay_refusal(
             re-execution differs from the recorded steps, pins or snapshot;
             the recorded evidence does not match the re-execution.
     """
-    record = _prologue(
-        record_address=record_address, store=store, control_plane=control_plane
-    )
+    try:
+        record = _prologue(
+            record_address=record_address, store=store, control_plane=control_plane
+        )
+    except ErasedContentRefused as refused:
+        # SEC-009 ruling 4: the record itself was erased.
+        return ErasedReplayOutcome(
+            record_content_address=record_address,
+            record=None,
+            erased_content=(_erased_member(refused, ERASED_SITE_DECISION_RECORD),),
+        )
     _hold_kind(
         record,
         content_address=record_address,
@@ -1039,8 +1195,10 @@ def replay_refusal(
     )
     if path.plan_id == NO_FABRIC_READ:
         _hold_no_read_claims(record=record, content_address=record_address)
-        children, addresses = _children_of(store=store, record=record)
-        _hold_retained_questions(store=store, record=record)
+        children, addresses, erased_children = _children_of(store=store, record=record)
+        # No plan reads the children on this path, so an erased child is
+        # disclosed and the reconstruction still completes (ruling 4).
+        erased = erased_children + _hold_retained_questions(store=store, record=record)
         del children  # reconstructed and verified; no plan reads them here
         _hold_refusal_to_rows(
             refusal=refusal, path=path, content_address=record_address
@@ -1051,12 +1209,25 @@ def replay_refusal(
             assembly_refusal=path.assembly_refusal,
             child_contract_addresses=addresses,
             graph_snapshot_id=NO_FABRIC_READ,
+            erased_content=erased,
         )
-    children, addresses = _children_of(store=store, record=record)
-    _hold_retained_questions(store=store, record=record)
-    execution, reproduced_snapshot = _re_execute(
-        record=record, reader=reader, environment=environment, children=children
-    )
+    children, addresses, erased_children = _children_of(store=store, record=record)
+    erased = erased_children + _hold_retained_questions(store=store, record=record)
+    if erased_children:
+        # SEC-009 ruling 4: the re-derived plan would consume an erased child.
+        return ErasedReplayOutcome(
+            record_content_address=record_address, record=record, erased_content=erased
+        )
+    try:
+        execution, reproduced_snapshot = _re_execute(
+            record=record, reader=reader, environment=environment, children=children
+        )
+    except ErasedContentRefused as refused:
+        return ErasedReplayOutcome(
+            record_content_address=record_address,
+            record=record,
+            erased_content=erased + (_erased_member(refused, ERASED_SITE_REPLAY_ARTIFACT),),
+        )
     _hold_refusal_to_execution(
         refusal=refusal, path=path, execution=execution, content_address=record_address
     )
@@ -1066,6 +1237,7 @@ def replay_refusal(
         assembly_refusal=path.assembly_refusal,
         child_contract_addresses=addresses,
         graph_snapshot_id=reproduced_snapshot.graph_snapshot_id,
+        erased_content=erased,
     )
 
 
@@ -1149,8 +1321,8 @@ def _hold_kind(
 
 def _children_of(
     *, store: ArtifactStoreProtocol, record: DecisionReplayRecord
-) -> tuple[ChildContractView | None, tuple[str, ...]]:
-    """The admitted children, reconstructed from RETAINED bytes, or ``None``.
+) -> tuple[ChildContractView | None, tuple[str, ...], tuple[ErasedContent, ...]]:
+    """The admitted children, reconstructed from RETAINED bytes, or ``None`` — and the erased ones (SEC-009).
 
     ``None`` — rather than an empty view — when the decision admitted no
     child, so a non-composite record keeps taking exactly the plan-resolution
@@ -1162,14 +1334,14 @@ def _children_of(
         row for row in path.child_resolutions if row.outcome_status == CHILD_ADMITTED
     )
     if not admitted_rows:
-        return None, ()
-    children = _reconstruct_child_contracts(store=store, rows=admitted_rows)
+        return None, (), ()
+    children, erased = _reconstruct_child_contracts(store=store, rows=admitted_rows)
     addresses = tuple(
         row.child_content_address
         for row in admitted_rows
         if row.child_content_address is not None
     )
-    return children, addresses
+    return children, addresses, erased
 
 
 #: What :func:`_hold_ttl_anchor` did, named — so a test can see the pre-341
@@ -1345,7 +1517,7 @@ def retained_child_question(
 
 def _hold_retained_questions(
     *, store: ArtifactStoreProtocol, record: DecisionReplayRecord
-) -> None:
+) -> tuple[ErasedContent, ...]:
     """Hold every row that references a retained question to its bytes.
 
     `D-IMPL-342` / `CP14-F-35`. Every row carrying a ``child_question_ref`` —
@@ -1354,11 +1526,21 @@ def _hold_retained_questions(
     unheld **by name**: a record written before retention existed replays as
     it did, and a resolver that retains no question is not silently credited
     with having done so — the three-state reading (held / diverged / not
-    retained), never a don't-know collapsed into a pass.
+    retained), never a don't-know collapsed into a pass. A fourth state since
+    SEC-009: an ERASED question is returned as an :class:`ErasedContent`
+    member for the outcome to disclose (design ``D-IMPL-367`` §5.2).
     """
+    erased: list[ErasedContent] = []
     for row in record.content_generation_path.child_resolutions:
         if row.child_question_ref is not None:
-            retained_child_question(store=store, row=row)
+            try:
+                retained_child_question(store=store, row=row)
+            except ErasedContentRefused as refused:
+                # SEC-009 (design `D-IMPL-367` §5.2): retained content, erased
+                # by a recorded decision — reported positively, and the replay
+                # goes on, because its inputs are intact.
+                erased.append(_erased_member(refused, ERASED_SITE_RETAINED_CHILD_QUESTION))
+    return tuple(erased)
 
 
 def _re_execute(

@@ -46,6 +46,11 @@ mount refusal. The state of the resource — the fabric's own measured state —
 conflicts with fulfilling the request, which is what ``409`` means; the shell
 carries the numbers, and the status carries none of them.
 
+**410 — the erased class** (SEC-009; ``D-IMPL-374`` (4), U11). *It was here
+and is not served, by a recorded decision.* ``erased-content`` only, and only
+at ``reasoned`` and ``full``: at ``minimal`` the evidence door renders its own
+not-found shell (404) instead, so the status never discloses an erasure there.
+
 Two invariants, and they are Dave's
 ------------------------------------
 1. **No known governed refusal may become 500.** Every member of
@@ -112,6 +117,7 @@ from ccf.products.gates import (
 from ccf.products.payload import PayloadSchemaViolation
 from ccf.products.refusal import (
     REFUSAL_KINDS,
+    ErasedContentRefusal,
     SubjectUnavailableRefusal,
     TemporalBoundRefusal,
 )
@@ -122,6 +128,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "STATUS_BY_KIND",
     "STATUS_FULFILLMENT_WITHHELD",
+    "STATUS_GONE",
     "STATUS_REQUEST",
     "STATUS_UNAVAILABLE",
     "status_for",
@@ -138,6 +145,12 @@ STATUS_UNAVAILABLE: Final[int] = 404
 #: The fulfillment-withheld class: the fabric could not construct or deliver.
 STATUS_FULFILLMENT_WITHHELD: Final[int] = 409
 
+
+#: The erased class (SEC-009; `D-IMPL-374` (4), U11): *it was here and is not
+#: served, by a recorded decision.* Rendered only at ``reasoned`` and ``full``;
+#: at ``minimal`` the door renders its not-found shell instead, so the status
+#: never discloses the erasure there.
+STATUS_GONE: Final[int] = 410
 
 #: The table, **keyed by refusal class** rather than by token.
 #:
@@ -168,6 +181,8 @@ _STATUS_BY_TYPE: Final[Mapping[type[CCFContract], int]] = MappingProxyType(
         TemporalBoundRefusal: STATUS_REQUEST,
         # -- the unavailable class --------------------------------------------
         SubjectUnavailableRefusal: STATUS_UNAVAILABLE,
+        # -- the erased class (SEC-009) ----------------------------------------
+        ErasedContentRefusal: STATUS_GONE,
         # -- the fulfillment-withheld class -----------------------------------
         GateRefusal: STATUS_FULFILLMENT_WITHHELD,
         EmptyOperatorRefusal: STATUS_FULFILLMENT_WITHHELD,

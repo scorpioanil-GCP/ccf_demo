@@ -598,6 +598,127 @@ exposed, an agent without derived classes and an agent reaching an off-roster
 class: it names no agent and no class. The specific reason is logged
 server-side (logger `ccf_runtime.mcp.tenancy`, level INFO).
 
+### 4.10 Declare and protect the erasure index (SEC-009, D-IMPL-374)
+
+An erasure is recorded, never performed: the bytes stay on the substrate, and
+every store construction site refuses to serve an erased address. The refusal
+reads the deployment's durable erasure index
+(`src/ccf/erasure/index.py::FileErasureIndex`), declared at every site with no
+default. Decide three things before an erasure is ever approved.
+
+- **Where the index lives, and who can write it.** The file index opens with
+  `O_NOFOLLOW` and refuses, by name (`ErasureIndexInsecure`), a file that is a
+  symlink, not owned by the process's user, or not mode 0600, or a directory
+  that is not owned by that user or not mode 0700. Every line carries the hash
+  of the one before it, so an edited, reordered or removed line refuses at boot
+  (`ErasureIndexCorrupt`, which withholds every address under the index).
+  **An attacker with write access to the index file can un-erase its tail;
+  file modes and the deployment's filesystem controls are the mitigation.** A
+  hash chain cannot show that its last lines were cut off.
+- **Which classes the erase capability may write.** Declare
+  `ccf.erasure-record` and `ccf.erasure-approval` under `ArtifactErase` in the
+  store's `WriteKinds`, and grant `artifact.erase` only to the principals who
+  may file an erasure request. Neither class can be declared erasable.
+- **Which HITL policy signs the approvals.** An erasure approval is bound to
+  a SIGNED HITL attestation (`D-IMPL-363`), so the HITL policy the erasure
+  gate runs under must require signed bindings and pin each approver's public
+  key. The door refuses, by name, an approval that is unsigned
+  (`approval-unsigned`) or whose signature does not verify
+  (`approval-signature-invalid`). It files the approval, with its signed claim
+  set, signature and key id verbatim, as an immutable `ccf.erasure-approval`
+  before the index append, and every store construction site verifies that
+  signature again, against the key the pinned policy declares for the
+  approver, resolved through its own Control Plane
+  (`src/ccf/erasure/approval.py::verify_erasure_approval`). An approval that
+  does not verify is `index-unsupported`: the address stays withheld and the
+  audit says so.
+- **Which erasure authority each site trusts, fixed at composition.** Every
+  store construction site — `create_app` (through
+  `ApiDependencies.erasure_trust`), `build_artifact_server`, `open_product`,
+  `build_governed_resolver`, the in-process adapter (through `binding.yaml`'s
+  `erasure_authority`) and the local CLI dependencies — takes an
+  `ErasureTrust`: for each tenant that may erase, an `ErasureAuthority`
+  naming the HITL policy key its HITL transport is bound to, the content hash
+  of its erasure workflow definition, and the erasure door's public signing
+  key (`src/ccf/erasure/trust.py`). The record's tenant selects the
+  authority; a tenant with none reads `index-unsupported`. A multi-tenant
+  site declares one authority per erasing tenant. The consult refuses, by
+  name, an approval that pins any other HITL policy key, that names any
+  workflow but the declared one or any tenant but the authority's, by the
+  requester, by an approver the declared workflow's erasure-gate policy does
+  not name, for a gate that is not that workflow's erasure gate, or signed
+  after the pinned policy version was superseded by the next one. The
+  requester's artifacts may name a policy version, never the key, the
+  workflow or the policy. A legitimate approval made while the old policy
+  version was current stays valid after a rotation.
+- **Who holds the erasure door's signing key.** The door signs the canonical
+  bytes of every erasure record it files with a key the deployment holds and
+  requesters never do; each authority declares its public half, and a
+  declared key carrying private material is refused by name. Every consult
+  verifies that signature before it reads the record, so the record's
+  `requested_by` — the starter the engine recorded, which the door observed —
+  is the door's statement, not a filer's: a record without a verifying door
+  signature is `index-unsupported`. The door refuses, at construction, a
+  signing key that does not verify under the declared door key, and a HITL
+  transport bound to any HITL policy key but its authority's.
+- **What the trust is as strong as.** Three custodies: the erasure door's
+  private key (its holder can sign a record naming any requester); Control
+  Plane registration under each tenant's declared HITL policy key (a party
+  who can register a new version there can pin a key it holds for an erasure
+  officer and approve as that officer); and the approvers' private keys. The
+  signed instant is the signer's own claim: revocation refuses a signature
+  dated after the supersession, but a holder of a dropped key who backdates a
+  signature to before it still verifies. The window's lower bound (the
+  version's registration instant) is not enforced, because the in-memory
+  Control Plane re-registers every version at boot and would refuse every
+  approval made before the last restart. There is no fresh-registry
+  fallback: a site that composes without the deployment's Control Plane, or
+  re-composes a store with a different Control Plane, identity provider or
+  trust, is refused by name. **An adopter-supplied identity provider that
+  verifies nothing accepts everything; that is the adopter's trust choice** —
+  door signatures included. The validation cache is keyed by the identity
+  provider instance, so a do-nothing provider's verdict is never served to a
+  site composed with another provider.
+- **The in-process adapter boots its own registry.** It composes with the
+  authority its `binding.yaml` declares (`erasure_authority: {}` declares
+  none). Its Control Plane holds only what its `ccf_config.yaml` registers,
+  and the HITL policy, the approval policy and the erasure workflow are not
+  manifest-addressable, so a genuine erasure consulted through the in-process
+  adapter reads `index-unsupported` until the deployment registers them into
+  that booted registry by its own code. The content stays withheld either
+  way. The `--local` CLI arm declares no erasure authority at all: the local
+  dev fabric runs no erasure door.
+- **Which HITL transport holds pending approvals.** A completed erasure stays
+  verified across restarts and processes, because its approval is in the
+  store and its keys are in the pinned policy. A gate still **pending** in the
+  in-memory transport does not survive a restart: that is the transport's
+  limit, not the record's. A deployment that needs pending approvals to
+  outlive a process wires a durable transport.
+- **How a torn index line is repaired.** A process killed in the middle of an
+  append can leave a partial line that the next append merges into. The index
+  then refuses as `ErasureIndexCorrupt` and every read under it is withheld:
+  that is deliberate, and the SDK ships no repair tool. With every process
+  that composes the index stopped, copy the file aside as evidence, truncate
+  it to the longest prefix of complete lines whose hash chain verifies, then
+  restore the removed suffix before any reader starts: re-run the door's
+  completion for the torn entry, whose execution is still suspended, and
+  re-append every later complete line under the erase capability for its own
+  request. The full procedure is in the `ccf.erasure.index` module docstring.
+
+Two behaviors follow from the design and are stated rather than changed:
+
+- A retry of a completion must present the same erase authorization. A retry
+  under a fresh one is refused as `retry-mismatch`, because the record names
+  the authorizing decision and the index entries already pin the record. The
+  approval itself is re-filed unchanged, because its instant is the signed
+  `issued_at`, and the retry reuses the door signature its prior attempt
+  appended (an ES256 signature is not deterministic, and the index takes only
+  an identical entry again), after verifying it.
+- Over the MCP-backed store, a names read that the server refuses for a
+  governed address reaches the door looking like an outage. The door refuses
+  `class-unverifiable` either way, so it fails closed, but the two causes are
+  not told apart.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

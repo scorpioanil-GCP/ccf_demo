@@ -98,7 +98,7 @@ from mcp.types import BlobResourceContents, TextResourceContents
 from pydantic import AnyUrl
 
 from ccf.artifacts.protocol import (
-    ArtifactNotFound,
+    ArtifactName, ArtifactNotFound,
     ArtifactRef,
     ArtifactStoreError,
     ArtifactUriUnresolvable,
@@ -132,6 +132,8 @@ __all__ = ["McpArtifactStore"]
 #: talk to a third party's server would not be a Protocol implementation.
 _BLOB_SCHEME = "ccf-artifact-blob"
 _META_SCHEME = "ccf-artifact-meta"
+#: The naming resource (SEC-009; `D-IMPL-374` (4), ruling 2).
+_NAMES_SCHEME = "ccf-artifact-names"
 _PUT_TOOL = "put_artifact"
 
 
@@ -326,6 +328,35 @@ class McpArtifactStore:
             return False
         answer = self._read_text(f"{_META_SCHEME}://{addressed}")
         return _presence_of(answer)
+
+    def names_at(self, *, content_address: str) -> tuple[ArtifactName, ...]:
+        """Every ``(tenant, class, name)`` this address was filed under, for this credential's tenant.
+
+        SEC-009 (``D-IMPL-374`` (4), ruling 2): naming introspection, read
+        from the server's names resource, so the erasure door can verify an
+        address's STORED class and tenant over the §7.4 reference store. Not
+        one of the Protocol's four verbs — the same introspection
+        :meth:`~ccf.artifacts.file_store.FileArtifactStore.names_at` offers.
+        Empty, with no round trip, for a string that is not a content address.
+
+        Raises:
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
+                or answered something that is not a list of names.
+        """
+        try:
+            addressed = held_content_address(content_address)
+        except MalformedContentAddress:
+            return ()
+        answer = self._read_text(f"{_NAMES_SCHEME}://{addressed}")
+        try:
+            parsed = json.loads(answer)
+            if not isinstance(parsed, list):
+                raise ValueError("not a list")
+            return tuple(ArtifactName.model_validate(item) for item in parsed)
+        except ValueError as error:
+            raise McpServerUnreachable(
+                f"artifact server returned a non-naming answer: {answer!r}"[:300]
+            ) from error
 
     def resolve_uri(self, *, uri: str) -> str:
         """Return the content address ``uri`` names, exactly.
