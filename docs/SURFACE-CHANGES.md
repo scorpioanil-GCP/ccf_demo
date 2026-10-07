@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2163 entries**, of which **1892** name a public Python surface.
+**2164 entries**, of which **1892** name a public Python surface.
 
 ## Added
 
@@ -29030,7 +29030,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-282 entries — 247 public Python surface, 35 not public Python API.
+283 entries — 247 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -34492,3 +34492,15 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `374-03-sec-023-construction-time-authority.md`.*
+
+#### ccf --local
+
+- Surface: runtime/ccf_runtime/cli/main.py
+- Public surface: false
+- Change type: behavior
+- Before: `ccf --local --local-root DIR` refused with `--local requires --local-hitl-policy-key KEY`, and with the key it built the local bundle (store directories, the erasure index file) before reporting that the mode is suspended.
+- After: after the `--local-root` check, a CLI invocation with no embedder authority reports `--local` suspended first, demanding no further flag and building nothing.
+- Why: FW-9, whole-branch review M-9 (`D-IMPL-374`). A suspended mode should not ask for a flag only a working mode would need. The suspension test is restored to pass no key.
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*

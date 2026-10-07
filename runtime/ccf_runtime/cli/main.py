@@ -40,7 +40,7 @@ import asyncio
 import os
 import sys
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 from pathlib import Path
 
 import httpx
@@ -82,6 +82,24 @@ _LOCAL_BASE = "".join(("http", "://", "ccf.local.invalid"))
 EXIT_OK = 0
 EXIT_REFUSED = 1
 EXIT_WIRING = 2
+
+
+def _local_suspended(parser: argparse.ArgumentParser) -> NoReturn:
+    """Refuse ``--local``: the mode is suspended (``SEC-002``; FW-9, ``D-IMPL-374``).
+
+    Stated before any flag only a working mode would need is demanded, and
+    before the local bundle is built (whole-branch review M-9).
+    """
+    parser.error(
+        "`--local` is suspended: it built an app with"
+        " `acknowledge_insecure_default`, and that posture is deleted."
+        " The mode returns once a local deployment declares a scope"
+        " mapping, a token source, an entitlement source, a perspective"
+        " resolver, a refusal recorder and a replay record product"
+        " class. Use `--base-url` against a running deployment"
+        " meanwhile (`SEC-002`)."
+    )
+    raise AssertionError("unreachable: parser.error exits")  # pragma: no cover
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -257,6 +275,12 @@ def main(
         if dependencies is None:
             if not args.local_root:
                 parser.error("--local requires --local-root DIR")
+            if authority is None:
+                # FW-9 (whole-branch review M-9; `D-IMPL-374`): the suspended
+                # mode says so BEFORE it demands a flag only a working mode
+                # would need, and before it builds the local bundle — which
+                # creates the store directories and the erasure index file.
+                _local_suspended(parser)
             if not args.local_hitl_policy_key:
                 parser.error("--local requires --local-hitl-policy-key KEY")
             from ccf_runtime.cli.local import build_local_dependencies
@@ -331,16 +355,7 @@ def main(
                 " none), and none of them has a default (`SEC-002`;"
                 " `SEC-017`)."
             )
-        parser.error(
-            "`--local` is suspended: it built an app with"
-            " `acknowledge_insecure_default`, and that posture is deleted."
-            " The mode returns once a local deployment declares a scope"
-            " mapping, a token source, an entitlement source, a perspective"
-            " resolver, a refusal recorder and a replay record product"
-            " class. Use `--base-url` against a running deployment"
-            " meanwhile (`SEC-002`)."
-        )
-        raise AssertionError("unreachable: parser.error exits")  # pragma: no cover
+        _local_suspended(parser)
     else:
         configured = args.base_url or os.environ.get("CCF_BASE_URL")
         if not configured:

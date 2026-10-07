@@ -732,7 +732,8 @@ def test_local_is_suspended_and_names_what_reviving_it_would_cost(
     assert suspended.value.code == 2
     err = " ".join(capsys.readouterr().err.split())  # wrap-tolerant
     assert "`--local` is suspended" in err
-    assert "--local-hitl-policy-key" not in err
+    # The usage line names every flag; the ERROR must not demand this one.
+    assert "--local requires --local-hitl-policy-key" not in err
     # ...and before building the local bundle: nothing was created under the root.
     assert sorted(path.name for path in tmp_path.iterdir()) == []
     # Each of the five seams a local deployment would have to declare, so the
