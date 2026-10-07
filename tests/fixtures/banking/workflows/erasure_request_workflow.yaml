@@ -1,0 +1,34 @@
+# Banking fixture workflow definition — the erasure request's one gate
+# (SEC-009; D-IMPL-374 (4), U9). The typed approval policy the gate pins is
+# registered by the test (a `ccf.approval-policy` is adopter-registered and not
+# manifest-addressable, D-IMPL-366).
+
+keys:
+  workflow_definition: acme-bank/workflows/erasure-request
+  task_definition: acme-bank/ccf.task-definition/erasure-request
+
+workflow_definition:
+  schema_version: "2.0.0"
+  artifact_version: "1.0.0"
+  name: erasure-request-workflow
+  tenant: acme-bank
+
+  task_definition_ref: "ccf-artifact://acme-bank/ccf.task-definition/erasure-request@1.0.0"
+
+  start: erasure-approval
+  transitions:
+    - source: erasure-approval
+      target: erased
+    - source: erasure-approval
+      target: declined
+  terminal_states: [erased, declined]
+
+  exception_refs: {}
+
+  gate_policies:
+    erasure-approval: "ccf-artifact://acme-bank/approval-policy/erasure-officers@1.0.0"
+
+  gate_routes:
+    erasure-approval:
+      approve: erased
+      reject: declined
