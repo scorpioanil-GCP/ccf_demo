@@ -646,9 +646,19 @@ def build_artifact_server(
         decides it against the grant and this body reads
         ``authorized.tenant``. This is the surface that turns a name into a
         content address, which is why it was never untenanted.
+
+        **It resolves through the consulted store, in the caller's tenant
+        view** (FW-6, whole-branch review M-2; SEC-009, ``D-IMPL-374``), like
+        the blob, presence and names resources beside it. An address the
+        caller's tenant erased answers this resolution's own not-found
+        rendering — ``found: false``, no address — so the MCP store client
+        refuses to resolve it exactly as the in-process consulting store does
+        (CLAUDE.md §7.4: swap the store, nothing else changes). Before this it
+        resolved through the raw store and answered ``found: true`` with the
+        erased address.
         """
         try:
-            address = store.resolve_uri(
+            address = consulted.scoped(authorized.tenant).resolve_uri(
                 uri=artifact_uri(
                     tenant_id=authorized.tenant,
                     artifact_class=artifact_class,
@@ -656,7 +666,7 @@ def build_artifact_server(
                     artifact_version=artifact_version,
                 )
             )
-        except ArtifactUriUnresolvable:
+        except (ArtifactUriUnresolvable, ErasedContentRefused):
             resolution = ArtifactResolution(found=False, content_address=None)
         else:
             resolution = ArtifactResolution(found=True, content_address=address)

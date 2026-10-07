@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2146 entries**, of which **1875** name a public Python surface.
+**2147 entries**, of which **1876** name a public Python surface.
 
 ## Added
 
@@ -28934,7 +28934,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-273 entries — 238 public Python surface, 35 not public Python API.
+274 entries — 239 public Python surface, 35 not public Python API.
 
 ### Public Python surface
 
@@ -33386,6 +33386,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: an `ErasedContentRefused` raised by the product resolver or by the `get_context`, `get_lineage` or `get_replay_record` seam crossed as the tool's or resource's error text, naming the erased address, at every level. A deployment directory's own exception on `invoke_agent`, raised before authorization while reading a rostered caller's reach, crossed as its text.
 - After: the product resource answers the recorded `erased-content` determination (its not-found shell at `minimal`). The three tools have no not-found rendering, so at `minimal` they answer the opaque `ccf-runtime-failure:<id>` and record nothing; above it, the recorded `erased-content` shell. A directory failure on `invoke_agent` is the existing opaque pre-authorization roster refusal; only its type reaches the log.
 - Why: FW-3, probe X1; the SEC-017 carry "a deployment directory exception propagates unchanged".
+- Migration: none.
+
+*Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the name-resolution resource resolved a versioned URI through the raw store, so an address the caller's tenant erased answered `found: true` with the address. The blob, presence and names resources beside it already read through the consulting store.
+- After: the resolution reads the caller's own tenant view of the consulting store. An erased address answers the resolution's own not-found rendering (`found: false`, no address), so `ccf.artifacts.mcp_store.McpArtifactStore.resolve_uri` refuses it as the in-process consulting store does.
+- Why: FW-6, whole-branch review M-2 (`D-IMPL-374`); the CLAUDE.md §7.4 parity claim. Red test: `tests/mcp/test_fw6_artifact_resolution_consults.py`.
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
