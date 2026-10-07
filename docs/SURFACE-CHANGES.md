@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**1993 entries**, of which **1726** name a public Python surface.
+**1999 entries**, of which **1732** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1152 entries — 1108 public Python surface, 44 not public Python API.
+1156 entries — 1112 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -17341,6 +17341,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
+#### ccf.replay.engine.ErasedReplayOutcome
+
+- Surface: ccf.replay.engine.ErasedReplayOutcome
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A positive replay outcome for a replay that met erased content it would have to read to re-execute: the decision record itself, an admitted child contract, or a re-execution artifact. It carries `record_content_address`, `record` (`None` when the record itself was erased) and a non-empty `erased_content`. No product is reproduced.
+- Why: SEC-009; ruling 4 (design §5.2). Replay stays positive and discloses the erasure for every erased input class. It never refuses by name, and it never re-derives a product from bytes the fabric refuses to serve.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_CHILD_CONTRACT
+
+- Surface: ccf.replay.engine.ERASED_SITE_CHILD_CONTRACT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `child-contract`.
+- Why: SEC-009; ruling 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_DECISION_RECORD
+
+- Surface: ccf.replay.engine.ERASED_SITE_DECISION_RECORD
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `decision-record`.
+- Why: SEC-009; ruling 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.ERASED_SITE_REPLAY_ARTIFACT
+
+- Surface: ccf.replay.engine.ERASED_SITE_REPLAY_ARTIFACT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The site token `replay-artifact`, for any other artifact the re-execution reads.
+- Why: SEC-009; ruling 4.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -18052,7 +18100,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-542 entries — 351 public Python surface, 191 not public Python API.
+544 entries — 353 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -24312,6 +24360,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: a consumer that matches exhaustively on the action vocabulary adds the member.
 
 *Recorded by `372-23-sec-023-classification-authority.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: reshaped
+- Before: returned `ReplayOutcome`.
+- After: returns `ReplayOutcome | ErasedReplayOutcome`. It returns the second when the record itself, an admitted child contract, or an artifact the re-execution reads was erased.
+- Why: SEC-009; ruling 4. Before this change the call raised `ErasedContentRefused`.
+- Migration: a caller that replays over a store composed with the erasure consult handles `ErasedReplayOutcome`. On a store with nothing erased it never appears.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.replay.engine.replay_refusal
+
+- Surface: ccf.replay.engine.replay_refusal
+- Public surface: true
+- Change type: reshaped
+- Before: returned `RefusalReplayOutcome`.
+- After: returns `RefusalReplayOutcome | ErasedReplayOutcome`. When nothing reads the children (the no-read path), an erased child is disclosed on the `RefusalReplayOutcome` and the reconstruction completes.
+- Why: SEC-009; ruling 4.
+- Migration: as for `replay`.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
 #### ccf.replay.engine.ReplayOutcome
 

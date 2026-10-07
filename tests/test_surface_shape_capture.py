@@ -844,6 +844,12 @@ _SHAPE_MOVED_BY_FRAGMENT = {
     "ccf.products.composite.ChildCandidate": (
         "370-25-sec-025-child-subject-binding.md"
     ),
+    # SEC-009 ruling 4 (`D-IMPL-374` (4)): replay over erased content stays
+    # positive — `replay` and `replay_refusal` may now return an
+    # `ErasedReplayOutcome` disclosing the erasure instead of raising. The
+    # fragment names both and says why.
+    "ccf.replay.engine.replay": "374-04-sec-009-minimum-erasure.md",
+    "ccf.replay.engine.replay_refusal": "374-04-sec-009-minimum-erasure.md",
 }
 
 
