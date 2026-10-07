@@ -396,7 +396,8 @@ class AuthorizationGate:
         replay_record_product_class: The Context Product class the replay
             routes' records are held to for a caller whose grant declares a
             product roster (``SEC-017``; ``D-IMPL-374`` (2)). A deployment
-            value with no default; ``None`` and a rostered caller is refused.
+            value; the SDK names no class. ``None`` means a rostered caller is
+            refused every replay read.
     """
 
     def __init__(

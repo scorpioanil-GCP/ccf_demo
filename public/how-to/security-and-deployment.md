@@ -554,8 +554,16 @@ Two things you must supply:
   refused when it is built. A rostered principal is refused an agent whose
   entry carries no derived classes.
 - **Declare `replay_record_product_class`** on `build_experience_server` and on
-  `create_app` if rostered principals should read replay records. Without it,
-  a rostered principal is refused every replay read.
+  `create_app` if rostered principals should read replay records. The SDK
+  names no class: `None`, the signature's value when you pass nothing, means a
+  rostered caller is refused every replay read.
+
+`invoke_agent` reads your agent directory before the authorizer decides, so a
+rostered caller the authorizer would refuse still reaches that lookup. The
+refusal it gets is therefore the same for an unknown agent, an agent not
+exposed, an agent without derived classes and an agent reaching an off-roster
+class: it names no agent and no class. The specific reason is logged
+server-side (logger `ccf_runtime.mcp.tenancy`, level INFO).
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

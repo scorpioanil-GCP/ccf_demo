@@ -204,6 +204,15 @@ def _underlying(raised: BaseException) -> BaseException:
     return raised
 
 
+#: The one directory refusal reason the caller is told (fix round 2,
+#: I-NEW-1); the specific reason reaches only the server-side log.
+OPAQUE = "does not resolve to one this grant's product roster reaches"
+
+
+def _logged(caplog: Any) -> str:
+    return "\n".join(record.getMessage() for record in caplog.records)
+
+
 def _invoke_args(key: str) -> dict[str, Any]:
     return {
         "tenant": TENANT,
@@ -218,9 +227,14 @@ def _invoke_args(key: str) -> dict[str, Any]:
 
 
 def test_a_rostered_principal_cannot_invoke_an_agent_touching_an_off_roster_product(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, caplog: Any
 ) -> None:
-    """SEC-017 on ``invoke_agent``: refused BY NAME, and the invoker never entered."""
+    """SEC-017 on ``invoke_agent``: refused, and the invoker never entered.
+
+    Fix round 2 (I-NEW-1): the caller is told one opaque reason; the
+    off-roster class is named in the server-side log only.
+    """
+    caplog.set_level("INFO", logger="ccf_runtime.mcp.tenancy")
     from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL
 
     world = _World(tmp_path)
@@ -230,7 +244,9 @@ def test_a_rostered_principal_cannot_invoke_an_agent_touching_an_off_roster_prod
     assert served is None, f"served an agent touching {OFF_ROSTER}: {served}"
     refusal = _underlying(raised)  # type: ignore[arg-type]
     assert type(refusal).__name__ == "ProductOutsideRosterRefused", repr(raised)
-    assert OFF_ROSTER in str(refusal) and INVOKE_AGENT_TOOL in str(refusal)
+    assert OPAQUE in str(refusal) and INVOKE_AGENT_TOOL in str(refusal)
+    assert OFF_ROSTER not in str(refusal)
+    assert OFF_ROSTER in _logged(caplog)
     assert world.invoked == []
     # Positive control in the same world: the on-roster agent IS dispatched,
     # so the refusal above is the roster's and not a broken door's.
@@ -392,7 +408,7 @@ def test_an_empty_roster_invokes_nothing_and_lists_nothing(
 
 
 def test_a_rostered_principal_is_refused_an_agent_that_declares_no_classes(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, caplog: Any
 ) -> None:
     """Undeclared is not on any roster: refused by name, and not listed."""
     from ccf_runtime.mcp.experience import (
@@ -401,6 +417,7 @@ def test_a_rostered_principal_is_refused_an_agent_that_declares_no_classes(
         ExposedAgent,
     )
 
+    caplog.set_level("INFO", logger="ccf_runtime.mcp.tenancy")
     world = _World(tmp_path)
     undeclared = ExposedAgent(
         definition_key="agent-undeclared",
@@ -436,32 +453,36 @@ def test_a_rostered_principal_is_refused_an_agent_that_declares_no_classes(
     )
     refusal = _underlying(raised)  # type: ignore[arg-type]
     assert type(refusal).__name__ == "ProductOutsideRosterRefused"
-    assert "carries no product classes derived" in str(refusal)
+    assert OPAQUE in str(refusal) and "agent-undeclared" not in str(refusal)
+    assert "carries no product classes derived" in _logged(caplog)
     served, raised = _call(world, frozenset({ON_ROSTER}), LIST_AGENTS_TOOL, {"tenant": TENANT})
     assert raised is None and json.loads(served or "")["agents"] == []
     assert world.invoked == []
 
 
 def test_a_rostered_principal_is_refused_an_agent_the_directory_does_not_expose(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, caplog: Any
 ) -> None:
     from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL
 
+    caplog.set_level("INFO", logger="ccf_runtime.mcp.tenancy")
     world = _World(tmp_path)
     _, raised = _call(
         world, frozenset({ON_ROSTER}), INVOKE_AGENT_TOOL, _invoke_args("agent-absent")
     )
     refusal = _underlying(raised)  # type: ignore[arg-type]
     assert type(refusal).__name__ == "ProductOutsideRosterRefused"
-    assert "not exposed" in str(refusal)
+    assert OPAQUE in str(refusal) and "agent-absent" not in str(refusal)
+    assert "not exposed" in _logged(caplog)
     assert world.invoked == []
 
 
-def test_a_rostered_invoke_with_no_directory_is_refused_by_name(
-    tmp_path: pathlib.Path,
+def test_a_rostered_invoke_with_no_directory_is_refused(
+    tmp_path: pathlib.Path, caplog: Any
 ) -> None:
     from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL, build_experience_server
 
+    caplog.set_level("INFO", logger="ccf_runtime.mcp.tenancy")
     world = _World(tmp_path)
     source, recorder = _entitlement_world(tmp_path / "nodir")
     world.server = build_experience_server(
@@ -480,7 +501,8 @@ def test_a_rostered_invoke_with_no_directory_is_refused_by_name(
     _, raised = _call(world, frozenset({ON_ROSTER}), INVOKE_AGENT_TOOL, _invoke_args(AGENT_ON))
     refusal = _underlying(raised)  # type: ignore[arg-type]
     assert type(refusal).__name__ == "ProductOutsideRosterRefused"
-    assert "no agent directory" in str(refusal)
+    assert OPAQUE in str(refusal)
+    assert "no agent directory" in _logged(caplog)
     assert world.invoked == []
     # And the unrostered caller is unaffected by the absent directory.
     _, raised = _call(world, None, INVOKE_AGENT_TOOL, _invoke_args(AGENT_ON))

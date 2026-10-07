@@ -78,6 +78,7 @@ from __future__ import annotations
 import functools
 import inspect
 import json
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final, TypeVar
@@ -131,6 +132,21 @@ from ccf_runtime.mcp.auth import (
 )
 
 __ccf_mode__ = "algorithmic"
+
+_LOGGER = logging.getLogger(__name__)
+
+#: The ONE reason every directory-resolved roster refusal gives the caller
+#: (``SEC-017`` fix round 2, I-NEW-1). The roster is held before the
+#: authorizer, so a caller the authorizer would deny reaches the directory
+#: lookup; if *unknown agent*, *not exposed*, *no derived classes* and
+#: *reaches X, off the roster* read differently, that caller learns which
+#: agents exist and which classes they touch. So none of them is told: the
+#: specific reason is logged server-side only, and no class name and no
+#: definition key or version is echoed.
+_OPAQUE_DIRECTORY_REASON: Final[str] = (
+    "the agent named does not resolve to one this grant's product roster"
+    " reaches"
+)
 
 __all__ = [
     "AMBIENT_STDIO_CLAIM",
@@ -411,6 +427,33 @@ class ProductReach:
     resolve: ProductResolver | None = None
     unknown: str | None = None
 
+    def __post_init__(self) -> None:
+        """Exactly one reading, and no empty statement (fix round 2, minor (i)).
+
+        Held at construction rather than only in the four readers, so a
+        reach built directly cannot state no reading, two readings, or an
+        empty one.
+        """
+        stated = [
+            self.argument,
+            self.declared,
+            self.undeclared,
+            self.resolve,
+            self.unknown,
+        ]
+        if sum(value is not None for value in stated) != 1:
+            raise ValueError(
+                "a product reach states exactly one reading — argument,"
+                " declared, undeclared, resolve or unknown (SEC-017)"
+            )
+        for name in ("argument", "undeclared", "unknown"):
+            value = getattr(self, name)
+            if value is not None and not value:
+                raise ValueError(
+                    f"a product reach's {name} is non-empty: an empty"
+                    " statement is a reading nobody made (SEC-017)"
+                )
+
 
 def _hold_to_roster(
     surface: str,
@@ -438,13 +481,37 @@ def _hold_to_roster(
     elif reach.declared is not None:
         reached = reach.declared
     elif reach.resolve is not None:
-        reached = reach.resolve(tenant, arguments)
-    else:  # pragma: no cover - unconstructible through the readers
+        # A resolved reach reads a directory before the authorizer: every
+        # outcome refuses alike, and only the log knows which (I-NEW-1).
+        try:
+            reached = reach.resolve(tenant, arguments)
+        except ProductOutsideRosterRefused as specific:
+            raise _opaque_directory_refusal(surface, str(specific)) from None
+        outside = reached - roster
+        if outside:
+            raise _opaque_directory_refusal(
+                surface,
+                "reaches "
+                + ", ".join(bounded_echo(name) for name in sorted(outside))
+                + ", outside the roster",
+            )
+        return
+    else:  # pragma: no cover - unconstructible: __post_init__
         raise roster_refusal(surface, "this surface states no product reading")
     outside = reached - roster
     if outside:
         named = ", ".join(bounded_echo(name) for name in sorted(outside))
         raise roster_refusal(surface, f"it reaches {named}, outside the roster")
+
+
+def _opaque_directory_refusal(
+    surface: str, specific: str
+) -> ProductOutsideRosterRefused:
+    """Log ``specific`` server-side; return the one refusal the caller sees (I-NEW-1)."""
+    _LOGGER.info(
+        "SEC-017 roster refusal on %s before authorization: %s", surface, specific
+    )
+    return roster_refusal(surface, _OPAQUE_DIRECTORY_REASON)
 
 
 @dataclass(frozen=True)
@@ -720,12 +787,10 @@ class TenantGuardedServer:
 
     @staticmethod
     def products_unknown(reason: str) -> ProductReach:
-        """The surface knows no product class at the call — said, with ``reason``."""
-        if not reason:
-            raise ValueError(
-                "a surface that knows no product class says why; an empty"
-                " reason is a reading nobody stated (SEC-017)"
-            )
+        """The surface knows no product class at the call — said, with ``reason``.
+
+        An empty ``reason`` is refused by :class:`ProductReach` itself.
+        """
         return ProductReach(unknown=reason)
 
     # --- registration ----------------------------------------------------------

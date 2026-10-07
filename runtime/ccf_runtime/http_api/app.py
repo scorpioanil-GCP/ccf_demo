@@ -266,6 +266,11 @@ def create_app(
             run here and refuse rather than building. There is deliberately no
             warn-and-serve posture and no per-request refusal: failing closed
             only on denial would make auditability contingent on outcome.
+        replay_record_product_class: The Context Product class the
+            ``/replay/...`` routes' records are held to for a bearer whose
+            grant declares a product roster (``SEC-017``; ``D-IMPL-374`` (2)).
+            A deployment value; the SDK names no class. ``None`` means a
+            rostered caller is refused every replay read.
 
     Returns:
         A configured ``FastAPI`` application. Deliberately not started and

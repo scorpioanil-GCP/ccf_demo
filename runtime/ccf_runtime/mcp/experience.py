@@ -817,10 +817,13 @@ def _agent_reach(
     """The product classes one ``invoke_agent`` call reaches (``SEC-017``).
 
     Read from the deployment's directory — the agent named on the wire, at the
-    version named on the wire — and refused by name, rather than admitted,
-    wherever it cannot be read: no directory configured, the agent not
-    exposed, or the agent exposed with no derived classes. Runs inside the
-    guard, before the authorizer is asked (fix round 1, IMPORTANT 2).
+    version named on the wire — and refused, rather than admitted, wherever it
+    cannot be read: no directory configured, the agent not exposed, or the
+    agent exposed with no derived classes. Runs inside the guard, before the
+    authorizer is asked (fix round 1, IMPORTANT 2) — so the specific reason
+    raised here reaches the server-side log ONLY; the guard turns every
+    outcome, off-roster included, into one opaque refusal naming no agent and
+    no class (fix round 2, I-NEW-1).
     """
 
     def reach(tenant: str, arguments: Mapping[str, Any]) -> frozenset[str]:
@@ -1049,12 +1052,12 @@ def build_experience_server(
         replay_record_product_class: The Context Product class the record
             :data:`GET_REPLAY_RECORD_TOOL` serves is decided under for a
             principal whose grant declares a product roster (``SEC-017``;
-            ``D-IMPL-374`` (2)). A deployment value with no SDK default.
-            Optional: a principal with no roster is tenant-wide and never
-            consults it, while a rostered principal is refused the tool by
-            name unless it is declared AND on the roster — an undeclared
-            record is an unrostered reach. Refused when the tool is not
-            allowlisted.
+            ``D-IMPL-374`` (2)). A deployment value; the SDK names no class.
+            ``None`` means a rostered caller is refused every replay read: a
+            principal with no roster is tenant-wide and never consults it,
+            while a rostered principal is refused the tool by name unless it
+            is declared AND on the roster — an undeclared record is an
+            unrostered reach. Refused when the tool is not allowlisted.
         lineage_tenant: The tenant :data:`GET_LINEAGE_TOOL` is decided under,
             since that tool carries no arguments to decide against. Required
             when it is allowlisted; refused when it is not.

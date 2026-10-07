@@ -469,7 +469,33 @@ def test_the_helper_derives_every_artifact_carried_value() -> None:
 
 
 def test_a_roster_refusal_echoes_a_bounded_identifier(tmp_path: pathlib.Path) -> None:
-    """Minor: a caller's definition_key is echoed at most 64 characters."""
+    """Minor: a caller-supplied class is echoed at most 64 characters.
+
+    Fix round 2 moved this off ``invoke_agent``, whose refusal now echoes no
+    caller value at all (I-NEW-1), onto the egress product resource, whose
+    refusal names the caller's own class argument.
+    """
+    from ccf_runtime.mcp.egress import product_uri
+
+    registry = ControlPlaneRegistry()
+    server = _egress(tmp_path, registry, _Seams())
+    long_class = "c" * 5000
+    raised = _drive(
+        lambda: anyio.run(
+            server.read_resource,
+            product_uri(tenant=TENANT, product_class=long_class, version="1.0.0"),
+        ),
+        frozenset({ROSTERED}),
+    )
+    refusal = _roster_refusal(raised)
+    assert refusal is not None, repr(raised)
+    assert "c" * 64 in str(refusal) and "c" * 65 not in str(refusal)
+
+
+def test_no_invoke_refusal_echoes_a_definition_identifier(
+    tmp_path: pathlib.Path,
+) -> None:
+    """I-NEW-1: an ``invoke_agent`` roster refusal carries no caller value."""
     from ccf_runtime.mcp.experience import INVOKE_AGENT_TOOL, build_experience_server
 
     source, recorder = _entitlement_world(tmp_path)
@@ -487,15 +513,14 @@ def test_a_roster_refusal_echoes_a_bounded_identifier(tmp_path: pathlib.Path) ->
         perspective_resolver=_perspective,
         refusal_recorder=recorder,
     )
-    long_key = "k" * 5000
     raised = _drive(
         lambda: anyio.run(
             server.call_tool,
             INVOKE_AGENT_TOOL,
             {
                 "tenant": TENANT,
-                "definition_key": long_key,
-                "definition_version": "v" * 5000,
+                "definition_key": "key-xyzzy",
+                "definition_version": "version-plugh",
                 "skill": "s",
                 "arguments": {},
             },
@@ -503,9 +528,8 @@ def test_a_roster_refusal_echoes_a_bounded_identifier(tmp_path: pathlib.Path) ->
         frozenset({ROSTERED}),
     )
     refusal = _roster_refusal(raised)
-    assert refusal is not None
-    assert "k" * 64 in str(refusal) and "k" * 65 not in str(refusal)
-    assert "v" * 65 not in str(refusal)
+    assert refusal is not None, repr(raised)
+    assert "xyzzy" not in str(refusal) and "plugh" not in str(refusal)
 
 
 def test_the_grant_the_authorizer_sees_carries_the_roster(tmp_path: pathlib.Path) -> None:

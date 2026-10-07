@@ -16567,7 +16567,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent.
-- After: which Context Product classes one guarded surface's call reaches. Built only through `TenantGuardedServer.products_from_argument`, `products_declared`, `products_resolved` and `products_unknown`.
+- After: which Context Product classes one guarded surface's call reaches. Built through `TenantGuardedServer.products_from_argument`, `products_declared`, `products_resolved` and `products_unknown`. Construction itself refuses no reading, two readings, or an empty one, so a reach built directly holds the same rules.
 - Why: SEC-017 fix round 1. Each surface states its product reading, and the guard holds a declared roster to it before the authorizer.
 - Migration: see `ccf_runtime.mcp.tenancy.TenantGuardedServer`.
 
@@ -23659,7 +23659,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no `replay_record_product_class`. `list_agents`, `invoke_agent` and `get_replay_record` were tenant-decided only.
-- After: adds the optional keyword `replay_record_product_class` (no default value; refused when `get_replay_record` is not allowlisted). For a caller whose grant declares a roster, the guard refuses by name, before the authorizer: the `context_product` resource, `get_context` and `get_lineage` for a class off the roster; `invoke_agent` if the directory is missing, the agent is not exposed, carries no contract, or any of its classes is off the roster; `get_replay_record` unless `replay_record_product_class` is declared and on the roster. `list_agents` lists only agents that `invoke_agent` would dispatch for that caller. A caller with no roster is unchanged.
+- After: adds the optional keyword `replay_record_product_class`. The SDK names no class, and `None` means a rostered caller is refused every replay read. It is refused when `get_replay_record` is not allowlisted. For a caller whose grant declares a roster, the guard refuses by name, before the authorizer: the `context_product` resource, `get_context` and `get_lineage` for a class off the roster; `invoke_agent` if the directory is missing, the agent is not exposed, carries no contract, or any of its classes is off the roster; `get_replay_record` unless `replay_record_product_class` is declared and on the roster. `list_agents` lists only agents that `invoke_agent` would dispatch for that caller. A caller with no roster is unchanged.
 - Why: SEC-017.
 - Migration: none for unrostered deployments. A deployment that issues rostered grants and exposes `get_replay_record` declares `replay_record_product_class`.
 
@@ -23719,7 +23719,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: no replay class.
-- After: adds the keyword `replay_record_product_class: str | None = None`, with no SDK default value. Without it, a rostered bearer is refused every replay read.
+- After: adds the keyword `replay_record_product_class: str | None = None`. The SDK names no class, and `None` means a rostered bearer is refused every replay read.
 - Why: SEC-017 fix round 1.
 - Migration: a deployment that issues rostered grants and serves replay over HTTP declares it.
 
@@ -30975,7 +30975,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `tool()` and `resource()` took `action`, `subject`, `resource`, `mutating`. Nothing held a product roster.
-- After: `tool()` and `resource()` also require `products: ProductReach` (keyword-only, no default), from four new static readers. After the tenant floor and before the authorizer, a grant's declared roster is held to it, and a call off the roster is refused with `ProductOutsideRosterRefused`: no allow is recorded and nothing is minted. The grant handed to the authorizer now carries `products`.
+- After: `tool()` and `resource()` also require `products: ProductReach` (keyword-only, no default), from four new static readers. After the tenant floor and before the authorizer, a grant's declared roster is held to it, and a call off the roster is refused with `ProductOutsideRosterRefused`: no allow is recorded and nothing is minted. The grant handed to the authorizer now carries `products`. For a directory-resolved reach (`invoke_agent`), every outcome (unknown, not exposed, no derived classes, off-roster) gets one opaque refusal that names no agent and no class. The specific reason is logged at INFO on `ccf_runtime.mcp.tenancy` (fix round 2, I-NEW-1).
 - Why: SEC-017 fix round 1, IMPORTANTS 1 and 2.
 - Migration: a deployment registering its own surfaces on the guard adds `products=` to each: `door.products_unknown("<why>")` for a surface that knows no product class at the call.
 
