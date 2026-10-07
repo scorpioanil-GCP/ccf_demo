@@ -132,6 +132,21 @@ the run's own absolute scratch root; the SDK derives the lock file inside it
 from the graph identity. This is a deliberate change to the SDK surface the
 example consumes (D-IMPL-261), not a repair of the example.
 
+> **Dated note, 2026-10-07 (`D-IMPL-374`, PC3).** The SDK now refuses, at
+> connection validation, a `writer_lease_lock_dir` that is group- or
+> world-writable, not owned by the booting user, missing, or reached through a
+> symbolic link. `run.py`'s `ask_all` created each question's scratch root,
+> which `artifacts/backends.yaml` declares as that directory, with a plain
+> `mkdir`. On a host whose umask is `0002` the root therefore came out mode
+> `0775`, and every run was refused with `InvalidBackendConfig` before any
+> network call. `ask_all` now creates each root and then sets it to mode `0700`
+> with `os.chmod`, which no umask can widen, and
+> `tests/examples/test_s1_01_governed_resolver_adoption.py` does the same for
+> the roots it builds. `tests/examples/test_s1_01_lock_root_umask.py` holds
+> this offline under a forced umask of `0002`. PC3 deliberately changed the SDK
+> surface this example consumes (`D-IMPL-261`); this is not a repair of the
+> example, and the `os.chmod` in `ask_all` is the whole of PC3's change to it.
+
 Each run attaches to a **fresh graph inside one CCF-owned ledger**, so repeated
 runs accumulate graphs in a long-lived container. That is the deliberate trade
 for a single Fluree lane; discarding the container discards them all.

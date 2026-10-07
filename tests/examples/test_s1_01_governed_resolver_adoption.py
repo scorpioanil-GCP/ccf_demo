@@ -119,6 +119,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import pathlib
 import sys
 from tests.composition import declared_erasure_trust, no_erasures
@@ -389,6 +390,10 @@ def adopted_resolver(
                     break
         root = tmp_path / f"q{len(booted)}"
         root.mkdir(parents=True, exist_ok=True)
+        # The deployment declares this root as its writer-lease lock directory,
+        # which PC3 refuses if group- or world-writable (`D-IMPL-374`); set
+        # owner-only explicitly, because `mkdir`'s mode passes through the umask.
+        os.chmod(root, 0o700)
         fabric, scenario, resolver = _wire(
             example, root=root, question=question, service_instant=service_instant
         )
@@ -431,6 +436,9 @@ def test_the_resolver_serves_a_class_whose_operators_include_similarity(
     """
     root = tmp_path / "adopted"
     root.mkdir()
+    # The deployment's writer-lease lock directory: owner-only whatever the
+    # umask (PC3, `D-IMPL-374`), as `run.py`'s `ask_all` makes it.
+    os.chmod(root, 0o700)
     booted, scenario, resolver = _wire(
         example,
         root=root,

@@ -68,6 +68,7 @@ selects from. Nothing it writes enters CCF's Context Graph (phase 16 CONTEXT
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import sys
 import tempfile
@@ -155,6 +156,11 @@ def ask_all(
     for index, request in enumerate(requests):
         scratch = root / f"q{index}"
         scratch.mkdir(parents=True, exist_ok=True)
+        # This directory is the question's declared writer-lease lock directory
+        # (`artifacts/backends.yaml`), which the SDK refuses if it is group- or
+        # world-writable (PC3, `D-IMPL-374`). `mkdir`'s mode passes through the
+        # process umask; `chmod`'s does not, so owner-only is set explicitly.
+        os.chmod(scratch, 0o700)
         answered.append(
             run(
                 root=scratch,
