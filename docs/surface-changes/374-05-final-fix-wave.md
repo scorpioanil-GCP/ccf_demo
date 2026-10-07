@@ -319,7 +319,7 @@ and X2.
 - Public surface: true
 - Change type: added
 - Before: absent. A declared lock directory was checked only for being absolute, and it was resolved at each acquisition.
-- After: `require_private_lock_directory(value) -> str`, the config-validation half of the lock-directory rule. It refuses, by name, a path that differs from its real path (any symbolic-link component; the message names the real path to declare), one that does not exist or is not a directory, one not owned by the effective user, and one that is group- or world-writable.
+- After: `require_private_lock_directory(value) -> str`, the lock-directory rule, judged at config validation and again at every lease acquisition (N-5). It refuses, by name, a path that differs from its real path (any symbolic-link component; the message names the real path to declare), one that does not exist or is not a directory, one not owned by the effective user, and one that is group- or world-writable.
 - Why: PC3, panel C3 (`D-IMPL-374`; SEC-013). A link retargeted between two writers' acquisitions gave one network graph two lock files, and both writers minted (two processes measured). Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`.
 - Migration: declare the lock directory's real path, owned by the user every writer runs as, mode `0700` or `0755`.
 
@@ -339,9 +339,9 @@ and X2.
 - Public surface: true
 - Change type: behavior
 - Before: the declared directory was resolved at each acquisition, through any symbolic link.
-- After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition re-checks that the directory is still its own real path. Ownership and mode are judged at config validation; a deployment constructing the lease directly keeps them itself.
-- Why: PC3.
-- Migration: construct it over the directory's real path.
+- After: a directory reached through a symbolic link is refused at construction (`ValueError` naming the real path), and every acquisition judges the whole of `require_private_lock_directory` again: its own real path, existing, a directory, owned by the effective user, and not group- or world-writable (N-5, the scoped re-review). A directory widened, swapped or reassigned after validation, and one a direct constructor never made private, is refused at acquisition with `ValueError`, before a lock file is opened in it. The directory's ancestors are judged for symbolic links only, never for owner or mode.
+- Why: PC3. N-5: an acquisition re-checked only the real path, so a directory changed to `0777` after validation, or swapped for another real `0777` directory, was acquired. Red tests: `tests/graph/test_pc3_lock_dir_symlink.py`, `tests/graph/test_n5_lease_acquisition_rechecks.py`.
+- Migration: construct it over the directory's real path, owned by the user every writer runs as, mode `0700` or `0755`; keep every ancestor writable only by that user or root.
 
 ## ccf.graph.backends.fluree_write.FlureeConnection
 

@@ -27,7 +27,13 @@ declare; one that does not exist or is not a directory; one not owned by this
 process's effective user; and one that is group- or world-writable (the
 erasure index's directory posture). Direct construction
 (:func:`lock_directory_writer_lease`) refuses the symlinked directory too, and
-every acquisition re-checks that the directory is still its own real path.
+every acquisition judges the whole rule again — real path, existence, owner and
+mode (N-5) — because anyone who can write the directory between validation and
+the acquisition can replace the lock file. Only the declared directory's own
+owner and mode are judged, not its ancestors' (a symbolic link anywhere in the
+path is still refused): a principal who can write a parent can rename the
+directory and put another in its place between the check and the lock file's
+open, so every ancestor must be writable only by the writers' user or root.
 
 **What a file lease covers, disclosed rather than implied.** An exclusive
 ``flock`` excludes only writers that share that filesystem with real
@@ -164,8 +170,9 @@ def _require_real_lock_directory(value: str) -> str:
 def require_private_lock_directory(value: str) -> str:
     """Return ``value`` if it names, by its real path, an existing directory private to this user; refuse it by name otherwise.
 
-    PC3, panel C3 (``D-IMPL-374``; SEC-013). The config-validation half of the
-    lock-directory rule (:data:`AbsoluteLockDirectory`): the declared path must
+    PC3, panel C3 (``D-IMPL-374``; SEC-013). The lock-directory rule, judged at
+    config validation (:data:`AbsoluteLockDirectory`) and again at every lease
+    acquisition (:func:`lock_directory_writer_lease`, N-5): the declared path must
     be its own real path (no symbolic link in any component — the message names
     the real path to declare), must exist and be a directory, must be owned by
     this process's effective user, and must not be group- or world-writable —
@@ -314,24 +321,31 @@ def lock_directory_writer_lease(lock_dir: str | Path) -> WriterLeaseSource:
 
     **A directory reached through a symbolic link is refused** (PC3, panel C3),
     here and again at every acquisition: a link retargeted between two writers'
-    acquisitions would give one graph two lock files. Ownership and mode are
-    judged at config validation (:func:`require_private_lock_directory`); a
-    deployment constructing this lease directly owns those itself.
+    acquisitions would give one graph two lock files. **Every acquisition
+    judges the whole of** :func:`require_private_lock_directory` **again**
+    (N-5, ``D-IMPL-374``): real path, existence, owner and mode, so a directory
+    widened, swapped or reassigned after validation — or never private, for a
+    lease constructed directly — is refused before a lock file is opened in it.
+    The directory's ancestors are judged for symbolic links only, never for
+    owner or mode.
 
     Raises:
         ValueError: ``lock_dir`` is not an absolute path, or reaches its
             directory through a symbolic link (the message names the real
             path); and, from an acquisition, the directory has since become
-            reachable only through one.
+            reachable only through one, is missing or not a directory, is not
+            owned by this process's effective user, or is group- or
+            world-writable.
     """
     declared = require_absolute_lock_directory(str(lock_dir))
     directory = Path(_require_real_lock_directory(declared))
 
     def acquire(graph_identity: str) -> WriterLease:
-        return LockFileWriterLease(
-            path=Path(_require_real_lock_directory(str(directory)))
-            / lock_file_name(graph_identity)
-        )
+        # PC3 and N-5 (`D-IMPL-374`): the whole rule, at every acquisition —
+        # anyone who could write the directory since it was last judged could
+        # replace the lock file this writer is about to take.
+        require_private_lock_directory(str(directory))
+        return LockFileWriterLease(path=directory / lock_file_name(graph_identity))
 
     return acquire
 

@@ -444,11 +444,18 @@ not a directory, one not owned by the booting process's effective user, and one
 that is group- or world-writable. The link is refused because the directory was
 resolved at each acquisition: a link retargeted between two writers'
 acquisitions, as at a release cut-over through `/srv/ccf/current`, gave one
-graph two lock files and both writers minted. A lease constructed directly with
-`ccf.graph.leases.lock_directory_writer_lease` refuses a linked directory too
-and re-checks it at every acquisition; its ownership and mode are then the
-deployment's to keep. Every process that writes the graph therefore runs as the
-directory's owner.
+graph two lock files and both writers minted. Every lease acquisition judges
+the same rule again (real path, existence, owner and mode; N-5, D-IMPL-374), so
+a directory widened, swapped or reassigned after validation is refused at the
+boot mint before a lock file is opened in it. A lease constructed directly with
+`ccf.graph.leases.lock_directory_writer_lease` refuses a linked directory when
+it is constructed and is held to the whole rule at every acquisition. Every
+process that writes the graph therefore runs as the directory's owner. **Only
+the declared directory's own owner and mode are checked, not its ancestors'**
+(a symbolic link anywhere in the path is still refused): a principal who can
+write a parent directory can rename the lock directory and put another in its
+place between the check and the lock file's open, so keep every ancestor
+writable only by the writers' user or root.
 
 Consequences for a deployment on the stores that do lease:
 

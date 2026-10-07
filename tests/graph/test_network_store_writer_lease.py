@@ -579,12 +579,33 @@ def test_a_symlinked_lock_file_is_refused_not_followed(tmp_path: Path) -> None:
 def test_a_lock_file_owned_by_another_user_is_a_held_refusal(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Another principal's lock file refuses as ``WriterLeaseHeld``, never ``PermissionError``."""
+    """Another principal's lock file refuses as ``WriterLeaseHeld``, never ``PermissionError``.
+
+    The lock FILE is foreign here, inside a directory this user owns. Since
+    N-5 (``D-IMPL-374``) every acquisition judges the directory's owner too, so
+    a process posing as another user is refused at the directory before any
+    lock file is opened (``tests/graph/test_n5_lease_acquisition_rechecks.py``).
+    The foreign owner is therefore reported for the opened lock file's
+    descriptor alone, as ``ccf.graph.leases`` reads it.
+    """
+    import os
+
     import ccf.graph.leases as leases
     from ccf.graph.protocols import WriterLeaseHeld
 
-    real_uid = os_geteuid()
-    monkeypatch.setattr(leases.os, "geteuid", lambda: real_uid + 1)
+    class _ForeignLockFile:
+        """``os`` as the leases module sees it, except that an opened lock file is another user's."""
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(os, name)
+
+        @staticmethod
+        def fstat(fd: int) -> os.stat_result:
+            fields = list(os.fstat(fd))
+            fields[4] = os.geteuid() + 1  # st_uid
+            return os.stat_result(fields)
+
+    monkeypatch.setattr(leases, "os", _ForeignLockFile())
     with pytest.raises(WriterLeaseHeld, match="owned by another user"):
         leases.lock_directory_writer_lease(tmp_path)("graph://foreign")
 
