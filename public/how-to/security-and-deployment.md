@@ -468,13 +468,21 @@ Three things follow, and all three are mechanism:
   operator admits on an attribute that a rule writes with no
   `attribute_authorities`, `load_and_boot` and `load_config_and_boot` refuse
   with `UngovernedClassificationAttribute`
-  (`src/ccf/deployment/manifest.py::UngovernedClassificationAttribute`)
+  (`src/ccf/graph/protocols.py::UngovernedClassificationAttribute`)
   before anything is registered.
 
-Authority is only as strong as your binding of `SourceIdentity.system_id` to
-a real system. The SDK does not attest source identity: the adapter declares
-it. A fabric composed by hand through `ccf.boot.boot` never sees operator
-parameters, so the boot check does not cover it.
+Authority is only as strong as your binding of `SourceIdentity.system_id` to a
+real system. The SDK does not attest source identity: the adapter declares it.
+The same refusal also fires when a classification consumer is built or used:
+`build_operator_registry`, `PolicyFilter.apply` and the booted reader's
+`query` refuse a classification map the authority does not cover, and refuse a
+view not read through a booted fabric's reader with
+`ClassificationAuthorityMissing`, so a hand-built operator, a hand-composed
+`ccf.boot.boot` and a per-request registry are covered too (`D-IMPL-374`;
+`src/ccf/graph/protocols.py::require_classification_authority`). A claim from
+an unauthorized source that omits a governed attribute is still written, and
+it blanks the label, but it is recorded as a `governed_attribute_omitted`
+audit event (`src/ccf/assembly/worker.py::AssemblyWorker.ingest`).
 
 ### 4.8 Two deployment limitations, disclosed rather than fixed
 
