@@ -283,14 +283,31 @@ class SignedContextProduct(CCFContract):
         verify with, so it cannot itself have been verified yet. Every claim in
         it is a claim until :meth:`IdentityProvider.verify` returns.
 
+        **Every decode failure is ``SignatureMalformed``** (T4-P1; `D-IMPL-374`,
+        final fix wave FW-1). The header is untrusted input read before any
+        verification, so whatever the JSON decoder raises — ``ValueError`` for
+        text that is not JSON, ``RecursionError`` for a header nested past the
+        decoder's depth, or any other failure — means the envelope is malformed.
+        An uncaught decode failure here is not a refusal anywhere: the whole-branch
+        review measured a nested header crashing every erasure store
+        composition, A2A admission and HITL attestation, the three families
+        that read a header through this method.
+
         Raises:
-            SignatureMalformed: the header is not base64url JSON object.
+            SignatureMalformed: the header is not base64url, cannot be decoded
+                as JSON (any decoder failure, ``RecursionError`` included), or
+                is not a JSON object.
         """
+        raw = _b64url_decode(self.protected)
         try:
-            decoded = json.loads(_b64url_decode(self.protected))
+            decoded = json.loads(raw)
         except ValueError as error:
             raise SignatureMalformed(
                 "protected header is not JSON"
+            ) from error
+        except Exception as error:  # noqa: BLE001 — every decode failure is a malformed header (T4-P1)
+            raise SignatureMalformed(
+                f"protected header cannot be decoded ({type(error).__name__})"
             ) from error
         if not isinstance(decoded, dict):
             raise SignatureMalformed("protected header is not a JSON object")
