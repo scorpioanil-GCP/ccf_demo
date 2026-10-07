@@ -156,3 +156,20 @@ def test_in_process_the_control_a_declared_call_is_served(
 
     assert len(carried) == 1
     assert json.loads(structured["result"])["answered"]
+
+
+def test_the_advertised_schema_states_the_closed_world(
+    assembled: Any, tmp_path: Path
+) -> None:
+    """What ``tools/list`` advertises is what the door enforces.
+
+    Supplementary to the two refusal legs: the refusal is the enforcement, and
+    ``additionalProperties: false`` on the advertised ``inputSchema`` is the
+    statement of it a client can read before calling.
+    """
+    server = _mcp_server(
+        tmp_path, servable=assembled.served, address=assembled.address, carried=[]
+    )
+    listed = {tool.name: tool for tool in anyio.run(server.list_tools)}
+
+    assert listed[PRODUCT_REQUEST_TOOL].inputSchema.get("additionalProperties") is False
