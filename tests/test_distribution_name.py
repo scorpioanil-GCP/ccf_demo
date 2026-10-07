@@ -13,7 +13,7 @@ replay pin (``src/ccf/graph/registry.py::_sdk_version`` into
 ``graph_adapter_version``), so a decision record would carry Microsoft's
 version as the SDK's.
 
-The IMPORT name stays ``ccf``; only the distribution name changes. Five
+The IMPORT name stays ``ccf``; only the distribution name changes. Six
 checks, two of them behavioral:
 
 1. the package metadata (``[project] name`` in ``pyproject.toml``) is
@@ -37,7 +37,12 @@ checks, two of them behavioral:
    classifiers beginning with Private ::" — so a stray upload of the
    proprietary SDK under the name Dave owns there is refused, while the empty
    placeholder in ``packaging/pypi-placeholder/`` must carry no ``Private ::``
-   classifier, or the name could not be claimed at all.
+   classifier, or the name could not be claimed at all;
+6. no Python 3 installer can ever select the placeholder: it declares
+   ``requires-python = "<3"``. Measured by the review: with the SDK installed
+   and an index holding only the placeholder, ``pip install "ccf-sdk[mongo]"``
+   backtracked to the placeholder, which has no dependencies and so always
+   resolves, and replaced the SDK with it (exit 0).
 """
 
 from __future__ import annotations
@@ -50,6 +55,7 @@ from pathlib import Path
 
 import pytest
 from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 import tools.check_version_stamp as version_gate
@@ -75,6 +81,11 @@ PROBE_SDK_VERSION = "9.9.9"
 #: PyPI's upload-refusal classifier. PyPI rejects every upload whose metadata
 #: carries a classifier beginning ``Private ::`` (https://pypi.org/classifiers/).
 DO_NOT_UPLOAD = "Private :: Do Not Upload"
+
+#: The placeholder's interpreter fence. pip skips every candidate whose
+#: ``Requires-Python`` excludes the running interpreter, so a placeholder fenced
+#: to ``<3`` is never a candidate for any Python 3 installer.
+PLACEHOLDER_REQUIRES_PYTHON = "<3"
 
 #: The built-in adapter every development checkout boots against.
 BUILTIN_ADAPTER = "sqlite"
@@ -281,3 +292,25 @@ def test_pypi_refuses_the_sdk_and_accepts_the_placeholder() -> None:
         for classifier in placeholder_classifiers
         if classifier.lower().startswith("private ::")
     ], placeholder_classifiers
+
+
+def test_no_python_3_installer_can_ever_select_the_placeholder() -> None:
+    """The placeholder declares ``requires-python = "<3"``, so pip never offers it.
+
+    Without the fence, an installer resolving any ``ccf-sdk`` requirement that the
+    installed SDK cannot satisfy at that moment (an extra whose dependency is not
+    obtainable, for one) backtracks to the empty 0.0.0, whose lack of
+    dependencies always resolves, and uninstalls the SDK to install it.
+    """
+    placeholder = tomllib.loads(_PLACEHOLDER_PYPROJECT.read_text(encoding="utf-8"))["project"]
+    # Non-vacuity: this is the placeholder for the SDK's own distribution name.
+    assert placeholder["name"] == EXPECTED_DISTRIBUTION
+
+    requires_python = placeholder.get("requires-python")
+    assert requires_python == PLACEHOLDER_REQUIRES_PYTHON, requires_python
+
+    # What pip actually evaluates: the specifier against the interpreter's version.
+    fence = SpecifierSet(requires_python)
+    running = ".".join(str(part) for part in sys.version_info[:3])
+    for version in ("3.0", running, "3.99"):
+        assert not fence.contains(version, prereleases=True), (requires_python, version)
