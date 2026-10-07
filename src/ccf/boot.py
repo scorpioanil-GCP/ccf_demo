@@ -643,6 +643,13 @@ def boot(
         finally:
             store.close()
 
+    # EVERY step after the mint is inside this guard (PM10, panel C10;
+    # `D-IMPL-374`): the worker build, the SEC-023 authority wrap and the
+    # handle itself. A half-booted fabric must not leave the graph marked as
+    # written-to — nor, since SEC-013, its cross-process writer lease held —
+    # or a corrected retry, here or in another process, would be refused as a
+    # second writer. The panel measured both stranded when the guard covered
+    # the worker build alone.
     try:
         spec = _resolution_spec(
             registry, resolution_spec_key, resolution_spec_version
@@ -654,30 +661,29 @@ def boot(
             policy_bundle_key=policy_bundle_key,
             policy_bundle_version=policy_bundle_version,
         )
+
+        # SEC-023 (`D-IMPL-374` ruling (3) (a)): the reader a booted fabric
+        # hands out stamps every view with the authority its L2 enforces, and
+        # refuses a classification query that authority does not cover.
+        # Imported here so the module's line anchors other records cite stay
+        # where they were.
+        from ccf.graph.governed_reader import governed_reader
+
+        return FabricHandle(
+            reader=governed_reader(store.reader, _mint_authority_of(spec)),
+            worker=worker,
+            registry=registry,
+            # Reference names, never the fields they filled and never a value.
+            # Reading the field names instead would pin "a credential was used"
+            # where D-08 asks which one.
+            adapter=adapter,
+            shutdown=shutdown,
+            lease_scope=token.lease_scope,
+            lease_mechanism=token.lease_mechanism,
+        )
     except BaseException:
-        # A half-booted fabric must not leave the graph marked as written-to;
-        # otherwise a corrected retry would be refused as a second writer.
         shutdown()
         raise
-
-    # SEC-023 (`D-IMPL-374` ruling (3) (a)): the reader a booted fabric hands
-    # out stamps every view with the authority its L2 enforces, and refuses a
-    # classification query that authority does not cover. Imported here so the
-    # module's line anchors other records cite stay where they were.
-    from ccf.graph.governed_reader import governed_reader
-
-    return FabricHandle(
-        reader=governed_reader(store.reader, _mint_authority_of(spec)),
-        worker=worker,
-        registry=registry,
-        # Reference names, never the fields they filled and never a value.
-        # Reading the field names instead would pin "a credential was used"
-        # where D-08 asks which one.
-        adapter=adapter,
-        shutdown=shutdown,
-        lease_scope=token.lease_scope,
-        lease_mechanism=token.lease_mechanism,
-    )
 
 
 def _resolution_spec(
@@ -726,22 +732,21 @@ def _boot_read_only(
             policy_bundle_key=policy_bundle_key,
             policy_bundle_version=policy_bundle_version,
         )
-        authority = _mint_authority_of(spec)
+
+        from ccf.graph.governed_reader import governed_reader
+
+        return FabricHandle(
+            reader=governed_reader(store.reader, _mint_authority_of(spec)),
+            worker=worker,
+            registry=registry,
+            adapter=adapter,
+            shutdown=store.close,
+            lease_scope=READ_ONLY_LEASE_SCOPE,
+            lease_mechanism=READ_ONLY_LEASE_MECHANISM,
+        )
     except BaseException:
         store.close()
         raise
-
-    from ccf.graph.governed_reader import governed_reader
-
-    return FabricHandle(
-        reader=governed_reader(store.reader, authority),
-        worker=worker,
-        registry=registry,
-        adapter=adapter,
-        shutdown=store.close,
-        lease_scope=READ_ONLY_LEASE_SCOPE,
-        lease_mechanism=READ_ONLY_LEASE_MECHANISM,
-    )
 
 
 def _mint_authority_of(spec: EntityResolutionSpec) -> ClassificationAuthority:
