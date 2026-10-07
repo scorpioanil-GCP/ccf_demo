@@ -2723,10 +2723,13 @@ class GovernedResolver:
         # ACQUISITION, read once, immediately before the seam — after every
         # refusal above, so a refused question still costs nothing, and before
         # the seam, so nothing this request acquires is in it. A subject that
-        # names nothing has nothing acquired for it, so this is the state its
-        # walk reads; a subject Π withholds is rendered from it below. Read
-        # only when a seam is declared: with none, nothing is acquired, and the
-        # state the plan reads below is this one.
+        # names nothing has nothing acquired for it by a source keyed on the
+        # subject, so this is the state its walk reads; a subject Π withholds
+        # is rendered from it below. (An acquisition that ingests the same
+        # content whatever the subject gives a nonexistent subject that content
+        # too, which this state lacks: measured, and disclosed in the security
+        # how-to, section 4.12.) Read only when a seam is declared: with none,
+        # nothing is acquired, and the state the plan reads below is this one.
         before_acquisition: GraphView | None = None
         if self.acquisition is not None:
             before_acquisition = self.fabric.handle.reader.as_of(
@@ -3059,7 +3062,9 @@ class GovernedResolver:
         #
         # AND THE FABRIC IT WALKS IS THE ONE BEFORE THIS REQUEST'S ACQUISITION
         # (`D-IMPL-376` (3), route A). An identifier that names nothing has
-        # nothing acquired for it; the withheld subject's own question did
+        # nothing acquired for it from a source keyed on the subject (the scope
+        # the security how-to, section 4.12, discloses); the withheld subject's
+        # own question did
         # acquire, through the declared seam above, BEFORE the plan ran — so
         # re-executing over the fabric as it now stands walked the evidence
         # acquisition had just ingested for the asked subject (measured by the

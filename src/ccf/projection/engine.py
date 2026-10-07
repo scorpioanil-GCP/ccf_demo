@@ -532,9 +532,12 @@ class ProjectionEngine:
         is masked; seeding semantics are untouched.
 
         **Which fabric the walk reads** (``D-IMPL-376`` (3), route A). A
-        subject that names nothing has nothing acquired for it, so its walk
-        reads the fabric as it stood BEFORE its question's acquisition — and
-        that is what this walk reads too. ``before_acquisition`` is that state
+        subject that names nothing has nothing acquired for it by a source
+        keyed on the subject, so its walk reads the fabric as it stood BEFORE
+        its question's acquisition — and that is what this walk reads too. An
+        acquisition that ingests the same content whatever is asked gives a
+        nonexistent subject that content as well, and this walk does not read
+        it (measured; disclosed in the security how-to, section 4.12). ``before_acquisition`` is that state
         for this request: the as-of read the governed resolver takes
         immediately before its declared acquisition seam
         (``src/ccf/products/resolver.py::GovernedResolver``). When it is given,

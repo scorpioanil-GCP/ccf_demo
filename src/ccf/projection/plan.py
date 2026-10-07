@@ -95,7 +95,9 @@ class ProjectionOutput(CCFContract):
     BEFORE this request's acquisition — the walk an identifier that names
     nothing gets, the plan's class seeds alone, over a fabric its own question
     acquired nothing into — so a withheld subject is indistinguishable from a
-    nonexistent one by construction
+    nonexistent one by construction wherever an identifier that names nothing
+    acquires nothing, which is what a source keyed on the subject returns (the
+    other acquisition shape is disclosed in the security how-to, section 4.12)
     (``src/ccf/products/resolver.py::GovernedResolver``,
     ``src/ccf/projection/engine.py::ProjectionEngine.execute_without_request_seed``;
     the fabric before acquisition is ``D-IMPL-376`` (3), route A).
