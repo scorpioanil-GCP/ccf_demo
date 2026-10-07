@@ -312,7 +312,9 @@ def create_app(
     deps = replace(
         deps,
         artifact_store=compose_erasure_consult(
-            deps.artifact_store, control_plane=deps.control_plane
+            deps.artifact_store,
+            index=deps.erasure_index,
+            audit_log=deps.control_plane.audit_log,
         ),
     )
 

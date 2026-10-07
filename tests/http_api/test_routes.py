@@ -26,6 +26,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from tests.composition import no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -267,7 +268,7 @@ def _governed_app(fabric: Fabric, tmp_path: Path) -> Any:
     token_file = tmp_path / "routes-echo-tokens.json"
     source = _echo_entitlement(fabric)
     return create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,
@@ -1030,7 +1031,7 @@ def test_backends_is_guarded_exactly_as_schema_is(
 
     tenant = fabric.product_address.tenant
     authed = create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

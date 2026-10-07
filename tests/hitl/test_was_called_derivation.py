@@ -19,6 +19,7 @@ anything unverified, and nothing lands on the transport.
 from __future__ import annotations
 
 import json
+from tests.composition import no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -156,7 +157,7 @@ def _seams(fabric: Fabric, root: Path) -> dict[str, Any]:
 def _deps(fabric: Fabric) -> Any:
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    return ApiDependencies(
+    return ApiDependencies(erasure_index=no_erasures(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,

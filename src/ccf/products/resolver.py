@@ -156,6 +156,7 @@ from typing import Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
+from ccf.erasure.index import ErasureIndexProtocol
 from ccf.erasure.store import compose_erasure_consult
 from ccf.contracts.base import CCFContract
 from ccf.controlplane.artifacts import (
@@ -4437,6 +4438,11 @@ def build_governed_resolver(
     operator_parameter_keys: tuple[str, ...],
     policy_bundle_key: str,
     plan_factory: ProjectionPlanFactoryProtocol,
+    #: SEC-009 (`D-IMPL-374` (4), fix round 1 C1): the deployment's durable
+    #: erasure index. REQUIRED, no default — the resolver's store, supplied or
+    #: default, is composed with the erasure consult over it, scoped to the
+    #: fabric's tenant, and a composition without a declared index refuses.
+    erasure_index: ErasureIndexProtocol,
     #: `D-IMPL-343` R-3a (`D-IMPL-292` applied): optional, and read from the
     #: deployment's declared `ttl:` binding when omitted. A call stating a
     #: value that DIFFERS from the declaration is refused with both named —
@@ -4618,6 +4624,9 @@ def build_governed_resolver(
         plan_factory: The deployment's Π factory. The **one** thing measurement
             said cannot be data (Amendment A.2), and therefore the one thing
             this helper cannot default.
+        erasure_index: The deployment's durable erasure index (SEC-009;
+            `D-IMPL-374` (4), C1). Required: the selected store is composed with
+            the erasure consult over it, scoped to the fabric's tenant.
         artifact_store: Where replay records and executed-query bytes land. A
             substrate reached *through* mechanism, never a second writer
             (CLAUDE.md §7.4). Taken as an object rather than a path so this
@@ -4944,7 +4953,12 @@ def build_governed_resolver(
     # around whichever store was selected — supplied or default — over this
     # call's Control Plane, so every read the resolver and its recorder make
     # refuses erased content.
-    store = compose_erasure_consult(store, control_plane=control_plane)
+    store = compose_erasure_consult(
+        store,
+        index=erasure_index,
+        audit_log=control_plane.audit_log,
+        tenant_id=fabric.tenant_id,
+    )
 
     # `D-IMPL-343` R-3a, THIRD: the two TTL figures, from the call or from the
     # declared `ttl:` binding, held EQUAL when both speak and refused when

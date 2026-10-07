@@ -11,33 +11,32 @@ complete without one is refused (:class:`ErasureWorkflowUngated`).
 The two halves:
 
 * :meth:`ErasureDoor.request` — under the ``Execute`` capability for the
-  workflow definition: validate the declaration and judge retention and holds
-  against the PINNED policy, then start the workflow with the request's
-  content identity as its execution id, so the human approves exactly this
-  request. Nothing is written.
-* :meth:`ErasureDoor.complete` — under the ``Resume`` capability: hold the
-  presented :class:`~ccf.hitl.approval_gate.GateResolution` to what the HITL
-  authority path actually RECORDED for this request's suspension, re-judge
-  retention (the pinned version AND the newest version under the same key, so
-  a hold placed after the request still refuses), resume the engine on the
-  gate's declared approve route, and only on completion file the
-  :class:`~ccf.erasure.ErasureRecord` through the store's one write verb (a
-  ``DerivedWrite`` under the ``Resume`` capability, which the deployment
-  declares for ``ccf.erasure-record``) and append the registry mirror.
+  workflow definition AND the ``ArtifactErase`` capability for exactly this
+  request: validate the declaration, VERIFY every requester-named address
+  (fix round 1 — not already erased; filed under this tenant (I6); its STORED
+  class, from the store's ``names_at``, is not the erasure record's and equals
+  the requester's label (C2); a value at a subject key path hashes to
+  ``subject_ref`` (iv); no subject in a replay-input field (§7)), judge
+  retention and holds against the STORED class and the PINNED policy, then
+  start the workflow with the request's content identity as its execution id.
+  Nothing is written.
+* :meth:`ErasureDoor.complete` — under ``Resume`` and ``ArtifactErase``: hold
+  the presented :class:`~ccf.hitl.approval_gate.GateResolution` to the
+  engine's RECORDED suspension state and the transport's RECORDED submission
+  and take ``requested_by`` and ``actor`` from those (I2), re-judge retention
+  (the pinned version AND the newest version under the same key), resume the
+  engine on the gate's declared approve route, and only on completion APPEND
+  the index entries (write-ahead, I4) and THEN file the
+  :class:`~ccf.erasure.ErasureRecord` under the erase capability (I3).
 
-**The erase capability (ruling 3; design §4.1).** Both halves also require an
-``Authorized[ArtifactErase]`` minted by a door from an authorizer's allow for
-exactly ``"<subject_class>/<request_id>"``; general workflow
-``Execute``/``Resume`` cannot stand in for it — the parameter is required by
-the signature and a wrong-kind or retargeted capability dies in ``verify`` as
-``CapabilityBypassError`` — and the record's ``authorizing_decision_id``
-is that erase decision's id. No un-erasure verb exists (U6).
+No un-erasure verb exists (U6).
 
 Algorithmic module (CINV-03): the clock is injected.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime
@@ -51,7 +50,6 @@ from ccf.artifacts.protocol import (
 from ccf.authz.capability import (
     ArtifactErase,
     Authorized,
-    CompositionRegister,
     Execute,
     Resume,
     verify,
@@ -62,6 +60,7 @@ from ccf.controlplane.resolution import resolve_pinned
 from ccf.controlplane.state import state_key
 from ccf.erasure.contracts import (
     ERASURE_RECORD_CLASS,
+    REPLAY_INPUT_PATHS,
     ErasedAddress,
     ErasureRecord,
     ErasureRequest,
@@ -71,11 +70,8 @@ from ccf.erasure.contracts import (
     RetentionHoldPolicy,
     judge_retention,
 )
-from ccf.erasure.index import (
-    ErasureIndexEntry,
-    append_to_erasure_index,
-    erasure_index_key,
-)
+from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
+from ccf.erasure.store import ErasureIndexUnavailable
 from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolution
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
@@ -111,13 +107,23 @@ class ErasureWorkflowUngated(ValueError):
     """The deployment's erasure workflow can complete without a typed approval gate (U9; SEC-009, `D-IMPL-374` (4))."""
 
 
-def _document_has(document: object, path: str) -> bool:
+def _values_at(document: object, path: str) -> tuple[str, ...]:
+    """The scalar value(s) at a dotted path — a list contributes its scalar members."""
     node = document
     for part in path.split("."):
         if not isinstance(node, dict) or part not in node:
-            return False
+            return ()
         node = node[part]
-    return True
+    members = node if isinstance(node, list) else [node]
+    return tuple(str(m) for m in members if isinstance(m, (str, int)) and not isinstance(m, bool))
+
+
+def _hashes_to(salt: str, values: tuple[str, ...], subject_ref: str) -> bool:
+    for value in values:
+        material = salt.encode("utf-8") + b"\x00" + value.encode("utf-8")
+        if hashlib.sha256(material).hexdigest() == subject_ref:
+            return True
+    return False
 
 
 class ErasureDoor:
@@ -131,13 +137,13 @@ class ErasureDoor:
         transport: The HITL authority path a presented approval is held to.
         store: The artifact store the record is filed through.
         clock: The injected fabric clock (``erased_at`` and the judgment's now).
-        index_authorities: One composition-minted ``Register`` per tenant, for
-            exactly :func:`~ccf.erasure.erasure_index_key` (``D-IMPL-354``).
+        index: The deployment's durable erasure index (C1). **Required.** The
+            door is its only writer and appends BEFORE it files the record
+            (write-ahead, ruling (ii)).
 
     Raises:
-        ccf.authz.capability.CapabilityBypassError: an index authority is not
-            a genuine ``Register`` for its tenant's mirror key.
-        ValueError: none was handed in, or two name one tenant.
+        ccf.erasure.ErasureIndexUnavailable: ``index`` is not an
+            :class:`~ccf.erasure.ErasureIndexProtocol`.
     """
 
     def __init__(
@@ -149,25 +155,20 @@ class ErasureDoor:
         transport: HITLTransportProtocol,
         store: ArtifactStoreProtocol,
         clock: Callable[[], datetime],
-        index_authorities: tuple[Authorized[CompositionRegister], ...],
+        index: ErasureIndexProtocol,
     ) -> None:
-        held: dict[str, Authorized[CompositionRegister]] = {}
-        for authorized in index_authorities:
-            tenant = getattr(authorized, "tenant", None)
-            expected = erasure_index_key(tenant) if isinstance(tenant, str) and tenant else ""
-            verify(authorized, kind=CompositionRegister, resource=expected)
-            if authorized.tenant in held:
-                raise ValueError(f"two index authorities name tenant {authorized.tenant!r} (SEC-009)")
-            held[authorized.tenant] = authorized
-        if not held:
-            raise ValueError("the erasure door holds no index authority for any tenant (SEC-009)")
+        if not isinstance(index, ErasureIndexProtocol):
+            raise ErasureIndexUnavailable(
+                f"{type(index).__name__} is not an ErasureIndexProtocol; the erasure"
+                " door writes the durable index (SEC-009; D-IMPL-374 (4), C1)"
+            )
         self._engine = engine
         self._factory = factory
         self._control_plane = control_plane
         self._transport = transport
         self._store = store
         self._clock = clock
-        self._index_authorities = held
+        self._index = index
 
     # -- the two halves -------------------------------------------------------
 
@@ -217,7 +218,7 @@ class ErasureDoor:
         """
         workflow = self._factory.construct(authorized, definition_version=definition_version)
         tenant = authorized.tenant
-        subject, decision = self._admit(tenant, workflow, request, latest=True, erase=erase)
+        subject, decision, stored = self._admit(tenant, workflow, request, latest=True, erase=erase)
         event = resolution.record.event
         submission = resolution.record.submission
         suspension = state_key(tenant=tenant, record_id=request.request_id)
@@ -280,9 +281,9 @@ class ErasureDoor:
         addresses = tuple(
             ErasedAddress(
                 content_address=address.content_address,
-                artifact_class=address.artifact_class,
+                # The STORED class, verified against the requester's label (C2).
+                artifact_class=stored[address.content_address],
                 key_paths=subject.key_paths,
-                matched=self._matched(address.content_address, subject),
             )
             for address in sorted(request.addresses, key=lambda a: a.content_address)
         )
@@ -306,26 +307,34 @@ class ErasureDoor:
             # The authorizer's allow for the ERASE door kind (design §2.3).
             authorizing_decision_id=erase.decision_id,
             approval_policy_ref=str(event.policy_ref),
+            approval_ref=content_hash(recorded_submission),
             retention_decision=decision,
             reason=request.reason,
             legal_basis=request.legal_basis,
         )
-        filed = self._store.put(
-            authorized,
-            DerivedWrite(artifact_class=ERASURE_RECORD_CLASS, name=record_id, artifact=record),
-        )
-        append_to_erasure_index(
-            self._control_plane,
-            self._index_authorities[tenant],
-            tuple(
+        # WRITE-AHEAD (ruling (ii), I4): the index entries — each naming the
+        # record's content address, computed before it exists — are appended
+        # FIRST, then the record is filed under the ERASE capability (I3). A
+        # completion that dies between the two leaves entries whose record is
+        # missing: the consult withholds those addresses and audits
+        # `erasure_index_unsupported` (design §8). A record with no entry
+        # cannot exist, so nothing has to list the store.
+        record_address = content_hash(record)
+        for address in addresses:
+            self._index.append(
                 ErasureIndexEntry(
-                    content_address=a.content_address,
-                    erasure_record_address=filed.content_address,
-                    reason=request.reason,
+                    tenant_id=tenant,
+                    content_address=address.content_address,
+                    erasure_record_address=record_address,
+                    subject_ref=record.subject_ref,
+                    approval_ref=record.approval_ref,
+                    reason=record.reason,
                     erased_at=erased_at,
                 )
-                for a in addresses
-            ),
+            )
+        self._store.put(
+            erase,
+            DerivedWrite(artifact_class=ERASURE_RECORD_CLASS, name=record_id, artifact=record),
         )
         return record
 
@@ -339,7 +348,7 @@ class ErasureDoor:
         *,
         latest: bool,
         erase: Authorized[ArtifactErase],
-    ) -> tuple[ErasureSubjectClass, RetentionDecision]:
+    ) -> tuple[ErasureSubjectClass, RetentionDecision, dict[str, str]]:
         # Ruling 3 (`D-IMPL-374` (4); design §4.1): the distinct erase kind, for
         # exactly this request, IN ADDITION to the recorded approval. Required by
         # the signature (D-IMPL-353 §4: no authority parameter may be omitted);
@@ -357,11 +366,6 @@ class ErasureDoor:
                 f"the request names tenant {request.tenant_id!r} and the capability is for"
                 f" {tenant!r} (SEC-009; D-IMPL-353 §1.3)",
                 reason_code="tenant-mismatch",
-            )
-        if tenant not in self._index_authorities:
-            raise ErasureRefused(
-                f"this door holds no index authority for tenant {tenant!r} (SEC-009; D-IMPL-354)",
-                reason_code="index-unauthorized",
             )
         self._require_gated(workflow)
         declaration = resolve_pinned(self._control_plane, request.subject_declaration_ref)
@@ -384,15 +388,20 @@ class ErasureDoor:
                 f" {subject.class_id!r} (SEC-009; D-IMPL-367 §2.1)",
                 reason_code="artifact-class-undeclared",
             )
-        absent = sorted(a.content_address for a in request.addresses if not self._store.exists(content_address=a.content_address))
-        if absent:
-            raise ErasureRefused(
-                f"{len(absent)} requested address(es) hold nothing in this store (SEC-009)",
-                reason_code="address-absent",
-            )
+        stored = self._verify_addresses(tenant, request, subject)
         now = self._clock()
         pinned = resolve_pinned(self._control_plane, request.retention_policy_ref)
-        decision = self._judge(pinned, request.retention_policy_ref, request, now)
+        # Retention and hold are judged against the STORED class of every
+        # address (C2), never the requester's label.
+        judged = request.model_copy(
+            update={
+                "addresses": tuple(
+                    a.model_copy(update={"artifact_class": stored[a.content_address]})
+                    for a in request.addresses
+                )
+            }
+        )
+        decision = self._judge(pinned, request.retention_policy_ref, judged, now)
         if latest:
             name = parse_artifact_uri(request.retention_policy_ref)
             key = f"{name.tenant_id}/{name.artifact_class}/{name.name}"
@@ -400,8 +409,101 @@ class ErasureDoor:
             newest = self._control_plane.peek(key, versions[-1]) if versions else None
             if newest is not None and newest != pinned:
                 semver = getattr(newest, "semver", versions[-1])
-                self._judge(newest, f"{key}@{semver}", request, now)
-        return subject, decision
+                self._judge(newest, f"{key}@{semver}", judged, now)
+        return subject, decision, stored
+
+    def _verify_addresses(
+        self, tenant: str, request: ErasureRequest, subject: ErasureSubjectClass
+    ) -> dict[str, str]:
+        """Verify every requester-named address; return each one's STORED class.
+
+        Fix round 1, C2, I6 and ruling (iv): the fabric VERIFIES the addresses
+        rather than trusting the request. For each, in order: not already
+        erased within the tenant; the store's naming (``names_at``) files it
+        under THIS tenant (I6); its stored class is not a mechanism class an
+        erasure may never reach (the erasure record — C2) and equals the
+        requester's label (C2); a value at one of the subject's key paths
+        hashes to the request's ``subject_ref`` (iv); and no replay-input path
+        of the stored document carries the subject (design §7,
+        ``replay-input``). The stored bytes are read through the UNCONSULTED
+        inner store for this check only and never leave the door.
+        """
+        names_at = getattr(self._store, "names_at", None)
+        if not callable(names_at):
+            raise ErasureRefused(
+                f"the store this door files through ({type(self._store).__name__})"
+                " answers no naming, so the stored class and tenant of an address"
+                " cannot be verified and a requester's label is never trusted"
+                " (SEC-009; D-IMPL-374 (4), C2)",
+                reason_code="class-unverifiable",
+            )
+        reader = getattr(self._store, "inner", self._store)
+        stored: dict[str, str] = {}
+        for address in request.addresses:
+            where = address.content_address
+            if self._index.lookup(tenant_id=tenant, content_address=where) is not None:
+                raise ErasureRefused(
+                    f"{where!r} is already erased within this tenant (SEC-009)",
+                    reason_code="already-erased",
+                )
+            own = [name for name in names_at(content_address=where) if name.tenant_id == tenant]
+            if not own:
+                raise ErasureRefused(
+                    "a requested address is not an artifact of the requesting tenant"
+                    " (SEC-009; D-IMPL-374 (4), I6)",
+                    reason_code="address-not-in-tenant",
+                )
+            classes = {name.artifact_class for name in own}
+            if ERASURE_RECORD_CLASS in classes:
+                raise ErasureRefused(
+                    "an erasure record is never erasable: the fact of an erasure stays"
+                    " servable at its own address (SEC-009; D-IMPL-374 (4), C2)",
+                    reason_code="mechanism-class-not-erasable",
+                )
+            if classes != {address.artifact_class}:
+                raise ErasureRefused(
+                    f"the request labels an address {address.artifact_class!r} and the"
+                    f" store files it as {sorted(classes)!r}; retention is judged"
+                    " against the stored class, never the requester's label (SEC-009;"
+                    " D-IMPL-374 (4), C2)",
+                    reason_code="class-label-mismatch",
+                )
+            try:
+                document = json.loads(reader.get(content_address=where))
+            except (ArtifactStoreError, KeyError, ValueError) as unreadable:
+                raise ErasureRefused(
+                    "a requested address could not be read to verify its subject (SEC-009)",
+                    reason_code="subject-unverifiable",
+                ) from unreadable
+            if not any(
+                _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
+                for path in subject.key_paths
+            ):
+                raise ErasureRefused(
+                    "no value at the subject's declared key paths in a requested"
+                    " artifact hashes to the request's subject_ref; the fabric verifies"
+                    " every address a request names (SEC-009; D-IMPL-374 (4), ruling (iv))",
+                    reason_code="subject-not-found",
+                )
+            if any(
+                _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
+                for path in REPLAY_INPUT_PATHS
+            ):
+                decision = RetentionDecision(
+                    policy_ref=request.retention_policy_ref,
+                    verdict="refuse",
+                    reason_code="replay-input",
+                    address=where,
+                )
+                raise ErasureRefused(
+                    "the subject appears in a replay-input field of a requested record;"
+                    " erasing it would make a decision replay a different question"
+                    " (SEC-009; D-IMPL-367 §7, §2.2)",
+                    reason_code="replay-input",
+                    decision=decision,
+                )
+            stored[where] = address.artifact_class
+        return stored
 
     def _judge(self, policy: object, policy_ref: str, request: ErasureRequest, now: datetime) -> RetentionDecision:
         if not isinstance(policy, RetentionHoldPolicy) or policy.tenant_id != request.tenant_id:
@@ -442,10 +544,3 @@ class ErasureDoor:
                     " D-IMPL-374 (4), U9; D-IMPL-366)"
                 )
             frontier.extend(edges.get(node, ()))
-
-    def _matched(self, content_address: str, subject: ErasureSubjectClass) -> bool:
-        try:
-            document = json.loads(self._store.get(content_address=content_address))
-        except (ArtifactStoreError, KeyError, ValueError):
-            return False
-        return all(_document_has(document, path) for path in subject.key_paths)

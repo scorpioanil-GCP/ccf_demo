@@ -14,7 +14,7 @@ threshold — that is what CINV-01 is about here, and it is undisturbed.
 Construction is keyword-only and the frozen dataclass cannot grow state after
 boot.
 
-**Three handles are required and five default to ``None``** (``D-IMPL-126``
+**Four handles are required and five default to ``None``** (``D-IMPL-126``
 item (3), Dave, 2026-08-13). ``control_plane``, ``artifact_store`` and
 ``product_resolver`` are read by four routers, two and one respectively, and no
 useful app omits any of them. The other five gate exactly one noun each, and a
@@ -48,6 +48,7 @@ from datetime import datetime
 
 from ccf.artifacts.protocol import ArtifactStoreProtocol
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.erasure.index import ErasureIndexProtocol
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.grants import GrantLedger
@@ -77,6 +78,8 @@ class ApiDependencies:
         artifact_store: The store the artifact and replay nouns read and
             write through (CLAUDE.md §7.4; D-IMPL-26). **Required.** Gates
             the ``replay`` and ``artifact`` routers entire.
+        erasure_index: The durable erasure index the store is composed over
+            (SEC-009; `D-IMPL-374` (4), C1). **Required.**
         product_resolver: The deployment's assemble-and-gate path, exactly
             the seam the MCP egress server holds
             (:class:`~ccf_runtime.mcp.egress.ProductResolverProtocol`).
@@ -114,6 +117,11 @@ class ApiDependencies:
 
     control_plane: ControlPlaneRegistry
     artifact_store: ArtifactStoreProtocol
+    #: SEC-009 (`D-IMPL-374` (4), fix round 1 C1): the deployment's durable
+    #: erasure index. **Required, no default**: ``create_app`` composes the
+    #: store with the erasure consult over it, and a composition without a
+    #: declared index refuses by name.
+    erasure_index: ErasureIndexProtocol
     product_resolver: ProductResolverProtocol
     workflow_factory: WorkflowFactory | None = None
     workflow_engine: WorkflowEngine | None = None

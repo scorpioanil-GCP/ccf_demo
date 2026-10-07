@@ -27,7 +27,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Final, Literal
+from typing import Final, Literal, Protocol, get_args, runtime_checkable
 
 from pydantic import Field, field_validator, model_validator
 
@@ -51,10 +51,12 @@ __all__ = [
     "ErasureRequest",
     "ErasureSubjectClass",
     "ErasureSubjectDeclaration",
+    "ErasureSubjectLocator",
     "LegalHold",
     "RequestedAddress",
     "RetentionDecision",
     "RetentionHoldPolicy",
+    "RetentionReasonCode",
     "judge_retention",
     "subject_ref_for",
 ]
@@ -81,18 +83,19 @@ REPLAY_INPUT_PATHS: Final[tuple[str, ...]] = (
 
 #: The retention judgment's refusal codes (design §4.2) — mechanism vocabulary,
 #: never a subject identifier.
-RETENTION_REASON_CODES: Final[frozenset[str]] = frozenset(
-    {
-        "admitted",
-        "class-absent",
-        "not-erasable",
-        "severity-exempt",
-        "legal-hold",
-        "reason-unknown",
-        "under-minimum-age",
-        "policy-unresolvable",
-    }
-)
+RetentionReasonCode = Literal[
+    "admitted",
+    "class-absent",
+    "not-erasable",
+    "severity-exempt",
+    "legal-hold",
+    "reason-unknown",
+    "under-minimum-age",
+    "policy-unresolvable",
+    "replay-input",
+]
+
+RETENTION_REASON_CODES: Final[frozenset[str]] = frozenset(get_args(RetentionReasonCode))
 
 
 def _hashed_subject_ref(value: str) -> str:
@@ -269,7 +272,7 @@ class RetentionDecision(CCFContract):
 
     policy_ref: str
     verdict: Literal["admit", "refuse"]
-    reason_code: str
+    reason_code: RetentionReasonCode
     hold_id: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False})
     address: str | None = Field(default=None, json_schema_extra={HASH_TRANSPARENT_KEY: False})
 
@@ -351,7 +354,7 @@ def judge_retention(
     for address in sorted(request.addresses, key=lambda a: a.content_address):
         retention = policy.classes.get(address.artifact_class)
 
-        def refuse(code: str, hold_id: str | None = None) -> RetentionDecision:
+        def refuse(code: RetentionReasonCode, hold_id: str | None = None) -> RetentionDecision:
             return RetentionDecision(
                 policy_ref=policy_ref, verdict="refuse", reason_code=code,
                 hold_id=hold_id, address=address.content_address,
@@ -378,16 +381,17 @@ def judge_retention(
 class ErasedAddress(CCFContract):
     """One erased artifact on an erasure record (design §2.3; SEC-009, `D-IMPL-374` (4)).
 
-    ``matched`` says whether every declared key path is PRESENT in the stored
-    document — presence only: the fabric never holds the raw identifier to
-    compare. ``scope`` is ``"whole"`` this phase (U5).
+    Every address is VERIFIED by the door before it is recorded (fix round 1,
+    ruling (iv)): its stored class and tenant come from the store's naming,
+    and a value at one of ``key_paths`` hashes to the request's subject
+    reference. ``scope`` is ``"whole"`` and nothing else this phase (U5;
+    field-scoped erasure is OUT).
     """
 
     content_address: str
     artifact_class: str
     key_paths: tuple[str, ...]
-    matched: bool
-    scope: Literal["whole", "fields"] = Field(default="whole", json_schema_extra={HASH_TRANSPARENT_KEY: False})
+    scope: Literal["whole"] = Field(default="whole", json_schema_extra={HASH_TRANSPARENT_KEY: False})
 
 
 class ErasureRecord(CCFContract):
@@ -408,6 +412,27 @@ class ErasureRecord(CCFContract):
     requested_by: str
     authorizing_decision_id: str
     approval_policy_ref: str
+    #: The content hash of the RECORDED approval submission (fix round 1, I2/I3)
+    #: — what every index entry naming this record must carry.
+    approval_ref: str
     retention_decision: RetentionDecision
     reason: str
     legal_basis: str
+
+
+@runtime_checkable
+class ErasureSubjectLocator(Protocol):
+    """Where a subject's artifacts are — for a deployment that can enumerate them (SEC-009; `D-IMPL-374` (4), ruling (iv)).
+
+    Declared, with NO reference implementation this phase: the artifact store
+    has no listing verb by design, so enumerating where a subject appears is
+    the deployment's. The erasure door VERIFIES every address a request names;
+    a deployment that implements this Protocol supplies the addresses it then
+    verifies.
+    """
+
+    def addresses(
+        self, *, tenant_id: str, subject_class: str, subject_ref: str
+    ) -> tuple[str, ...]:
+        """The content addresses holding ``subject_ref`` within ``tenant_id``."""
+        ...

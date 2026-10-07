@@ -519,9 +519,12 @@ class ErasedContent(CCFContract):
 
     site: str
     content_address: str
-    erasure_record_address: str
-    reason: str
-    erased_at: datetime
+    #: ``None`` when the read was tenantless or the index entry is not
+    #: supported by its record (fix round 1, I6 / §8): redacted, never another
+    #: tenant's facts.
+    erasure_record_address: str | None
+    reason: str | None
+    erased_at: datetime | None
 
 
 def _erased_member(refused: ErasedContentRefused, site: str) -> ErasedContent:

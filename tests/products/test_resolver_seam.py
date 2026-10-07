@@ -52,6 +52,7 @@ import copy
 import dataclasses
 import inspect
 import pathlib
+from tests.composition import no_erasures
 from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -1464,6 +1465,7 @@ def test_a_binding_to_an_undeclared_argument_is_refused_at_boot(
             build_governed_resolver(
                 fabric=booted.fabric,
                 control_plane=booted.control_plane,
+                erasure_index=no_erasures(),
                 product_class_key=PRODUCT_CLASS_KEY,
                 request_contract_key=REQUEST_CONTRACT_KEY,
                 operator_parameter_keys=(TRAVERSAL_KEY, POLICY_PARAMS_KEY),

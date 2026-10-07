@@ -121,6 +121,7 @@ import importlib.util
 import json
 import pathlib
 import sys
+from tests.composition import no_erasures
 from datetime import datetime, timedelta
 from collections.abc import Callable, Iterator
 from typing import Any, NamedTuple
@@ -269,6 +270,7 @@ def _wire(
     resolver = build_governed_resolver(
         fabric=booted,
         control_plane=registry,
+        erasure_index=no_erasures(),
         product_class_key=placed(PRODUCT_CLASS_KEY),
         request_contract_key=placed(REQUEST_CONTRACT_KEY),
         operator_parameter_keys=tuple(placed(key) for key in OPERATOR_PARAMETER_KEYS),

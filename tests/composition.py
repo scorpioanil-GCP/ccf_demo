@@ -291,3 +291,38 @@ def register_fixture_approval_policies(registry: ControlPlaneRegistry) -> dict[s
         tenant, artifact_class, name = key.split("/")
         pinned[key] = f"ccf-artifact://{tenant}/{artifact_class}/{name}@{entry['policy']['semver']}"
     return pinned
+
+
+class MemoryErasureIndex:
+    """An in-memory ``ErasureIndexProtocol`` test double (SEC-009; fix round 1 C1).
+
+    For tests that compose a store but erase nothing: every store construction
+    site REQUIRES a declared erasure index, and this is the declared "nothing is
+    erased here". Tests that erase use the shipped ``FileErasureIndex``.
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[tuple[str, str], Any] = {}
+
+    def append(self, entry: Any) -> None:
+        key = (entry.tenant_id, entry.content_address)
+        standing = self._entries.get(key)
+        if standing is not None and standing != entry:
+            from ccf.erasure import ErasureIndexEntryExists
+
+            raise ErasureIndexEntryExists(f"{key!r} is already erased")
+        self._entries[key] = entry
+
+    def lookup(self, *, tenant_id: str, content_address: str) -> Any:
+        return self._entries.get((tenant_id, content_address))
+
+    def entries(self, *, tenant_id: str) -> tuple[Any, ...]:
+        return tuple(e for (t, _a), e in self._entries.items() if t == tenant_id)
+
+    def tenants(self) -> frozenset[str]:
+        return frozenset(t for t, _a in self._entries)
+
+
+def no_erasures() -> MemoryErasureIndex:
+    """A fresh, empty declared erasure index for a test composition."""
+    return MemoryErasureIndex()

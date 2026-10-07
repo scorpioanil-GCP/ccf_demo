@@ -12,7 +12,6 @@ RED on a tree without the mechanism: the app serves the bytes (200).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
 
 from ccf.products.disclosure import DISCLOSURE_FULL
@@ -20,26 +19,14 @@ from ccf.products.entitlement import PRODUCT_ENTITLEMENT_POLICY, product_entitle
 from http_api import test_evidence_dereference as ed
 from http_api.composition_authority import register_typed_at_composition
 from http_api.conftest import Fabric
-from tests.composition import composition_register
+from ccf.contracts.canonical import content_hash
+from tests.erasure import composed
 from tests.erasure import harness as h
 
-ERASED_AT = datetime(2026, 7, 30, tzinfo=UTC)
-RECORD_ADDRESS = "f" * 64
-
-
-def _erase(governed: ed.Governed, address: str) -> None:
-    h.erasure("append_to_erasure_index")(
-        governed.registry,
-        composition_register(governed.registry, h.erasure("erasure_index_key")(governed.tenant)),
-        (
-            h.erasure("ErasureIndexEntry")(
-                content_address=address,
-                erasure_record_address=RECORD_ADDRESS,
-                reason="customer-request",
-                erased_at=ERASED_AT,
-            ),
-        ),
-    )
+def _erase(governed: ed.Governed, address: str) -> str:
+    """Plant a GENUINE erasure of ``address`` in the deployment's index; return the record address."""
+    record = composed.erase(governed.store, governed.erasure_index, address, tenant=governed.tenant)
+    return str(content_hash(record))
 
 
 def test_an_erased_record_is_gone_at_full_and_not_found_at_minimal(fabric: Fabric, tmp_path: Path) -> None:
@@ -49,7 +36,7 @@ def test_an_erased_record_is_gone_at_full_and_not_found_at_minimal(fabric: Fabri
     assert before.status_code == 200, before.text
     stored = before.content
 
-    _erase(governed, address)
+    record_address = _erase(governed, address)
 
     full = ed._get_artifact(governed, address, token=ed.A_TOKEN)
     assert full.status_code == 410, (full.status_code, full.text[:400])
@@ -57,7 +44,7 @@ def test_an_erased_record_is_gone_at_full_and_not_found_at_minimal(fabric: Fabri
     refusal = full.json()["refusal"]
     assert refusal["kind"] == "erased-content"
     assert refusal["disclosure"] == DISCLOSURE_FULL
-    assert RECORD_ADDRESS in full.text
+    assert record_address in full.text
 
     # minimal: the route's own not-found rendering, identical to an address
     # nothing is stored at — the erasure is not disclosed.
@@ -70,7 +57,7 @@ def test_an_erased_record_is_gone_at_full_and_not_found_at_minimal(fabric: Fabri
 def test_an_erased_record_at_reasoned_is_gone_with_its_reason_and_without_its_record(fabric: Fabric, tmp_path: Path) -> None:
     governed = ed._governed(fabric, tmp_path)
     address = ed._served_record(governed, principal=ed.C)
-    _erase(governed, address)
+    record_address = _erase(governed, address)
     policy = ed._policy(governed.tenant, governed.product_class)
     reasoned = policy.model_copy(
         update={
@@ -89,7 +76,7 @@ def test_an_erased_record_at_reasoned_is_gone_with_its_reason_and_without_its_re
     refusal = response.json()["refusal"]
     assert refusal["kind"] == "erased-content" and refusal["disclosure"] == "reasoned"
     assert "customer-request" in response.text
-    assert RECORD_ADDRESS not in response.text
+    assert record_address not in response.text
 
 
 def test_an_unentitled_caller_cannot_learn_that_an_address_was_erased(fabric: Fabric, tmp_path: Path) -> None:
@@ -106,11 +93,11 @@ def test_an_unentitled_caller_cannot_learn_that_an_address_was_erased(fabric: Fa
         token: ed._get_artifact(governed, address, token=token)
         for token in (ed.B_TOKEN, ed.STRANGER_TOKEN, ed.C_TOKEN)
     }
-    _erase(governed, address)
+    record_address = _erase(governed, address)
     for token, earlier in before.items():
         after = ed._get_artifact(governed, address, token=token)
         assert after.status_code == earlier.status_code != 410, (token, after.status_code)
-        assert "erased" not in after.text and RECORD_ADDRESS not in after.text, token
+        assert "erased" not in after.text and record_address not in after.text, token
         assert "customer-request" not in after.text, token
         assert ed.same_shell(earlier, address, after, address), token
 

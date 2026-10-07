@@ -16,4 +16,5 @@ from tests.erasure import composed
 
 def test_the_inprocess_adapters_store_composes_the_consult(seeded_root: Path) -> None:
     booted = _boot(load_binding_document(seeded_root), clock=lambda: datetime(2026, 7, 30, tzinfo=UTC))
-    composed.assert_consults(booted.resolver.artifact_store, booted.control_plane)
+    store = booted.resolver.artifact_store
+    composed.assert_consults(store, store.index, tenant=store.tenant_id)

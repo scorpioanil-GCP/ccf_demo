@@ -43,6 +43,7 @@ from __future__ import annotations
 import inspect
 import pathlib
 import re
+from tests.composition import no_erasures
 from typing import Any
 
 import pytest
@@ -106,7 +107,7 @@ class TestTheSignatureHasNoInsecureArm:
 
         with pytest.raises(TypeError):
             create_app(  # type: ignore[call-arg]
-                ApiDependencies(
+                ApiDependencies(erasure_index=no_erasures(), 
                     control_plane=fabric.registry,
                     artifact_store=fabric.store,
                     product_resolver=fabric.product_resolver,

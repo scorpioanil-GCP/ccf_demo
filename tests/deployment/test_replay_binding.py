@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
+from tests.composition import no_erasures
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -485,6 +486,7 @@ def _resolver_arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
+        "erasure_index": no_erasures(),
         # The loader placed every derived key under the tenant (D-IMPL-354);
         # the resolver resolves the same strings.
         "product_class_key": f"{TENANT}/product_class",

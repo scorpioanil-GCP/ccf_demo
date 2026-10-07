@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2002 entries**, of which **1735** name a public Python surface.
+**2007 entries**, of which **1740** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1157 entries — 1113 public Python surface, 44 not public Python API.
+1159 entries — 1115 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -16513,30 +16513,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
-#### ccf.erasure.ERASURE_INDEX
-
-- Surface: ccf.erasure.ERASURE_INDEX
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The `ArtifactClass` `ccf.erasure-index` for the per-tenant registry mirror.
-- Why: SEC-009; U7 (b): the index the consult reads is an append-only registry mirror of the erasure records.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.ERASURE_INDEX_SEMVER
-
-- Surface: ccf.erasure.ERASURE_INDEX_SEMVER
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The mirror's stated semver lane, `1.0.0`.
-- Why: SEC-009; A versioned artifact states its lane; it is never defaulted.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
 #### ccf.erasure.ERASURE_RECORD_CLASS
 
 - Surface: ccf.erasure.ERASURE_RECORD_CLASS
@@ -16591,20 +16567,8 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.ErasureIndex
-
-- Surface: ccf.erasure.ErasureIndex
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The consult's reader. It reads every version of every tenant's mirror through unaudited registry introspection.
-- Why: SEC-009; U7 (b). The whole history is read, so a later version cannot un-erase by omission (U6).
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
@@ -16617,30 +16581,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one erased address: record address, admitted reason, instant.
 - Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.ErasureIndexMirror
-
-- Surface: ccf.erasure.ErasureIndexMirror
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: A versioned artifact holding one tenant's erased addresses. It grows only.
-- Why: SEC-009; U7 (b), on the `EntityInvalidationRegister` precedent (`D-IMPL-334`).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.ErasureIndexSource
-
-- Surface: ccf.erasure.ErasureIndexSource
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: A Protocol for the unaudited registry introspection the index reads: `keys_of_class`, `versions`, `peek`.
-- Why: SEC-009; The consult runs on every read and must not audit each read as a resolution.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
@@ -16773,30 +16713,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A versioned artifact mapping artifact classes to `ClassRetention`. An absent class refuses.
 - Why: SEC-009; G7 default refuse.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.append_to_erasure_index
-
-- Surface: ccf.erasure.append_to_erasure_index
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: A function that appends entries to the capability's tenant mirror as a new audited version, under a composition-minted `Register` for exactly that key.
-- Why: SEC-009; U7 (b); `D-IMPL-354`.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.erasure_index_key
-
-- Surface: ccf.erasure.erasure_index_key
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The mirror's Control Plane key, `{tenant}/ccf.erasure-index`.
-- Why: SEC-009; U7 (b): one mirror per tenant.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
@@ -17029,42 +16945,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
-#### ccf.erasure.index.ERASURE_INDEX
-
-- Surface: ccf.erasure.index.ERASURE_INDEX
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The `ArtifactClass` `ccf.erasure-index` for the per-tenant registry mirror.
-- Why: SEC-009; U7 (b): the index the consult reads is an append-only registry mirror of the erasure records.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.index.ERASURE_INDEX_SEMVER
-
-- Surface: ccf.erasure.index.ERASURE_INDEX_SEMVER
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The mirror's stated semver lane, `1.0.0`.
-- Why: SEC-009; A versioned artifact states its lane; it is never defaulted.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.index.ErasureIndex
-
-- Surface: ccf.erasure.index.ErasureIndex
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The consult's reader. It reads every version of every tenant's mirror through unaudited registry introspection.
-- Why: SEC-009; U7 (b). The whole history is read, so a later version cannot un-erase by omission (U6).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
 #### ccf.erasure.index.ErasureIndexEntry
 
 - Surface: ccf.erasure.index.ErasureIndexEntry
@@ -17073,54 +16953,6 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent
 - After: A contract for one erased address: record address, admitted reason, instant.
 - Why: SEC-009; U7 (b): what the consult needs, and nothing of the subject.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.index.ErasureIndexMirror
-
-- Surface: ccf.erasure.index.ErasureIndexMirror
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: A versioned artifact holding one tenant's erased addresses. It grows only.
-- Why: SEC-009; U7 (b), on the `EntityInvalidationRegister` precedent (`D-IMPL-334`).
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.index.ErasureIndexSource
-
-- Surface: ccf.erasure.index.ErasureIndexSource
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: A Protocol for the unaudited registry introspection the index reads: `keys_of_class`, `versions`, `peek`.
-- Why: SEC-009; The consult runs on every read and must not audit each read as a resolution.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.index.append_to_erasure_index
-
-- Surface: ccf.erasure.index.append_to_erasure_index
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: A function that appends entries to the capability's tenant mirror as a new audited version, under a composition-minted `Register` for exactly that key.
-- Why: SEC-009; U7 (b); `D-IMPL-354`.
-- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
-
-*Recorded by `374-04-sec-009-minimum-erasure.md`.*
-
-#### ccf.erasure.index.erasure_index_key
-
-- Surface: ccf.erasure.index.erasure_index_key
-- Public surface: true
-- Change type: added
-- Before: absent
-- After: The mirror's Control Plane key, `{tenant}/ccf.erasure-index`.
-- Why: SEC-009; U7 (b): one mirror per tenant.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
@@ -17143,7 +16975,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the mirror and refuse erased addresses. `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
+- After: A decorator over any `ArtifactStoreProtocol`. `get` and `resolve_uri` consult the durable erasure index and refuse erased addresses. A tenant-scoped view (`scoped`) withholds only what its tenant erased, and carries the facts. A tenantless read withholds if any tenant erased the address, with reason and record address redacted (I6). Every entry is validated against its record at composition, and a disagreement is withheld and audited `index-unsupported` (§8). `exists` does not consult (U8). `put` passes through. Every store construction site composes it through `compose_erasure_consult` (U12, ruling 2). It forwards the inner store's naming introspection only (`root`, `names_at`, `versions`).
 - Why: SEC-009; G4: one consult at the substrate read, covering every route the store serves.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17155,7 +16987,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. `request` validates the declaration and judges retention against the pinned policy, then starts the deployment-declared one-gate workflow. `complete` holds the presented approval to what the HITL authority path recorded, re-judges against the pinned and the newest policy, resumes, and only on completion files the record and appends the mirror.
+- After: The governed door. It takes a REQUIRED `index`.
+  - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
+  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17167,7 +17001,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: The governed door. `request` validates the declaration and judges retention against the pinned policy, then starts the deployment-declared one-gate workflow. `complete` holds the presented approval to what the HITL authority path recorded, re-judges against the pinned and the newest policy, resumes, and only on completion files the record and appends the mirror.
+- After: The governed door. It takes a REQUIRED `index`.
+  - `request` validates the declaration, then VERIFIES every requester-named address. Each must not already be erased, must be filed under the requesting tenant (I6), must have a stored class that is not the erasure record's and that equals the label (C2), must have a value at a subject key path that hashes to `subject_ref` (iv), and must carry no subject in a replay-input field (§7 `replay-input`). It judges retention against the STORED class and the pinned policy, then starts the deployment-declared one-gate workflow.
+  - `complete` holds the presented approval to the RECORDED state and submission, and takes `requested_by` and `actor` from those (I2). It re-judges against the pinned and the newest policy and resumes. On completion it appends the index entries FIRST (write-ahead, I4), then files the record under the `ArtifactErase` capability (I3).
 - Why: SEC-009; G6/U9: an erasure is written only on a recorded human approval.
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17275,7 +17111,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a REQUIRED declared erasure index and an audit log, optionally scoped to a tenant, and validates every entry against its record. It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17287,7 +17123,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a Control Plane's registry mirror, and is idempotent on a store that is already wrapped. `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
+- After: THE composition helper. It wraps any store in `ErasureConsultingStore` over a REQUIRED declared erasure index and an audit log, optionally scoped to a tenant, and validates every entry against its record. It is idempotent on a store already composed over the same index, and refuses one composed over another (M1). `create_app`, `build_artifact_server`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies all compose through it.
 - Why: SEC-009; ruling 2 on `D-IMPL-374` (4), "composed ALWAYS means every store construction site".
 - Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, and `ccf.erasure-record` under `Resume` in its `WriteKinds`.
 
@@ -17299,9 +17135,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: a `TypeError` raised at composition when a Control Plane offers no `keys_of_class`/`versions`/`peek`. The shipped `ControlPlaneRegistry` offers all three.
+- After: a `TypeError` raised at composition when the declared index is not an `ErasureIndexProtocol`, or when the store was already composed over a different index.
 - Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
-- Migration: a deployment that passes `build_governed_resolver` a custom `ControlPlaneProtocol` implementation without registry introspection must add those three methods.
+- Migration: declare an index (`FileErasureIndex`, or `erasure_index_at(<store root>)`) at every store construction site.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17311,9 +17147,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Public surface: true
 - Change type: added
 - Before: absent
-- After: a `TypeError` raised at composition when a Control Plane offers no `keys_of_class`/`versions`/`peek`. The shipped `ControlPlaneRegistry` offers all three.
+- After: a `TypeError` raised at composition when the declared index is not an `ErasureIndexProtocol`, or when the store was already composed over a different index.
 - Why: SEC-009; ruling 2. A store that cannot consult would serve erased content silently, so it is refused where an operator sees it.
-- Migration: a deployment that passes `build_governed_resolver` a custom `ControlPlaneProtocol` implementation without registry introspection must add those three methods.
+- Migration: declare an index (`FileErasureIndex`, or `erasure_index_at(<store root>)`) at every store construction site.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -17398,6 +17234,198 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - After: `{"erased-content": "subject-unavailable"}`. At `minimal`, `disclose` renders an `erased-content` determination as the not-found shell, built from a fresh `SubjectUnavailableRefusal` that carries nothing of the determination. The replay record keeps the `erased-content` envelope, and the `DisclosureDecision` records `internal_kind = erased-content`, `external_kind = subject-unavailable`, with `kind` withheld.
 - Why: SEC-009; fix round 1, I5 on `D-IMPL-374` (4). The wire must not disclose an erasure at `minimal`, and the audit trail must not record a false "nonexistent".
 - Migration: none. A consumer at `minimal` sees exactly the not-found shell it saw before.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexProtocol
+
+- Surface: ccf.erasure.ErasureIndexProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The append-only durable erasure index, with four methods: `append(entry)`; `lookup(*, tenant_id, content_address)` (O(1)); `entries(*, tenant_id)`; and `tenants()`. It is REQUIRED at every store construction site.
+- Why: SEC-009; fix round 1 C1, with rulings (i) and (ii). The artifact store is immutable by design, so the erasures in force live in an index of their own. The RECORD stays the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ErasureIndexProtocol
+
+- Surface: ccf.erasure.index.ErasureIndexProtocol
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The append-only durable erasure index, with four methods: `append(entry)`; `lookup(*, tenant_id, content_address)` (O(1)); `entries(*, tenant_id)`; and `tenants()`. It is REQUIRED at every store construction site.
+- Why: SEC-009; fix round 1 C1, with rulings (i) and (ii). The artifact store is immutable by design, so the erasures in force live in an index of their own. The RECORD stays the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.FileErasureIndex
+
+- Surface: ccf.erasure.FileErasureIndex
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reference index. One append-only JSON-lines file per deployment, fsynced on every append. Entries are kept in memory, keyed by (tenant, address). It picks up lines that another process appended, and refuses a line that does not parse.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.FileErasureIndex
+
+- Surface: ccf.erasure.index.FileErasureIndex
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reference index. One append-only JSON-lines file per deployment, fsynced on every append. Entries are kept in memory, keyed by (tenant, address). It picks up lines that another process appended, and refuses a line that does not parse.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureIndexEntryExists
+
+- Surface: ccf.erasure.ErasureIndexEntryExists
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` raised when a different entry is offered for an address the tenant has already erased. An entry is never replaced.
+- Why: SEC-009; fix round 1 C1 and U6 (no un-erasure).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ErasureIndexEntryExists
+
+- Surface: ccf.erasure.index.ErasureIndexEntryExists
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A `ValueError` raised when a different entry is offered for an address the tenant has already erased. An entry is never replaced.
+- Why: SEC-009; fix round 1 C1 and U6 (no un-erasure).
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ERASURE_INDEX_FILENAME
+
+- Surface: ccf.erasure.ERASURE_INDEX_FILENAME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The conventional file name `.erasure-index.jsonl`, beside a file-backed store. It is dot-prefixed and is not a content address, so the store's read path can never serve it.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.ERASURE_INDEX_FILENAME
+
+- Surface: ccf.erasure.index.ERASURE_INDEX_FILENAME
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The conventional file name `.erasure-index.jsonl`, beside a file-backed store. It is dot-prefixed and is not a content address, so the store's read path can never serve it.
+- Why: SEC-009; fix round 1 C1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.erasure_index_at
+
+- Surface: ccf.erasure.erasure_index_at
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Returns the conventional `FileErasureIndex` beside a file store root. The in-process and local-CLI sites use it with their declared root, and so do the examples.
+- Why: SEC-009; fix round 1 C1: the in-process and local-CLI sites take the index path from their existing declared root.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.index.erasure_index_at
+
+- Surface: ccf.erasure.index.erasure_index_at
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: Returns the conventional `FileErasureIndex` beside a file store root. The in-process and local-CLI sites use it with their declared root, and so do the examples.
+- Why: SEC-009; fix round 1 C1: the in-process and local-CLI sites take the index path from their existing declared root.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.INDEX_UNSUPPORTED
+
+- Surface: ccf.erasure.INDEX_UNSUPPORTED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reason `index-unsupported`, carried by an address whose index entry is not supported by an agreeing erasure record. The address is still withheld, and the event is audited `erasure_index_unsupported`.
+- Why: SEC-009; design §8 and fix round 1 I3: the record is the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.store.INDEX_UNSUPPORTED
+
+- Surface: ccf.erasure.store.INDEX_UNSUPPORTED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The reason `index-unsupported`, carried by an address whose index entry is not supported by an agreeing erasure record. The address is still withheld, and the event is audited `erasure_index_unsupported`.
+- Why: SEC-009; design §8 and fix round 1 I3: the record is the only authority.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.ErasureSubjectLocator
+
+- Surface: ccf.erasure.ErasureSubjectLocator
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A Protocol: `addresses(*, tenant_id, subject_class, subject_ref)`. It has NO reference implementation this phase. Enumerating where a subject appears is the deployment's job; the erasure door VERIFIES every address a request names.
+- Why: SEC-009; ruling (iv) on §4.1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.ErasureSubjectLocator
+
+- Surface: ccf.erasure.contracts.ErasureSubjectLocator
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: A Protocol: `addresses(*, tenant_id, subject_class, subject_ref)`. It has NO reference implementation this phase. Enumerating where a subject appears is the deployment's job; the erasure door VERIFIES every address a request names.
+- Why: SEC-009; ruling (iv) on §4.1.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.RetentionReasonCode
+
+- Surface: ccf.erasure.RetentionReasonCode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The closed `Literal` of retention codes, now including `replay-input`. `RetentionDecision.reason_code` is typed with it.
+- Why: SEC-009; fix round 1 M2 and §7 `replay-input`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.erasure.contracts.RetentionReasonCode
+
+- Surface: ccf.erasure.contracts.RetentionReasonCode
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: The closed `Literal` of retention codes, now including `replay-input`. `RetentionDecision.reason_code` is typed with it.
+- Why: SEC-009; fix round 1 M2 and §7 `replay-input`.
+- Migration: none. A deployment that wants erasure declares a subject declaration, a retention-and-hold policy, an erasure workflow with a typed approval gate, `ccf.erasure-record` under `ArtifactErase` in its `WriteKinds`, and a durable erasure index at every store construction site.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -18112,7 +18140,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-546 entries — 355 public Python surface, 191 not public Python API.
+549 entries — 358 public Python surface, 191 not public Python API.
 
 ### Public Python surface
 
@@ -24403,13 +24431,13 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: `build_artifact_server(*, server_name, store, token_verifier, auth_settings, authorizer, entitlement_source, refusal_recorder, audit_log)`
-- After: a new **required** keyword `control_plane: ErasureIndexSource`, with no default. The server wraps `store` through `compose_erasure_consult`.
+- After: a new **required** keyword `erasure_index: ErasureIndexProtocol`, with no default. The server wraps `store` through `compose_erasure_consult`.
   - Every byte read goes through the wrapped store.
   - A governed record follows the authorization-first order (ruling 1).
   - An erased artifact on the client lane is returned as the erased reading: the not-found shell at `minimal`, and `erased-content` above it.
   - The naming resource still resolves through `store`, because it returns an address, never bytes (the U8 reasoning).
 - Why: SEC-009; the coordinator's MCP ruling on `D-IMPL-374` (4). This server is the ArtifactStore's persistence transport (CLAUDE.md §7.4), so an erased artifact served over it is exactly the SEC-009 hole.
-- Migration: pass `control_plane=` with the deployment's `ControlPlaneRegistry`, the same registry the erasure door appends its mirror to. The five in-tree call sites are updated.
+- Migration: pass `erasure_index=` with the deployment's durable index. The five in-tree call sites are updated.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 
@@ -24425,6 +24453,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
   - A new keyword `erased_client_read: ErasedContentRefused | None = None` lets the MCP artifact server render an erased client-lane artifact the same way. It can only ever produce a refusal, never bytes.
 - Why: SEC-009; rulings 1 and MCP on `D-IMPL-374` (4).
 - Migration: none.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure index.
+- After: a new **required** keyword `erasure_index: ErasureIndexProtocol`, with no default. The selected store, whether supplied or default, is composed with the erasure consult over it and scoped to the fabric's tenant.
+- Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
+- Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf.products.product.OpenedProduct
+
+- Surface: ccf.products.product.OpenedProduct
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure index.
+- After: a new required constructor keyword `erasure_index`, and an `erasure_index` attribute. `open_product` derives the index from its declared scratch root (`erasure_index_at`), composes its store scoped to the deployment's tenant, and `build_arguments` hands the index to every resolver it builds.
+- Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
+- Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
+
+*Recorded by `374-04-sec-009-minimum-erasure.md`.*
+
+#### ccf_runtime.http_api.dependencies.ApiDependencies
+
+- Surface: ccf_runtime.http_api.dependencies.ApiDependencies
+- Public surface: true
+- Change type: reshaped
+- Before: no erasure index.
+- After: a new **required** field `erasure_index: ErasureIndexProtocol`, with no default. `create_app` composes `artifact_store` over it, together with `control_plane.audit_log`.
+- Why: SEC-009; fix round 1 C1 on `D-IMPL-374` (4). A composition without a declared durable index refuses by name.
+- Migration: declare the deployment's index. Use `FileErasureIndex(path)`, or `erasure_index_at(<file store root>)` for a file store. Every in-tree caller is updated, including the examples, under D-IMPL-261's deliberate-surface-change rule.
 
 *Recorded by `374-04-sec-009-minimum-erasure.md`.*
 

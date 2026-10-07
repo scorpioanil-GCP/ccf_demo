@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import pathlib
 import string
+from tests.composition import no_erasures
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
@@ -234,7 +235,7 @@ def build_for(builder: str, tmp_path: pathlib.Path) -> FastMCP:
             entitlement_source=source,
             refusal_recorder=recorder,
             audit_log=ControlPlaneRegistry().audit_log,
-            control_plane=ControlPlaneRegistry(),
+            erasure_index=no_erasures(),
         )
 
     if builder == "hitl":

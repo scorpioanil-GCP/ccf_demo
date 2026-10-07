@@ -2,7 +2,7 @@
 
 Coordinator ruling on the MCP artifact server: it is the ArtifactStore's
 persistence transport (CLAUDE.md §7.4), so it composes the erasure consult
-itself, over a REQUIRED ``control_plane`` constructor parameter, through
+itself, over a REQUIRED ``erasure_index`` constructor parameter, through
 ``compose_erasure_consult``.
 
 RED today: the server has no Control Plane to consult, so a client-lane
@@ -11,7 +11,6 @@ artifact whose erasure is mirrored is served — its bytes cross.
 
 from __future__ import annotations
 
-import inspect
 import pathlib
 from typing import Any
 
@@ -20,7 +19,8 @@ from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 
 from ccf.authz.capability import ArtifactWrite
-from ccf.contracts.canonical import canonical_bytes
+from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.erasure import FileErasureIndex
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.mcp.artifact_server import build_artifact_server
@@ -41,8 +41,9 @@ NOWHERE = "e" * 64
 DOCUMENT = {"customer": {"id": "customer-42"}, "note": "kyc"}
 
 
-def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, Any, ControlPlaneRegistry]:
+def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, Any, Any]:
     registry = ControlPlaneRegistry()
+    index = FileErasureIndex(tmp_path / "erasure-index.jsonl")
     source, recorder = _entitlement_world(tmp_path)
     if level is not None:
         recorder = refusal_recorder(
@@ -67,9 +68,8 @@ def _server(tmp_path: pathlib.Path, *, level: str | None = None) -> tuple[Any, A
         refusal_recorder=recorder,
         audit_log=registry.audit_log,
     )
-    if "control_plane" in inspect.signature(build_artifact_server).parameters:
-        arguments["control_plane"] = registry
-    return build_artifact_server(**arguments), store, registry
+    arguments["erasure_index"] = index
+    return build_artifact_server(**arguments), store, index
 
 
 def _shell(payload: bytes) -> RefusalEnvelope:
@@ -77,10 +77,10 @@ def _shell(payload: bytes) -> RefusalEnvelope:
 
 
 def test_an_erased_artifact_is_not_served_over_the_mcp_artifact_server(tmp_path: pathlib.Path) -> None:
-    server, store, registry = _server(tmp_path)
+    server, store, index = _server(tmp_path)
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), DOCUMENT)
     assert aa._blob(server, ref.content_address, TENANT) == canonical_bytes(DOCUMENT)
-    composed.erase(registry, ref.content_address)
+    composed.erase(store, index, ref.content_address, tenant=TENANT)
     served = aa._blob(server, ref.content_address, TENANT)
     assert served != canonical_bytes(DOCUMENT), "the erased bytes crossed the MCP artifact server"
     # minimal: the not-found rendering, identical to an address nothing is stored at.
@@ -88,9 +88,9 @@ def test_an_erased_artifact_is_not_served_over_the_mcp_artifact_server(tmp_path:
 
 
 def test_an_erased_artifact_reads_as_erased_content_above_minimal(tmp_path: pathlib.Path) -> None:
-    server, store, registry = _server(tmp_path, level="full")
+    server, store, index = _server(tmp_path, level="full")
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), DOCUMENT)
-    composed.erase(registry, ref.content_address)
+    record = composed.erase(store, index, ref.content_address, tenant=TENANT)
     shell = _shell(aa._blob(server, ref.content_address, TENANT))
     assert shell.kind == "erased-content" and shell.disclosure == "full"
-    assert shell.fields["erasure_record_address"] == '"' + "f" * 64 + '"'
+    assert shell.fields["erasure_record_address"] == '"' + content_hash(record) + '"'

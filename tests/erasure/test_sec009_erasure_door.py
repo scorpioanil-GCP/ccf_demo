@@ -52,8 +52,8 @@ def test_an_erasure_record_is_written_only_after_a_human_approves_through_the_ga
     # Requested, not erased: nothing is written and nothing is indexed until a human approves.
     assert getattr(suspended, "event_key", None), suspended
     assert _record_count(plane) == 0
-    index = h.erasure("ErasureIndex")(plane.registry)
-    assert index.lookup(plane.document.content_address) is None
+    index = h.index_of(plane)
+    assert index.lookup(tenant_id=h.TENANT, content_address=plane.document.content_address) is None
 
     resolution = h.approve(plane, h.pending(plane, suspended.event_key))
     record = h.run(
@@ -70,8 +70,8 @@ def test_an_erasure_record_is_written_only_after_a_human_approves_through_the_ga
     address = content_hash(record)
     assert plane.store.exists(content_address=address)
     assert _record_count(plane) == 1
-    # And the registry mirror the consult reads names it.
-    entry = index.lookup(plane.document.content_address)
+    # And the durable index the consult reads names it, write-ahead (C1).
+    entry = h.index_of(plane).lookup(tenant_id=h.TENANT, content_address=plane.document.content_address)
     assert entry is not None and entry.erasure_record_address == address
 
 
@@ -95,7 +95,7 @@ def test_a_completion_presenting_an_approval_the_authority_path_never_recorded_w
         h.run(door.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=forged, erase=h.erase_cap(request)))
     assert _refusal_code(refused.value) == "approval-not-recorded"
     assert _record_count(plane) == 0
-    assert h.erasure("ErasureIndex")(plane.registry).lookup(plane.document.content_address) is None
+    assert h.index_of(plane).lookup(tenant_id=h.TENANT, content_address=plane.document.content_address) is None
 
 
 def test_a_workflow_with_no_approval_gate_is_refused_at_the_door(tmp_path: Path) -> None:
@@ -141,7 +141,7 @@ def test_a_legal_hold_placed_after_the_request_refuses_the_completion(tmp_path: 
     assert refused.value.decision.reason_code == "legal-hold"
     assert refused.value.decision.hold_id == "hold-late"
     assert _record_count(plane) == 0
-    assert h.erasure("ErasureIndex")(plane.registry).lookup(plane.document.content_address) is None
+    assert h.index_of(plane).lookup(tenant_id=h.TENANT, content_address=plane.document.content_address) is None
 
 
 def test_minimum_age_is_present_on_the_contract_with_no_default() -> None:

@@ -144,7 +144,7 @@ from ccf.artifacts.protocol import (
 )
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
 from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
-from ccf.erasure import ErasedContentRefused, ErasureIndexSource, compose_erasure_consult
+from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, compose_erasure_consult
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
@@ -309,7 +309,7 @@ def build_artifact_server(
     entitlement_source: ProductEntitlementSourceProtocol,
     refusal_recorder: DisclosingRecorderProtocol,
     audit_log: AuditLog,
-    control_plane: ErasureIndexSource,
+    erasure_index: ErasureIndexProtocol,
 ) -> FastMCP:
     """Build the authenticated, authorized artifact server over ``store``.
 
@@ -348,18 +348,19 @@ def build_artifact_server(
         audit_log: The Control Plane's own append-only log, where every
             dereference — governed or client-lane — appends the trail of its
             read (``D-IMPL-345`` R-5).
-        control_plane: The Control Plane whose registry mirror of erasure
-            records the server consults (SEC-009; ``D-IMPL-374`` (4), MCP
-            ruling). **Required, no default**: this server is the
-            ArtifactStore's persistence transport (CLAUDE.md §7.4), so it
-            composes ``store`` through
-            :func:`~ccf.erasure.compose_erasure_consult` itself. Every byte read
-            goes through the composed store: a governed record follows
-            ``govern_dereference``'s authorization-first order, and an erased
-            client-lane artifact crosses as the erased reading — the not-found
-            shell at ``minimal``, ``erased-content`` above it — never as bytes.
-            The naming resource still resolves through ``store``: it returns
-            an address, never bytes (the ``exists`` reasoning, U8).
+        erasure_index: The deployment's durable erasure index (SEC-009;
+            ``D-IMPL-374`` (4), MCP ruling and fix round 1 C1). **Required, no
+            default**: this server is the ArtifactStore's persistence
+            transport (CLAUDE.md §7.4), so it composes ``store`` with the
+            erasure consult itself, through
+            :func:`~ccf.erasure.compose_erasure_consult`. Every byte read goes
+            through a view scoped to the caller's verified tenant (I6): a
+            governed record follows ``govern_dereference``'s
+            authorization-first order, and an erased client-lane artifact
+            crosses as the erased reading — the not-found shell at
+            ``minimal``, ``erased-content`` above it — never as bytes. The
+            naming resource still resolves through ``store``: it returns an
+            address, never bytes (the ``exists`` reasoning, U8).
 
     Returns:
         A configured ``FastMCP``. Deliberately *not* started, and no bind
@@ -367,7 +368,7 @@ def build_artifact_server(
         library that picked an interface would be picking an exposure surface.
     """
     # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
-    consulted = compose_erasure_consult(store, control_plane=control_plane)
+    consulted = compose_erasure_consult(store, index=erasure_index, audit_log=audit_log)
     door = TenantGuardedServer(
         FastMCP(
             server_name,
@@ -423,7 +424,9 @@ def build_artifact_server(
         # the deployment did not declare governed. Served tenant-scoped, and
         # the read leaves the same trail a governed one does (D-IMPL-345 R-5).
         try:
-            payload = consulted.get(content_address=content_address)
+            # I6: the caller's own tenant's view — the split above decided it
+            # owns this client-lane artifact.
+            payload = consulted.scoped(authorized.tenant).get(content_address=content_address)
         except ErasedContentRefused as erased:
             # SEC-009: the caller owns this client-lane artifact (decided by the
             # split above), so it receives the erased reading at its level.

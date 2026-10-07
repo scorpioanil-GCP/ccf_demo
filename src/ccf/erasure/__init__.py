@@ -6,16 +6,24 @@ An erasure is a **fact the fabric records**, never a mutation it performs
 under which reasons, holds and minimum age (:class:`RetentionHoldPolicy`,
 default refuse). A request goes through the deployment-declared, factory-
 validated one-gate workflow at the erasure door
-(``ccf_runtime.erasure.ErasureDoor``); on a human approval it is written as an
-immutable :class:`ErasureRecord` through the store's one write verb, and
-mirrored into the append-only registry index (:class:`ErasureIndex`) that the
-decorating store (:class:`ErasureConsultingStore`, composed at every store
-construction site through :func:`compose_erasure_consult`) consults on every
-read, serving an ``erased-content`` reading instead of the bytes — to a caller
-entitled to the address, after authorization (ruling 1). The door also
-requires the distinct ``artifact.erase`` capability (ruling 3), and replay
-over erased content stays positive with the erasure disclosed for every
-erased input class (ruling 4).
+(``ccf_runtime.erasure.ErasureDoor``), which also requires the distinct
+``artifact.erase`` capability (ruling 3) and VERIFIES every address the
+request names — its stored class and tenant from the store's naming, the
+subject's salted reference in its declared key paths, no subject in a
+replay-input field (fix round 1: C2, I6, (iv), §7). On a RECORDED human
+approval the door appends the entries to the deployment's durable,
+append-only erasure index (:class:`ErasureIndexProtocol`,
+:class:`FileErasureIndex`) and THEN files the immutable
+:class:`ErasureRecord` under the erase capability (write-ahead, I4). The
+record is the only authority: the decorating store
+(:class:`ErasureConsultingStore`, composed at every store construction site
+through :func:`compose_erasure_consult` over a REQUIRED index) validates
+every entry against its record and withholds — audited
+``erasure_index_unsupported`` — an entry its record does not support (§8).
+It serves an ``erased-content`` reading instead of the bytes, within the
+erasing tenant (I6), to a caller entitled to the address after authorization
+(ruling 1); replay over erased content stays positive with the erasure
+disclosed for every erased input class (ruling 4).
 
 **What this package does NOT do — stated, not implied:**
 
@@ -39,6 +47,18 @@ erased input class (ruling 4).
   approval binds to the request's content identity, this field included.
 * ``ClassRetention.minimum_age`` is expressed in **whole days**, because the
   canonical form has no rendering for a duration and a policy must hash.
+* **Enumeration is the deployment's** (ruling (iv)): the fabric verifies the
+  addresses a request names; where a subject's artifacts are is the
+  deployment's to know (:class:`ErasureSubjectLocator`, declared without a
+  reference implementation).
+* A tenantless read (the replay engine, ``record_of``, child admission, the MCP
+  client lane) withholds an address ANY tenant erased, redacted (ruling (i)).
+* The ``erasure_index_unsupported`` audit event carries the disputed entry's
+  own ``erased_at`` as its instant (the decorating store reads no clock); the
+  audit log's sequence number orders it.
+* ``subject_ref_salt`` sits in a Control Plane artifact beside the hashes it
+  salts; for a low-entropy identifier the reference is dictionary-reversible
+  by a reader of that artifact (U4, as ruled).
 
 Algorithmic package (CINV-03).
 """
@@ -57,24 +77,25 @@ from ccf.erasure.contracts import (
     ErasureRequest,
     ErasureSubjectClass,
     ErasureSubjectDeclaration,
+    ErasureSubjectLocator,
     LegalHold,
     RequestedAddress,
     RetentionDecision,
     RetentionHoldPolicy,
+    RetentionReasonCode,
     judge_retention,
     subject_ref_for,
 )
 from ccf.erasure.index import (
-    ERASURE_INDEX,
-    ERASURE_INDEX_SEMVER,
-    ErasureIndex,
+    ERASURE_INDEX_FILENAME,
+    ErasureIndexEntryExists,
     ErasureIndexEntry,
-    ErasureIndexMirror,
-    ErasureIndexSource,
-    append_to_erasure_index,
-    erasure_index_key,
+    ErasureIndexProtocol,
+    FileErasureIndex,
+    erasure_index_at,
 )
 from ccf.erasure.store import (
+    INDEX_UNSUPPORTED,
     ErasedContentRefused,
     ErasureConsultingStore,
     ErasureIndexUnavailable,
@@ -84,10 +105,10 @@ from ccf.erasure.store import (
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
-    "ERASURE_INDEX",
-    "ERASURE_INDEX_SEMVER",
+    "ERASURE_INDEX_FILENAME",
     "ERASURE_RECORD_CLASS",
     "ERASURE_SUBJECT_DECLARATION",
+    "INDEX_UNSUPPORTED",
     "REPLAY_INPUT_PATHS",
     "RETENTION_HOLD_POLICY",
     "RETENTION_REASON_CODES",
@@ -95,22 +116,23 @@ __all__ = [
     "ErasedAddress",
     "ErasedContentRefused",
     "ErasureConsultingStore",
-    "ErasureIndex",
+    "ErasureIndexEntryExists",
     "ErasureIndexEntry",
-    "ErasureIndexMirror",
-    "ErasureIndexSource",
+    "ErasureIndexProtocol",
     "ErasureIndexUnavailable",
     "ErasureRecord",
     "ErasureRequest",
     "ErasureSubjectClass",
     "ErasureSubjectDeclaration",
+    "ErasureSubjectLocator",
+    "FileErasureIndex",
     "LegalHold",
     "RequestedAddress",
     "RetentionDecision",
     "RetentionHoldPolicy",
-    "append_to_erasure_index",
+    "RetentionReasonCode",
     "compose_erasure_consult",
-    "erasure_index_key",
+    "erasure_index_at",
     "judge_retention",
     "subject_ref_for",
 ]

@@ -1,174 +1,212 @@
-"""The erasure index — a registry MIRROR of erasure records (U7 (b); SEC-009, `D-IMPL-374` (4)).
+"""The durable erasure index — ``ErasureIndexProtocol`` and its file-backed reference (SEC-009; `D-IMPL-374` (4)).
 
-Design ``D-IMPL-367`` §2.3 U7 (b), ruled: the index the consult reads is an
-append-only Control Plane *registry* entry per tenant, on the
-``EntityInvalidationRegister`` precedent (``D-IMPL-334``) — audited, versioned,
-grows only. **The erasure record is the only authority**; the mirror is a
-derived view. An entry the mirror names is served as erased whether or not a
-record supports it — the fail-closed direction of design §8's disagreement row.
+Fix-round-1 ruling C1, as amended by rulings (i) and (ii). The artifact store is
+immutable and version-pinned by design, so "the erasures in force" — state
+that grows — lives in an append-only index of its own, declared at
+composition and REQUIRED at every store construction site.
 
-**Grows only.** :class:`ErasureIndexMirror` has an append and no removal, no
-un-erasure verb exists anywhere (U6), and the consult reads EVERY registered
-version — so a later version that omits an address cannot un-erase it.
+**The record is the only authority** (U7). Every entry names its erasure
+record's content address, the hashed subject, the tenant, the erased address
+and the approval reference; the decorating store validates every entry
+against its record (:mod:`ccf.erasure.store`) and refuses to serve an address
+whose entry disagrees, auditing ``erasure_index_unsupported`` (design §8).
 
-The read (:class:`ErasureIndex`) uses the registry's UNAUDITED introspection
-(``keys_of_class``, ``versions``, ``peek``): the consult runs on every artifact
-read, and an audit event per read would record resolutions that are not
-governance acts (the ``resolve_pinned`` WR-08 reasoning).
+**Grows only.** :meth:`ErasureIndexProtocol.append` is the one write; an
+identical entry is idempotent, a different entry for an already-erased
+``(tenant, address)`` is refused (:class:`ErasureIndexEntryExists`), and no
+removal or un-erasure verb exists (U6).
 
-Algorithmic module (CINV-03).
+**Write-ahead** (ruling (ii)): the erasure door appends the entry BEFORE it
+files the record, so a record with no entry cannot exist and no listing of the
+store is needed; an entry whose record never arrived is the §8 disagreement.
+
+Algorithmic module (CINV-03): no clock is read here.
 """
 
 from __future__ import annotations
 
+import os
+import threading
 from datetime import datetime
+from pathlib import Path
 from typing import Final, Protocol, runtime_checkable
 
-from pydantic import Field
-
-from ccf.authz.capability import Authorized, CompositionRegister, verify
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
-from ccf.controlplane.artifact_base import ArtifactClass, VersionedArtifact
-from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.contracts.canonical import canonical_bytes
 
 __ccf_mode__ = "algorithmic"
 
 __all__ = [
-    "ERASURE_INDEX",
-    "ERASURE_INDEX_SEMVER",
-    "ErasureIndex",
+    "ERASURE_INDEX_FILENAME",
+    "ErasureIndexEntryExists",
     "ErasureIndexEntry",
-    "ErasureIndexMirror",
-    "ErasureIndexSource",
-    "append_to_erasure_index",
-    "erasure_index_key",
+    "ErasureIndexProtocol",
+    "FileErasureIndex",
+    "erasure_index_at",
 ]
 
-#: The mirror's own semver lane (stated, never defaulted).
-ERASURE_INDEX_SEMVER: Final[str] = "1.0.0"
+#: The conventional file name of a deployment's index beside its file-backed
+#: artifact store: dot-prefixed and not a content address, so the store's
+#: read path (``held_content_address``) can never serve it.
+ERASURE_INDEX_FILENAME: Final[str] = ".erasure-index.jsonl"
 
-_KEY_CLASS: Final[str] = "ccf.erasure-index"
 
-
-def erasure_index_key(tenant_id: str) -> str:
-    """The Control Plane key of ``tenant_id``'s mirror: ``{tenant}/ccf.erasure-index`` (SEC-009; `D-IMPL-374` (4))."""
-    return f"{tenant_id}/{_KEY_CLASS}"
+class ErasureIndexEntryExists(ValueError):
+    """An already-erased ``(tenant, address)`` was offered a different entry; the index never replaces one (SEC-009; `D-IMPL-374` (4))."""
 
 
 class ErasureIndexEntry(CCFContract):
-    """One erased address, as the consult needs it — and nothing of the subject (SEC-009; `D-IMPL-374` (4)).
+    """One erased address within one tenant, naming its authority record (SEC-009; `D-IMPL-374` (4)).
 
     Attributes:
-        content_address: The erased artifact's address.
-        erasure_record_address: The content address of the authority record.
-        reason: The admitted erasure reason, from the policy's closed set (disclosed at ``reasoned``).
+        tenant_id: The tenant the erasure withholds within (I6).
+        content_address: The erased artifact.
+        erasure_record_address: The content address of the ``ccf.erasure-record``
+            that is the authority for this entry.
+        subject_ref: The salted subject reference the record carries.
+        approval_ref: The content hash of the recorded approval the record carries.
+        reason: The admitted erasure reason (disclosed at ``reasoned``).
         erased_at: The record's ``erased_at`` (disclosed at ``reasoned``).
     """
 
+    tenant_id: str
     content_address: str
     erasure_record_address: str
+    subject_ref: str
+    approval_ref: str
     reason: str
     erased_at: datetime
 
 
-class ErasureIndexMirror(VersionedArtifact):
-    """One tenant's erased addresses — re-registered as a new immutable version per append (SEC-009; `D-IMPL-374` (4))."""
-
-    tenant_id: str
-    entries: tuple[ErasureIndexEntry, ...] = Field(
-        default=(), json_schema_extra={HASH_TRANSPARENT_KEY: False}
-    )
-
-    def entry_for(self, content_address: str) -> ErasureIndexEntry | None:
-        """The entry for ``content_address``, or ``None``."""
-        return next((e for e in self.entries if e.content_address == content_address), None)
-
-    def with_entries(self, added: tuple[ErasureIndexEntry, ...]) -> "ErasureIndexMirror":
-        """This mirror plus ``added``; an address already present keeps its first entry (grows only)."""
-        kept = {e.content_address: e for e in self.entries}
-        for entry in added:
-            kept.setdefault(entry.content_address, entry)
-        return ErasureIndexMirror(
-            semver=self.semver,
-            tenant_id=self.tenant_id,
-            entries=tuple(sorted(kept.values(), key=lambda e: e.content_address)),
-        )
-
-
-#: The mirror's registered class (U7 (b)).
-ERASURE_INDEX = ArtifactClass(class_id=_KEY_CLASS, contract=ErasureIndexMirror)
-
-
 @runtime_checkable
-class ErasureIndexSource(Protocol):
-    """The unaudited registry introspection the consult reads (SEC-009; `D-IMPL-374` (4))."""
+class ErasureIndexProtocol(Protocol):
+    """The append-only erasure index every store construction site declares (SEC-009; `D-IMPL-374` (4), C1).
 
-    def keys_of_class(self, class_id: str) -> tuple[str, ...]: ...
-
-    def versions(self, key: str) -> tuple[str, ...]: ...
-
-    def peek(self, key: str, version: str) -> object: ...
-
-
-class ErasureIndex:
-    """The consult's read of every tenant's mirror (SEC-009; `D-IMPL-374` (4)).
-
-    Content addressing means one address may be filed by several tenants; an
-    erasure of an address is therefore served as erased to every reader — the
-    safe direction, since the bytes at the address are the same bytes.
+    ``lookup`` is O(1) per ``(tenant, address)`` (I7); ``entries`` and
+    ``tenants`` serve the decorating store's boot validation.
     """
 
-    def __init__(self, source: ErasureIndexSource) -> None:
-        self._source = source
-
-    def lookup(self, content_address: str) -> ErasureIndexEntry | None:
-        """The entry naming ``content_address`` in ANY version of any tenant's mirror, or ``None``.
-
-        **Every version, oldest first — never only the newest** (U6). The
-        mirror is append-only by its own writer, but the registry accepts any
-        well-typed version from a holder of the key's ``Register``
-        capability; reading only the newest would let a later version that
-        omits an address un-erase it by omission. Reading the whole history
-        makes an erasure, once mirrored, permanent for the consult.
+    def append(self, entry: ErasureIndexEntry) -> None:
+        """Durably add ``entry``; idempotent for an identical entry.
 
         Raises:
-            TypeError: a key bound to the mirror class holds something else —
-                a broken registry, refused rather than read as "not erased".
+            ErasureIndexEntryExists: a different entry already erases the address
+                within the tenant.
         """
-        for key in self._source.keys_of_class(ERASURE_INDEX.class_id):
-            for version in self._source.versions(key):
-                mirror = self._source.peek(key, version)
-                if not isinstance(mirror, ErasureIndexMirror):
-                    raise TypeError(
-                        f"{key!r} holds {type(mirror).__name__}, not ErasureIndexMirror"
-                        " (SEC-009)"
-                    )
-                entry = mirror.entry_for(content_address)
-                if entry is not None:
-                    return entry
-        return None
+        ...
+
+    def lookup(self, *, tenant_id: str, content_address: str) -> ErasureIndexEntry | None:
+        """The entry erasing ``content_address`` within ``tenant_id``, or ``None``."""
+        ...
+
+    def entries(self, *, tenant_id: str) -> tuple[ErasureIndexEntry, ...]:
+        """Every entry of ``tenant_id``, in append order."""
+        ...
+
+    def tenants(self) -> frozenset[str]:
+        """Every tenant that holds at least one entry."""
+        ...
 
 
-def append_to_erasure_index(
-    registry: ControlPlaneRegistry,
-    authorized: Authorized[CompositionRegister],
-    entries: tuple[ErasureIndexEntry, ...],
-) -> str:
-    """Append ``entries`` to the capability's tenant mirror as a new audited version (SEC-009; `D-IMPL-374` (4)).
+class FileErasureIndex:
+    """The reference :class:`ErasureIndexProtocol`: append-only JSON lines, fsync on append (SEC-009; `D-IMPL-374` (4)).
 
-    The capability is a composition-minted ``Register`` for exactly
-    :func:`erasure_index_key` of its tenant (``D-IMPL-354``), verified first.
+    One file per deployment. Entries are held in memory keyed by
+    ``(tenant, address)`` for O(1) lookup; a read first picks up any lines
+    another process appended since (one ``stat`` — the file only grows), so
+    two processes over one file agree. A line that does not parse is refused
+    at load rather than skipped: an index that silently dropped an entry would
+    un-erase its address.
 
-    Raises:
-        ccf.authz.capability.CapabilityBypassError: fabricated, retargeted or
-            wrong-kind capability.
+    Args:
+        path: The index file. Created (with parents) on the first append.
     """
-    tenant = getattr(authorized, "tenant", "")
-    verify(authorized, kind=CompositionRegister, resource=erasure_index_key(str(tenant)))
-    key = erasure_index_key(authorized.tenant)
-    versions = registry.versions(key)
-    standing = registry.peek(key, versions[-1]) if versions else None
-    if not isinstance(standing, ErasureIndexMirror):
-        standing = ErasureIndexMirror(semver=ERASURE_INDEX_SEMVER, tenant_id=authorized.tenant)
-    return registry.register_typed(authorized, standing.with_entries(entries), ERASURE_INDEX)
+
+    def __init__(self, path: Path | str) -> None:
+        self._path = Path(path)
+        self._lock = threading.Lock()
+        self._offset = 0
+        self._by_key: dict[tuple[str, str], ErasureIndexEntry] = {}
+        self._by_tenant: dict[str, list[ErasureIndexEntry]] = {}
+        with self._lock:
+            self._catch_up()
+
+    @property
+    def path(self) -> Path:
+        """The index file."""
+        return self._path
+
+    def _catch_up(self) -> None:
+        try:
+            size = self._path.stat().st_size
+        except FileNotFoundError:
+            return
+        if size <= self._offset:
+            return
+        with self._path.open("rb") as handle:
+            handle.seek(self._offset)
+            tail = handle.read(size - self._offset)
+        last = tail.rfind(b"\n")
+        if last < 0:
+            return  # a line still being written; read it next time
+        for line in tail[:last].split(b"\n"):
+            if line.strip():
+                self._admit(ErasureIndexEntry.model_validate_json(line))
+        self._offset += last + 1
+
+    def _admit(self, entry: ErasureIndexEntry) -> None:
+        key = (entry.tenant_id, entry.content_address)
+        if key in self._by_key:
+            return  # the first entry stands; a later conflicting line was refused at append
+        self._by_key[key] = entry
+        self._by_tenant.setdefault(entry.tenant_id, []).append(entry)
+
+    def append(self, entry: ErasureIndexEntry) -> None:
+        with self._lock:
+            self._catch_up()
+            standing = self._by_key.get((entry.tenant_id, entry.content_address))
+            if standing is not None:
+                if standing == entry:
+                    return
+                raise ErasureIndexEntryExists(
+                    f"{entry.content_address!r} is already erased within tenant"
+                    f" {entry.tenant_id!r} under another record; an erasure index"
+                    " entry is never replaced (SEC-009; U6)"
+                )
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            line = canonical_bytes(entry) + b"\n"
+            descriptor = os.open(self._path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+            try:
+                os.write(descriptor, line)
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            self._catch_up()
+
+    def lookup(self, *, tenant_id: str, content_address: str) -> ErasureIndexEntry | None:
+        with self._lock:
+            self._catch_up()
+            return self._by_key.get((tenant_id, content_address))
+
+    def entries(self, *, tenant_id: str) -> tuple[ErasureIndexEntry, ...]:
+        with self._lock:
+            self._catch_up()
+            return tuple(self._by_tenant.get(tenant_id, ()))
+
+    def tenants(self) -> frozenset[str]:
+        with self._lock:
+            self._catch_up()
+            return frozenset(self._by_tenant)
+
+    def __repr__(self) -> str:
+        return f"FileErasureIndex({str(self._path)!r})"
+
+
+def erasure_index_at(store_root: Path | str) -> FileErasureIndex:
+    """The conventional file index beside a file-backed store rooted at ``store_root`` (SEC-009; `D-IMPL-374` (4)).
+
+    What the in-process and local-CLI composition sites use: their existing
+    declared store root fixes the index's path, so one deployment has one file.
+    """
+    return FileErasureIndex(Path(store_root) / ERASURE_INDEX_FILENAME)
+

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ccf.erasure import erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.client.adapters.binding_document import (
     BindingDocument,
@@ -95,6 +96,8 @@ def compose(document: BindingDocument) -> ComposedDeployment:
             root=document.root,
         ),
         artifact_store=FileArtifactStore(root=document.artifact_store),
+        # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
+        erasure_index=erasure_index_at(document.artifact_store),
         replay_record_class=document.replay_record_class,
         query_pin_class=document.query_pin_class,
         max_ttl_seconds=document.max_ttl_seconds,

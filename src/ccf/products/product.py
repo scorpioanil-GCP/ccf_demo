@@ -96,6 +96,7 @@ from typing import Any, Protocol, runtime_checkable
 from ccf.agents.definitions import AgentDefinition
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, WriteKinds
+from ccf.erasure.index import ErasureIndexProtocol, erasure_index_at
 from ccf.erasure.store import compose_erasure_consult
 from ccf.authz.capability import (
     COMPOSITION_PRINCIPAL,
@@ -444,6 +445,7 @@ class OpenedProduct:
         sources: Mapping[str, Mapping[str, str]],
         control_plane: ControlPlaneRegistry,
         artifact_store: ArtifactStoreProtocol,
+        erasure_index: ErasureIndexProtocol,
         refusal_recorder: ReplayRefusalRecorder,
         acquire: AcquireProtocol,
         project: ProjectionPlanFactoryProtocol,
@@ -473,6 +475,9 @@ class OpenedProduct:
         self.sources = sources
         self.control_plane = control_plane
         self.artifact_store = artifact_store
+        #: SEC-009 (`D-IMPL-374` (4), C1): the durable erasure index this
+        #: product's store consults and every resolver it builds is handed.
+        self.erasure_index = erasure_index
         self.refusal_recorder = refusal_recorder
         self.mcp_skills = mcp_skills
         self.agent = agent
@@ -607,6 +612,7 @@ class OpenedProduct:
             "evidence_clock_key": keys.half_life,
             "product_gate": self._gate,
             "artifact_store": self.artifact_store,
+            "erasure_index": self.erasure_index,
             "replay_record_class": self.replay.record_class,
             "query_pin_class": self.replay.query_pin_class,
             "refusal_recorder": self.refusal_recorder,
@@ -1103,10 +1109,19 @@ def open_product(
             ),
         )
     )
-    # SEC-009 (`D-IMPL-374` (4), ruling 2): the erasure consult is composed
-    # around whichever store was selected — supplied or default — so
-    # `record_of` and every resolver read through it refuse erased content.
-    store: ArtifactStoreProtocol = compose_erasure_consult(selected, control_plane=registry)
+    # SEC-009 (`D-IMPL-374` (4), ruling 2; fix round 1 C1, (i)): the erasure
+    # consult is composed around whichever store was selected — supplied or
+    # default — over the deployment's durable erasure index, which this
+    # in-process site takes from its declared scratch root, scoped to the
+    # tenant it serves, so `record_of` and every resolver read refuse erased
+    # content.
+    erasure_index = erasure_index_at(scratch_root / replay.store_dirname)
+    store: ArtifactStoreProtocol = compose_erasure_consult(
+        selected,
+        index=erasure_index,
+        audit_log=registry.audit_log,
+        tenant_id=config.tenant_id,
+    )
     # The bundle pin the boot WILL mint, computed the way the registry mints
     # it — the content address of the parsed artifact (`D-IMPL-26`) — so the
     # one recorder can exist before any fabric does and record the same pin
@@ -1182,6 +1197,7 @@ def open_product(
         sources=sources,
         control_plane=registry,
         artifact_store=store,
+        erasure_index=erasure_index,
         refusal_recorder=recorder,
         acquire=acquire,
         project=project,

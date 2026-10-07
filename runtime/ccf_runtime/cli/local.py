@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ccf.artifacts.file_store import FileArtifactStore
+from ccf.erasure.index import erasure_index_at
 from ccf.erasure.store import compose_erasure_consult
 from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.capability import Execute, Resume
@@ -133,17 +134,23 @@ def build_local_dependencies(*, root: Path) -> ApiDependencies:
     # SEC-009 (`D-IMPL-374` (4), ruling 2): composed with the erasure consult
     # here, so the engine reads through it too — not only the routes
     # `create_app` wraps.
+    # SEC-009 (fix round 1 C1): the durable erasure index sits beside the
+    # declared store root; this multi-tenant site composes the consult
+    # tenantless and its doors read through per-tenant views.
+    erasure_index = erasure_index_at(root / "artifacts")
     store = compose_erasure_consult(
         FileArtifactStore(
             root=root / "artifacts",
             write_kinds=WriteKinds.declare({WORKFLOW_TRACE_ARTIFACT_CLASS: (Execute, Resume)}),
         ),
-        control_plane=registry,
+        index=erasure_index,
+        audit_log=registry.audit_log,
     )
     hitl = InMemoryHitlTransport()
     return ApiDependencies(
         control_plane=registry,
         artifact_store=store,
+        erasure_index=erasure_index,
         product_resolver=_no_products_resolver,
         workflow_factory=WorkflowFactory(control_plane=registry),
         workflow_engine=WorkflowEngine(

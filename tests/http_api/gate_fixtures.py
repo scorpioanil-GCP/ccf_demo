@@ -36,6 +36,7 @@ from __future__ import annotations
 import asyncio
 import json
 import string
+from tests.composition import no_erasures
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -289,7 +290,7 @@ def build_gate_app(fabric: Any, root: Path) -> GateApp:
         )
 
     app = create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), 
             control_plane=fabric.registry,
             artifact_store=fabric.store,
             product_resolver=fabric.product_resolver,

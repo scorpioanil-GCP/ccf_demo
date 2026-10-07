@@ -99,6 +99,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from tests.composition import no_erasures
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -675,7 +676,7 @@ def _http_app(
     that asymmetry is the SDK's, not this fixture's.
     """
     return create_app(
-        ApiDependencies(
+        ApiDependencies(erasure_index=no_erasures(), 
             control_plane=ControlPlaneRegistry(),
             artifact_store=deployment_store(root / "artifacts", REPLAY_RECORD_CLASS),
             product_resolver=_recording_resolver(servable, carried),  # type: ignore[arg-type]

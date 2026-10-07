@@ -62,7 +62,7 @@ def test_the_file_index_is_append_only_and_survives_a_reopen(tmp_path: Path) -> 
     entry = _entry()
     index.append(entry)
     index.append(entry)  # identical: idempotent
-    with pytest.raises(h.erasure("ErasureIndexConflict")):
+    with pytest.raises(h.erasure("ErasureIndexEntryExists")):
         index.append(_entry(erasure_record_address="d" * 64))  # never replaced
     reopened = index_type(path)
     assert reopened.lookup(tenant_id=h.TENANT, content_address=entry.content_address) == entry

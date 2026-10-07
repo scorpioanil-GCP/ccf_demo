@@ -45,6 +45,7 @@ Tenant, principal, class and role names are test deployment vocabulary.
 from __future__ import annotations
 
 import json
+from tests.composition import no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -91,7 +92,9 @@ EXECUTION_ID = "optional-handles-execution"
 #: the consumer table in ``16-22-PLAN.md``: ``control_plane`` is read by four
 #: routers, ``artifact_store`` by two and ``product_resolver`` by one, and no
 #: useful app omits any of them.
-REQUIRED_FIELDS = ("control_plane", "artifact_store", "product_resolver")
+#: SEC-009 (D-IMPL-374 (4), fix round 1 C1): ``erasure_index`` joins the
+#: required handles — every store composition declares its durable index.
+REQUIRED_FIELDS = ("control_plane", "artifact_store", "erasure_index", "product_resolver")
 
 #: The six that default to ``None``. ``None`` is the positive assertion *this
 #: deployment exposes no such route*, not an omission.
@@ -122,7 +125,7 @@ FIELD_TO_ROUTER = {
 
 def _full_deps(fabric: Fabric) -> ApiDependencies:
     """The eight-handle bundle every existing deployment constructs."""
-    return ApiDependencies(
+    return ApiDependencies(erasure_index=no_erasures(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -137,7 +140,7 @@ def _full_deps(fabric: Fabric) -> ApiDependencies:
 
 def _partial_deps(fabric: Fabric) -> ApiDependencies:
     """The three-handle bundle a product-only deployment can now construct."""
-    return ApiDependencies(
+    return ApiDependencies(erasure_index=no_erasures(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,
@@ -264,7 +267,7 @@ def test_three_handles_construct_without_a_type_error() -> None:
     ``None`` here proves the *signature*, never the behaviour — the behaviour
     claim is the byte-comparison below, which is why both exist.
     """
-    bundle = ApiDependencies(
+    bundle = ApiDependencies(erasure_index=no_erasures(), 
         control_plane=None,  # type: ignore[arg-type]
         artifact_store=None,  # type: ignore[arg-type]
         product_resolver=None,  # type: ignore[arg-type]

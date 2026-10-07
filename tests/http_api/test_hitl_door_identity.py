@@ -29,6 +29,7 @@ production never mints (design §3).
 from __future__ import annotations
 
 import json
+from tests.composition import no_erasures
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -100,7 +101,7 @@ def _grants() -> dict[str, TokenGrant]:
 def _deps(fabric: Fabric, *, transport: Any = None) -> Any:
     from ccf_runtime.http_api.dependencies import ApiDependencies
 
-    return ApiDependencies(
+    return ApiDependencies(erasure_index=no_erasures(), 
         control_plane=fabric.registry,
         artifact_store=fabric.store,
         product_resolver=fabric.product_resolver,

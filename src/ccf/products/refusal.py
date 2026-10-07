@@ -309,9 +309,11 @@ class ErasedContentRefusal(CCFContract):
     """
 
     detail: str
-    erasure_reason: str
-    erased_at: datetime
-    erasure_record_address: str
+    #: ``index-unsupported`` (with no instant and no record address) when the
+    #: index entry is not supported by its record (design §8).
+    erasure_reason: str | None
+    erased_at: datetime | None
+    erasure_record_address: str | None
 
 
 class TemporalBoundRefusal(CCFContract):

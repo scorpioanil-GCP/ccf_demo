@@ -52,6 +52,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import pathlib
+from tests.composition import no_erasures
 from collections.abc import Callable, Iterator, Mapping
 from datetime import datetime
 from decimal import Decimal
@@ -545,6 +546,7 @@ def _arguments(booted: _Booted, **overrides: Any) -> dict[str, Any]:
     arguments: dict[str, Any] = {
         "fabric": booted.fabric,
         "control_plane": booted.control_plane,
+        "erasure_index": no_erasures(),
         "product_class_key": PRODUCT_CLASS_KEY,
         "request_contract_key": REQUEST_CONTRACT_KEY,
         "operator_parameter_keys": (TRAVERSAL_KEY,),

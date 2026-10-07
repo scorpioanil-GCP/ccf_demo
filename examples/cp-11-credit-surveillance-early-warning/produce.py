@@ -27,6 +27,7 @@ from typing import Any
 import acquisition
 import deployment
 import projection
+from ccf.erasure import erasure_index_at
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_config_and_boot
@@ -144,6 +145,8 @@ def assemble_and_serve(
             # `ccf_config.yaml`; the resolver stamps it onto the refusal.
             product_gate=deployment.build_exclusion_gate(asked=asked),
             artifact_store=store,
+            # SEC-009 (D-IMPL-374 (4), C1): the declared durable erasure index.
+            erasure_index=erasure_index_at(store.root),
             replay_record_class="ccf.replay-record",
             query_pin_class="ccf.graph-query",
             max_ttl_seconds=scenario.max_ttl_seconds,

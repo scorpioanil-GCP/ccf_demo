@@ -23,13 +23,17 @@ from tests.products import test_paved_road as pr
 
 def test_the_one_helper_wraps_a_store_and_refuses_a_plane_that_cannot_serve_the_index(tmp_path: Path) -> None:
     compose = h.erasure("compose_erasure_consult")
-    registry = ControlPlaneRegistry()
-    store = compose(composed_store(tmp_path), control_plane=registry)
+    index = h.erasure("FileErasureIndex")(tmp_path / "index.jsonl")
+    audit = ControlPlaneRegistry().audit_log
+    store = compose(composed_store(tmp_path), index=index, audit_log=audit)
     assert isinstance(store, h.erasure("ErasureConsultingStore"))
-    assert compose(store, control_plane=registry) is store  # idempotent
-    composed.assert_consults(store, registry)
+    assert compose(store, index=index, audit_log=audit) is store  # idempotent
+    composed.assert_consults(store, index)
     with pytest.raises(TypeError):
-        compose(composed_store(tmp_path / "other"), control_plane=object())
+        compose(composed_store(tmp_path / "other"), index=object(), audit_log=audit)
+    # M1: a store composed over one index is never re-composed over another.
+    with pytest.raises(h.erasure("ErasureIndexUnavailable")):
+        compose(store, index=h.erasure("FileErasureIndex")(tmp_path / "other.jsonl"), audit_log=audit)
 
 
 def composed_store(root: Path) -> object:
@@ -41,16 +45,16 @@ def composed_store(root: Path) -> object:
 def test_open_product_composes_the_consult(tmp_path: Path) -> None:
     root, scratch = pr._write_tree(tmp_path), tmp_path / "scratch"
     with pr._open(root, scratch) as opened:
-        composed.assert_consults(opened.artifact_store, opened.control_plane)
+        composed.assert_consults(opened.artifact_store, opened.erasure_index, tenant=opened.tenant_id)
         served = opened.answer(pr._question(opened))
         assert isinstance(served, ServedProduct), served
-        composed.erase(opened.control_plane, served.replay_ref.content_address)
+        composed.erase(opened.artifact_store, opened.erasure_index, served.replay_ref.content_address, tenant=opened.tenant_id)
         with pytest.raises(h.erasure("ErasedContentRefused")):
             opened.record_of(served)
 
 
 def test_the_local_cli_dependencies_compose_the_consult(tmp_path: Path) -> None:
     deps = build_local_dependencies(root=tmp_path)
-    composed.assert_consults(deps.artifact_store, deps.control_plane, name="deps")
+    composed.assert_consults(deps.artifact_store, deps.erasure_index, name="deps")
     assert deps.workflow_engine is not None
-    composed.assert_consults(deps.workflow_engine.artifact_store, deps.control_plane, name="engine")
+    composed.assert_consults(deps.workflow_engine.artifact_store, deps.erasure_index, name="engine")

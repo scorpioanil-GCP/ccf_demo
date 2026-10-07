@@ -981,7 +981,13 @@ def govern_dereference(
     An entitled caller then meets the consult: at ``minimal`` the same absence
     as below; at ``reasoned`` and ``full`` an ``erased-content`` shell (410)
     carrying the erasure's reason and instant, and its record address only at
-    ``full``.
+    ``full``. The consult reads through the view for the caller's verified tenant, so
+    an erasure withholds only within its tenant (fix round 1, I6). On the
+    by-URI path the erased reading is decided BEFORE the URI's naming check
+    (M7): an entitled caller naming an erased address under a wrong
+    ``(tenant, class, name)`` triple receives the erased reading where a
+    non-erased record would answer not-found — it learns nothing its
+    entitlement to the record did not already admit.
 
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
@@ -1248,7 +1254,15 @@ def govern_dereference(
     # address is the route's not-found rendering; at `reasoned` and `full` it
     # is the `erased-content` shell the door renders 410.
     try:
-        consulted = store.get(content_address=content_address)
+        # I6 (fix round 1, ruling (i)): the view for the caller's VERIFIED
+        # tenant — an erasure withholds within its tenant, and another
+        # tenant's reason or record address never reaches this caller.
+        tenant_view = (
+            store.scoped(authorized.tenant)
+            if isinstance(store, ErasureConsultingStore)
+            else store
+        )
+        consulted = tenant_view.get(content_address=content_address)
     except ErasedContentRefused as erased:
         return erased_reading(erased)
 

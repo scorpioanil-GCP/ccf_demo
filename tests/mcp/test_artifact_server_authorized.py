@@ -32,6 +32,7 @@ from __future__ import annotations
 import base64
 import json
 import pathlib
+from tests.composition import no_erasures
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -269,7 +270,7 @@ def _world(tmp_path: pathlib.Path, *, authorizer: Any = None) -> _World:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=audit_log,
-        control_plane=plane,
+        erasure_index=no_erasures(),
     )
     return _World(server=server, store=store, authorizer=recording, audit_log=audit_log)
 
@@ -589,7 +590,7 @@ def _real_world(tmp_path: pathlib.Path) -> tuple[FastMCP, FileArtifactStore]:
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=ControlPlaneRegistry().audit_log,
-        control_plane=ControlPlaneRegistry(),
+        erasure_index=no_erasures(),
     )
     return server, store
 
@@ -703,7 +704,7 @@ def test_a_client_lane_read_leaves_the_same_audit_trail_a_governed_one_does(
         entitlement_source=source,
         refusal_recorder=recorder,
         audit_log=audit_log,
-        control_plane=plane,
+        erasure_index=no_erasures(),
     )
     ref = store.put(capability(ArtifactWrite, tenant=TENANT, resource="c/n"), {"k": 1})
     before = len(audit_log.events())
