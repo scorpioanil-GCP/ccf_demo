@@ -196,14 +196,16 @@ product resource answers the same not-found shell its typed absence answers,
 and the three tools, which have no not-found rendering of their own, answer
 the opaque ``ccf-runtime-failure:<id>`` and record nothing. Before this, the
 exception's prose — naming the erased address — crossed as the tool error at
-every level. **``invoke_agent``'s invoker seam is mapped at ``minimal`` only**
-(N-3; ``D-IMPL-374``): an erasure the deployment's agent invoker raises answers
-a ``minimal`` caller the same opaque ``ccf-runtime-failure:<id>`` and records
-nothing, so the fact that content was erased does not cross. Above ``minimal``
-it is not mapped (disclosed in §4.10 of the security deployment page): it
-crosses as the exception's text, which names no address but states that an
-erasure occurred. The recorded ``erased-content`` shell would need a product
-identity for an agent dispatch's determination, and no ruling names one.
+every level. **The two agent seams are mapped at ``minimal`` only** (N-3 and
+its ``list_agents`` sibling; ``D-IMPL-374``): an erasure the deployment's agent
+invoker raises on ``invoke_agent``, or its agent directory raises on
+``list_agents``, answers a ``minimal`` caller the same opaque
+``ccf-runtime-failure:<id>`` and records nothing, so the fact that content was
+erased does not cross. Above ``minimal`` it is not mapped (disclosed in §4.10 of
+the security deployment page): it crosses as the exception's text, which names
+no address but states that an erasure occurred. The recorded ``erased-content``
+shell would need a product identity for an agent dispatch's or an agent
+listing's determination, and no ruling names one.
 
 Server name, bind address, token values, tenant identifiers, agent names,
 principal identifiers, role names, and skill vocabulary are all deployment
@@ -1470,19 +1472,43 @@ def build_experience_server(
             :attr:`~ccf_runtime.mcp.auth.TokenGrant.products` is listed only
             the agents whose declared ``product_classes`` are all on it — the
             agents :data:`INVOKE_AGENT_TOOL` would dispatch for it.
+
+            **An erasure the directory raises is mapped at ``minimal`` only**
+            (N-3's ``list_agents`` sibling; ``D-IMPL-374``). An
+            :class:`~ccf.erasure.ErasedContentRefused` is, for a ``minimal``
+            caller, the opaque ``ccf-runtime-failure:<id>`` and nothing is
+            recorded: the rule :data:`INVOKE_AGENT_TOOL` applies to its
+            invoker, and the branch :data:`GET_CONTEXT_TOOL`,
+            :data:`GET_LINEAGE_TOOL` and :data:`GET_REPLAY_RECORD_TOOL` take.
+            Above ``minimal`` it is not mapped: the recorded ``erased-content``
+            shell needs a product identity and an agent listing names none, so
+            the exception propagates unchanged and its text, which names no
+            address, crosses (disclosed in §4.10 of the security deployment
+            page).
             """
             tenant = authorized.tenant
             roster = _granted_roster()
             # SEC-017; D-IMPL-374 (2): a rostered principal is listed only the
             # agents it could invoke — the same rule `invoke_agent` refuses by.
-            catalog = AgentToolCatalog(
-                tenant=tenant,
-                agents=tuple(
-                    agent_tool_listing(agent)
-                    for agent in directory_seam(tenant=tenant)
-                    if roster is None or _listable(agent, roster)
-                ),
-            )
+            try:
+                catalog = AgentToolCatalog(
+                    tenant=tenant,
+                    agents=tuple(
+                        agent_tool_listing(agent)
+                        for agent in directory_seam(tenant=tenant)
+                        if roster is None or _listable(agent, roster)
+                    ),
+                )
+            except ErasedContentRefused as erased:
+                # N-3's `list_agents` sibling (`D-IMPL-374`): the rule
+                # `invoke_agent` applies to its invoker, which is
+                # `erased_tool_answer`'s `minimal` branch and needs no product
+                # identity. Above `minimal` the recorded shell would need one
+                # and an agent listing has none, so the exception propagates
+                # unchanged.
+                if _level_in_force(recorder, verified_grant().client_id) == DISCLOSURE_MINIMAL:
+                    raise _opaque_failure(erased) from erased
+                raise
             return canonical_bytes(catalog).decode("utf-8")
 
     if INVOKE_AGENT_TOOL in allowed:

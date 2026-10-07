@@ -936,23 +936,25 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   must hold identical bytes and write authority for a governed class — but
   while B's filing stands, A cannot erase that artifact through a door over
   the MCP-backed store.
-- **Above `minimal`, an erasure raised inside `invoke_agent` is not rendered
-  by disclosure level (N-3, D-IMPL-374).** The Experience door maps an
-  `ErasedContentRefused` from its product resolver and from the `get_context`,
-  `get_lineage` and `get_replay_record` seams (FW-3). It maps one raised by
-  the deployment's own agent invoker at `minimal` only: a `minimal` caller of
-  `invoke_agent` gets the opaque `ccf-runtime-failure:<id>`, and the door
-  records nothing, so the fact of an erasure does not cross. For a `reasoned`
-  or `full` caller the erasure crosses as the tool's error text, not as the
+- **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
+  is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
+  maps an `ErasedContentRefused` from its product resolver and from the
+  `get_context`, `get_lineage` and `get_replay_record` seams (FW-3). It maps
+  one raised by the deployment's own agent invoker (`invoke_agent`) or agent
+  directory (`list_agents`) at `minimal` only: a `minimal` caller of either
+  tool gets the opaque `ccf-runtime-failure:<id>`, and the door records
+  nothing, so the fact of an erasure does not cross. For a `reasoned` or
+  `full` caller the erasure crosses as the tool's error text, not as the
   recorded `erased-content` shell: `the requested content was erased by a
   recorded decision and is not served (SEC-009)`. The text names no address,
   but it tells the caller that an erasure occurred, and the door records no
   determination for it. Rendering it above `minimal` needs a product identity
-  to record an agent dispatch's erasure under, and no ruling names one, so it
-  is disclosed rather than changed. An invoker that reads through an
-  erasure-composed store, and must not reveal an erasure to a caller above
-  `minimal` either, catches `ErasedContentRefused` and answers with its own
-  not-found rendering.
+  to record an agent dispatch's or an agent listing's erasure under, and no
+  ruling names one, so it is disclosed rather than changed. An invoker or a
+  directory that reads through an erasure-composed store, and must not reveal
+  an erasure to a caller above `minimal` either, catches `ErasedContentRefused`
+  and answers with its own not-found rendering (a directory leaves the agent
+  out of its listing).
 
 ### 4.11 Declare a default for a parameter a policy constraint bounds (SEC-019, D-IMPL-356)
 
