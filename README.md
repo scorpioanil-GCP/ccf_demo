@@ -54,16 +54,20 @@ An environment that already holds this SDK under its former distribution name,
 `ccf`, needs one step first, and the order matters:
 
 ```sh
-pip uninstall ccf        # first: remove the former distribution
+pip uninstall -y ccf     # first: remove the former distribution
 pip install -e ".[dev]"  # then install ccf-sdk as above
 ```
 
-pip treats `ccf` and `ccf-sdk` as two projects and keeps both. Uninstalling
-`ccf` after `ccf-sdk` is in place deletes the files the two share; for a
-non-editable install that is every package file of `ccf-sdk`, so reinstall it
-with `--force-reinstall`. Until the former distribution is gone, `import ccf`
-can run the former install's code while the version the replay record carries
-is `ccf-sdk`'s.
+pip treats `ccf` and `ccf-sdk` as two projects and keeps both, and neither
+`pip install` nor `make install` removes the former one. Until it is gone,
+`import ccf` can load the former install's code. That code still looks the SDK
+up as `ccf`, so built-in adapters resolve against the former distribution and
+the replay record carries its version, while the release version gate, which
+reads `ccf-sdk`, can still pass. Uninstalling `ccf` after `ccf-sdk` is in place
+deletes the files the two share; for a non-editable install that is every
+package file of `ccf-sdk`. Repair it with `--force-reinstall` from the same
+wheel file or private index you installed it from, never by its bare name from
+public PyPI, where the name `ccf-sdk` holds no SDK code.
 
 ### Hash-verified install (what CI and `make install` run)
 
@@ -77,6 +81,10 @@ python -m venv .venv
 .venv/bin/pip install --require-hashes -r requirements.lock
 .venv/bin/pip install -e . --no-deps --no-build-isolation
 ```
+
+`make install` does not remove an earlier install of this SDK under its former
+distribution name `ccf`. In such an environment, run
+`.venv/bin/pip uninstall -y ccf` first, as described above.
 
 `--no-build-isolation` is load-bearing: without it pip fetches the build
 dependencies unhashed into a temporary environment. The `dependency-lock` lint
