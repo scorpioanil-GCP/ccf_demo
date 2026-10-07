@@ -12,7 +12,7 @@ before the consult (ruling 1).
 
 Three behavior changes apply to existing public names:
 
-- `create_app` wraps `deps.artifact_store` in `ErasureConsultingStore`.
+- `create_app`, `open_product`, `build_governed_resolver`, the in-process adapter's boot and the local CLI dependencies compose their store through `compose_erasure_consult`.
 - `resolve_artifact` and `resolve_artifact_at_uri` re-raise `ErasedContentRefused` by name. They do not turn it into `ReplayUnresolvable`.
 - `govern_dereference` runs the principal and grant holds first, against the unconsulted inner store. It then maps an erased address by the entitled caller's disclosure level:
   - at `minimal`, the route's not-found shell (404);

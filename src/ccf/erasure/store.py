@@ -3,8 +3,11 @@
 Design ``D-IMPL-367`` §3: the consult lives inside the store the deployment
 holds, as a decorator around whatever store it is given, so every in-process
 read site, both doors and anything written later reads through it. U12, ruled:
-composed ALWAYS (``ccf_runtime.http_api.app.create_app`` wraps the store it is
-handed); on an empty index it is identity.
+composed ALWAYS — at every store construction site, through
+:func:`compose_erasure_consult` (``create_app``, ``open_product``,
+``build_governed_resolver``, the in-process adapter, the local CLI; ruling 2).
+The MCP artifact server holds no Control Plane and is handed a composed store
+by its deployment. On an empty index the decorator is identity.
 
 * :meth:`ErasureConsultingStore.get` and :meth:`ErasureConsultingStore.resolve_uri`
   consult the registry mirror and raise
