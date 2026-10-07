@@ -3034,26 +3034,37 @@ class GovernedResolver:
             seeds=request_seeds(request),
         )
 
-        # --- SEC-020: A WITHHELD SUBJECT RENDERS AS A NONEXISTENT ONE --------
+        # --- SEC-020: A WITHHELD SUBJECT'S EVIDENCE, FROM AN UNSEEDED RE-RUN ----
         # `D-IMPL-370` Q12 (a), constant-fill, as finally ruled at `D-IMPL-371`
-        # (SDK-defined, CLAUDE.md §11). A projection conditioned on the
-        # perspective may withhold the subject from this principal; it says so
-        # with the typed signal on `src/ccf/projection/plan.py::ProjectionOutput`,
-        # and the signal is the ONLY key into this branch — an empty payload
-        # without it is a legitimately empty answer and keeps what its real view
-        # earned (`D-IMPL-242` amendment 1).
+        # (SDK-defined, CLAUDE.md §11). SEC-020 is OPEN: what this branch makes
+        # equal to a nonexistent subject's answer, and what still tells the two
+        # apart, is in the security how-to, section 4.12. A projection
+        # conditioned on the perspective may withhold the subject from this
+        # principal; it says so with the typed signal on
+        # `src/ccf/projection/plan.py::ProjectionOutput`, and the signal is the
+        # ONLY key into this branch — an empty payload without it is a
+        # legitimately empty answer and keeps what its real view earned
+        # (`D-IMPL-242` amendment 1).
         #
-        # THE BASELINE IS WHAT A SUBJECT THAT NAMES NOTHING GETS, BY
-        # CONSTRUCTION. Walk starts are the union of the plan's seed classes and
-        # the request seed (`GQ-11`); for an identifier that names nothing the
-        # request seed matches no record, so its walk starts at the class seeds
-        # alone. The plan is therefore RE-EXECUTED WITHOUT THE REQUEST SEED
+        # THE BASELINE IS THE WALK A SUBJECT THAT NAMES NOTHING GETS. Walk
+        # starts are the union of the plan's seed classes and the request seed
+        # (`GQ-11`); for an identifier that names nothing the request seed
+        # matches no record, so its walk starts at the class seeds alone. The
+        # plan is therefore RE-EXECUTED WITHOUT THE REQUEST SEED
         # (`src/ccf/projection/engine.py::ProjectionEngine.execute_without_request_seed`)
-        # and everything the product states ABOUT ITS EVIDENCE — the debt, the
-        # empty finding, the TTL anchor, the touched set the staleness gate
-        # reads, the evidence a declared product gate is shown — is computed
-        # from that run. The withheld subject's own records stay in that view if
-        # and only if a class seed reaches them, exactly as for the nonexistent
+        # and the debt, the empty finding, the TTL anchor, the touched set the
+        # staleness gate reads and the evidence a declared product gate is shown
+        # are computed from that run. That is not everything a caller can tell
+        # the two answers apart by, each measured (section 4.12): a composite's
+        # children are resolved for the ASKED subject above, and the
+        # composition below replaces the debt and supplies the expiry and the
+        # lineage, none of it re-rendered (review finding I-1); the re-run
+        # reuses `operators`, built from the view read AFTER acquisition, so a
+        # similarity operator scores against text the acquisition just wrote
+        # (review finding I-2); and the answer's replay reference is named by
+        # dimension 1, which keeps the real read (review finding C-1). The
+        # withheld subject's own records stay in the re-run's view if and only
+        # if a class seed reaches them, exactly as for the nonexistent
         # identifier. Measured history: an EMPTY view (round 1) created a
         # serve-versus-refuse oracle on a class-seeded fabric; MASKING the
         # subject's records (round 2) left a residual whenever the subject's
@@ -3064,12 +3075,11 @@ class GovernedResolver:
         # (`D-IMPL-376` (3), route A). An identifier that names nothing has
         # nothing acquired for it from a source keyed on the subject (the scope
         # the security how-to, section 4.12, discloses); the withheld subject's
-        # own question did
-        # acquire, through the declared seam above, BEFORE the plan ran — so
-        # re-executing over the fabric as it now stands walked the evidence
-        # acquisition had just ingested for the asked subject (measured by the
-        # `D-IMPL-371` close review on the paved road: `computed_empty` under
-        # `from_decision`, the refusal kind under `from_entity_freshness`).
+        # own question did acquire, through the declared seam above, BEFORE the
+        # plan ran — so re-executing over the fabric as it now stands walked the
+        # evidence acquisition had just ingested for the asked subject (measured
+        # by the `D-IMPL-371` close review on the paved road: `computed_empty`
+        # under `from_decision`, the refusal kind under `from_entity_freshness`).
         # `before_acquisition` is the state read immediately before that seam;
         # with no seam declared it is `None` and the store is read as it is.
         #

@@ -259,7 +259,7 @@ Rows by coupling shape:
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 2985 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/resolver.py` | 1871 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 4610 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 4620 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
