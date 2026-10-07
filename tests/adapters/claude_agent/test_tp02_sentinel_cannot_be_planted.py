@@ -77,7 +77,10 @@ def test_recreating_the_removed_prompt_directory_cannot_plant_the_sentinel() -> 
     """(a) The attack as the review worded it: recreate the freed directory, plant the name."""
     adapter, carrier = _adapter_and_carrier()
     prompt_directory = _prompt_file(carrier).parent
+    # No sentinel at all is the TP-02 hole itself; never plant relative to cwd.
+    assert carrier.cli_path is not None, "the carrier has no fail-closed cli_path (TP-02)"
     sentinel = Path(str(carrier.cli_path))
+    assert sentinel.is_absolute(), sentinel
 
     adapter.remove_prompt_directories()
     assert not prompt_directory.exists()
