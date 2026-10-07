@@ -108,8 +108,9 @@ constructed instance, across every module this package discovers — rather than
 this paragraph.
 
 **Deployment values are the caller's.** The local Agent Card, the RPC route, the
-peer base URLs, the HTTP client, the clock, the request deadline and the message
-size ceiling are all supplied by the caller. This module holds no address, no
+peer base URLs, the HTTP client, the clock, the request deadline, the request
+body ceiling and the message size ceiling are all supplied by the caller. This
+module holds no address, no
 port, no scheme literal, no card identity and no default ceiling (CINV-01,
 D-IMPL-38). Tenancy is a per-call argument carried on
 :class:`~ccf.peering.protocol.PeerRef`, never a constructor field, on the
@@ -302,7 +303,8 @@ class _RequestBodyLimit:
     ``a2a-sdk``'s JSON-RPC dispatcher begins with ``await request.json()``,
     which reads the whole body and parses it before anything in this module
     runs. :meth:`LfA2AWire.routes` puts this layer in front of it on the route,
-    so the dispatcher is never handed more than the limit:
+    with the limit the deployment declared as ``max_request_bytes``, so the
+    dispatcher is never handed more than that:
 
     * a declared ``Content-Length`` over the limit is answered 413 before a
       byte of the body is read;
@@ -485,23 +487,26 @@ class LfA2AWire:
         rpc_path: The route the JSON-RPC endpoint is mounted at. A deployment
             value with no default — a library that picked a path would be picking
             a piece of a deployment's URL space.
-        max_message_bytes: The largest request body this endpoint will read,
-            and so also the largest carried document it will accept. No
-            default (D-IMPL-38): how large a legitimate federated product is,
+        max_request_bytes: The largest request body this endpoint will buffer:
+            the whole JSON-RPC request, held to this limit before ``a2a-sdk``
+            parses any of it (SEC-021-U1, ``D-IMPL-370`` (3); see
+            :meth:`routes`). The same parameter, with the same validation, as
+            :class:`~ccf_runtime.peering.typed_http.TypedHttpWire` declares. No
+            default (D-IMPL-38): how large a legitimate federated request is,
             is something only the deployment knows, and a limit nobody chose is
-            either an availability hole or an outage. It is applied twice. On
-            the JSON-RPC route it bounds the whole request body before
-            ``a2a-sdk`` reads it (SEC-021-U1, ``D-IMPL-370`` (3); see
-            :meth:`routes`), and in :meth:`_accept` it bounds the carried
-            document. The JSON-RPC binding carries the document base64-encoded
-            inside the request, so the body limit is the tighter of the two:
-            the largest document a peer can deliver is about three quarters of
-            this value, less the JSON-RPC envelope around it. :meth:`emit`
-            checks only the document, so a sender declaring the same value can
-            emit a document this endpoint answers 413, which the sender sees as
-            :class:`~ccf_runtime.peering.typed_http.PeerUnreachable`. Defense
-            in depth, not the rule — the authoritative ceiling is the Control
-            Plane's, applied by the gate before anything canonicalizes.
+            either an availability hole or an outage. The JSON-RPC binding
+            carries the document base64-encoded, with an envelope around it, so
+            a request is larger than the document it carries. Declare this
+            large enough for the request that carries a document of
+            ``max_message_bytes``, or this limit refuses that document first.
+            The SDK derives neither limit from the other.
+        max_message_bytes: The largest carried document this endpoint will
+            accept, measured on the decoded document after the request is
+            parsed (:meth:`_accept`). :meth:`emit` holds an outbound document
+            to it too. No default (D-IMPL-38), for the reason
+            ``max_request_bytes`` gives. Defense in depth, not the rule — the
+            authoritative ceiling is the Control Plane's, applied by the gate
+            before anything canonicalizes.
         max_pending: The most received messages this endpoint will hold before
             :meth:`receive` drains them (SEC-021, ``D-IMPL-369``). Required,
             keyword-only, no default (Q13; D-IMPL-38): a buffer size is a
@@ -511,9 +516,9 @@ class LfA2AWire:
             queued messages are preserved in order; nothing is evicted.
 
     Raises:
-        ValueError: ``max_message_bytes`` or ``max_pending`` is not positive. A
-            zero limit accepts nothing and is far more likely a mistake than a
-            policy.
+        ValueError: ``max_request_bytes``, ``max_message_bytes`` or
+            ``max_pending`` is not positive. A zero limit accepts nothing and
+            is far more likely a mistake than a policy.
     """
 
     def __init__(
@@ -525,9 +530,15 @@ class LfA2AWire:
         http_client_factory: Callable[[], httpx.AsyncClient],
         clock: Callable[[], datetime],
         rpc_path: str,
+        max_request_bytes: int,
         max_message_bytes: int,
         max_pending: int,
     ) -> None:
+        if max_request_bytes <= 0:
+            raise ValueError(
+                "max_request_bytes must be positive; a zero body limit accepts"
+                " nothing"
+            )
         if max_message_bytes <= 0:
             raise ValueError(
                 "max_message_bytes must be positive; a zero message limit"
@@ -544,6 +555,7 @@ class LfA2AWire:
         self._http_client_factory = http_client_factory
         self._clock = clock
         self._rpc_path = rpc_path
+        self._max_request_bytes = max_request_bytes
         self._max_message_bytes = max_message_bytes
         self._max_pending = max_pending
         self._received: deque[InboundProduct] = deque()
@@ -750,7 +762,7 @@ class LfA2AWire:
         interface would be picking an exposure surface. Both route sets come
         from ``a2a-sdk`` — this module composes them and writes none of them.
 
-        **The JSON-RPC route reads at most ``max_message_bytes`` of a request
+        **The JSON-RPC route reads at most ``max_request_bytes`` of a request
         body before ``a2a-sdk`` parses it** (SEC-021-U1, ``D-IMPL-370`` (3)).
         Its dispatcher reads and parses the whole body before :meth:`_accept`
         runs, so the route's application is wrapped in a body limit. This is
@@ -758,8 +770,9 @@ class LfA2AWire:
         A declared ``Content-Length`` over the limit is answered 413 without
         the body being read. A body is otherwise counted as it arrives and
         answered 413 the moment the count crosses the limit. Over the limit the
-        dispatcher is never called. The Agent Card routes answer ``GET`` and
-        read no body, so they are mounted as given.
+        dispatcher is never called. Within it, the decoded document is then
+        held to ``max_message_bytes`` by :meth:`_accept`. The Agent Card routes
+        answer ``GET`` and read no body, so they are mounted as given.
 
         Raises:
             TypeError: ``a2a-sdk`` built its JSON-RPC endpoint as something
@@ -793,10 +806,10 @@ class LfA2AWire:
             raise TypeError(
                 f"a2a-sdk built its JSON-RPC endpoint as a {type(route).__name__},"
                 " not a starlette Route, so its request body cannot be held to"
-                " max_message_bytes before it is parsed; refusing to mount it"
+                " max_request_bytes before it is parsed; refusing to mount it"
                 " unbounded (SEC-021-U1)"
             )
-        route.app = _RequestBodyLimit(route.app, max_bytes=self._max_message_bytes)
+        route.app = _RequestBodyLimit(route.app, max_bytes=self._max_request_bytes)
         return route
 
     def _enqueue(self, inbound: InboundProduct) -> None:

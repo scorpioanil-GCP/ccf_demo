@@ -267,6 +267,7 @@ def _lf_wire(http_client_factory: Callable[[], httpx.AsyncClient]) -> tuple[LfA2
         http_client_factory=http_client_factory,
         clock=lambda: _INSTANT,
         rpc_path=LF_A2A["rpc_path"],
+        max_request_bytes=CONSUMER["max_request_bytes"],
         max_message_bytes=CONSUMER["max_request_bytes"],
     )
     return wire, declared
