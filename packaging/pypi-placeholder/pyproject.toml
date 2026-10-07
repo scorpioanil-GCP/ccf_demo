@@ -1,5 +1,5 @@
 # Name-reservation placeholder: no packages, no modules, no dependencies, no
-# entry points.
+# entry points, and no Python 3 installer can select it (requires-python).
 
 [build-system]
 requires = ["setuptools>=77"]
@@ -10,6 +10,7 @@ name = "ccf-sdk"
 version = "0.0.0"
 description = "Reserved name for the Cognitive Context Fabric SDK. This package contains no code."
 readme = "README.md"
+requires-python = "<3"
 dependencies = []
 
 [tool.setuptools]

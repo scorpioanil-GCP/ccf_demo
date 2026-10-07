@@ -17,6 +17,14 @@ why this note sits one level up.
   setuptools' automatic discovery. The built wheel holds only its four
   `.dist-info` files, with an empty `top_level.txt`, no `Requires-Dist` and no
   entry points.
+- **`requires-python = "<3"`: no Python 3 installer can ever select it.** pip
+  skips every candidate whose `Requires-Python` excludes the running
+  interpreter. Without the fence, an installer resolving a `ccf-sdk`
+  requirement that the installed SDK cannot satisfy at that moment backtracks
+  to the empty 0.0.0, which has no dependencies and so always resolves, and
+  replaces the SDK with it. The SEC-027 re-review measured exactly that with
+  `pip install "ccf-sdk[mongo]"` against an index holding only the
+  placeholder (exit 0, `ccf/__init__.py` gone).
 - **Version `0.0.0`.** An index that serves both this placeholder and a real
   build of the SDK resolves to the real one, because every real version is
   higher.
