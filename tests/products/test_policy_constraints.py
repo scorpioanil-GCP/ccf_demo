@@ -1263,6 +1263,34 @@ def test_the_required_absent_exit_carries_the_evidence_accumulated_so_far() -> N
     assert _constraint_source("presence") in evidence.applied
 
 
+def test_the_bounded_absent_exit_carries_the_evidence_and_the_attempts() -> None:
+    """Exit 2b (``SEC-019``, ``D-IMPL-356`` D11): a BOUNDING constraint on an
+    absent parameter refused — the defaults resolved before it are on the
+    evidence, the bounding constraint's pin is in `applied`, the absent key has
+    no record, and the override attempts survive the refusal (``D-IMPL-260``
+    P-I)."""
+    outcome = _resolve(
+        _request(),
+        constraints=(
+            _pinned(
+                parameter=TIER, operator="allowed_set", value=("tier-a",), key="bounding"
+            ),
+        ),
+        overrides=_ATTEMPTED,
+    )
+
+    assert isinstance(outcome.refusal, ConstraintRefusal), outcome
+    assert outcome.refusal.reason == "required-absent"
+    assert outcome.refusal.bound.operator == "allowed_set"
+    assert outcome.refusal.overrides == _ATTEMPTED
+    evidence = outcome.evidence
+    assert evidence.values() == {TOLERANCE: Decimal(".25"), DEPTH: 6}
+    assert evidence.parameter(TIER) is None
+    assert DECLARED_SOURCE in evidence.applied
+    assert _constraint_source("bounding") in evidence.applied
+    assert evidence.overrides == _ATTEMPTED
+
+
 def test_the_bound_refusal_exit_carries_the_bounds_attached_to_earlier_keys() -> None:
     """Exit 3: a policy ceiling refused the depth — and the tolerance ceiling
     that folded FIRST (worked case 3, the one clamp) is on the evidence with
