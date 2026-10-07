@@ -32,9 +32,10 @@ that way.
 agent's listing composes artifact-carried values only — the definition's
 declared name, version, and archetype composition — and each bound skill's
 tool surface is rendered by the one shared derivation,
-:func:`ccf.skills.toolsurface.render_tool_surface`. ``procedure`` skills
-have no seam-2 tool surface by ruling and are omitted from the listing,
-never defaulted into one (T-07-05).
+:func:`ccf.skills.toolsurface.render_tool_surface`. Only the
+harness-exposable skill types have a seam-2 tool surface (``TP-03``,
+``D-IMPL-361``); ``procedure``, ``peering`` and ``mcp_product`` skills are
+omitted from the listing, never defaulted into one (T-07-05).
 
 **Tenancy is a per-call argument, never a constructor field** (INV-CH7-16;
 T-07-21), following the egress precedent: one server over a shared
@@ -198,7 +199,7 @@ from ccf.products.request import ProductRequest
 from ccf.products.resolver import RefusalRecorderProtocol
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillCatalogEntry
-from ccf.skills.toolsurface import render_tool_surface
+from ccf.skills.toolsurface import HARNESS_EXPOSABLE_SKILL_TYPES, render_tool_surface
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
     SURFACE_MCP_TOOL,
@@ -660,14 +661,18 @@ def agent_tool_listing(agent: ExposedAgent) -> AgentToolListing:
     """Render one exposed agent's Tool listing — the pure derivation.
 
     Composes artifact-carried values only, and renders every bound skill
-    through the one shared derivation (D-IMPL-56). ``procedure`` skills are
-    omitted, never surfaced: they have no seam-2 tool surface by ruling —
-    their instruction content travels by pinned reference through seam 1
-    only (T-07-05).
+    through the one shared derivation (D-IMPL-56). Only skills whose type
+    is in :data:`~ccf.skills.toolsurface.HARNESS_EXPOSABLE_SKILL_TYPES` are
+    listed, the same roster every harness adapter filters by (``TP-03``,
+    ``D-IMPL-361``); the rest are omitted, never surfaced and never raised
+    on. ``procedure`` skills' instruction content travels by pinned
+    reference through seam 1 only (T-07-05); ``peering`` and ``mcp_product``
+    skills reach peer products that enter only through Control Plane
+    admission.
     """
     surfaces: list[AgentToolSurface] = []
     for entry in agent.skills:
-        if entry.skill_type == "procedure":
+        if entry.skill_type not in HARNESS_EXPOSABLE_SKILL_TYPES:
             continue
         rendered = render_tool_surface(entry)
         surfaces.append(

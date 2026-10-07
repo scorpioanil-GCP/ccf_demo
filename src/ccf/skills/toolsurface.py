@@ -17,11 +17,25 @@ authors no prose about any deployment's skill (No-Hardcoding Rule, CLAUDE.md
 §6.4; CINV-01): what a skill is for is the deployment's statement, declared
 on the catalog entry and versioned with it.
 
-``procedure`` skills have no seam-2 tool surface at all: their instruction
-content travels by pinned reference through seam 1 (context injection) only
-(D-IMPL-56; T-07-05). Rendering one is refused, not defaulted — a procedure
-that appeared as a callable tool would be instruction smuggling into the
-dispatch surface.
+Only the skill types in :data:`HARNESS_EXPOSABLE_SKILL_TYPES` — ``tool``,
+``mcp`` and ``local_callable`` — have a seam-2 tool surface (``TP-03``,
+``D-IMPL-361``). Every other type is refused with
+:class:`SkillHasNoToolSurface`, not defaulted:
+
+* ``procedure`` skills' instruction content travels by pinned reference
+  through seam 1 (context injection) only (D-IMPL-56; T-07-05) — a procedure
+  that appeared as a callable tool would be instruction smuggling into the
+  dispatch surface.
+* ``peering`` and ``mcp_product`` skills reach a peer's Context Products,
+  which enter this fabric only through Control Plane admission (CLAUDE.md
+  §7.2). Rendered as a harness tool, the model would call the peer directly,
+  receive products nothing admitted, and drain the queue the admission gate
+  reads.
+
+The roster is a set of SDK skill-type names — mechanism, not deployment
+values. Each harness adapter filters its agent's bound skill-set by the same
+roster before rendering, so a bound non-exposable skill is skipped there and
+never reaches this refusal; the refusal here is the derivation's own floor.
 
 Algorithmic module (CINV-03).
 """
@@ -35,11 +49,38 @@ from ccf.skills.catalog import SkillCatalogEntry
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["ProcedureHasNoToolSurface", "RenderedToolSurface", "render_tool_surface"]
+__all__ = [
+    "HARNESS_EXPOSABLE_SKILL_TYPES",
+    "ProcedureHasNoToolSurface",
+    "RenderedToolSurface",
+    "SkillHasNoToolSurface",
+    "render_tool_surface",
+]
+
+#: The skill types that have a harness tool surface (``TP-03``,
+#: ``D-IMPL-361``). SDK skill-type names from
+#: :data:`ccf.skills.catalog.SkillType` — mechanism, not values. ``peering``,
+#: ``mcp_product`` and ``procedure`` are deliberately absent.
+HARNESS_EXPOSABLE_SKILL_TYPES: frozenset[str] = frozenset(
+    {"tool", "mcp", "local_callable"}
+)
 
 
-class ProcedureHasNoToolSurface(ValueError):
+class SkillHasNoToolSurface(ValueError):
+    """A non-exposable entry was asked for a seam-2 tool surface.
+
+    Raised for every skill type outside :data:`HARNESS_EXPOSABLE_SKILL_TYPES`
+    (``TP-03``, ``D-IMPL-361``), never defaulted: a ``peering`` or
+    ``mcp_product`` tool would hand the model unadmitted peer products, and a
+    ``procedure`` tool would smuggle instruction content into dispatch.
+    """
+
+
+class ProcedureHasNoToolSurface(SkillHasNoToolSurface):
     """A ``procedure`` entry was asked for a seam-2 tool surface.
+
+    A subclass of :class:`SkillHasNoToolSurface` (``TP-03``, ``D-IMPL-361``),
+    so existing catches of this class keep holding.
 
     Raised, never defaulted: a procedure's instruction content is consumed on
     seam 1 only (D-IMPL-56; T-07-05), and an adapter that surfaced one as a
@@ -74,14 +115,23 @@ def render_tool_surface(entry: SkillCatalogEntry) -> RenderedToolSurface:
     (CINV-01; CLAUDE.md §6.4).
 
     Raises:
-        ProcedureHasNoToolSurface: ``entry`` is a ``procedure`` skill, which
-            has no seam-2 surface by construction (D-IMPL-56; T-07-05).
+        SkillHasNoToolSurface: ``entry``'s type is outside
+            :data:`HARNESS_EXPOSABLE_SKILL_TYPES` (``TP-03``, ``D-IMPL-361``).
+        ProcedureHasNoToolSurface: the :class:`SkillHasNoToolSurface` raised
+            for a ``procedure`` skill, which has no seam-2 surface by
+            construction (D-IMPL-56; T-07-05).
     """
-    if entry.skill_type == "procedure":
-        raise ProcedureHasNoToolSurface(
-            f"procedure skill {entry.name!r} has no seam-2 tool surface; its"
-            " instruction travels by pinned reference through seam 1 only"
-            " (D-IMPL-56)"
+    if entry.skill_type not in HARNESS_EXPOSABLE_SKILL_TYPES:
+        if entry.skill_type == "procedure":
+            raise ProcedureHasNoToolSurface(
+                f"procedure skill {entry.name!r} has no seam-2 tool surface; its"
+                " instruction travels by pinned reference through seam 1 only"
+                " (D-IMPL-56)"
+            )
+        raise SkillHasNoToolSurface(
+            f"{entry.skill_type} skill {entry.name!r} has no seam-2 tool"
+            " surface; only harness-exposable skill types render as harness"
+            " tools (TP-03)"
         )
     return RenderedToolSurface(
         description=(
