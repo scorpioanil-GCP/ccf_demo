@@ -234,6 +234,11 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         # `D-IMPL-341`: the served product's anchor instant, `None` on every
         # record written before it existed — decision-anchored by that sentinel.
         "content_generation_path.ttl_anchor_at",
+        # SEC-020 (`D-IMPL-370`, corrective round): the served product's empty
+        # finding, `None` on every record written before it existed and on every
+        # record whose product carried none — silence by declaration, so it
+        # joins this side and NOT `THE_FIFTEEN`.
+        "content_generation_path.computed_empty",
         # `D-IMPL-358` ruling 1: when the answer was served. `None` on every
         # record written before the member existed, so it joins this side and
         # NOT `THE_FIFTEEN` — a row that grew the lineage would make an old

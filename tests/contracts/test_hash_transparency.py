@@ -337,6 +337,17 @@ _MARKED_IN_THE_TREE = frozenset(
         # citing `ChildResolution.child_admitted_at` — a declared boundary — as
         # its precedent, and ruling 1 settles that this one is transparent.
         "ccf.replay.record.ContentGenerationPath.served_at",
+        # SEC-020 (`D-IMPL-370` Q12 (a) and its corrective round) — TWO marks,
+        # ticked deliberately. `ProjectionOutput.withheld` is the typed signal
+        # a projection raises to withhold a subject; it is `False` on every
+        # projection output written before it existed, so an output's bytes do
+        # not move. `ContentGenerationPath.computed_empty` carries the served
+        # product's empty finding on dimension 5 so replay rehydrates it; it is
+        # `None` on every record written before it existed (and on every record
+        # whose product carried no finding), so no stored record's address
+        # moves, while a real finding is a real claim and is rendered.
+        "ccf.projection.plan.ProjectionOutput.withheld",
+        "ccf.replay.record.ContentGenerationPath.computed_empty",
         # `D-IMPL-353` — seven marks, ticked deliberately. The authorization
         # capability's evidence on the objects that predate it: the audit id
         # of the decision an `AuthzDecision` was minted from, the resource

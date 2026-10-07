@@ -1043,6 +1043,36 @@ argument is required).
   which resolver version made its resolution; do not read the version bump as
   already replay-pinned.
 
+### 4.12 Acquire by subject when a projection withholds a subject (SEC-020, D-IMPL-376)
+
+A projection that must not tell the asking principal about a subject sets
+`withheld=True` on its `ProjectionOutput` and returns the payload it returns
+for a subject it cannot see. The governed call then computes everything the
+product says about its evidence (its Context Debt, its empty finding, its TTL
+anchor) from the same plan run without the request's subject as a walk start,
+over the fabric as it stood immediately before the call's declared acquisition
+seam ran (`src/ccf/products/resolver.py::GovernedResolver`). A subject that
+names nothing has nothing acquired for it, so that is the fabric its own
+question walks, and the two products match member for member.
+
+- **The match holds when an identifier that names nothing acquires nothing.**
+  That is what a source read keyed on the subject returns for an identifier it
+  does not hold. If your `acquire` reads the same content whatever the subject
+  (a population read), a nonexistent subject's question walks that content
+  and a withheld subject's rendering does not, so the two differ: measured, at
+  the empty finding under `from_decision`, and as `ttl-refusal` against
+  `ttl-anchor-refusal` under `from_entity_freshness`. For a product whose
+  projection withholds subjects, key the acquisition on the subject.
+- **One more read per question.** With an acquisition seam declared, every
+  governed call reads the tenant's graph once more, before the seam, whether
+  or not the projection later withholds. On the paved road the fabric is
+  booted fresh for each question, so that read is of a fabric holding only
+  what boot put there.
+- **The replay record keeps the real read.** Dimension 1 of a withheld
+  decision's record lists what the plan actually read, the acquired subject
+  included. The record is the audit plane, so protect access to it as you
+  would the subject itself.
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

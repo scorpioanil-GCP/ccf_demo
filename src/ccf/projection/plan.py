@@ -45,7 +45,10 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
+from pydantic import Field
+
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.graph.protocols import GraphView
 from ccf.operators.base import OperatorOutput
 
@@ -80,10 +83,40 @@ class ProjectionOutput(CCFContract):
     plan identity* and the delivery layer decides whether it may be served.
     A projection that could mint its own servable product would be its own
     validator.
+
+    **The withheld signal** (SEC-020; ``D-IMPL-370`` Q12 (a) constant-fill;
+    SDK-defined, CLAUDE.md §11 and §8.2's indistinguishability posture). A
+    projection conditioned on the perspective (whitepaper §7.5, INV-CH7-43)
+    may decide that the principal asking must not be told about the subject at
+    all. It says so with ``withheld=True`` and returns, as ``payload``, exactly
+    what it returns for a subject it cannot see. The governed resolver then
+    renders the product's debt, empty finding and TTL anchor from the SAME
+    plan re-executed WITHOUT THE REQUEST SEED over the fabric as it stood
+    BEFORE this request's acquisition — the walk an identifier that names
+    nothing gets, the plan's class seeds alone, over a fabric its own question
+    acquired nothing into — so a withheld subject is indistinguishable from a
+    nonexistent one by construction wherever an identifier that names nothing
+    acquires nothing, which is what a source keyed on the subject returns (the
+    other acquisition shape is disclosed in the security how-to, section 4.12)
+    (``src/ccf/products/resolver.py::GovernedResolver``,
+    ``src/ccf/projection/engine.py::ProjectionEngine.execute_without_request_seed``;
+    the fabric before acquisition is ``D-IMPL-376`` (3), route A).
+
+    The signal is the ONLY way into that branch. An empty payload without it
+    is a legitimately empty answer and keeps the debt and the finding its real
+    view earned (``D-IMPL-242`` amendment 1: the finding is a positive
+    statement about the view), so a withhold is never inferred from what Π
+    returned.
+
+    Hash-transparent at ``False`` (``D-IMPL-243``): every output written
+    before the field existed is byte-identical.
     """
 
     plan_id: str
     payload: Mapping[str, Any]
+    withheld: bool = Field(
+        default=False, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 @runtime_checkable
@@ -119,5 +152,13 @@ class ProjectionPlan(Protocol):
         to individual intermediates and their provenance, which is what lets a
         projection read operator-produced metadata during invocation
         (INV-CH7-42) without re-running anything.
+
+        A projection that must not tell ``perspective`` about the subject at
+        all returns ``ProjectionOutput(withheld=True)`` with the payload it
+        returns for a subject it cannot see; the product is then rendered as
+        the same plan renders without the request seed, over the fabric as it
+        stood before this request's acquisition (SEC-020, ``D-IMPL-371`` Q12
+        (a), ``D-IMPL-376`` (3); :class:`ProjectionOutput`). Returning an empty payload
+        without the signal is a legitimately empty answer, never a withhold.
         """
         ...
