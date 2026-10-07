@@ -668,11 +668,18 @@ def build_harness_leg(param: str) -> HarnessLeg:
         def adk_refusal(
             under_test: HarnessAdapterProtocol, agent: Agent, skill_name: str
         ) -> object | None:
-            """Poke ADK's own before-tool hook (D-10 (b)).
+            """Poke ADK's own before-tool hook, then the tool itself (D-10 (b)).
 
             ADK treats any truthy mapping returned from ``before_tool_callback``
             as the tool's response and **does not call the tool**, so a returned
             mapping is the harness short-circuiting rather than CCF declining.
+
+            TP-01 (I-1, D-IMPL-361): the callback lives on the ``LlmAgent``, and
+            a deployment that reuses ``carrier.llm_agent.tools`` elsewhere
+            bypasses it. So the refusal counts only when the tool's own
+            ``run_async``, called with the skill's declared arguments and no
+            callback in the way, also refuses in the adapter's own words with
+            NOTHING dispatched.
             """
             carrier = under_test.inject_context(
                 agent=agent, products=(), instructions=()
@@ -682,7 +689,22 @@ def build_harness_leg(param: str) -> HarnessLeg:
             response = harness_agent.before_tool_callback(
                 tool=bound[skill_name], args={}, tool_context=None
             )
-            return response or None
+            declared = dict(_agent_fixture()["slice"]["granted_skill"]["arguments"])
+            declared_effects = under_test.capabilities().effects
+            with _DispatchRecorder() as recorder:
+                answered = asyncio.run(
+                    bound[skill_name].run_async(args=declared, tool_context=None)
+                )
+            refused_before_dispatch = (
+                recorder.reached == []
+                and isinstance(answered, dict)
+                and f"effects={declared_effects!r}" in " ".join(
+                    str(value) for value in answered.values()
+                )
+            )
+            if response and refused_before_dispatch:
+                return response
+            return None
 
         return HarnessLeg(
             harness_id=HARNESS_ID,
