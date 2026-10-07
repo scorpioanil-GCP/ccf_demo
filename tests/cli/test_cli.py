@@ -717,10 +717,11 @@ def test_local_is_suspended_and_names_what_reviving_it_would_cost(
                 "--local",
                 "--local-root",
                 str(tmp_path),
-                # SEC-009 (fix round 4, ruling 1): the local bundle takes the
-                # deployment's HITL policy key before it can refuse anything.
-                "--local-hitl-policy-key",
-                "acme-bank/hitl/policy",
+                # FW-9 (whole-branch review M-9; `D-IMPL-374`): NO
+                # `--local-hitl-policy-key`. A suspended mode reports itself
+                # suspended before it demands a flag only a working mode would
+                # need — fix round 4 had adapted this test to pass the key
+                # rather than fixing the order.
                 "config",
                 "keys",
                 "--class-id",
@@ -731,6 +732,9 @@ def test_local_is_suspended_and_names_what_reviving_it_would_cost(
     assert suspended.value.code == 2
     err = " ".join(capsys.readouterr().err.split())  # wrap-tolerant
     assert "`--local` is suspended" in err
+    assert "--local-hitl-policy-key" not in err
+    # ...and before building the local bundle: nothing was created under the root.
+    assert sorted(path.name for path in tmp_path.iterdir()) == []
     # Each of the five seams a local deployment would have to declare, so the
     # message cannot decay into "not supported" without reddening this.
     for seam in (
