@@ -735,3 +735,229 @@ def test_a_curated_neo4j_disposable_store_refuses_the_session_without_printing_i
     assert "CCF_TEST_NEO4J_URI" in output, "the refusal does not name the variable to change"
     assert secret not in output, "the fence printed the credential it was handed"
     assert ":***@" in output, "the fence did not redact; it merely omitted"
+
+
+# ---------------------------------------------------------------------------
+# 377-FENCE2 (focused re-review, 2026-10-07): an EMPTY curated declaration
+# disabled the fence, and libpq's own environment was not read.
+# ---------------------------------------------------------------------------
+#
+# Measured by the re-review (`review/rr/probe_estate_fence_tool.out`): with
+# `CCF_CURATED_ESTATE_HOSTS` set but empty the fence passed the curated address
+# while the tool still printed "(default 192.168.4.76)"; with `PGHOSTADDR` naming
+# the curated address, a `localhost` DSN — which libpq connects to PGHOSTADDR —
+# passed. A DSN naming no host connects to `PGHOST`, which the operator's own
+# shell exports as the curated address; a libpq service can redirect anywhere.
+#
+# Pure classification again: libpq's variables are set with `monkeypatch`, the
+# `offline` fixture above makes DNS impossible and every connect raise.
+
+#: The libpq variables the fence must read, cleared first so the operator's shell
+#: (which exports PGHOST as the curated address) cannot decide a test.
+LIBPQ_VARIABLES = ("PGHOST", "PGHOSTADDR", "PGPORT", "PGSERVICE", "PGSERVICEFILE")
+
+
+@pytest.fixture
+def libpq_clean(offline: _FakeResolver, monkeypatch: pytest.MonkeyPatch) -> _FakeResolver:
+    """`offline`, with every libpq destination variable removed."""
+    for name in LIBPQ_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    return offline
+
+
+@pytest.mark.parametrize("declared", ("", "   ", ",", " , "), ids=("empty", "spaces", "comma", "spaced-comma"))
+def test_an_EMPTY_curated_declaration_means_the_default(
+    declared: str, libpq_clean: _FakeResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A declaration that declares nothing is not a declaration (`377-FENCE2`).
+
+    Set but empty, the variable used to mean "no curated host" — the fence off,
+    silently. It now means the default, so the curated address is still refused.
+    """
+    from tests.examples.estate_guard import CURATED_HOSTS_ENV, refuse_to_write_the_curated_estate
+
+    monkeypatch.setenv(CURATED_HOSTS_ENV, declared)
+    with pytest.raises(RuntimeError, match="refusing to SEED a curated store") as refused:
+        refuse_to_write_the_curated_estate(f"http://{CURATED_ADDRESS}:8090")
+    assert f"reaches the curated address {CURATED_ADDRESS}" in str(refused.value)
+
+
+def test_the_make_gate_with_an_EMPTY_declaration_refuses_and_reports_the_hosts_in_force(
+    libpq_clean: _FakeResolver, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The tool and the guard agree (`377-FENCE2`): the gate refuses the curated
+    address under an empty declaration, and when clear it prints the hosts actually
+    in force rather than a default it is not applying.
+    """
+    from tools.estate_fence import main
+
+    for name in FENCED_VARIABLE_FORMS:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("CCF_CURATED_ESTATE_HOSTS", "")
+    monkeypatch.setenv("CCF_TEST_FLUREE_URL", f"http://{CURATED_ADDRESS}:8090")
+    assert main([]) == 1
+    capsys.readouterr()
+    monkeypatch.setenv("CCF_TEST_FLUREE_URL", "http://localhost:8090")
+    assert main([]) == 0
+    out = capsys.readouterr().out
+    assert f"Curated hosts in force: {CURATED_ADDRESS}" in out, out
+
+
+def test_the_SESSION_fence_with_an_EMPTY_declaration_still_refuses_the_curated_address() -> None:
+    """The session fence, in a real session, under `CCF_CURATED_ESTATE_HOSTS=""`."""
+    completed = _run({"CCF_CURATED_ESTATE_HOSTS": "", "CCF_TEST_FLUREE_URL": f"http://{CURATED}:8090"})
+    output = completed.stdout + completed.stderr
+    assert completed.returncode != 0, output[-1500:]
+    assert f"reaches the curated address {CURATED_ADDRESS}" in output, output[-1500:]
+
+
+@pytest.mark.parametrize("hostaddr", (CURATED_ADDRESS, ALTERNATE_SPELLINGS["integer"]), ids=("dotted", "integer"))
+@pytest.mark.parametrize(
+    "target",
+    ("postgresql://u:pw@localhost:5432/x", "host=localhost port=5432 dbname=x user=u password=pw"),
+    ids=("postgres-uri", "postgres-keyword"),
+)
+def test_PGHOSTADDR_is_where_a_localhost_dsn_actually_connects(
+    target: str, hostaddr: str, libpq_clean: _FakeResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """libpq connects to `hostaddr` — from the DSN or from PGHOSTADDR when the DSN
+    leaves it out — and uses `host` only to name the server (`377-FENCE2`). The
+    re-review demonstrated it against a closed loopback port; the fence must judge
+    that address, and say where it came from.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    monkeypatch.setenv("PGHOSTADDR", hostaddr)
+    with pytest.raises(RuntimeError, match="refusing to SEED a curated store") as refused:
+        refuse_to_write_the_curated_estate(target)
+    message = str(refused.value)
+    assert "(from PGHOSTADDR)" in message, message
+    assert f"reaches the curated address {CURATED_ADDRESS}" in message, message
+
+
+@pytest.mark.parametrize(
+    "target",
+    ("postgresql://u:pw@/x", "postgresql:///x", "dbname=x user=u password=pw"),
+    ids=("uri-empty-authority", "uri-no-authority", "keyword-no-host"),
+)
+def test_PGHOST_is_where_a_dsn_that_names_no_host_connects(
+    target: str, libpq_clean: _FakeResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A DSN that names no host connects to PGHOST — which the operator's shell
+    exports as the curated address (`377-FENCE2`). Refused for THAT reason, not as
+    a destination the fence could not read.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    monkeypatch.setenv("PGHOST", CURATED_ADDRESS)
+    with pytest.raises(RuntimeError, match="refusing to SEED a curated store") as refused:
+        refuse_to_write_the_curated_estate(target)
+    message = str(refused.value)
+    assert "(from PGHOST)" in message, message
+    assert f"reaches the curated address {CURATED_ADDRESS}" in message, message
+
+
+def test_PGHOST_establishes_a_LOCAL_destination_for_a_dsn_that_names_no_host(
+    libpq_clean: _FakeResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The other half of judging the destination libpq will use (`377-FENCE2`): a
+    host-less DSN under ``PGHOST=localhost`` connects to localhost and is admitted,
+    where the fence used to refuse it as a destination it could not read.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    monkeypatch.setenv("PGHOST", "localhost")
+    refuse_to_write_the_curated_estate("postgresql://u:pw@/x")
+
+
+@pytest.mark.parametrize(
+    ("variable", "target", "source"),
+    (
+        ("PGSERVICE", "postgresql://u:pw@localhost:5432/x", "PGSERVICE"),
+        ("PGSERVICEFILE", "host=localhost port=5432 dbname=x", "PGSERVICEFILE"),
+        (None, "host=localhost port=5432 dbname=x service=estate", "service="),
+        (None, "postgresql://u@localhost/x?service=estate", "service="),
+    ),
+    ids=("PGSERVICE", "PGSERVICEFILE", "service-keyword", "service-uri-query"),
+)
+def test_a_libpq_SERVICE_refuses_by_name(
+    variable: "str | None",
+    target: str,
+    source: str,
+    libpq_clean: _FakeResolver,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A libpq service fills every parameter the DSN leaves out from a file the
+    fence does not read — host and hostaddr included — so it can redirect the
+    connection anywhere (`377-FENCE2`). Refused fail-closed, naming the source.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    if variable is not None:
+        monkeypatch.setenv(variable, "estate" if variable == "PGSERVICE" else "/nonexistent/pg_service.conf")
+    with pytest.raises(RuntimeError, match="refusing to SEED a curated store") as refused:
+        refuse_to_write_the_curated_estate(target)
+    message = str(refused.value)
+    assert "a libpq service" in message and source in message, message
+
+
+@pytest.mark.parametrize(
+    ("env", "target"),
+    (
+        ({"PGHOSTADDR": "127.0.0.1"}, "host=localhost port=5432 dbname=x"),
+        ({"PGHOST": CURATED_ADDRESS}, "postgresql://u:pw@localhost:5432/x"),
+        ({"PGHOST": CURATED_ADDRESS}, "host=localhost port=5432 dbname=x"),
+        ({"PGHOSTADDR": CURATED_ADDRESS, "PGSERVICE": "estate"}, "http://localhost:8090"),
+        ({"PGPORT": "5432"}, "host=localhost dbname=x"),
+    ),
+    ids=("loopback-hostaddr", "PGHOST-ignored-uri-names-host", "PGHOST-ignored-keyword-names-host", "not-a-postgres-target", "PGPORT-is-no-rule"),
+)
+def test_CONTROL_libpq_variables_that_do_not_redirect_this_target_change_nothing(
+    env: dict[str, str], target: str, libpq_clean: _FakeResolver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """THE POSITIVE CONTROL for reading libpq's environment: a loopback PGHOSTADDR;
+    PGHOST, which libpq ignores when the DSN names a host (so the operator's shell
+    exporting the curated address refuses nothing that names its own host); a
+    non-Postgres target, which libpq never sees; and PGPORT, because the fence is
+    host-level and no port participates.
+    """
+    from tests.examples.estate_guard import refuse_to_write_the_curated_estate
+
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    refuse_to_write_the_curated_estate(target)
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    (({"PGHOSTADDR": CURATED_ADDRESS}, "(from PGHOSTADDR)"), ({"PGSERVICE": "estate"}, "a libpq service")),
+    ids=("PGHOSTADDR", "PGSERVICE"),
+)
+def test_the_make_gate_reads_libpq_s_environment(
+    env: dict[str, str],
+    expected: str,
+    libpq_clean: _FakeResolver,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The re-review's exact probe (`377-FENCE2`): the gate cleared a localhost DSN
+    under PGHOSTADDR naming the curated address."""
+    from tools.estate_fence import main
+
+    for name in FENCED_VARIABLE_FORMS:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("CCF_TEST_POSTGRES_DSN", "postgresql://localhost:5999/db")
+    assert main([]) == 1
+    assert expected in capsys.readouterr().err
+
+
+def test_the_SESSION_fence_reads_PGHOSTADDR() -> None:
+    """The session fence, in a real session: a localhost DSN under a curated PGHOSTADDR."""
+    completed = _run(
+        {"CCF_TEST_POSTGRES_DSN": "postgresql://u:pw@localhost:5432/x", "PGHOSTADDR": CURATED}
+    )
+    output = completed.stdout + completed.stderr
+    assert completed.returncode != 0, output[-1500:]
+    assert "(from PGHOSTADDR)" in output, output[-1500:]
