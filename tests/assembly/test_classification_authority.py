@@ -329,3 +329,53 @@ def test_a_second_rule_cannot_carry_a_governed_attribute_ungoverned() -> None:
         EntityResolutionSpec.model_validate(
             {"semver": "1.0.0", "entity_rules": [governed, bypass]}
         )
+
+
+OMITTED_ACTION = "governed_attribute_omitted"
+
+
+def test_an_unauthorized_omission_that_blanks_the_label_is_audited(
+    boot_fabric: Callable[[EntityResolutionSpec], tuple["FabricHandle", str, ControlPlaneRegistry]],
+) -> None:
+    """SEC-023-C-01 (``D-IMPL-374`` ruling (3), coordinator ruling (3): audit AND admit).
+
+    A non-authoritative source that OMITS the governed attribute supersedes the
+    whole attribute dict and so blanks the label. That claim is admitted — an
+    omission asserts no value, and a refusal would hand the least trusted source
+    a lever over every serve — but it is no longer silent: exactly one
+    ``governed_attribute_omitted`` event names the entity, the attribute and the
+    source, and records that no value was present.
+    """
+    handle, _policy_version, registry = boot_fabric(_spec(GOVERNED))
+    first = handle.worker.ingest(_envelope("env-a", AUTHORITATIVE, T1, "restricted"))
+    omitting = SignalEnvelope(
+        tenant_id=TENANT,
+        envelope_id="env-b",
+        source=SourceIdentity(system_id=UNAUTHORIZED),
+        ingestion_timestamp=T2,
+        observed_time=OBSERVED,
+        raw_payload={"counterparty_lei": LEI, "counterparty_name": "Acme Renamed"},
+    )
+    second = handle.worker.ingest(omitting)
+
+    # Admitted: the omission is written (the label is blanked, as before).
+    assert len(second.entities) == 1
+    assert second.refused_assertions == ()
+    view = handle.reader.query(GraphQuery(tenant_id=TENANT, as_of=AS_OF))
+    assert "classification" not in view.entities[0].claim.attributes
+
+    # ...and audited, once, on the Control Plane audit plane.
+    events = [e for e in registry.audit_log.events() if e.action == OMITTED_ACTION]
+    assert len(events) == 1
+    event = events[0]
+    assert event.resolved is True
+    assert event.occurred_at == T2
+    assert event.key == first.entities[0].node_key
+    assert event.artifact_class == RESOLUTION_SPEC.class_id
+    dumped = event.model_dump(mode="json")
+    assert dumped["refused_attribute"] == "classification"
+    assert dumped["refused_source_system_id"] == UNAUTHORIZED
+    assert dumped["refused_envelope_id"] == "env-b"
+    assert dumped["refused_entity_class"] == "counterparty"
+    assert dumped["refused_value_present"] is False
+    assert _refusals(registry) == []

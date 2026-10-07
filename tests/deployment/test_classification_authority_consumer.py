@@ -1,0 +1,260 @@
+"""SEC-023 — a classification consumer refuses to be built or used without covering authority.
+
+Security row SEC-023 under ``D-IMPL-374`` ruling (3) (a) and the coordinator's
+rulings (1)-(2) of 2026-10-06: enforce at the construction of the consumer.
+``D-IMPL-372``'s dated amendment measured four classification paths the
+artifact-time door check (``src/ccf/deployment/manifest.py::_refuse_ungoverned_classification``)
+never sees, because none of them carries a ``PolicyFilterParametersArtifact``
+through ``load_and_boot``:
+
+1. a ``GraphQuery``-only classification map answered by the fabric's reader;
+2. a hand-built ``PolicyFilter`` supplied through ``deployment_operators``;
+3. a hand-composed ``ccf.boot.boot`` whose ``PolicyFilter`` is applied directly;
+4. a per-request ``build_operator_registry`` from a parsed policy artifact.
+
+Each is measured here against a fabric booted with a resolution spec that WRITES
+the classification attribute from the source payload with no
+``attribute_authorities`` declaration — any source can relabel it — and must
+refuse by name. The same four paths under a spec that DOES declare authority
+must keep working (the positive half of each test). A view that carries no
+authority at all — hand-built, never produced by a booted fabric — meeting a
+classification consumer refuses by name, fail closed (ruling (2)).
+
+Offline: the memory backend; nothing touches a database.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
+
+import pytest
+
+from ccf.assembly.worker import EntityResolutionSpec
+from ccf.controlplane.artifacts import PolicyFilterParametersArtifact
+from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.deployment.manifest import UngovernedClassificationAttribute
+from ccf.deployment.operators import build_operator_registry
+from ccf.deployment.pins import ArtifactPin, ResolvedPins
+from ccf.graph.protocols import GraphQuery, GraphView
+from ccf.operators.categories import PolicyFilter
+from ccf.operators.params import PolicyFilterParameters
+from ccf.signal.envelope import SignalEnvelope, SourceIdentity
+from tests.composition import register_at_composition
+
+if TYPE_CHECKING:
+    from ccf.boot import FabricHandle
+
+TENANT = "tenant-a"
+SPEC_KEY = "test/sec-023-consumer-spec"
+POLICY_KEY = "test/sec-023-consumer-policy"
+AS_OF = datetime(2026, 3, 1, tzinfo=UTC)
+CLASS_MAP = {"counterparty": "classification"}
+
+
+def _spec(*, governed: bool) -> EntityResolutionSpec:
+    rule: dict[str, Any] = {
+        "match_key": "counterparty_lei",
+        "entity_class": "counterparty",
+        "identity_keys": ["counterparty_lei"],
+        "attribute_keys": ["classification"],
+    }
+    if governed:
+        rule["attribute_authorities"] = {"classification": ["source-a"]}
+    return EntityResolutionSpec.model_validate(
+        {"semver": "1.0.0", "entity_rules": [rule]}
+    )
+
+
+Booted = tuple["FabricHandle", str]
+
+
+@pytest.fixture
+def boot_fabric() -> Iterator[Callable[[bool], Booted]]:
+    """A hand-composed ``ccf.boot.boot`` (path 3's composition), memory backend."""
+    from ccf.boot import boot
+
+    handles: list[FabricHandle] = []
+
+    def factory(governed: bool) -> Booted:
+        registry = ControlPlaneRegistry()
+        spec_version = register_at_composition(registry, SPEC_KEY, _spec(governed=governed))
+        policy_version = register_at_composition(registry, POLICY_KEY, {"regime": "sec-023"})
+        handle = boot(
+            backend="memory",
+            connection={},
+            registry=registry,
+            resolution_spec_key=SPEC_KEY,
+            resolution_spec_version=spec_version,
+            policy_bundle_key=POLICY_KEY,
+            policy_bundle_version=policy_version,
+            tenant_ids=(TENANT,),
+        )
+        handles.append(handle)
+        handle.worker.ingest(
+            SignalEnvelope(
+                tenant_id=TENANT,
+                envelope_id="env-a",
+                source=SourceIdentity(system_id="source-a"),
+                ingestion_timestamp=datetime(2026, 2, 1, tzinfo=UTC),
+                observed_time=datetime(2026, 1, 31, tzinfo=UTC),
+                raw_payload={"counterparty_lei": "LEI-1", "classification": "public"},
+            )
+        )
+        return handle, policy_version
+
+    try:
+        yield factory
+    finally:
+        for handle in reversed(handles):
+            handle.close()
+
+
+def _filter(policy_version: str) -> PolicyFilter:
+    return PolicyFilter(
+        parameters=PolicyFilterParameters(
+            permitted_policy_bundle_versions=frozenset({policy_version}),
+            classification_attribute_by_class=CLASS_MAP,
+            permitted_classifications=frozenset({"public"}),
+        )
+    )
+
+
+def _query(policy_version: str) -> GraphQuery:
+    return GraphQuery(
+        tenant_id=TENANT,
+        as_of=AS_OF,
+        permitted_policy_bundle_versions=frozenset({policy_version}),
+        classification_attribute_by_class=CLASS_MAP,
+        permitted_classifications=frozenset({"public"}),
+    )
+
+
+def _pins(policy_version: str) -> ResolvedPins:
+    return ResolvedPins(
+        entries=(
+            ArtifactPin(
+                key=POLICY_KEY,
+                version=policy_version,
+                class_id="ccf.declared",
+                registration="versioned",
+            ),
+        )
+    )
+
+
+def _artifact() -> PolicyFilterParametersArtifact:
+    return PolicyFilterParametersArtifact.model_validate(
+        {
+            "semver": "1.0.0",
+            "classification_attribute_by_class": CLASS_MAP,
+            "permitted_classifications": ["public"],
+        }
+    )
+
+
+def _assert_names_the_hole(refused: pytest.ExceptionInfo[UngovernedClassificationAttribute]) -> None:
+    assert refused.value.entity_class == "counterparty"
+    assert refused.value.attribute == "classification"
+    assert "SEC-023" in str(refused.value)
+
+
+def test_path_1_a_graph_query_only_classification_map_refuses(
+    boot_fabric: Callable[[bool], Booted],
+) -> None:
+    """The fabric's reader answers a classification query only under covering authority."""
+    governed, governed_version = boot_fabric(True)
+    assert len(governed.reader.query(_query(governed_version)).entities) == 1
+
+    handle, policy_version = boot_fabric(False)
+    with pytest.raises(UngovernedClassificationAttribute) as refused:
+        handle.reader.query(_query(policy_version))
+    _assert_names_the_hole(refused)
+
+
+def test_path_2_a_hand_built_policy_filter_in_deployment_operators_refuses(
+    boot_fabric: Callable[[bool], Booted],
+) -> None:
+    """``deployment_operators`` carries no artifact, so the door check never saw it."""
+    governed, governed_version = boot_fabric(True)
+    build_operator_registry(
+        parameters={},
+        view=governed.reader.as_of(tenant_id=TENANT, at=AS_OF),
+        pins=_pins(governed_version),
+        policy_bundle_key=POLICY_KEY,
+        deployment_operators=[_filter(governed_version)],
+    )
+
+    handle, policy_version = boot_fabric(False)
+    with pytest.raises(UngovernedClassificationAttribute) as refused:
+        build_operator_registry(
+            parameters={},
+            view=handle.reader.as_of(tenant_id=TENANT, at=AS_OF),
+            pins=_pins(policy_version),
+            policy_bundle_key=POLICY_KEY,
+            deployment_operators=[_filter(policy_version)],
+        )
+    _assert_names_the_hole(refused)
+
+
+def test_path_3_a_hand_composed_boot_cannot_apply_an_ungoverned_policy_filter(
+    boot_fabric: Callable[[bool], Booted],
+) -> None:
+    """``ccf.boot.boot`` never sees operator parameters; the operator's use must refuse."""
+    governed, governed_version = boot_fabric(True)
+    view = governed.reader.as_of(tenant_id=TENANT, at=AS_OF)
+    out = _filter(governed_version).apply(
+        view=view, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=()
+    )
+    assert len(out.view.entities) == 1
+
+    handle, policy_version = boot_fabric(False)
+    view = handle.reader.as_of(tenant_id=TENANT, at=AS_OF)
+    with pytest.raises(UngovernedClassificationAttribute) as refused:
+        _filter(policy_version).apply(
+            view=view, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=()
+        )
+    _assert_names_the_hole(refused)
+
+
+def test_path_4_a_per_request_registry_from_a_parsed_policy_artifact_refuses(
+    boot_fabric: Callable[[bool], Booted],
+) -> None:
+    """A registry built per request, with no ``load_and_boot`` spine, must refuse too."""
+    governed, governed_version = boot_fabric(True)
+    build_operator_registry(
+        parameters={"test/policy.principal-subgraph": _artifact()},
+        view=governed.reader.as_of(tenant_id=TENANT, at=AS_OF),
+        pins=_pins(governed_version),
+        policy_bundle_key=POLICY_KEY,
+    )
+
+    handle, policy_version = boot_fabric(False)
+    with pytest.raises(UngovernedClassificationAttribute) as refused:
+        build_operator_registry(
+            parameters={"test/policy.principal-subgraph": _artifact()},
+            view=handle.reader.as_of(tenant_id=TENANT, at=AS_OF),
+            pins=_pins(policy_version),
+            policy_bundle_key=POLICY_KEY,
+        )
+    _assert_names_the_hole(refused)
+    assert refused.value.operator_key == "test/policy.principal-subgraph"
+
+
+def test_a_view_carrying_no_authority_refuses_every_classification_consumer() -> None:
+    """Ruling (2): a hand-built view is not evidence of authority — fail closed, by name."""
+    bare = GraphView(tenant_id=TENANT, as_of=AS_OF)
+    with pytest.raises(ValueError) as applied:
+        _filter("v1").apply(view=bare, tenant_id=TENANT, temporal_boundary=AS_OF, upstream=())
+    assert type(applied.value).__name__ == "ClassificationAuthorityMissing"
+    assert "SEC-023" in str(applied.value)
+
+    with pytest.raises(ValueError) as built:
+        build_operator_registry(
+            parameters={"test/policy.principal-subgraph": _artifact()},
+            view=bare,
+            pins=_pins("v1"),
+            policy_bundle_key=POLICY_KEY,
+        )
+    assert type(built.value).__name__ == "ClassificationAuthorityMissing"
