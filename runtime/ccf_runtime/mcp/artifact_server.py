@@ -568,6 +568,10 @@ def build_artifact_server(
         subject=door.from_grant(),
         resource=door.resource_argument("content_address"),
         mutating=False,
+        products=door.products_unknown(
+            "an artifact is addressed by content address or by class and name;"
+            " no Context Product class is known at the call"
+        ),
         mime_type=_JSON_MIME_TYPE,
     )
     def artifact_names(authorized: Authorized[ArtifactRead], content_address: str) -> str:
