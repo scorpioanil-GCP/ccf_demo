@@ -172,7 +172,7 @@ is who owns the plumbing:
 | before | after |
 |---|---|
 | `produce.py` 99 code lines: a registry, a boot, an effective-request re-derivation, an ingest loop, a fifteen-keyword builder call, a store, a record readback | `produce.py` ≈ 30: a named `plan_factory`, ONE `open_product(...)` call binding three verbs, ONE `opened.answer(...)` |
-| `server/serve.py` 243 code lines: a second registry, a hand-built entitlement policy, a token file, two recorders over a second store, a hand-built `class-mismatch` envelope, wire re-typing, the builder call, the stdio block, the loopback body | `server/serve.py` ≈ 12: `open_door(opened).serve_stdio()` / `.serve_loopback(...)` |
+| `server/serve.py` 243 code lines: a second registry, a hand-built entitlement policy, a token file, two recorders over a second store, a hand-built `class-mismatch` envelope, wire re-typing, the builder call, the stdio block, the loopback body | `server/serve.py` ≈ 20: `door = open_door(opened)`, then `door.serve_stdio(identity=AuthenticatedUser(ambient_stdio_identity(credential=door.credential, principal_id=door.principal_id, scope=door.scope, tenant=door.tenant_id)))` / `open_door(opened).serve_loopback(...)` — since `D-IMPL-361` the stdio door composes no identity of its own, so `serve.py` composes it from the door's four fields (it was ≈ 12 lines with a bare `serve_stdio()` before that change) |
 | four documents (`ccf_config.yaml`, `backends.yaml`, `server/door.yaml`, `artifacts/ttl.yaml`); six values stated in two places | two documents (`ccf_config.yaml`, `ccf_environment.yaml`); zero values stated twice — a principal, role, URL or credential under `door:` is refused by name |
 | the effective request derived twice, with two postures | once, by the resolver, handed to `acquire` through the declared seam |
 | two replay stores, three refusal recorders per door process | one store, one recorder, shared by the spine and the door |
@@ -197,7 +197,7 @@ rule, the gate predicate — and now two ≈ 8-line adapters, `acquire` and
 | `projection.py` | Π — the payload, read off the view and scoped to the subject |
 | `produce.py` | **the fabric's half.** Two regions: `boot` (one `open_product` call binding the three verbs) and `answer` (one governed question) |
 | `run.py` | presentation. The only module that prints |
-| `server/serve.py` | the standard MCP egress door, twelve lines over `open_door`; the identity it asserts and the prose it advertises are `ccf_config.yaml`'s `door:` section; `run.py --door` boots it on a loopback port for a harness |
+| `server/serve.py` | the standard MCP egress door, about twenty lines over `open_door`; on stdio it composes the ambient identity from the door's own fields and passes it to `serve_stdio(identity=...)`, because the door no longer fabricates one (`D-IMPL-361`, `EX-03`/`EX-04`); the identity it asserts and the prose it advertises are `ccf_config.yaml`'s `door:` section; `run.py --door` boots it on a loopback port for a harness |
 | `spec/CP-SPEC-003C_…` | this tree's own specification; §G.1 approves every gate |
 | `FINDINGS.md` | what authoring this against the current SDK surface exposed |
 
