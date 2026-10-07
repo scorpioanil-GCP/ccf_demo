@@ -227,7 +227,7 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 161 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 172 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 184 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 98 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `public/how-to/security-and-deployment.md` | 121 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |

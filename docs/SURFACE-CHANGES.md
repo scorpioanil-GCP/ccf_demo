@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2166 entries**, of which **1894** name a public Python surface.
+**2167 entries**, of which **1895** name a public Python surface.
 
 ## Added
 
@@ -29042,7 +29042,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-284 entries — 248 public Python surface, 36 not public Python API.
+285 entries — 249 public Python surface, 36 not public Python API.
 
 ### Public Python surface
 
@@ -33617,6 +33617,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf_runtime.peering.lf_a2a.LfA2AWire
+
+- Surface: ccf_runtime.peering.lf_a2a.LfA2AWire
+- Public surface: true
+- Change type: behavior
+- Before: `routes()` mounted `a2a-sdk`'s JSON-RPC route as given. Its dispatcher read and parsed the whole request body before `_accept` consulted `max_message_bytes`, so a request body of any size was buffered and parsed.
+- After: `routes()` wraps the JSON-RPC route's application in a request-body limit equal to `max_message_bytes`. A declared `Content-Length` over the limit is answered `413` before any of the body is read. Any other body is counted as it arrives, whether or not a length was declared, and answered `413` the moment the count exceeds the limit. Over the limit the dispatcher is never called; a body within the limit is handed on whole. `routes()` raises `TypeError` rather than mount a JSON-RPC endpoint that is not a starlette `Route`, which the limit could not wrap. The constructor signature is unchanged.
+- Why: SEC-021-U1, carried by `D-IMPL-370` (3): move the size check ahead of parsing. The limit is the one this leg already declares, `max_message_bytes` (Q13's name on this leg for the typed leg's `max_request_bytes`), so the SDK adds no parameter and no default value.
+- Migration: none for the constructor. The JSON-RPC binding carries the document base64-encoded inside the request, so the largest document this endpoint accepts is now about three quarters of `max_message_bytes`, less the JSON-RPC envelope (measured: 5,856 bytes at a limit of 8,192). A deployment that carries documents near its limit must raise `max_message_bytes` to cover the encoded request. `emit` checks only the document, so a sender declaring the same value can emit a document the receiver answers `413`; `emit` and `emit_async` raise `PeerUnreachable` for it.
+
+*Recorded by `375-02-sec-021-u1-body-cap-before-parse.md`.*
 
 ### Not public Python API
 
