@@ -29,8 +29,8 @@ re-review of PC2; disclosed, not changed).** For a rostered caller, every
 agent the authorizer denies, an off-roster agent, an absent agent, an agent
 with no derived classes, a failing directory and no directory all give one
 `(type, text)`. Only the first reaches the authorizer, so only it appends to
-the Control Plane audit log (the authorizer's `authz_decision` deny, after its
-`resolve` of the scope mapping; the other five append nothing), and it is
+the Control Plane audit log (a `resolve` of the authorizer's scope mapping and
+the `authz_decision` deny; the other five append nothing), and it is
 slightly slower (the re-review measured an in-process median of 64.6 µs
 against 46.9 µs and 46.7 µs for the off-roster and absent outcomes). The
 SDK's doors append to the audit log and serve none of it, so the difference is
