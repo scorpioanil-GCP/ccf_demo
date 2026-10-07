@@ -743,3 +743,41 @@ def test_r2_a_retry_reuses_its_prior_door_signature_only_after_verifying_it(tmp_
     record = h.run(retry.complete(h.resume_cap(), definition_version=plane.definition_version, request=request, resolution=resolution, erase=h.erase_cap(request)))
     assert content_hash(record) == entry.erasure_record_address
     assert _outcome(_consult(plane), plane.document.content_address) == "supported"
+
+
+class _AnswersOtherContent:
+    """A Control Plane that answers the DECLARED workflow hash with other content."""
+
+    def __init__(self, inner: ControlPlaneRegistry, *, declared: str, key: str, substitute: Any) -> None:
+        self._inner = inner
+        self._declared = declared
+        self._key = key
+        self._substitute = substitute
+
+    def versions(self, key: str) -> Any:
+        found = self._inner.versions(key)
+        return (*found, self._declared) if key == self._key and self._declared not in found else found
+
+    def resolve(self, key: str, version: str) -> Any:
+        if key == self._key and version == self._declared:
+            return self._substitute
+        return self._inner.resolve(key, version)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def test_r1_a_control_plane_answering_other_content_for_the_declared_hash_is_not_trusted(tmp_path: Path) -> None:
+    """The declared workflow is content-verified: a definition a Control Plane serves under the
+    declared hash label is taken only if it IS that content — here a substitute whose erasure gate
+    lists dave would otherwise approve."""
+    plane = h.compose(tmp_path)
+    request = h.request(plane)
+    dave, pin = _dave_pinned(plane)
+    dave_approves = register_typed_policy(plane.registry, f"{h.TENANT}/approval-policy/dave-approves", eligible=frozenset({DAVE}))
+    substitute_hash = _second_workflow(plane.registry, tenant=h.TENANT, name="substitute", approval_policy_uri=dave_approves)
+    substitute = plane.registry.resolve(f"{h.TENANT}/workflows/substitute", substitute_hash)
+    # Under the erasure workflow's OWN key, at the declared version: other content.
+    lying = _AnswersOtherContent(plane.registry, declared=plane.definition_version, key=h.WORKFLOW_KEY, substitute=substitute)
+    address = _plant(plane, request, approver=DAVE, approver_keys=dave, policy_ref=pin)
+    assert _judgment(plane, address, cp=lying) == "approval-workflow-unresolvable"
