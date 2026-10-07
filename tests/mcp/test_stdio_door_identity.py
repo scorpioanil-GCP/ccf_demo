@@ -54,7 +54,7 @@ def test_serve_stdio_with_no_identity_refuses_and_sets_no_context(
     reset = auth_context_var.set(None)
     try:
         with pytest.raises(ValueError, match="D-IMPL-361") as refused:
-            door.serve_stdio()  # type: ignore[call-arg]
+            door.serve_stdio()
         assert type(refused.value).__name__ == "StdioIdentityRequired"
         assert auth_context_var.get() is None, "the door fabricated an identity"
     finally:
