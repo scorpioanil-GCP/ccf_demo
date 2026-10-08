@@ -109,6 +109,7 @@ from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord, suspension_left_by
 from ccf_runtime.workflow.engine import (
+    ExecutionFenced,
     WorkflowCompleted,
     WorkflowEngine,
     WorkflowSuspended,
@@ -292,12 +293,16 @@ class ErasureDoor:
 
         Raises:
             ErasureWorkflowUngated: the workflow can complete without a gate.
-            ErasureRefused: tenant, declaration, retention or hold refusal; or
-                the workflow did not suspend on its gate.
+            ErasureRefused: tenant, declaration, retention or hold refusal; the
+                workflow did not suspend on its gate; or the engine fenced the
+                start's suspension, ``execution-fenced`` (``D-IMPL-378``).
         """
         workflow = self._factory.construct(authorized, definition_version=definition_version)
         self._admit(authorized.tenant, workflow, request, latest=False, erase=erase)
-        outcome = await self._engine.execute(authorized, workflow, execution_id=request.request_id)
+        try:
+            outcome = await self._engine.execute(authorized, workflow, execution_id=request.request_id)
+        except ExecutionFenced as fenced:
+            raise self._fenced(fenced, consequence="no approval was requested") from fenced
         if not isinstance(outcome, WorkflowSuspended):
             raise ErasureRefused(
                 f"the erasure workflow did not suspend on an approval gate ({type(outcome).__name__});"
@@ -327,7 +332,11 @@ class ErasureDoor:
 
         Raises:
             ErasureWorkflowUngated: the workflow can complete without a gate.
-            ErasureRefused: any refusal; nothing is written.
+            ErasureRefused: any refusal; nothing is written. Except
+                ``execution-fenced`` in the last passage, which the engine fenced
+                after the write-ahead append (``D-IMPL-378``): no erasure record
+                is filed, and the address stays withheld under the appended
+                entries (``index-unsupported``).
             ccf.erasure.ErasureIndexWriteFailed: a write-ahead index append
                 could not write its whole line (PC1, panel C1; ``D-IMPL-374``).
                 Propagated by name before the workflow resumes: no record is
@@ -474,9 +483,12 @@ class ErasureDoor:
         final = route in workflow.definition.effective_terminal_states
         if not final:
             # A further gate follows: nothing is erased until the last approval.
-            outcome = await self._engine.resume(
-                authorized, workflow, execution_id=request.request_id, decision=route
-            )
+            try:
+                outcome = await self._engine.resume(
+                    authorized, workflow, execution_id=request.request_id, decision=route
+                )
+            except ExecutionFenced as fenced:
+                raise self._fenced(fenced, consequence="nothing was erased") from fenced
             if isinstance(outcome, WorkflowSuspended):
                 return outcome
             raise ErasureRefused(
@@ -562,9 +574,18 @@ class ErasureDoor:
                 ),
             )
         if state.status in ("suspended", "running"):
-            outcome = await self._engine.resume(
-                authorized, workflow, execution_id=request.request_id, decision=route
-            )
+            try:
+                outcome = await self._engine.resume(
+                    authorized, workflow, execution_id=request.request_id, decision=route
+                )
+            except ExecutionFenced as fenced:
+                raise self._fenced(
+                    fenced,
+                    consequence=(
+                        "no erasure record was filed, and the address stays withheld"
+                        " (index-unsupported) under the index entries this completion appended"
+                    ),
+                ) from fenced
             if not isinstance(outcome, WorkflowCompleted) or outcome.terminal_state == WORKFLOW_FAILED_STATE:
                 raise ErasureRefused(
                     f"the erasure workflow did not complete ({outcome!r}); the address"
@@ -609,6 +630,23 @@ class ErasureDoor:
                 reason_code="retry-mismatch",
             ) from invalid
         return prior[0].door_signature, prior[0].door_key_id
+
+    @staticmethod
+    def _fenced(fenced: ExecutionFenced, *, consequence: str) -> ErasureRefused:
+        """A passage the engine fenced, as this door's refusal, ``execution-fenced`` (``D-IMPL-378``).
+
+        The engine raises :class:`~ccf_runtime.workflow.engine.ExecutionFenced`
+        when another writer moved the execution's record while a passage ran,
+        and then writes, audits and enqueues nothing more. The workflow doors
+        answer it 409 ``execution-fenced``; this door refuses it by the same name
+        rather than let it escape. ``consequence`` says what stands.
+        """
+        return ErasureRefused(
+            "the erasure workflow's passage was fenced: another writer moved the"
+            f" execution's record while it ran, and the engine wrote nothing more; {consequence}"
+            " (SEC-009; D-IMPL-378)",
+            reason_code="execution-fenced",
+        )
 
     @staticmethod
     def _approval_not_recorded() -> ErasureRefused:
