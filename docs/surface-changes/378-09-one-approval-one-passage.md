@@ -31,7 +31,12 @@ limit's end state and then the refusing mechanism by name.
 - **A conflicted gate still stays suspended for good** (`D-GATE-357` (2)). There is
   still no primitive that reopens it.
 - **An interrupted passage stays `running` for good** (the ruling's (b)). There is no
-  primitive that reconciles it; an operator does that outside the fabric.
+  primitive that reconciles it; an operator does that outside the fabric. This holds
+  even where no step runs between the commit and the next write (a gate routed
+  straight to a terminal state; an execution whose first node is a gate), so the
+  erasure door's retries of a request or a completion interrupted there are refused
+  (`workflow-not-suspended`; `approval-not-recorded`, which misnames the cause), where
+  before this change both recovered.
 - **The transport's stamp race is unchanged** (residual (1) of
   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`).
 - **A gate passed before this change keeps its pending event.** Only a closure

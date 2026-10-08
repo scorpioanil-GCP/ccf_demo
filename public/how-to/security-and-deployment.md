@@ -1336,6 +1336,18 @@ the same id is refused "already exists".
   the gate once. Both halves were measured across two processes:
   `tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`
   and `::test_an_interrupted_passage_is_never_retried_by_any_process`.
+
+  The rule applies even where no step runs between the commit and the
+  execution's next write: a gate whose route leads straight to a terminal
+  state, or an execution whose first node is a gate, which the engine records
+  as `running` before it suspends. A store failure inside that window leaves
+  the execution `running` as well. The erasure door is such a caller. An
+  erasure request interrupted there is refused on retry with
+  `workflow-not-suspended`. An erasure completion interrupted there is refused
+  on retry with `approval-not-recorded`, which misnames the cause; its address
+  stays withheld (`index-unsupported`) and no erasure record is filed. Before
+  `D-IMPL-378` both retries recovered, the completion with a second attributed
+  `workflow_resumed` row (measured).
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the
