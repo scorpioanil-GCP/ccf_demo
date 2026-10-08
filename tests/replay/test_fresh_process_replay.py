@@ -65,11 +65,14 @@ from ccf.client.adapters.binding_document import load_binding_document
 from ccf.client.adapters.inprocess import InProcessAdapter
 from ccf.client.codec import decode_outcome
 from ccf.client.wire import WireRequest
-from ccf.controlplane.artifacts import ProductClassDeclaration
+from ccf.contracts.canonical import content_hash
+from ccf.controlplane.artifacts import DeclaredArtifact, ProductClassDeclaration
+from ccf.controlplane.registry import namespaced_key
 from ccf.deployment.operators import build_operator_registry
 from ccf.products.contract import ContextProductContract, ProductLineage
 from ccf.products.provenance import EffectiveRequest
 from ccf.products.refusal import RefusalEnvelope
+from ccf.products.request import ProductRequestContract
 from ccf.replay.engine import replay, replay_refusal
 from ccf.replay.record import NO_PRODUCT_ADDRESS, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -216,6 +219,14 @@ def _child_in_process(spec: dict[str, Any]) -> dict[str, Any]:
                 reader=booted.fabric.handle.reader, control_plane=booted.control_plane,
                 environment=lambda record=record: _InProcessEnvironment(booted, record),
             )
+        report_key = spec.get("report_key")
+        if report_key is not None:
+            # What THIS process's Control Plane holds under the key, and the
+            # content address of the contract this deployment holds now.
+            declared = booted.fabric.artifacts[report_key]
+            assert isinstance(declared, DeclaredArtifact), type(declared)
+            results["_registered"] = list(booted.control_plane.versions(report_key))
+            results["_now"] = content_hash(ProductRequestContract.from_declared(declared))
     finally:
         inprocess.reset_boot_cache()
     return results
@@ -388,3 +399,49 @@ def test_a_fresh_process_that_asked_nothing_replays_paved_road_records(tmp_path:
     assert _decision_records(scratch / "artifact-store") == filed, (
         "the fresh process filed a decision record: it asked something"
     )
+
+
+#: One property's description in the client fixture's request contract.
+_DESCRIPTION = "description: Return widgets whose score exceeds this amount."
+
+
+def test_a_changed_request_contract_still_fails_replay_in_a_fresh_process(tmp_path: Path) -> None:
+    """R-A's guard: building the resolver registers the contract the deployment holds NOW.
+
+    The records were decided under one request contract. The deployment's
+    document then changes it — one property's description. A fresh process
+    builds the resolver, which registers the CHANGED contract at its own,
+    different content address, and replays: both records still pin the old
+    version, and replay refuses each by name rather than letting the changed
+    contract stand in for the one the decisions were made under.
+    """
+    root, records = _write_in_process_records(tmp_path)
+    store = _inprocess_store(root)
+    document = load_binding_document(root)
+    decided = {
+        label: DecisionReplayRecord.model_validate_json(store.get(content_address=address))
+        for label, address in records.items()
+    }
+    key = namespaced_key(tenant=decided["served"].tenant_id, key=document.request_contract_key)
+    pinned = {
+        label: {binding.key: binding.version for binding in record.policy_bindings.bindings}[key]
+        for label, record in decided.items()
+    }
+    assert pinned["served"] == pinned["refused"], pinned
+    config = root / "ccf_config.yaml"
+    text = config.read_text(encoding="utf-8")
+    assert text.count(_DESCRIPTION) == 1, "the fixture's request-contract description moved"
+    config.write_text(text.replace(_DESCRIPTION, f"{_DESCRIPTION[:-1]} (amended)."), encoding="utf-8")
+
+    results = _run_child(
+        tmp_path, {"root": "in-process", "deployment": str(root), "records": records, "report_key": key}
+    )
+
+    # Positive control: the fresh process's resolver DID register a request
+    # contract under the key — the changed one, at a different address.
+    assert results["_registered"] == [results["_now"]], results
+    assert results["_now"] != pinned["served"], "the change did not change the contract's address"
+    for label in records:
+        outcome = results[label]["outcome"]
+        assert outcome.startswith("RAISED ReplayUnresolvable: "), f"{label}: {outcome}"
+        assert repr((key, pinned[label])) in outcome, f"{label}: {outcome}"

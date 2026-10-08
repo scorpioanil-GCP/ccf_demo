@@ -2556,7 +2556,10 @@ class GovernedResolver:
         (:class:`UndeclaredMechanismClass` otherwise — fail closed at boot,
         never at the first write); then five capabilities are minted through
         the composition recipe, each audited on the Control Plane's own log,
-        for exactly the class or key each will open. The clock those audit
+        for exactly the class or key each will open; then the request contract
+        is registered under the capability minted for its key (``D-IMPL-378``
+        R-A), so a process that builds this resolver can replay the records
+        that pin it before it answers anything. The clock those audit
         events carry is the process clock at composition — never
         ``admission_clock``, which the serve path reads exactly once per
         admission and which nothing at construction may consume.
@@ -2623,6 +2626,22 @@ class GovernedResolver:
         # `__post_init__`; the field is `init=False` and exists for nothing
         # but this.
         object.__setattr__(self, "_authorities", minted)
+        # `D-IMPL-378` R-A (b) (Dave, 2026-10-08): THE REQUEST SURFACE IS
+        # REGISTERED WHEN THE RESOLVER IS BUILT, so any process that builds
+        # this deployment's resolver — a transport's boot, a replay
+        # environment — can replay the deployment's earlier records, served or
+        # refused, before it has answered a question. The Control Plane is
+        # in-process: a new process holds only what it registered itself, and
+        # a boot registers no typed request contract. Content-addressed and
+        # idempotent: the version minted is the content address of the
+        # contract this fabric holds, which is the version every record decided
+        # under that contract pins (`D-IMPL-310`); a changed contract mints a
+        # different version, and a record pinning the old one still fails
+        # replay by name. `__call__` registers it again before the resolution
+        # that pins it (`CP17-F-09`).
+        self.control_plane.register(
+            minted.request_contract, self._request_contract(declaration)
+        )
 
     def _decision_instant(
         self, request: ProductRequest, effective_request: ProductRequest
@@ -2677,10 +2696,11 @@ class GovernedResolver:
            as the value the class declared, rather than as an omission. A
            question this class does not answer still costs nothing and still
            comes back with a reason rather than an approximation. The request
-           surface is **registered first**, at the version the resolution pins
-           (``CP17-F-09``), so every record that pins it resolves against this
-           Control Plane at replay — a refusal asked first of a fresh Control
-           Plane included.
+           surface, registered when this resolver was built (``D-IMPL-378``
+           R-A), is **registered again** before the resolution, at the version
+           the resolution pins (``CP17-F-09``), so every record that pins it
+           resolves against this Control Plane at replay — a refusal asked
+           first of a fresh Control Plane included.
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
@@ -2693,8 +2713,8 @@ class GovernedResolver:
         4. **The operator registry is built from whatever the deployment
            declared**, then Π runs at L5.
         5. **The class registers**, minting the pin Gate 3 resolves against;
-           the request surface registered at step 2 is registered again here
-           with identical content, which is idempotent.
+           the request surface, registered at composition and at step 2, is
+           registered again here with identical content, which is idempotent.
         6. **The candidate claims its lineage from the declaration, never from
            the execution.** A claim copied out of the execution record is not a
            claim, it is a transcript — and Gate 2 then has two independently
@@ -2903,7 +2923,9 @@ class GovernedResolver:
 
         # `CP17-F-09` / `ATM-F-11` (`D-IMPL-378`, lane 378d-replayfix): THE
         # REQUEST SURFACE IS REGISTERED HERE, before the resolution that first
-        # pins it. Every refusal from this line on — a resolution-stage
+        # pins it — again, since `__post_init__` registered it when this
+        # resolver was built (`D-IMPL-378` R-A), and kept beside the step that
+        # first records the pin. Every refusal from this line on — a resolution-stage
         # refusal, the naive-instant and temporal-bound refusals, a refusal held
         # at either acquisition seam — records the resolution on dimension 2,
         # and with it this contract at `content_hash(declared)` (`D-IMPL-310`:
@@ -4804,10 +4826,11 @@ class GovernedResolver:
         ``MAX_TTL`` value, because registering it is what mints the pin Gate 3
         resolves; and the request contract, so its pin is re-resolvable years
         later against the surface a question was actually validated against.
-        The request contract is registered FIRST in :meth:`__call__`, before
-        the resolution that pins it (``CP17-F-09``): a refusal never reaches
-        this method and its record pins the same version, so registering it
-        again here is idempotent.
+        The request contract is registered first when the resolver is built
+        (``D-IMPL-378`` R-A) and again in :meth:`__call__` before the
+        resolution that pins it (``CP17-F-09``): a refusal never reaches this
+        method and its record pins the same version, so registering it here
+        once more is idempotent.
 
         Every remaining governance field is forwarded off the declaration
         rather than left to :func:`~ccf.products.contract.register_product_class`'s
