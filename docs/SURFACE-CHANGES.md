@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2273 entries**, of which **1998** name a public Python surface.
+**2277 entries**, of which **2002** name a public Python surface.
 
 ## Added
 
@@ -29675,7 +29675,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-340 entries — 301 public Python surface, 39 not public Python API.
+344 entries — 305 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34886,6 +34886,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none; SEC-009's door contract is otherwise unchanged
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: `__call__` registered the typed request contract on its Control Plane only inside `GovernedResolver._register`, which the served path reaches and every refusal returns before. A refusal recorded after the resolution step pinned `(request_contract_key, content_hash(contract))` on dimension 2 while that version was unregistered unless an earlier served question in the same process had registered it, so `src/ccf/replay/engine.py::replay_refusal` raised `ReplayUnresolvable` naming the request-contract binding.
+- After: `__call__` registers the typed request contract immediately before the resolution step, through the `Register` capability its composition minted for that key, at the version the record pins. Every record that pins it resolves against the deciding Control Plane at replay, a refusal asked first of a fresh Control Plane included. `_register` still registers the same content on the served path, which is idempotent; the audit log carries one more `register` event for the request-contract key on every question that reaches resolution. The `__call__` docstring states this at steps 2 and 5. Record bytes, pins and addresses are unchanged. Unchanged too: an intent refusal and a mechanism-floor refusal, which precede resolution, register nothing new and pin no request contract.
+- Why: `CP17-F-09` (cp-17, charged to the cap at `D-GATE-cp-17`) and `ATM-F-11` (cp-19), carried unrepaired as estate-gated strict expected failures; reproduced offline on 2026-10-08. Red test: `tests/replay/test_first_question_refusal_replays.py` (the in-process transport with the request contract `role: load` and `role: register`, a resolution-stage and a temporal-bound refusal; the paved road with a refusal raised at the acquisition seam).
+- Migration: none. A test that counts Control Plane audit events across a governed question sees one more `register` event for the request-contract key on every question that reaches resolution (measured on the paved road: a served question adds two where it added one, a resolution-stage refusal one where it added none; an intent refusal and a floor refusal add none, as before). Two strict expected failures keep `CP17-F-09` executable against the curated estate: `tests/examples/test_cp_17_replay.py::test_a_refusal_asked_first_of_a_fresh_product_reconstructs` and its `ATM-F-11` counterpart in `tests/examples/test_cp_19_replay.py`. They were not run for this change, because they need the estate. They assert the mechanism this change repairs, so they are run against the estate and their marks reviewed in the example migration set, not edited here.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: the `artifacts` docstring said a `role: load` artifact "is still absent from `pins`, still absent from the Control Plane registry, and still absent from replay dimension 2", which contradicted `D-IMPL-310`: a governed resolver registers and pins the typed request contract it derives from a `role: load` request-contract entry.
+- After: documentation only. The boot registers and pins a `role: load` entry nowhere; a governed resolver built over the fabric registers the typed request contract under the same key, whatever the entry's role, and every decision that resolved a request against it pins it on dimension 2. Measured over the local suite: all 701 resolver-built records whose resolution ran pin the request contract, and none of the 7 not-applicable records do.
+- Why: the record pinned what the docstring said it never would; `D-IMPL-310` rules the pin correct.
+- Migration: none.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door
+
+- Surface: ccf_runtime.mcp.product_door.open_door
+- Public surface: true
+- Change type: behavior
+- Before: a product whose `door` binding asserted a `producer_tenant` other than its `tenant_id` opened a door that registered its entitlement policy and scope mapping and asserted the other tenant on every outcome.
+- After: refused with `ValueError` naming both tenants in R-6's own words ("the door binding asserts producer_tenant ... and this deployment's tenant is ...; ... (D-IMPL-343 R-6; D-IMPL-340 ruling 2)"), before the door records a composition decision or registers anything. A binding stating the product's tenant opens as before. A paved-road product whose `door:` section asserts another tenant is still refused first, at derivation, by `src/ccf/deployment/config.py::_refuse_door_tenant_disagreement`, with its unchanged message.
+- Why: `D-IMPL-343` R-6 applied to the second path a door binding reaches (`D-IMPL-378`, found by lane `378d-hw1door`). Red test: `tests/mcp/test_product_door_producer_tenant.py`.
+- Migration: a hand-composed deployment states its own tenant as its door binding's `producer_tenant`.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf_runtime.mcp.product_door.open_door_with_verifier
+
+- Surface: ccf_runtime.mcp.product_door.open_door_with_verifier
+- Public surface: true
+- Change type: behavior
+- Before: as for `open_door`: a mismatched `producer_tenant` opened a door.
+- After: the same refusal as `open_door`, raised by the shared `_boot_credential` before the deployment's verifier is consulted or anything is registered.
+- Why: as for `open_door`. Red test: `tests/mcp/test_product_door_producer_tenant.py`, parametrized over both constructors.
+- Migration: as for `open_door`.
+
+*Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
 
 ### Not public Python API
 

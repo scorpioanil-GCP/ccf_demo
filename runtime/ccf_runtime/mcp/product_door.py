@@ -381,8 +381,10 @@ def open_door(
         entitlement_source: Replaces the Control Plane source.
 
     Raises:
-        ValueError: the product declares no ``door:`` section, or its
-            environment document names no door.
+        ValueError: the product declares no ``door:`` section, its door
+            binding asserts a ``producer_tenant`` other than the product's
+            ``tenant_id`` (``D-IMPL-343`` R-6, refused before anything is
+            registered), or its environment document names no door.
     """
     resolved_environ, credential = _boot_credential(product, environ)
     door = product.door
@@ -453,7 +455,7 @@ def open_door_with_verifier(
 def _boot_credential(
     product: ServesProducts, environ: Mapping[str, str] | None
 ) -> tuple[Mapping[str, str], str]:
-    """Refuse a product with no door, then read or mint this boot's credential."""
+    """Refuse a product with no door, or whose door asserts another tenant; then read or mint this boot's credential."""
     door = product.door
     if door is None:
         raise ValueError(
@@ -461,6 +463,22 @@ def _boot_credential(
             " the standard door asserts the identity and advertises the prose"
             " that section declares, and holds no default for either"
             " (D-IMPL-343; CINV-01)"
+        )
+    if door.producer_tenant != product.tenant_id:
+        # `D-IMPL-343` R-6 on the structural path (`D-IMPL-378`, lane
+        # 378d-replayfix): the rule `ccf.deployment.config` holds a derived
+        # `door:` section to, applied to a binding a hand-composed deployment
+        # hands in. Refused by name and never corrected, before the door
+        # registers anything: a door asserting another tenant is refused
+        # `producer-tenant-mismatch` by every consumer registered for this
+        # product's tenant, and this moves that failure to composition.
+        raise ValueError(
+            f"the door binding asserts producer_tenant {door.producer_tenant!r}"
+            f" and this deployment's tenant is {product.tenant_id!r}; the door"
+            " asserts the tenant the deployment declares and a consumer holds"
+            " the assertion to its own registration (D-IMPL-343 R-6; D-IMPL-340"
+            " ruling 2) — state the deployment's tenant as the binding's"
+            " producer_tenant"
         )
     names = product.environment.door
     if names is None:
