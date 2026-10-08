@@ -254,3 +254,143 @@ def test_p4_strict_control_a_store_the_sdk_created_for_a_deployment_serves_again
         f"a deployment's store the SDK created, booted again, must still answer: {again!r}"
     )
     m._assert_indistinguishable(again, first, case="a deployment's own store, reopened")
+
+
+# --- 2. a store the SDK cannot verify fresh: refused before any question runs -------
+
+
+def _pathless_fabric(tmp_path: pathlib.Path, name: str) -> Any:
+    """A fabric over the in-process adapter, booted plainly: its connection names no path at all.
+
+    The fixture deployment's documents, with only the manifest's ``backend``
+    changed. No path names the store, so no boot can show it did not exist
+    before — the shape every network adapter shares (``probe-where-refused``,
+    this lane). A boot for one question over it is refused
+    (``QuestionFabricNotFresh``), so this is the plain boot a deployment is
+    left with.
+    """
+    import yaml  # noqa: PLC0415
+
+    booted = m._boot(tmp_path, name, anchor=m.FROM_DECISION, envelopes=(), for_question=False)
+    booted[0].handle.close()
+    manifest = tmp_path / name / "manifest.yaml"
+    body = yaml.safe_load(manifest.read_text(encoding="utf-8"))
+    body["backend"] = "memory"
+    manifest.write_text(yaml.safe_dump(body), encoding="utf-8")
+    fabric = load_and_boot(manifest, registry=booted[1], connection={})
+    for envelope in m._base_accounts():
+        fabric.handle.worker.ingest(envelope)
+    return (fabric, booted[1], booted[2])
+
+
+def _population_phase(*, question: Any, perspective: Any) -> None:
+    """A declared population phase that reads nothing; its presence is the composition under test."""
+
+
+@pytest.mark.parametrize("phases", ["acquisition", "population", "both"])
+def test_p4_strict_acquisition_over_a_store_with_no_path_is_refused_at_construction(
+    tmp_path: pathlib.Path, phases: str
+) -> None:
+    """An acquisition composition over a store the SDK cannot verify fresh: refused when the resolver is built.
+
+    Measured on ``f2ce304c`` (``probe-where-refused``): it was constructed,
+    and refused only on its first question (``AcquisitionNeedsAQuestionFabric``).
+    The composition (an acquisition phase declared) and the store kind (no
+    path) are both known when the resolver is constructed, so that is where
+    it is refused, by name, before any question is asked.
+    """
+    booted = _pathless_fabric(tmp_path, f"pathless-{phases}")
+    try:
+        seam = m._RefreshWhenAsked(booted[0])
+        declared: dict[str, Any] = {}
+        if phases in ("acquisition", "both"):
+            declared["acquisition"] = seam
+        if phases in ("population", "both"):
+            declared["population_acquisition"] = _population_phase
+        try:
+            resolver = m._governed(booted, plan_factory=m._late(), **declared)
+        except ProductNotResolvable as raised:
+            assert m._named(raised, "AcquisitionOverUnverifiableStore"), (
+                f"[{phases}] refused at construction, but for another reason: {raised!r}"
+            )
+            assert seam.asked == [], f"[{phases}] nothing may be asked of the source: {seam.asked}"
+            return
+        try:
+            first: Any = m._ask(resolver, sec020.MISSING)
+        except ProductNotResolvable as raised:
+            first = raised
+        pytest.fail(
+            f"[{phases}] an acquisition composition over a store with no path was constructed; it must be refused"
+            f" by name (AcquisitionOverUnverifiableStore) before any question runs. Its first question met:"
+            f" {type(first).__name__}"
+        )
+    finally:
+        booted[0].handle.close()
+
+
+@pytest.mark.parametrize(
+    ("backend", "setting"),
+    [("memory", "database_path"), ("postgres", "dsn")],
+    ids=["in-process-adapter", "network-adapter"],
+)
+def test_p4_strict_the_paved_road_over_a_substrate_with_no_path_is_refused_at_open(
+    tmp_path: pathlib.Path, backend: str, setting: str
+) -> None:
+    """The paved road always acquires; over a substrate it cannot verify fresh it is refused when opened.
+
+    Measured on ``f2ce304c`` (``probe-where-refused``): ``open_product``
+    returned, and every question was refused when its fabric was booted —
+    ``InvalidBackendConfig`` for the in-process adapter, ``QuestionFabricNotFresh``
+    for the network one. Both the composition (the paved road's required
+    ``acquire``) and the store kind (the declared adapter and the substrate
+    setting) are known at open, so that is where it is refused, by name.
+    Nothing connects: the refusal reads the adapter's declared connection
+    contract, and no fabric is booted.
+    """
+    from tests.products.test_paved_road import _config, _environment_text, _open, _write_tree  # noqa: PLC0415
+
+    root = _write_tree(
+        tmp_path,
+        config=_config(backend=backend),
+        environment=_environment_text().replace("setting: database_path", f"setting: {setting}"),
+    )
+    scratch = tmp_path / "scratch"
+    try:
+        opened = _open(root, scratch)
+    except ProductNotResolvable as raised:
+        assert m._named(raised, "AcquisitionOverUnverifiableStore"), (
+            f"[{backend}] refused at open, but for another reason: {raised!r}"
+        )
+        minted = sorted(scratch.glob("paved_fixture*")) if scratch.exists() else []
+        assert minted == [], f"[{backend}] nothing may be booted: {minted}"
+        return
+    opened.close()
+    pytest.fail(
+        f"[{backend}] the paved road opened over a substrate the SDK cannot verify fresh; it must be refused by"
+        " name (AcquisitionOverUnverifiableStore) at open, before any question runs"
+    )
+
+
+def test_p4_strict_control_an_acquisition_composition_over_a_file_store_is_still_constructed(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The control that keeps replay working: over a store with a path, construction is not where Q9 refuses.
+
+    ``RecordedEnvironment`` rebuilds the serve path's resolver — acquisition
+    seam included — over a question's store booted again, and never calls it.
+    So over a store whose freshness CAN be verified, an acquisition
+    composition on a fabric not booted for its question is still constructed,
+    and still refused on its first call (``AcquisitionNeedsAQuestionFabric``),
+    unchanged.
+    """
+    booted = m._boot(tmp_path, "plain", anchor=m.FROM_DECISION, envelopes=m._base_accounts(), for_question=False)
+    try:
+        seam = m._RefreshWhenAsked(booted[0])
+        resolver = m._governed(booted, plan_factory=m._late(), acquisition=seam)
+        with pytest.raises(ProductNotResolvable) as refused:
+            m._ask(resolver, sec020.WITHHELD)
+    finally:
+        booted[0].handle.close()
+    assert m._named(refused.value, "AcquisitionNeedsAQuestionFabric"), repr(refused.value)
+    assert not m._named(refused.value, "AcquisitionOverUnverifiableStore"), repr(refused.value)
+    assert seam.asked == [], f"the seam must not run: {seam.asked}"
