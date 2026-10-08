@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2277 entries**, of which **2002** name a public Python surface.
+**2284 entries**, of which **2009** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1276 entries — 1232 public Python surface, 44 not public Python API.
+1278 entries — 1234 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18860,6 +18860,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
 
+#### ccf.deployment.manifest.ManifestKeysPlaceToOneKey
+
+- Surface: ccf.deployment.manifest.ManifestKeysPlaceToOneKey
+- Public surface: true
+- Change type: added
+- Before: absent. Two entries placing to one key either booted with one document silently dropped, or met an unrelated `TypeError` from the register loop after earlier entries were registered
+- After: a `ValueError` subclass raised by `manifest_under_tenant` when two of the manifest's entries place to one key under the tenant, whatever their classes and roles, before anything is re-keyed, minted or registered. Its attributes are `authored_keys` (the two keys as the manifest wrote them, in manifest order), `placed_key` and `tenant`, and its message names all of them
+- Why: `D-IMPL-378`, lane 378d-placement. One key holds one artifact in force, and a boot that keeps one of two documents for it loses a governance value with no record. Red tests: `tests/deployment/test_placed_key_collision.py::test_two_entries_of_one_class_placing_to_one_key_are_refused_at_boot`, `::test_two_adopter_classes_placing_to_one_key_are_refused_before_anything_is_registered`, `::test_a_load_entry_placing_onto_a_register_entry_is_refused_at_boot`, `::test_placement_itself_refuses_two_entries_placing_to_one_key_whatever_parsed_holds`
+- Migration: none; additive
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.ManifestKeysPlaceToOneKey
+
+- Surface: ccf.deployment.ManifestKeysPlaceToOneKey
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the package-level spelling of `ccf.deployment.manifest.ManifestKeysPlaceToOneKey`
+- Why: `D-IMPL-378`, lane 378d-placement; the refusal is raised through `ccf.deployment.load_and_boot` and `ccf.deployment.load_config_and_boot`, so it is named where they are
+- Migration: none; additive
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29675,7 +29699,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-344 entries — 305 public Python surface, 39 not public Python API.
+349 entries — 310 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34934,6 +34958,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as for `open_door`.
 
 *Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf.deployment.manifest.manifest_under_tenant
+
+- Surface: ccf.deployment.manifest.manifest_under_tenant
+- Public surface: true
+- Change type: behavior
+- Before: same signature. Two entries placing to one key came back as two entries carrying one key, and a re-keyed `parsed` mapping holding one document for both
+- After: same signature. Two entries placing to one key raise `ManifestKeysPlaceToOneKey` before anything is re-keyed. The check reads the manifest's entries, so a caller passing a partial `parsed` mapping (as the consumer chain `ccf.products.product.open_product` derives does) meets it too
+- Why: `D-IMPL-378`, lane 378d-placement. Red test: `tests/deployment/test_placed_key_collision.py::test_placement_itself_refuses_two_entries_placing_to_one_key_whatever_parsed_holds`
+- Migration: a manifest naming one artifact as both `k` and `{tenant}/k` keeps one of the two entries; two different artifacts need keys that differ once placed
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A manifest whose entries placed to one key booted with one document silently dropped (same class), or raised an unrelated `TypeError` after a partial registration (different classes)
+- After: same signature. It raises `ManifestKeysPlaceToOneKey` after every document is parsed and before anything is minted or registered
+- Why: `D-IMPL-378`, lane 378d-placement. Red tests: `tests/deployment/test_placed_key_collision.py::test_two_entries_of_one_class_placing_to_one_key_are_refused_at_boot`, `::test_two_adopter_classes_placing_to_one_key_are_refused_before_anything_is_registered`, `::test_a_load_entry_placing_onto_a_register_entry_is_refused_at_boot`
+- Migration: a deployment that booted with such a manifest boots no longer. Remove one of the two entries, or give the two entries keys that differ once placed
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.load_and_boot`
+- After: as `ccf.deployment.manifest.load_and_boot`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-placement
+- Migration: as `ccf.deployment.manifest.load_and_boot`
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A `key:` override placing one section onto another section's placed key booted with one document silently dropped (two `operators:` entries of one category), or raised an unrelated `TypeError` after a partial registration (two sections of different classes). The paved road, which boots each question through this function, met the same `TypeError` at its first question
+- After: same signature. It raises `ManifestKeysPlaceToOneKey` before anything is minted or registered, and the paved road raises it from `OpenedProduct.answer` at the first question's boot
+- Why: `D-IMPL-378`, lane 378d-placement. Red tests: `tests/deployment/test_placed_key_collision.py::test_the_config_door_refuses_two_operator_entries_placing_to_one_key`, `::test_the_config_door_refuses_a_section_key_placing_onto_another_section`, `::test_the_paved_road_refuses_a_config_whose_sections_place_to_one_key`
+- Migration: a `ccf_config.yaml` whose `key:` overrides place two sections onto one key boots no longer. Remove the override, or choose a key that differs from every other section's once placed
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.deployment.load_config_and_boot
+
+- Surface: ccf.deployment.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.config.load_config_and_boot`
+- After: as `ccf.deployment.config.load_config_and_boot`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-placement
+- Migration: as `ccf.deployment.config.load_config_and_boot`
+
+*Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
 
 ### Not public Python API
 

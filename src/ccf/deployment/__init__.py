@@ -134,6 +134,7 @@ from ccf.deployment.config import (
 )
 from ccf.deployment.manifest import (
     BootedFabric,
+    ManifestKeysPlaceToOneKey,
     QuestionFabricNotFresh,
     load_and_boot,
     register_manifest_entries,
@@ -157,6 +158,7 @@ __all__ = [
     "DerivedDeployment",
     "EnvironmentDocument",
     "ManifestEntry",
+    "ManifestKeysPlaceToOneKey",
     "QuestionFabricNotFresh",
     "ResolvedPins",
     "SeamRefusalWidening",

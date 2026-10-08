@@ -80,6 +80,11 @@ from `ccf.controlplane.registry` on either door. A bare key misses:
 returns `None`, and `booted.pins.version_for("product_class")` raises
 `UnpinnedArtifactError` naming the placed key the pin is recorded under.
 
+Because a bare key and the same key written under the tenant are one placed key,
+two entries authored as `k` and `{tenant}/k` cannot both be in force. Either door
+refuses them at boot with `ccf.deployment.ManifestKeysPlaceToOneKey`, naming both
+authored keys and the placed key, before anything is registered (`D-IMPL-378`).
+
 ## `registration` names a governance path
 
 Every entry also declares `registration`, and it is likewise required with no

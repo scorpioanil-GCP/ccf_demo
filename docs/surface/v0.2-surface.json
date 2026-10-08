@@ -2644,6 +2644,7 @@
       "DerivedDeployment",
       "EnvironmentDocument",
       "ManifestEntry",
+      "ManifestKeysPlaceToOneKey",
       "QuestionFabricNotFresh",
       "ResolvedPins",
       "SDK_ARTIFACT_CLASSES",
@@ -2714,6 +2715,10 @@
           "registration": "typing.Literal['typed', 'versioned']",
           "role": "typing.Literal['register', 'load']"
         }
+      },
+      "ManifestKeysPlaceToOneKey": {
+        "kind": "class",
+        "shape": "(*, authored_keys: 'tuple[str, str]', placed_key: 'str', tenant: 'str') -> 'None'"
       },
       "QuestionFabricNotFresh": {
         "kind": "class",
@@ -2957,6 +2962,7 @@
   "ccf.deployment.manifest": {
     "__all__": [
       "BootedFabric",
+      "ManifestKeysPlaceToOneKey",
       "QuestionFabricNotFresh",
       "UngovernedClassificationAttribute",
       "keys_under_tenant",
@@ -2968,6 +2974,10 @@
       "BootedFabric": {
         "kind": "class",
         "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False) -> None"
+      },
+      "ManifestKeysPlaceToOneKey": {
+        "kind": "class",
+        "shape": "(*, authored_keys: 'tuple[str, str]', placed_key: 'str', tenant: 'str') -> 'None'"
       },
       "QuestionFabricNotFresh": {
         "kind": "class",
