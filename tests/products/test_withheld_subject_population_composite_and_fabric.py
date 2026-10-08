@@ -554,6 +554,44 @@ def test_q9_m6_a_fabric_not_booted_for_its_question_takes_no_acquisition(tmp_pat
         planted[0].handle.close()
 
 
+@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
+def test_q9_m6_across_a_second_boot_of_the_same_store(tmp_path: pathlib.Path, anchor: str) -> None:
+    """M-6 through a second handle: the store the withheld subject's question wrote into, booted again.
+
+    The first question is asked on a fabric booted for it; the fabric is
+    closed, and the SAME store is booted again — plainly, as a deployment that
+    keeps its graph between questions would — and asked about an identifier
+    that names nothing. The later answer must be the baseline, or the second
+    boot must take no acquisition, refused by name before its seam writes.
+    """
+    untouched = _boot(tmp_path, "untouched", anchor=anchor, envelopes=_base_accounts(), for_question=True)
+    planted = _boot(tmp_path, "planted", anchor=anchor, envelopes=_base_accounts(), for_question=True)
+    try:
+        baseline = _ask(_governed(untouched, plan_factory=_late(), acquisition=_RefreshWhenAsked(untouched[0])), sec020.MISSING)
+        first = _RefreshWhenAsked(planted[0])
+        _ask(_governed(planted, plan_factory=_late(), acquisition=first), sec020.WITHHELD)
+        assert first.ingested == 1, f"[{anchor}] the case was not constructed: {first.asked}"
+    finally:
+        untouched[0].handle.close()
+        planted[0].handle.close()
+    fabric = load_and_boot(
+        tmp_path / "planted" / "manifest.yaml",
+        registry=planted[1],
+        connection={"database_path": str(tmp_path / "planted" / "graph.sqlite3")},
+    )
+    again = (fabric, planted[1], planted[2])
+    second = _RefreshWhenAsked(fabric)
+    try:
+        later = _ask(_governed(again, plan_factory=_late(), acquisition=second), sec020.MISSING)
+    except ProductNotResolvable as raised:
+        assert _named(raised, "AcquisitionNeedsAQuestionFabric"), f"[{anchor}] refused for another reason: {raised!r}"
+        assert second.asked == [], f"[{anchor}] the refusal must come before the seam: {second.asked}"
+        return
+    finally:
+        fabric.handle.close()
+    _assert_indistinguishable(later, baseline, case=f"{anchor}, the same store booted again, M-6")
+
+
 def test_q9_a_question_fabric_answers_one_question_whatever_the_second_asks(tmp_path: pathlib.Path) -> None:
     """Booted for its question: the first question is answered; a second, about any identifier, is refused.
 
