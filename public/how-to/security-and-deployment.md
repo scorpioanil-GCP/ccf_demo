@@ -1359,7 +1359,7 @@ a nonexistent one. Each was measured on test fixtures.
   keep their owner read-back (section 4.10). A class that affirms `never` over
   a plan factory declaring that it withholds (an early policy that withholds
   some subject, or `subject_disclosure()` returning `None`) is refused when its
-  resolver is built, before any question
+  resolver is built, the same for every subject
   (`src/ccf/products/resolver.py::NeverWithholdingProjectionCanWithhold`;
   `tests/products/test_sec020_never_capability.py`). Two limits remain. The SDK
   cannot see a withhold that the plan factory does not declare: a class that

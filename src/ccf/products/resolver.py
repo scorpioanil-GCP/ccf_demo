@@ -846,7 +846,8 @@ class NeverWithholdingProjectionCanWithhold(UnsupportedComposition):
     Dave, 2026-10-08 12:29 MST (``D-IMPL-378``, E2 (ii); SDK-defined, CLAUDE.md
     §11): *"Validate withholding capability against the class declaration at
     construction; retain the runtime check as defense."* Raised by
-    :class:`GovernedResolver` at construction, before any question — the same
+    :class:`GovernedResolver` at construction — on the paved road, which builds
+    a resolver for each question, before anything is read for it — the same
     refusal whatever subject would have been asked — when the class declaration
     affirms :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` and its plan
     factory, through :class:`SubjectDisclosingPlanFactoryProtocol`, states a
@@ -854,8 +855,8 @@ class NeverWithholdingProjectionCanWithhold(UnsupportedComposition):
 
     * **verified** — an early policy that does not disclose some subject to some
       principal or role: the resolver itself withholds that subject (Q8), so
-      under the affirmation its question could only end in
-      :class:`NeverWithholdingContradicted`, for that subject alone;
+      under the affirmation that subject's question could only end in a
+      refusal raised for it alone, which a nonexistent subject's does not get;
     * **declared** — ``subject_disclosure()`` returning ``None``: the factory's
       own statement that its projection withholds late, inside itself.
 

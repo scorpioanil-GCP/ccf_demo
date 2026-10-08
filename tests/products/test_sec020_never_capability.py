@@ -22,8 +22,8 @@ declared plan step sets it):
   public statement that its projection withholds late, inside itself.
 
 A class affirming ``subject_withholding: never`` over either is refused by
-name where its resolver is built, before any question — the same refusal
-whatever subject would have been asked. A factory that declares neither
+name where its resolver is built — the same refusal whatever subject would
+have been asked; the tests here build it with no question asked. A factory that declares neither
 states nothing the SDK can check: it constructs, and the serve-time check
 (``NeverWithholdingContradicted``) remains the defense. That configuration is
 measured as still telling a withheld subject from a nonexistent one by the

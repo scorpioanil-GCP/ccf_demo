@@ -16,7 +16,9 @@ construction: an early policy that does not disclose some subject to some
 principal or role (verified: the resolver itself withholds that subject), or
 `subject_disclosure()` returning `None` (declared: the projection withholds
 late). A class affirming `subject_withholding: never` over either is now
-refused by name before any question. A plan factory that declares nothing
+refused by name when its resolver is built (on the paved road, which builds a
+resolver for each question, before anything is read for it), the same for
+every subject. A plan factory that declares nothing
 still constructs under `never`; if its projection withholds anyway, the
 serve-time `NeverWithholdingContradicted` remains the defense, and it still
 tells the withheld subject from a nonexistent one.
