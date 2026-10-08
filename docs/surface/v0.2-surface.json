@@ -2676,7 +2676,7 @@
       },
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False) -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False) -> None"
       },
       "DeploymentManifest": {
         "kind": "contract",
@@ -2967,7 +2967,7 @@
     "exports": {
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False) -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False) -> None"
       },
       "QuestionFabricNotFresh": {
         "kind": "class",
@@ -6959,7 +6959,7 @@
     "exports": {
       "ChildArguments": {
         "kind": "function",
-        "shape": "collections.abc.Callable[[ccf.products.contract.ChildRequirement, datetime.datetime], collections.abc.Mapping[str, str]]"
+        "shape": "collections.abc.Callable[[ccf.products.contract.ChildRequirement, ccf.products.request.ProductRequest], collections.abc.Mapping[str, str]]"
       },
       "ChildQuestion": {
         "kind": "contract",
@@ -8523,6 +8523,7 @@
       "ProductGateProtocol",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
+      "QuestionStoreReopened",
       "RefusalRecorderProtocol",
       "ReplayRefusalRecorder",
       "ResolverOutcome",
@@ -8617,6 +8618,10 @@
       "ProjectionPlanFactoryProtocol": {
         "kind": "class",
         "shape": "(*, required: 'tuple[str, ...]', request: 'ProductRequest') -> 'ProjectionPlan'"
+      },
+      "QuestionStoreReopened": {
+        "kind": "class",
+        "shape": "type"
       },
       "RefusalRecorderProtocol": {
         "kind": "class",

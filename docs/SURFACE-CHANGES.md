@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2273 entries**, of which **1998** name a public Python surface.
+**2282 entries**, of which **2007** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1276 entries — 1232 public Python surface, 44 not public Python API.
+1277 entries — 1233 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18860,6 +18860,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
 
+#### ccf.products.resolver.QuestionStoreReopened
+
+- Surface: ccf.products.resolver.QuestionStoreReopened
+- Public surface: true
+- Change type: added
+- Before: absent; a question's store booted again plainly answered any governed call that declared no acquisition phase.
+- After: an `UnsupportedComposition` (so a `ProductNotResolvable`) raised by `GovernedResolver.__call__` at the point a question fabric is claimed — after the question-level refusals, which read no graph, and before the graph is read — when the fabric reads a question's store booted again and the call declares no acquisition phase. Decided by the boot's marker, never by the subject or the store's contents.
+- Why: SEC-020 residual P4. That store keeps what its question's acquisition fetched.
+- Migration: none; additive.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19571,7 +19583,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-610 entries — 418 public Python surface, 192 not public Python API.
+613 entries — 421 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26659,6 +26671,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
 
+#### ccf.products.child_resolver.ChildArguments
+
+- Surface: ccf.products.child_resolver.ChildArguments
+- Public surface: true
+- Change type: reshaped
+- Before: `Callable[[ChildRequirement, datetime], Mapping[str, str]]`, handed the requirement and the composite's `asked_at`; a mapping could learn the composite's subject only from state captured beside the resolver.
+- After: `Callable[[ChildRequirement, ProductRequest], Mapping[str, str]]`, handed the requirement and the EFFECTIVE request `resolve_for` is handed (the one `ChildQuestions` mints the child's question from); its `asked_at` is the composite's.
+- Why: SEC-020 residual P3. Under the early policy that request names the declared undisclosed subject, so a mapping that reads the subject off it asks the child what a nonexistent subject's composite asks. It also lifts the limit fragment 370-25 disclosed: a multi-subject composite's `local-dispatch` and `mcp` children can now be asked about the composite's own subject without captured state.
+- Migration: change `(requirement, asked_at)` to `(requirement, request)` and read `request.asked_at`; take any per-request value (the subject, a parameter) from `request`. In this tree nine mappings in seven test modules moved this way, and no example or `runtime/` module supplies one.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `for_question: bool = False` said whether THIS boot was for one question; nothing said whether the store had been booted for one before.
+- After: adds `question_store: bool = False`: the store was booted for one question, by this boot or by an earlier one, read from the marker `<resolved path>.ccf-question-store` beside every path naming the store.
+- Why: SEC-020 residual P4.
+- Migration: none; the default is a store never booted for a question.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no `question_store` field.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 residual P4.
+- Migration: none.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -29675,7 +29723,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-340 entries — 301 public Python surface, 39 not public Python API.
+345 entries — 306 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34886,6 +34934,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none; SEC-009's door contract is otherwise unchanged
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for` handed `child_arguments` the requirement and `asked_at`. The request-less `__call__` dispatched every granted child, and the admission gate then refused every bound leg's answer `question-mismatch`, because no question was minted.
+- After: `resolve_for` hands `child_arguments` the request it is handed. The request-less `__call__` refuses every granted requirement `question-mismatch` before its skill is dispatched; an ungranted one is still the honest absence `None`.
+- Why: SEC-020 residual P3. A request-less call has no request to hand the mapping and no question to hold the child's answer to.
+- Migration: none for `GovernedResolver`, which calls `resolve_for`. A caller of the request-less `__call__` gets the same refusal it got for every bound leg, without the child being asked.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: its optional `child_arguments`, for entries other than `mcp_product`, was handed the requirement and `asked_at`.
+- After: it is handed the same effective request `child_questions` is handed.
+- Why: SEC-020 residual P3.
+- Migration: as for `ChildArguments`.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the Q9 claim was taken only by a call that declares an acquisition phase.
+- After: every call over a fabric booted for its question claims it, with an acquisition phase or without, so a later call on the same fabric raises `AcquiredFabricReused`; a call with no acquisition phase over a question's store booted again raises `QuestionStoreReopened`. A call that declares an acquisition phase over such a store is still refused `AcquisitionNeedsAQuestionFabric`, unchanged.
+- Why: SEC-020 residual P4: Q9 alone bound only where acquisition exists.
+- Migration: a composition that asks one fabric booted `for_question=True` more than one question with no acquisition phase now gets `AcquiredFabricReused` at the second; boot a new store for each question, as the paved road does.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` verified the store fresh and wrote nothing beside it.
+- After: `for_question=True` also writes, flushes and syncs `<resolved path>.ccf-question-store` beside every path naming the store, before the store is booted; every boot reads it into `BootedFabric.question_store`. The marker is never read for the store's contents.
+- Why: SEC-020 residual P4: a durable record, beside the store, that it was booted for one question.
+- Migration: delete a question's store together with its marker. A marker left at a path makes a later plain boot there refuse to serve, which fails closed.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020 residual P4.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
 
 ### Not public Python API
 
