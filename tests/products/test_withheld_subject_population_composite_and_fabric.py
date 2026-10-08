@@ -699,7 +699,7 @@ def test_q7_a_declared_population_phase_does_not_reveal_a_late_withheld_subject(
     subject = _SubjectPhase(hybrid=shape == "hybrid")
     project = _Withholding(withhold=frozenset({sec020.PAVED_WITHHELD}), build=_ConstantWithholding)
     root = _write_tree(tmp_path, config=sec020._paved_config(anchor=anchor, seeding=CLASS_SEEDED))
-    with _open(root, tmp_path / "scratch", acquire=subject, acquire_population=population, project=project) as opened:
+    with _open(root, tmp_path / "scratch", acquire=subject, population=population, project=project) as opened:
         withheld = _paved_ask(opened, sec020.PAVED_WITHHELD)
         nonexistent = _paved_ask(opened, sec020.PAVED_ABSENT)
     case = f"{anchor}, {shape}, declared population phase, class-seeded paved road"
@@ -802,7 +802,7 @@ def test_q7_the_paved_population_phase_cannot_reach_the_subject(tmp_path: pathli
     subject_phase = _SubjectPhase(hybrid=True)
     project = _Withholding(withhold=frozenset({sec020.PAVED_WITHHELD}), build=_ConstantWithholding)
     root = _write_tree(tmp_path, config=sec020._paved_config(anchor=FROM_DECISION, seeding=CLASS_SEEDED))
-    with _open(root, tmp_path / "scratch", acquire=subject_phase, acquire_population=population, project=project) as opened:
+    with _open(root, tmp_path / "scratch", acquire=subject_phase, population=population, project=project) as opened:
         for subject in (sec020.PAVED_WITHHELD, fresh):
             asked.append(subject)
             _paved_ask(opened, subject)
@@ -888,7 +888,7 @@ def test_q7_the_paved_road_refuses_a_population_phase_sharing_an_owner_at_open(t
     both = _Both()
     root = _write_tree(tmp_path, config=sec020._paved_config(anchor=FROM_DECISION, seeding=CLASS_SEEDED))
     with pytest.raises(ProductNotResolvable) as raised:
-        _open(root, tmp_path / "scratch", acquire=both.subject, acquire_population=both.population)
+        _open(root, tmp_path / "scratch", acquire=both.subject, population=both.population)
     assert _named(raised.value, "PopulationPhaseSharesAnOwner"), repr(raised.value)
 
 
@@ -1181,7 +1181,7 @@ def test_q8_the_early_decision_is_the_same_for_a_subject_the_source_holds_and_on
 def test_q8_a_composite_whose_projection_withholds_late_is_refused(tmp_path: pathlib.Path) -> None:
     """A composite may withhold its subject only through the early policy; a late withhold is refused by name.
 
-    Raised before anything is gated, recorded or served: a broken composition,
+    Raised before this decision is gated, recorded or served: a broken composition,
     not a governed answer.
     """
     ask, asked, close = _composite(tmp_path / "late", child_anchor=FROM_DECISION, project=_late(frozenset({COMPOSITE_WITHHELD})))
@@ -1258,7 +1258,7 @@ def test_q10_each_phase_is_called_once_and_the_stand_in_replaces_the_subject(tmp
     subject = _SubjectPhase(hybrid=True)
     project = _EarlyWithholding(withhold=frozenset({sec020.PAVED_WITHHELD}), build=_ConstantWithholding)
     root = _write_tree(tmp_path, config=sec020._paved_config(anchor=FROM_DECISION, seeding=CLASS_SEEDED))
-    with _open(root, tmp_path / "scratch", acquire=subject, acquire_population=population, project=project) as opened:
+    with _open(root, tmp_path / "scratch", acquire=subject, population=population, project=project) as opened:
         withheld = _paved_ask(opened, sec020.PAVED_WITHHELD)
         nonexistent = _paved_ask(opened, sec020.PAVED_ABSENT)
     assert len(population.contexts) == 2, len(population.contexts)

@@ -390,7 +390,7 @@ class PopulationAcquireProtocol(Protocol):
     """The deployment's population phase: read what does not depend on the subject (SEC-020 Q7).
 
     ``D-IMPL-378`` (SDK-defined, CLAUDE.md §11). Declared to
-    :func:`open_product` as ``acquire_population``, on an object separate from
+    :func:`open_product` as ``population``, on an object separate from
     ``acquire`` (one shared owner is refused at open,
     :class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`). The paved
     road calls it once per question, FIRST, with a
@@ -517,7 +517,7 @@ class OpenedProduct:
         mcp_skills: McpSkillRegistry | None = None,
         bridge: SyncMcpBridge | None = None,
         agent: AgentDefinition | None = None,
-        acquire_population: PopulationAcquireProtocol | None = None,
+        population: PopulationAcquireProtocol | None = None,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -546,7 +546,7 @@ class OpenedProduct:
         self.agent = agent
         self._bridge = bridge
         self._acquire = acquire
-        self._acquire_population = acquire_population
+        self._population = population
         self._project = project
         self._assess = assess
         self._gate = gate
@@ -686,7 +686,7 @@ class OpenedProduct:
             # only when the deployment declared one.
             **(
                 {"population_acquisition": self._population_seam(fabric)}
-                if self._acquire_population is not None
+                if self._population is not None
                 else {}
             ),
             # §7.10.4's Mode 2 footprint. `None` for every Mode 1 deployment,
@@ -934,10 +934,10 @@ class OpenedProduct:
 
         Called by the resolver once per question, before the subject-keyed
         seam, with a question that carries no subject; the deployment's
-        ``acquire_population`` is handed a :class:`PopulationAcquisitionContext`
+        ``population`` is handed a :class:`PopulationAcquisitionContext`
         built from it and nothing else.
         """
-        population_phase = self._acquire_population
+        population_phase = self._population
         assert population_phase is not None  # stated only when declared
         tenant_id = self.tenant_id
         sources = self.sources
@@ -1026,7 +1026,7 @@ def open_product(
     build_children: ChildResolverFactory | None = None,
     packaging_trace: PackagingTraceProtocol | None = None,
     erasure_index: ErasureIndexProtocol | None = None,
-    acquire_population: PopulationAcquireProtocol | None = None,
+    population: PopulationAcquireProtocol | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -1064,7 +1064,7 @@ def open_product(
             own fabrics beside its own documents would be one nobody could
             clean.
         acquire: The deployment's acquisition (:class:`AcquireProtocol`).
-        acquire_population: The deployment's population phase, when part of
+        population: The deployment's population phase, when part of
             what it reads does not depend on the subject
             (:class:`PopulationAcquireProtocol`; SEC-020 Q7, ``D-IMPL-378``):
             called once per question before ``acquire`` and handed no subject.
@@ -1165,8 +1165,8 @@ def open_product(
         )
     # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two declared
     # acquisition phases is refused at open, before any document is read.
-    if acquire_population is not None:
-        _refuse_shared_owner(acquire_population, acquire)
+    if population is not None:
+        _refuse_shared_owner(population, acquire)
     environment = load_environment_document(root)
     config_path = root / environment.config
     config = load_artifact(config_path.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
@@ -1414,7 +1414,7 @@ def open_product(
         mcp_skills=mcp_skills,
         bridge=bridge,
         agent=agent,
-        acquire_population=acquire_population,
+        population=population,
     )
 
 

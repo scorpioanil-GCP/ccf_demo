@@ -47,8 +47,11 @@ The shape this rule cannot make exact
 ------------------------------------
 The registry now follows the rule the walk already follows, so it shares that
 rule's limit: an acquisition NOT keyed on the subject (close-out channel 1).
-The last test holds that shape as a STRICT expected failure, with what it
-measured before and after this change.
+The last test measures that shape under the two mechanisms Dave ruled for it
+(``D-IMPL-378``, Q5, Q7 and Q8): the population read declared as the population
+phase, or the withhold decided early. Left inside the subject-keyed seam under
+a late withhold, the shape still tells the two apart; the security how-to,
+section 4.12, discloses it.
 
 Every question here is asked on its own fabric, as the paved road boots one per
 question, so no question reads another's acquisition (a different channel,

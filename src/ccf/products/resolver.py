@@ -692,8 +692,9 @@ class UndisclosedSubjectAnswered(ProductNotResolvable):
     Q8. Every subject-dependent step was asked about the declared stand-in; the
     projection, built from the caller's question, must withhold the subject,
     or it would serve the subject's own answer over a fabric built for nobody.
-    Raised after the plan runs and BEFORE anything is gated, recorded or
-    served: a broken composition, not a governed "no".
+    Raised after the plan runs and BEFORE this decision is gated, recorded or
+    served (a composite's children, asked about the stand-in, may already have
+    filed their own): a broken composition, not a governed "no".
     """
 
 
@@ -705,7 +706,8 @@ class CompositeWithheldLate(ProductNotResolvable):
     projection raises the withheld signal, its children were already asked
     about the subject; so a composite withholds only through the declared
     early policy, and a projection that withholds anything else is refused here
-    — after the plan runs, BEFORE anything is gated, recorded or served. The
+    — after the plan runs, BEFORE this decision is gated, recorded or served;
+    what the children filed when they were asked stays filed. The
     SDK cannot see at construction whether a projection will withhold; a
     composite that declares it does is held to the early policy then
     (:class:`CompositeNeedsAnEarlyPolicy`).
@@ -3445,7 +3447,7 @@ class GovernedResolver:
             # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
             # declared early policy; its children were already asked about this
             # subject, so a withhold decided inside the projection is refused,
-            # before anything is gated, recorded or served.
+            # before this decision is gated, recorded or served.
             raise CompositeWithheldLate(
                 f"class {registered.schema_name!r} composes children and its"
                 " projection withheld a subject its early policy did not; a"
