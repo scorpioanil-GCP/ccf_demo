@@ -176,6 +176,7 @@ from ccf.products.resolver import (
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
+from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import (
@@ -574,14 +575,31 @@ class OpenedProduct:
         Served and refused decisions alike: a served product carries its
         record's content address on ``replay_ref``; a refusal carries the
         record's URI, which the store resolves. One store, so one read idiom.
+
+        The bytes there are returned as a record only where the store shows
+        the fabric's record writer filed them under the tenant they name
+        (`D-IMPL-378`): an outcome can name any address, and a record-shaped
+        artifact filed on a client lane is not a decision record.
+
+        Raises:
+            ccf.replay.provenance.RecordNotFiledByRecordWriter: the store
+                shows no such filing — an
+                :class:`~ccf.artifacts.protocol.ArtifactNotFound`, as an
+                address holding nothing is.
+            ccf.replay.provenance.UnattributableRecordStore: the store cannot
+                say who filed an address.
         """
         if isinstance(outcome, ServedProduct):
             address = outcome.replay_ref.content_address
         else:
             address = self.artifact_store.resolve_uri(uri=outcome.replay_reference)
-        return DecisionReplayRecord.model_validate_json(
+        record = DecisionReplayRecord.model_validate_json(
             self.artifact_store.get(content_address=address)
         )
+        require_filed_by_record_writer(
+            self.artifact_store, content_address=address, tenant_id=record.tenant_id
+        )
+        return record
 
     # --- the low road, reachable from the paved surface --------------------------
 
