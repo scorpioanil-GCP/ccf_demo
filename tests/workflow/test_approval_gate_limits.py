@@ -500,10 +500,11 @@ def test_two_state_store_objects_over_one_durable_store_spend_one_approval_once(
     end meanwhile; then A is released.
 
     A and B take two DIFFERENT claims, because their state-store objects
-    differ, so neither refuses the other. Today B passes the gate and commits,
-    and A, released holding the record it already read, passes again: the step
-    after the gate runs twice on ONE human approval, one attributed row lands in
-    each process's audit log, and the next gate holds two pending events. The
+    differ, so neither refuses the other. Before ``D-IMPL-378`` B passed the
+    gate and committed, and A, released holding the record it had already read,
+    passed again: the step after the gate ran twice on ONE human approval, one
+    attributed row landed in each process's audit log, and the next gate held
+    two pending events. The
     in-process control of the same shape is
     ``tests/workflow/test_resume_single_flight.py::test_a_resume_held_inside_its_read_on_another_thread_admits_no_second``,
     green since D-IMPL-377 because there both engines share one store object.
@@ -555,7 +556,7 @@ def test_two_state_store_objects_over_one_durable_store_spend_one_approval_once(
 def test_either_process_alone_passes_the_gate_on_the_one_approval(
     tmp_path: Path, resumer: str
 ) -> None:
-    """Positive control for limit (a), green today and after any fix: each
+    """Positive control for limit (a), green before and after ``D-IMPL-378``: each
     process ALONE admits the one approval and passes the gate once. So a
     refusal in the red test above can only come from the two resumptions
     meeting, never from a process unable to pass."""
@@ -581,9 +582,9 @@ def test_a_rejection_recorded_during_the_resumptions_commit_is_not_outvoted(
     terminal commit at the storage layer; ``officer-2``, also eligible,
     records a rejection of the SAME suspension; the commit is released.
 
-    Today the execution completes at the APPROVING terminal while the
-    rejection stands, recorded against a gate the transport still calls
-    pending. Recorded first, the same rejection refuses the resumption for the
+    Before ``D-IMPL-378`` the execution completed at the APPROVING terminal
+    while the rejection stood, recorded against a gate the transport still
+    called pending. Recorded first, the same rejection refuses the resumption for the
     conflict (``tests/workflow/test_engine.py::test_a_later_rejection_is_not_discarded_when_an_approval_came_first``),
     so only its timing decides which outcome a bank gets.
     """
@@ -635,9 +636,9 @@ def test_a_rejection_recorded_right_after_the_resumptions_verdict_read_is_not_ou
     ``officer-1`` approves through the submit-only door shape; the
     resumption reads the recorded verdicts and is held right after its last
     read before deciding; ``officer-2`` records a rejection of the SAME
-    suspension; the read is released. Today the resumption decides on the
-    population it read, completes at the APPROVING terminal, and both verdicts
-    stand.
+    suspension; the read is released. Before ``D-IMPL-378`` the resumption
+    decided on the population it read, completed at the APPROVING terminal, and
+    both verdicts stood.
     """
     registry = plane()
     transport = ReadHoldingTransport()
@@ -699,11 +700,20 @@ def test_a_rejection_recorded_right_after_the_resumptions_verdict_read_is_not_ou
 
 
 def test_a_rejection_recorded_after_the_first_verdict_read_is_seen(tmp_path: Path) -> None:
-    """Positive control for the test above, green today and under any fix:
-    held after the FIRST read of the verdicts instead of the last, the same
-    rejection is seen before the decision and the resumption is refused, so
-    the gate stays suspended. The red above is therefore decided by where the
-    window falls, not by the composition."""
+    """The positive control for the test above while a resumption read the
+    verdicts twice (at ``7bf069cc``): held after the FIRST read instead of the
+    last, the same rejection was seen by the second read and refused the
+    resumption, so the red above was decided by where the window fell, not by
+    the composition.
+
+    Since ``D-IMPL-378`` a resumption reads the verdicts ONCE
+    (:data:`VERDICT_READS_BEFORE_THE_DECISION`), so its first read is its last
+    and this test holds the same window as the test above: the rejection is
+    seen by the gate's closure (:data:`VERDICTS_CHANGED`), and this test now
+    stands or falls with that mechanism. It is no longer a control. The
+    composition is controlled inside the test above instead: the rejection is
+    recorded, not refused, and the resumption presented again is refused for
+    the conflict it now judges."""
     registry = plane()
     transport = ReadHoldingTransport()
     engine, _, _ = eh._engine(registry, tmp_path, transport=transport)
@@ -733,6 +743,7 @@ def test_a_rejection_recorded_after_the_first_verdict_read_is_seen(tmp_path: Pat
     outcome = held.join()
     assert refusal is None and rejection is not None, (rejection, refusal)
     assert isinstance(outcome, WorkflowResumeRefused), outcome
+    assert VERDICTS_CHANGED in outcome.reason, outcome.reason
     record = state_of(registry, f"{tenant}/{COVENANT_EXECUTION}")
     assert (record.status, record.current_state) == ("suspended", COVENANT_GATE)
 
@@ -748,10 +759,11 @@ def test_a_verdict_recorded_after_the_passage_is_not_taken_as_a_verdict_on_an_op
     completes at the approving terminal; THEN ``officer-2`` rejects the same
     suspension.
 
-    Today nothing retires the gate's event when the gate is passed, so the
-    queue still offers the passed gate as pending, and the late rejection is
-    recorded with ``event_state_at_submit='pending'``. The record then holds
-    an approval and a rejection on one suspension of a completed execution,
+    Before ``D-IMPL-378`` nothing retired the gate's event when the gate was
+    passed, so the queue still offered the passed gate as pending, and the late
+    rejection was recorded with ``event_state_at_submit='pending'``. The record
+    then held an approval and a rejection on one suspension of a completed
+    execution,
     indistinguishable from the outvoted rejection of limit (b). Recorded as
     ``missing`` it would say what happened (D-IMPL-366 H2: recorded unjudged,
     never authority).
@@ -801,9 +813,10 @@ def test_two_concurrent_starts_of_one_execution_id_run_the_start_node_once(
     tmp_path: Path, topology: str
 ) -> None:
     """Limit (c). Two ``execute`` calls with ONE execution id on one event loop;
-    the start node awaits once. Today both pass the "already exists" check
-    before either has written, both run the start node, and the first gate
-    holds two pending events, one bound to a record the other overwrote. D-23
+    the start node awaits once. Before ``D-IMPL-378`` both passed the "already
+    exists" check before either had written, both ran the start node, and the
+    first gate held two pending events, one bound to a record the other
+    overwrote. D-23
     says an execution id is started once."""
     bindings = AwaitingStartBindings()
     transport = InMemoryHitlTransport()
@@ -862,16 +875,20 @@ def test_two_concurrent_starts_of_one_execution_id_run_the_start_node_once(
 def test_a_resumption_that_never_commits_leaves_no_attributed_passage_row(
     tmp_path: Path, failure: str
 ) -> None:
-    """Limit (d). The resumption passes every check and appends its attributed
-    ``workflow_resumed`` row, then never commits: its state write fails, or it
-    is cancelled while the step after the gate runs (the write fails at the
-    storage layer, or the step is a deployment binding cancelled in flight).
-    The record still says suspended at the gate, and today the audit log still
-    says the approver's verdict carried the execution past it, the shape SEC-001 named (*"asserts a
-    resolution that never happened"*). A retry then adds a second attributed
-    row for the one approval
-    (``tests/workflow/test_resume_single_flight.py::test_a_resume_that_raises_gives_the_claim_back``
-    measures the retry's re-run)."""
+    """Limit (d). Before ``D-IMPL-378`` the resumption passed every check and
+    appended its attributed ``workflow_resumed`` row, then never committed: its
+    state write failed, or it was cancelled while the step after the gate ran
+    (the write fails at the storage layer, or the step is a deployment binding
+    cancelled in flight). The record still said suspended at the gate, while
+    the audit log said the approver's verdict carried the execution past it,
+    the shape SEC-001 named (*"asserts a resolution that never happened"*), and
+    a retry added a second attributed row for the one approval.
+
+    Since ``D-IMPL-378`` the row and the passage are one audited write, made
+    before the step after the gate: a failed commit writes neither
+    (``commit-fails``), and a cancelled step leaves a committed passage with
+    its one row (``cancelled``), which is never retried
+    (``tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process``)."""
     records = StandInRecords()
     registry = plane(SharedBackingStore(records, scope="process"))
     bindings: eh._Bindings = eh._Bindings() if failure == "commit-fails" else BlockingOnceBindings()

@@ -291,9 +291,9 @@ def test_two_processes_over_one_durable_store_spend_one_approval_once_at_the_doo
     gate and waits there on its I/O; process B's resumption of the same
     execution runs to its end meanwhile; then A's step returns.
 
-    Today both resumptions answer 200: the step after the gate runs twice on
-    one approval, each process's audit log carries one attributed row, and the
-    next gate holds two pending events. The in-process control of the same
+    Before ``D-IMPL-378`` both resumptions answered 200: the step after the
+    gate ran twice on one approval, each process's audit log carried one
+    attributed row, and the next gate held two pending events. The in-process control of the same
     shape, in one process, is
     ``tests/http_api/test_resume_single_flight_door.py::test_two_concurrent_resumptions_at_the_door_pass_the_gate_once``.
     """
@@ -386,9 +386,9 @@ def test_a_rejection_posted_while_the_step_after_the_gate_runs_is_not_outvoted(
     meanwhile ``credit-officer-7`` posts a rejection of the SAME suspension at
     the action door; the step returns.
 
-    Today the action door answers 200 and records the rejection against a gate
-    it still calls pending, while the execution has left that gate on the
-    approving route. Nothing in the engine was touched to open this window:
+    Before ``D-IMPL-378`` the action door answered 200 and recorded the
+    rejection against a gate it still called pending, while the execution had
+    left that gate on the approving route. Nothing in the engine was touched to open this window:
     it is as wide as the step after the gate takes, and that is the
     deployment's own code.
     """
@@ -424,7 +424,8 @@ def test_a_rejection_posted_while_the_step_after_the_gate_runs_is_not_outvoted(
 
 
 def test_the_same_rejection_posted_before_the_resumption_refuses_it(tmp_path: Path) -> None:
-    """Positive control for limit (b), green today: posted BEFORE the
+    """Positive control for limit (b), green before and after ``D-IMPL-378``:
+    posted BEFORE the
     resumption, the same officer's rejection is admitted (200) and the
     resumption refuses for the conflict (409, the conflict refusal's phrase).
     So officer-2 is eligible and admitted, and only timing decides the
@@ -460,8 +461,8 @@ def test_a_rejection_posted_during_the_terminal_commit_is_not_outvoted_at_the_do
     posts a rejection at the action door from the main thread; the commit is
     released.
 
-    Today both answer 200: the execution completes at the APPROVING terminal
-    with both verdicts standing.
+    Before ``D-IMPL-378`` both answered 200: the execution completed at the
+    APPROVING terminal with both verdicts standing.
     """
     records = StandInRecords()
     fabric, key, version = fabric_at(tmp_path / "fabric", two_gate=False)
@@ -522,11 +523,11 @@ def test_a_passed_gate_is_neither_offered_nor_accepted_as_pending_at_the_doors(
     view is read, and ``credit-officer-7`` posts a rejection of the same
     suspension.
 
-    Today ``GET /hitl/queue`` still lists the passed gate's event, and the
-    action door answers 200 with ``event_pending: true`` and records the late
-    rejection as a verdict on an open gate: a human is told the gate is open
-    and that their rejection was submitted, after the execution it would have
-    stopped has completed.
+    Before ``D-IMPL-378`` ``GET /hitl/queue`` still listed the passed gate's
+    event, and the action door answered 200 with ``event_pending: true`` and
+    recorded the late rejection as a verdict on an open gate: a human was told
+    the gate was open and that their rejection was submitted, after the
+    execution it would have stopped had completed.
     """
     fabric, key, version = fabric_at(tmp_path / "fabric", two_gate=False)
     door = open_door(fabric, key, version, tmp_path / "gate", eh._Bindings())
@@ -580,8 +581,9 @@ def test_two_invocations_of_one_execution_id_at_the_door_run_the_start_node_once
     start node and waits there on its I/O; a second invocation of the SAME
     execution id runs to its end meanwhile; then the first returns.
 
-    Today both answer 200: the start node runs twice, and the first gate holds
-    two pending events, one bound to a state record the other overwrote."""
+    Before ``D-IMPL-378`` both answered 200: the start node ran twice, and the
+    first gate held two pending events, one bound to a state record the other
+    overwrote."""
     bindings = HoldingBindings(START)
     fabric, key, version = fabric_at(tmp_path / "fabric", two_gate=True)
     door = open_door(fabric, key, version, tmp_path / "gate", bindings)
