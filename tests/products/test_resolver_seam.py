@@ -136,6 +136,12 @@ from ccf.artifacts.protocol import WriteKinds
 from tests.composition import register_skill_entry
 from tests.skills.authority import grant_capability, revoke_capability
 from tests.products.bound_answer import answered_as_asked
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+    differences_modulo_issuance,
+    modulo_issuance,
+)
 
 # --- the fixture deployment's vocabulary ------------------------------------
 #
@@ -3292,11 +3298,25 @@ def test_step4_two_serves_at_two_instants_are_two_records(booted: _Booted) -> No
     assert two.content_generation_path.served_at == later
     assert first.replay_ref.content_address != second.replay_ref.content_address
 
-    # A PINNED clock gives one address back, which is what proves the clock is
-    # the only difference above.
+    # The two records differ in their serving instant and their per-answer
+    # issuance, and in nothing else.
+    assert differences_modulo_issuance(one, two) == ["content_generation_path"]
+    assert modulo_issuance(one).content_generation_path.model_copy(
+        update={"served_at": later}
+    ) == modulo_issuance(two).content_generation_path
+
+    # A PINNED clock gives the first record back modulo its per-answer issuance,
+    # which is what proves the clock is the only difference above. Dave's E1 (a)
+    # (`D-IMPL-378`, 2026-10-08 12:29 MST) restates `D-IMPL-358` ruling 1's
+    # pinned-clock control "modulo the per-answer issuance": the third answer is
+    # issued apart, so its reference differs and names exactly its own record.
     third = _ask(_resolver(booted, admission_clock=lambda: ADMITTED_AT), _request())
     assert isinstance(third, ServedProduct)
-    assert third.replay_ref.content_address == first.replay_ref.content_address
+    three = _served_record(booted, third)
+    assert third.replay_ref.content_address != first.replay_ref.content_address
+    assert_named_by_its_own_content(first.replay_ref.uri, one, what="pinned clock, first")
+    assert_named_by_its_own_content(third.replay_ref.uri, three, what="pinned clock, third")
+    assert_one_determination_issued_twice(one, three, what="pinned clock")
 
 
 # --- D-IMPL-357 C2: the mechanism floor, judged before the overridable seam --

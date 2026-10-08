@@ -30,14 +30,22 @@ layers ``D-IMPL-254`` separates and none of them implies another:
    dimension, plus the fulfilled product's content address or the refusal
    shell's canonical bytes modulo its own reference.
 
-**Why the two references are asserted EQUAL rather than merely resolvable.**
-A record is content-addressed (``D-IMPL-26``) and the governed path reads no
-clock — ``GovernedResolver._record_refusal`` records at ``request.asked_at``
-and the served path does the same — so two identical determinations produce
-byte-identical records, which the store files under one address. The two calls
-therefore each minted their own record and arrived at the same artifact. A
-reference that differed would mean a record that differed, which is the
-property failing rather than a store detail.
+**Why the two references are asserted DIFFERENT, and the two records equal
+modulo the issuance** (Dave's E1 (a), ``D-IMPL-378``, 2026-10-08 12:29 MST:
+*"Approve random per-answer issuance and the named conformance amendments.
+Preserve record content-address integrity. Random references must have
+indistinguishable distributions; equality is no longer the criterion."*). Until
+Q11 a record was content-addressed (``D-IMPL-26``) and carried nothing a second
+identical determination did not, so two calls arrived at ONE artifact and these
+tests asserted the two references equal. Every product answer's record now
+carries a fresh per-answer issuance and is named by its own content address, so
+the same question asked twice is two records and two references. This module
+therefore holds, through ``tests/issuance.py``, the three claims that replace
+that equality, and nothing weaker: the two references differ; each names
+exactly the record it resolves to (name = version = that record's content
+address); and the two records agree in every byte but the issuance. This is the
+one-time restatement of ``D-IMPL-253`` amendment 3 "modulo the per-answer
+issuance" that E1 (a) approved; every other assertion here is unchanged.
 
 **The controls, because a sameness assertion over an inert path proves
 nothing.** Two perturbations that MUST change the answer are asserted to change
@@ -120,6 +128,11 @@ from tests.products.test_resolver_seam import (
     _resolver,
 )
 from tests.composition import register_typed_at_composition
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+    modulo_issuance,
+)
 
 # --- this module's own vocabulary -------------------------------------------
 
@@ -265,8 +278,17 @@ def envelope_bytes_modulo_reference(shell: RefusalEnvelope) -> bytes:
 def _assert_same_determination(
     a: DecisionReplayRecord, b: DecisionReplayRecord
 ) -> None:
-    """Every part of two records that must agree, asserted one claim at a time."""
-    assert record_dimensions_equal(a, b) == [], record_dimensions_equal(a, b)
+    """Every part of two records that must agree, asserted one claim at a time.
+
+    The dimensions are compared **modulo the per-answer issuance** (Dave's
+    E1 (a), ``D-IMPL-378``): each answer's record carries its own, and nothing
+    else is set aside. That the two issuances are minted and DIFFER is asserted
+    by :func:`~tests.issuance.assert_one_determination_issued_twice` where two
+    answers are compared, not here, so the planted-difference control below can
+    still hold this helper to every other member of a record and its own copy.
+    """
+    differing = record_dimensions_equal(modulo_issuance(a), modulo_issuance(b))
+    assert differing == [], differing
     assert a.tenant_id == b.tenant_id
     # Equal rather than "modulo": the governed path reads no clock at all — it
     # records at `request.asked_at` on the served path and on every refusal
@@ -487,9 +509,19 @@ def test_a_fulfilled_product_is_the_same_determination_twice(
         assert isinstance(first, ServedProduct), first
         assert isinstance(second, ServedProduct), second
         assert content_hash(first.product) == content_hash(second.product)
+        # E1 (a) (`D-IMPL-378`): one question asked twice is two answers, each
+        # issued apart — two references, each naming exactly its own record,
+        # and two records equal in every byte but the issuance.
         assert (
-            first.replay_ref.content_address == second.replay_ref.content_address
+            first.replay_ref.content_address != second.replay_ref.content_address
         )
+        assert_named_by_its_own_content(
+            first.replay_ref.uri, record_a, what="fulfilled, first answer"
+        )
+        assert_named_by_its_own_content(
+            second.replay_ref.uri, record_b, what="fulfilled, second answer"
+        )
+        assert_one_determination_issued_twice(record_a, record_b, what="fulfilled")
         _assert_same_determination(record_a, record_b)
 
         # The authority resolution is recorded and is the same one.
@@ -919,10 +951,19 @@ def _assert_two_shells_agree(
     # 2. Each call minted its own record, and both are addressable.
     assert first.replay_reference != NO_REPLAY_REFERENCE
     assert second.replay_reference != NO_REPLAY_REFERENCE
-    # A record is content-addressed and the path reads no clock, so two
-    # identical determinations resolve to ONE artifact.
-    assert _refusal_reference(booted, first) == _refusal_reference(booted, second)
-    # 3. The replayable record, dimension by dimension.
+    # E1 (a) (`D-IMPL-378`): each refusal that answers a question is issued
+    # apart, so the two references differ and each names exactly the record it
+    # resolves to — never one artifact shared by two answers.
+    assert first.replay_reference != second.replay_reference
+    assert _refusal_reference(booted, first) != _refusal_reference(booted, second)
+    assert_named_by_its_own_content(
+        first.replay_reference, record_a, what=f"{first.kind}, first answer"
+    )
+    assert_named_by_its_own_content(
+        second.replay_reference, record_b, what=f"{second.kind}, second answer"
+    )
+    assert_one_determination_issued_twice(record_a, record_b, what=first.kind)
+    # 3. The replayable record, dimension by dimension, modulo the issuance.
     _assert_same_determination(record_a, record_b)
     # 4. The authority resolution and the disclosure decision.
     assert _resolution_of(record_a) == _resolution_of(record_b)
@@ -1483,6 +1524,25 @@ def test_the_dimension_comparison_refuses_a_planted_difference(
         assert record_dimensions_equal(record, planted) == [
             "content_generation_path"
         ]
+
+        # E1 (a): the modulo comparison sets aside the issuance and NOTHING
+        # else. A record differing from its copy only in its issuance is one
+        # determination; the same copy with the planted plan id is not.
+        planted_issuance = record.model_copy(
+            update={
+                "content_generation_path": (
+                    record.content_generation_path.model_copy(
+                        update={"issuance": "0" * 64}
+                    )
+                )
+            }
+        )
+        assert record_dimensions_equal(record, planted_issuance) == [
+            "content_generation_path"
+        ]
+        _assert_same_determination(record, planted_issuance)
+        with pytest.raises(AssertionError):
+            _assert_same_determination(record, planted)
 
         planted_tenant = record.model_copy(update={"tenant_id": "another-tenant"})
         # The helper is silent about what is not a dimension, which is why

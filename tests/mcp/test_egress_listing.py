@@ -66,7 +66,7 @@ from ccf.contracts.canonical import canonical_bytes
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.products.resolver import ReplayRefusalRecorder
-from ccf.replay.record import ResolutionNotApplicable
+from ccf.replay.record import DecisionReplayRecord, ResolutionNotApplicable
 from ccf.mcp.client import run_with_session
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.products.door import DoorOutcome, WireRequest, door_question
@@ -81,7 +81,7 @@ from ccf.products.request import (
     ProductRequestContract,
     refuse_request,
 )
-from ccf.products.refusal import RequestIdentity, envelope_for
+from ccf.products.refusal import NO_REPLAY_REFERENCE, RequestIdentity, envelope_for
 from ccf.projection.plan import Perspective
 from ccf.skills.catalog import SkillArgumentProperty, SkillArgumentSchema
 from ccf_runtime.authz.product_entitlement import (
@@ -100,6 +100,10 @@ from ccf_runtime.mcp.egress import (
     product_uri,
 )
 from tests.mcp.guarded_servers import wide_authorizer
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+)
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -260,15 +264,20 @@ def _answering(outcome: object) -> Callable[..., object]:
     return resolve
 
 
-def _refusing(declared: ProductRequestContract) -> Callable[..., object]:
+def _refusing(
+    declared: ProductRequestContract, *, store_root: Path | None = None
+) -> Callable[..., object]:
     """A resolver that runs the one shared comparison and RECORDS its verdict.
 
     `D-IMPL-260` P-A: a door releases only the shell the recorder returned, so
     the verdict is handed through the one minting seam over a per-resolver
     store, exactly as the SDK's own resolver does on every refusal branch.
+    ``store_root`` names where that store lives, for a caller that reads the
+    records back; by default a fresh temporary directory.
     """
     store = deployment_store(
-        Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")) / "artifacts",
+        (store_root or Path(tempfile.mkdtemp(prefix="egress-listing-refusing-")))
+        / "artifacts",
         REPLAY_ARTIFACT_CLASS,
     )
     composition = ControlPlaneRegistry()
@@ -735,12 +744,14 @@ def test_a_surface_less_door_is_refused(assembled: Any, tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _resolver_for(assembled: Any, leg: str) -> tuple[Callable[..., object], Mapping[str, Any]]:
+def _resolver_for(
+    assembled: Any, leg: str, *, store_root: Path
+) -> tuple[Callable[..., object], Mapping[str, Any]]:
     """The served leg and the refused leg: one resolver each, and the parameters that reach it."""
     if leg == "served":
         return _answering(assembled.served), CALLER_PARAMETERS
     # Omit the required parameter, so the resolver's own comparison refuses.
-    return _refusing(_contract(assembled.address)), {}
+    return _refusing(_contract(assembled.address), store_root=store_root), {}
 
 
 @pytest.mark.parametrize("leg", ["served", "refused"])
@@ -748,9 +759,20 @@ def _resolver_for(assembled: Any, leg: str) -> tuple[Callable[..., object], Mapp
 def test_reading_the_product_address_answers_the_tool_s_bytes(
     assembled: Any, tmp_path: Path, expose_resource: bool, leg: str
 ) -> None:
-    """`read_resource(product_address(q))` == `call_tool(q)`, byte for byte, on both legs."""
+    """`read_resource(product_address(q))` == `call_tool(q)`, byte for byte, on both legs.
+
+    **The refused leg is compared modulo its per-answer reference** (Dave's
+    E1 (a), ``D-IMPL-378``, 2026-10-08 12:29 MST; ``D-IMPL-148`` Addendum A read
+    modulo the per-answer issuance). The address and the tool are two answers
+    to one question, and a refusal that answers a question is issued apart, so
+    each carries its own ``replay_reference``. Every other byte is held equal,
+    as before; the two references must differ, each must name exactly the record
+    it resolves to, and the two records must be equal in every byte but the
+    issuance.
+    """
     address = assembled.address
-    resolver, parameters = _resolver_for(assembled, leg)
+    store_root = tmp_path / "refusing"
+    resolver, parameters = _resolver_for(assembled, leg, store_root=store_root)
     question = _question(address, parameters)
     door = _server(
         tmp_path, address=address, resolver=resolver, expose_resource=expose_resource
@@ -769,6 +791,10 @@ def test_reading_the_product_address_answers_the_tool_s_bytes(
     is_error, tool_text = called
     assert is_error is False, tool_text[:1500]
 
+    if leg == "refused":
+        read, tool_text = _modulo_the_issued_reference(
+            read, tool_text, store=deployment_store(store_root / "artifacts", REPLAY_ARTIFACT_CLASS)
+        )
     assert read == tool_text, (
         "the address and the tool answered the same question differently:\n"
         f"address: {read[:800]}\ntool:    {tool_text[:800]}"
@@ -785,6 +811,48 @@ def test_reading_the_product_address_answers_the_tool_s_bytes(
         assert outcome.refusal is not None
         assert outcome.refusal.reason == "missing-required-parameter"
         assert outcome.refusal.key == REQUIRED_PARAMETER
+
+
+def _modulo_the_issued_reference(read: str, called: str, *, store: Any) -> tuple[str, str]:
+    """Two refused answers to one question, with each one's own reference resolved and set aside.
+
+    E1 (a) (``D-IMPL-378``): the two references must DIFFER (each answer is
+    issued apart), each must name exactly the record it resolves to in
+    ``store``, and the two records must be equal in every byte but their
+    issuance. Returns both outcomes re-rendered with the reference blanked, for
+    the byte-for-byte comparison of everything else.
+    """
+    outcomes = [DoorOutcome.model_validate_json(text) for text in (read, called)]
+    references: list[str] = []
+    for outcome in outcomes:
+        assert outcome.refusal is not None, outcome
+        assert outcome.refusal.replay_reference != NO_REPLAY_REFERENCE, outcome
+        references.append(outcome.refusal.replay_reference)
+    assert references[0] != references[1], (
+        "the address and the tool were handed ONE reference for two answers;"
+        " each answer is issued apart (Dave's E1 (a), D-IMPL-378)"
+    )
+    records = [
+        DecisionReplayRecord.model_validate_json(
+            store.get(content_address=store.resolve_uri(uri=reference))
+        )
+        for reference in references
+    ]
+    for side, reference, record in zip(("address", "tool"), references, records, strict=True):
+        assert_named_by_its_own_content(reference, record, what=side)
+    assert_one_determination_issued_twice(*records, what="address versus tool, refused")
+    blanked = [
+        outcome.model_copy(
+            update={
+                "refusal": outcome.refusal.model_copy(  # type: ignore[union-attr]
+                    update={"replay_reference": NO_REPLAY_REFERENCE}
+                ),
+                "replay_ref": None,
+            }
+        )
+        for outcome in outcomes
+    ]
+    return canonical_bytes(blanked[0]).decode("utf-8"), canonical_bytes(blanked[1]).decode("utf-8")
 
 
 def test_the_address_round_trips_and_its_segment_is_drawn_from_the_unpadded_alphabet(

@@ -130,6 +130,10 @@ from ccf_runtime.mcp.egress import (
     product_uri,
 )
 from tests.mcp.guarded_servers import wide_authorizer
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+)
 
 from crossproc.servers.mcp_egress_child import ProductAddress, build_servable_product
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -1117,17 +1121,23 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
     minted nothing would compare six sentinels and prove nothing about them.
     Both references are asserted **non-sentinel** below for that reason.
 
-    They are also the **same** address, and that is a property rather than a
-    coincidence: one resolver, two calls at one ``asked_at``, no clock read
-    anywhere on the path, and a content-addressed store. Two identical
-    determinations converge on one record — which is what makes *"which record
-    authorized this?"* have one answer whichever door a caller came through.
+    **They are two references to one determination, compared modulo the
+    per-answer issuance** (Dave's E1 (a), ``D-IMPL-378``, 2026-10-08 12:29 MST;
+    ``D-IMPL-148`` Addendum A read modulo the issuance). Until Q11 one resolver,
+    two calls at one ``asked_at`` and a content-addressed store converged on ONE
+    record, and this test held the two references equal. A refusal that answers
+    a question is now issued apart: the two references DIFFER, each names
+    exactly the record it resolves to, and the two records are equal in every
+    byte but the issuance — so *"which record authorized this?"* still has one
+    determination behind it whichever door a caller came through. Every other
+    declared field of the two envelopes is compared exactly as before.
     """
     address = assembled.address
     declared = _contract(address)
+    store = deployment_store(tmp_path / "refusal-records", REPLAY_ARTIFACT_CLASS)
     resolver = _refusing_and_recording(
         declared,
-        store=deployment_store(tmp_path / "refusal-records", REPLAY_ARTIFACT_CLASS),
+        store=store,
         tenant=address.tenant,
     )
 
@@ -1157,7 +1167,12 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
     in_process_envelope = door_refusal(in_process) or pytest.fail(
         "the in-process leg produced no refusal"
     )
-    assert_refusals_identical(in_process_envelope, over_the_wire)
+    # Every declared field but the per-answer reference, which is compared
+    # below by the record it resolves to (E1 (a)).
+    assert_refusals_identical(
+        in_process_envelope.model_copy(update={"replay_reference": NO_REPLAY_REFERENCE}),
+        over_the_wire.model_copy(update={"replay_reference": NO_REPLAY_REFERENCE}),
+    )
 
     # 24.6-07: the replay reference is INSIDE that identity, and non-sentinel
     # on both sides. Asserted explicitly because a comparison of two sentinels
@@ -1167,7 +1182,27 @@ def test_the_mcp_refusal_is_field_identical_to_the_in_process_one(
         ("over MCP", over_the_wire),
     ):
         assert envelope.replay_reference != NO_REPLAY_REFERENCE, side
-    assert in_process_envelope.replay_reference == over_the_wire.replay_reference
+    # E1 (a): two answers, issued apart — two references, each naming exactly
+    # its own record, and the two records one determination modulo the issuance.
+    assert in_process_envelope.replay_reference != over_the_wire.replay_reference
+    records = {
+        side: DecisionReplayRecord.model_validate_json(
+            store.get(content_address=store.resolve_uri(uri=envelope.replay_reference))
+        )
+        for side, envelope in (
+            ("in process", in_process_envelope),
+            ("over MCP", over_the_wire),
+        )
+    }
+    assert_named_by_its_own_content(
+        in_process_envelope.replay_reference, records["in process"], what="in process"
+    )
+    assert_named_by_its_own_content(
+        over_the_wire.replay_reference, records["over MCP"], what="over MCP"
+    )
+    assert_one_determination_issued_twice(
+        records["in process"], records["over MCP"], what="in process versus MCP"
+    )
     # And the door reports it, translated to the outcome's own vocabulary.
     assert decoded.replay_ref == over_the_wire.replay_reference
 
