@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **346** across **112** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **186** across **66** files
+- Coupling rows: **350** across **113** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **190** across **67** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
 Rows by owning plan:
@@ -17,8 +17,8 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 12 |
-| 17-08 | 119 |
-| 23-04 | 196 |
+| 17-08 | 121 |
+| 23-04 | 198 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 12 |
-| `prose` | 115 |
+| `prose` | 119 |
 | `snippet-include` | 56 |
 | `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
@@ -97,6 +97,10 @@ Rows by coupling shape:
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 310 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 311 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/DEBT_COMPLETENESS_RULING_EVIDENCE.md` | 312 | `examples/08-e2e-demo` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/V1.0.2-EXPECTED-FAILURES.md` | 89 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/V1.0.2-EXPECTED-FAILURES.md` | 189 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/V1.0.2-EXPECTED-FAILURES.md` | 190 | `archive/examples/06-decision-replay` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/V1.0.2-EXPECTED-FAILURES.md` | 200 | `tests/examples/test_s1_00_config_equivalence.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/retired/16-external-consumers/README.md` | 56 | `examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/retired/16-external-consumers/client_claude_agent.py` | 44 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `docs/retired/16-external-consumers/client_langgraph.py` | 35 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
