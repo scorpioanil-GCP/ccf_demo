@@ -47,8 +47,11 @@ The shape this rule cannot make exact
 ------------------------------------
 The registry now follows the rule the walk already follows, so it shares that
 rule's limit: an acquisition NOT keyed on the subject (close-out channel 1).
-The last test holds that shape as a STRICT expected failure, with what it
-measured before and after this change.
+The last test measures that shape under the two mechanisms Dave ruled for it
+(``D-IMPL-378``, Q5, Q7 and Q8): the population read declared as the population
+phase, or the withhold decided early. Left inside the subject-keyed seam under
+a late withhold, the shape still tells the two apart; the security how-to,
+section 4.12, discloses it.
 
 Every question here is asked on its own fabric, as the paved road boots one per
 question, so no question reads another's acquisition (a different channel,
@@ -58,6 +61,7 @@ fixture vocabulary (CINV-01, CLAUDE.md §11).
 
 from __future__ import annotations
 
+import inspect
 import pathlib
 from typing import Any
 
@@ -123,6 +127,7 @@ from tests.products.test_withheld_is_indistinguishable_from_absent import (
     _SubjectScopedProjection,
     _table,
     _table_document,
+    _uri,
 )
 
 # --- fixture vocabulary --------------------------------------------------------
@@ -209,10 +214,19 @@ def _boot(root: pathlib.Path, *, with_similarity: bool, anchor: str) -> Any:
     ]
     manifest = write_artifact(root, "manifest.yaml", body)
     control_plane = ControlPlaneRegistry()
+    # Every fabric here answers ONE question through an acquisition seam, so it
+    # is booted for that question (Q9, `D-IMPL-378`); a tree whose boot takes no
+    # such declaration boots it plainly.
+    question = (
+        {"for_question": True}
+        if "for_question" in inspect.signature(load_and_boot).parameters
+        else {}
+    )
     fabric = load_and_boot(
         manifest,
         registry=control_plane,
         connection={"database_path": str(root / "graph.sqlite3")},
+        **question,
     )
     declare_wide_temporal_boundary(control_plane, tenant_id=fabric.tenant_id)
     for claim in (
@@ -255,15 +269,23 @@ def _serve(
     subject: str,
     *,
     with_similarity: bool,
-    acquisition: _SubjectKeyedRefresh,
+    acquisition: _SubjectKeyedRefresh | None,
     withhold: frozenset[str],
+    population_acquisition: Any = None,
+    plan_factory: Any = None,
 ) -> Any:
-    """One governed serve through the shipped resolver, acquisition seam declared."""
+    """One governed serve through the shipped resolver, acquisition declared.
+
+    ``population_acquisition`` is the declared population phase (Q7, stated
+    ``None`` for every test but the last) and ``plan_factory`` replaces the
+    late-withholding factory (the last test's early-withholding case).
+    """
     fabric, control_plane, store = booted
     keys = (POLICY_PARAMS_KEY, TRAVERSAL_KEY, *((SIMILARITY_KEY,) if with_similarity else ()))
     resolver = GovernedResolver(
         composite_children=None,
         acquisition=acquisition,
+        population_acquisition=population_acquisition,
         packaging_trace=None,
         half_life_key=HALF_LIFE_KEY,
         admission_clock=lambda: SERVED_AT,
@@ -276,8 +298,11 @@ def _serve(
         operator_parameter_keys=keys,
         policy_bundle_key=POLICY_BUNDLE_KEY,
         debt_profile_key=None,
-        plan_factory=lambda *, required, request: _SubjectScopedProjection(
-            required=required, request=request, withhold=withhold, blank=frozenset()
+        plan_factory=plan_factory
+        or (
+            lambda *, required, request: _SubjectScopedProjection(
+                required=required, request=request, withhold=withhold, blank=frozenset()
+            )
         ),
         debt_scorer=AssemblyDebtScorer(
             table=_table(),
@@ -499,21 +524,26 @@ def test_i2_a_served_subject_is_still_scored_against_the_text_its_acquisition_wr
     assert any(path.startswith("computed_empty") for path in differing), sorted(differing)
 
 
-# --- the shape this rule cannot make exact (SEC-020 OPEN, close-out channel 1) -------
+# --- the newly leaking setup, under the ruled mechanisms (Q5, Q7, Q8) ---------------
 #
-# The registry now follows the rule the walk already follows: the withheld
-# rendering reads the fabric as it stood before acquisition. An acquisition NOT
-# keyed on the subject (a population read) ingests the same claim whatever is
-# asked, so a nonexistent subject's question is scored against the text it
-# wrote and the withheld rendering is not. Measured with this change: under
-# `from_decision` the two products differ at `computed_empty`, `debt.debt`,
-# `debt.factors.freshness` and `debt.scorers`; under `from_entity_freshness`
-# the withheld subject is refused `ttl-anchor-refusal` and the nonexistent one
-# is served. Before this change the same shape differed at the debt (and, under
-# `from_entity_freshness`, at `expires_at` and `ttl_anchor_at`), both served.
-# Held as a STRICT expected failure: the day a rendering is exact for this
-# shape it XPASSes, which strict mode reports as a failure, so the marker must
-# be removed and the closure claimed on evidence (security how-to, section 4.12).
+# The registry follows the rule the walk follows: the withheld rendering reads
+# the fabric as it stood before acquisition. An acquisition NOT keyed on the
+# subject (a population read) ingests the same claim whatever is asked, so a
+# nonexistent subject's question is scored against the text it wrote. Measured
+# with the registry change alone (`60629839`, then a strict expected failure):
+# under `from_decision` the two products differed at `computed_empty`,
+# `debt.debt`, `debt.factors.freshness` and `debt.scorers`; under
+# `from_entity_freshness` the withheld subject was refused `ttl-anchor-refusal`
+# and the nonexistent one served.
+#
+# Dave, 2026-10-07 19:31 MST (Q5): *"merge only with Q7/Q8 enforcement and a
+# passing regression for the newly leaking setup"*. The two ruled mechanisms:
+# the population read DECLARED as the population phase (Q7: the withheld
+# rendering reads the fabric after it), or the withhold decided EARLY by a
+# declared policy (Q8: the one seam is asked about the stand-in, as about any
+# identifier it does not hold). The population read left undeclared in a
+# subject-keyed seam under a late withhold is the trusted obligation the
+# security how-to, section 4.12, states; it is not this test.
 
 
 class _PopulationRefresh(_SubjectKeyedRefresh):
@@ -526,36 +556,72 @@ class _PopulationRefresh(_SubjectKeyedRefresh):
         self.returned[request.subject] = self.returned.get(request.subject, 0) + 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "SEC-020 OPEN, close-out channel 1 (an acquisition not keyed on the"
-        " subject), with the similarity operator: the withheld rendering is scored"
-        " against the corpus before acquisition and a nonexistent subject's"
-        " question against the text the population read wrote. When this passes,"
-        " remove the marker."
-    ),
-)
+class _DeclaredPopulationRefresh:
+    """The same read, declared as the population phase: handed a question with no subject."""
+
+    def __init__(self, fabric: Any, *, text: str) -> None:
+        self._fabric = fabric
+        self._text = text
+        self.calls = 0
+
+    def __call__(self, *, question: Any, perspective: Any) -> None:
+        self._fabric.handle.worker.ingest(
+            _claim(WITHHELD_REF, self._text, envelope_id="claim-acquired", observed=REFRESHED)
+        )
+        self.calls += 1
+
+
+class _EarlyWithholding:
+    """A plan factory declaring the early policy that does not disclose the withheld account (Q8)."""
+
+    def __call__(self, *, required: tuple[str, ...], request: ProductRequest) -> Any:
+        return _SubjectScopedProjection(
+            required=required, request=request, withhold=frozenset({WITHHELD}), blank=frozenset()
+        )
+
+    def subject_disclosure(self) -> Any:
+        from ccf.products.subject_disclosure import SubjectDisclosurePolicy  # noqa: PLC0415
+
+        return SubjectDisclosurePolicy(
+            undisclosed_subject=_uri("acct-undisclosed-fixture"),
+            by_principal={PERSPECTIVE.principal_id: frozenset({WITHHELD})},
+            by_role={},
+        )
+
+
+@pytest.mark.parametrize("mechanism", ["declared-population-phase", "early-withholding"])
 @pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
 def test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity(
-    tmp_path: pathlib.Path, anchor: str
+    tmp_path: pathlib.Path, anchor: str, mechanism: str
 ) -> None:
-    """Every precondition fails through ``pytest.fail``, so the expected failure is the comparison."""
+    """The population read with the similarity operator: withheld and nonexistent, compared as the controls do.
+
+    Every precondition fails through ``pytest.fail``, so a failure here is the
+    comparison: the read ran once per question, through the mechanism named.
+    """
     outcomes: dict[str, Any] = {}
     for name, subject in (("withheld", WITHHELD), ("nonexistent", MISSING)):
         booted = _boot(tmp_path / name, with_similarity=True, anchor=anchor)
         try:
-            acquisition = _PopulationRefresh(booted[0], text=QUERY)
-            outcomes[name] = _serve(
-                booted, subject, with_similarity=True,
-                acquisition=acquisition, withhold=frozenset({WITHHELD}),
-            )
+            if mechanism == "declared-population-phase":
+                population = _DeclaredPopulationRefresh(booted[0], text=QUERY)
+                outcomes[name] = _serve(
+                    booted, subject, with_similarity=True, acquisition=None,
+                    withhold=frozenset({WITHHELD}), population_acquisition=population,
+                )
+                ran = population.calls
+            else:
+                acquisition = _PopulationRefresh(booted[0], text=QUERY)
+                outcomes[name] = _serve(
+                    booted, subject, with_similarity=True, acquisition=acquisition,
+                    withhold=frozenset({WITHHELD}), plan_factory=_EarlyWithholding(),
+                )
+                ran = sum(acquisition.returned.values())
         finally:
             booted[0].handle.close()
-        if acquisition.returned != {subject: 1}:
-            pytest.fail(f"case not constructed: the population read acquired {acquisition.returned}")
+        if ran != 1:
+            pytest.fail(f"case not constructed: the population read ran {ran} time(s) for {name}")
     _assert_indistinguishable(
         outcomes["withheld"], outcomes["nonexistent"],
-        case=f"{anchor}, similarity, population read",
+        case=f"{anchor}, similarity, population read, {mechanism}",
     )

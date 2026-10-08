@@ -1587,6 +1587,7 @@ def load_config_and_boot(
     connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
     read_only: bool = False,
+    for_question: bool = False,
 ) -> BootedFabric:
     """Load a `ccf_config.yaml`, derive what a manifest would have named, and boot.
 
@@ -1672,6 +1673,10 @@ def load_config_and_boot(
             setting is set aside, neither validated nor used (N-2). See
             ``load_and_boot``'s own docstring. ``False`` (the default) is the
             writer boot, unchanged.
+        for_question: ``True`` boots the fabric for ONE question, onto a
+            substrate verified fresh first (SEC-020, ``D-IMPL-378`` Q9; see
+            ``load_and_boot``'s own docstring). The paved road boots every
+            question's fabric this way.
 
     Raises:
         See `load_and_boot`'s own `Raises:` block — every refusal there
@@ -1720,4 +1725,5 @@ def load_config_and_boot(
         resolved_tenant=resolved_tenant,
         keys=derived.keys,
         read_only=read_only,
+        for_question=for_question,
     )

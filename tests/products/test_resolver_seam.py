@@ -411,6 +411,12 @@ def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     yield from _boot(tmp_path)
 
 
+@pytest.fixture()
+def booted_for_one_question(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """:func:`booted`, booted for ONE question: what a fabric an acquisition seam writes into must be (Q9)."""
+    yield from _boot(tmp_path, for_question=True)
+
+
 @pytest.fixture
 def booted_with_ceiling(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """The same deployment, with the class declaring a ``D_c`` ceiling and the
@@ -477,8 +483,13 @@ def _boot(
     product_class: dict[str, Any] | None = None,
     request_contract: dict[str, Any] | None = None,
     artifacts: Mapping[str, dict[str, Any]] | None = None,
+    for_question: bool = False,
 ) -> Iterator[_Booted]:
-    """The one boot, so the two fixtures cannot drift into two deployments."""
+    """The one boot, so the two fixtures cannot drift into two deployments.
+
+    ``for_question`` boots the fabric for ONE question, as a fabric an
+    acquisition seam writes into must be (SEC-020, ``D-IMPL-378`` Q9).
+    """
     root = tmp_path / "deployment"
     root.mkdir()
     for key, filename, _class_id, _role, _registration, document in ARTIFACT_SET:
@@ -537,6 +548,7 @@ def _boot(
         manifest,
         registry=control_plane,
         connection={"database_path": str(tmp_path / "resolver-seam.sqlite3")},
+        for_question=for_question,
     )
     # 24.5-L-24, kept under 24.6-L-06: the fixture ingests the deployment's
     # OWN signal batch (the one `acct-1` envelope `tests/deployment` ships, an
@@ -2055,6 +2067,10 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # filed record said no packaging happened on every one of the five pins.
     "packaging_trace",
     "acquisition",
+    # SEC-020 Q7 (`D-IMPL-378`): the declared population phase. `None` is
+    # admissible and POSITIVE — this deployment declares no population phase —
+    # but never a default, on `acquisition`'s own terms.
+    "population_acquisition",
     "half_life_key",
     "admission_clock",
     "plan_factory",
@@ -2204,6 +2220,8 @@ def _arguments(booted: _Booted, *, key: Callable[[str], str] = lambda name: name
         # every deployment shipped before the seam existed was in, stated
         # rather than defaulted.
         "acquisition": None,
+        # SEC-020 Q7 (`D-IMPL-378`): no population phase either — stated.
+        "population_acquisition": None,
         # `PKG-F-08`: stated, never defaulted — this fixture packages nothing,
         # and saying so is different from nobody having wired the seam.
         "packaging_trace": None,
@@ -3056,17 +3074,17 @@ def test_E4_an_instant_beyond_the_permitted_forward_skew_refuses(
 
 
 def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
-    booted: _Booted,
+    booted_for_one_question: _Booted,
 ) -> None:
     """E5, and the positive control is in the same test.
 
     A count of zero proves nothing unless the same seam is shown to count when a
     request IS in bounds — otherwise a seam that was never wired would pass.
     """
-    _declare_temporal_bound(booted, max_past=60)
+    _declare_temporal_bound(booted_for_one_question, max_past=60)
     calls, seam = _counting_acquisition()
     resolver = _resolver(
-        booted, acquisition=seam, admission_clock=lambda: ADMITTED_AT
+        booted_for_one_question, acquisition=seam, admission_clock=lambda: ADMITTED_AT
     )
 
     refused = _ask(resolver, _request(asked_at=ADMITTED_AT - timedelta(days=30)))

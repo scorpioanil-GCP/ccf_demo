@@ -361,6 +361,7 @@ def _serve(
     resolver = GovernedResolver(
         composite_children=None,
         acquisition=None,
+        population_acquisition=None,
         packaging_trace=None,
         half_life_key=HALF_LIFE_KEY,
         admission_clock=lambda: SERVED_AT,

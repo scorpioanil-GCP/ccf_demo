@@ -245,6 +245,11 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         # record refuse, and that is the load-bearing half of this assertion.
         "content_generation_path.served_at",
         "content_generation_path.child_resolutions",
+        # SEC-020 Q10 (`D-IMPL-378`): the walk's seeds, recorded only when they
+        # were not the question's own subject. `None` on every record written
+        # before the member existed and on every record whose walk started at
+        # its own subject — silence by declaration, so it joins this side.
+        "content_generation_path.executed_seeds",
     )
     assert not [name for name, key in absent if key is False]
 

@@ -973,6 +973,11 @@ def test_the_named_inputs_are_this_helper_s_own_optional_parameters() -> None:
         # states its posture, while the helper keeps the non-composite default
         # every product shipped before the surface existed.
         "composite_children",
+        # SEC-020 Q7 (`D-IMPL-378`): the declared population phase — acquisition,
+        # not debt-scorer material. Optional on THIS helper (the non-composite,
+        # no-population default every deployment before the ruling had) and
+        # required on the resolver, as `composite_children` is.
+        "population_acquisition",
         # `24.10-01` / `R-12`. Four more optional parameters that are not
         # debt-scorer material: the three replay members the Control Plane's
         # `replay:` section can supply, and the root the declared

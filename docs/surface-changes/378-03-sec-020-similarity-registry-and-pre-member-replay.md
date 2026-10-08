@@ -34,8 +34,12 @@ before this change at `debt.debt` and `debt.factors.freshness` (and, under
 With it they differ under `from_decision` at `computed_empty`, `debt.debt`,
 `debt.factors.freshness` and `debt.scorers`, and under `from_entity_freshness`
 the withheld subject is refused `ttl-anchor-refusal` while the nonexistent one
-is served. Held as a strict expected failure:
+is served. Held then as a strict expected failure:
 `tests/products/test_withheld_similarity_registry.py::test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity`.
+Under `378-11` (Dave's Q5) that test is a required regression under the two
+mechanisms he ruled: the population read declared as the population phase, or
+the withhold decided early. Left inside the subject-keyed seam under a late
+withhold, the shape still differs as above (security how-to, section 4.12).
 
 **Channel 7, records filed before dimension 5 carried the empty finding.**
 `ac4e4573` (merged to `main` in `8e8374c3`, 2026-09-05) put

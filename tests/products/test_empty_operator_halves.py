@@ -510,7 +510,11 @@ def test_the_resolver_threads_the_engines_emptiness_record() -> None:
     # once, to a conditional whose TEST is the typed signal
     # (`execution.projection.withheld`, never the payload), whose withheld
     # branch is the engine's unseeded re-execution over `executed=execution`,
-    # and whose other branch is `execution` itself.
+    # and whose other branch is `execution` itself. SEC-020 Q10
+    # (`D-IMPL-378`, Dave: the ruling *"does not authorize recomputing the
+    # product twice"*): under the early decision the product is computed once,
+    # so the test also excludes `undisclosed` — the signal stays the ONLY key
+    # into the re-execution.
     names = [node.id for node in ast.walk(built) if isinstance(node, ast.Name)]
     assert "rendered" in names, names
     bindings = [
@@ -522,7 +526,9 @@ def test_the_resolver_threads_the_engines_emptiness_record() -> None:
     assert len(bindings) == 1, "`rendered` is bound exactly once"
     bound = bindings[0].value
     assert isinstance(bound, ast.IfExp), ast.unparse(bound)
-    assert ast.unparse(bound.test) == "execution.projection.withheld", ast.unparse(bound.test)
+    assert ast.unparse(bound.test) == "execution.projection.withheld and (not undisclosed)", (
+        ast.unparse(bound.test)
+    )
     assert isinstance(bound.orelse, ast.Name) and bound.orelse.id == "execution"
     assert isinstance(bound.body, ast.Call), ast.unparse(bound.body)
     assert isinstance(bound.body.func, ast.Attribute)
