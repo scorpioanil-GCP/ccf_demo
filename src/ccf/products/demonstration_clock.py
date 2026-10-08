@@ -7,10 +7,13 @@ required)"*. The declaration is
 `ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstant`; this
 module is where a composition turns it into the fabric's serve clock.
 
-**CANDIDATE, NOT RULED.** How "never usable in production" is enforced is a
-proposal Dave rules on (lane ``378d-democlock``, ``PROPOSAL-C1.md``). This module
-implements its option (b): the declaration is refused unless the fabric runs on
-the SDK's development substrates, and every record made under it pins it.
+**RULED: option (b)** — Dave, 2026-10-08 10:50 MST, *"Option b on C1 and
+C2-A"* (the `D-IMPL-378` dated amendment of that time). How "never usable in
+production" is enforced: the declaration is refused unless the fabric runs on the
+SDK's development substrates, and every record made under it pins it. The options
+it was chosen among are lane ``378d-democlock``'s ``PROPOSAL-C1.md`` §4. **Not
+ruled:** C1-late — a declaration registered after a resolver is built stays
+unread by that resolver (rule 2 below), as designed, until Dave rules.
 
 The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
 --------------------------------------------------------------------------------
@@ -90,8 +93,8 @@ RefusalReason = Literal["graph-substrate-not-development", "artifact-store-not-d
 class DemonstrationServeInstantRefused(ValueError):
     """A declared demonstration serve instant outside the SDK's development substrates.
 
-    Raised at composition, before any question is answered. The proposal's
-    option (b): a frozen serve clock keeps expired answers servable and judges
+    Raised at composition, before any question is answered. Ruled option
+    (b) (Dave, 2026-10-08): a frozen serve clock keeps expired answers servable and judges
     policy and admission at a stale instant, so it is refused on any substrate a
     production deployment would run on.
 

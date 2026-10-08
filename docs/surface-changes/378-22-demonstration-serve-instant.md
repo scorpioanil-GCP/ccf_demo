@@ -3,10 +3,12 @@
 `D-IMPL-378` CI ruling C1 (a), Dave: *"an SDK way for a deployment to declare a fixed
 demonstration serve instant, honored by both transports, never usable in production
 (security review required), so hw1's pinned question stops expiring without weakening an
-assertion."* **SDK-defined** (CLAUDE.md §11). **A candidate:** how "never usable in
-production" is enforced is a proposal Dave rules on; this fragment records option (b) — the
+assertion."* **SDK-defined** (CLAUDE.md §11). **Ruled option (b)** (Dave, 2026-10-08
+10:50 MST, *"Option b on C1 and C2-A"*) for how "never usable in production" is enforced: the
 declaration is refused outside the SDK's development substrates, and every record made under
-it pins it in Decision Replay dimension 2. The measurements are in
+it pins it in Decision Replay dimension 2. C1-late — a declaration registered after a resolver
+is built stays unread by that resolver — is not ruled and keeps its designed behavior. The
+measurements are in
 `tests/client/test_demonstration_serve_instant.py`.
 
 What changes for a deployment that declares nothing: nothing. Its config derives the same
@@ -91,7 +93,7 @@ declaration).
 - Change type: added
 - Before: absent
 - After: the one composition step that turns a declaration into the resolver's serve clock, called once by `ccf.products.resolver.build_governed_resolver`. With no declaration it returns the clock the caller composed. With one, it refuses a caller-composed clock (`DemonstrationServeInstantConflict`), refuses a graph adapter whose registration does not declare `development_reference` or an artifact store that is not the SDK's `FileArtifactStore` (`DemonstrationServeInstantRefused`), and otherwise returns a `DeclaredServeClock`. A Control Plane offering the unaudited pinned-read surface is probed with `versions` first, so a deployment that declares nothing gains no audit event
-- Why: C1's "never usable in production", option (b) candidate: a fixed serve clock keeps expired answers servable and judges policy effectivity and composite admission at a stale instant, so it is refused on any substrate a production deployment runs on
+- Why: C1's "never usable in production", ruled option (b): a fixed serve clock keeps expired answers servable and judges policy effectivity and composite admission at a stale instant, so it is refused on any substrate a production deployment runs on
 - Migration: none
 
 ## ccf.products.demonstration_clock.DeclaredServeClock

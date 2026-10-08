@@ -5638,7 +5638,7 @@ def build_governed_resolver(
     # again, so nothing a question carries and nothing registered later moves it.
     # A clock this call was handed beside a declaration is refused by name, and
     # outside the SDK's development substrates the declaration itself is refused
-    # (the proposal's option (b), a CANDIDATE Dave rules on). Checked against
+    # (option (b), ruled by Dave 2026-10-08 10:50 MST). Checked against
     # `store` as SELECTED, before the erasure consult wraps it.
     #
     # CONFINED: only the resolver's serve clock (`served_at`) is replaced. The

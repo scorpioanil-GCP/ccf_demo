@@ -18951,7 +18951,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Change type: added
 - Before: absent
 - After: the one composition step that turns a declaration into the resolver's serve clock, called once by `ccf.products.resolver.build_governed_resolver`. With no declaration it returns the clock the caller composed. With one, it refuses a caller-composed clock (`DemonstrationServeInstantConflict`), refuses a graph adapter whose registration does not declare `development_reference` or an artifact store that is not the SDK's `FileArtifactStore` (`DemonstrationServeInstantRefused`), and otherwise returns a `DeclaredServeClock`. A Control Plane offering the unaudited pinned-read surface is probed with `versions` first, so a deployment that declares nothing gains no audit event
-- Why: C1's "never usable in production", option (b) candidate: a fixed serve clock keeps expired answers servable and judges policy effectivity and composite admission at a stale instant, so it is refused on any substrate a production deployment runs on
+- Why: C1's "never usable in production", ruled option (b): a fixed serve clock keeps expired answers servable and judges policy effectivity and composite admission at a stale instant, so it is refused on any substrate a production deployment runs on
 - Migration: none
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*

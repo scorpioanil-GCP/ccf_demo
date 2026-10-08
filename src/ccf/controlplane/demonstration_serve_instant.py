@@ -4,9 +4,8 @@
 2026-10-07, confirmed 2026-10-08: *"an SDK way for a deployment to declare a fixed
 demonstration serve instant, honored by both transports, never usable in
 production (security review required), so hw1's pinned question stops expiring
-without weakening an assertion."* How "never usable in production" is enforced
-is NOT ruled; the candidate this module belongs to implements the proposal's
-option (b), which Dave may change — the enforcement lives in
+without weakening an assertion."* How it is kept out of production is ruled
+too — option (b), Dave, 2026-10-08 10:50 MST — and that enforcement lives in
 `ccf.products.demonstration_clock`, not here.
 
 Why a deployment needs one

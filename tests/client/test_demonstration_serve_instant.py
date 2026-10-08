@@ -2,10 +2,10 @@
 
 **SDK-defined** (CLAUDE.md §11; ruling C1 (a), Dave, 2026-10-07/08): *"an SDK way
 for a deployment to declare a fixed demonstration serve instant, honored by both
-transports, never usable in production (security review required)"*. How "never
-usable in production" is enforced is a PROPOSAL Dave rules on; these tests hold
-the candidate built for option (b): the declaration is refused outside the SDK's
-development substrates, and every record made under it pins it.
+transports, never usable in production (security review required)"*. How it is
+kept out of production was ruled option (b) (Dave, 2026-10-08 10:50 MST); these
+tests hold it: the declaration is refused outside the SDK's development
+substrates, and every record made under it pins it.
 
 What each test asserts, by mechanism:
 
@@ -330,7 +330,7 @@ def test_a_refusal_record_pins_the_declaration(seeded: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Never usable in production (option (b) candidate): development substrates only.
+# Never usable in production (option (b), ruled): development substrates only.
 # ---------------------------------------------------------------------------
 
 
