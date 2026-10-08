@@ -1016,11 +1016,15 @@ def govern_dereference(
        carries no product determination and skips this hold; a record with no
        recoverable class is withheld.
     3. **Disclosure, through the recorder.** The level in force for this
-       principal, read from the recorder that disclosed the serve and under
-       the recorder's own tenant, must be
+       principal under the capability's tenant — after hold 0, the tenant the
+       record was decided under — read through the door's recorder, must be
        :data:`~ccf.products.disclosure.DISCLOSURE_FULL`. Below it the record
        does not cross — a dereference never upgrades a caller to the cause its
-       own shell withheld.
+       own shell withheld. The tenant is keyed beside the principal (Dave,
+       2026-10-07; ``D-IMPL-378``): read under the recorder's own tenant, a
+       door serving several tenants through one recorder decided another
+       tenant's caller by the level its own tenant declares for a colliding
+       principal id.
 
     Only after all three pass is a versioned URI's naming checked, and the
     ordering is again the property: :meth:`resolve_uri` answers only under the
@@ -1059,6 +1063,19 @@ def govern_dereference(
     two are one shell, and the request identity every shell carries is the
     mechanism constant plus the caller's own reference, never anything
     recovered from the target.
+
+    **A read-refusal record names who asked: the capability's tenant and its
+    principal, together** (Dave, 2026-10-07; ``D-IMPL-378``). Its resource
+    identity carries ``authorized.tenant`` and dimension 4 the principal, so
+    holds 0 and 1 hold a later reader of the record to that pair. The door's
+    recorder files it under the recorder's own tenant; where that is not the
+    capability's tenant — a door serving several tenants through one recorder
+    — the record is decided under one tenant and filed under another, and the
+    provenance check serves it to nobody, its own principal included. A
+    read-refusal record minted before this binding names the recorder's
+    tenant whichever tenant asked, and nothing in it tells the two apart: on
+    such a door it still reads for a principal of the recorder's tenant with
+    the same client id as the principal it names.
 
     **The capability first** (D-IMPL-353 §1.2, §1.5). ``authorized`` is the
     ``Authorized[ArtifactRead]`` or ``Authorized[ReplayRead]`` the HTTP gate or
