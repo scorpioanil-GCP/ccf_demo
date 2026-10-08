@@ -39,8 +39,10 @@ from mcp.server.auth.settings import AuthSettings
 from pydantic import AnyHttpUrl
 
 from ccf.artifacts.protocol import parse_artifact_uri
-from ccf.contracts.canonical import content_hash
+from ccf.authz.capability import ArtifactRead, ArtifactWrite
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.erasure import compose_erasure_consult
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureDecision
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
@@ -61,12 +63,18 @@ from ccf.projection.plan import Perspective
 from ccf.replay.engine import RefusalReplayOutcome, replay_refusal
 from ccf.replay.record import NO_ROLE_RESOLVED, DecisionReplayRecord, ResolutionNotApplicable
 from ccf.replay.serve import ReplayWriter
-from ccf_runtime.authz.delivery_boundary import DEREFERENCE_PRODUCT_ID, SURFACE_MCP_RESOURCE
+from ccf_runtime.authz.delivery_boundary import (
+    DEREFERENCE_PRODUCT_ID,
+    SURFACE_MCP_RESOURCE,
+    DereferenceRequest,
+    govern_dereference,
+)
 from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource
 from ccf_runtime.http_api.errors import ERROR_EVIDENCE_ABSENT, ERROR_EVIDENCE_DISCLOSURE_WITHHELD
 from ccf_runtime.mcp.artifact_server import artifact_blob_uri, artifact_meta_uri, build_artifact_server
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource, TokenGrant
 from tests.composition import declared_erasure_trust, no_erasures
+from tests.controlplane.capabilities import capability
 from tests.http_api.composition_authority import (
     composition_replay_mint,
     deployment_store,
@@ -95,11 +103,20 @@ ROLE = "refusal-role"
 #: The verified callers: the same client id under each tenant.
 OWN_ALICE = TokenGrant(client_id=ALICE, scopes=(SCOPE,), tenants=frozenset({TENANT}))
 FOREIGN_ALICE = TokenGrant(client_id=ALICE, scopes=(SCOPE,), tenants=frozenset({FOREIGN}))
+#: Another principal of the recorder's tenant: neither the owner of a record nor its collision.
+OWN_BOB = TokenGrant(client_id=BOB, scopes=(SCOPE,), tenants=frozenset({TENANT}))
 
 #: The address ``FOREIGN``'s principal asks about. Nothing is ever stored there:
 #: the answer is a read refusal, and this string is what that record must not
 #: carry to anyone else.
 ASKED = "a" * 64
+
+#: The address a forged read-refusal record claims ``TENANT``'s ``ALICE`` asked
+#: about — an ask ``ALICE`` never made.
+FORGED_ASK = "f" * 64
+
+#: A client-lane class: one the store does not declare under ``ReplayMint``.
+CLIENT_CLASS = "c"
 
 #: The internal prose the shipped writer at ``7bf069cc`` gave every absence it
 #: recorded, transcribed for :func:`_record_as_written_before_the_binding`.
@@ -248,19 +265,29 @@ def _without_the_ask(shell: bytes, ask: str) -> dict[str, Any]:
     return dict(body)
 
 
-def _record_as_written_before_the_binding(recorder: ReplayRefusalRecorder, *, principal: str, reference: str) -> RefusalEnvelope:
+def _record_as_written_before_the_binding(
+    recorder: ReplayRefusalRecorder,
+    *,
+    principal: str,
+    reference: str,
+    surface: str = SURFACE_MCP_RESOURCE,
+    address: str | None = None,
+    determined_at: Any = AUDIT_INSTANT,
+) -> RefusalEnvelope:
     """A read refusal of ``reference`` for ``principal``, minted exactly as the shipped writer at ``7bf069cc`` minted it.
 
     Not a hand-edited record: the same two seams ``govern_dereference``'s
     ``refuse`` called at ``7bf069cc`` for an absence — ``envelope_for`` over the
     ``nonexistent`` / ``evidence-absent`` determination, then the door's own
-    ``recorder.record`` — with the one value that writer chose and the binding
-    changes: the resource identity's ``tenant_id`` was the RECORDER's tenant,
-    whichever tenant the refused capability named. Called for a principal of
-    another tenant, this is that principal's read-refusal record as the door
-    filed it before the binding — and, for the recorder's own tenant's
-    principal, it is byte-for-byte the record the door writes today
-    (:func:`test_a_record_written_before_the_binding_is_byte_for_byte_one_the_door_writes_today`).
+    ``recorder.record`` — with the value that writer chose: the resource
+    identity's ``tenant_id`` was the RECORDER's tenant, whichever tenant the
+    refused capability named, and no marker. Called for a principal of another
+    tenant, this is that principal's read-refusal record as the door filed it
+    before the binding; for the recorder's own tenant's principal, it is the
+    record the door filed before the marker. Byte-identity with the shipped
+    writer's output was measured at the red commit of ``D-IMPL-378`` lane
+    378-refusal, for the MCP blob surface; ``surface``, ``address`` and
+    ``determined_at`` are the door's own values on another surface.
     """
     envelope = envelope_for(
         SubjectUnavailableRefusal(cause="nonexistent", detail=_ABSENT_AT_7BF069CC, error_code=ERROR_EVIDENCE_ABSENT),
@@ -271,18 +298,18 @@ def _record_as_written_before_the_binding(recorder: ReplayRefusalRecorder, *, pr
             temporal_boundary=None,
         ),
         resource=ResourceRequestIdentity(
-            surface=SURFACE_MCP_RESOURCE,
-            address=artifact_blob_uri(content_address=reference),
+            surface=surface,
+            address=address if address is not None else artifact_blob_uri(content_address=reference),
             tenant_id=recorder.tenant_id,
-            determined_at=AUDIT_INSTANT,
+            determined_at=determined_at,
         ),
         policy_bindings=(),
     )
     return recorder.record(
         envelope,
         perspective=Perspective(principal_id=principal, role=NO_ROLE_RESOLVED),
-        recorded_at=AUDIT_INSTANT,
-        served_at=AUDIT_INSTANT,
+        recorded_at=determined_at,
+        served_at=determined_at,
         resolution=ResolutionNotApplicable(reason="no-resolution-step"),
         policy_bindings=(),
     )
@@ -453,49 +480,165 @@ def test_a_refusal_of_another_tenants_principal_is_disclosed_at_its_own_level_no
 
 
 # =========================================================================
-# "Check existing records too"
+# "Check existing records too" — Dave, 2026-10-07 19:31 (Q3): "Old, unmarked
+# read-refusal records read as missing for everyone. The marker must have
+# trusted provenance; caller-supplied bytes cannot confer trust. Document the
+# loss of owner read-back."
 # =========================================================================
 
 
-def test_a_record_written_before_the_binding_is_byte_for_byte_one_the_door_writes_today(
+def test_a_record_written_before_the_marker_is_told_apart_from_one_the_door_writes_today(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Why the next case is a proposal and not a fix. The record the door filed,
-    before the binding, for ``FOREIGN``'s ``ALICE`` asking ``ASKED`` is
-    byte-for-byte — one content address — the record the door files today for
-    ``TENANT``'s ``ALICE`` asking ``ASKED`` at the same instant: both name the
-    recorder's tenant and the same principal, reference, surface and instant.
-    ``D-IMPL-345`` R-2 keeps the second readable by ``TENANT``'s ``ALICE``, so no
-    rule over a record's content can refuse the first to the same caller."""
+    """Before the marker, the record the door filed for ``FOREIGN``'s ``ALICE``
+    asking ``ASKED`` was byte-for-byte the record it files for ``TENANT``'s
+    ``ALICE`` asking the same thing at the same instant, so nothing could tell an
+    attributed refusal from a legitimate one. The marker can: the record the
+    door writes today carries it, and the old one does not."""
     world = _World(tmp_path)
-    before_the_binding = _record_address(
+    before_the_marker = _record_address(
         _record_as_written_before_the_binding(world.recorder, principal=ALICE, reference=ASKED)
     )
+    today = _record_address(_read(world, OWN_ALICE, "blob", ASKED))
 
-    assert _record_address(_read(world, OWN_ALICE, "blob", ASKED)) == before_the_binding
+    assert today != before_the_marker, "the door still writes the record it wrote before the marker"
+    _, old = _record_at(world, before_the_marker)
+    _, new = _record_at(world, today)
+    assert old.resource is not None and new.resource is not None
+    assert (old.resource.tenant_from, new.resource.tenant_from) == (None, "capability")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "OPEN, a proposal for Dave (D-IMPL-378 lane 378-refusal): a read-refusal record written before the"
-        " binding names the recorder's tenant, and is byte-for-byte the record the binding writes for the"
-        " recorder's own principal asking the same thing at the same instant — so no rule over its content"
-        " can refuse one and serve the other. Failing it closed needs a positive marker on new records"
-        " (a replay-record content change) or no read-refusal record readable at all (reverses D-IMPL-345"
-        " R-2); either is Dave's to rule"
-    ),
-)
-def test_a_read_refusal_record_written_before_the_binding_is_not_readable_by_a_colliding_principal(
+def test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone(
     tmp_path: pathlib.Path,
 ) -> None:
-    world = _World(tmp_path)
-    address = _record_address(_record_as_written_before_the_binding(world.recorder, principal=ALICE, reference=ASKED))
+    """Every reader of an unmarked read-refusal record gets exactly what the
+    address answered while nothing was filed there — the owner it names
+    (``TENANT``'s ``ALICE``: the loss of owner read-back Dave ruled), another
+    principal of the recorder's tenant (who read ``unauthorized`` at hold 1
+    before), and another tenant's principal with the owner's client id — with
+    the recorded absence behind it and nothing of the ask in it. A twin door
+    mints the old record first, so its address is known in advance."""
+    twin = _World(tmp_path / "twin")
+    address = _record_address(_record_as_written_before_the_binding(twin.recorder, principal=ALICE, reference=ASKED))
 
+    world = _World(tmp_path / "door")
+    readers = {"owner": OWN_ALICE, "same-tenant": OWN_BOB, "other-tenant": FOREIGN_ALICE}
+    before = {who: _answers(world, grant, address) for who, grant in readers.items()}
+    assert _record_address(
+        _record_as_written_before_the_binding(world.recorder, principal=ALICE, reference=ASKED)
+    ) == address, "the twin door minted another record"
+
+    for who, grant in readers.items():
+        after = _answers(world, grant, address)
+        _assert_identical(before[who], after)
+        for surface in SURFACES:
+            assert _internal_cause(world, after[surface]) == ("nonexistent", ERROR_EVIDENCE_ABSENT), (who, surface)
+            assert ASKED.encode() not in after[surface], (who, surface)
+
+
+def _marked_document(tmp_path: pathlib.Path, *, reference: str) -> tuple[str, Any]:
+    """A MARKED read-refusal record naming ``TENANT``'s ``ALICE`` and ``reference``, as a document a caller can file.
+
+    Minted by the governed read itself — the marker's only writer — on a
+    scratch door built exactly as the door under test is, so the bytes are
+    the ones the fabric's record writer would file. A caller holding them can
+    file them only on a client lane.
+    """
+    scratch = _World(tmp_path / "scratch")
+    address = _record_address(_read(scratch, OWN_ALICE, "blob", reference))
+    _, internal = _record_at(scratch, address)
+    assert internal.resource is not None and internal.resource.tenant_from == "capability", (
+        "the governed read minted no marker"
+    )
+    return address, json.loads(scratch.store.get(content_address=address))
+
+
+@pytest.mark.parametrize(
+    "forger_tenant", [FOREIGN, TENANT], ids=["another-tenants-client-lane", "the-tenants-own-client-lane"]
+)
+def test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does(
+    tmp_path: pathlib.Path, forger_tenant: str
+) -> None:
+    """Caller-supplied bytes cannot confer trust (Q3). A read-refusal record
+    carrying the marker, naming ``TENANT``'s ``ALICE`` and an ask she never
+    made, is filed on a client lane — another tenant's, and her own tenant's —
+    and ``ALICE`` reads it through the blob and presence resources: each answers
+    what it answered while nothing was filed there. The marker counts only on a
+    record the provenance check proved the fabric's record writer filed."""
+    address, document = _marked_document(tmp_path, reference=FORGED_ASK)
+
+    world = _World(tmp_path / "door")
+    before = _answers(world, OWN_ALICE, address)
+    filed = world.store.put(
+        capability(ArtifactWrite, tenant=forger_tenant, resource=f"{CLIENT_CLASS}/forged-read-refusal"),
+        document,
+    )
+    assert filed.content_address == address
+    after = _answers(world, OWN_ALICE, address)
+
+    _assert_identical(before, after)
     for surface in SURFACES:
-        answer = _read(world, OWN_ALICE, surface, address)
-        assert ASKED.encode() not in answer, surface
-        assert _internal_cause(world, answer) == ("nonexistent", ERROR_EVIDENCE_ABSENT), surface
+        assert _internal_cause(world, after[surface]) == ("nonexistent", ERROR_EVIDENCE_ABSENT), surface
+
+
+def test_a_marked_read_refusal_record_filed_on_a_client_lane_confers_nothing_on_an_in_process_governed_read(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The same forgery handed to the governed read in process, through no
+    door: :func:`~ccf_runtime.authz.delivery_boundary.govern_dereference` over
+    the store, with a capability for ``TENANT``'s ``ALICE``, answers it exactly
+    as it answered the address while nothing was filed there."""
+    address, document = _marked_document(tmp_path, reference=FORGED_ASK)
+    world = _World(tmp_path / "door")
+    consulted = compose_erasure_consult(
+        world.store,
+        index=no_erasures(),
+        audit_log=ControlPlaneRegistry().audit_log,
+        clock=lambda: AUDIT_INSTANT,
+        control_plane=ControlPlaneRegistry(),
+        erasure_trust=declared_erasure_trust(),
+    )
+
+    def ask() -> Any:
+        return govern_dereference(
+            capability(ArtifactRead, tenant=TENANT, resource=address, principal=ALICE),
+            reference=DereferenceRequest(reference=address, by_uri=False, wants_bytes=True),
+            store=consulted,
+            entitlement_source=world.source,
+            refusal_recorder=world.recorder,
+            audit_log=ControlPlaneRegistry().audit_log,
+            surface=SURFACE_MCP_RESOURCE,
+            address=artifact_blob_uri(content_address=address),
+        )
+
+    before = ask()
+    world.store.put(
+        capability(ArtifactWrite, tenant=TENANT, resource=f"{CLIENT_CLASS}/forged-read-refusal"), document
+    )
+    after = ask()
+
+    assert isinstance(after, RefusalEnvelope), "a marked record filed on a client lane was served in process"
+    assert canonical_bytes(after) == canonical_bytes(before)
+    assert _internal_cause(world, canonical_bytes(after)) == ("nonexistent", ERROR_EVIDENCE_ABSENT)
+
+
+def test_a_new_read_refusal_record_carries_the_marker_and_still_binds_who_asked(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The governed read writes the marker on every read-refusal record it
+    mints, beside the tenant and principal that asked; and the owner of a new,
+    marked record still reads it back (``D-IMPL-345`` R-2)."""
+    world = _World(tmp_path)
+    record, internal = _record_at(world, _record_address(_read(world, FOREIGN_ALICE, "blob", ASKED)))
+    assert internal.resource is not None
+    assert (
+        internal.resource.tenant_from,
+        internal.resource.tenant_id,
+        record.perspective_conditioning.principal_id,
+    ) == ("capability", FOREIGN, ALICE)
+
+    own = _record_address(_read(world, OWN_ALICE, "blob", ASKED))
+    assert _read(world, OWN_ALICE, "blob", own) == world.store.get(content_address=own)
 
 
 def test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses(
@@ -508,6 +651,10 @@ def test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_
     world = _World(tmp_path)
     legacy = _record_address(_record_as_written_before_the_binding(world.recorder, principal=ALICE, reference=ASKED))
     current = _record_address(_read(world, FOREIGN_ALICE, "blob", "c" * 64))
+    _, old = _record_at(world, legacy)
+    _, new = _record_at(world, current)
+    assert old.resource is not None and new.resource is not None
+    assert (old.resource.tenant_from, new.resource.tenant_from) == (None, "capability")
 
     for address in (legacy, current):
         outcome = replay_refusal(

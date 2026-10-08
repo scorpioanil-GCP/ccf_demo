@@ -67,7 +67,7 @@ from ccf.replay.record import (
 )
 from tests.replay.authority import replay_store
 from tests.replay.test_harness_trace import PRE_CHANGE_CANONICAL
-from tests.replay.test_query_sequence_pin import _stored_verbatim
+from tests.replay.test_query_sequence_pin import VERBATIM_RECORD_CLASS, _stored_verbatim
 
 #: The fifteen fields ``PRE_CHANGE_CANONICAL`` lacks that the running record
 #: declares — amendment 1's own measurement, as a roster and never a count.
@@ -182,7 +182,7 @@ def _replay_pre_change(store: FileArtifactStore, address: str) -> None:
 
 @pytest.fixture
 def stored(tmp_path: Path) -> tuple[FileArtifactStore, str]:
-    store = replay_store(tmp_path / "artifacts")
+    store = replay_store(tmp_path / "artifacts", VERBATIM_RECORD_CLASS)
     return store, _stored_verbatim(store, PRE_CHANGE_CANONICAL)
 
 

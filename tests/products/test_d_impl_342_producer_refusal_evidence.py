@@ -49,6 +49,7 @@ from ccf.products.request import ProductRequest
 from ccf.replay.engine import RefusalReplayOutcome, _rehydrate_refusal_block, replay_refusal
 from ccf.replay.record import NO_FABRIC_READ, ChildResolution, DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
+from tests.replay.authority import mechanism_put
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import SkillCatalog
 from ccf.skills.dispatch import dispatch_skill, McpProductFailure, McpProductInvocation, ProductQuestion
@@ -355,7 +356,16 @@ def test_c_a7_a_record_without_the_new_keys_still_rehydrates_and_reconstructs(tm
     fresh = _fresh(opened)
     stripped_record = _without_rows_members(canonical_bytes(older), NEW_ROW_MEMBERS)
     address = hashlib.sha256(stripped_record).hexdigest()
-    (fresh.root / address).write_bytes(stripped_record)
+    # Filed as the deployment's writer filed the genuine record — by mechanism,
+    # under the same tenant and record class — and checked byte-for-byte: a
+    # record is read only where the store shows the record writer filed it
+    # (`D-IMPL-378`).
+    (genuine_filing,) = fresh.names_at(content_address=fresh.resolve_uri(uri=refused.replay_reference))
+    filed = mechanism_put(
+        fresh, tenant=genuine_filing.tenant_id, artifact_class=genuine_filing.artifact_class,
+        name=address, artifact=json.loads(stripped_record),
+    )
+    assert filed.content_address == address and fresh.get(content_address=address) == stripped_record
     assert content_hash(DecisionReplayRecord.model_validate_json(stripped_record)) == address
     assert address != content_hash(record), "the two shapes hash differently, by design"
     outcome = replay_refusal(

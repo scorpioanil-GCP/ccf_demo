@@ -8246,6 +8246,7 @@
           "address": "<class 'str'>",
           "determined_at": "<class 'datetime.datetime'>",
           "surface": "<class 'str'>",
+          "tenant_from": "typing.Optional[typing.Literal['capability']]",
           "tenant_id": "<class 'str'>"
         }
       },
@@ -8906,6 +8907,32 @@
       "RecordedEnvironmentUnbuildable": {
         "kind": "class",
         "shape": "type"
+      }
+    }
+  },
+  "ccf.replay.provenance": {
+    "__all__": [
+      "RecordNotFiledByRecordWriter",
+      "UnattributableRecordStore",
+      "filed_by_record_writer",
+      "require_filed_by_record_writer"
+    ],
+    "exports": {
+      "RecordNotFiledByRecordWriter": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UnattributableRecordStore": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "filed_by_record_writer": {
+        "kind": "function",
+        "shape": "(store: 'object', *, content_address: 'str', tenant_id: 'str') -> 'bool'"
+      },
+      "require_filed_by_record_writer": {
+        "kind": "function",
+        "shape": "(store: 'object', *, content_address: 'str', tenant_id: 'str') -> 'None'"
       }
     }
   },

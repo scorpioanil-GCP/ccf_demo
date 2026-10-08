@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2209 entries**, of which **1934** name a public Python surface.
+**2220 entries**, of which **1945** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1246 entries — 1202 public Python surface, 44 not public Python API.
+1250 entries — 1206 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18500,6 +18500,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `377-07-forged-record-provenance.md`.*
 
+#### ccf.replay.provenance.filed_by_record_writer
+
+- Surface: ccf.replay.provenance.filed_by_record_writer
+- Public surface: true
+- Change type: added
+- Before: absent; the rule existed only inline in `ccf_runtime.authz.delivery_boundary.govern_dereference`.
+- After: `filed_by_record_writer(store, *, content_address, tenant_id) -> bool` answers whether some name the store holds for the address is under `tenant_id` in a class its `WriteKinds` declares under `ReplayMint`. It reads naming only, never bytes. A store that answers no `names_at` or declares no `WriteKinds` raises `UnattributableRecordStore`; through an `ErasureConsultingStore`, the store it wraps must answer `names_at` too.
+- Why: Dave's item 3 (`D-IMPL-378`): one provenance check, called at every place SDK code accepts a record read from a store.
+- Migration: none; new.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.provenance.require_filed_by_record_writer
+
+- Surface: ccf.replay.provenance.require_filed_by_record_writer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: returns only if `filed_by_record_writer` holds; otherwise raises `RecordNotFiledByRecordWriter` (or `UnattributableRecordStore` for a store that cannot answer). Called after the record's bytes are parsed and before anything they say is accepted, by `resolve_artifact`, `GrantBoundChildResolver` child admission and `OpenedProduct.record_of`.
+- Why: Dave's item 3 (`D-IMPL-378`).
+- Migration: none; new. Code outside the SDK that turns stored bytes into a `DecisionReplayRecord` and treats it as evidence calls this after parsing.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.provenance.RecordNotFiledByRecordWriter
+
+- Surface: ccf.replay.provenance.RecordNotFiledByRecordWriter
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an `ArtifactNotFound` (so also a `KeyError` and an `ArtifactStoreError`), on the precedent of `MalformedContentAddress`: the store holds record-shaped bytes at the address and shows no filing of them by the fabric's record writer under the record's tenant. Every caller that already handles an absent record handles it identically; a caller that wants the mechanism catches it by name. The replay engine chains it as the cause of a `ReplayUnresolvable`.
+- Why: Dave's item 3 (`D-IMPL-378`): forged bytes answer as a missing record does.
+- Migration: none; new.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.provenance.UnattributableRecordStore
+
+- Surface: ccf.replay.provenance.UnattributableRecordStore
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `TypeError` raised when a record is read through a store that cannot say who filed an address — no `names_at`, no `WriteKinds`, or an `ErasureConsultingStore` over a store with no `names_at`. A wiring defect, refused by name, never a record accepted on the bytes' word; the posture of `UnattributableDeliveryBoundaryError`.
+- Why: Dave's item 3 (`D-IMPL-378`): a store that cannot attribute fails closed.
+- Migration: none; new.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19211,7 +19259,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-597 entries — 405 public Python surface, 192 not public Python API.
+598 entries — 406 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26143,6 +26191,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
 
+#### ccf.products.refusal.ResourceRequestIdentity
+
+- Surface: ccf.products.refusal.ResourceRequestIdentity
+- Public surface: true
+- Change type: reshaped
+- Before: four members — `surface`, `address`, `tenant_id`, `determined_at`. Nothing in a read-refusal record said whether its `tenant_id` was the tenant the refused capability was verified for (as `378-01` writes it) or the door recorder's (as the writer before `378-01` did); for the recorder's own tenant's principal the two records were byte-for-byte one.
+- After: adds `tenant_from: Literal["capability"] | None`, hash-transparent at `None`. `"capability"` is the positive claim that `tenant_id` is the tenant the deciding capability was verified for, bound to the principal replay dimension 4 records. Only `ccf_runtime.authz.delivery_boundary.govern_dereference` writes it, on every read-refusal record it mints, and only it reads it. Every resource identity recorded before the field existed keeps its content address. A disclosed shell carries the resource identity at `full` only, so the marker crosses a door only at `full`.
+- Why: Dave, 2026-10-07 (Q3; `D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_record_written_before_the_marker_is_told_apart_from_one_the_door_writes_today` and `::test_a_new_read_refusal_record_carries_the_marker_and_still_binds_who_asked`.
+- Migration: none for a reader of the type: the member is optional and defaults to `None`. Code that builds its own `ResourceRequestIdentity` leaves it `None`; only the governed read states `"capability"`.
+
+*Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -29159,7 +29219,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-319 entries — 280 public Python surface, 39 not public Python API.
+325 entries — 286 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34118,6 +34178,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a caller that caught `AttributeError` here catches `ValueError`, which the method's `Raises` section already named for every malformed declaration
 
 *Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.replay.engine.resolve_artifact
+
+- Surface: ccf.replay.engine.resolve_artifact
+- Public surface: true
+- Change type: behavior
+- Before: for `contract=DecisionReplayRecord`, any bytes at the address that hashed to it and parsed as a record were returned as one, whoever filed them, including a record-shaped artifact on a tenant's client lane naming another principal.
+- After: for a `DecisionReplayRecord`, after the byte-first hash check and validation, the store must show the address filed by the fabric's record writer under the tenant the record names (`require_filed_by_record_writer`). Otherwise it raises `ReplayUnresolvable`, as for a missing record, with `RecordNotFiledByRecordWriter` as its cause. A store that cannot attribute raises `UnattributableRecordStore`. Every caller inherits it: `resolve_artifact_at_uri`, `replay` and `replay_refusal`, whose prologue resolves the record through it, and `govern_dereference`'s own record read. Unchanged: every other contract, missing and erased addresses, and the hash check.
+- Why: Dave's item 3 (`D-IMPL-378`). Red tests: `tests/replay/test_record_provenance.py` (`resolve_artifact` and `resolve_artifact_at_uri` over the raw store and the erasure-consulting composition, `replay`, `replay_refusal`, a record filed by another tenant's writer, a store without `names_at` or `WriteKinds`).
+- Migration: a store a replay reads through must answer `names_at` and declare `WriteKinds` naming every record class its records were filed under, under `ReplayMint`, as the shipped `FileArtifactStore` and `McpArtifactStore` do when opened with the deployment's declaration. Consequences: a read-back store opened with an empty or partial declaration now refuses genuine records; a deployment that renames its record class keeps declaring the old class under `ReplayMint` to replay records filed under it; records written straight to a substrate without a naming entry no longer resolve; file them through `put` under the record class.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.engine.resolve_artifact_at_uri
+
+- Surface: ccf.replay.engine.resolve_artifact_at_uri
+- Public surface: true
+- Change type: behavior
+- Before: a URI naming a record-shaped artifact on a client lane resolved to it as a `DecisionReplayRecord`.
+- After: naming resolution is unchanged, then `resolve_artifact` applies the provenance rule. A URI naming bytes the record writer did not file raises `ReplayUnresolvable`. A URI naming a copy of a genuine record under another name resolves, because identical bytes are one artifact.
+- Why: Dave's item 3 (`D-IMPL-378`).
+- Migration: as for `resolve_artifact`.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.replay.engine.replay_refusal
+
+- Surface: ccf.replay.engine.replay_refusal
+- Public surface: true
+- Change type: behavior
+- Before: a forged refused record filed on a client lane was resolved, verified and returned as a `RefusalReplayOutcome` naming the principal the bytes named.
+- After: the prologue's record read applies the provenance rule, so such a record raises `ReplayUnresolvable` before any binding is resolved. `replay` changes identically for a forged served record, which it previously reproduced into a `ReplayOutcome`.
+- Why: Dave's item 3 (`D-IMPL-378`).
+- Migration: as for `resolve_artifact`.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: for a locally dispatched child, the record its replay reference named was read as the child's own execution record whoever filed it; only its product address was checked against the child's, so a record-shaped client-lane artifact with the right product address and forged touched entities decided the eligibility check.
+- After: the referenced bytes must have been filed by the fabric's record writer under the tenant they name, or `RecordNotFiledByRecordWriter` is raised before anything is read out of them. It propagates as any lookup failure from child resolution does, out of the composite resolver unless the deployment declares it a seam refusal. `UnattributableRecordStore` is raised for a store that cannot attribute. Inherited by `QuestionBoundChildResolver`, which admits through it.
+- Why: Dave's item 3 (`D-IMPL-378`). Red test: `tests/products/test_record_provenance_admission.py::test_child_admission_refuses_a_child_record_forged_on_the_tenants_own_client_lane`, through the shipped composite resolver.
+- Migration: as for `resolve_artifact`. A child producer's replay reference names a record its fabric's record writer filed in the store the composite reads.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf.products.product.OpenedProduct.record_of
+
+- Surface: ccf.products.product.OpenedProduct.record_of
+- Public surface: true
+- Change type: behavior
+- Before: returned the bytes at the address or URI an outcome named, parsed as a `DecisionReplayRecord`, whoever filed them.
+- After: returns them only where the product's store shows the fabric's record writer filed them under the tenant they name; otherwise raises `RecordNotFiledByRecordWriter`, or `UnattributableRecordStore` for a store that cannot attribute.
+- Why: Dave's item 3 (`D-IMPL-378`). Red test: `tests/products/test_record_provenance_admission.py::test_record_of_refuses_a_record_forged_on_the_tenants_own_client_lane` (a served outcome naming the forgery's address, a refusal naming its URI).
+- Migration: none for outcomes the product itself returned.
+
+*Recorded by `378-08-record-provenance-in-process.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a read-refusal record minted before `378-01` named the door recorder's tenant whichever tenant asked, and on a door serving several tenants through one recorder it still read for a principal of the recorder's tenant with the same client id as the principal it named (recorded as a strict expected failure).
+- After: every read-refusal record it mints carries the marker (`ResourceRequestIdentity.tenant_from == "capability"`). One step, placed immediately after the provenance check and before hold 0, answers a read-refusal record without the marker exactly as a missing address — `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level — for every caller: the principal it names, another principal of the same tenant (who read `unauthorized` at hold 1 before) and another tenant's principal with the same client id. The marker is read in that step and nowhere else, so a record carrying it that the fabric's record writer did not file answers as missing: measured for a marked record filed on another tenant's client lane and on the tenant's own client lane, at the MCP artifact server's blob and presence resources, at HTTP `/replay/decisions`, `/replay/resolutions` and `/artifact`, and to `govern_dereference` called in process. With the provenance check severed those forgeries cross, so the marker confers trust only through it.
+- Why: Dave, 2026-10-07 (Q3; `D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone`, `::test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does` (both client lanes), `::test_a_marked_read_refusal_record_filed_on_a_client_lane_confers_nothing_on_an_in_process_governed_read`, `::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`; `tests/http_api/test_read_refusal_attribution_http.py::test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone` and `::test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does` (both client lanes).
+- Migration: **owner read-back of read-refusal records minted before this change is lost.** Every read-refusal record minted before the marker answers as a missing address, through the HTTP evidence routes and the MCP artifact server's governed reads, to every caller — the principal it names included. The records are not rewritten: they stay in the store and still reconstruct at their own addresses through `ccf.replay.engine.replay_refusal` (`tests/mcp/test_read_refusal_attribution_mcp.py::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`); an examiner reads them from the store, not through a door. A read-refusal record minted from now on carries the marker and reads back for its own principal through the door whose recorder is its tenant's, as before.
+
+*Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
 
 ### Not public Python API
 

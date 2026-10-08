@@ -23,10 +23,14 @@ meaningful nowhere else (CINV-01 applied to test data).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from ccf.artifacts.protocol import parse_artifact_uri
+from ccf.authz.capability import ArtifactWrite
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.erasure import erasure_index_at
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureDecision
@@ -39,6 +43,7 @@ from ccf.products.entitlement import (
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective
 from ccf.replay.serve import ReplayWriter
+from ccf_runtime.authz.delivery_boundary import SURFACE_HTTP_REPLAY_READ
 from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource
 from ccf_runtime.http_api.app import create_app
 from ccf_runtime.http_api.dependencies import ApiDependencies
@@ -46,6 +51,8 @@ from ccf_runtime.http_api.errors import ERROR_EVIDENCE_ABSENT, ERROR_EVIDENCE_DI
 from http_api.composition_authority import composition_replay_mint, refusal_recorder, register_typed_at_composition
 from http_api.conftest import Fabric
 from tests.composition import declared_erasure_trust
+from tests.controlplane.capabilities import capability
+from tests.mcp.test_read_refusal_attribution_mcp import _record_as_written_before_the_binding
 
 from .test_c2_tenant_hold_http import ROUTES, _assert_identical, _internal_cause
 from .test_evidence_dereference import (
@@ -71,6 +78,13 @@ FOREIGN_TOKEN = "refusal-token-foreign"
 
 #: The address ``FOREIGN``'s principal asks about. Nothing is ever stored there.
 ASKED = "a" * 64
+
+#: The address a forged read-refusal record claims the door tenant's ``ALICE``
+#: asked about — an ask she never made.
+FORGED_ASK = "f" * 64
+
+#: A client-lane class: one the store does not declare under ``ReplayMint``.
+CLIENT_CLASS = "c"
 
 
 def _policy(tenant: str, product_class: str, level: str) -> ProductEntitlementPolicy:
@@ -309,3 +323,77 @@ def test_a_refusal_of_another_tenants_principal_is_disclosed_at_its_own_level_no
         DISCLOSURE_FULL,
         product_entitlement_key(tenant_id=FOREIGN),
     )
+
+
+# =========================================================================
+# "Check existing records too" — Dave, 2026-10-07 19:31 (Q3); the MCP twin
+# states the ruling.
+# =========================================================================
+
+
+def _record_before_the_marker(door: Governed) -> str:
+    """The door tenant's ``ALICE`` refused ``ASKED`` on ``/replay/decisions``, as the door filed it before the marker; its reference."""
+    return _record_as_written_before_the_binding(
+        door.recorder,
+        principal=ALICE,
+        reference=ASKED,
+        surface=SURFACE_HTTP_REPLAY_READ,
+        address="/replay/decisions",
+        determined_at=AUDIT_INSTANT,
+    ).replay_reference
+
+
+def test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone(tmp_path: Path) -> None:
+    """Every route answers an unmarked read-refusal record exactly as it
+    answered the address while nothing was filed there — for the owner it
+    names (the loss of owner read-back) and for another tenant's principal
+    with the owner's client id — with the recorded absence behind it."""
+    reference = _record_before_the_marker(_door(tmp_path / "twin"))
+
+    door = _door(tmp_path / "door")
+    readers = {"owner": OWN_TOKEN, "other-tenant": FOREIGN_TOKEN}
+    before = {who: _answers(door, reference, token=token) for who, token in readers.items()}
+    assert _record_before_the_marker(door) == reference, "the twin door minted another record"
+
+    for who, token in readers.items():
+        after = _answers(door, reference, token=token)
+        _assert_identical(before[who], after)
+        for route in ROUTES:
+            assert _internal_cause(door, after[route]) == ("nonexistent", ERROR_EVIDENCE_ABSENT), (who, route)
+            assert ASKED not in after[route].text, (who, route)
+
+
+@pytest.mark.parametrize("forger", ["another-tenant", "the-door-tenant"])
+def test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does(
+    tmp_path: Path, forger: str
+) -> None:
+    """Caller-supplied bytes cannot confer trust (Q3). The record the governed
+    read writes, MARKED, for the door tenant's ``ALICE`` asking ``FORGED_ASK`` —
+    minted on a scratch door — is filed on a client lane of this door's store,
+    where ``ALICE`` never asked it; every route answers her exactly as before
+    the filing."""
+    scratch = _door(tmp_path / "scratch")
+    reference = _get_record(scratch, FORGED_ASK, token=OWN_TOKEN).json()["refusal"]["replay_reference"]
+    internal = scratch.internal(reference)
+    assert internal.resource is not None and internal.resource.tenant_from == "capability", (
+        "the governed read minted no marker"
+    )
+    address = parse_artifact_uri(reference).artifact_version
+    document = json.loads(scratch.store.get(content_address=address))
+
+    door = _door(tmp_path / "door")
+    before = _answers(door, reference, token=OWN_TOKEN)
+    filed = door.store.put(
+        capability(
+            ArtifactWrite,
+            tenant=FOREIGN if forger == "another-tenant" else door.tenant,
+            resource=f"{CLIENT_CLASS}/forged-read-refusal",
+        ),
+        document,
+    )
+    assert filed.content_address == address
+    after = _answers(door, reference, token=OWN_TOKEN)
+
+    _assert_identical(before, after)
+    for route in ROUTES:
+        assert _internal_cause(door, after[route]) == ("nonexistent", ERROR_EVIDENCE_ABSENT), route
