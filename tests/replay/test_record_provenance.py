@@ -318,9 +318,27 @@ def test_a_store_that_cannot_attribute_a_filing_refuses_a_genuine_record_by_name
     """Fail closed: a store that cannot say who filed an address cannot hand the
     engine a record, even a genuine one — refused by name, never served."""
     address, _record = _a_refused_decision(booted)
+    (genuine_name,) = _fresh(booted).names_at(content_address=address)
+    genuine_uri = (
+        f"ccf-artifact://{genuine_name.tenant_id}/{genuine_name.artifact_class}/{genuine_name.name}@{address}"
+    )
     unattributing = _WithoutNaming(_fresh(booted), drop=drop)
     store = unattributing if composition == "raw" else _composed(unattributing)
 
     with pytest.raises(TypeError) as refused:
         resolve_artifact(store=store, content_address=address, contract=DecisionReplayRecord)
     assert isinstance(refused.value, _provenance().UnattributableRecordStore), refused.value
+    # Every engine entry point reads the record through that one resolution.
+    with pytest.raises(TypeError) as by_uri:
+        resolve_artifact_at_uri(store=store, uri=genuine_uri, contract=DecisionReplayRecord)
+    assert isinstance(by_uri.value, _provenance().UnattributableRecordStore), by_uri.value
+    for entry_point in (replay, replay_refusal):
+        with pytest.raises(TypeError) as by_replay:
+            entry_point(
+                record_address=address,
+                store=store,
+                reader=booted.fabric.handle.reader,
+                control_plane=booted.control_plane,
+                environment=_NeverConsulted(),
+            )
+        assert isinstance(by_replay.value, _provenance().UnattributableRecordStore), (entry_point, by_replay.value)
