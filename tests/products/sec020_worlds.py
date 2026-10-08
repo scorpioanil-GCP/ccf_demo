@@ -536,19 +536,48 @@ class PopulationHalf:
         )
 
 
+class ReferenceAssess:
+    """The paved road's ``assess``, scored by the SDK's reference scorer over the view it is handed.
+
+    The paved fixture's own ``assess`` returns one constant assessment, so on
+    that road debt could never differ and a leak carried by debt would be
+    invisible. Here decay is measured over the actual view against the booted
+    λ_c table and D_c profile, exactly as the low road's reference scorer
+    measures it; completeness and consistency are the declared fixture factors.
+    """
+
+    def __call__(self, context: Any) -> Any:
+        from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor  # noqa: PLC0415
+        from tests.products.test_evidence_derived_debt import DECLARED  # noqa: PLC0415
+
+        return AssemblyDebtScorer(
+            table=context.half_life,
+            profile=context.profile,
+            completeness=DeclaredFactor(value=DECLARED),
+            semantic_consistency=DeclaredFactor(value=DECLARED),
+        ).score_at(
+            view=context.view,
+            evidence=context.evidence,
+            decided_at=context.decided_at,
+            children=context.children,
+        )
+
+
 def paved_document(anchor: str) -> dict[str, Any]:
     """The paved fixture's config under ``anchor``, with the ``book`` attribute admitted.
 
-    An evidence-anchored class declares its λ_c row ``valid-from`` (the
-    open-time refusal ``D-IMPL-341`` R-3 requires). Test-side variant only.
+    The λ_c row decays from ``valid-from`` under both anchors, as the low road's
+    table does: an evidence-anchored class requires it (``D-IMPL-341`` R-3),
+    and under ``from_decision`` it is what makes an observation's age count —
+    the paved road stamps ingestion at the question's own instant, so decay from
+    ingestion would read every claim as brand new. Test-side variant only.
     """
     from tests.products.test_paved_road import _config  # noqa: PLC0415
 
     document = copy.deepcopy(_config())
     document["product_class"]["ttl_anchor"] = anchor
-    if anchor == FROM_ENTITY_FRESHNESS:
-        for row in document["half_life"].values():
-            row["decay_basis"] = "valid-from"
+    for row in document["half_life"].values():
+        row["decay_basis"] = "valid-from"
     for rule in document["resolution"]["entity_rules"]:
         rule["attribute_keys"] = [*rule["attribute_keys"], BOOK_ATTRIBUTE]
     return document
@@ -576,7 +605,10 @@ def open_paved(
     register_entitlement(
         registry, tenant=TENANT, product_class=PRODUCT_CLASS, role=ROLE, evidence_readable=evidence_readable
     )
-    opened = _open(root, base / "scratch", acquire=acquire, project=project, control_plane=registry, **overrides)
+    opened = _open(
+        root, base / "scratch", acquire=acquire, project=project, control_plane=registry,
+        assess=ReferenceAssess(), **overrides,
+    )
 
     def ask(subject: str, parameters: Mapping[str, Any] | None = None) -> Any:
         return opened.answer(
