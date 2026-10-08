@@ -8,17 +8,17 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **334** across **110** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **177** across **65** files
+- Coupling rows: **346** across **112** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **186** across **66** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
 Rows by owning plan:
 
 | Owning plan | Rows |
 | --- | --- |
-| 16-02 | 10 |
-| 17-08 | 113 |
-| 23-04 | 192 |
+| 16-02 | 12 |
+| 17-08 | 119 |
+| 23-04 | 196 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
@@ -31,12 +31,12 @@ Rows by coupling shape:
 | `count-scan-function` | 5 |
 | `docstring` | 81 |
 | `indirect-execution` | 1 |
-| `literal-set-member` | 5 |
+| `literal-set-member` | 8 |
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 12 |
-| `prose` | 106 |
+| `prose` | 115 |
 | `snippet-include` | 56 |
 | `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
@@ -110,6 +110,15 @@ Rows by coupling shape:
 | `docs/superpowers/plans/2026-09-27-wave-2-HANDOFF.md` | 757 | `archive/examples/04-cross-process` | `prose` | documentary | - | - | 23-04 |  |
 | `docs/superpowers/plans/2026-09-27-wave-2-HANDOFF.md` | 1452 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/plans/2026-10-02-STATE-wave-2-closed-sitting-A-open.md` | 48 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 497 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 497 | `archive/examples/06-decision-replay` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 531 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 532 | `archive/examples/06-decision-replay` | `prose` | documentary | - | - | 23-04 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 574 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 621 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 673 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 723 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
+| `docs/superpowers/plans/2026-10-08-ci-fixes-c4-c5-c8-c9-c10.md` | 730 | `tests/examples/test_s1_00_output.py` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/specs/2026-08-14-ccf-config-consolidation-design.md` | 12 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/specs/2026-08-14-ccf-config-consolidation-design.md` | 18 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/superpowers/specs/2026-08-14-property-not-shape-gating-design.md` | 21 | `examples/s1-00-companies-over-revenue` | `prose` | documentary | - | - | 17-08 |  |
@@ -284,11 +293,13 @@ Rows by coupling shape:
 | `tests/examples/test_artifact_schema_headers.py` | 61 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 62 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_artifact_schema_headers.py` | 123 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 201 | `archive/examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 208 | `archive/examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 220 | `archive/examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 519 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
-| `tests/examples/test_artifact_schema_headers.py` | 572 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 202 | `archive/examples/03-harness-portability` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 209 | `archive/examples/external/00-hello-context` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 221 | `archive/examples/08-e2e-demo` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 428 | `archive/examples/05-workflow-hitl` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 429 | `archive/examples/06-decision-replay` | `literal-set-member` | live | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 545 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 16-02 |  |
+| `tests/examples/test_artifact_schema_headers.py` | 598 | `examples/s1-00-companies-over-revenue` | `docstring` | documentary | - | - | 16-02 |  |
 | `tests/examples/test_client_example_purity.py` | 588 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_cp_readme_template.py` | 5 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_cp_readme_template.py` | 21 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
@@ -297,6 +308,7 @@ Rows by coupling shape:
 | `tests/examples/test_cp_readme_template.py` | 240 | `archive/examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `archive/examples/08-e2e-demo` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/08-e2e-demo` |
+| `tests/examples/test_frozen_family_quarantine.py` | 38 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
 | `tests/examples/test_gate_two_divergence.py` | 97 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_hw1_harness_clients_retirement.py` | 28 | `archive/examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
