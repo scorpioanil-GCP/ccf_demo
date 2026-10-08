@@ -64,15 +64,22 @@ import pytest
 
 from tests.products import sec020_worlds as w
 
-# The MCP SDK logs every request at INFO; the proof reads its own observations.
-logging.getLogger("mcp").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
+#: The MCP SDK and its HTTP client log every request at INFO; the proof reads
+#: its own observations, so the module quiets them while it runs, and restores them.
+_QUIETED_LOGGERS = ("mcp", "httpx")
 
 
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.RunCache]:
     """One run per (shape, anchor, door) for this module; every channel's test reads it."""
-    yield w.RunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.RunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
 
 
 #: Every shape the matrix asks on: the seven the brief names (with the reused
