@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2294 entries**, of which **2019** name a public Python surface.
+**2297 entries**, of which **2022** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1288 entries — 1244 public Python surface, 44 not public Python API.
+1289 entries — 1245 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -19004,6 +19004,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
 
+#### ccf.products.resolver.NeverWithholdingProjectionCanWithhold
+
+- Surface: ccf.products.resolver.NeverWithholdingProjectionCanWithhold
+- Public surface: true
+- Change type: added
+- Before: absent; a class affirming `never` constructed whatever its plan factory declared, and the question about a subject its projection withheld raised `NeverWithholdingContradicted` at serve, for that subject only.
+- After: an `UnsupportedComposition` raised by `GovernedResolver` construction when the class declaration affirms `subject_withholding: never` and the plan factory, through `SubjectDisclosingPlanFactoryProtocol`, returns `None` or a `SubjectDisclosurePolicy` that does not disclose some subject to some principal or role.
+- Why: SEC-020, E2 (ii) (Dave, 2026-10-08 12:29 MST): validate withholding capability against the class declaration at construction. A refusal at construction is the same whatever subject would have been asked; one at serve is raised for the withheld subject alone.
+- Migration: affirm `never` only for a class whose projection never withholds; a class whose plan factory declares withholding keeps the default `may-withhold`.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29867,7 +29879,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-345 entries — 306 public Python surface, 39 not public Python API.
+347 entries — 308 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35138,6 +35150,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as above; a non-composite class is unaffected.
 
 *Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted a class affirming `never` whatever its plan factory declared through `SubjectDisclosingPlanFactoryProtocol`.
+- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first.
+- Why: as above; the order names the class's own contradiction before the composite rule it also breaks.
+- Migration: as above; a class at the default `may-withhold` is unaffected.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.NeverWithholdingContradicted
+
+- Surface: ccf.products.resolver.NeverWithholdingContradicted
+- Public surface: true
+- Change type: behavior
+- Before: the only check of a class affirming `never`, at serve.
+- After: unchanged in what it raises; documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
+- Why: SEC-020, E2 (ii): *"retain the runtime check as defense."*
+- Migration: none.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
 
 ### Not public Python API
 

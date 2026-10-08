@@ -1356,12 +1356,22 @@ a nonexistent one. Each was measured on test fixtures.
   `/artifact`, at the MCP artifact server's blob, presence and names
   resources, at the Experience door and through the `ccf` CLI
   (`tests/http_api/test_sec020_q12_owner_read_back.py`). Read-refusal records
-  keep their owner read-back (section 4.10). Two limits remain. A class that
-  affirms `never` while its projection can withhold is a broken deployment:
-  its withheld question raises where a nonexistent subject's is served (the
-  same test module). And `OpenedProduct.record_of` and the replay engine read
-  the store their caller already holds, so they are not governed; they are the
-  operator's and the auditor's reads.
+  keep their owner read-back (section 4.10). A class that affirms `never` over
+  a plan factory declaring that it withholds (an early policy that withholds
+  some subject, or `subject_disclosure()` returning `None`) is refused when its
+  resolver is built, before any question
+  (`src/ccf/products/resolver.py::NeverWithholdingProjectionCanWithhold`;
+  `tests/products/test_sec020_never_capability.py`). Two limits remain. The SDK
+  cannot see a withhold that the plan factory does not declare: a class that
+  affirms `never` while such a projection withholds is a broken deployment, and
+  its withheld question raises where a nonexistent subject's is served (an HTTP
+  500 against a 200). Measured, and kept failing in the closing test until a
+  treatment removes it
+  (`tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable`).
+  Do not affirm `never` for a class whose projection can withhold. And
+  `OpenedProduct.record_of` and the replay engine read the store their caller
+  already holds, so they are not governed; they are the operator's and the
+  auditor's reads.
 - **Composite children whose arguments do not come from the request.** Under
   the early policy the SDK hands the child resolver the request with the
   stand-in in place of the subject, but the deployment's child-arguments

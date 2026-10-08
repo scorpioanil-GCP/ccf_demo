@@ -8535,6 +8535,7 @@
       "GovernedResolver",
       "InstantAwareDebtScorerProtocol",
       "NeverWithholdingContradicted",
+      "NeverWithholdingProjectionCanWithhold",
       "PackagingTraceProtocol",
       "PopulationAcquisitionSeamProtocol",
       "PopulationPhaseSharesAnOwner",
@@ -8608,6 +8609,10 @@
         "shape": "(*args, **kwargs)"
       },
       "NeverWithholdingContradicted": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "NeverWithholdingProjectionCanWithhold": {
         "kind": "class",
         "shape": "type"
       },
