@@ -596,6 +596,22 @@ class ResourceRequestIdentity(CCFContract):
             read from the deployment's own declared clock — the **same**
             instant the replay record's ``recorded_at`` carries, so the shell
             and its record cannot disagree about when the fabric decided.
+        tenant_from: Where :attr:`tenant_id` came from — the marker a
+            read-refusal record carries (Dave, 2026-10-07, ruling Q3;
+            ``D-IMPL-378``). ``"capability"`` is the positive claim that
+            :attr:`tenant_id` is the tenant the deciding capability was
+            verified for, bound to the principal replay dimension 4 records.
+            Only the governed evidence read
+            (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``)
+            writes it, on the read refusals it mints, and only that read
+            reads it — and only on a record its provenance check has proved
+            the fabric's record writer filed, so bytes a caller filed carrying
+            it confer nothing. ``None``, the sentinel, states nothing: a
+            read-refusal record minted before the marker named the recorder's
+            tenant whichever tenant asked, so the governed read answers it as
+            a missing address for every caller, the principal it names
+            included. Hash-transparent at ``None``, so every record minted
+            before the field existed keeps its content address.
 
     Raises:
         ValueError: ``determined_at`` carries no UTC offset. ``D-IMPL-38``
@@ -610,6 +626,9 @@ class ResourceRequestIdentity(CCFContract):
     address: str
     tenant_id: str
     determined_at: datetime
+    tenant_from: Literal["capability"] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("determined_at")
     @classmethod

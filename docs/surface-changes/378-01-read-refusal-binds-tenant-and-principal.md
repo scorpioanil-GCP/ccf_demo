@@ -22,15 +22,18 @@ picks the Experience door's answer to an erasure.
 **Not changed, and owed to Dave.** A read-refusal record minted before this
 change still names the recorder's tenant, whichever tenant asked. It is
 byte-for-byte the record this change mints for the recorder's own tenant's
-principal asking the same reference at the same instant
-(`tests/mcp/test_read_refusal_attribution_mcp.py::test_a_record_written_before_the_binding_is_byte_for_byte_one_the_door_writes_today`),
-so no rule over a record's content can refuse one to that principal and serve
+principal asking the same reference at the same instant — the identity
+`tests/mcp/test_read_refusal_attribution_mcp.py::test_a_record_written_before_the_marker_is_told_apart_from_one_the_door_writes_today`
+measured, red until `378-10`'s marker told the two apart — so no rule over a
+record's content can refuse one to that principal and serve
 it the other: on a door that served several tenants through one recorder, such
 a record still reads for the colliding principal of the recorder's tenant
 (recorded as a strict expected failure). Failing those records closed needs a
 positive marker on new read-refusal records, or no read-refusal record readable
 through the governed read at all (`D-IMPL-345` R-2 keeps a principal's own
-chain readable); either is a ruling.
+chain readable); either is a ruling. Dave ruled the marker on 2026-10-07 (Q3):
+`378-10` answers every read-refusal record minted before it as a missing
+address, for every caller.
 
 ## ccf_runtime.authz.delivery_boundary.govern_dereference
 

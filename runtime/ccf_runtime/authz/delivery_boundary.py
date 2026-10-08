@@ -69,7 +69,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Final, Protocol, runtime_checkable
+from typing import Any, Final, Literal, Protocol, runtime_checkable
 
 from pydantic import ValidationError
 
@@ -212,6 +212,14 @@ EvidenceReadAuthority = Authorized[ArtifactRead] | Authorized[ReplayRead]
 #: below ``full`` and tell the caller that the target exists and what class it
 #: was decided on.
 DEREFERENCE_PRODUCT_ID: Final[str] = "ccf.evidence-dereference"
+
+#: The marker every read-refusal record :func:`govern_dereference` mints
+#: carries on its resource identity
+#: (:attr:`~ccf.products.refusal.ResourceRequestIdentity.tenant_from`): its
+#: ``tenant_id`` is the tenant the refused capability was verified for (Dave,
+#: 2026-10-07, ruling Q3; ``D-IMPL-378``). Written by ``refuse`` below and read
+#: by the step after the provenance check, and nowhere else.
+_TENANT_FROM_CAPABILITY: Final[Literal["capability"]] = "capability"
 
 
 class UnrecordableDeliveryBoundaryError(ValueError):
@@ -990,6 +998,13 @@ def govern_dereference(
       and under the tenant the record was decided under. Bytes filed any other
       way, a forgery on a client lane included, answer exactly as a missing
       address does (the forged-record finding; ``D-IMPL-376`` close-out).
+    - **The read-refusal marker, after provenance.** A record this boundary
+      itself wrote is served only if its resource identity carries the marker
+      (:attr:`~ccf.products.refusal.ResourceRequestIdentity.tenant_from`) that
+      binds its tenant to the principal that asked; one without it answers
+      exactly as a missing address does, for every caller (Dave, 2026-10-07,
+      ruling Q3; ``D-IMPL-378``). Read only here, on bytes the provenance step
+      has proved, so a caller who files the marker confers nothing.
     0. **Tenant.** The tenant the record was decided under
        (:func:`_decided_identity`; the record's own ``tenant_id`` when no
        identity is recoverable) equals the capability's ``authorized.tenant``.
@@ -1072,11 +1087,16 @@ def govern_dereference(
     recorder files it under the recorder's own tenant; where that is not the
     capability's tenant — a door serving several tenants through one recorder
     — the record is decided under one tenant and filed under another, and the
-    provenance check serves it to nobody, its own principal included. A
-    read-refusal record minted before this binding names the recorder's
-    tenant whichever tenant asked, and nothing in it tells the two apart: on
-    such a door it still reads for a principal of the recorder's tenant with
-    the same client id as the principal it names.
+    provenance check serves it to nobody, its own principal included. Every
+    read-refusal record it mints carries the marker
+    (``ResourceRequestIdentity.tenant_from == "capability"``), and a
+    read-refusal record without it — every one minted before the marker,
+    which names the recorder's tenant whichever tenant asked and is
+    byte-for-byte a legitimate record of the recorder's own principal —
+    answers exactly as a missing address does, for every caller. **That
+    includes the principal it names: owner read-back of a read-refusal record
+    minted before the marker is lost** (Dave, 2026-10-07, ruling Q3); the
+    record stays in the store, and still replays to its own address.
 
     **The capability first** (D-IMPL-353 §1.2, §1.5). ``authorized`` is the
     ``Authorized[ArtifactRead]`` or ``Authorized[ReplayRead]`` the HTTP gate or
@@ -1231,6 +1251,10 @@ def govern_dereference(
                 # under the recorder's, such a record is served to nobody by
                 # the provenance check below. Normalized below `full`.
                 tenant_id=authorized.tenant,
+                # The marker (Q3): stated by the governed read itself, on every
+                # read refusal it mints, and counted only behind the provenance
+                # check (see the step after it).
+                tenant_from=_TENANT_FROM_CAPABILITY,
                 determined_at=determined_at,
             ),
             policy_bindings=(policy,) if policy is not None else (),
@@ -1353,6 +1377,25 @@ def govern_dereference(
         store, content_address=content_address, tenant_id=deciding_tenant
     )
     if not filed_by_the_record_writer:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
+
+    # --- the read-refusal marker: counted only on a record proven above -----
+    # Dave, 2026-10-07 19:31 (ruling Q3; `D-IMPL-378`): "Old, unmarked
+    # read-refusal records read as missing for everyone. The marker must have
+    # trusted provenance; caller-supplied bytes cannot confer trust." A read
+    # refusal minted before the marker names the recorder's tenant whichever
+    # tenant asked, and is byte-for-byte a legitimate record of the recorder's
+    # own principal, so it answers exactly as a missing address does for every
+    # caller — the principal it names included. Read HERE and nowhere else:
+    # after the provenance step has proved the fabric's record writer filed
+    # these bytes under the deciding tenant, before any hold reads who asks.
+    if _is_read_refusal(internal) and (
+        internal is None
+        or internal.resource is None
+        or internal.resource.tenant_from != _TENANT_FROM_CAPABILITY
+    ):
         return refuse(
             cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
         )

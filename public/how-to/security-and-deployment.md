@@ -1051,11 +1051,13 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   subject, so it refuses a request naming such a filing
   `subject-unverifiable`. A door over the store in process reads the bytes
   directly and judges the subject.
-- **A read-refusal record minted before D-IMPL-378 is attributed to the
-  door's tenant (forged-record re-review, D-IMPL-376; D-IMPL-378).** The
-  governed read records each refusal through the recorder of the door that
-  refused it. The record now names the tenant the refused capability was
-  verified for, beside its principal
+- **A read-refusal record names who asked; one minted before its marker
+  reads as missing for everyone, its owner included (forged-record re-review,
+  D-IMPL-376; D-IMPL-378).** The governed read records each refusal through
+  the recorder of the door that refused it. The record names the tenant the
+  refused capability was verified for, beside its principal, and carries a
+  marker saying so (`src/ccf/products/refusal.py::ResourceRequestIdentity`,
+  member `tenant_from`) that only the governed read writes
   (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`), so
   the tenant and principal holds bind a later reader to that pair. On a door
   that serves several tenants through one recorder, as the MCP artifact server
@@ -1069,21 +1071,24 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   principal cannot read its record back through that door either: the record
   is decided under its tenant and filed under the recorder's, and the governed
   read serves a record only where it is filed under the tenant it was decided
-  under. **A read-refusal record minted before this change still names the
-  door's tenant, whichever tenant asked.** It is byte-for-byte the record the
-  door now mints for its own tenant's principal asking the same reference at
-  the same instant, so nothing in it lets the governed read tell the two
-  apart: on such a door, a principal of the door's tenant with the same client
-  id as the refused principal still reads it and learns which reference that
-  principal asked for — an address or a URI, never any content (a strict
-  expected failure in `tests/mcp/test_read_refusal_attribution_mcp.py`;
-  failing such records closed is a decision owed to Dave). Where a door served
-  several tenants through one recorder before this change, keep client ids
-  distinct across those tenants, or give each tenant its own door and
-  recorder. The disclosure level a governed read is held to and the level a
-  refusal shell is disclosed at are each read for the caller's tenant and
-  principal together, never for a principal of the door's tenant with the
-  same client id (`tests/mcp/test_read_refusal_attribution_mcp.py`,
+  under. **Owner read-back of a read-refusal record minted before the marker
+  is lost.** Such a record named the door's tenant whichever tenant asked and
+  is byte-for-byte a legitimate record of the door's own principal, so the
+  governed read answers every read-refusal record without the marker exactly
+  as a missing address, for every caller — measured for the principal it
+  names and another tenant's principal with the same client id at both doors,
+  and for another principal of the door's tenant at the MCP door. The records
+  are not rewritten: they stay in the store and still reconstruct at their own
+  addresses through `replay_refusal` (the replay case in
+  `tests/mcp/test_read_refusal_attribution_mcp.py`); read them from the store,
+  not through a door. The marker counts only on a record the provenance check proved the
+  fabric's record writer filed: a marked read-refusal record filed on another
+  tenant's client lane or on the tenant's own answers as a missing address at
+  both doors and to the governed read called in process (same test modules).
+  The disclosure level a governed read is held to and the level a refusal
+  shell is disclosed at are each read for the caller's tenant and principal
+  together, never for a principal of the door's tenant with the same client id
+  (`tests/mcp/test_read_refusal_attribution_mcp.py`,
   `tests/http_api/test_read_refusal_attribution_http.py`); so is the level
   that picks the Experience door's answer to an erasure — measured on
   `get_context` (`tests/mcp/test_experience_level_binds_the_tenant.py`).

@@ -8246,6 +8246,7 @@
           "address": "<class 'str'>",
           "determined_at": "<class 'datetime.datetime'>",
           "surface": "<class 'str'>",
+          "tenant_from": "typing.Optional[typing.Literal['capability']]",
           "tenant_id": "<class 'str'>"
         }
       },

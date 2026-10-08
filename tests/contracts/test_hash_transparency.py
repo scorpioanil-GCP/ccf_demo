@@ -665,6 +665,13 @@ _MARKED_IN_THE_TREE = frozenset(
         # a rendered `"error_code": "product_class_unentitled"` differ in
         # shape, and shape is a leak channel (``D-IMPL-253`` am.2 (4)).
         "ccf.products.refusal.SubjectUnavailableRefusal.error_code",
+        # D-IMPL-378 (Dave, 2026-10-07, ruling Q3): the read-refusal marker.
+        # `None` is what every resource identity minted before the marker
+        # already said — nothing about where its tenant came from — so every
+        # delivery-boundary denial and read refusal recorded before it keeps its
+        # content address and still replays to it; only the governed evidence
+        # read writes `"capability"`.
+        "ccf.products.refusal.ResourceRequestIdentity.tenant_from",
         # 24.6-08: the disclosure posture in force (``24.6-L-16``,
         # ``D-IMPL-253`` Q17). Both are hash-transparent at their sentinels —
         # ``minimal`` on the policy and ``None`` on the grant — so every
