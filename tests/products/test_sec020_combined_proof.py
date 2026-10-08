@@ -568,9 +568,10 @@ LISTED_SHAPES = w.LISTED_SHAPES
 #: ``378b-s020record`` PROPOSAL section 7, item 1). A class that does not affirm
 #: ``never``, listed: refused where its resolver is built, in the deployment that
 #: holds the subject and in the one that does not. The withheld subject under a
-#: class that affirms ``never``: refused before anything is recorded —
-#: ``NeverWithholdingContradicted`` on the paved road; for a composite, Q8's
-#: late-withhold refusal runs first on this tree (``CompositeWithheldLate``).
+#: class that affirms ``never``: refused before anything is recorded, as
+#: ``NeverWithholdingContradicted`` — for a composite too, named before Q8's
+#: ``CompositeWithheldLate`` (Dave's CT-D (a), 2026-10-08 12:29 MST: "for
+#: diagnostic precedence; this does not resolve E2(ii)'s oracle").
 #: That second expectation names the runtime DEFENSE Dave retained (E2 (ii),
 #: 2026-10-08 12:29 MST), held here for the record channel only: the raise
 #: itself, against the nonexistent subject's answer, is the oracle he ruled, and
@@ -581,7 +582,7 @@ LISTED_REFUSALS: dict[str, dict[str, str]] = {
     w.NONEXISTENT_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
     w.WITHHELD_READABLE: {
         w.SUBJECT_KEYED: "NeverWithholdingContradicted",
-        w.COMPOSITE_SUBJECT_CHILD: "CompositeWithheldLate",
+        w.COMPOSITE_SUBJECT_CHILD: "NeverWithholdingContradicted",
     },
 }
 

@@ -48,7 +48,7 @@ from ccf.products.resolver import GovernedResolver, ProductNotResolvable
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.serve import ServedProduct
 from tests.deployment.conftest import ARTIFACT_SET, PRODUCT_CLASS_KEY
-from tests.products.composite_fixture import boot_composite, build_child_resolver
+from tests.products.composite_fixture import ask_composite, boot_composite, build_child_resolver
 from tests.products.test_resolver_seam import (
     PERSPECTIVE,
     _arguments,
@@ -269,4 +269,24 @@ def test_e2ii_the_serve_time_check_remains_the_defense_for_a_factory_that_declar
     resolver = _resolver(never_class, plan_factory=_DeclaresNothingWithholds(frozenset({ASKED})))
     with pytest.raises(ProductNotResolvable) as raised:
         _ask(resolver, _request())
+    assert type(raised.value).__name__ == SERVE_TIME_DEFENSE, repr(raised.value)
+
+
+def test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first(
+    never_composite: _Booted,
+) -> None:
+    """CT-D (a) (Dave, 2026-10-08 12:29 MST): *"for diagnostic precedence; this does not resolve E2(ii)'s oracle."*
+
+    A composite whose class affirms ``never`` and whose plan factory declares
+    nothing — so it constructs — withholds the asked subject inside its
+    projection. Q8 refuses that as ``CompositeWithheldLate`` and Q12 as
+    ``NeverWithholdingContradicted``, both before anything is recorded; the
+    class's own contradiction is named first, as its documentation says. The
+    order is all this changes: the subject's question still raises where a
+    nonexistent subject's is answered (the closing test's
+    ``never_composite_late`` cells).
+    """
+    resolver = _construct_composite(never_composite, plan_factory=_DeclaresNothingWithholds(frozenset({ASKED})))
+    with pytest.raises(ProductNotResolvable) as raised:
+        ask_composite(resolver)
     assert type(raised.value).__name__ == SERVE_TIME_DEFENSE, repr(raised.value)
