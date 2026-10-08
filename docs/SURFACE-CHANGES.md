@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2237 entries**, of which **1962** name a public Python surface.
+**2241 entries**, of which **1966** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1258 entries — 1214 public Python surface, 44 not public Python API.
+1259 entries — 1215 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18644,6 +18644,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-09-one-approval-one-passage.md`.*
 
+#### ccf_runtime.http_api.errors.ERROR_EXECUTION_FENCED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_EXECUTION_FENCED
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `"execution-fenced"`, the code `POST /workflow/invocations` and `POST /workflow/resumptions` answer with 409 when the engine fenced a write that ends a passage because another writer moved the execution's record (`ExecutionFenced`)
+- Why: `D-IMPL-378` (Dave, 2026-10-07 21:11 MST)
+- Migration: a client branching on refusal codes adds this one. The engine wrote, audited and enqueued nothing, and a resumption presented again is refused as an interrupted passage (`tests/http_api/test_execution_fenced_door.py::test_after_a_fenced_passage_a_resumption_presented_again_is_refused_as_an_interrupted_passage`)
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29315,7 +29327,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-334 entries — 295 public Python surface, 39 not public Python API.
+337 entries — 298 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34454,6 +34466,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: **owner read-back of read-refusal records minted before this change is lost.** Every read-refusal record minted before the marker answers as a missing address, through the HTTP evidence routes and the MCP artifact server's governed reads, to every caller — the principal it names included. The records are not rewritten: they stay in the store and still reconstruct at their own addresses through `ccf.replay.engine.replay_refusal` (`tests/mcp/test_read_refusal_attribution_mcp.py::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`); an examiner reads them from the store, not through a door. A read-refusal record minted from now on carries the marker and reads back for its own principal through the door whose recorder is its tenant's, as before.
 
 *Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `request` and `complete` refused an address `replay-input` whenever the subject appeared in a replay-input field (`ccf.erasure.REPLAY_INPUT_PATHS`) of its stored bytes, whoever filed them. A door over an erasure-consulting composition whose store answers no `names_at` raised an unmapped `AttributeError`.
+- After: the `replay-input` refusal applies only where the store's naming shows the address filed by the fabric's record writer, under a class its `WriteKinds` declares under `ReplayMint`, under the requesting tenant. `src/ccf/replay/provenance.py::filed_by_record_writer` decides it, asked only for an address whose subject is in a replay-input field. Any other filing, a record-shaped client-lane filing included, is erased like any client artifact. A store that cannot say who filed such an address (it declares no `WriteKinds`, or its substrate answers no `names_at`) is refused `class-unverifiable`, with `UnattributableRecordStore` as the cause; a failed naming read is refused the same way. A door over an erasure-consulting composition whose store answers no `names_at` is refused `class-unverifiable` for any address, as `ErasureConsultingStore.names_at` documents. The `ccf.erasure` package docstring states the narrowed rule.
+- Why: `D-IMPL-378` (Dave, 2026-10-07 21:11 MST). Red tests: `tests/erasure/test_sec009_address_verification.py::test_a_client_filing_with_the_subject_in_a_replay_input_field_is_erased_like_any_client_artifact` (renamed from `::test_a_subject_in_a_replay_input_field_refuses_replay_input`, which asserted the defect); `tests/erasure/test_replay_input_retention_provenance.py::test_a_record_shaped_client_filing_is_erased_like_any_client_artifact`, `::test_a_store_that_declares_no_write_kinds_refuses_rather_than_judge_a_record_shaped_filing` (raw and composed), `::test_an_erasure_consulting_store_over_a_substrate_with_no_naming_refuses_class_unverifiable` and `::test_over_the_mcp_backed_store_a_client_filing_with_the_subject_in_a_replay_input_field_is_erasable`. Control: `::test_a_record_the_fabrics_record_writer_filed_still_refuses_replay_input`.
+- Migration: an erasure request naming a client artifact with the subject in a replay-input field is now admitted and erased; a record the record writer filed is refused `replay-input` as before. Over the MCP-backed store, a request naming a client filing the record validator accepts is still refused `subject-unverifiable`, because the artifact server does not serve those bytes on the client lane. That is a residual, kept as the strict expected failure `tests/erasure/test_replay_input_retention_provenance.py::test_over_the_mcp_backed_store_a_record_shaped_client_filing_is_erased_like_any_client_artifact`. A door over a third-party store that declares no `WriteKinds` is refused `class-unverifiable` where it was refused `replay-input`; declare the store's `WriteKinds`.
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf_runtime.erasure.ErasureDoor`
+- After: as for `ccf_runtime.erasure.ErasureDoor`
+- Why: as for `ccf_runtime.erasure.ErasureDoor`
+- Migration: as for `ccf_runtime.erasure.ErasureDoor`
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.http_api.routes.workflow.build_router
+
+- Surface: ccf_runtime.http_api.routes.workflow.build_router
+- Public surface: true
+- Change type: behavior
+- Before: an `ExecutionFenced` raised by the engine's `execute` or `resume` escaped both routes unmapped, and the caller got an opaque `500 Internal Server Error`
+- After: both routes answer it 409 with the shared refusal body, `error_code` `execution-fenced` and the fence's message
+- Why: `D-IMPL-378`. Red tests: `tests/http_api/test_execution_fenced_door.py::test_a_passage_fenced_at_the_resumption_door_is_refused_409_execution_fenced` and `::test_a_passage_fenced_at_the_invocation_door_is_refused_409_execution_fenced`; positive controls `::test_the_same_request_with_no_other_writer_answers_200`
+- Migration: as for `ERROR_EXECUTION_FENCED`. No MCP door executes or resumes a workflow, so no MCP rendering changes
+
+*Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
 
 ### Not public Python API
 

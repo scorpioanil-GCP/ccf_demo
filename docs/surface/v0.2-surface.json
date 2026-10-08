@@ -11852,6 +11852,7 @@
       "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
       "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
       "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
+      "ERROR_EXECUTION_FENCED",
       "ERROR_HITL_EVENT_REVALIDATION_REFUSED",
       "ERROR_HITL_GATE_CLOSED",
       "ERROR_INVALID_GRANT",
@@ -11902,6 +11903,10 @@
         "shape": "str"
       },
       "ERROR_EVIDENCE_PRINCIPAL_MISMATCH": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_EXECUTION_FENCED": {
         "kind": "constant",
         "shape": "str"
       },

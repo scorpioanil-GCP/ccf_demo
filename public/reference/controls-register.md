@@ -85,7 +85,7 @@ committed by a conditional state write before the step after the gate runs
 (`src/ccf/controlplane/state.py::ConditionalStateStore`). Dave's ruling of
 2026-10-07 approved both, refuses unsupported implementations at construction, and
 never retries an interrupted passage. Each row's test went red when its control was
-removed (lane 378-approval's severings).
+removed (lane 378-approval's severings; lane 378c-d3's for the workflow doors' mapping).
 
 | control | where | what it refuses | path on which it can fail | the test that reddens it |
 | --- | --- | --- | --- | --- |
@@ -99,6 +99,7 @@ removed (lane 378-approval's severings).
 | the create-if-absent start | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.execute` | a second start of one execution id | **Execution** | `tests/workflow/test_approval_gate_limits.py::test_two_concurrent_starts_of_one_execution_id_run_the_start_node_once` |
 | the passage and its row are one write | `src/ccf/controlplane/state.py::AuditedStateWriter.write_if` | an attributed `workflow_resumed` row for a passage that never committed | **Resumption** | `tests/workflow/test_approval_gate_limits.py::test_a_resumption_that_never_commits_leaves_no_attributed_passage_row` |
 | a passage's closing write is fenced by version | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._fenced_write` | overwriting a record another writer moved while the step after the gate ran (`ExecutionFenced`; nothing is written, audited or enqueued) | **Resumption**, against a writer outside the engine | `tests/workflow/test_execution_fenced.py::test_a_record_moved_by_another_writer_while_the_step_runs_fences_the_passage` |
+| the door mapping, HTTP workflow routes | `runtime/ccf_runtime/http_api/routes/workflow.py::build_router` — `ExecutionFenced` → 409 `execution-fenced` | a fenced passage reaching the caller as an opaque 500 | **The HTTP workflow doors**, invocation and resumption | `tests/http_api/test_execution_fenced_door.py::test_a_passage_fenced_at_the_resumption_door_is_refused_409_execution_fenced`; `tests/http_api/test_execution_fenced_door.py::test_a_passage_fenced_at_the_invocation_door_is_refused_409_execution_fenced` |
 | an interrupted passage is never retried | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`, on a `running` record | running again a step whose effects no engine can see | **Every resumption, in any process** | `tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process`; `tests/http_api/test_approval_gate_limits_door.py::test_two_processes_over_one_durable_store_spend_one_approval_once_at_the_doors` |
 | unsupported seams refused at construction | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine` construction | a state store without the conditional write or a known scope; a transport without the whole Protocol; a shared store with a process-scoped transport | **Construction** | `tests/workflow/test_engine_refuses_unsupported_seams.py::test_a_store_without_the_conditional_write_is_refused_at_construction`; `tests/workflow/test_engine_refuses_unsupported_seams.py::test_a_transport_without_the_gate_closure_is_refused_at_construction`; `tests/workflow/test_engine_refuses_unsupported_seams.py::test_a_shared_store_with_a_process_scoped_transport_is_refused_at_construction` |
 

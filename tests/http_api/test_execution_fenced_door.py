@@ -62,7 +62,7 @@ from http_api.test_approval_gate_limits_door import (
 from tests.workflow import test_engine as eh
 from tests.workflow.capabilities import execute_capability
 from tests.workflow.test_approval_gate_limits import FIRST_GATE, START
-from tests.workflow.test_resume_single_flight import DOWNSTREAM, NEXT_GATE
+from tests.workflow.test_resume_single_flight import DOWNSTREAM, INTERRUPTED, NEXT_GATE
 
 #: The fence's own phrase (``WorkflowEngine._fenced_write``).
 FENCED = "was moved by another writer"
@@ -235,3 +235,28 @@ def test_the_same_request_with_no_other_writer_answers_200(tmp_path: Path, which
     gate = FIRST_GATE if which == "invocation" else NEXT_GATE
     assert response.json()["gate"] == gate
     assert len(_pending_at(door, tenant, gate)) == 1
+
+
+@pytest.mark.parametrize("which", ["invocation", "resumption"])
+def test_after_a_fenced_passage_a_resumption_presented_again_is_refused_as_an_interrupted_passage(
+    tmp_path: Path, which: str
+) -> None:
+    """What a caller meets next, measured for the security how-to (section
+    4.13). The fenced execution's record is ``running``, so a resumption
+    presented again is refused 409 as an interrupted passage and the step after
+    the gate does not run again: the execution is reconciled outside the fabric,
+    as an interrupted passage is. The evidence for that guidance, not a test of
+    the mapping."""
+    response, door, _tenant, moved, bindings = _drive(tmp_path, which, other_writer=True)
+    assert moved, "the other writer never ran"
+    _assert_refused_execution_fenced(response)
+    ran = bindings.ran.count(f"skill:{DOWNSTREAM}")
+
+    async def again() -> httpx.Response:
+        async with _unraised(door) as c:
+            return await resume_at(c, door, DOWNSTREAM)
+
+    presented_again = asyncio.run(again())
+    assert presented_again.status_code == 409, presented_again.text
+    assert INTERRUPTED in presented_again.json()["reason"], presented_again.json()
+    assert bindings.ran.count(f"skill:{DOWNSTREAM}") == ran
