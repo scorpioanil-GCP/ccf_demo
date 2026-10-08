@@ -332,7 +332,7 @@ holds both to `[project] name`.
 
 ## 4. Deployment posture: what to decide before a surface is up
 
-Ten decisions have to be made explicitly; §4.8 records two limitations the
+Eleven decisions have to be made explicitly; §4.8 records two limitations the
 SDK discloses rather than fixes, §4.12 an open row (SEC-020) a deployment must
 plan around, and §4.13 how far the SDK serializes the resumption of a suspended
 run, and what a deployment must serialize beyond that. Each decision is a construction-time argument
@@ -348,7 +348,8 @@ Agent SDK adapter's child process inherits; the sixth is how many processes may
 boot one graph, which depends on the graph store; the seventh is which sources
 may assert a classification; the eighth is which products a principal's grant
 may reach; the ninth is how the erasure index is declared and protected; the
-tenth is the default for a parameter a policy constraint bounds.
+tenth is the default for a parameter a policy constraint bounds; the eleventh,
+in §4.14, is how far into the past each tenant answers for.
 
 ### 4.1 Acknowledge the insecure default, or bind an auth hook
 
@@ -1302,6 +1303,112 @@ state record that had already been overwritten.
   written and its record is not yet filed. Once the other completion files
   the record, the read is refused as erased with the request's reason, and
   a retry of the refused completion returns the same record (measured).
+
+### 4.14 Declare a temporal boundary for every tenant (D-IMPL-358)
+
+Every question served through the governed resolver
+(`src/ccf/products/resolver.py::GovernedResolver`, which `open_product` and
+`build_governed_resolver` compose) is first held to how far into the past its
+tenant answers for. The resolver reads the tenant's `TemporalBoundaryPolicy`
+(artifact class `ccf.temporal-boundary-policy`) from the Control Plane at the key
+`{tenant}/ccf.temporal-boundary-policy`, and judges the question before anything
+is acquired or read (`src/ccf/products/refusal.py::refuse_temporal_bound`).
+
+**There is no default, so an undeclared tenant serves nothing.** The SDK holds
+no duration (`D-IMPL-38`), and `D-IMPL-358` ruling 11 forbids inventing one:
+every governed question for such a tenant that is not refused earlier, for a
+reason of its own, is refused here. A deployment upgraded from a release that
+predates this check boots normally and then serves no governed question until
+it declares a policy for each tenant it serves.
+
+**What the refusal looks like.** It is a governed refusal, returned as data and
+recorded in Decision Replay like any other
+(`tests/products/test_resolver_seam.py::test_E2_no_declared_temporal_policy_refuses_before_acquisition`):
+
+- Its kind is `temporal-bound-refusal` and its reason is
+  `temporal-boundary-undeclared`.
+- At `minimal` disclosure the caller sees the statement *"this tenant does not
+  answer for the instant this question names"*, `max_past_seconds` and
+  `permitted_clock_skew_seconds` as `null`, and `policy_key`, `presented_at` and
+  `served_at` as `undisclosed`
+  (`tests/products/test_disclosure.py::test_G1_the_undeclared_reason_discloses_nothing_actionable_at_minimal`).
+- Over HTTP the status is 400. The request was not at fault, but the status is
+  assigned per refusal kind, and two of this kind's three reasons are the
+  caller's to fix; the code names this as a residual
+  (`runtime/ccf_runtime/http_api/refusal_status.py::_STATUS_BY_TYPE`).
+- The recorded refusal names the key that was required and a detail stating the
+  remedy, and it carries no policy binding for the absent policy.
+- A deployment that composes `IngressTemporalBound` on its own ingest path gets
+  `TemporalWriteRefused`, with the same reason, for every envelope of an
+  undeclared tenant
+  (`tests/signal_layer/test_step8_temporal_write_guard.py::test_a_missing_policy_REFUSES_and_names_the_key_and_the_absence`).
+  On the paved road the serve refuses first, before anything is acquired.
+
+**Declare it, once per tenant.**
+
+- **Single-file config (`ccf_config.yaml`).** Add a top-level
+  `temporal_boundary:` section holding exactly the two values. It requires a
+  top-level `tenant_id`, because the key is derived per tenant, and it refuses
+  `key`, `class_id`, `role` and `registration`, so two tenants cannot share one
+  boundary (`src/ccf/deployment/config.py::_derive_bare_typed_entry`;
+  `tests/deployment/test_namespaced_boot.py::test_CFG6_a_declared_temporal_boundary_registers_resolves_and_pins_exactly`).
+
+  ```yaml
+  tenant_id: your-tenant
+  temporal_boundary:
+    max_past_seconds: 2592000         # illustrative only: 30 days
+    permitted_clock_skew_seconds: 300 # illustrative only: 5 minutes
+  ```
+
+- **Deployment manifest.** Add an entry whose key is the class id exactly. The
+  loader places it under the manifest's `tenant_id`, which is the key the
+  resolver reads. The document holds the same two values and nothing else; a
+  `semver` line is refused, because the contract is closed.
+  `examples/s1-01-hello-context-product/artifacts/manifest.yaml` carries this
+  entry, and `examples/s1-01-hello-context-product/artifacts/temporal-boundary.yaml`
+  the document.
+
+  ```yaml
+  - path: temporal-boundary.yaml
+    key: ccf.temporal-boundary-policy
+    class_id: ccf.temporal-boundary-policy
+    role: register
+    registration: typed
+  ```
+
+- **More than one tenant.** Each config or manifest boots one tenant, so each
+  declares its own. A composition root serving several tenants registers one
+  `TemporalBoundaryPolicy` per tenant at the key
+  `src/ccf/controlplane/temporal_boundary.py::temporal_boundary_policy_key`
+  derives.
+
+**Choose the two values.** Both are your policy decisions; the SDK supplies
+neither and recommends neither. The numbers above only show the shape.
+
+- `max_past_seconds` is how far before the serve instant a question may reach.
+  The resolver judges the question's `asked_at`, and separately the decision
+  instant the product class derives (from a declared as-of parameter, where the
+  class has one), against the instant it serves at. An instant further back is
+  refused, as `asked-at-outside-temporal-bound` or
+  `decision-instant-outside-temporal-bound`, and never narrowed. Set it at least
+  as far back as the oldest as-of question the tenant must answer. On the paved
+  road the same window holds each acquired envelope at the write.
+- `permitted_clock_skew_seconds` is how far ahead of the serve instant a
+  presented instant may run before it is refused as impossible rather than
+  treated as current. Set it to the clock disagreement you accept between
+  callers and the fabric.
+- `0` is the strictest value, not "unbounded": a `max_past_seconds` of `0`
+  refuses a question asked as of any earlier instant. No value means "no bound";
+  a tenant that wants a wide reach declares a large number. Negative values are
+  refused.
+- A frozen dataset ages. A window chosen so that today's questions about a
+  fixed historical date pass will refuse those same questions later, as the
+  serve instant moves on.
+- The exact version of the policy in force is pinned on the record of every
+  served decision and of every refusal its window caused. Changing the window
+  registers a new version; records already written keep naming the one that
+  governed them
+  (`tests/products/test_resolver_seam.py::test_E6_the_resolved_temporal_policy_pins_its_exact_step3_binding`).
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

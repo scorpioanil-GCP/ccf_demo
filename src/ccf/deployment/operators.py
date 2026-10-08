@@ -211,7 +211,10 @@ def build_operator_registry(
             artifact is structurally incapable of being used as an operator
             parameter set, and this builder is the only supported thing that
             completes it. Second, the marker base is what lets an adopter
-            assemble this mapping by naming its own manifest keys —
+            assemble this mapping by naming its own manifest keys, as placed
+            under its tenant — which is how
+            :attr:`~ccf.deployment.manifest.BootedFabric.artifacts` holds them
+            (`D-IMPL-354`) —
             ``{key: booted.artifacts[key] for key in (...)}`` — rather than
             ``isinstance``-filtering four unrelated classes at every call site,
             which would be a new duplication class of exactly the kind this

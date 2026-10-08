@@ -135,6 +135,10 @@ of step 5.
 - After: an optional reserved section `temporal_boundary: Mapping[str, Any] | None = None`, marked `HASH_TRANSPARENT_KEY: True`. Transparent at its `None` sentinel, so **a config that omits the section keeps its pre-change content identity byte-for-byte** — measured on the existing reserved sections, which still derive exactly as before. Absence means *undeclared*; it does not mean unbounded and it synthesizes no policy. The body is the step-3 contract verbatim: no `semver` is injected, no tenant or key or registration metadata is accepted inside it, and the SDK supplies no duration default
 - Why: `D-IMPL-358` step 5 section A. Ruling 11 admits no exception, so the declaration needs a home in the document an operator actually edits
 - Migration: none required of an existing config — the field is optional and transparent at absence. A deployment that wants a bound adds the section; once enforcement lands (the remainder of step 5), a config-driven deployment without one will refuse
+  - **Correction 2026-10-07 (`D-IMPL-378`):** enforcement landed at `3976cbc1`
+    and no fragment recorded it. It applies to every deployment that serves
+    through `GovernedResolver`, not only a config-driven one, and a tenant with
+    no declared boundary serves nothing; the migration is fragment `378-07`
 
 ## ccf.deployment.keys.DeploymentKeys
 

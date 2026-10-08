@@ -55,7 +55,8 @@ Replay record.
 
 The subtlety that has to be stated in full, because half of it misleads: a
 `role: load` artifact **is** returned to the caller on `BootedFabric.artifacts`,
-keyed by its manifest key, exactly as a `role: register` one is — **and** it is
+keyed by its manifest key as placed under the tenant (below), exactly as a
+`role: register` one is — **and** it is
 still absent from `pins`, still absent from the Control Plane registry, and
 still absent from replay dimension 2. `artifacts` is a parse result handed back
 to the caller; `pins` is the record of what was put in force. Reading the first
@@ -67,6 +68,17 @@ The practical consequence is that an adopter needing a parsed artifact in hand �
 operator-parameters documents to feed a registry builder, say — names its own
 manifest keys against `booted.artifacts`, which is explicit deployment
 configuration, rather than filtering the Control Plane registry by type.
+
+**Those keys come back under the tenant.** Every loader places each manifest key
+under the deployment's tenant before it registers anything (`D-IMPL-354`), and
+`artifacts` and `pins` are both keyed by the placed string: an authored
+`product_class` is held as `{tenant}/product_class`, and a key already written
+under the tenant is unchanged. Read them by the placed key — `booted.keys.<section>`
+on the single-file door, or `namespaced_key(tenant=booted.tenant_id, key=...)`
+from `ccf.controlplane.registry` on either door. A bare key misses:
+`booted.artifacts["product_class"]` raises `KeyError`, `.get("product_class")`
+returns `None`, and `booted.pins.version_for("product_class")` raises
+`UnpinnedArtifactError` naming the placed key the pin is recorded under.
 
 ## `registration` names a governance path
 

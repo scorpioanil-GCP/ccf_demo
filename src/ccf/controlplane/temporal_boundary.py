@@ -13,6 +13,17 @@ here, no request is bounded, no served or refusal record is touched. Threading
 ``served_at`` exists. The truthful claim at this step is the first sentence of
 this paragraph and not "requests are now temporally bounded."
 
+**Enforcement has since landed, in the callers and not here** (`D-IMPL-358`
+steps 5 and 8). `ccf.products.resolver.GovernedResolver` resolves the tenant's
+policy through `resolve_temporal_boundary` on every governed serve, judges it
+with `ccf.products.refusal.refuse_temporal_bound` before anything is acquired,
+and carries `PinnedTemporalBoundary.binding` on the record it writes;
+`ccf.signal.envelope.IngressTemporalBound` holds each acquired envelope to the
+same window before L2's writer sees it. A tenant with no declared policy is
+therefore refused on every governed serve (``temporal-boundary-undeclared``).
+This module itself still reads no clock and bounds nothing: the paragraph above
+describes this module, and was the whole truth only at step 3.
+
 **Why it lives in `ccf.controlplane` rather than beside a consumer.** The four
 existing per-tenant policy artifacts each sit with the one subsystem that reads
 them — `ccf/peering/trust_policy.py`, `ccf/peering/eligibility.py`,
@@ -104,10 +115,12 @@ class TemporalBoundaryPolicy(CCFContract):
     Read off the accepted semantics the sibling artifact already implements:
     `ccf/peering/eligibility.py::_evidence_too_old` compares ``age >
     policy.max_evidence_age_seconds``, so a declared ``0`` admits only an age of
-    zero or less and refuses every positive one. The same reading applies here,
-    and the comparison itself is **not implemented at this step** — this
-    docstring states the semantics the later resolver work will honor, and claims
-    no enforcement that exists.
+    zero or less and refuses every positive one. The same reading applies here:
+    the comparison is `ccf.products.refusal.refuse_temporal_bound`, which reuses
+    that arithmetic and is live on every governed serve (`D-IMPL-358` step 5).
+    When this class landed at step 3 the comparison did not exist yet, and this
+    docstring then stated only the semantics the later resolver work would
+    honor.
 
     Attributes:
         max_past_seconds: How far before the evaluation instant a request may
@@ -241,8 +254,12 @@ class PinnedTemporalBoundary:
         for a two-field value. Deferred function-local imports of ``ccf.*`` are
         an established idiom in this tree for exactly this reason.
 
-        **Nothing appends this yet** (Wave 2 step 3 boundary). It is established
-        so the step that does has one place to get it from.
+        **The resolver appends it** (`D-IMPL-358` step 5):
+        `ccf.products.resolver.GovernedResolver` carries exactly this binding on
+        the record of a served decision and on the record of a refusal the
+        declared window caused, and carries none when the policy is undeclared
+        (ruling 11 forbids minting a binding for a policy that does not exist).
+        At step 3, when this property landed, nothing appended it yet.
         """
         from ccf.replay.record import PolicyBinding
 
