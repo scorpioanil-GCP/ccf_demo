@@ -1478,6 +1478,26 @@ COMPOSITE_SHAPES = (
 #: The composites whose child is asked about a FIXED subject.
 FIXED_CHILD_SHAPES = (COMPOSITE_FIXED_CHILD, EARLY_COMPOSITE_FIXED_CHILD)
 
+#: Dave's ruling D1 = (a), 2026-10-07 21:15 MST, on the question as put to him
+#: (relayed by the coordinator, verbatim, the elisions the coordinator's own):
+D1A_RULING = (
+    "D1 = (a) (Dave, 2026-10-07 21:15 MST). The question: \"Products that read the whole"
+    " population. Your two-deployment test ... cannot pass when a product reads everyone's"
+    " data, such as a pre-loaded fabric or a fetch-everyone source ... (a) For those"
+    " products only, use your D-IMPL-371 comparison: the withheld subject against an id"
+    " nothing holds, in the same deployment.\""
+)
+
+#: The population-reading shapes D1 = (a) governs: the fabric loaded before the
+#: question and walked by class, and the source that returns everyone — with or
+#: without the early-withholding declaration, and in the explicit
+#: population-fetch mode. For these the same-deployment comparison (``D-IMPL-371``)
+#: is the governing check for every observable, and the two-deployment cells are
+#: retired from the closure gate. Measured, the reason: an identifier that exists
+#: in NEITHER deployment is answered differently by the two (the account's data
+#: is in every answer), so no withholding mechanism is what those cells measure.
+POPULATION_READING_SHAPES = (NO_ACQUISITION, POPULATION, EARLY_POPULATION, POPULATION_DECLARED)
+
 
 def build_subject_keyed(
     base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False, early: bool = False
@@ -2050,6 +2070,11 @@ REFUSED_QUESTION = "refused-question"
 SERVED_READABLE = "served-readable"
 WITHHELD_READABLE = "withheld-readable"
 NONEXISTENT_READABLE = "nonexistent-readable"
+#: The same-deployment instruments (population-reading shapes): the deployment
+#: that SERVES the subject (policy off) asked about an identifier nothing holds,
+#: and the same question carrying a parameter its class does not declare.
+SERVED_NEVER_HELD = "served-deployment-never-held"
+REFUSED_NEVER_HELD = "served-deployment-refused-question"
 
 #: (withheld side, nonexistent side, noise-floor side) per comparison.
 PAIRS: dict[str, tuple[str, str, str]] = {
@@ -2066,6 +2091,22 @@ def instrument_pair(channel: str, run: Run) -> tuple[str, str]:
     if channel == RECORD and SERVED_READABLE in run.sides:
         return SERVED_READABLE, NONEXISTENT_READABLE
     return INSTRUMENT_PAIRS[channel]
+
+
+#: The same-deployment instrument for each channel (population-reading shapes,
+#: D1 = (a)): two questions to ONE deployment that must be seen to differ. The
+#: subject SERVED against an identifier nothing holds; for refusal codes and the
+#: reference, a question the request contract refuses (it reads nothing, so its
+#: record is named for an empty read) against the identifier nothing holds —
+#: because in a population-reading deployment every question that reads, reads
+#: the same population, and a served subject's record name equals a never-held
+#: identifier's (measured: ``same`` reference cells of these shapes).
+SAME_INSTRUMENT_PAIRS: dict[str, tuple[str, str]] = {
+    RESPONSE: (SERVED, SERVED_NEVER_HELD),
+    REFUSAL: (REFUSED_NEVER_HELD, SERVED_NEVER_HELD),
+    REFERENCE: (REFUSED_NEVER_HELD, SERVED_NEVER_HELD),
+    RECORD: (SERVED, SERVED_NEVER_HELD),
+}
 
 
 #: The pair each channel's instrument compares: a side that MUST differ from the nonexistent one.
@@ -2089,14 +2130,30 @@ def channels_for(*, comparison: str, shape: str, door: str) -> tuple[str, ...]:
     channels = [RESPONSE, REFUSAL, REFERENCE]
     if comparison == COUNTERFACTUAL and shape in COMPOSITE_SHAPES and door == IN_PROCESS:
         channels.append(COMPOSITE)
-    if comparison == COUNTERFACTUAL and door in (HTTP, MCP):
+    if door in (HTTP, MCP) and (comparison == COUNTERFACTUAL or shape in POPULATION_READING_SHAPES):
+        # D1 = (a): for a population-reading shape the same-deployment comparison
+        # governs every observable, the record read back included. Both records
+        # hold their own request, so what differs only because the identifiers
+        # differ is in the noise floor (two identifiers nothing holds), and every
+        # other path is compared.
         channels.append(RECORD)
     return tuple(channels)
 
 
 def comparisons_for(shape: str) -> tuple[str, ...]:
-    """A fabric or store that outlives the question is compared as a counterfactual only: its point is the sequence."""
-    return (COUNTERFACTUAL,) if shape in REUSED_SHAPES else COMPARISONS
+    """The comparisons that GOVERN a shape in the closure gate.
+
+    A fabric or store that outlives the question is compared as a counterfactual
+    only: its point is the sequence. A population-reading shape is compared in
+    the same deployment only (Dave's D1 = (a), :data:`D1A_RULING`): its
+    two-deployment cells are retired from the gate, and the test module lists
+    them by id. Every other shape keeps both.
+    """
+    if shape in REUSED_SHAPES:
+        return (COUNTERFACTUAL,)
+    if shape in POPULATION_READING_SHAPES:
+        return (SAME_DEPLOYMENT,)
+    return COMPARISONS
 
 
 def _questions(shape: str, subject: str) -> tuple[str, ...]:
@@ -2232,17 +2289,22 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
         withholding = deployment("withholding", holds=True, active=True)
         sides[CF_WITHHELD] = observe_side(shape, door, withholding, SUBJECT, reads=True)
         if SAME_DEPLOYMENT in comparisons_for(shape):
-            sides[SAME_NONEXISTENT] = observe_side(shape, door, withholding, NEVER)
-            sides[SAME_FLOOR] = observe_side(shape, door, withholding, NEVER_2)
+            same_reads = shape in POPULATION_READING_SHAPES
+            sides[SAME_NONEXISTENT] = observe_side(shape, door, withholding, NEVER, reads=same_reads)
+            sides[SAME_FLOOR] = observe_side(shape, door, withholding, NEVER_2, reads=same_reads)
         sides[CF_NONEXISTENT] = observe_side(
             shape, door, deployment("not-holding", holds=False, active=True), SUBJECT, reads=True
         )
         sides[CF_FLOOR] = observe_side(
             shape, door, deployment("not-holding-again", holds=False, active=True), SUBJECT, reads=True
         )
-        sides[SERVED] = observe_side(
-            shape, door, deployment("serving", holds=True, active=False), SUBJECT, reads=True
-        )
+        serving = deployment("serving", holds=True, active=False)
+        sides[SERVED] = observe_side(shape, door, serving, SUBJECT, reads=True)
+        if shape in POPULATION_READING_SHAPES:
+            sides[SERVED_NEVER_HELD] = observe_side(shape, door, serving, NEVER, reads=True)
+            sides[REFUSED_NEVER_HELD] = observe_side(
+                shape, door, serving, NEVER, parameters=violating_parameters()
+            )
         sides[REFUSED_QUESTION] = observe_side(
             shape, door, deployment("refusing", holds=False, active=True), SUBJECT,
             parameters=violating_parameters(),

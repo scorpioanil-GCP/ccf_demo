@@ -50,6 +50,25 @@ Cells that need a public knob that does not exist yet are SKIPPED with the
 reason ``pending API: <name>``; they run unchanged once the knob exists under
 its documented name. Never xfail, never pass.
 
+Dave's ruling D1 = (a) (2026-10-07 21:15 MST; ``sec020_worlds.D1A_RULING``)
+---------------------------------------------------------------------------
+For a product that reads the whole population — the fabric loaded before the
+question and walked by class (``no_acquisition``), the source that returns
+everyone (``population``, ``early_population``, ``population_declared``) — the
+two-deployment test cannot pass whatever the withholding mechanism, because an
+identifier that exists in NEITHER deployment is already answered differently by
+the two (measured by the lane's confound probe). For those shapes only, the
+``D-IMPL-371`` comparison — the withheld subject against an identifier nothing
+holds, in the same deployment — is the governing check for EVERY observable,
+the record read back included; their two-deployment cells are RETIRED from this
+gate, listed by id in :data:`RETIRED_D1A`, and pinned by
+``test_d1a_retires_exactly_the_population_reading_counterfactual_cells``. They
+are not generated, so they are neither skipped nor xfailed: a retired cell is
+out of the gate, by name, with the ruling beside it. Every other shape keeps
+Dave's two-deployment test as written. The same-deployment comparison of the
+population-reading shapes has its own instrument
+(``test_the_same_deployment_instrument_sees_a_difference``).
+
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
 
@@ -85,6 +104,103 @@ def runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.RunCache]:
 #: Every shape the matrix asks on: the seven the brief names (with the reused
 #: fabric in its two forms), then the shapes whose public knob is pending.
 ALL_SHAPES = (*w.SHAPES, *w.PENDING_SHAPES)
+
+#: The two-deployment (``cf``) cells RETIRED from the closure gate by Dave's
+#: D1 = (a) and ``D-IMPL-371`` (the ruling text: ``sec020_worlds.D1A_RULING``).
+#: For each, the same-deployment cell of the same shape, anchor, door and
+#: channel governs instead. Listed explicitly so that what left the gate is
+#: readable here, and pinned against the matrix's own channel rule by
+#: ``test_d1a_retires_exactly_the_population_reading_counterfactual_cells``.
+RETIRED_D1A: tuple[str, ...] = (
+    "cf-no_acquisition-from_decision-in_process-response",
+    "cf-no_acquisition-from_decision-in_process-refusal",
+    "cf-no_acquisition-from_decision-in_process-reference",
+    "cf-no_acquisition-from_decision-http-response",
+    "cf-no_acquisition-from_decision-http-refusal",
+    "cf-no_acquisition-from_decision-http-reference",
+    "cf-no_acquisition-from_decision-http-record",
+    "cf-no_acquisition-from_decision-mcp-response",
+    "cf-no_acquisition-from_decision-mcp-refusal",
+    "cf-no_acquisition-from_decision-mcp-reference",
+    "cf-no_acquisition-from_decision-mcp-record",
+    "cf-no_acquisition-from_entity_freshness-in_process-response",
+    "cf-no_acquisition-from_entity_freshness-in_process-refusal",
+    "cf-no_acquisition-from_entity_freshness-in_process-reference",
+    "cf-no_acquisition-from_entity_freshness-http-response",
+    "cf-no_acquisition-from_entity_freshness-http-refusal",
+    "cf-no_acquisition-from_entity_freshness-http-reference",
+    "cf-no_acquisition-from_entity_freshness-http-record",
+    "cf-no_acquisition-from_entity_freshness-mcp-response",
+    "cf-no_acquisition-from_entity_freshness-mcp-refusal",
+    "cf-no_acquisition-from_entity_freshness-mcp-reference",
+    "cf-no_acquisition-from_entity_freshness-mcp-record",
+    "cf-population-from_decision-in_process-response",
+    "cf-population-from_decision-in_process-refusal",
+    "cf-population-from_decision-in_process-reference",
+    "cf-population-from_decision-http-response",
+    "cf-population-from_decision-http-refusal",
+    "cf-population-from_decision-http-reference",
+    "cf-population-from_decision-http-record",
+    "cf-population-from_decision-mcp-response",
+    "cf-population-from_decision-mcp-refusal",
+    "cf-population-from_decision-mcp-reference",
+    "cf-population-from_decision-mcp-record",
+    "cf-population-from_entity_freshness-in_process-response",
+    "cf-population-from_entity_freshness-in_process-refusal",
+    "cf-population-from_entity_freshness-in_process-reference",
+    "cf-population-from_entity_freshness-http-response",
+    "cf-population-from_entity_freshness-http-refusal",
+    "cf-population-from_entity_freshness-http-reference",
+    "cf-population-from_entity_freshness-http-record",
+    "cf-population-from_entity_freshness-mcp-response",
+    "cf-population-from_entity_freshness-mcp-refusal",
+    "cf-population-from_entity_freshness-mcp-reference",
+    "cf-population-from_entity_freshness-mcp-record",
+    "cf-early_population-from_decision-in_process-response",
+    "cf-early_population-from_decision-in_process-refusal",
+    "cf-early_population-from_decision-in_process-reference",
+    "cf-early_population-from_decision-http-response",
+    "cf-early_population-from_decision-http-refusal",
+    "cf-early_population-from_decision-http-reference",
+    "cf-early_population-from_decision-http-record",
+    "cf-early_population-from_decision-mcp-response",
+    "cf-early_population-from_decision-mcp-refusal",
+    "cf-early_population-from_decision-mcp-reference",
+    "cf-early_population-from_decision-mcp-record",
+    "cf-early_population-from_entity_freshness-in_process-response",
+    "cf-early_population-from_entity_freshness-in_process-refusal",
+    "cf-early_population-from_entity_freshness-in_process-reference",
+    "cf-early_population-from_entity_freshness-http-response",
+    "cf-early_population-from_entity_freshness-http-refusal",
+    "cf-early_population-from_entity_freshness-http-reference",
+    "cf-early_population-from_entity_freshness-http-record",
+    "cf-early_population-from_entity_freshness-mcp-response",
+    "cf-early_population-from_entity_freshness-mcp-refusal",
+    "cf-early_population-from_entity_freshness-mcp-reference",
+    "cf-early_population-from_entity_freshness-mcp-record",
+    "cf-population_declared-from_decision-in_process-response",
+    "cf-population_declared-from_decision-in_process-refusal",
+    "cf-population_declared-from_decision-in_process-reference",
+    "cf-population_declared-from_decision-http-response",
+    "cf-population_declared-from_decision-http-refusal",
+    "cf-population_declared-from_decision-http-reference",
+    "cf-population_declared-from_decision-http-record",
+    "cf-population_declared-from_decision-mcp-response",
+    "cf-population_declared-from_decision-mcp-refusal",
+    "cf-population_declared-from_decision-mcp-reference",
+    "cf-population_declared-from_decision-mcp-record",
+    "cf-population_declared-from_entity_freshness-in_process-response",
+    "cf-population_declared-from_entity_freshness-in_process-refusal",
+    "cf-population_declared-from_entity_freshness-in_process-reference",
+    "cf-population_declared-from_entity_freshness-http-response",
+    "cf-population_declared-from_entity_freshness-http-refusal",
+    "cf-population_declared-from_entity_freshness-http-reference",
+    "cf-population_declared-from_entity_freshness-http-record",
+    "cf-population_declared-from_entity_freshness-mcp-response",
+    "cf-population_declared-from_entity_freshness-mcp-refusal",
+    "cf-population_declared-from_entity_freshness-mcp-reference",
+    "cf-population_declared-from_entity_freshness-mcp-record",
+)
 
 
 def _require(shape: str) -> None:
@@ -305,3 +421,86 @@ def test_pending_api_caller_visible_reference() -> None:
     and replaces this marker with that route's cells.
     """
     pytest.skip("pending API: caller-visible replay reference and its read route (Q11; no public name documented)")
+
+
+def test_d1a_retires_exactly_the_population_reading_counterfactual_cells() -> None:
+    """D1 = (a), held: the retired cells are exactly the population-reading shapes' two-deployment cells.
+
+    And each of them has a governing same-deployment cell in the gate — for every
+    observable those two-deployment cells covered — while every other shape
+    keeps the two-deployment test as written. Retirement is by name, never by
+    xfail or by a skip.
+    """
+    expected = [
+        f"{w.COUNTERFACTUAL}-{shape}-{anchor}-{door}-{channel}"
+        for shape in w.POPULATION_READING_SHAPES
+        for anchor in w.ANCHORS
+        for door in w.DOORS
+        for channel in w.channels_for(comparison=w.COUNTERFACTUAL, shape=shape, door=door)
+    ]
+    assert len(RETIRED_D1A) == len(set(RETIRED_D1A)), "a retired cell is listed twice"
+    assert sorted(RETIRED_D1A) == sorted(expected), (
+        "the retired list is not the population-reading shapes' two-deployment cells:"
+        f" missing {sorted(set(expected) - set(RETIRED_D1A))},"
+        f" extra {sorted(set(RETIRED_D1A) - set(expected))}"
+    )
+    gate = {param.id for param in _cells()}
+    assert not set(RETIRED_D1A) & gate, (
+        f"a retired cell is still in the closure gate: {sorted(set(RETIRED_D1A) & gate)}"
+    )
+    ungoverned = [
+        cell for cell in RETIRED_D1A
+        if f"{w.SAME_DEPLOYMENT}-{cell.removeprefix(w.COUNTERFACTUAL + '-')}" not in gate
+    ]
+    assert not ungoverned, f"a retired cell has no governing same-deployment cell: {ungoverned}"
+    for shape in ALL_SHAPES:
+        if shape in w.POPULATION_READING_SHAPES:
+            assert w.comparisons_for(shape) == (w.SAME_DEPLOYMENT,), shape
+        elif shape in w.REUSED_SHAPES:
+            assert w.comparisons_for(shape) == (w.COUNTERFACTUAL,), shape
+        else:
+            assert w.comparisons_for(shape) == w.COMPARISONS, (
+                f"{shape} is not population-reading and must keep the two-deployment test"
+            )
+
+
+def _same_instruments() -> list[Any]:
+    params = []
+    for shape in w.POPULATION_READING_SHAPES:
+        for anchor in w.ANCHORS:
+            for door in w.DOORS:
+                for channel in w.channels_for(comparison=w.SAME_DEPLOYMENT, shape=shape, door=door):
+                    params.append(pytest.param(shape, anchor, door, channel, id=f"{shape}-{anchor}-{door}-{channel}"))
+    return params
+
+
+@pytest.mark.parametrize(("shape", "anchor", "door", "channel"), _same_instruments())
+def test_the_same_deployment_instrument_sees_a_difference(
+    runs: w.RunCache, shape: str, anchor: str, door: str, channel: str
+) -> None:
+    """D1 = (a)'s comparison, instrumented in ONE deployment: two questions it must tell apart.
+
+    The deployment that SERVES the subject (policy off) is asked about the
+    subject and about an identifier nothing holds; for refusal codes and the
+    reference, the never-held question carrying a parameter its class does not
+    declare (refused by contract, so it reads nothing) is set against the valid
+    one. Compared exactly as the same-deployment cells compare — the asked
+    identifiers neutralized, references by record name, the same-deployment
+    noise floor not counted.
+    """
+    _require(shape)
+    run = runs.get(shape=shape, anchor=anchor, door=door)
+    left_side, right_side = w.SAME_INSTRUMENT_PAIRS[channel]
+    same = w.SAME_DEPLOYMENT
+    left = run.channel(left_side, channel, comparison=same)
+    right = run.channel(right_side, channel, comparison=same)
+    floor = w.diff_paths(
+        run.channel(w.SAME_NONEXISTENT, channel, comparison=same),
+        run.channel(w.SAME_FLOOR, channel, comparison=same),
+    )
+    seen = w.diff_paths(left, right) - floor
+    assert seen, (
+        f"same-deployment instrument broken [{shape}, {anchor}, {door}, {channel}]: {left_side} and"
+        f" {right_side} are indistinguishable on this channel, so a PASS of its same-deployment"
+        f" comparison would prove nothing\n  {left_side}: {w.render(left)}\n  {right_side}: {w.render(right)}"
+    )
