@@ -10,7 +10,8 @@ validated one-gate workflow at the erasure door
 ``artifact.erase`` capability (ruling 3) and VERIFIES every address the
 request names — its stored class and tenant from the store's naming, the
 subject's salted reference in its declared key paths, no subject in a
-replay-input field (fix round 1: C2, I6, (iv), §7). On a RECORDED human
+replay-input field of a record the fabric's record writer filed (fix round 1:
+C2, I6, (iv), §7; ``D-IMPL-378``). On a RECORDED human
 approval the door appends the entries to the deployment's durable,
 append-only erasure index (:class:`ErasureIndexProtocol`,
 :class:`FileErasureIndex`) and THEN files the immutable

@@ -16,7 +16,8 @@ The two halves:
   (fix round 1 — not already erased; filed under this tenant (I6); its STORED
   class, from the store's ``names_at``, is not the erasure record's and equals
   the requester's label (C2); a value at a subject key path hashes to
-  ``subject_ref`` (iv); no subject in a replay-input field (§7)), judge
+  ``subject_ref`` (iv); no subject in a replay-input field of a record the
+  fabric's record writer filed (§7; ``D-IMPL-378``)), judge
   retention and holds against the STORED class and the PINNED policy, then
   start the workflow with the request's content identity as its execution id.
   Nothing is written.
@@ -103,6 +104,7 @@ from ccf.hitl.approval_gate import GATE_APPROVE, GATE_EVENT_CLASS, GateResolutio
 from ccf.hitl.transport import HITLTransportProtocol
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.peering.identity import IdentityError, IdentityProvider
+from ccf.replay.provenance import UnattributableRecordStore, filed_by_record_writer
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
@@ -708,10 +710,12 @@ class ErasureDoor:
         under THIS tenant (I6); its stored class is not a mechanism class an
         erasure may never reach (the erasure record — C2) and equals the
         requester's label (C2); a value at one of the subject's key paths
-        hashes to the request's ``subject_ref`` (iv); and no replay-input path
-        of the stored document carries the subject (design §7,
-        ``replay-input``). The stored bytes are read through the UNCONSULTED
-        inner store for this check only and never leave the door.
+        hashes to the request's ``subject_ref`` (iv); and, for a Decision
+        Replay record the fabric's record writer filed, no replay-input path of
+        the stored document carries the subject (design §7, ``replay-input``;
+        :meth:`_filed_by_record_writer`, ``D-IMPL-378``). The stored bytes are
+        read through the UNCONSULTED inner store for this check only and never
+        leave the door.
         """
         names_at = getattr(self._store, "names_at", None)
         if not callable(names_at):
@@ -734,10 +738,13 @@ class ErasureDoor:
                 )
             try:
                 named = names_at(content_address=where)
-            except (McpServerUnreachable, ArtifactStoreError) as unanswered:
+            except (McpServerUnreachable, ArtifactStoreError, AttributeError) as unanswered:
                 # (d), fix round 2: a substrate whose naming read fails — an
                 # older MCP server without the names resource, or a names read
                 # the governed dereference refused — has not verified the class.
+                # `D-IMPL-378`: so has the erasure-consulting composition of a
+                # substrate that answers no naming; the decorator answers
+                # `names_at` by delegating and raises AttributeError.
                 raise ErasureRefused(
                     f"the store's naming did not answer for a requested address"
                     f" ({type(unanswered).__name__}); its stored class and tenant"
@@ -787,7 +794,7 @@ class ErasureDoor:
             if any(
                 _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
                 for path in REPLAY_INPUT_PATHS
-            ):
+            ) and self._filed_by_record_writer(tenant, where):
                 decision = RetentionDecision(
                     policy_ref=request.retention_policy_ref,
                     verdict="refuse",
@@ -795,14 +802,58 @@ class ErasureDoor:
                     address=where,
                 )
                 raise ErasureRefused(
-                    "the subject appears in a replay-input field of a requested record;"
-                    " erasing it would make a decision replay a different question"
-                    " (SEC-009; D-IMPL-367 §7, §2.2)",
+                    "the subject appears in a replay-input field of a requested record"
+                    " the fabric's record writer filed; erasing it would make a decision"
+                    " replay a different question (SEC-009; D-IMPL-367 §7, §2.2;"
+                    " D-IMPL-378)",
                     reason_code="replay-input",
                     decision=decision,
                 )
             stored[where] = address.artifact_class
         return stored
+
+    def _filed_by_record_writer(self, tenant: str, address: str) -> bool:
+        """Whether the fabric's record writer filed ``address`` under ``tenant`` (`D-IMPL-378`).
+
+        Record retention — the ``replay-input`` refusal — protects a Decision
+        Replay record, and a record is what the fabric's record writer filed.
+        Bytes a principal filed on a client lane are a client artifact whatever
+        their shape, and are erased like one (Dave, 2026-10-07 21:11 MST). The
+        ONE provenance check decides
+        (:func:`~ccf.replay.provenance.filed_by_record_writer`), over the store
+        this door files through and under the requesting tenant — the tenant
+        the address was verified to be filed under (I6) — so another tenant's
+        filing of the same bytes never changes this tenant's answer.
+
+        Asked only where the answer matters: a requested address whose stored
+        document carries the subject in a replay-input field.
+
+        Raises:
+            ErasureRefused: ``class-unverifiable`` — the store cannot say who
+                filed an address (it declares no ``WriteKinds``, or its
+                substrate answers no naming;
+                :class:`~ccf.replay.provenance.UnattributableRecordStore` is the
+                cause), or its naming read failed. The door cannot tell a record
+                from a client artifact, so it refuses rather than judge the
+                bytes on their own word.
+        """
+        try:
+            return filed_by_record_writer(self._store, content_address=address, tenant_id=tenant)
+        except UnattributableRecordStore as unattributable:
+            raise ErasureRefused(
+                f"the store this door files through ({type(self._store).__name__}) cannot"
+                " say whether the fabric's record writer filed a requested address whose"
+                " subject appears in a replay-input field, so record retention cannot be"
+                " judged (SEC-009; D-IMPL-378)",
+                reason_code="class-unverifiable",
+            ) from unattributable
+        except (McpServerUnreachable, ArtifactStoreError) as unanswered:
+            raise ErasureRefused(
+                f"the store's naming did not answer for a requested address"
+                f" ({type(unanswered).__name__}); whether the fabric's record writer"
+                " filed it cannot be verified (SEC-009; D-IMPL-378)",
+                reason_code="class-unverifiable",
+            ) from unanswered
 
     def _judge(self, policy: object, policy_ref: str, request: ErasureRequest, now: datetime) -> RetentionDecision:
         if not isinstance(policy, RetentionHoldPolicy) or policy.tenant_id != request.tenant_id:
