@@ -485,10 +485,14 @@ class ControlPlaneProductEntitlementSource:
         **A different question from** :meth:`authorize`, asked of the same
         artifact. That one decides whether the caller may receive the class;
         this one decides how much of a refusal's internal truth may cross. Both
-        pins land in replay dimension 2 when both exist, and they can name
-        different tenants: a denial is decided under the tenant the caller
-        addressed, while the level is read under the tenant whose door is
-        answering.
+        pins land in the replay record when both exist — the entitlement
+        policy in dimension 2, this level's source in dimension 5's disclosure
+        decision — and both are read under the tenant the determination was
+        made under: for a delivery-boundary denial, the tenant the caller
+        addressed. The level was once read under the tenant of the door that
+        answered, which on a door serving several tenants through one recorder
+        let that tenant's policy for a colliding principal id set another
+        tenant's caller's level (Dave, 2026-10-07; ``D-IMPL-378``).
 
         Resolved **per call, no cache, no TTL**, exactly as :meth:`authorize`
         resolves the same artifact (D-07).

@@ -892,17 +892,24 @@ def _opaque_failure(exc: BaseException) -> ToolError:
     return ToolError(f"{_RUNTIME_FAILURE_PREFIX}:{failure_id}")
 
 
-def _level_in_force(recorder: RefusalRecorderProtocol, principal_id: str) -> DisclosureLevel:
-    """The disclosure level in force for ``principal_id`` at this door (FW-3).
+def _level_in_force(
+    recorder: RefusalRecorderProtocol, *, tenant: str, principal_id: str
+) -> DisclosureLevel:
+    """The disclosure level in force for ``principal_id`` of ``tenant`` at this door (FW-3).
 
-    Read as the evidence doors read it — through the recorder that discloses,
-    under the recorder's own tenant (``D-IMPL-345`` R-2). A recorder that
-    cannot state a level is read at the safe default,
-    :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL`.
+    Read as the evidence doors read it — through the recorder that discloses
+    (``D-IMPL-345`` R-2), keyed on the tenant the determination is made under
+    together with the principal (Dave, 2026-10-07; ``D-IMPL-378``): the same
+    key the recorder discloses the ``erased-content`` shell under, so the branch
+    taken and the shell's level cannot disagree. Keyed on the recorder's own
+    tenant, a door serving several tenants through one recorder chose another
+    tenant's caller's branch by the level the recorder's tenant declares for a
+    colliding principal id. A recorder that cannot state a level is read at the
+    safe default, :data:`~ccf.products.disclosure.DISCLOSURE_MINIMAL`.
     """
     if isinstance(recorder, DisclosingRecorderProtocol):
         level, _policy = recorder.disclosure_level_for(
-            tenant=recorder.tenant_id, principal_id=principal_id
+            tenant=tenant, principal_id=principal_id
         )
         return level
     return DISCLOSURE_MINIMAL
@@ -1216,7 +1223,7 @@ def build_experience_server(
         level: neither the failure nor the shell carries it.
         """
         grant = verified_grant()
-        if _level_in_force(recorder, grant.client_id) == DISCLOSURE_MINIMAL:
+        if _level_in_force(recorder, tenant=tenant, principal_id=grant.client_id) == DISCLOSURE_MINIMAL:
             raise _opaque_failure(erased) from erased
         return canonical_bytes(
             govern_erasure(
@@ -1506,7 +1513,12 @@ def build_experience_server(
                 # identity. Above `minimal` the recorded shell would need one
                 # and an agent listing has none, so the exception propagates
                 # unchanged.
-                if _level_in_force(recorder, verified_grant().client_id) == DISCLOSURE_MINIMAL:
+                if (
+                    _level_in_force(
+                        recorder, tenant=authorized.tenant, principal_id=verified_grant().client_id
+                    )
+                    == DISCLOSURE_MINIMAL
+                ):
                     raise _opaque_failure(erased) from erased
                 raise
             return canonical_bytes(catalog).decode("utf-8")
@@ -1608,7 +1620,12 @@ def build_experience_server(
                 # which needs no product identity. Above `minimal` the recorded
                 # shell would need one and an agent dispatch has none, so the
                 # exception propagates unchanged.
-                if _level_in_force(recorder, verified_grant().client_id) == DISCLOSURE_MINIMAL:
+                if (
+                    _level_in_force(
+                        recorder, tenant=authorized.tenant, principal_id=verified_grant().client_id
+                    )
+                    == DISCLOSURE_MINIMAL
+                ):
                     raise _opaque_failure(erased) from erased
                 raise
 

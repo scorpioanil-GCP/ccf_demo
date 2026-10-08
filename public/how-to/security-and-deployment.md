@@ -1043,20 +1043,42 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   subject, so it refuses a request naming such a filing
   `subject-unverifiable`. A door over the store in process reads the bytes
   directly and judges the subject.
-- **A read-refusal record is attributed to the door's tenant (forged-record
-  re-review, D-IMPL-376).** The governed read records each refusal through the
-  recorder of the door that refused it, and the record names the door's
-  tenant whichever tenant the refused caller's capability named
-  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`); the
-  tenant hold attributes the record to that tenant, and the product-grant
-  hold does not apply to read refusals. On a door that serves several
-  tenants through one recorder, as the MCP artifact server is built, a
-  principal holding a capability for the door's tenant reads the read-refusal
-  records of a principal of another tenant that has the same client id, and
-  learns which reference that principal asked for: an address or a URI, never
-  any content. The refused principal reads them back only through a
-  capability for the door's tenant. Keep client ids distinct across tenants
-  that share a door, or give each tenant its own door and recorder.
+- **A read-refusal record minted before D-IMPL-378 is attributed to the
+  door's tenant (forged-record re-review, D-IMPL-376; D-IMPL-378).** The
+  governed read records each refusal through the recorder of the door that
+  refused it. The record now names the tenant the refused capability was
+  verified for, beside its principal
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`), so
+  the tenant and principal holds bind a later reader to that pair. On a door
+  that serves several tenants through one recorder, as the MCP artifact server
+  is built, a principal holding a capability for the door's tenant with the
+  same client id as another tenant's refused principal gets that principal's
+  read-refusal record answered exactly as a missing address is — measured at
+  the MCP blob and presence resources and at HTTP `/replay/decisions`,
+  `/replay/resolutions` and `/artifact`
+  (`tests/mcp/test_read_refusal_attribution_mcp.py`,
+  `tests/http_api/test_read_refusal_attribution_http.py`). The refused
+  principal cannot read its record back through that door either: the record
+  is decided under its tenant and filed under the recorder's, and the governed
+  read serves a record only where it is filed under the tenant it was decided
+  under. **A read-refusal record minted before this change still names the
+  door's tenant, whichever tenant asked.** It is byte-for-byte the record the
+  door now mints for its own tenant's principal asking the same reference at
+  the same instant, so nothing in it lets the governed read tell the two
+  apart: on such a door, a principal of the door's tenant with the same client
+  id as the refused principal still reads it and learns which reference that
+  principal asked for — an address or a URI, never any content (a strict
+  expected failure in `tests/mcp/test_read_refusal_attribution_mcp.py`;
+  failing such records closed is a decision owed to Dave). Where a door served
+  several tenants through one recorder before this change, keep client ids
+  distinct across those tenants, or give each tenant its own door and
+  recorder. The disclosure level a governed read is held to and the level a
+  refusal shell is disclosed at are each read for the caller's tenant and
+  principal together, never for a principal of the door's tenant with the
+  same client id (`tests/mcp/test_read_refusal_attribution_mcp.py`,
+  `tests/http_api/test_read_refusal_attribution_http.py`); so is the level
+  that picks the Experience door's answer to an erasure — measured on
+  `get_context` (`tests/mcp/test_experience_level_binds_the_tenant.py`).
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the
