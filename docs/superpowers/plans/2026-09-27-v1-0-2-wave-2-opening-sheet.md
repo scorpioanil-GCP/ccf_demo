@@ -132,7 +132,7 @@ not the "about 25" the design estimates.
 
 ### 2.2 Replay holds, and what it does not do
 
-`src/ccf/replay/engine.py:78` — *"Nothing here reads a clock, and nothing here
+`src/ccf/replay/engine.py` (module docstring) — *"Nothing here reads a clock, and nothing here
 resolves 'latest'"* — **resolves exactly and is TRUE of that module**: zero
 `run_gates`, zero `datetime.now`, zero `GovernedResolver` import, store calls
 limited to `get`/`resolve_uri`. Replay drives `ProjectionEngine` over a

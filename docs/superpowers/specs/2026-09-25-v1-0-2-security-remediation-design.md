@@ -121,7 +121,7 @@ Three build waves, one decision-only wave, one release:
 | `SEC-006` approver eligibility | OPEN | No code reads `PendingHitlEvent.policy_ref`; `HitlPolicy` carries only `signed_binding_required` (`src/ccf/hitl/transport.py:229-230`); the starter principal is recorded nowhere; `InMemoryHitlTransport.submit` (`src/ccf/hitl/transport.py:840-850`) and the four `resolve`s check capability, principal match, hash and signature only; both engine authority joins are first-match `next(...)` (`runtime/ccf_runtime/workflow/engine.py:1037-1054`, `:1141-1152`). |
 | `SEC-007` blank identity | OPEN | `src/ccf/assembly/worker.py` is byte-identical to v1.0.0: presence-only guard (`:346-348`), bare `str()` identity construction (`:361-363`), URI mint (`:366`), attribute twin (`:369`). `content_hash({"lei": str(None)}) == content_hash({"lei": "None"})` reproduces. Relationship claims are minted from resolved URIs (`:545-587`), so a null endpoint creates a false edge through the phantom node. No test feeds a null identity value. |
 | `SEC-008` caller's clock as observation time | OPEN | `asked_at` is caller-supplied at all three doors with only a naive-offset refusal; the paved road requires `ingestion_timestamp == asked_at` (`src/ccf/signal/envelope.py:112`) and hands the caller's instant to acquisition as "the clock" (`src/ccf/products/product.py::OpenedProduct._acquisition_seam.seam`); L2 writes `observed_at = ingestion_timestamp` (`src/ccf/assembly/worker.py:495`). `envelope.py` and `worker.py` are byte-identical to v1.0.0; `product.py` was changed by `D-IMPL-353` (three commits, all in v1.0.1), but the acquisition context still hands `request.asked_at` as `instant` (`:813`, formerly `:774`), re-read on `a5b0f691`. |
-| `SEC-009` erasure | OPEN | Immutability rule and four-method Protocol intact (`src/ccf/artifacts/protocol.py:19-23`, `:573-641`); no delete/remove/erase verb on any served surface; `D-IMPL-50`/`D-IMPL-44` never built; `docs/DECISIONS.md:4641` already says it "needs its own decision entry before code"; the whitepaper commits against physical deletion (`docs/CCF_Whitepaper_1-2.md:2748`, `:3123`, `:3388`) and is silent on erasure. |
+| `SEC-009` erasure | OPEN | Immutability rule and four-method Protocol intact (`src/ccf/artifacts/protocol.py` (module docstring), `:573-641`); no delete/remove/erase verb on any served surface; `D-IMPL-50`/`D-IMPL-44` never built; `docs/DECISIONS.md:4641` already says it "needs its own decision entry before code"; the whitepaper commits against physical deletion (`docs/CCF_Whitepaper_1-2.md:2748`, `:3123`, `:3388`) and is silent on erasure. |
 | `SEC-010` one instant, three controls | OPEN | Policy effectivity (`src/ccf/products/constraints.py::_in_window`, `:1524-1536`), Gate 3's `now` (`src/ccf/products/resolver.py:2911` → `src/ccf/products/gates.py::_refuse_ttl`), `expires_at` (`src/ccf/products/resolver.py:2681`/`:2795`), `recorded_at` (`:3106` served, `:3363` refusals), the debt scorer (`:2626-2631`), the composite mixing law (`:2704-2707`) and dimension-1 `graph_snapshot_at` (`:2364-2368`) all key off the caller's `asked_at` or a caller-typed decision instant (`:2064-2071`). |
 | `SEC-011` gates that cannot fail | PARTIALLY CLOSED | **Gate 2:** ruled and shipped as assembly-path integrity (`D-IMPL-86` element 4 at `docs/DECISIONS.md:300`; `D-IMPL-300` at `:1843`); the failable pre-execution control is the binder at `src/ccf/products/resolver.py::GovernedResolver.__call__`. Residue: `public/concepts/invariants.md:82-84` still advertises the forgery reading. **Gate 3:** OPEN. For `from_decision` classes `now < expires_at <= now + MAX_TTL` reduces to `0 < ttl <= MAX_TTL`, disclosed at `D-IMPL-340` (`:3829`) and never ruled. |
 | `SEC-001` residual | OPEN | `WorkflowEngine.resume` reads only `authority.principal` (`runtime/ccf_runtime/workflow/engine.py:540`) and routes the caller's `decision` against the verdict-blind transition set (`:541-542`); `WorkflowDefinition` (`src/ccf/workflow/definitions.py:132-135`) carries nothing verdict-shaped. Pinned by `test_a_rejection_authorizes_resumption_but_does_not_bind_the_target` in `tests/workflow/test_engine.py` (replaced in cfd632c7 by `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`) and the Hypothesis rule at `tests/workflow/test_engine_stateful.py::WorkflowEngineMachine.resume_suspended`. |
@@ -129,7 +129,7 @@ Three build waves, one decision-only wave, one release:
 | `SEC-029` version stamp | OPEN, recurs | `pyproject.toml:7` `version = "0.1.0"`; `src/ccf/graph/registry.py:474-484` reads `importlib.metadata.version("ccf")` into `AdapterPin.version` (`:345`), which lands in **dimension 2** of every replay record as `graph_adapter_version` (`src/ccf/replay/record.py::PolicyBindingsSnapshot`). Every record written from an installed v1.0.x wheel says `0.1.0`. |
 | `TP-01`…`TP-05` adapters | OPEN, unrated in the report | Adapters, `src/ccf/skills/dispatch.py` and `runtime/ccf_runtime/peering/typed_http.py` byte-identical to v1.0.0. `TP-01` reproduced socket-free with the vendor's own `_get_can_use_tool_shadowed_warning`; `TP-04` confirmed against google-adk 2.5.0; `TP-05` confirmed (`--system-prompt` on argv). Rated HIGH by ruling (§0, #1). |
 
-**Closed and not re-chased:** `SEC-001` (Tier 0), `SEC-003`, `SEC-002`, `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (Tier 1). `SEC-012`/`016`/`018` were re-verified closed on `main` during this recon (`runtime/ccf_runtime/http_api/routes/skill.py:27`, `:248-249`; `runtime/ccf_runtime/cli/credential.py`; `runtime/ccf_runtime/mcp/experience.py:87-90`).
+**Closed and not re-chased:** `SEC-001` (Tier 0), `SEC-003`, `SEC-002`, `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (Tier 1). `SEC-012`/`016`/`018` were re-verified closed on `main` during this recon (`runtime/ccf_runtime/http_api/routes/skill.py` (module docstring), `:248-249`; `runtime/ccf_runtime/cli/credential.py`; `runtime/ccf_runtime/mcp/experience.py:87-90`).
 
 **AMENDMENT 2026-10-03 — `SEC-005`'s unsigned-verdict leg is SHUT. THE
 IDENTIFIER IS NOT CLOSED.** The roster above is stamped *verified on `main` @
@@ -601,7 +601,7 @@ component agreed on the caller's clock.
 
 ### 4.2 What the replay engine holds, verified (the constraints on any fix)
 
-1. `src/ccf/replay/engine.py:78`: *"Nothing here reads a clock, and nothing
+1. `src/ccf/replay/engine.py` (module docstring): *"Nothing here reads a clock, and nothing
    here resolves latest."* Replay never invokes `GovernedResolver`
    (`src/ccf/replay/engine.py::_re_execute` drives `ProjectionEngine` over a `SnapshotReader`
    directly), never runs gates (`D-IMPL-344` R-2; `grep run_gates src/ccf/replay`
@@ -854,7 +854,7 @@ component agreed on the caller's clock.
    in the same diff — `src/ccf/products/resolver.py::GovernedResolver` ("nothing in the
    path reads a clock"), the `__call__` docstring at `:2103-2106`, and the
    `run_gates(...)` docstring example at `src/ccf/projection/engine.py::ProjectionEngine.check_source_attestation`
-   (which gains `served_at`); `src/ccf/products/gates.py:74-76` stays true;
+   (which gains `served_at`); `src/ccf/products/gates.py` (module docstring) stays true;
    `served_at` lands on the record; and **two follow-on entries are
    opened in the same sitting** so `SEC-008` is not silently half-closed: a
    bitemporal as-of read (valid-time `asked_at`, transaction-time `served_at`;
@@ -999,7 +999,7 @@ clock-independent today only because the non-composite path reads no clock.
 signature test at `:257-261` stay green); 3 in `src/`, rewritten with the gate
 (`src/ccf/products/resolver.py::GovernedResolver.__call__`, `src/ccf/projection/engine.py:396`,
 `src/ccf/peering/admission.py::PeeringAdmissionGate._run_federated_gates`) plus the docstring example at
-`src/ccf/deployment/__init__.py:74`; the 5 frozen `produce.py` runners under `examples/cp-00…cp-04*`; 9
+`src/ccf/deployment/__init__.py` (module docstring); the 5 frozen `produce.py` runners under `examples/cp-00…cp-04*`; 9
 `archive/` callers (no fixes, `D-IMPL-351`); and `perf/suites/replay/conftest.py::recorded_decision`
 (an opt-in battery outside `ci`, so its red is silent — named). 16 example
 trees call `open_product(`, 12 call `build_governed_resolver(`. Union of files
@@ -1237,7 +1237,7 @@ every door test uses (`tests/http_api/test_signed_binding_door.py::_CLOCK_TIME`;
     re-pin.
 12. **Published pages.** `public/tutorial/adopters-guide.md:282` instructs
     adopters to run `sign_principal_binding` from an archived example
-    (`archive/examples/05-workflow-hitl/run.py:98`); `D-IMPL-351` forbids fixing
+    (`archive/examples/05-workflow-hitl/run.py` (module-level import)); `D-IMPL-351` forbids fixing
     `archive/`, so the tutorial gets a dated note and the reference snippet is
     re-pointed at an in-tree fixture; `public/how-to/security-and-deployment.md:53-66`
     is updated to the claim-set shape.
@@ -1269,8 +1269,8 @@ suites (3 signed tests each = 12: `test_approval_gate.py::test_gate_required_and
 `tests/crossproc/test_mcp_tenant_authz.py::_http_submission` (body literal),
 `tests/contracts/test_hash_transparency.py::_MARKED_IN_THE_TREE`; 1 is the code-roster test
 extended by hand (`tests/http_api/test_auth_hardening.py::TestTypedErrorCodes.test_codes_are_distinct_and_signed_binding_codes_are_reserved`, item 7); and 2
-are `archived`-marked modules — `tests/examples/test_workflow_hitl_output.py:164`
-and `tests/examples/test_decision_replay_output.py:156` — that import
+are `archived`-marked modules — `tests/examples/test_workflow_hitl_output.py` (module-level import; moved into a function in 448a6c42)
+and `tests/examples/test_decision_replay_output.py` (module-level import; removed in 448a6c42) — that import
 `verify_principal_binding` at module level **before** their `pytestmark`
 line, so once `SignedPrincipalBinding`, `sign_principal_binding` and
 `verify_principal_binding` are removed (they are: replaced, not deprecated)
@@ -1301,7 +1301,7 @@ approve … the approver role and the quorum") is an uninterpreted
 principal permitted to submit approves any event in that tenant, including a
 request they raised. **Wider:** `_escalation_authority`
 (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._escalation_authority`) is a second unguarded first-match join;
-`ExceptionEscalation`'s "designated role" (`src/ccf/hitl/escalation.py:23-26`) is never
+`ExceptionEscalation`'s "designated role" (`src/ccf/hitl/escalation.py` (module docstring)) is never
 enforced — seven consumption points, not six. And no cross-action exclusivity
 exists: one principal may hold `Execute`, `HitlSubmit` and `Resume` and start,
 approve and resume an execution alone.
@@ -1317,7 +1317,7 @@ approve and resume an execution alone.
    documentation, not control (Dave, on `cp-08`'s unread λ_c). Registered the
    way `ccf.hitl-policy` is — adopter-registered against the real contract,
    deliberately **not** manifest-addressable
-   (`src/ccf/deployment/classes.py:64`, `:71-74`) — unless Dave rules it
+   (`src/ccf/deployment/classes.py` (module docstring), `:71-74`) — unless Dave rules it
    addressable. It is the artifact `gate_policies` already names and
    `_suspend` already pins onto the event (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend`), so the posture that
    governed an approval is replayable (the deployment-wide `HitlPolicy` is
@@ -1456,7 +1456,7 @@ authority conditions on the merged tree: the join's per-submission predicate
 
 ## 6. Wave 4 — The erasure architecture (`SEC-009`): a decision entry and a panelled design, no code
 
-**Why an entry first.** The immutability rule at `src/ccf/artifacts/protocol.py:19-23` says an
+**Why an entry first.** The immutability rule at `src/ccf/artifacts/protocol.py` (module docstring) says an
 implementation "must never offer" an update or delete; the whitepaper commits
 to logical supersession, not physical deletion (`docs/CCF_Whitepaper_1-2.md:2748`,
 `:3123`) and to permanent full-fidelity retention for significant decisions
@@ -1484,7 +1484,7 @@ design document.**
 | G5 | The served reading | **Disclosure-governed** through the existing `Disclosure` layer and `govern_dereference`: absent at minimal, erased-with-reason at higher levels, **always positive in replay** — at the child-question site and the request-seeds site (`src/ccf/replay/engine.py::_re_execute`) as a refusal distinct from "never carried a request". |
 | G6 | Authority | A new door kind `artifact.erase` (beside `artifact.write`, `src/ccf/authz/actions.py:64`) minted at gate/wrapper only, **behind a policy-configurable `ApprovalGate`** with the approver in the record — an irreversible Control Plane action of a revoke's weight. Never composition-minted. |
 | G7 | Legal hold and severity-exempt records | **Per-class Control Plane policy, default refuse**, with a structural retention-reason field (INV-CH7-89) — the refusal is the audit answer a regulator asks for. |
-| G8 | The graph | **Outside the 1.0.2 contract, named** (the `D-IMPL-355` form): six backends, five persistent, only Fluree append-only (`src/ccf/graph/backends/fluree_write.py::_FlureeTxn._replace` emits retracts that remain in history); `PolicyFilter` reads attribute plaintext (`src/ccf/operators/categories.py::PolicyFilter._admits`), so attribute-level encryption would fail it closed; `cp-15` puts natural-person KYC data in the graph. CDC turns an upstream DELETE into a permanently retained before-image (`runtime/ccf_runtime/cdc/envelope_map.py:19-22`, `:158-161`): a retention event, not an erasure signal — recommended, to be ruled at G8. The file store's append-only `.artifact-names.json` (`src/ccf/artifacts/file_store.py:66`, `:140-150`) is inventoried. |
+| G8 | The graph | **Outside the 1.0.2 contract, named** (the `D-IMPL-355` form): six backends, five persistent, only Fluree append-only (`src/ccf/graph/backends/fluree_write.py::_FlureeTxn._replace` emits retracts that remain in history); `PolicyFilter` reads attribute plaintext (`src/ccf/operators/categories.py::PolicyFilter._admits`), so attribute-level encryption would fail it closed; `cp-15` puts natural-person KYC data in the graph. CDC turns an upstream DELETE into a permanently retained before-image (`runtime/ccf_runtime/cdc/envelope_map.py` (module docstring), `:158-161`): a retention event, not an erasure signal — recommended, to be ruled at G8. The file store's append-only `.artifact-names.json` (`src/ccf/artifacts/file_store.py:66`, `:140-150`) is inventoried. |
 | G9 | Rulings this amends | `D-IMPL-27`'s explicit class list (`docs/DECISIONS.md:37` routes replay records and Context Products at rest through the ArtifactStore) for whatever leaves the store; key custody, if crypto-shredding is ever ruled for the graph, on the existing `SigningKeySource` / `FileBackedKeySource` seam (`src/ccf/peering/identity.py::SigningKeySource`, `:410`), never a second key provider; a durable state store is a `D-IMPL-18` deliverable, not a side effect. |
 | G10 | Sequencing | The entry and the design in 1.0.2; the substrate (erasure record class, the door kind, the substrate consult, the ApprovalGate) as its own panelled phase after 1.0.2; payload separation for artifacts and any graph erasure as later phases; and the honest statement that until bytes are destroyed nothing here satisfies Art. 17 destruction. |
 
