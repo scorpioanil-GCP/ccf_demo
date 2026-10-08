@@ -337,6 +337,13 @@ class ControlPlaneProtocol(Protocol):
     :class:`ControlPlaneRegistry`, which breaks the Protocol-over-inheritance
     posture CLAUDE.md §11 mandates and forecloses remote control planes for
     manifest boot.
+
+    **Class identity is on this surface by ``D-IMPL-378`` K2** (Dave,
+    2026-10-08): both typed registration methods validate with
+    ``artifact_class.validate(artifact)``, so a document stating one class is
+    never filed as another, whichever plane registers it. The conformance check
+    for an implementation is
+    ``tests/conformance/test_control_plane_class_identity.py``.
     """
 
     def register(self, authorized: RegisterAuthority, artifact: object) -> str:
@@ -349,7 +356,19 @@ class ControlPlaneProtocol(Protocol):
         artifact: object,
         artifact_class: ArtifactClass,
     ) -> str:
-        """Append ``artifact`` after validating it against ``artifact_class``."""
+        """Append ``artifact`` after validating it against ``artifact_class``.
+
+        **Validating means** ``artifact_class.validate(artifact)``, called
+        before anything is stored or audited (``D-IMPL-378`` K2). Among what it
+        refuses is an artifact whose own top-level ``class_id`` disagrees with
+        the class it is registered as, raised as
+        :class:`~ccf.controlplane.artifact_base.ArtifactClassIdMismatch`, as
+        :meth:`ControlPlaneRegistry.register_typed` raises it. An implementation
+        that checks only the contract's type files a document stating one class
+        under another. An implementation proves it with
+        ``tests/conformance/test_control_plane_class_identity.py``, its factory
+        added to that module's ``PLANES``.
+        """
         ...
 
     def register_versioned(
@@ -360,7 +379,18 @@ class ControlPlaneProtocol(Protocol):
         *,
         reissuable: bool = False,
     ) -> str | RegistrationRefusal:
-        """Register an author-versioned artifact under the D-05 bump check."""
+        """Register an author-versioned artifact under the D-05 bump check.
+
+        The artifact is validated with ``artifact_class.validate(artifact)``
+        before the bump check runs and before anything is stored or audited
+        (``D-IMPL-378`` K2), so an artifact whose own top-level ``class_id``
+        disagrees with the class it is registered as is refused, raised as
+        :class:`~ccf.controlplane.artifact_base.ArtifactClassIdMismatch`, as
+        :meth:`ControlPlaneRegistry.register_versioned` raises it. An
+        implementation proves it with
+        ``tests/conformance/test_control_plane_class_identity.py``, its factory
+        added to that module's ``PLANES``.
+        """
         ...
 
     def resolve(self, key: str, version: str) -> object:

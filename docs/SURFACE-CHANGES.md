@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2326 entries**, of which **2050** name a public Python surface.
+**2328 entries**, of which **2051** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1295 entries — 1250 public Python surface, 45 not public Python API.
+1296 entries — 1250 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19795,6 +19795,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
 
+#### tests/conformance/test_control_plane_class_identity.py
+
+- Surface: tests/conformance/test_control_plane_class_identity.py
+- Public surface: false
+- Change type: added
+- Before: absent. The SDK offered no conformance check for `ControlPlaneProtocol`
+- After: the conformance check for a Control Plane's class-identity obligation, run against the reference registry and a validating third-party implementation, and shown to fail a contract-only implementation by name, per method
+- Why: `D-IMPL-378` K2 (b): documentation alone is not enforcement evidence
+- Migration: none for a deployment on the SDK's registry; a deployment with its own Control Plane lists its factory and runs the module
+
+*Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
@@ -29927,7 +29939,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-372 entries — 333 public Python surface, 39 not public Python API.
+373 entries — 334 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35522,6 +35534,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a program that passed a `ccf.` id registers an SDK class with the SDK's own `ArtifactClass` constant (for example `ccf.workflow.definitions.WORKFLOW_DEFINITION`), or chooses an id in its own namespace
 
 *Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneProtocol
+
+- Surface: ccf.controlplane.registry.ControlPlaneProtocol
+- Public surface: true
+- Change type: behavior
+- Before: same members and signatures. `register_typed` said it validates against `artifact_class` without saying how, and `register_versioned` said nothing about validation, so an implementation that checked only the contract's type conformed on paper while filing a document stating one class under another
+- After: same members and signatures; documentation only. Both methods are obliged to call `artifact_class.validate(artifact)` before anything is stored or audited, so an artifact whose own `class_id` disagrees with the class it is registered as is refused as `ArtifactClassIdMismatch`. The text names the conformance check
+- Why: `D-IMPL-378` K2 (b). Red test: `tests/conformance/test_control_plane_class_identity.py::test_the_protocol_states_the_class_identity_obligation`; enforcement evidence: `::test_registration_refuses_a_document_stating_another_class` and `::test_the_check_fails_a_third_party_plane_that_does_not_validate_by_name`
+- Migration: a third-party Control Plane calls `artifact_class.validate(artifact)` in `register_typed` and `register_versioned` before storing or auditing, adds its factory to `PLANES` in `tests/conformance/test_control_plane_class_identity.py`, and runs that module
+
+*Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
 
 ### Not public Python API
 
