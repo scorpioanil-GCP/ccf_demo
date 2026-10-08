@@ -10,7 +10,9 @@ record behind a withheld answer names what the answer hid; ``D-IMPL-345`` let
 its owner at ``full`` read it back. These controls hold the owner's read-back to
 default-deny on every path that can deliver a record: the HTTP replay reads by
 content address and by URI, the HTTP artifact read, the MCP artifact server's
-blob resource, and the MCP Experience door's argument-less ``get_replay_record``.
+blob, presence and names resources, the MCP Experience door's argument-less
+``get_replay_record``, and the ``ccf`` CLI's ``replay query``, ``replay
+resolve`` and ``artifact inspect``.
 The owner is entitled to the class and discloses at ``full`` throughout, so a
 refusal here is the read-back rule and nothing else; the refusal's mechanism is
 asserted by name once the read is refused.
@@ -134,6 +136,42 @@ def test_q12_the_owner_cannot_read_back_a_product_record_through_the_mcp_artifac
 
     assert _internal_error_code(world.recorded, shell.replay_reference) == ERROR_EVIDENCE_CLASS_SEALED
 
+
+
+@pytest.mark.parametrize("resource", ["presence", "names"])
+def test_q12_the_mcp_artifact_servers_other_governed_resources_hold_the_same_rule(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, resource: str
+) -> None:
+    """MCP artifact server, the two resources that answer about an address
+    without its bytes: presence (``artifact_meta_uri``) and the naming
+    introspection (``artifact_names_uri``). Both reach ``govern_dereference``
+    for a governed record, so the owner at ``full`` with no class listed gets
+    the refusal shell from both, named ``evidence-class-sealed`` in its record."""
+    import tests.mcp.test_c2_tenant_hold_mcp as c2  # noqa: PLC0415
+    from ccf_runtime.http_api.errors import ERROR_EVIDENCE_CLASS_SEALED  # noqa: PLC0415
+    from ccf_runtime.mcp.artifact_server import artifact_meta_uri, artifact_names_uri  # noqa: PLC0415
+
+    granted = c2._policy
+
+    def unlisted(tenant: str) -> Any:
+        policy = granted(tenant)
+        return type(policy).model_validate({**policy.model_dump(), "evidence_readable_classes": frozenset()})
+
+    monkeypatch.setattr(c2, "_policy", unlisted)
+    world = _world(tmp_path)
+    address = _file(world, _record(tenant=MCP_TENANT, principal=MCP_PRINCIPAL, subject="subject-q12-meta"))
+    uri = (artifact_meta_uri if resource == "presence" else artifact_names_uri)(content_address=address)
+    reset = c2._as_grant(c2._grant())
+    try:
+        (answer,) = list(anyio.run(world.server.read_resource, uri))
+    finally:
+        auth_context_var.reset(reset)
+    content = answer.content if isinstance(answer.content, bytes) else answer.content.encode("utf-8")
+    try:
+        shell = RefusalEnvelope.model_validate_json(content)
+    except ValueError:
+        pytest.fail(f"the owner's {resource} read crossed although no class is listed: {content[:200]!r}")
+    assert _internal_error_code(world.recorded, shell.replay_reference) == ERROR_EVIDENCE_CLASS_SEALED
 
 # --- the MCP Experience door's argument-less replay read ---------------------------
 
