@@ -2067,6 +2067,10 @@ DEPLOYMENT_OWNED_ARGUMENTS: tuple[str, ...] = (
     # filed record said no packaging happened on every one of the five pins.
     "packaging_trace",
     "acquisition",
+    # SEC-020 Q7 (`D-IMPL-378`): the declared population phase. `None` is
+    # admissible and POSITIVE — this deployment declares no population phase —
+    # but never a default, on `acquisition`'s own terms.
+    "population_acquisition",
     "half_life_key",
     "admission_clock",
     "plan_factory",
@@ -2216,6 +2220,8 @@ def _arguments(booted: _Booted, *, key: Callable[[str], str] = lambda name: name
         # every deployment shipped before the seam existed was in, stated
         # rather than defaulted.
         "acquisition": None,
+        # SEC-020 Q7 (`D-IMPL-378`): no population phase either — stated.
+        "population_acquisition": None,
         # `PKG-F-08`: stated, never defaulted — this fixture packages nothing,
         # and saying so is different from nobody having wired the seam.
         "packaging_trace": None,

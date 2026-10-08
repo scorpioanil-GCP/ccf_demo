@@ -154,7 +154,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final, Protocol, TypeVar, runtime_checkable
+from typing import Any, Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
@@ -321,6 +321,9 @@ __all__ = [
     "ChildAwareDebtScorerProtocol",
     "CompositePlanFactoryProtocol",
     "PackagingTraceProtocol",
+    "PopulationAcquisitionSeamProtocol",
+    "PopulationPhaseSharesAnOwner",
+    "PopulationQuestion",
     "ProjectionPlanFactoryProtocol",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
@@ -635,6 +638,24 @@ class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
     """
 
 
+class PopulationPhaseSharesAnOwner(UnsupportedComposition):
+    """The population phase and the subject-keyed phase share an owner.
+
+    Q7: *"Subject-independent acquisition must not receive the requested
+    subject indirectly through context or closures. Unsupported combinations
+    must refuse construction."* Two bound methods of one object, one callable
+    declared as both phases, or a population phase whose closure holds the
+    subject-keyed phase (or its object): state on that one owner carries a
+    subject the subject-keyed phase was handed into a later question's
+    population phase. Refused when the resolver is constructed (and, on the
+    paved road, when the product is opened). The check reads identities — the
+    callables, their bound objects and one level of their closure cells — and
+    cannot see state two separate objects share through a third; that is the
+    deployment's statement to keep, and the security how-to, section 4.12,
+    says so.
+    """
+
+
 class AcquiredFabricReused(ProductNotResolvable):
     """A fabric an acquisition phase was claimed for was asked another question.
 
@@ -724,6 +745,42 @@ class PackagingTraceProtocol(Protocol):
             :data:`~ccf.replay.record.NO_PACKAGING_TRACE` rather than raising.
         """
         ...
+
+
+def _owners(phase: object) -> set[int]:
+    """The identities a phase's state lives on: the callable, and the object it is bound to."""
+    owners = {id(phase)}
+    bound = getattr(phase, "__self__", None)
+    if bound is not None:
+        owners.add(id(bound))
+    return owners
+
+
+def _captured(phase: object) -> set[int]:
+    """The identities one level of the phase's closure cells hold, with their bound objects."""
+    function = getattr(phase, "__func__", phase)
+    captured: set[int] = set()
+    for cell in getattr(function, "__closure__", None) or ():
+        try:
+            held = cell.cell_contents
+        except ValueError:
+            continue
+        captured |= _owners(held)
+    return captured
+
+
+def _refuse_shared_owner(population: object, subject_keyed: object) -> None:
+    """Raise :class:`PopulationPhaseSharesAnOwner` when the two phases share an owner (Q7)."""
+    shared = (_owners(population) & (_owners(subject_keyed) | _captured(subject_keyed))) or (
+        _owners(subject_keyed) & (_owners(population) | _captured(population))
+    )
+    if shared:
+        raise PopulationPhaseSharesAnOwner(
+            "the population phase and the subject-keyed phase share an owner, so"
+            " state the subject-keyed phase was handed — the asked subject — can"
+            " reach a later question's population phase; declare them on separate"
+            " objects (SEC-020, Q7)"
+        )
 
 
 @runtime_checkable
@@ -1105,7 +1162,12 @@ class AcquisitionSeamProtocol(Protocol):
     :meth:`GovernedResolver.__call__` exactly once per question, **after** the
     effective request has been resolved — defaults applied, the constraints
     in force folded, the technical capabilities held, the intent judged — and
-    **before** the graph is read at the question's boundary. It receives the
+    **before** the graph is read at the question's boundary. A declared
+    :class:`PopulationAcquisitionSeamProtocol` is the second declared phase,
+    also invoked exactly once per question, immediately BEFORE this one and
+    without the subject (SEC-020, ``D-IMPL-378`` Q7 and Q10: *"Two declared
+    acquisition phases are permitted, each once."*): the effective request is
+    still derived once, and each phase consumes that one outcome. It receives the
     EFFECTIVE request, so what a deployment reads its sources at is the value
     governance resolved, never a second derivation of it: the seven copies of
     ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
@@ -1129,6 +1191,66 @@ class AcquisitionSeamProtocol(Protocol):
 
     def __call__(self, *, request: ProductRequest, perspective: Perspective) -> None:
         """Acquire and ingest whatever answering ``request`` needs; return nothing."""
+        ...
+
+
+class PopulationQuestion(CCFContract):
+    """What the population phase is asked: the effective request WITHOUT its subject.
+
+    SEC-020, ``D-IMPL-378`` (Dave, 2026-10-07, Q7: *"Approve an explicit
+    population-fetch mode. Subject-independent acquisition must not receive
+    the requested subject indirectly through context or closures."*;
+    SDK-defined, CLAUDE.md §11). A source whose answer does not depend on who
+    is asked about acquires, for an identifier that names nothing, exactly what
+    it acquires for any other subject, and a withheld subject is rendered over
+    the fabric after it. This type has no ``subject`` member, so nothing the
+    population phase is handed carries the asked identifier — by construction,
+    not by trust. It keeps the subject out, not every identifier: a declared
+    parameter that itself names an entity is still a parameter, and reaches the
+    population phase.
+    """
+
+    schema_name: str
+    schema_version: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+    parameters: Mapping[str, Any]
+
+    @classmethod
+    def of(cls, request: ProductRequest) -> PopulationQuestion:
+        """The subject-free half of ``request``: every member but the subject and its overrides."""
+        return cls(
+            schema_name=request.schema_name,
+            schema_version=request.schema_version,
+            intent=request.intent,
+            freshness=request.freshness,
+            asked_at=request.asked_at,
+            parameters=dict(request.parameters),
+        )
+
+
+@runtime_checkable
+class PopulationAcquisitionSeamProtocol(Protocol):
+    """The population phase: the declared, subject-independent half of a question's acquisition.
+
+    SEC-020, ``D-IMPL-378`` (Q7, Q10: *"Two declared acquisition phases are
+    permitted, each once."*; SDK-defined, CLAUDE.md §11). Declared on its own
+    (:attr:`GovernedResolver.population_acquisition`), never as a method of the
+    subject-keyed seam — a shared owner is refused at construction
+    (:class:`PopulationPhaseSharesAnOwner`). :meth:`GovernedResolver.__call__`
+    invokes it exactly once per question, FIRST — after the fabric is claimed
+    for the question and before anything in the question is fetched for the
+    subject — with a :class:`PopulationQuestion`; it then reads the fabric, the
+    state a subject Π withholds is rendered over, and invokes the subject-keyed
+    seam, also once. The subject-keyed phase's obligation stays a trusted
+    statement: it acquires nothing for an identifier its source does not hold.
+    A population read left inside the subject-keyed phase is not helped by this
+    mode (the security how-to, section 4.12).
+    """
+
+    def __call__(self, *, question: PopulationQuestion, perspective: Perspective) -> None:
+        """Acquire and ingest the part of the answer that does not depend on the subject."""
         ...
 
 
@@ -2316,6 +2438,13 @@ class GovernedResolver:
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
     acquisition: AcquisitionSeamProtocol | None
+    #: SEC-020 Q7 (`D-IMPL-378`): the declared population phase — the
+    #: subject-independent half of the question's acquisition, invoked once per
+    #: question before the subject-keyed ``acquisition`` and handed no subject
+    #: (:class:`PopulationAcquisitionSeamProtocol`). ``None`` is admissible and
+    #: POSITIVE — this deployment declares no population phase — but never a
+    #: default, on ``acquisition``'s own terms.
+    population_acquisition: PopulationAcquisitionSeamProtocol | None
     # `D-IMPL-341`: the manifest key of this deployment's λ_c table, when it
     # has one. Read at the mint to derive an evidence-anchored expiry from the
     # same observations the freshness factor scores, and pinned on the record
@@ -2342,6 +2471,10 @@ class GovernedResolver:
             self.artifact_store,
             (self.replay_record_class, self.query_pin_class, ADMITTED_CHILD_CONTRACT_CLASS),
         )
+        # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two
+        # declared acquisition phases is refused here, at construction.
+        if self.population_acquisition is not None and self.acquisition is not None:
+            _refuse_shared_owner(self.population_acquisition, self.acquisition)
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
         minted = _ComposedAuthorities(
@@ -2834,14 +2967,28 @@ class GovernedResolver:
         # how-to, section 4.12.) Read only when a seam is declared: with none,
         # nothing is acquired, and the state the plan reads below is this one.
         before_acquisition: GraphView | None = None
-        if self.acquisition is not None:
+        if self.acquisition is not None or self.population_acquisition is not None:
             # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
             # claimed for it — before anything is read or fetched, and decided
             # by nothing about the subject.
             _claim_question_fabric(self.fabric)
+            # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no
+            # subject — so what it acquires is what any identifier's question
+            # acquires, and it is in the state read below.
+            if self.population_acquisition is not None:
+                population_phase = self.population_acquisition
+                population = PopulationQuestion.of(effective_request)
+                refused = self._invoke_acquisition(
+                    lambda: population_phase(question=population, perspective=perspective),
+                    request=request, identity=identity, perspective=perspective,
+                    effective=effective, served_at=served_at,
+                )
+                if refused is not None:
+                    return refused
             before_acquisition = self.fabric.handle.reader.as_of(
                 tenant_id=self.fabric.tenant_id, at=request.asked_at
             )
+        if self.acquisition is not None:
             try:
                 self.acquisition(request=effective_request, perspective=perspective)
             except GovernedRefusalRaised as raised:
@@ -3895,6 +4042,43 @@ class GovernedResolver:
 
     # --- the one minting seam ----------------------------------------------
 
+    def _invoke_acquisition(
+        self,
+        invoke: Callable[[], None],
+        *,
+        request: ProductRequest,
+        identity: RequestIdentity,
+        perspective: Perspective,
+        effective: EffectiveRequest,
+        served_at: datetime,
+    ) -> RefusalEnvelope | None:
+        """Run the population phase; a held refusal comes back as data (SEC-020 Q7).
+
+        The conversion the subject-keyed phase gets inline in :meth:`__call__`:
+        `D-IMPL-304`'s held determination is recorded through this
+        composition's ONE minting seam and returned as data, `D-IMPL-347` B2's
+        declared types convert, and any other exception re-raises unchanged.
+        Recorded at the one ``acquisition`` seam: the two phases are two
+        declared halves of one seam.
+        """
+        try:
+            invoke()
+        except GovernedRefusalRaised as raised:
+            return self._refuse_raised_at_seam(
+                raised, seam="acquisition", request=request, identity=identity,
+                perspective=perspective, effective=effective, served_at=served_at,
+            )
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            binding = self._declared_seam_refusal(error)
+            if binding is None:
+                raise
+            return self._refuse_declared_at_seam(
+                error, binding, seam="acquisition", request=request,
+                identity=identity, perspective=perspective, effective=effective,
+                served_at=served_at,
+            )
+        return None
+
     def _declared_seam_refusal(
         self,
         error: BaseException,
@@ -4731,6 +4915,9 @@ def build_governed_resolver(
     acquisition: AcquisitionSeamProtocol | None = None,
     #: §7.10.4's Mode 2 footprint. ``None`` for every Mode 1 deployment.
     packaging_trace: PackagingTraceProtocol | None = None,
+    #: SEC-020 Q7 (`D-IMPL-378`): the declared population phase, ``None`` for
+    #: every deployment that declares none.
+    population_acquisition: PopulationAcquisitionSeamProtocol | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -5366,6 +5553,7 @@ def build_governed_resolver(
             composite_children=composite_children,
             admission_clock=admission_clock,
             acquisition=acquisition,
+            population_acquisition=population_acquisition,
             packaging_trace=packaging_trace,
             half_life_key=resolver_table_key,
         )
@@ -5423,6 +5611,7 @@ def build_governed_resolver(
         composite_children=composite_children,
         admission_clock=admission_clock,
         acquisition=acquisition,
+        population_acquisition=population_acquisition,
         packaging_trace=packaging_trace,
         half_life_key=resolver_table_key,
     )

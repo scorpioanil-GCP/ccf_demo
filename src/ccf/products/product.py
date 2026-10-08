@@ -164,8 +164,12 @@ from ccf.products.contract import version_satisfies_floor
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
+    AcquisitionSeamProtocol,
+    PopulationAcquisitionSeamProtocol,
+    PopulationQuestion,
     ProductGateProtocol,
     ProductNotResolvable,
+    _refuse_shared_owner,
     ProjectionPlanFactoryProtocol,
     ReplayRefusalRecorder,
     ResolverOutcome,
@@ -198,6 +202,8 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "AcquireProtocol",
     "AcquisitionContext",
+    "PopulationAcquireProtocol",
+    "PopulationAcquisitionContext",
     "AssessProtocol",
     "AssessmentContext",
     "ChildResolverFactory",
@@ -270,6 +276,32 @@ class AcquisitionContext:
     """
 
     request: ProductRequest
+    perspective: Perspective
+    tenant_id: str
+    sources: Mapping[str, Mapping[str, str]]
+    instant: datetime
+
+
+@dataclass(frozen=True)
+class PopulationAcquisitionContext:
+    """What a deployment's population phase is handed for one question.
+
+    SEC-020, ``D-IMPL-378`` (Q7; SDK-defined, CLAUDE.md §11).
+    :class:`AcquisitionContext` without the request: ``question`` is the
+    effective request WITHOUT its subject
+    (:class:`~ccf.products.resolver.PopulationQuestion`), so the part of the
+    acquisition a deployment declares subject-independent cannot read the
+    asked identifier from anything it is handed.
+
+    Attributes:
+        question: The effective request without its subject.
+        perspective: Whose view the answer is served under.
+        tenant_id: The tenant every envelope must be stamped for.
+        sources: Every source setting the environment document declared.
+        instant: The question's ``asked_at``, as on :class:`AcquisitionContext`.
+    """
+
+    question: PopulationQuestion
     perspective: Perspective
     tenant_id: str
     sources: Mapping[str, Mapping[str, str]]
@@ -351,6 +383,25 @@ class AcquireProtocol(Protocol):
     """
 
     def __call__(self, context: AcquisitionContext) -> Iterable[SignalEnvelope]: ...
+
+
+@runtime_checkable
+class PopulationAcquireProtocol(Protocol):
+    """The deployment's population phase: read what does not depend on the subject (SEC-020 Q7).
+
+    ``D-IMPL-378`` (SDK-defined, CLAUDE.md §11). Declared to
+    :func:`open_product` as ``acquire_population``, on an object separate from
+    ``acquire`` (one shared owner is refused at open,
+    :class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`). The paved
+    road calls it once per question, FIRST, with a
+    :class:`PopulationAcquisitionContext` — no request, no subject — and then
+    ``acquire`` for the subject-keyed phase, also once. Both phases' envelopes
+    are held to the tenant and the instant and ingested through the same L2
+    worker. The two must not overlap: an entity the population phase returns
+    is not returned again by ``acquire``.
+    """
+
+    def __call__(self, context: PopulationAcquisitionContext) -> Iterable[SignalEnvelope]: ...
 
 
 @runtime_checkable
@@ -466,6 +517,7 @@ class OpenedProduct:
         mcp_skills: McpSkillRegistry | None = None,
         bridge: SyncMcpBridge | None = None,
         agent: AgentDefinition | None = None,
+        acquire_population: PopulationAcquireProtocol | None = None,
     ) -> None:
         self.config_root = config_root
         self.config_path = config_path
@@ -494,6 +546,7 @@ class OpenedProduct:
         self.agent = agent
         self._bridge = bridge
         self._acquire = acquire
+        self._acquire_population = acquire_population
         self._project = project
         self._assess = assess
         self._gate = gate
@@ -629,6 +682,13 @@ class OpenedProduct:
             "query_pin_class": self.replay.query_pin_class,
             "refusal_recorder": self.refusal_recorder,
             "acquisition": self._acquisition_seam(fabric),
+            # SEC-020 Q7 (`D-IMPL-378`): the declared population phase, stated
+            # only when the deployment declared one.
+            **(
+                {"population_acquisition": self._population_seam(fabric)}
+                if self._acquire_population is not None
+                else {}
+            ),
             # §7.10.4's Mode 2 footprint. `None` for every Mode 1 deployment,
             # and dimension 3's no-packaging sentinel is then the true claim.
             "packaging_trace": self._packaging_trace,
@@ -841,27 +901,21 @@ class OpenedProduct:
             for_question=True,
         )
 
-    def _acquisition_seam(self, fabric: BootedFabric) -> Callable[..., None]:
+    def _acquisition_seam(self, fabric: BootedFabric) -> AcquisitionSeamProtocol:
         """The declared acquisition boundary for one question (`D-IMPL-343` R-4).
 
         Called by the resolver ONCE, with the EFFECTIVE request, after
         resolution and before the graph read. The deployment's ``acquire``
         runs at the values governance resolved; every envelope is held to the
-        tenant and the instant before L2's one writer sees it.
+        tenant and the instant before L2's one writer sees it
+        (:meth:`_ingest_into`). A declared population phase is the other
+        declared phase, called once before this one
+        (:meth:`_population_seam`; SEC-020 Q7, ``D-IMPL-378``).
         """
-        worker = fabric.handle.worker
         tenant_id = self.tenant_id
         sources = self.sources
         acquire = self._acquire
-        # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
-        # — the trusted ingress composition — and bound ONCE per opened product
-        # rather than per envelope. The roster is this deployment's own tenant and
-        # the policy is pinned for it at composition, so nothing on the ingest path
-        # resolves a policy and no envelope can introduce a tenant.
-        temporal_bound = IngressTemporalBound.at_composition(
-            registry=self.control_plane, tenant_ids=(tenant_id,)
-        )
-        clock = self._clock
+        ingest = self._ingest_into(fabric)
 
         def seam(*, request: ProductRequest, perspective: Perspective) -> None:
             context = AcquisitionContext(
@@ -871,6 +925,51 @@ class OpenedProduct:
                 sources=sources,
                 instant=request.asked_at,
             )
+            ingest(acquire(context), asked_at=request.asked_at)
+
+        return seam
+
+    def _population_seam(self, fabric: BootedFabric) -> PopulationAcquisitionSeamProtocol:
+        """The declared population phase for one question (SEC-020 Q7, ``D-IMPL-378``).
+
+        Called by the resolver once per question, before the subject-keyed
+        seam, with a question that carries no subject; the deployment's
+        ``acquire_population`` is handed a :class:`PopulationAcquisitionContext`
+        built from it and nothing else.
+        """
+        population_phase = self._acquire_population
+        assert population_phase is not None  # stated only when declared
+        tenant_id = self.tenant_id
+        sources = self.sources
+        ingest = self._ingest_into(fabric)
+
+        def population(*, question: PopulationQuestion, perspective: Perspective) -> None:
+            context = PopulationAcquisitionContext(
+                question=question,
+                perspective=perspective,
+                tenant_id=tenant_id,
+                sources=sources,
+                instant=question.asked_at,
+            )
+            ingest(population_phase(context), asked_at=question.asked_at)
+
+        return population
+
+    def _ingest_into(self, fabric: BootedFabric) -> Callable[..., None]:
+        """L2's one writer for this question's fabric, behind the tenant and instant bounds."""
+        worker = fabric.handle.worker
+        tenant_id = self.tenant_id
+        # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
+        # — the trusted ingress composition — and bound ONCE per seam rather than
+        # per envelope. The roster is this deployment's own tenant and the policy
+        # is pinned for it at composition, so nothing on the ingest path resolves
+        # a policy and no envelope can introduce a tenant.
+        temporal_bound = IngressTemporalBound.at_composition(
+            registry=self.control_plane, tenant_ids=(tenant_id,)
+        )
+        clock = self._clock
+
+        def ingest(envelopes: Iterable[SignalEnvelope], *, asked_at: datetime) -> None:
             # THE FABRIC'S instant, read ONCE per acquisition and handed to the
             # guard — never `request.asked_at`. `refuse_foreign_envelope` above
             # already requires `ingestion_timestamp == asked_at` on this road, so
@@ -879,8 +978,8 @@ class OpenedProduct:
             # fire. Measured — the first draft of this wiring did exactly that and
             # the end-to-end control caught it.
             ingress_at = clock()
-            for envelope in acquire(context):
-                refuse_foreign_envelope(envelope, tenant_id=tenant_id, asked_at=request.asked_at)
+            for envelope in envelopes:
+                refuse_foreign_envelope(envelope, tenant_id=tenant_id, asked_at=asked_at)
                 # BEFORE the single writer sees it. An out-of-window or undeclared
                 # envelope raises here, so no claim lands and nothing is restamped.
                 # The raise is `TemporalWriteRefused`, which `SDK_SEAM_REFUSALS`
@@ -890,7 +989,7 @@ class OpenedProduct:
                 temporal_bound.refuse_outside_window(envelope, now=ingress_at)
                 worker.ingest(envelope)
 
-        return seam
+        return ingest
 
 
 def _parsed(
@@ -927,6 +1026,7 @@ def open_product(
     build_children: ChildResolverFactory | None = None,
     packaging_trace: PackagingTraceProtocol | None = None,
     erasure_index: ErasureIndexProtocol | None = None,
+    acquire_population: PopulationAcquireProtocol | None = None,
 ) -> OpenedProduct:
     """Open the declared product under ``config_root``: bind the verbs, read the bindings, refuse early.
 
@@ -964,6 +1064,12 @@ def open_product(
             own fabrics beside its own documents would be one nobody could
             clean.
         acquire: The deployment's acquisition (:class:`AcquireProtocol`).
+        acquire_population: The deployment's population phase, when part of
+            what it reads does not depend on the subject
+            (:class:`PopulationAcquireProtocol`; SEC-020 Q7, ``D-IMPL-378``):
+            called once per question before ``acquire`` and handed no subject.
+            Refused at open when it shares an owner with ``acquire``
+            (:class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`).
         project: The deployment's NAMED plan factory (`D-IMPL-137`: its only
             operator source is the ``required`` tuple the SDK hands it).
         assess: The deployment's debt rule (:class:`AssessProtocol`).
@@ -1057,6 +1163,10 @@ def open_product(
             " per-question fabrics and the replay store are written under"
             " scratch and never beside the deployment's documents (D-IMPL-343)"
         )
+    # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two declared
+    # acquisition phases is refused at open, before any document is read.
+    if acquire_population is not None:
+        _refuse_shared_owner(acquire_population, acquire)
     environment = load_environment_document(root)
     config_path = root / environment.config
     config = load_artifact(config_path.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
@@ -1304,6 +1414,7 @@ def open_product(
         mcp_skills=mcp_skills,
         bridge=bridge,
         agent=agent,
+        acquire_population=acquire_population,
     )
 
 

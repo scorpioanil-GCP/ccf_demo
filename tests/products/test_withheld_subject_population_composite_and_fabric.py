@@ -231,10 +231,10 @@ def _governed(
 ) -> GovernedResolver:
     """The controls' resolver (``sec020._serve``), with the seams and the factory stated."""
     fabric, control_plane, store = booted
-    extra = {} if population_acquisition is None else {"population_acquisition": population_acquisition}
     return GovernedResolver(
         composite_children=None,
         acquisition=acquisition,
+        population_acquisition=population_acquisition,
         packaging_trace=None,
         half_life_key=HALF_LIFE_KEY,
         admission_clock=lambda: sec020.SERVED_AT,
@@ -270,7 +270,6 @@ def _governed(
         query_pin_class=QUERY_PIN_CLASS,
         max_ttl_seconds=MAX_TTL_SECONDS,
         product_ttl_seconds=sec020.WINDOW_SECONDS,
-        **extra,
     )
 
 

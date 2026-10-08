@@ -273,19 +273,16 @@ def _serve(
 ) -> Any:
     """One governed serve through the shipped resolver, acquisition declared.
 
-    ``population_acquisition`` is the declared population phase (Q7) and
-    ``plan_factory`` replaces the late-withholding factory; both are stated
-    only by the last test, and only when not ``None``.
+    ``population_acquisition`` is the declared population phase (Q7, stated
+    ``None`` for every test but the last) and ``plan_factory`` replaces the
+    late-withholding factory (the last test's early-withholding case).
     """
     fabric, control_plane, store = booted
     keys = (POLICY_PARAMS_KEY, TRAVERSAL_KEY, *((SIMILARITY_KEY,) if with_similarity else ()))
-    stated: dict[str, Any] = (
-        {} if population_acquisition is None else {"population_acquisition": population_acquisition}
-    )
     resolver = GovernedResolver(
-        **stated,
         composite_children=None,
         acquisition=acquisition,
+        population_acquisition=population_acquisition,
         packaging_trace=None,
         half_life_key=HALF_LIFE_KEY,
         admission_clock=lambda: SERVED_AT,
