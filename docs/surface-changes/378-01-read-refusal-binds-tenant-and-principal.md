@@ -30,7 +30,9 @@ a record still reads for the colliding principal of the recorder's tenant
 (recorded as a strict expected failure). Failing those records closed needs a
 positive marker on new read-refusal records, or no read-refusal record readable
 through the governed read at all (`D-IMPL-345` R-2 keeps a principal's own
-chain readable); either is a ruling.
+chain readable); either is a ruling. Dave ruled the marker on 2026-10-07 (Q3):
+`378-10` answers every read-refusal record minted before it as a missing
+address, for every caller.
 
 ## ccf_runtime.authz.delivery_boundary.govern_dereference
 

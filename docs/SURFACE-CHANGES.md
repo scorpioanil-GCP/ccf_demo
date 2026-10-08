@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2209 entries**, of which **1934** name a public Python surface.
+**2211 entries**, of which **1936** name a public Python surface.
 
 ## Added
 
@@ -19211,7 +19211,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-597 entries — 405 public Python surface, 192 not public Python API.
+598 entries — 406 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26143,6 +26143,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
 
+#### ccf.products.refusal.ResourceRequestIdentity
+
+- Surface: ccf.products.refusal.ResourceRequestIdentity
+- Public surface: true
+- Change type: reshaped
+- Before: four members — `surface`, `address`, `tenant_id`, `determined_at`. Nothing in a read-refusal record said whether its `tenant_id` was the tenant the refused capability was verified for (as `378-01` writes it) or the door recorder's (as the writer before `378-01` did); for the recorder's own tenant's principal the two records were byte-for-byte one.
+- After: adds `tenant_from: Literal["capability"] | None`, hash-transparent at `None`. `"capability"` is the positive claim that `tenant_id` is the tenant the deciding capability was verified for, bound to the principal replay dimension 4 records. Only `ccf_runtime.authz.delivery_boundary.govern_dereference` writes it, on every read-refusal record it mints, and only it reads it. Every resource identity recorded before the field existed keeps its content address. A disclosed shell carries the resource identity at `full` only, so the marker crosses a door only at `full`.
+- Why: Dave, 2026-10-07 (Q3; `D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_record_written_before_the_marker_is_told_apart_from_one_the_door_writes_today` and `::test_a_new_read_refusal_record_carries_the_marker_and_still_binds_who_asked`.
+- Migration: none for a reader of the type: the member is optional and defaults to `None`. Code that builds its own `ResourceRequestIdentity` leaves it `None`; only the governed read states `"capability"`.
+
+*Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -29159,7 +29171,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-319 entries — 280 public Python surface, 39 not public Python API.
+320 entries — 281 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34118,6 +34130,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a caller that caught `AttributeError` here catches `ValueError`, which the method's `Raises` section already named for every malformed declaration
 
 *Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a read-refusal record minted before `378-01` named the door recorder's tenant whichever tenant asked, and on a door serving several tenants through one recorder it still read for a principal of the recorder's tenant with the same client id as the principal it named (recorded as a strict expected failure).
+- After: every read-refusal record it mints carries the marker (`ResourceRequestIdentity.tenant_from == "capability"`). One step, placed immediately after the provenance check and before hold 0, answers a read-refusal record without the marker exactly as a missing address — `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level — for every caller: the principal it names, another principal of the same tenant (who read `unauthorized` at hold 1 before) and another tenant's principal with the same client id. The marker is read in that step and nowhere else, so a record carrying it that the fabric's record writer did not file answers as missing: measured for a marked record filed on another tenant's client lane and on the tenant's own client lane, at the MCP artifact server's blob and presence resources, at HTTP `/replay/decisions`, `/replay/resolutions` and `/artifact`, and to `govern_dereference` called in process. With the provenance check severed those forgeries cross, so the marker confers trust only through it.
+- Why: Dave, 2026-10-07 (Q3; `D-IMPL-378`). Red tests: `tests/mcp/test_read_refusal_attribution_mcp.py::test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone`, `::test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does` (both client lanes), `::test_a_marked_read_refusal_record_filed_on_a_client_lane_confers_nothing_on_an_in_process_governed_read`, `::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`; `tests/http_api/test_read_refusal_attribution_http.py::test_a_read_refusal_record_written_before_the_marker_reads_as_missing_for_everyone` and `::test_a_marked_read_refusal_record_filed_on_a_client_lane_answers_as_a_missing_address_does` (both client lanes).
+- Migration: **owner read-back of read-refusal records minted before this change is lost.** Every read-refusal record minted before the marker answers as a missing address, through the HTTP evidence routes and the MCP artifact server's governed reads, to every caller — the principal it names included. The records are not rewritten: they stay in the store and still reconstruct at their own addresses through `ccf.replay.engine.replay_refusal` (`tests/mcp/test_read_refusal_attribution_mcp.py::test_read_refusal_records_from_before_and_after_the_binding_replay_to_their_own_addresses`); an examiner reads them from the store, not through a door. A read-refusal record minted from now on carries the marker and reads back for its own principal through the door whose recorder is its tenant's, as before.
+
+*Recorded by `378-10-unmarked-read-refusal-records-read-as-missing.md`.*
 
 ### Not public Python API
 
