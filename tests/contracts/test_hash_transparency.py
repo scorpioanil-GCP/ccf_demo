@@ -484,6 +484,10 @@ _MARKED_IN_THE_TREE = frozenset(
         # existed keeps its content address, and therefore its version.
         "ccf.controlplane.artifacts.ProductClassDeclaration.requires",
         "ccf.replay.record.ContentGenerationPath.child_resolutions",
+        # SEC-020 Q10 (`D-IMPL-378`): recorded only when the walk did not start
+        # at the question's own subject, so every other record — and every one
+        # written before the member existed — keeps its content address.
+        "ccf.replay.record.ContentGenerationPath.executed_seeds",
         "ccf.replay.record.ContextFabricSnapshot.store_snapshot_pin",
         # 24.6-03: the Authority layer's value in dimension 2
         # (``D-IMPL-253`` Q1/Q6, ``D-IMPL-254``). The sentinel is the
@@ -493,6 +497,9 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.replay.record.PolicyBindingsSnapshot.request_resolution",
         "ccf.projection.engine.ExecutionResult.store_snapshot_pin",
         "ccf.projection.engine.ExecutionResult.empty_results",
+        # SEC-020 Q10: the seeds an execution was asked to walk from; `None`
+        # on every result built before the member existed.
+        "ccf.projection.engine.ExecutionResult.seeds",
         "ccf.assembly.worker.ResolvedEntity.resolved_by",
         # `D-IMPL-332`. `valid_from` became nullable when the fabric stopped
         # substituting ingestion time for a valid-time no source supplied.

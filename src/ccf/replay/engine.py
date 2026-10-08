@@ -1707,8 +1707,15 @@ def _re_execute(
         # wearing the decision's identifier — the ``survivor_cap`` argument
         # one line up, applied to the other half of what shapes a query. A
         # record carrying no request yields ``None`` and replays exactly as
-        # it did before the ruling.
-        seeds=request_seeds(path.request),
+        # it did before the ruling. SEC-020 Q10 (`D-IMPL-378`): a record
+        # whose walk started somewhere other than its question's subject —
+        # the early decision's declared undisclosed subject — says so in
+        # dimension 5, and the walk that ran is the walk replayed.
+        seeds=(
+            frozenset(path.executed_seeds)
+            if path.executed_seeds is not None
+            else request_seeds(path.request)
+        ),
     )
 
     if execution.steps != path.steps:

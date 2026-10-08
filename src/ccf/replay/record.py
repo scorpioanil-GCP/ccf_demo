@@ -1506,6 +1506,19 @@ class ContentGenerationPath(CCFContract):
     child_resolutions: tuple[ChildResolution, ...] = Field(
         default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # SEC-020 Q10 (`D-IMPL-378`; SDK-defined, CLAUDE.md §11): the walk's
+    # starting points, recorded ONLY when they were not the question's own
+    # subject — under the early decision, the declared undisclosed subject the
+    # one computation was seeded with in place of the caller's. `request`
+    # above still keeps the caller's question; replay re-executes from these
+    # seeds when present and from `request`'s subject otherwise
+    # (`src/ccf/replay/engine.py::_re_execute`). `None` — every record whose
+    # walk started at its own question's subject, and every record written
+    # before this member existed — canonicalizes exactly as before, so no
+    # existing address moves.
+    executed_seeds: tuple[str, ...] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 class DecisionReplayRecord(CCFContract):
@@ -2243,8 +2256,22 @@ def build_replay_record(
             # asked, and inferring one from the other is what DI-15.5-07
             # recorded as insufficient.
             request=request,
+            # SEC-020 Q10: the seeds the execution ran with, when they were not
+            # the question's own (the early decision's stand-in).
+            executed_seeds=_executed_seeds(execution, request),
         ),
     )
+
+
+def _executed_seeds(
+    execution: ExecutionResult | None, request: ProductRequest | None
+) -> tuple[str, ...] | None:
+    """The execution's seeds when they differ from the question's own, sorted; else ``None``."""
+    if execution is None or execution.seeds is None:
+        return None
+    if execution.seeds == request_seeds(request):
+        return None
+    return tuple(sorted(execution.seeds))
 
 
 # Imported at the bottom, deliberately (D-IMPL-56, the pattern
@@ -2259,6 +2286,7 @@ def build_replay_record(
 from ccf.products.request import (  # noqa: E402
     ProductRequest,
     ProductRequestViolation,
+    request_seeds,
 )
 
 ContentGenerationPath.model_rebuild()

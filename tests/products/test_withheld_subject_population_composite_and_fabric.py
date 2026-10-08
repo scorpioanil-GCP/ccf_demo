@@ -321,6 +321,7 @@ def _policy(withhold: frozenset[str]) -> Any:
     return SubjectDisclosurePolicy(
         undisclosed_subject=UNDISCLOSED,
         by_principal={PERSPECTIVE.principal_id: withhold},
+        by_role={},
     )
 
 
@@ -1232,9 +1233,13 @@ def test_q8_a_stand_in_that_names_a_withheld_subject_or_leaves_the_floor_is_refu
     from ccf.products.subject_disclosure import SubjectDisclosurePolicy  # noqa: PLC0415
 
     with pytest.raises(ValidationError):
-        SubjectDisclosurePolicy(undisclosed_subject="has a space", by_principal={})
+        SubjectDisclosurePolicy(undisclosed_subject="has a space", by_principal={}, by_role={})
     with pytest.raises(ValidationError):
-        SubjectDisclosurePolicy(undisclosed_subject=UNDISCLOSED, by_principal={PERSPECTIVE.principal_id: frozenset({UNDISCLOSED})})
+        SubjectDisclosurePolicy(
+            undisclosed_subject=UNDISCLOSED,
+            by_principal={PERSPECTIVE.principal_id: frozenset({UNDISCLOSED})},
+            by_role={},
+        )
 
 
 # --- Q10: two phases, each once; the product computed once -----------------------------

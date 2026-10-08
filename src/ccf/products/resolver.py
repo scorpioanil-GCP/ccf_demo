@@ -277,6 +277,7 @@ from ccf.products.request import (
     refuse_undeclared_class_default,
     request_seeds,
 )
+from ccf.products.subject_disclosure import SubjectDisclosurePolicy
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.controlplane.artifacts import SeamRefusalBinding
@@ -319,7 +320,10 @@ __all__ = [
     "ProductGateProtocol",
     "ProductNotResolvable",
     "ChildAwareDebtScorerProtocol",
+    "CompositeNeedsAnEarlyPolicy",
     "CompositePlanFactoryProtocol",
+    "CompositeWithheldLate",
+    "EarlyPolicyNeedsRequestAwareChildren",
     "PackagingTraceProtocol",
     "PopulationAcquisitionSeamProtocol",
     "PopulationPhaseSharesAnOwner",
@@ -331,6 +335,8 @@ __all__ = [
     "UnsupportedComposition",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
+    "SubjectDisclosingPlanFactoryProtocol",
+    "UndisclosedSubjectAnswered",
     "build_governed_resolver",
     "declared_refusal_recorder",
 ]
@@ -656,6 +662,56 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
     """
 
 
+class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
+    """A composite whose projection declares it withholds, without an early policy.
+
+    Q8: *"Require early withholding for affected composites."* A composite asks
+    its children about the subject before its plan runs, so a withhold decided
+    inside the projection reaches them too late; an affected composite — one
+    whose plan factory declares, through
+    :class:`SubjectDisclosingPlanFactoryProtocol`, that it withholds — must
+    declare the early policy, and one that declares withholding with no policy
+    is refused when the resolver is constructed.
+    """
+
+
+class EarlyPolicyNeedsRequestAwareChildren(UnsupportedComposition):
+    """Early withholding over a composite whose children are never handed the request.
+
+    Q8. The early decision replaces the subject in every child question; a
+    child resolver offering only the request-less legacy call cannot receive
+    the replacement, so the composition is refused when the resolver is
+    constructed rather than answered with children asked about the real
+    subject.
+    """
+
+
+class UndisclosedSubjectAnswered(ProductNotResolvable):
+    """The declared policy did not disclose the subject, and the projection answered it anyway.
+
+    Q8. Every subject-dependent step was asked about the declared stand-in; the
+    projection, built from the caller's question, must withhold the subject,
+    or it would serve the subject's own answer over a fabric built for nobody.
+    Raised after the plan runs and BEFORE anything is gated, recorded or
+    served: a broken composition, not a governed "no".
+    """
+
+
+class CompositeWithheldLate(ProductNotResolvable):
+    """A composite's projection withheld a subject its early policy did not withhold.
+
+    Q8: *"Make it an enforced policy decision before subject-dependent
+    fetches, child resolution or scoring."* By the time a composite's
+    projection raises the withheld signal, its children were already asked
+    about the subject; so a composite withholds only through the declared
+    early policy, and a projection that withholds anything else is refused here
+    — after the plan runs, BEFORE anything is gated, recorded or served. The
+    SDK cannot see at construction whether a projection will withhold; a
+    composite that declares it does is held to the early policy then
+    (:class:`CompositeNeedsAnEarlyPolicy`).
+    """
+
+
 class AcquiredFabricReused(ProductNotResolvable):
     """A fabric an acquisition phase was claimed for was asked another question.
 
@@ -922,6 +978,38 @@ class ProjectionPlanFactoryProtocol(Protocol):
             request: The question, carrying the parameters the interpretation
                 applies and the instant it is asked as of.
         """
+        ...
+
+
+@runtime_checkable
+class SubjectDisclosingPlanFactoryProtocol(Protocol):
+    """A plan factory declaring that its projection withholds subjects, and how early.
+
+    SEC-020, ``D-IMPL-378`` (Q8; SDK-defined, CLAUDE.md §11). An **optional
+    companion** to :class:`ProjectionPlanFactoryProtocol`, on the
+    :class:`CompositePlanFactoryProtocol` precedent: declared structurally,
+    never inferred. :meth:`subject_disclosure` returns the declared
+    :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` — read
+    ONCE, when the resolver is constructed, so it is a declaration rather than
+    a per-question computation — or ``None``, the statement that this
+    projection withholds only inside itself, after its plan has run (a late
+    withhold), which a composite may not do
+    (:class:`CompositeNeedsAnEarlyPolicy`).
+
+    Under a policy, :meth:`GovernedResolver.__call__` decides before anything
+    in the question is fetched, any child is asked or anything is scored —
+    from the asked identifier, the resolved perspective and the declaration
+    alone — and, for a subject the policy does not disclose, asks the
+    acquisition phases and the child questions about the declared undisclosed
+    subject IN PLACE OF it, seeds the plan's walk with it, and computes the
+    product ONCE along that path; the plan is still built from, and the record
+    still keeps, the caller's question. The factory's projection must withhold
+    exactly what the policy does not disclose
+    (:class:`UndisclosedSubjectAnswered`).
+    """
+
+    def subject_disclosure(self) -> SubjectDisclosurePolicy | None:
+        """The declared early policy, or ``None`` for a projection that withholds only late."""
         ...
 
 
@@ -2350,6 +2438,10 @@ class GovernedResolver:
     #: `init=False`: not a parameter of any signature, so nothing can omit it
     #: or pass a substitute; set exactly once below.
     _authorities: _ComposedAuthorities = field(init=False, repr=False, compare=False)
+    #: SEC-020 Q8 (`D-IMPL-378`): the early policy the plan factory declared,
+    #: read once at construction (:meth:`__post_init__`); ``None`` when it
+    #: declared none. `init=False`, set exactly once below.
+    _disclosure: SubjectDisclosurePolicy | None = field(init=False, repr=False, compare=False)
     #: §7.10.4's Mode 2 footprint — how this deployment reports what its
     #: packaging stage did. ``None`` for every Mode 1 deployment, which is
     #: every one shipped before `dr-02`, and the no-packaging sentinel is then
@@ -2477,6 +2569,37 @@ class GovernedResolver:
             _refuse_shared_owner(self.population_acquisition, self.acquisition)
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
+        # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
+        # composite combinations it cannot support, refused here.
+        disclosure: SubjectDisclosurePolicy | None = None
+        if isinstance(self.plan_factory, SubjectDisclosingPlanFactoryProtocol):
+            disclosure = self.plan_factory.subject_disclosure()
+            if disclosure is not None and not isinstance(disclosure, SubjectDisclosurePolicy):
+                raise TypeError(
+                    "a plan factory's subject_disclosure() returns a"
+                    " SubjectDisclosurePolicy or None (SEC-020, Q8); got"
+                    f" {type(disclosure).__name__}"
+                )
+            if declaration.requires and disclosure is None:
+                raise CompositeNeedsAnEarlyPolicy(
+                    f"class {declaration.schema_name!r} composes children and its"
+                    " plan factory declares it withholds subjects with no early"
+                    " policy; a composite asks its children before its plan runs,"
+                    " so it withholds only through a declared early policy"
+                    " (SEC-020, Q8)"
+                )
+            if (
+                declaration.requires
+                and disclosure is not None
+                and not isinstance(self.composite_children, RequestAwareChildResolverProtocol)
+            ):
+                raise EarlyPolicyNeedsRequestAwareChildren(
+                    f"class {declaration.schema_name!r} withholds early, and its"
+                    " child resolver is never handed the request, so its children"
+                    " could not be asked about the undisclosed subject in place of"
+                    " the withheld one (SEC-020, Q8)"
+                )
+        object.__setattr__(self, "_disclosure", disclosure)
         minted = _ComposedAuthorities(
             replay=_mint_replay_at_composition(
                 self.control_plane, tenant=tenant, artifact_class=self.replay_record_class
@@ -2947,6 +3070,26 @@ class GovernedResolver:
                 resolution=effective,
             )
 
+        # SEC-020 Q8 / Q10 (`D-IMPL-378`): THE EARLY DECISION. Taken here —
+        # after every refusal that precedes acquisition, before anything in
+        # the question is fetched, any child is asked or anything is scored —
+        # from the asked identifier, the resolved perspective and the policy
+        # the plan factory declared at construction, and from nothing else: no
+        # fabric, no source, no store, so it is the same for a subject the
+        # source holds and one it does not. A subject the policy does not
+        # disclose is replaced, for every subject-dependent step below, by the
+        # declared undisclosed subject (`asked`); the plan is still built from,
+        # and the record still keeps, the caller's question.
+        disclosure = self._disclosure
+        undisclosed = disclosure is not None and not disclosure.discloses(
+            subject=request.subject, perspective=perspective
+        )
+        asked = (
+            effective_request.model_copy(update={"subject": disclosure.undisclosed_subject})
+            if undisclosed and disclosure is not None
+            else effective_request
+        )
+
         # `D-IMPL-343` R-4: THE DECLARED ACQUISITION SEAM, HERE AND ONLY HERE.
         # The question is resolved (above) and the graph is not yet read
         # (below), so what the deployment reads its sources at is the value
@@ -2990,7 +3133,7 @@ class GovernedResolver:
             )
         if self.acquisition is not None:
             try:
-                self.acquisition(request=effective_request, perspective=perspective)
+                self.acquisition(request=asked, perspective=perspective)
             except GovernedRefusalRaised as raised:
                 # `D-IMPL-304`: a governed determination the seam HELD and could
                 # not return — recorded through this composition's ONE minting
@@ -3118,7 +3261,10 @@ class GovernedResolver:
                             # `D-IMPL-336` Amendment 5: peering admission extends the
                             # consumer's lineage by set-union.
                             consumer_lineage=own_lineage,
-                            request=effective_request,
+                            # SEC-020 Q8: the request the subject-dependent
+                            # steps are asked about — an undisclosed subject's
+                            # children are asked about the declared stand-in.
+                            request=asked,
                         )
                     else:
                         outcomes = self.composite_children(
@@ -3285,8 +3431,37 @@ class GovernedResolver:
             # construction: it is a SECOND derivation, and a second derivation
             # is precisely the drift that would replay a different question
             # under this decision's identifier.
-            seeds=request_seeds(request),
+            #
+            # SEC-020 Q10 (`D-IMPL-378`): under the early decision the walk is
+            # seeded with the declared undisclosed subject, IN PLACE OF the
+            # caller's — exactly the walk a question about an identifier that
+            # names nothing takes — and this is the ONE computation of the
+            # product; the seed is recorded beside the caller's question
+            # (`ContentGenerationPath.executed_seeds`) and replay re-executes
+            # from it.
+            seeds=request_seeds(asked if undisclosed else request),
         )
+        if execution.projection.withheld and not undisclosed and registered.requires:
+            # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
+            # declared early policy; its children were already asked about this
+            # subject, so a withhold decided inside the projection is refused,
+            # before anything is gated, recorded or served.
+            raise CompositeWithheldLate(
+                f"class {registered.schema_name!r} composes children and its"
+                " projection withheld a subject its early policy did not; a"
+                " composite asks its children before its plan runs, so it"
+                " withholds only through a declared early policy (SEC-020, Q8)"
+            )
+        if undisclosed and not execution.projection.withheld:
+            # SEC-020 Q8: the policy did not disclose the subject and the
+            # projection answered it. Serving that payload would hand over the
+            # subject's own answer; refusing it as data would be a governed
+            # "no" nobody declared.
+            raise UndisclosedSubjectAnswered(
+                "the declared early policy does not disclose this subject to this"
+                " principal, and the projection answered without raising the"
+                " withheld signal (SEC-020, Q8)"
+            )
 
         # --- SEC-020: A WITHHELD SUBJECT'S EVIDENCE, FROM AN UNSEEDED RE-RUN ----
         # `D-IMPL-370` Q12 (a), constant-fill, as finally ruled at `D-IMPL-371`
@@ -3380,7 +3555,12 @@ class GovernedResolver:
                 temporal_boundary=request.asked_at,
                 before_acquisition=before_acquisition,
             )
-            if execution.projection.withheld
+            # SEC-020 Q10 (`D-IMPL-378`): ONLY a late withhold (inside the
+            # projection) on a non-composite product is re-executed — the
+            # re-execution `D-IMPL-371`/`376` authorized, not widened. Under the
+            # early decision the one computation above already took the path a
+            # nonexistent subject's question takes.
+            if execution.projection.withheld and not undisclosed
             else execution
         )
 

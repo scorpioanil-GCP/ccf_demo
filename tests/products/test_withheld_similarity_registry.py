@@ -582,6 +582,7 @@ class _EarlyWithholding:
         return SubjectDisclosurePolicy(
             undisclosed_subject=_uri("acct-undisclosed-fixture"),
             by_principal={PERSPECTIVE.principal_id: frozenset({WITHHELD})},
+            by_role={},
         )
 
 
