@@ -275,6 +275,32 @@ def test_q11_no_reference_names_its_record_by_what_the_answer_read(
     )
 
 
+@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
+@pytest.mark.parametrize("surface", sorted(SURFACES))
+def test_q11_the_store_names_each_answers_record_only_by_its_content_address(
+    tmp_path: pathlib.Path, surface: str, anchor: str
+) -> None:
+    """Property 3, at the second carrier: every ``(tenant, class, name)`` the store
+    holds for an answer's record names it by its content address and nothing else.
+
+    That naming is what the MCP artifact server's names resource returns to an
+    owner its governed read admits (``artifact_names``); on ``e9e5e2cd`` it was
+    dimension 1's ``graph_snapshot_id`` (the proof lane's finding 2). Named only by
+    its own address, it carries no more than the reference the owner already holds.
+    """
+    handed = SURFACES[surface](tmp_path, anchor)
+    resolved = _resolved(handed, surface=surface)
+    other_names = {
+        label: sorted({named.name for named in handed.store.names_at(content_address=parsed.artifact_version)})
+        for label, (parsed, _record) in resolved.items()
+        if {named.name for named in handed.store.names_at(content_address=parsed.artifact_version)}
+        != {parsed.artifact_version}
+    }
+    assert not other_names, (
+        f"[{surface}, {anchor}] records filed under a name other than their own content address:"
+        f" {json.dumps(other_names, sort_keys=True)}"
+    )
+
 def test_q11_the_mcp_driver_reaches_the_door_it_is_handed(tmp_path: pathlib.Path) -> None:
     """Instrument: the MCP surface really answers through the paved door (served, from_decision)."""
     handed = _mcp(tmp_path, FROM_DECISION)
