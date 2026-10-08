@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2328 entries**, of which **2051** name a public Python surface.
+**2329 entries**, of which **2052** name a public Python surface.
 
 ## Added
 
@@ -19811,7 +19811,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-612 entries — 420 public Python surface, 192 not public Python API.
+613 entries — 421 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26922,6 +26922,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none; absence means the real clock
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.environment.DoorEnvironment
+
+- Surface: ccf.deployment.environment.DoorEnvironment
+- Public surface: true
+- Change type: reshaped
+- Before: three required members, `credential`, `issuer_url` and `resource_server_url`, each an `EnvironmentValue`
+- After: `credential` required; `issuer_url` and `resource_server_url` are `EnvironmentValue | None`, defaulting to `None` (hash-transparent, `D-IMPL-243`)
+- Why: `D-IMPL-378` C2-A2 (a): no SDK transport reads either name, and configuration nothing reads is not required. Red tests: `tests/deployment/test_door_environment_optional_addresses.py::test_an_environment_document_whose_door_names_only_the_credential_loads`, `tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_still_refuses`, `::test_a_door_composes_over_a_door_block_naming_only_the_credential`
+- Migration: none; a document declaring both names loads unchanged. A deployment may drop the two names unless its own code reads them; code that read `door.issuer_url` or `door.resource_server_url` must now handle `None`
+
+*Recorded by `378-35-c2a2-the-door-address-names-are-optional.md`.*
 
 ### Not public Python API
 

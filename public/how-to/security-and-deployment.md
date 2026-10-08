@@ -463,6 +463,16 @@ transport advertises its own bound address, and a deployment that mounts
 `ProductDoor.server` under its own host passes both addresses itself: the
 method has no default for either.
 
+Because no SDK transport reads the two names, the environment document's
+`door:` block need not declare them (`D-IMPL-378`, ruling C2-A2 (a)): both are
+optional and the block needs only `credential`. A stdio door started from a
+document that names neither still answers, and still refuses another tenant and
+a class outside its scope mapping
+(`tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_still_refuses`).
+A deployment that hosts the mount itself may still declare them for its own
+code to resolve; a value it leaves out is refused by name, never defaulted
+(`tests/mcp/test_stdio_door_addresses.py::test_a_door_composes_over_a_door_block_naming_only_the_credential`).
+
 ### 4.5 Declare the Claude adapter's child environment
 
 The Claude Agent SDK adapter's child environment is a deployment-declared

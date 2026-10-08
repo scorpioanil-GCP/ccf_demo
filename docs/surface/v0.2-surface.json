@@ -2960,8 +2960,8 @@
         "kind": "contract",
         "shape": {
           "credential": "<class 'ccf.deployment.environment.EnvironmentValue'>",
-          "issuer_url": "<class 'ccf.deployment.environment.EnvironmentValue'>",
-          "resource_server_url": "<class 'ccf.deployment.environment.EnvironmentValue'>"
+          "issuer_url": "ccf.deployment.environment.EnvironmentValue | None",
+          "resource_server_url": "ccf.deployment.environment.EnvironmentValue | None"
         }
       },
       "ENVIRONMENT_DOCUMENT_NAME": {
