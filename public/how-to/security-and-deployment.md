@@ -1256,16 +1256,34 @@ unless another test is named.
   `load_and_boot(..., for_question=True)` or
   `load_config_and_boot(..., for_question=True)`, onto a store path that does
   not exist yet. A path that exists is refused at boot
-  (`QuestionFabricNotFresh`), and so is a store whose settings name no path: a
-  network graph store, and also the in-memory development store, although each
-  boot of that one is new. Such a store cannot carry an acquisition phase.
-  Just before its first acquisition phase the call refuses a fabric not booted
-  this way (`AcquisitionNeedsAQuestionFabric`) and claims the fabric for its
-  question.
-  A second question on that fabric, after the first or at the same time, is
-  refused (`AcquiredFabricReused`) before anything is read or fetched for it.
-  The paved road already booted a new fabric for each question; it now
-  declares it.
+  (`QuestionFabricNotFresh`). Under P4 (a), which Dave ruled on 2026-10-08,
+  the boot then reserves the path for itself alone: it creates the question
+  marker beside the path exclusively, before the store exists, so a second
+  boot for a question at a path another boot holds, and a store that appeared
+  at the path after the check, are refused by the same name
+  (`tests/products/test_unmarked_and_unverifiable_question_stores.py`, which
+  measures every P4 (a) refusal in this bullet). A store whose settings name
+  no path, a network graph store and also the in-memory development store
+  although each boot of that one is new, cannot be shown fresh: a boot for a
+  question over it is refused (`QuestionFabricNotFresh`, measured for every
+  shipped adapter by lane probe `probe_per_adapter.py`, not by a test in this
+  tree), and an acquisition or population phase composed over it is refused
+  when the resolver is constructed (measured over the in-memory store), as is
+  the paved road over such a substrate when it is opened (measured over the
+  in-memory store and a network adapter, before anything connects), so before
+  any question runs (`AcquisitionOverUnverifiableStore`). Over a store with a
+  path, just before its first acquisition phase the call refuses a fabric not
+  booted for its question (`AcquisitionNeedsAQuestionFabric`) and claims the
+  fabric for its question. Every governed call over a fabric booted for its
+  question claims it, with an acquisition phase or without one, so a second
+  question on that fabric, after the first or at the same time, is refused
+  (`AcquiredFabricReused`) before anything is read or fetched for it (a
+  second call with no acquisition phase is measured in
+  `tests/products/test_withheld_subject_child_arguments_and_question_stores.py`).
+  A question's store booted again is refused for every governed call, and so
+  is a store that existed with no marker beside it (see "A question's store
+  the markers do not reach" below). The paved road already booted a new
+  fabric for each question; it now declares it.
 - **A population read as its own phase (Q7).** A read that fetches the same
   content whatever is asked is declared as the population phase:
   `open_product(..., population=...)` on the paved road, or
@@ -1326,7 +1344,22 @@ that asks one long-lived fabric several questions now raises
 `AcquisitionNeedsAQuestionFabric` at its first question. State
 `population_acquisition=None` where you construct `GovernedResolver` directly;
 `build_governed_resolver` and the paved road default it. A composition with no
-acquisition phase is unaffected.
+acquisition phase is unaffected by Q9 alone. Under P4 (a), a fabric booted for
+its question answers one governed call even with no acquisition phase, and a
+question's store booted again answers none: a composition that asked one
+question fabric several questions with no acquisition phase now raises
+`AcquiredFabricReused` at the second (lane probe
+`probe_question_fabric_two_plain_calls.py`). A composition over a store whose
+connection names no path raises `AcquisitionOverUnverifiableStore` when it is
+constructed if it declares an acquisition or population phase; without one it
+serves as before (lane probe `probe_pathless_serves_without_acquisition.py`).
+Every boot through a deployment door that creates its store at a path leaves a
+marker beside it (`<resolved path>.ccf-deployment-store`, or the question
+marker), so delete or copy a store together with its marker. A store created
+before this change, or outside the doors, still boots, and every governed call
+over it is refused (`UnmarkedStoreNotPresumedFresh`, or
+`AcquisitionNeedsAQuestionFabric` with an acquisition phase) until it is
+recreated through a door.
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
@@ -1464,17 +1497,43 @@ a nonexistent one. Each was measured on test fixtures.
   `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
   its withheld question still raises where a nonexistent subject's is
   answered, the limit the bullet on the record behind an answer names.
-- **A question's store, booted again.** The withheld subject's acquisition
-  stays in the store its question wrote, and the paved road leaves that store
-  on disk when it closes the fabric (the replay road reopens it). Booted again
-  without `for_question` and asked through a resolver with no acquisition
-  phase, a later answer about an identifier that names nothing moved at
-  `debt.debt` and `debt.factors.freshness`, and under `from_entity_freshness`
-  also at `expires_at` and `ttl_anchor_at`, after a question about a withheld
-  subject the source holds; after a question that acquired nothing, it did
-  not. Ask new questions only of fabrics booted for them, and protect a
-  question's store as you would its decision record. The claim that refuses a
-  second question is held per fabric handle, in one process.
+- **A question's store the markers do not reach.** The withheld subject's
+  acquisition stays in the store its question wrote, and the paved road leaves
+  that store on disk when it closes the fabric (the replay road reopens it).
+  Under P4 (a) a store booted for a question carries a marker beside it, and a
+  governed call over that store booted again, in the same process or another,
+  is refused before the graph is read: `QuestionStoreReopened` with no
+  acquisition phase, `AcquisitionNeedsAQuestionFabric` with one. A store that
+  existed with no marker beside it, booted for a question before the markers
+  existed, copied without its marker, or created outside the deployment doors,
+  is not presumed fresh and is refused the same way, with
+  `UnmarkedStoreNotPresumedFresh` in place of `QuestionStoreReopened`, on both
+  anchors and with the same text whatever its first question acquired
+  (`tests/products/test_unmarked_and_unverifiable_question_stores.py`; for a
+  store booted again,
+  `tests/products/test_withheld_subject_child_arguments_and_question_stores.py`;
+  for a call with an acquisition phase, lane probe
+  `probe_acquiring_call_over_reopened.py`). Records served over such stores
+  still replay to their own addresses (both test modules). What the markers do
+  not reach is measured by lane probes, not by a test in this tree
+  (`probe_p4_strict_limits.py`, `probe_question_boot_window.py`,
+  `probe_unreached_stores_distinguish.py`, `probe_p4_marker_limits.py`). A
+  marker binds to its store by path, beside it rather than inside it, and the
+  SDK checks and reserves a path while the adapter creates the store at the
+  boot. So a copy of a used question store with a deployment marker forged
+  beside it, and a used question store written at a path after a plain boot
+  left its marker there, each answered a later question: after a question
+  about a withheld subject the source holds, that later answer about an
+  identifier that names nothing moved at `debt.debt` and
+  `debt.factors.freshness`, and under `from_entity_freshness` also at
+  `expires_at` and `ttl_anchor_at`, against the same store after a question
+  that acquired nothing. A store written at a question boot's path after the
+  SDK's last check was booted as that question's fabric. A deployment's own
+  writes into a reopened store go through. A marker left after its store is
+  deleted makes a later boot for a question at that path refuse, and every
+  governed call over a plain boot there refuse: it fails closed. Ask new
+  questions only of fabrics booted for them, and protect a question's store,
+  and the directory it sits in, as you would its decision record.
 - **A population read left inside your `acquire`.** Declared as the
   population phase, or under an early policy, such a read matched (above).
   Left inside your ordinary `acquire`, with the withhold decided inside the
