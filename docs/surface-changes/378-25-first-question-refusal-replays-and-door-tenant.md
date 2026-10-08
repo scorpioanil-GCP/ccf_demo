@@ -1,4 +1,4 @@
-# 378-25 — a refusal asked first of a fresh Control Plane replays; the standard door holds its producer tenant on the structural path
+# 378-25 — refusal records replay from their first question and from a freshly started process; the standard door holds its producer tenant on the structural path
 
 Lane `378d-replayfix` of `D-IMPL-378`: two SDK defects the D-IMPL-378 "d" lanes
 surfaced, remedied under CLAUDE.md §9's three-issue cap.
@@ -21,6 +21,23 @@ two composition roots (the in-process transport and the paved road) wrote 7
 byte-identical records before and after, and each replays to its own address
 after.
 
+**Defect 1, second half — a freshly started process could not replay
+(`D-IMPL-378` R-A (b), Dave, 2026-10-08).** The Control Plane is in-process,
+and a boot registers no typed request contract, so a new process that booted
+the deployment and asked nothing could not resolve the request-contract pin of
+any earlier record, served or refused — measured on the original base and after
+the first half alike. Dave ruled that the resolver also registers the contract
+when it is built. After it, a new process that builds the deployment's resolver
+— a transport's boot, the paved road's replay environment — replays earlier
+served and refused records from the in-process transport and the paved road,
+each to its own address, and a changed contract still fails replay by name. The
+same 7 records are byte-identical on the original base, before this half and
+after it. **What it does not reach:** the paved road boots nothing until a
+question, so a fresh process that only opens a paved product cannot resolve
+even the policy-bundle pin of an earlier record (it fails there first). The
+supported replay environment (`RecordedEnvironment`), which boots the
+question's substrate and builds the resolver, reconstructs it (measured).
+
 **Defect 2 — `D-IMPL-343` R-6 on the structural door path.** R-6 holds a
 door's declared `producer_tenant` to the deployment's tenant where a `door:`
 section is derived (`src/ccf/deployment/config.py::_refuse_door_tenant_disagreement`).
@@ -39,10 +56,10 @@ paved road.
 - Surface: ccf.products.resolver.GovernedResolver
 - Public surface: true
 - Change type: behavior
-- Before: `__call__` registered the typed request contract on its Control Plane only inside `GovernedResolver._register`, which the served path reaches and every refusal returns before. A refusal recorded after the resolution step pinned `(request_contract_key, content_hash(contract))` on dimension 2 while that version was unregistered unless an earlier served question in the same process had registered it, so `src/ccf/replay/engine.py::replay_refusal` raised `ReplayUnresolvable` naming the request-contract binding.
-- After: `__call__` registers the typed request contract immediately before the resolution step, through the `Register` capability its composition minted for that key, at the version the record pins. Every record that pins it resolves against the deciding Control Plane at replay, a refusal asked first of a fresh Control Plane included. `_register` still registers the same content on the served path, which is idempotent; the audit log carries one more `register` event for the request-contract key on every question that reaches resolution. The `__call__` docstring states this at steps 2 and 5. Record bytes, pins and addresses are unchanged. Unchanged too: an intent refusal and a mechanism-floor refusal, which precede resolution, register nothing new and pin no request contract.
-- Why: `CP17-F-09` (cp-17, charged to the cap at `D-GATE-cp-17`) and `ATM-F-11` (cp-19), carried unrepaired as estate-gated strict expected failures; reproduced offline on 2026-10-08. Red test: `tests/replay/test_first_question_refusal_replays.py` (the in-process transport with the request contract `role: load` and `role: register`, a resolution-stage and a temporal-bound refusal; the paved road with a refusal raised at the acquisition seam).
-- Migration: none. A test that counts Control Plane audit events across a governed question sees one more `register` event for the request-contract key on every question that reaches resolution (measured on the paved road: a served question adds two where it added one, a resolution-stage refusal one where it added none; an intent refusal and a floor refusal add none, as before). Two strict expected failures keep `CP17-F-09` executable against the curated estate: `tests/examples/test_cp_17_replay.py::test_a_refusal_asked_first_of_a_fresh_product_reconstructs` and its `ATM-F-11` counterpart in `tests/examples/test_cp_19_replay.py`. They were not run for this change, because they need the estate. They assert the mechanism this change repairs, so they are run against the estate and their marks reviewed in the example migration set, not edited here.
+- Before: `__call__` registered the typed request contract on its Control Plane only inside `GovernedResolver._register`, which the served path reaches and every refusal returns before. A refusal recorded after the resolution step pinned `(request_contract_key, content_hash(contract))` on dimension 2 while that version was unregistered unless an earlier served question in the same process had registered it, so `src/ccf/replay/engine.py::replay_refusal` raised `ReplayUnresolvable` naming the request-contract binding. And a new process held no registration of it until it had answered a question, so a process started to replay could not resolve that pin for any earlier record, served or refused.
+- After: the resolver registers the typed request contract when it is built (`__post_init__`, under the `Register` capability its composition minted for that key; `D-IMPL-378` R-A), and again in `__call__` immediately before the resolution step (`CP17-F-09`); `_register` still registers the same content on the served path. Each registration is content-addressed and idempotent at the version every record decided under that contract pins, so record bytes, pins and addresses are unchanged. Any process that builds the deployment's resolver resolves that pin for every earlier record, a refusal asked first of a fresh Control Plane included; a changed contract registers at a different version, and the old pin stays unresolvable by name. A resolver built directly, not through `build_governed_resolver`, whose request-contract key names no contract is now refused when it is built with `ProductNotResolvable`; before, it was built. The docstrings of `__post_init__`, `__call__` (steps 2 and 5) and `_register` state this.
+- Why: `CP17-F-09` (cp-17, charged to the cap at `D-GATE-cp-17`) and `ATM-F-11` (cp-19), carried unrepaired as estate-gated strict expected failures and reproduced offline on 2026-10-08; and `D-IMPL-378` R-A (b) for a freshly started process. Red tests: `tests/replay/test_first_question_refusal_replays.py` (the in-process transport with the request contract `role: load` and `role: register`, a resolution-stage and a temporal-bound refusal; the paved road with a refusal raised at the acquisition seam) and `tests/replay/test_fresh_process_replay.py` (a new Python process boots the deployment, asks nothing, and replays a served and a refused record from each of the in-process transport and the paved road). Guard: `tests/replay/test_fresh_process_replay.py::test_a_changed_request_contract_still_fails_replay_in_a_fresh_process`.
+- Migration: none. Control Plane audit events, measured: building a resolver records one more `register` event, for the request-contract key (the in-process boot 25 → 26 events, `build_governed_resolver` 6 → 7, building a `RecordedEnvironment` 6 → 7, so building a replay environment now writes that one registration). Per question on the paved road, which builds a resolver for each question, compared with before this lane: an intent refusal and a floor refusal 0 → 1 `register` event for the request-contract key, a resolution-stage refusal 0 → 2, a served question 1 → 3. What each record pins is unchanged. Two strict expected failures keep `CP17-F-09` executable against the curated estate: `tests/examples/test_cp_17_replay.py::test_a_refusal_asked_first_of_a_fresh_product_reconstructs` and its `ATM-F-11` counterpart in `tests/examples/test_cp_19_replay.py`. They were not run for this change, because they need the estate. They assert the mechanism this change repairs, so they are run against the estate and their marks reviewed in the example migration set, not edited here.
 
 ## ccf.deployment.manifest.BootedFabric
 
@@ -50,7 +67,7 @@ paved road.
 - Public surface: true
 - Change type: behavior
 - Before: the `artifacts` docstring said a `role: load` artifact "is still absent from `pins`, still absent from the Control Plane registry, and still absent from replay dimension 2", which contradicted `D-IMPL-310`: a governed resolver registers and pins the typed request contract it derives from a `role: load` request-contract entry.
-- After: documentation only. The boot registers and pins a `role: load` entry nowhere; a governed resolver built over the fabric registers the typed request contract under the same key, whatever the entry's role, and every decision that resolved a request against it pins it on dimension 2. Measured over the local suite: all 701 resolver-built records whose resolution ran pin the request contract, and none of the 7 not-applicable records do.
+- After: documentation only. The boot registers and pins a `role: load` entry nowhere; a governed resolver built over the fabric registers, when it is built, the typed request contract under the same key, whatever the entry's role, and every decision that resolved a request against it pins it on dimension 2. Measured over the local suite: all 701 resolver-built records whose resolution ran pin the request contract, and none of the 7 not-applicable records do.
 - Why: the record pinned what the docstring said it never would; `D-IMPL-310` rules the pin correct.
 - Migration: none.
 
