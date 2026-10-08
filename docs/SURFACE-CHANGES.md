@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2386 entries**, of which **2109** name a public Python surface.
+**2387 entries**, of which **2110** name a public Python surface.
 
 ## Added
 
@@ -30275,7 +30275,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-403 entries — 364 public Python surface, 39 not public Python API.
+404 entries — 365 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36242,6 +36242,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
+
+#### ccf.products.resolver.CompositeNeedsAWithholdingStance
+
+- Surface: ccf.products.resolver.CompositeNeedsAWithholdingStance
+- Public surface: true
+- Change type: behavior
+- Before: the refusal's message ended "(SEC-020; D-IMPL-378 P2 (c), a candidate)".
+- After: it ends "(SEC-020; D-IMPL-378 P2 (c))". The type, when it is raised and every other word of the message are unchanged.
+- Why: Dave ruled P2 (c) on 2026-10-08 at 12:29 MST (`D-IMPL-378`), so the message no longer calls it a candidate.
+- Migration: none, unless code matched the end of the message text; match the refusal by its type instead.
+
+*Recorded by `378-36-prose-p2c-p4a-stated-as-ruled.md`.*
 
 ### Not public Python API
 
