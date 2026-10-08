@@ -164,8 +164,6 @@ from ccf.products.contract import version_satisfies_floor
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
-    AcquisitionSeamProtocol,
-    PopulationAcquisitionSeamProtocol,
     PopulationQuestion,
     ProductGateProtocol,
     ProductNotResolvable,
@@ -901,64 +899,30 @@ class OpenedProduct:
             for_question=True,
         )
 
-    def _acquisition_seam(self, fabric: BootedFabric) -> AcquisitionSeamProtocol:
+    def _acquisition_seam(
+        self,
+        fabric: BootedFabric,
+        *,
+        population_phase: PopulationAcquireProtocol | None = None,
+    ) -> Callable[..., None]:
         """The declared acquisition boundary for one question (`D-IMPL-343` R-4).
 
         Called by the resolver ONCE, with the EFFECTIVE request, after
         resolution and before the graph read. The deployment's ``acquire``
         runs at the values governance resolved; every envelope is held to the
-        tenant and the instant before L2's one writer sees it
-        (:meth:`_ingest_into`). A declared population phase is the other
-        declared phase, called once before this one
-        (:meth:`_population_seam`; SEC-020 Q7, ``D-IMPL-378``).
+        tenant and the instant before L2's one writer sees it.
+
+        With ``population_phase`` (SEC-020 Q7, ``D-IMPL-378``; see
+        :meth:`_population_seam`) it returns the declared population phase
+        instead: called once per question, before the subject-keyed seam, and
+        handed a :class:`PopulationAcquisitionContext` and nothing else. Both
+        phases reach the writer through the one guarded loop below, so this
+        method stays the L2 writer's only governed caller (`D-IMPL-364` B1).
         """
+        worker = fabric.handle.worker
         tenant_id = self.tenant_id
         sources = self.sources
         acquire = self._acquire
-        ingest = self._ingest_into(fabric)
-
-        def seam(*, request: ProductRequest, perspective: Perspective) -> None:
-            context = AcquisitionContext(
-                request=request,
-                perspective=perspective,
-                tenant_id=tenant_id,
-                sources=sources,
-                instant=request.asked_at,
-            )
-            ingest(acquire(context), asked_at=request.asked_at)
-
-        return seam
-
-    def _population_seam(self, fabric: BootedFabric) -> PopulationAcquisitionSeamProtocol:
-        """The declared population phase for one question (SEC-020 Q7, ``D-IMPL-378``).
-
-        Called by the resolver once per question, before the subject-keyed
-        seam, with a question that carries no subject; the deployment's
-        ``population`` is handed a :class:`PopulationAcquisitionContext`
-        built from it and nothing else.
-        """
-        population_phase = self._population
-        assert population_phase is not None  # stated only when declared
-        tenant_id = self.tenant_id
-        sources = self.sources
-        ingest = self._ingest_into(fabric)
-
-        def population(*, question: PopulationQuestion, perspective: Perspective) -> None:
-            context = PopulationAcquisitionContext(
-                question=question,
-                perspective=perspective,
-                tenant_id=tenant_id,
-                sources=sources,
-                instant=question.asked_at,
-            )
-            ingest(population_phase(context), asked_at=question.asked_at)
-
-        return population
-
-    def _ingest_into(self, fabric: BootedFabric) -> Callable[..., None]:
-        """L2's one writer for this question's fabric, behind the tenant and instant bounds."""
-        worker = fabric.handle.worker
-        tenant_id = self.tenant_id
         # `D-IMPL-358` step 8: the tenant-bound temporal write guard, composed HERE
         # — the trusted ingress composition — and bound ONCE per seam rather than
         # per envelope. The roster is this deployment's own tenant and the policy
@@ -989,7 +953,45 @@ class OpenedProduct:
                 temporal_bound.refuse_outside_window(envelope, now=ingress_at)
                 worker.ingest(envelope)
 
-        return ingest
+        if population_phase is not None:
+            declared = population_phase
+
+            def population(*, question: PopulationQuestion, perspective: Perspective) -> None:
+                context = PopulationAcquisitionContext(
+                    question=question,
+                    perspective=perspective,
+                    tenant_id=tenant_id,
+                    sources=sources,
+                    instant=question.asked_at,
+                )
+                ingest(declared(context), asked_at=question.asked_at)
+
+            return population
+
+        def seam(*, request: ProductRequest, perspective: Perspective) -> None:
+            context = AcquisitionContext(
+                request=request,
+                perspective=perspective,
+                tenant_id=tenant_id,
+                sources=sources,
+                instant=request.asked_at,
+            )
+            ingest(acquire(context), asked_at=request.asked_at)
+
+        return seam
+
+    def _population_seam(self, fabric: BootedFabric) -> Callable[..., None]:
+        """The declared population phase for one question (SEC-020 Q7, ``D-IMPL-378``).
+
+        Called by the resolver once per question, before the subject-keyed
+        seam, with a question that carries no subject; the deployment's
+        ``population`` is handed a :class:`PopulationAcquisitionContext`
+        built from it and nothing else. Composed by :meth:`_acquisition_seam`,
+        so it reaches L2's one writer through the same guarded loop.
+        """
+        population_phase = self._population
+        assert population_phase is not None  # stated only when declared
+        return self._acquisition_seam(fabric, population_phase=population_phase)
 
 
 def _parsed(
