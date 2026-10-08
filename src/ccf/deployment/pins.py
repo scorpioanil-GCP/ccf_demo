@@ -43,6 +43,21 @@ __ccf_mode__ = "algorithmic"
 __all__ = ["ArtifactPin", "ResolvedPins", "UnpinnedArtifactError"]
 
 
+def _bare_form(key: str) -> str | None:
+    """The text after a recorded key's tenant segment, or ``None`` if it has none.
+
+    The registry's one tenant comparison reads the segment before the first
+    ``/`` (`D-IMPL-353` §1.3), and `ccf.controlplane.registry.namespaced_key`
+    places a bare key under its tenant by prefixing exactly that segment, so
+    this is the inverse of the placement: ``tenant/policy`` yields ``policy``,
+    and ``tenant/operator-parameters/traversal`` yields
+    ``operator-parameters/traversal``. Used only to diagnose a miss in
+    :meth:`ResolvedPins.version_for`; it never chooses a pin.
+    """
+    tenant, separator, rest = key.partition("/")
+    return rest if separator and tenant and rest else None
+
+
 class UnpinnedArtifactError(LookupError):
     """No pin was recorded under the requested manifest key.
 
@@ -51,10 +66,14 @@ class UnpinnedArtifactError(LookupError):
     already decided it needs one, and handing back a value nobody chose would
     push the failure to whatever reads the version next.
 
-    Two distinct situations raise it, and the message names the key so they are
-    distinguishable at the point of failure: the key is not in the manifest at
-    all, or the key is in the manifest under ``role: load`` and therefore has no
-    version because nothing registered it.
+    Three distinct situations raise it, and the message names the key so they
+    are distinguishable at the point of failure: the key is not in the manifest
+    at all; the key is in the manifest under ``role: load`` and therefore has no
+    version because nothing registered it; or the key is the BARE form of a key
+    a pin is recorded under — a loader places every manifest key under the
+    deployment's tenant before registering it (`D-IMPL-354`), so an authored
+    ``policy`` is pinned as ``{tenant}/policy`` — in which case the message
+    names the recorded key instead of reporting the first two.
     """
 
 
@@ -126,14 +145,39 @@ class ResolvedPins(CCFContract):
     def version_for(self, key: str) -> str:
         """Return the version pinned under ``key``.
 
+        ``key`` is the key the pin is **recorded** under. For a pin a loader
+        produced, that is the manifest key as placed under the deployment's
+        tenant (`D-IMPL-354`): an authored ``policy`` is recorded as
+        ``{tenant}/policy``. The lookup is exact and never re-derives a key —
+        deciding which recorded key a bare name meant would be selection, which
+        the module docstring rules out — but a miss on a bare key is diagnosed
+        as what it is, rather than as an absent or ``role: load`` entry.
+
         Raises:
-            UnpinnedArtifactError: no ``role: register`` entry in the manifest
-                carried this key — either it is absent entirely, or it is
-                declared ``role: load`` and was deliberately never registered.
+            UnpinnedArtifactError: no pin is recorded under ``key``. When
+                ``key`` is the bare form of a recorded key — the text after that
+                key's tenant segment — the message names the recorded key and
+                the tenant placement that produced it. Otherwise no
+                ``role: register`` entry in the manifest carried this key:
+                either it is absent entirely, or it is declared ``role: load``
+                and was deliberately never registered.
         """
         for entry in self.entries:
             if entry.key == key:
                 return entry.version
+        placed = sorted(entry.key for entry in self.entries if _bare_form(entry.key) == key)
+        if placed:
+            raise UnpinnedArtifactError(
+                f"no version is pinned under {key!r}, but one is pinned under"
+                f" {', '.join(repr(name) for name in placed)}: a loader records"
+                " each pin under its manifest key as placed under the"
+                " deployment's tenant (`manifest_under_tenant`, D-IMPL-354),"
+                " never under the bare key a configuration authored. Look the"
+                " pin up by the placed key: `BootedFabric.keys` carries it by"
+                " section on the single-file door, and"
+                " `ccf.controlplane.registry.namespaced_key(tenant=..., key=...)`"
+                " derives it"
+            )
         raise UnpinnedArtifactError(
             f"no version is pinned under manifest key {key!r}; the manifest"
             " either does not name it or names it with role 'load', which is"
