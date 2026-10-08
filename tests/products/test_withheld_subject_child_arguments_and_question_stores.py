@@ -1,8 +1,12 @@
 """SEC-020 residuals P3 and P4: child arguments, and a question's store booted again (``D-IMPL-378``).
 
-**Candidates, not rulings.** Dave has not ruled P3 or P4; these tests measure
-the design lane's recommended option (a) of each, built on lane
-``378d-s020next``. SEC-020 stays OPEN: nothing here closes it.
+**Ruled.** Dave ruled P3 (a) and P4 (a) on 2026-10-08 at 12:29 MST
+(``D-IMPL-378``): P3 (a) *"as the API improvement, but not as enforcement
+proof"*, and P4 (a) with *"An unmarked existing store must not be presumed
+fresh"*. These tests measure option (a) of each, built on lane
+``378d-s020next``; the stricter P4 (a) refusals are measured in
+``tests/products/test_unmarked_and_unverifiable_question_stores.py``. SEC-020
+stays OPEN: nothing here closes it.
 
 * **P3 (a), child arguments (Q8).** The design lane's residual, measured on
   ``ca1195e6``: *"Child arguments derived from state the deployment captured

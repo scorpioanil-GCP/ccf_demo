@@ -721,8 +721,8 @@ class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
 class CompositeNeedsAWithholdingStance(UnsupportedComposition):
     """A composite that declares no withholding stance: no early policy, and no affirmation it never withholds.
 
-    ``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE (SDK-defined,
-    CLAUDE.md §11): Dave has not ruled it, and SEC-020 stays OPEN. Q8:
+    ``D-IMPL-378`` P2, option (c), ruled by Dave on 2026-10-08 at 12:29 MST
+    (SDK-defined, CLAUDE.md §11); SEC-020 stays OPEN. Q8:
     *"Require early withholding for affected composites. Make it an enforced
     policy decision before subject-dependent fetches, child resolution or
     scoring. It cannot depend on learning whether the subject exists."* A
@@ -797,8 +797,8 @@ class AcquiredFabricReused(ProductNotResolvable):
     store is not a question fabric to begin with.
 
     **Every governed call over a question fabric claims it** (SEC-020 P4 (a),
-    ``D-IMPL-378``; a candidate Dave has not ruled), at the same point, with an
-    acquisition phase or without one: a later call that declares no
+    ``D-IMPL-378``, ruled by Dave on 2026-10-08 at 12:29 MST), at the same
+    point, with an acquisition phase or without one: a later call that declares no
     acquisition would otherwise answer from what the first question fetched. A
     second handle over the same store is refused by
     :class:`QuestionStoreReopened`.
@@ -808,8 +808,8 @@ class AcquiredFabricReused(ProductNotResolvable):
 class QuestionStoreReopened(UnsupportedComposition):
     """A governed call over a question's store booted again, refused before the graph is read.
 
-    SEC-020 P4 (a), ``D-IMPL-378`` (a candidate Dave has not ruled; Q9:
-    *"Enforce a fresh fabric per question whenever acquisition exists"*). The
+    SEC-020 P4 (a), ``D-IMPL-378`` (ruled by Dave on 2026-10-08 at 12:29 MST;
+    Q9: *"Enforce a fresh fabric per question whenever acquisition exists"*). The
     store a question was answered from keeps what its acquisition fetched, and
     the paved road leaves it on disk. A boot for one question leaves a durable
     marker beside the store
@@ -3006,7 +3006,7 @@ class GovernedResolver:
         _refuse_a_listed_class_that_may_withhold(
             control_plane=self.control_plane, tenant=tenant, declaration=declaration
         )
-        # `D-IMPL-378` P2 (c), a CANDIDATE (Dave has not ruled P2): a composite
+        # `D-IMPL-378` P2 (c), ruled 2026-10-08 12:29 MST: a composite
         # states its withholding stance here — an early policy, or its class's
         # affirmation that it never withholds — or it is refused, before any
         # question, so the refusal cannot depend on a subject.
@@ -3022,7 +3022,7 @@ class GovernedResolver:
                 f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} on the class; a"
                 " composite asks its children before its plan runs, so a withhold"
                 " decided inside its projection would be decided too late and for the"
-                " withheld subject only (SEC-020; D-IMPL-378 P2 (c), a candidate)"
+                " withheld subject only (SEC-020; D-IMPL-378 P2 (c))"
             )
         minted = _ComposedAuthorities(
             replay=_mint_replay_at_composition(
@@ -3578,10 +3578,10 @@ class GovernedResolver:
         if acquires or self.fabric.for_question:
             # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
             # claimed for it — before anything is read or fetched, and decided
-            # by nothing about the subject. P4 (a) (a candidate Dave has not
-            # ruled): a question fabric is claimed by every governed call over
-            # it, so a later call with no acquisition phase does not answer
-            # from what the first one fetched.
+            # by nothing about the subject. P4 (a) (`D-IMPL-378`, ruled
+            # 2026-10-08 12:29 MST): a question fabric is claimed by every
+            # governed call over it, so a later call with no acquisition phase
+            # does not answer from what the first one fetched.
             _claim_question_fabric(self.fabric)
         elif self.fabric.question_store:
             # SEC-020 P4 (a): a question's store booted again, read with no
