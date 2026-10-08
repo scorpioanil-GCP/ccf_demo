@@ -25,14 +25,19 @@ refuses that next write once — and presents the passage again:
 * a finisher racing the live original passage: one write lands, and the loser
   raises :class:`~ccf_runtime.workflow.engine.ExecutionFenced` in process (its
   rendering at the doors is lane 378c-d3's);
-* a passage no durable claim names is not finished.
+* a passage no durable claim names — or one its claim decided otherwise —
+  is not finished;
+* a start is finished for its own starter only, and only when its first node
+  is a gate: a start at a step, which ran, is never finished.
 
 Every other ``running`` record — one at a step, which may have run — stays
 never-retried
 (``tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process``).
 
-RED FIRST: committed before the finisher existed, when every retry below met
-the never-retried refusal. Test vocabulary only (CINV-01).
+RED FIRST: the first six tests were committed before the finisher existed,
+when every retry met the never-retried refusal; the last three guard the
+finisher's own conditions, and their red is the lane's severings. Test
+vocabulary only (CINV-01).
 """
 
 from __future__ import annotations
@@ -40,14 +45,16 @@ from __future__ import annotations
 import asyncio
 import threading
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from ccf.authz.capability import Authorized
+from ccf.controlplane.audit import AuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.controlplane.state import StateWriteToken
+from ccf.controlplane.state import AuditedStateWriter, StateWriteToken
 from ccf.hitl.transport import InMemoryHitlTransport
 from ccf.workflow.factory import Workflow
 from ccf_runtime.workflow.engine import (
@@ -59,8 +66,10 @@ from ccf_runtime.workflow.engine import (
     WorkflowSuspended,
 )
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
+from tests.hitl.sec006_harness import execute_as_principal
 from tests.workflow import test_engine as eh
 from tests.workflow.test_approval_gate_limits import (
+    ALREADY_EXISTS,
     APPROVING_TERMINAL,
     COVENANT_GATE,
     OFFICER_1,
@@ -385,3 +394,118 @@ def test_a_passage_no_durable_claim_names_is_never_finished(tmp_path: Path) -> N
     assert RUNNING in outcome.reason and INTERRUPTED in outcome.reason, outcome.reason
     assert other_bindings.ran == []
     assert state_of(registry, key) == stuck
+
+
+def test_another_principals_start_does_not_finish_an_interrupted_start(tmp_path: Path) -> None:
+    """The start's durable claim is the create-if-absent record, stamped with
+    its starter. Another principal presenting the same execution id is a
+    second start, refused as one (D-23), and finishes nothing; the starter's
+    own retry then does."""
+    records = StandInRecords()
+    registry = plane(SharedBackingStore(records, scope="process"))
+    engine, transport, bindings = eh._engine(registry, tmp_path)
+    workflow = gate_start_covenant(registry)
+    tenant = workflow.definition.tenant
+    key = f"{tenant}/{EXECUTION}"
+    records.arm_failure(suspended_write)
+    with pytest.raises(RuntimeError, match="state store unavailable"):
+        asyncio.run(engine.execute(eh.execute_as(workflow), workflow, execution_id=EXECUTION))
+    stuck = state_of(registry, key)
+
+    other = execute_as_principal(tenant=tenant, resource=workflow.definition_key, principal="officer-z")
+    refused = asyncio.run(engine.execute(other, workflow, execution_id=EXECUTION))
+
+    assert isinstance(refused, WorkflowResumeRefused), refused
+    assert ALREADY_EXISTS in refused.reason, refused.reason
+    assert state_of(registry, key) == stuck
+    assert not transport.pending(tenant=tenant)
+    # Positive control: the starter's own retry finishes it.
+    finished = asyncio.run(engine.execute(eh.execute_as(workflow), workflow, execution_id=EXECUTION))
+    assert isinstance(finished, WorkflowSuspended), finished
+    assert bindings.ran == []
+
+
+def test_an_interrupted_start_at_a_step_is_never_finished(tmp_path: Path) -> None:
+    """The covenant workflow starts at a step. Its start commit lands, its
+    steps run, and the store refuses the suspension write at its gate: the
+    record still says ``running`` at the START node, which is a step that
+    ran. Neither the starter's retry nor a resumption finishes it, and no
+    step runs a second time."""
+    records = StandInRecords()
+    registry = plane(SharedBackingStore(records, scope="process"))
+    engine, transport, bindings = eh._engine(registry, tmp_path)
+    workflow = eh._covenant(registry)
+    tenant = workflow.definition.tenant
+    key = f"{tenant}/{EXECUTION}"
+    records.arm_failure(suspended_write)
+    with pytest.raises(RuntimeError, match="state store unavailable"):
+        asyncio.run(engine.execute(eh.execute_as(workflow), workflow, execution_id=EXECUTION))
+    stuck = state_of(registry, key)
+    assert (stuck.status, stuck.current_state, stuck.trace) == ("running", workflow.definition.start, ())
+    ran = list(bindings.ran)
+    assert ran, "the start's steps ran before the suspension write failed"
+
+    again = asyncio.run(engine.execute(eh.execute_as(workflow), workflow, execution_id=EXECUTION))
+    resumed = asyncio.run(
+        engine.resume(eh.resume_as(workflow), workflow, execution_id=EXECUTION, decision=APPROVING_TERMINAL)
+    )
+
+    assert isinstance(again, WorkflowResumeRefused) and ALREADY_EXISTS in again.reason, again
+    assert isinstance(resumed, WorkflowResumeRefused), resumed
+    assert RUNNING in resumed.reason and INTERRUPTED in resumed.reason, resumed.reason
+    assert NO_CLAIM not in resumed.reason, "a step that ran is never treated as unclaimed-but-finishable"
+    assert bindings.ran == ran, "no step ran a second time"
+    assert state_of(registry, key) == stuck
+    assert not transport.pending(tenant=tenant)
+
+
+def test_a_passage_its_claim_decided_otherwise_is_never_finished(tmp_path: Path) -> None:
+    """The gate's closure decided a REJECTION, and the passage committed
+    ``running`` at ``rejected`` before its terminal write failed. A writer
+    outside the engine then rewrites the record to say ``running`` at
+    ``approved``, leaving the suspension it names unchanged. The closure is
+    found, but its decided verdict routes to ``rejected``, not to the record's
+    state: the claim does not name this passage, so it is not finished."""
+    records = StandInRecords()
+    registry = plane(SharedBackingStore(records, scope="process"))
+    engine, transport, bindings = eh._engine(registry, tmp_path)
+    workflow = eh._covenant(registry)
+    tenant = workflow.definition.tenant
+    suspended = asyncio.run(engine.execute(eh.execute_as(workflow), workflow, execution_id=EXECUTION))
+    assert isinstance(suspended, WorkflowSuspended)
+    bound = next(e.product_content_hash for e in transport.pending(tenant=tenant) if e.event_key == suspended.event_key)
+    eh._submit_only(
+        transport, tenant=tenant, event_key=suspended.event_key, product_content_hash=bound,
+        action="reject", subject_id=OFFICER_1,
+    )
+    records.arm_failure(terminal_write)
+    with pytest.raises(RuntimeError, match="state store unavailable"):
+        asyncio.run(engine.resume(eh.resume_as(workflow), workflow, execution_id=EXECUTION, decision="rejected"))
+    key = f"{tenant}/{EXECUTION}"
+    stuck = state_of(registry, key)
+    assert (stuck.status, stuck.current_state) == ("running", "rejected")
+    last = stuck.trace[-1]
+    rewritten = stuck.model_copy(
+        update={
+            "current_state": APPROVING_TERMINAL,
+            "trace": stuck.trace[:-1] + (last.model_copy(update={"target": APPROVING_TERMINAL}),),
+        }
+    )
+    AuditedStateWriter(store=registry.state_store, audit=registry.audit_log).write(
+        eh.execute_as(workflow), WORKFLOW_STATE, rewritten, record_id=EXECUTION,
+        event=AuditEvent(
+            sequence=0, action="state_written", key=key, version=workflow.identity.definition_hash,
+            resolved=True, occurred_at=datetime(2026, 10, 7, tzinfo=UTC),
+        ),
+    )
+    ran = list(bindings.ran)
+
+    outcome = asyncio.run(
+        engine.resume(eh.resume_as(workflow), workflow, execution_id=EXECUTION, decision=APPROVING_TERMINAL)
+    )
+
+    assert isinstance(outcome, WorkflowResumeRefused), outcome
+    assert NO_CLAIM in outcome.reason, outcome.reason
+    assert state_of(registry, key) == rewritten
+    assert rows((registry,), key, "workflow_completed") == []
+    assert bindings.ran == ran
