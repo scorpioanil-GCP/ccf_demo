@@ -31,6 +31,7 @@ meaningful nowhere else (CINV-01 applied to test data).
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 from collections.abc import Iterator, Mapping
@@ -167,3 +168,58 @@ def test_record_of_refuses_a_record_forged_on_the_tenants_own_client_lane(tmp_pa
         with pytest.raises(ArtifactNotFound) as by_uri:
             opened.record_of(refusal.model_copy(update={"replay_reference": filed.uri}))
         assert isinstance(by_uri.value, _provenance().RecordNotFiledByRecordWriter), by_uri.value
+
+
+# --- a store that cannot say who filed an address ------------------------------------
+
+
+class _WithoutNaming:
+    """A third-party substrate that writes and reads (it declares ``write_kinds``,
+    so a resolver composes over it) and answers no ``names_at``."""
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    @property
+    def write_kinds(self) -> Any:
+        # Stated, not delegated: a resolver's construction check reads it
+        # statically (`typing` runtime protocols), and this store DOES declare.
+        return self._inner.write_kinds
+
+    def __getattr__(self, attribute: str) -> Any:
+        if attribute == "names_at":
+            raise AttributeError(attribute)
+        return getattr(self._inner, attribute)
+
+
+def test_child_admission_over_a_store_that_cannot_attribute_refuses_by_name(booted: _Booted) -> None:
+    """Fail closed: the child's GENUINE record, read through a store that cannot
+    say who filed it, is not taken as the child's record."""
+    unattributing = dataclasses.replace(booted, store=_WithoutNaming(booted.store))
+    resolver = _wired(unattributing, plan_factory=_ChildReadingFactory())
+    with pytest.raises(TypeError) as refused:
+        ask_composite(resolver)
+    assert isinstance(refused.value, _provenance().UnattributableRecordStore), refused.value
+
+
+def test_record_of_over_a_store_that_cannot_attribute_refuses_by_name(tmp_path: pathlib.Path) -> None:
+    """Fail closed: the served decision's GENUINE record, read back through a
+    product composed over a store that cannot say who filed it, is refused."""
+    from ccf.artifacts.file_store import FileArtifactStore  # noqa: PLC0415
+    from ccf.erasure import FileErasureIndex  # noqa: PLC0415
+
+    root = pr._write_tree(tmp_path)
+    with pr._open(root, tmp_path / "first") as first:
+        kinds = first.artifact_store.write_kinds
+    raw = FileArtifactStore(root=tmp_path / "elsewhere", write_kinds=kinds)
+    with pr._open(
+        root,
+        tmp_path / "scratch",
+        artifact_store=_WithoutNaming(raw),
+        erasure_index=FileErasureIndex(tmp_path / "elsewhere" / ".erasure-index.jsonl"),
+    ) as opened:
+        served = opened.answer(pr._question(opened))
+        assert isinstance(served, ServedProduct), served
+        with pytest.raises(TypeError) as refused:
+            opened.record_of(served)
+        assert isinstance(refused.value, _provenance().UnattributableRecordStore), refused.value
