@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2191 entries**, of which **1916** name a public Python surface.
+**2192 entries**, of which **1917** name a public Python surface.
 
 ## Added
 
@@ -29144,7 +29144,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-301 entries — 262 public Python surface, 39 not public Python API.
+302 entries — 263 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -33887,6 +33887,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a deployment-supplied artifact substrate behind a governed door answers `names_at` and declares `WriteKinds`, as the shipped `FileArtifactStore` and `McpArtifactStore` do. A record filed under a tenant other than the one it was decided under — a delivery-boundary denial addressed to another tenant at a door whose recorder is a different tenant's — no longer reads for anyone.
 
 *Recorded by `377-07-forged-record-provenance.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the blob (`ccf-artifact-blob://`) and presence (`ccf-artifact-meta://`) resources served an address the caller's own tenant had filed only in classes not declared under `ReplayMint` (the client lane) as the exact stored bytes and `{"found":true}`, whatever those bytes were. Bytes shaped as a Decision Replay record, filed on the tenant's client lane by any principal of it, therefore crossed exactly as a governed record does, and every SDK reader of the MCP-backed store took them as one.
+- After: on the client lane, bytes that validate as a `DecisionReplayRecord` are decided by the governed dereference instead of being served. "Validate" means `DecisionReplayRecord.model_validate_json`, the step `resolve_artifact` ends with and the parse every SDK reader of a record makes. The governed dereference serves a record only where the store's naming shows the fabric's record writer filed the address under the record's tenant, and that tenant is the caller's. That is never true of an address the caller's tenant filed only on its client lane. So blob and presence answer such bytes exactly as a missing address: byte-identical answers, behind the same recorded `nonexistent` / `evidence-absent` determination. An `McpArtifactStore` reader gets `ArtifactNotFound` from `get` and `False` from `exists`. Reading through it, `resolve_artifact`, `resolve_artifact_at_uri` and `replay_refusal` raise `ReplayUnresolvable`, and child admission's record read raises `ArtifactNotFound`. Bytes that validator refuses are served as before; measured with one key added to a record and one key removed. Unchanged: the write (the server's `put_artifact` files the bytes and answers their reference), the names resource (it lists the tenant's own filing under its stored class), the governed reads, and C8 (a tenant's blob, presence and names answers for such a filing are the same whether another tenant filed the same bytes nowhere, on its client lane, or through its record writer).
+- Why: Dave's client-lane ruling, 2026-10-07 (`D-IMPL-378`). Red tests: `tests/mcp/test_forged_record_mcp.py::test_a_record_forged_on_the_tenants_own_client_lane_answers_as_a_missing_address_does` (until now a strict expected failure); `tests/mcp/test_clientlane_record_shaped.py::test_the_replay_engines_read_does_not_accept_a_record_shaped_client_lane_filing`, `::test_replay_refusal_does_not_verify_a_forged_refusal_record_from_the_client_lane`, `::test_child_admission_does_not_read_a_client_lane_record_as_the_childs_record`, `::test_record_shaped_means_the_record_validator_accepts_the_bytes_not_a_resemblance` (both parametrizations), `::test_a_tenants_answers_for_its_record_shaped_filing_do_not_depend_on_another_tenants_filing`, `::test_the_write_is_not_refused_and_the_names_resource_still_lists_the_filing` and `::test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_filing_to_verify_its_subject`.
+- Migration: a client that files a copy of a Decision Replay record on a client lane and reads it back through the MCP artifact server now gets the missing-address answer. Read a record through a governed read instead. A copy kept as an ordinary client artifact must be in a form the record validator refuses. Each read of such bytes records a `nonexistent` refusal through the door's recorder, as a read of a missing address does. An erasure door built over the MCP-backed store reads each named address's bytes to verify its subject, so it now refuses a request naming such a filing `subject-unverifiable`; before this change it read the bytes and judged them. A door over the store in process reads the bytes directly and judges the subject. The SDK readers that read a store in process, without the artifact server in between, are not changed here: `resolve_artifact`, `replay_refusal` and child admission still accept a record-shaped client-lane filing as a record, because none of them checks who filed it.
+
+*Recorded by `378-02-record-shaped-bytes-on-the-mcp-client-lane.md`.*
 
 ### Not public Python API
 

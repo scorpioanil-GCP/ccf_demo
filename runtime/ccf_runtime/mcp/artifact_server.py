@@ -109,9 +109,14 @@ in this order:
    capability's tenant in an undeclared (client-lane) class — or the workflow
    engine's trace class, declared under ``Execute | Resume`` — is served: the
    exact stored bytes, with one ``authz_decision`` audit event naming the read.
-   Whatever their shape: a client-lane artifact is never read as a governed
-   record, even when its bytes are shaped as one, and the answer does not say
-   which lane served it — evidence is what a governed read returns.
+   The answer does not say which lane served it, so bytes that validate as a
+   Decision Replay record (``DecisionReplayRecord.model_validate_json``, the
+   validator every SDK reader of a record applies) are not served this way
+   (the client-lane ruling, ``D-IMPL-378``): the governed dereference decides
+   them, and it serves a record only where the store's naming shows the
+   fabric's record writer filed the address under the record's tenant and that
+   tenant is the caller's — never true of an address the caller's tenant filed
+   only on its client lane — so they answer exactly as a missing address.
    An address filed under **no** name of the capability's tenant — another
    tenant's, or nothing at all — goes through the governed dereference too,
    which holds the caller to the tenant a record was decided under before any
@@ -154,6 +159,7 @@ from typing import Protocol, runtime_checkable
 from mcp.server.auth.provider import TokenVerifier
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from pydantic import ValidationError
 
 from ccf.artifacts.protocol import (
     ARTIFACT_URI_SCHEME,
@@ -172,6 +178,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
 from ccf.products.refusal import RefusalEnvelope
+from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
     DereferenceRequest,
@@ -336,6 +343,21 @@ def artifact_names_uri(*, content_address: str) -> str:
     return f"{ARTIFACT_NAMES_URI_SCHEME}://{content_address}"
 
 
+def _record_shaped(payload: bytes) -> bool:
+    """Whether ``payload`` is a Decision Replay record to the validator SDK readers apply.
+
+    ``DecisionReplayRecord.model_validate_json``: the step
+    :func:`ccf.replay.engine.resolve_artifact` ends with, and the parse every
+    SDK reader of a record makes. Never a resemblance: bytes that validator
+    refuses are no reader's record (the client-lane ruling, ``D-IMPL-378``).
+    """
+    try:
+        DecisionReplayRecord.model_validate_json(payload)
+    except ValidationError:
+        return False
+    return True
+
+
 def build_artifact_server(
     *,
     server_name: str,
@@ -461,9 +483,9 @@ def build_artifact_server(
             ReplayMint in store.write_kinds.for_class(named.artifact_class)
             for named in own
         )
-        if governed or not own:
-            # (3) Governed evidence, another tenant's bytes, or nothing at all:
-            # the governed dereference decides, records and discloses — and
+
+        def governed_read() -> bytes | RefusalEnvelope:
+            # The governed dereference decides, records and discloses — and
             # answers the nonexistent shell for everything that is not a
             # record this principal may read.
             decided = govern_dereference(
@@ -482,6 +504,10 @@ def build_artifact_server(
                 return decided
             assert decided.payload is not None  # a bytes ask always carries them
             return decided.payload
+
+        if governed or not own:
+            # (3) Governed evidence, another tenant's bytes, or nothing at all.
+            return governed_read()
         # (4) The client lane: filed under the capability's tenant in a class
         # the deployment did not declare governed. Served tenant-scoped, and
         # the read leaves the same trail a governed one does (D-IMPL-345 R-5).
@@ -507,6 +533,14 @@ def build_artifact_server(
             )
             assert isinstance(decided, RefusalEnvelope)  # an erased read only refuses
             return decided
+        if _record_shaped(payload):
+            # (5) Bytes on the client lane that validate as a Decision Replay
+            # record are not served as a client artifact (the client-lane
+            # ruling, D-IMPL-378): the answer would not say which lane served
+            # them, and every SDK reader of a record would take them as one.
+            # The governed dereference decides them; its provenance check
+            # answers them exactly as a missing address.
+            return governed_read()
         audit_log.append(
             action="authz_decision",
             key=content_address,
