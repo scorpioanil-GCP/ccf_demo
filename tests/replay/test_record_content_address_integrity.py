@@ -39,14 +39,20 @@ from __future__ import annotations
 import hashlib
 import json
 import pathlib
-from collections.abc import Iterator
+import types
+from collections.abc import Iterator, Mapping
+from types import ModuleType
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import parse_artifact_uri
+from ccf.artifacts.protocol import ArtifactNotFound, artifact_uri, parse_artifact_uri
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.products.child_resolver import GrantBoundChildResolver
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
+from ccf.products.door import DoorOutcome
 from ccf.products.product import OpenedProduct
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.engine import ReplayDivergence, resolve_artifact
@@ -256,3 +262,301 @@ def test_the_governed_read_never_serves_bytes_altered_under_the_old_reference(
         assert read.status_code == 404, f"[{when}] {read.status_code}: {read.text[:400]}"
         shell = json.loads(read.content)["refusal"]
         assert _internal_error_code(store, shell["replay_reference"]) == ERROR_EVIDENCE_ABSENT
+
+
+# --- the readers that decide on a record's bytes, and the MCP client lane --------------------
+#
+# Lane 378e-integrity (Dave's E1 (a), ``D-IMPL-378``: "Preserve record content-address
+# integrity"). Lane 378e-prose measured two readers taking bytes altered under an address as
+# the artifact the address names (its ``probe_record_readers.py``, parts A and C), and this
+# lane's reader inventory found a third, the MCP artifact server's client lane
+# (``probe_mcp_client_lane.py``). Each test asserts the refusal by its mechanism, after a
+# control showing the genuine bytes still work.
+
+#: An entity no child read, planted in an altered child record's dimension 1.
+FORGED_ENTITY = "forged:entity"
+
+
+def _child_resolver_module() -> ModuleType:
+    """The child resolver module, imported only after a refusal is observed, so
+    that before the fix this test fails on the behavior, never on an import."""
+    import ccf.products.child_resolver as module  # noqa: PLC0415
+
+    return module
+
+
+@pytest.fixture()
+def composite(tmp_path: pathlib.Path) -> Iterator[Any]:
+    """``tests/products/composite_fixture.py::boot_composite``'s deployment: a parent composed over one
+    locally dispatched child, wired with a projection that never withholds its subject."""
+    from tests.products.composite_fixture import boot_composite  # noqa: PLC0415
+
+    yield from boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
+
+
+class _AlteringChildDoor:
+    """The child's REAL door. Every answer records the touched entities of the child's
+    own record; with :attr:`alter` set, the record's stored bytes are then altered IN
+    PLACE under their address (a valid record of the same product, dimension 1 naming
+    :data:`FORGED_ENTITY`) and the answer is handed back unchanged: the same reference,
+    now naming bytes that are not the record."""
+
+    def __init__(self, booted: Any) -> None:
+        from tests.products.composite_fixture import _child_door  # noqa: PLC0415
+
+        self._inner = _child_door(booted)
+        self._store = booted.store
+        self.alter = False
+        self.genuine_touched: tuple[str, ...] | None = None
+        self.altered_address: str | None = None
+
+    def __call__(self, arguments: Mapping[str, str]) -> Mapping[str, str]:
+        answered = self._inner(arguments)
+        outcome = DoorOutcome.model_validate_json(answered["outcome"])
+        assert outcome.replay_ref is not None, outcome
+        address = self._store.resolve_uri(uri=outcome.replay_ref)
+        record = DecisionReplayRecord.model_validate_json(self._store.get(content_address=address))
+        self.genuine_touched = tuple(record.context_fabric_snapshot.touched_entities)
+        if self.alter:
+            snapshot = record.context_fabric_snapshot.model_copy(update={"touched_entities": (FORGED_ENTITY,)})
+            forged = record.model_copy(update={"context_fabric_snapshot": snapshot})
+            assert forged.content_generation_path.product_content_address == (
+                record.content_generation_path.product_content_address
+            )
+            _stored_file(pathlib.Path(self._store.root), address).write_bytes(canonical_bytes(forged))
+            self.altered_address = address
+        return answered
+
+
+def _gate_receives(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...] | None]:
+    """Every child's touched entities, as the composite admission gate receives them."""
+    from ccf.products.composite import CompositeAdmissionGate  # noqa: PLC0415
+
+    received: list[tuple[str, ...] | None] = []
+    admit = CompositeAdmissionGate.admit
+
+    def recording(self: Any, *, candidate: Any, **rest: Any) -> Any:
+        received.append(candidate.invocation.touched_entities)
+        return admit(self, candidate=candidate, **rest)
+
+    monkeypatch.setattr(CompositeAdmissionGate, "admit", recording)
+    return received
+
+
+def test_child_admission_refuses_its_childs_record_bytes_altered_under_their_address(
+    composite: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Child admission (``GrantBoundChildResolver._touched_entities``) verifies the record before the gate reads it.
+
+    The admission gate establishes a locally dispatched child's eligibility
+    from the touched entities its record lists, read through the child's
+    replay reference. The control first: the genuine record, so the composite
+    serves and the gate receives the record's own entities. Then the child's
+    record is altered in place under its address: a valid record of the same
+    product, listing an entity the child never read. The composite must refuse
+    by name (``ChildRecordAltered``), and the altered entities must never reach
+    the gate. Measured before the fix, over the file-backed store the paved
+    road uses: the composite served, the gate holding ``('forged:entity',)``.
+    """
+    from tests.products.composite_fixture import ask_composite  # noqa: PLC0415
+    from tests.products.test_d_impl_339_child_contract_view import _ChildReadingFactory, _wired  # noqa: PLC0415
+
+    door = _AlteringChildDoor(composite)
+    resolver = _wired(composite, door=door, plan_factory=_ChildReadingFactory())
+    received = _gate_receives(monkeypatch)
+
+    assert isinstance(ask_composite(resolver), ServedProduct)
+    assert door.genuine_touched and FORGED_ENTITY not in door.genuine_touched
+    assert received == [door.genuine_touched], received
+
+    door.alter = True
+    try:
+        outcome = ask_composite(resolver)
+    except ValueError as raised:
+        refused = raised
+    else:
+        pytest.fail(
+            "the composite proceeded on its child's record bytes altered under their"
+            f" address ({type(outcome).__name__}); the admission gate received {received[1:]!r}"
+        )
+    assert door.altered_address is not None, "the child was never asked"
+    assert isinstance(refused, _child_resolver_module().ChildRecordAltered), repr(refused)
+    assert door.altered_address in str(refused), str(refused)
+    assert received[1:] == [], f"the altered record's entities reached the admission gate: {received[1:]!r}"
+
+
+def test_child_admission_over_the_mcp_backed_store_reads_the_genuine_record_and_not_altered_bytes(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same read through the MCP-backed store (``McpArtifactStore``).
+
+    The control: a record the fabric's writer filed answers its touched
+    entities. The same bytes altered in place under their address then read as
+    absent (``ArtifactNotFound``): the MCP store re-hashes what the server
+    sends before the reader parses anything. ``_touched_entities`` reads only
+    ``self._store``, so it is driven with that alone.
+    """
+    from tests.mcp.guarded_servers import PRINCIPAL, REPLAY_RECORD_CLASS, TENANT  # noqa: PLC0415
+    from tests.mcp.test_c2_tenant_hold_mcp import _file, _record  # noqa: PLC0415
+    from tests.mcp.test_clientlane_record_shaped import _child_record, _client, _world  # noqa: PLC0415
+
+    world = _world(tmp_path)
+    reader = types.SimpleNamespace(_store=_client(world, monkeypatch))
+    child = {"child": "the product a producer reported"}
+    genuine = _child_record(
+        _record(tenant=TENANT, principal=PRINCIPAL, subject="integrity-child"), child, ("genuine:entity",)
+    )
+    address = _file(world, genuine)
+    reference = artifact_uri(
+        tenant_id=TENANT, artifact_class=REPLAY_RECORD_CLASS, name="record", artifact_version=address
+    )
+    assert GrantBoundChildResolver._touched_entities(reader, reference, child) == ("genuine:entity",)  # type: ignore[arg-type]
+
+    snapshot = genuine.context_fabric_snapshot.model_copy(update={"touched_entities": (FORGED_ENTITY,)})
+    _stored_file(tmp_path / "artifacts", address).write_bytes(
+        canonical_bytes(genuine.model_copy(update={"context_fabric_snapshot": snapshot}))
+    )
+    with pytest.raises(ArtifactNotFound):
+        GrantBoundChildResolver._touched_entities(reader, reference, child)  # type: ignore[arg-type]
+
+
+def test_the_erasure_door_refuses_to_judge_a_record_from_bytes_altered_under_its_address(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The erasure door (``ErasureDoor._verify_addresses``) verifies each address's bytes before judging them.
+
+    The door judges the subject and record retention (the ``replay-input``
+    refusal) from the bytes stored at each address a request names, and only
+    then starts the approval workflow. The control first: a record the
+    fabric's record writer filed, carrying the subject in a replay-input field,
+    is refused ``replay-input``. Then its bytes are altered in place under the
+    same address so that the subject leaves that field while staying at its
+    declared key path. The same request must be refused ``subject-unverifiable``
+    in the re-hash's own words, and start no approval. Measured before the fix:
+    it was admitted to approval (``WorkflowSuspended``), an erasure decision
+    made from bytes that are not the record at that address.
+    """
+    from ccf_runtime.erasure import ErasureRefused  # noqa: PLC0415
+
+    from tests.erasure import harness as h  # noqa: PLC0415
+    from tests.erasure.test_replay_input_retention_provenance import (  # noqa: PLC0415
+        _ask,
+        _deployment,
+        _record_naming_the_subject,
+        _request,
+    )
+    from tests.mcp.guarded_servers import REPLAY_RECORD_CLASS  # noqa: PLC0415
+    from tests.replay.authority import replay_writer  # noqa: PLC0415
+
+    plane, store = _deployment(tmp_path)
+    record = _record_naming_the_subject()
+    replay_writer(store, tenant=h.TENANT, artifact_class=REPLAY_RECORD_CLASS).write_replay_record(record=record)
+    address = content_hash(record)
+    request = _request(plane, address, REPLAY_RECORD_CLASS)
+    door = h.door(plane, store=store)
+
+    with pytest.raises(ErasureRefused) as control:
+        _ask(door, plane, request)
+    assert control.value.reason_code == "replay-input", control.value.reason_code
+
+    conditioning = record.perspective_conditioning.model_copy(update={"principal_id": "someone-else"})
+    moved = record.model_copy(update={"perspective_conditioning": conditioning})
+    assert moved.content_generation_path.plan_id == h.SUBJECT_ID, "the subject must stay at its key path"
+    _stored_file(tmp_path, address).write_bytes(canonical_bytes(moved))
+
+    try:
+        outcome = _ask(door, plane, request)
+    except ErasureRefused as raised:
+        refused = raised
+    else:
+        pytest.fail(
+            "the door judged bytes altered under a requested address and started an"
+            f" approval ({type(outcome).__name__})"
+        )
+    assert refused.reason_code == "subject-unverifiable", refused.reason_code
+    assert "do not hash to that address" in str(refused), str(refused)
+    assert not plane.transport.pending(tenant=h.TENANT), "a refused request starts no approval"
+
+
+def test_the_erasure_door_over_the_mcp_backed_store_admits_genuine_bytes_and_not_altered_ones(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same verification through the MCP-backed store.
+
+    The control: the harness's genuine client filing, the subject at its key
+    path, is admitted to approval. A second filing, altered in place under its
+    address, reads as absent through the MCP store, which re-hashes what the
+    server sends, so the door refuses it ``subject-unverifiable`` with
+    ``ArtifactNotFound`` as the cause.
+    """
+    from ccf_runtime.erasure import ErasureRefused  # noqa: PLC0415
+    from ccf_runtime.workflow.engine import WorkflowSuspended  # noqa: PLC0415
+
+    from tests.erasure import harness as h  # noqa: PLC0415
+    from tests.erasure.test_replay_input_retention_provenance import _ask, _mcp_client  # noqa: PLC0415
+    from tests.erasure.test_sec009_address_verification import _readdress  # noqa: PLC0415
+
+    plane = h.compose(tmp_path)
+    door = h.door(plane, store=_mcp_client(tmp_path, plane.store, monkeypatch))
+    assert isinstance(_ask(door, plane, h.request(plane)), WorkflowSuspended)
+
+    second = h.client_put(plane.store, name="note-2", document={"customer": {"id": h.SUBJECT_ID}, "note": "second"})
+    _stored_file(tmp_path / "artifacts", second.content_address).write_bytes(
+        canonical_bytes({"customer": {"id": h.SUBJECT_ID}, "note": "altered"})
+    )
+    with pytest.raises(ErasureRefused) as refused:
+        _ask(door, plane, _readdress(h.request(plane), second.content_address))
+    assert refused.value.reason_code == "subject-unverifiable", refused.value.reason_code
+    assert isinstance(refused.value.__cause__, ArtifactNotFound), repr(refused.value.__cause__)
+
+
+def test_the_artifact_servers_client_lane_never_serves_bytes_altered_under_their_address(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The MCP artifact server's client lane (``build_artifact_server``'s ``dereference``) verifies before it serves.
+
+    The server serves a tenant's own client-lane filing as the exact stored
+    bytes. The control: the genuine filing crosses the blob resource, and the
+    audit trail shows the client lane served it. Then the stored bytes are
+    altered in place under the address: still JSON, still not a record, so the
+    record-shaped rule cannot be what decides them. The altered bytes must not
+    cross as the artifact the address names: blob and presence answer as a
+    missing address does, the governed dereference's recorded ``nonexistent``
+    / ``evidence-absent`` determination, which is how the server answers bytes
+    that do not hash to their address on its governed path. Measured before
+    the fix: the altered bytes crossed, the trail recorded a client-lane serve,
+    and presence answered ``{"found":true}``.
+    """
+    from ccf_runtime.authz.delivery_boundary import DEREFERENCE_PRODUCT_ID  # noqa: PLC0415
+    from ccf_runtime.http_api.errors import ERROR_EVIDENCE_ABSENT  # noqa: PLC0415
+    from ccf_runtime.mcp.artifact_server import artifact_blob_uri, artifact_meta_uri  # noqa: PLC0415
+
+    from tests.mcp.test_c2_tenant_hold_mcp import _internal_cause  # noqa: PLC0415
+    from tests.mcp.test_clientlane_record_shaped import (  # noqa: PLC0415
+        CLIENT_CLASS,
+        _on_client_lane,
+        _read,
+        _trail,
+        _world,
+    )
+
+    world = _world(tmp_path)
+    document = {"note": "a client-lane artifact", "amount": 100}
+    address = _on_client_lane(world, document, name="integrity")
+    blob, presence = artifact_blob_uri(content_address=address), artifact_meta_uri(content_address=address)
+
+    since = len(world.audit_log.events())
+    assert _read(world, blob) == canonical_bytes(document)
+    assert _trail(world, address, since) == [(CLIENT_CLASS, True)]
+
+    altered = canonical_bytes({"note": "an altered client-lane artifact", "amount": 999999})
+    with pytest.raises(ValidationError):
+        DecisionReplayRecord.model_validate_json(altered)
+    _stored_file(tmp_path / "artifacts", address).write_bytes(altered)
+
+    since = len(world.audit_log.events())
+    crossed = _read(world, blob)
+    assert crossed != altered, "the client lane served bytes altered under their address as the artifact it names"
+    assert _internal_cause(world, crossed) == ("nonexistent", ERROR_EVIDENCE_ABSENT)
+    assert _trail(world, address, since) == [(DEREFERENCE_PRODUCT_ID, False)]
+    assert _internal_cause(world, _read(world, presence)) == ("nonexistent", ERROR_EVIDENCE_ABSENT)
