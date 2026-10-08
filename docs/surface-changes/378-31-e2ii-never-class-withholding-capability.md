@@ -1,4 +1,4 @@
-# 378-31 — SEC-020 E2 (ii): a class affirming `never` over a plan factory that declares it withholds is refused at construction
+# 378-31 — SEC-020 E2 (ii): a class affirming `never` over a plan factory that declares it withholds is refused at construction; CT-D (a)
 
 `D-IMPL-378` owed ruling **E2 (ii)**, ruled by Dave on 2026-10-08 at 12:29 MST,
 verbatim: *"E2 (ii) REJECTED as disclosure-only: The proposed hidden-subject
@@ -44,6 +44,17 @@ turns the refusal tests red again.
 withholds some subject. None on this tree outside the new tests: the closing
 test's readable worlds declare early policies that withhold nobody.
 
+**CT-D (a), in the same change.** Dave, 2026-10-08 12:29 MST: *"for
+diagnostic precedence; this does not resolve E2(ii)'s oracle."* At serve, a
+composite whose class affirms `never` and whose projection withholds late was
+refused as `CompositeWithheldLate`, because Q8's check ran first; it is now
+refused as `NeverWithholdingContradicted`, which is checked first. Both refuse
+before anything is recorded. `CompositeWithheldLate` remains for a composite
+whose early policy does not cover a subject its projection withholds.
+Measured by `tests/products/test_sec020_never_capability.py` (red before the
+reordering: `CompositeWithheldLate` observed) and by the closing test's
+listed-class cell, whose expectation for the composite moved with it.
+
 ## ccf.products.resolver.NeverWithholdingProjectionCanWithhold
 
 - Surface: ccf.products.resolver.NeverWithholdingProjectionCanWithhold
@@ -60,8 +71,8 @@ test's readable worlds declare early policies that withhold nobody.
 - Public surface: true
 - Change type: behavior
 - Before: construction accepted a class affirming `never` whatever its plan factory declared through `SubjectDisclosingPlanFactoryProtocol`.
-- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first.
-- Why: as above; the order names the class's own contradiction before the composite rule it also breaks.
+- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first. At serve, the `never` check now runs before Q8's `CompositeWithheldLate` check (CT-D (a)).
+- Why: as above; each order names the class's own contradiction before the composite rule it also breaks.
 - Migration: as above; a class at the default `may-withhold` is unaffected.
 
 ## ccf.products.resolver.NeverWithholdingContradicted
@@ -69,7 +80,17 @@ test's readable worlds declare early policies that withhold nobody.
 - Surface: ccf.products.resolver.NeverWithholdingContradicted
 - Public surface: true
 - Change type: behavior
-- Before: the only check of a class affirming `never`, at serve.
-- After: unchanged in what it raises; documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
-- Why: SEC-020, E2 (ii): *"retain the runtime check as defense."*
-- Migration: none.
+- Before: the only check of a class affirming `never`, at serve, after Q8's `CompositeWithheldLate` check.
+- After: checked first among the serve-time withholding refusals, so a composite affirming `never` that withholds late raises it rather than `CompositeWithheldLate` (CT-D (a)); documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
+- Why: SEC-020, E2 (ii): *"retain the runtime check as defense"*; CT-D (a): *"for diagnostic precedence; this does not resolve E2(ii)'s oracle."*
+- Migration: code catching `CompositeWithheldLate` for a composite whose class affirms `never` catches `NeverWithholdingContradicted` instead; both are `ProductNotResolvable`.
+
+## ccf.products.resolver.CompositeWithheldLate
+
+- Surface: ccf.products.resolver.CompositeWithheldLate
+- Public surface: true
+- Change type: behavior
+- Before: raised for any composite whose projection withheld a subject its early policy did not, including one whose class affirms `never`.
+- After: not raised for a composite whose class affirms `never`; that composite raises `NeverWithholdingContradicted`, checked first. Still raised for a composite whose early policy does not cover a subject its projection withholds.
+- Why: SEC-020, CT-D (a) (Dave, 2026-10-08 12:29 MST): diagnostic precedence only.
+- Migration: as for `NeverWithholdingContradicted` above.

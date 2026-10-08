@@ -140,6 +140,17 @@ class _DeclaresLateWithholding(_DeclaresNothingWithholds):
         return None
 
 
+class _EarlyPolicyNamingAnotherSubject(_DeclaresNothingWithholds):
+    """Declares an early policy over a subject other than the asked one, while its projection withholds ``withheld`` late."""
+
+    def subject_disclosure(self) -> Any:
+        return _policy(frozenset({OTHER_SUBJECT}))
+
+
+#: A subject an early policy here names that no question asks about.
+OTHER_SUBJECT = "acct-other-e2ii"
+
+
 def _never_class() -> dict[str, Any]:
     """The fixture class document, affirming ``subject_withholding: never`` (Dave's Q12)."""
     document = copy.deepcopy(next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY))
@@ -163,6 +174,12 @@ def may_withhold_class(tmp_path: pathlib.Path) -> Iterator[_Booted]:
 def never_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """A composite deployment, its class affirming ``never``."""
     yield from boot_composite(tmp_path, product_class_overrides={"subject_withholding": "never"})
+
+
+@pytest.fixture()
+def may_withhold_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
+    """A composite deployment, its class at the default (``may-withhold``)."""
+    yield from boot_composite(tmp_path)
 
 
 def _construct_composite(booted: _Booted, *, plan_factory: Any) -> GovernedResolver:
@@ -290,3 +307,20 @@ def test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withhold
     with pytest.raises(ProductNotResolvable) as raised:
         ask_composite(resolver)
     assert type(raised.value).__name__ == SERVE_TIME_DEFENSE, repr(raised.value)
+
+
+def test_ct_d_control_composite_withheld_late_remains_for_a_composite_whose_early_policy_misses_the_subject(
+    may_withhold_composite: _Booted,
+) -> None:
+    """Control for CT-D (a): the order moved; Q8's refusal did not go away.
+
+    A ``may-withhold`` composite with an early policy (a stance under P2 (c))
+    over another subject, whose projection withholds the asked subject late, is
+    still refused as ``CompositeWithheldLate`` — the one path left to it.
+    """
+    resolver = _construct_composite(
+        may_withhold_composite, plan_factory=_EarlyPolicyNamingAnotherSubject(frozenset({ASKED}))
+    )
+    with pytest.raises(ProductNotResolvable) as raised:
+        ask_composite(resolver)
+    assert type(raised.value).__name__ == "CompositeWithheldLate", repr(raised.value)

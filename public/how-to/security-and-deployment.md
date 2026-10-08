@@ -1388,9 +1388,15 @@ a nonexistent one. Each was measured on test fixtures.
   error the caller can see, where before the two products differed at
   `debt.debt` and `debt.factors.freshness`. With it, such a composite is
   refused when its resolver is built, and `CompositeWithheldLate` remains for
-  a composite that declares a stance and withholds a subject the stance does
-  not cover (measured for a class affirming `never` by
-  `tests/products/test_sec020_combined_proof.py::test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record`).
+  a composite whose early policy does not cover a subject its projection
+  withholds
+  (`tests/products/test_sec020_never_capability.py::test_ct_d_control_composite_withheld_late_remains_for_a_composite_whose_early_policy_misses_the_subject`).
+  A composite whose class affirms `never` and withholds anyway is refused as
+  `NeverWithholdingContradicted`, which is checked first (`D-IMPL-378` CT-D
+  (a), diagnostic precedence only;
+  `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
+  its withheld question still raises where a nonexistent subject's is
+  answered, the limit the bullet on the record behind an answer names.
 - **A question's store, booted again.** The withheld subject's acquisition
   stays in the store its question wrote, and the paved road leaves that store
   on disk when it closes the fabric (the replay road reopens it). Booted again

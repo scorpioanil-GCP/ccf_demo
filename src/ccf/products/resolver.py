@@ -738,7 +738,10 @@ class CompositeWithheldLate(ProductNotResolvable):
     what the children filed when they were asked stays filed. The
     SDK cannot see at construction whether a projection will withhold; a
     composite that declares it does is held to the early policy then
-    (:class:`CompositeNeedsAnEarlyPolicy`).
+    (:class:`CompositeNeedsAnEarlyPolicy`). A composite whose class affirms
+    ``subject_withholding: never`` is refused as
+    :class:`NeverWithholdingContradicted` instead, which is checked first (Dave's
+    CT-D (a), 2026-10-08 12:29 MST: diagnostic precedence only).
     """
 
 
@@ -816,7 +819,9 @@ class NeverWithholdingContradicted(ProductNotResolvable):
     signal (:class:`~ccf.projection.plan.ProjectionOutput`'s ``withheld``) for a
     class whose declaration affirms
     :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` — before anything is
-    rendered, recorded or served. The affirmation is what lets the class's
+    rendered, recorded or served, and before Q8's :class:`CompositeWithheldLate`,
+    so a composite affirming ``never`` is named by this refusal (Dave's CT-D (a),
+    2026-10-08 12:29 MST, diagnostic precedence only). The affirmation is what lets the class's
     records be read back by their owners; a withheld answer under it would
     reopen the read-back of a subject the answer hid, so it is refused as the
     broken deployment it is. A deployment whose projection may withhold leaves
@@ -3665,6 +3670,26 @@ class GovernedResolver:
             # from it.
             seeds=request_seeds(asked if undisclosed else request),
         )
+        # Dave's Q12 (`D-IMPL-378`): a class that affirmed its answers never
+        # withhold their subject may have its records read back by their
+        # owners; a withheld answer under that affirmation is a broken
+        # deployment, refused before anything is rendered, recorded or served.
+        # Checked FIRST, before Q8's composite refusal below: Dave's CT-D (a),
+        # 2026-10-08 12:29 MST, "for diagnostic precedence; this does not
+        # resolve E2(ii)'s oracle" — a composite affirming `never` that
+        # withholds late is named by its own contradiction. Both refuse before
+        # anything is recorded.
+        if (
+            execution.projection.withheld
+            and self._declaration().subject_withholding == SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise NeverWithholdingContradicted(
+                f"class {self._declaration().schema_name!r} affirms"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} and its"
+                " projection withheld the subject; a record of the class may be"
+                " read back by its owner, so a withheld answer under the"
+                " affirmation is refused (Dave's Q12, D-IMPL-378)"
+            )
         if execution.projection.withheld and not undisclosed and registered.requires:
             # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
             # declared early policy; its children were already asked about this
@@ -3758,22 +3783,6 @@ class GovernedResolver:
         # built from it. Like the walk, this is exact only for an acquisition
         # keyed on the subject: under a population read a nonexistent subject's
         # question is scored against text the read wrote (measured; section 4.12).
-        #
-        # Dave's Q12 (`D-IMPL-378`): a class that affirmed its answers never
-        # withhold their subject may have its records read back by their
-        # owners; a withheld answer under that affirmation is a broken
-        # deployment, refused before anything is rendered, recorded or served.
-        if (
-            execution.projection.withheld
-            and self._declaration().subject_withholding == SUBJECT_WITHHOLDING_NEVER
-        ):
-            raise NeverWithholdingContradicted(
-                f"class {self._declaration().schema_name!r} affirms"
-                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} and its"
-                " projection withheld the subject; a record of the class may be"
-                " read back by its owner, so a withheld answer under the"
-                " affirmation is refused (Dave's Q12, D-IMPL-378)"
-            )
         rendered = (
             (
                 engine

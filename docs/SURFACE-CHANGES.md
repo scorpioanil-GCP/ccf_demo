@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2297 entries**, of which **2022** name a public Python surface.
+**2298 entries**, of which **2023** name a public Python surface.
 
 ## Added
 
@@ -29879,7 +29879,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-347 entries — 308 public Python surface, 39 not public Python API.
+348 entries — 309 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35157,8 +35157,8 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: construction accepted a class affirming `never` whatever its plan factory declared through `SubjectDisclosingPlanFactoryProtocol`.
-- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first.
-- Why: as above; the order names the class's own contradiction before the composite rule it also breaks.
+- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first. At serve, the `never` check now runs before Q8's `CompositeWithheldLate` check (CT-D (a)).
+- Why: as above; each order names the class's own contradiction before the composite rule it also breaks.
 - Migration: as above; a class at the default `may-withhold` is unaffected.
 
 *Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
@@ -35168,10 +35168,22 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Surface: ccf.products.resolver.NeverWithholdingContradicted
 - Public surface: true
 - Change type: behavior
-- Before: the only check of a class affirming `never`, at serve.
-- After: unchanged in what it raises; documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
-- Why: SEC-020, E2 (ii): *"retain the runtime check as defense."*
-- Migration: none.
+- Before: the only check of a class affirming `never`, at serve, after Q8's `CompositeWithheldLate` check.
+- After: checked first among the serve-time withholding refusals, so a composite affirming `never` that withholds late raises it rather than `CompositeWithheldLate` (CT-D (a)); documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
+- Why: SEC-020, E2 (ii): *"retain the runtime check as defense"*; CT-D (a): *"for diagnostic precedence; this does not resolve E2(ii)'s oracle."*
+- Migration: code catching `CompositeWithheldLate` for a composite whose class affirms `never` catches `NeverWithholdingContradicted` instead; both are `ProductNotResolvable`.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.CompositeWithheldLate
+
+- Surface: ccf.products.resolver.CompositeWithheldLate
+- Public surface: true
+- Change type: behavior
+- Before: raised for any composite whose projection withheld a subject its early policy did not, including one whose class affirms `never`.
+- After: not raised for a composite whose class affirms `never`; that composite raises `NeverWithholdingContradicted`, checked first. Still raised for a composite whose early policy does not cover a subject its projection withholds.
+- Why: SEC-020, CT-D (a) (Dave, 2026-10-08 12:29 MST): diagnostic precedence only.
+- Migration: as for `NeverWithholdingContradicted` above.
 
 *Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
 
