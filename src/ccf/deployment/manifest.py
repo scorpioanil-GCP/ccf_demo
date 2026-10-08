@@ -242,12 +242,13 @@ class ManifestKeysPlaceToOneKey(ValueError):
     two entries authored as ``k`` and ``{tenant}/k`` are distinct strings, which
     the contract's own key-uniqueness check admits, and ONE key once placed. One
     key holds one artifact in force. Placed anyway, the boot would keep one of the
-    two documents and the register loop would register it under both entries:
-    for one class the other document is never registered, pinned or returned, and
-    nothing says so. Refused instead, by name, before anything is minted or
-    registered, whatever the two entries' classes and roles, through every door
-    that places keys (``load_and_boot``, ``load_config_and_boot`` and the
-    consumer chain ``ccf.products.product.open_product`` derives).
+    two documents and the register loop would register it under both entries.
+    When both entries are of one class, the other document is never registered,
+    pinned or returned, and nothing says so. Refused instead, by name, before
+    anything is minted or registered, whatever the two entries' classes and
+    roles, through every door that places keys (``load_and_boot``,
+    ``load_config_and_boot`` and the consumer chain
+    ``ccf.products.product.open_product`` derives).
 
     Attributes:
         authored_keys: The two keys as the manifest wrote them, in manifest order.
@@ -265,7 +266,8 @@ class ManifestKeysPlaceToOneKey(ValueError):
             " once placed (D-IMPL-354), and one key holds one artifact in force:"
             " booting would register one of the two documents under both entries"
             " and drop the other with no record, so nothing is registered. Remove"
-            " one entry, or give the two keys that differ once placed (D-IMPL-378)"
+            " one entry, or give the two entries keys that differ once placed"
+            " (D-IMPL-378)"
         )
 
 

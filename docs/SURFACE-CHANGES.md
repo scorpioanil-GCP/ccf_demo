@@ -34931,7 +34931,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: same signature. A manifest whose entries placed to one key booted with one document silently dropped (same class), or raised an unrelated `TypeError` after a partial registration (different classes)
 - After: same signature. It raises `ManifestKeysPlaceToOneKey` after every document is parsed and before anything is minted or registered
 - Why: `D-IMPL-378`, lane 378d-placement. Red tests: `tests/deployment/test_placed_key_collision.py::test_two_entries_of_one_class_placing_to_one_key_are_refused_at_boot`, `::test_two_adopter_classes_placing_to_one_key_are_refused_before_anything_is_registered`, `::test_a_load_entry_placing_onto_a_register_entry_is_refused_at_boot`
-- Migration: a deployment that booted with such a manifest boots no longer. Remove one of the two entries, or give the two keys that differ once placed
+- Migration: a deployment that booted with such a manifest boots no longer. Remove one of the two entries, or give the two entries keys that differ once placed
 
 *Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
 
