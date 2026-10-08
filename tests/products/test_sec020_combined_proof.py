@@ -119,17 +119,41 @@ are on the tree; this module and its worlds now do exactly those three:
    cells present that very reference to those routes and that they resolve it
    to its own record.
 
-These adaptations decide nothing Dave has not ruled: E1 and E2 are OWED
-(``records/2026-10-08-d-impl-378-ci-lane/OWED-RULINGS.md``). SEC-020 is OPEN.
+Dave ruled E1 (a) on 2026-10-08 12:29 MST (``D-IMPL-378``), verbatim: *"Approve
+random per-answer issuance and the named conformance amendments. Preserve
+record content-address integrity. Random references must have indistinguishable
+distributions; equality is no longer the criterion."* So a REFERENCE is judged
+by distribution, never by equality (lane ``378e-s020``):
+
+* **Per cell** (:func:`_compare`), wherever both sides hold a reference at one
+  path — the answer's reference, and the reference a governed read's own
+  refusal is recorded under — the two must have the same FORM
+  (``sec020_worlds.reference_form``: scheme, tenant, class, each identifying
+  segment's length and alphabet, name and version one identity), and the
+  nonexistent side's two copies must differ there too (a reference fixed on one
+  side is not a draw from any distribution). The noise floor no longer excuses
+  a reference's VALUE: these two rules replace it. A difference in KIND
+  (missing against present, a reference against other text) stays a failure
+  (CT-C (a)).
+* **Pooled per comparison**
+  (:func:`test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`):
+  the withheld side's distinct reference tokens and the nonexistent side's,
+  over every cell of the comparison, pass a two-sample Kolmogorov-Smirnov test
+  at the stated level, with the stated minimum sample per side.
+
+SEC-020 is OPEN: Dave approved E1 (a), E2 (i) and (iii), P2 (c), CT-A (a) and
+CT-C (a), and did not approve closure; CT-B is not approved, so the 22
+undeclared-population cells stay in the gate.
 
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import pathlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
@@ -282,7 +306,18 @@ def _cells() -> list[Any]:
 
 
 def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], set[str], Any, Any]:
-    """Differing paths (noise floor removed), the floor itself, and the two values."""
+    """Differing paths (noise floor removed), the floor itself, and the two values.
+
+    Dave's E1 (a) (``D-IMPL-378``; the module docstring): at a path where both
+    sides hold a REFERENCE, equality is no longer the criterion and the noise
+    floor no longer excuses the value. Such a path is counted when the two
+    references differ in form (``sec020_worlds.reference_form``), or when the
+    nonexistent side's two copies hold one reference there (a value fixed on
+    one side is not drawn from any distribution); the two sides' values are
+    judged together, over the whole comparison, by
+    :func:`test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`.
+    Every other path is judged exactly as before.
+    """
     withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
     withheld = run.channel(withheld_side, channel, comparison=comparison)
     nonexistent = run.channel(nonexistent_side, channel, comparison=comparison)
@@ -292,6 +327,16 @@ def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], se
     # under Q11 two nonexistent copies differ at every reference path, which must not
     # excuse a withheld side handed no reference where the nonexistent side was handed one.
     counted = (differing - floor) | (differing & floor & w.kind_diff_paths(withheld, nonexistent))
+    # E1 (a): a reference on both sides is judged by FORM here, and by distribution
+    # in the pooled test; never by the floor's excusal of its value.
+    on_withheld = w.reference_leaves(withheld, channel=channel)
+    on_nonexistent = w.reference_leaves(nonexistent, channel=channel)
+    references = differing & set(on_withheld) & set(on_nonexistent)
+    counted |= {path for path in references if path not in floor}
+    counted |= {
+        path for path in references
+        if w.reference_form(on_withheld[path]) != w.reference_form(on_nonexistent[path])
+    }
     return counted, floor, withheld, nonexistent
 
 
@@ -341,6 +386,156 @@ def test_withheld_is_indistinguishable(
         f" (noise floor, not counted: {sorted(floor)})\n"
         f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
     )
+
+
+def _reference_samples(
+    runs: w.RunCache, comparison: str
+) -> tuple[dict[str, set[str]], dict[str, list[str]], list[str]]:
+    """The withheld and the nonexistent side's distinct reference tokens and issuances, over one comparison's cells.
+
+    References are read through the same channels and the same comparison the
+    cells read, at every reference leaf (``sec020_worlds.reference_leaves``);
+    distinct tokens only, since one answer's reference appears at several paths.
+    Issuances are those of the records the sides' answers name, read from each
+    deployment's own store as an auditor would (``Observation.reference_facts``),
+    one per answer. Returns ``({"withheld", "nonexistent", "withheld-issuance",
+    "nonexistent-issuance": ...}, issuances that repeat, leaves not of the
+    reference form)``.
+    """
+    withheld_side, nonexistent_side, _ = w.PAIRS[comparison]
+    labels = {withheld_side: "withheld", nonexistent_side: "nonexistent"}
+    samples: dict[str, set[str]] = {name: set() for label in labels.values()
+                                     for name in (label, f"{label}-issuance")}
+    seen: dict[str, list[str]] = {}
+    malformed: list[str] = []
+    measured: set[tuple[str, str, str]] = set()
+    for param in _cells():
+        cell_comparison, shape, anchor, door, channel = param.values
+        if cell_comparison != comparison:
+            continue
+        if shape in w.PENDING_SHAPES and not w.PENDING_SHAPES[shape][1]():
+            continue
+        run = runs.get(shape=shape, anchor=anchor, door=door)
+        for side, label in labels.items():
+            for path, leaf in w.reference_leaves(run.channel(side, channel, comparison=comparison),
+                                                 channel=channel).items():
+                token = w.reference_token(leaf)
+                if w.REFERENCE_TOKEN.match(token):
+                    samples[label].add(token)
+                else:
+                    malformed.append(f"{param.id} {side} {path}: {leaf!r}")
+        for side, label in labels.items():
+            key = (f"{shape}-{anchor}-{door}", side, label)
+            if key in measured:
+                continue
+            measured.add(key)
+            for reference, facts in run.sides[side].reference_facts.items():
+                issuance = facts.get("issuance")
+                if issuance is None:
+                    continue
+                samples[f"{label}-issuance"].add(issuance)
+                seen.setdefault(issuance, []).append(f"{key[0]} {side} {reference}")
+    repeated = {issuance: where for issuance, where in seen.items() if len(where) > 1}
+    return samples, repeated, malformed
+
+
+@pytest.mark.parametrize("comparison", w.COMPARISONS)
+def test_withheld_and_nonexistent_references_are_drawn_from_one_distribution(
+    runs: w.RunCache, comparison: str, record_testsuite_property: Callable[[str, object], None]
+) -> None:
+    """Dave's E1 (a): *"Random references must have indistinguishable distributions."*
+
+    **The test.** Every distinct reference token the withheld side was handed,
+    over every cell of this comparison in the gate, against every one the
+    nonexistent side was handed: each token is read as the fraction its leading
+    52 bits make of [0, 1) (``sec020_worlds.token_position``), and a two-sample
+    Kolmogorov-Smirnov test at ``sec020_worlds.REFERENCE_DISTRIBUTION_ALPHA``
+    (1e-4) must not reject that the two were drawn from one distribution. At
+    least ``sec020_worlds.REFERENCE_DISTRIBUTION_MIN_SAMPLES`` (50) distinct
+    tokens per side, or the run is not evidence; every token must be of the
+    reference form (64 lowercase hexadecimal characters). The same test holds
+    the two sides' per-answer ISSUANCES (read from each record as an auditor
+    would; at least ``sec020_worlds.ISSUANCE_DISTRIBUTION_MIN_SAMPLES`` a
+    side), every answer's record must carry one, and no two answers' records may
+    share one: a reference is a content hash, spread over the space whatever it
+    hashes, so a withheld answer issued a constant would hide from the
+    reference test and not from this one.
+
+    **Its power, stated honestly.** The critical gap is
+    ``sqrt(-ln(alpha / 2) / 2) * sqrt((n + m) / (n * m))``: 0.445 at 50 tokens a
+    side, 0.18 at 300. So it catches a side whose references are confined to a
+    part of the space — a constant or repeated reference, a fixed leading digit,
+    references drawn from half the space at the smaller sizes — and it does NOT
+    catch a slight bias in a few bits, or a reference that is a deterministic
+    but uniform-looking function of what the answer read (a content hash of the
+    read is spread over the space exactly as a random token is). That last case
+    is held elsewhere: the reference instrument requires two copies of one
+    deployment asked one question to be handed different references
+    (``sec020_worlds.reference_properties``, property 1), and :func:`_compare`
+    counts a reference the nonexistent side's two copies agree on. A false
+    alarm — red while both sides ARE drawn from one distribution — happens in
+    about one run in 10,000, and cannot be reproduced on demand, because the
+    references are fresh randomness on every run.
+    """
+    samples, repeated, malformed = _reference_samples(runs, comparison)
+    assert not malformed, (
+        f"[{comparison}] references not of the reference form, so not samples: {malformed[:10]}"
+    )
+    unissued = sorted(token for label in ("withheld-issuance", "nonexistent-issuance")
+                      for token in samples[label] if not w.REFERENCE_TOKEN.match(token))
+    assert not unissued, f"[{comparison}] an answer's record carries no per-answer issuance: {unissued[:5]}"
+    assert not repeated, f"[{comparison}] two answers' records share one issuance: {dict(list(repeated.items())[:5])}"
+    measured: dict[str, dict[str, Any]] = {}
+    for what, minimum in (
+        ("", w.REFERENCE_DISTRIBUTION_MIN_SAMPLES),
+        ("-issuance", w.ISSUANCE_DISTRIBUTION_MIN_SAMPLES),
+    ):
+        withheld, nonexistent = samples[f"withheld{what}"], samples[f"nonexistent{what}"]
+        assert len(withheld) >= minimum and len(nonexistent) >= minimum, (
+            f"[{comparison}{what}] not evidence: {len(withheld)} withheld and {len(nonexistent)}"
+            f" nonexistent distinct tokens, fewer than {minimum} a side"
+        )
+        statistic = w.ks_two_sample(
+            (w.token_position(token) for token in withheld),
+            (w.token_position(token) for token in nonexistent),
+        )
+        critical = w.ks_critical(len(withheld), len(nonexistent), w.REFERENCE_DISTRIBUTION_ALPHA)
+        measured[what or "-reference"] = {
+            "withheld": len(withheld), "nonexistent": len(nonexistent),
+            "statistic": round(statistic, 6), "critical": round(critical, 6),
+        }
+    # The measurement, in the run's own JUnit record, whichever way it falls.
+    record_testsuite_property(f"reference_distribution_{comparison}", json.dumps({
+        "comparison": comparison, "alpha": w.REFERENCE_DISTRIBUTION_ALPHA, **measured,
+    }, sort_keys=True))
+    rejected = {what: found for what, found in measured.items() if found["statistic"] > found["critical"]}
+    assert not rejected, (
+        f"SEC-020 [{comparison}]: the withheld side's tokens are distinguishable in distribution from the"
+        f" nonexistent side's (Kolmogorov-Smirnov statistic above its critical value at alpha"
+        f" {w.REFERENCE_DISTRIBUTION_ALPHA}): {rejected}"
+    )
+
+
+def test_the_reference_distribution_test_sees_a_planted_difference() -> None:
+    """The pooled test's instrument: confined references are rejected, fresh ones are not.
+
+    Planted, not observed: a side whose tokens all start with one hexadecimal
+    digit (confined to a sixteenth of the space) against fresh tokens, at the
+    smallest sample the pooled test accepts, must be rejected; two sets of fresh
+    tokens must not be (a false alarm here is the same one-in-10,000 chance).
+    """
+    import secrets  # noqa: PLC0415
+
+    minimum = w.REFERENCE_DISTRIBUTION_MIN_SAMPLES
+    fresh = [secrets.token_hex(32) for _ in range(minimum)]
+    other = [secrets.token_hex(32) for _ in range(minimum)]
+    confined = ["0" + secrets.token_hex(32)[1:] for _ in range(minimum)]
+    critical = w.ks_critical(minimum, minimum, w.REFERENCE_DISTRIBUTION_ALPHA)
+    positions = {name: [w.token_position(token) for token in tokens]
+                 for name, tokens in (("fresh", fresh), ("other", other), ("confined", confined))}
+    assert w.ks_two_sample(positions["confined"], positions["fresh"]) > critical
+    assert w.ks_two_sample(positions["other"], positions["fresh"]) <= critical
+    assert all(w.REFERENCE_TOKEN.match(token) for token in fresh + other + confined)
 
 
 def _instruments() -> list[Any]:

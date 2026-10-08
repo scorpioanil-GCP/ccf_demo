@@ -53,8 +53,10 @@ import copy
 import functools
 import hashlib
 import json
+import math
 import pathlib
-from collections.abc import Callable, Mapping
+import re
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -451,6 +453,125 @@ def kind_diff_paths(left: Any, right: Any, prefix: str = "") -> set[str]:
             found |= kind_diff_paths(a, b, f"{prefix}[{index}]")
         return found
     return set() if _kind(left) == _kind(right) else {prefix or "<root>"}
+
+
+# --- Dave's E1 (a): references are judged by DISTRIBUTION, not equality --------
+#
+# ``D-IMPL-378``, Dave, 2026-10-08 12:29 MST, verbatim: *"Approve random
+# per-answer issuance and the named conformance amendments. Preserve record
+# content-address integrity. Random references must have indistinguishable
+# distributions; equality is no longer the criterion."* Every product answer's
+# record carries a fresh 256-bit issuance and is named by its own content
+# address, so no two answers share a reference, and the withheld side's
+# reference can never EQUAL the nonexistent side's. What the proof holds instead
+# (``test_sec020_combined_proof._compare`` and
+# ``test_sec020_combined_proof.test_withheld_and_nonexistent_references_are_drawn_from_one_distribution``):
+# every reference has the same FORM on both sides, a reference the nonexistent
+# side's two copies agree on is not a draw from any distribution, and the two
+# sides' references, pooled over every cell of a comparison, pass a two-sample
+# test. A difference in KIND (:func:`kind_diff_paths`) stays a failure.
+
+#: A reference's random token: 64 lowercase hexadecimal characters (a content address).
+REFERENCE_TOKEN = re.compile(r"\A[0-9a-f]{64}\Z")
+
+#: The pooled two-sample test's significance level: the probability that the
+#: gate goes red when both sides' references ARE drawn from one distribution.
+#: Chosen small because the references are fresh randomness on every run, so a
+#: false alarm cannot be reproduced on demand: about one run in 10,000.
+REFERENCE_DISTRIBUTION_ALPHA = 1e-4
+
+#: The fewest distinct references per side the pooled test accepts as evidence.
+REFERENCE_DISTRIBUTION_MIN_SAMPLES = 50
+
+#: The fewest distinct per-answer issuances per side the pooled test accepts:
+#: one per answered question, so fewer than the references (an answer's
+#: reference also reaches the record reads' own refusals).
+ISSUANCE_DISTRIBUTION_MIN_SAMPLES = 30
+
+
+def reference_leaves(value: Any, *, channel: str, prefix: str = "") -> dict[str, str]:
+    """Every leaf of ``value`` that is a replay reference, by dotted path.
+
+    A ``ccf-artifact://`` URI anywhere — the answer's reference, and the
+    reference a governed read's own refusal is recorded under. In the
+    :data:`REFERENCE` channel also a bare 64-hexadecimal record name: the
+    same-deployment comparison reduces every reference to its name
+    (:func:`_name_only`). Every other 64-hexadecimal value a channel carries — a
+    product's content address, a pinned Control Plane version, a child's
+    address — is deterministic, and stays compared by equality.
+    """
+    if isinstance(value, Mapping):
+        found: dict[str, str] = {}
+        for key, item in value.items():
+            found |= reference_leaves(item, channel=channel, prefix=f"{prefix}.{key}" if prefix else str(key))
+        return found
+    if isinstance(value, list | tuple):
+        found = {}
+        for index, item in enumerate(value):
+            found |= reference_leaves(item, channel=channel, prefix=f"{prefix}[{index}]")
+        return found
+    if isinstance(value, str) and (
+        value.startswith("ccf-artifact://") or (channel == REFERENCE and REFERENCE_TOKEN.match(value))
+    ):
+        return {prefix or "<root>": value}
+    return {}
+
+
+def _token_form(token: str) -> tuple[int, str]:
+    """A token's length and alphabet: lowercase hexadecimal, or the characters it uses."""
+    return len(token), "hex" if REFERENCE_TOKEN.match(token) else "".join(sorted(set(token)))
+
+
+def reference_form(leaf: str) -> tuple[Any, ...]:
+    """What a reference IS, as against WHICH one it is (E1 (a)).
+
+    A URI: its scheme, tenant and class, each identifying segment's length and
+    alphabet, and whether its name and version are one identity (Q11). A bare
+    record name: its length and alphabet. Two references of one form differ
+    only in their random token.
+    """
+    if leaf.startswith("ccf-artifact://"):
+        parts = _reference_parts(leaf)
+        return (
+            "ccf-artifact", parts["tenant"], parts["artifact_class"],
+            _token_form(parts["name"]), _token_form(parts["version"]), parts["name"] == parts["version"],
+        )
+    return ("name", _token_form(leaf))
+
+
+def reference_token(leaf: str) -> str:
+    """A reference's random token: a URI's version segment (its record's content address), or the bare name."""
+    return _reference_parts(leaf)["version"] if leaf.startswith("ccf-artifact://") else leaf
+
+
+def token_position(token: str) -> float:
+    """Where a 64-hexadecimal token sits in [0, 1): its leading 52 bits, read as a fraction."""
+    return int(token[:13], 16) / 16**13
+
+
+def ks_two_sample(left: Iterable[float], right: Iterable[float]) -> float:
+    """The two-sample Kolmogorov-Smirnov statistic: the largest gap between the two empirical CDFs."""
+    xs, ys = sorted(left), sorted(right)
+    if not xs or not ys:
+        raise ValueError("the two-sample test needs a sample on each side")
+    gap, i, j = 0.0, 0, 0
+    while i < len(xs) and j < len(ys):
+        point = min(xs[i], ys[j])
+        while i < len(xs) and xs[i] == point:
+            i += 1
+        while j < len(ys) and ys[j] == point:
+            j += 1
+        gap = max(gap, abs(i / len(xs) - j / len(ys)))
+    return gap
+
+
+def ks_critical(n: int, m: int, alpha: float) -> float:
+    """The asymptotic two-sample critical value: reject when the statistic exceeds it.
+
+    ``c(alpha) * sqrt((n + m) / (n * m))`` with ``c(alpha) = sqrt(-ln(alpha / 2) / 2)``
+    (Smirnov's limit; conservative at the sample sizes used here).
+    """
+    return math.sqrt(-math.log(alpha / 2) / 2) * math.sqrt((n + m) / (n * m))
 
 
 def jsonable(value: Any) -> Any:
@@ -2584,6 +2705,10 @@ def _reference_facts(deployment: Deployment, observation: Observation) -> dict[s
             "version": parsed.artifact_version,
             "resolved": address,
             "sha256": hashlib.sha256(stored).hexdigest(),
+            # E1 (a): the per-answer issuance the record carries, read as an
+            # auditor would, so the pooled test can hold the two sides' issuances
+            # to one distribution as well as their references.
+            "issuance": DecisionReplayRecord.model_validate_json(stored).content_generation_path.issuance,
         }
     return facts
 
