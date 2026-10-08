@@ -63,7 +63,10 @@ well as at the builder); a class declaring ``requires`` with no child
 resolver; a ``scratch`` inside ``config_root``; an environment variable a
 source names that the process lacks (with the document's own remedy); a
 ``door:`` asserting a tenant other than the deployment's (R-6, refused by the
-loader).
+loader); a ``substrate:`` setting the declared adapter does not take as a
+path, so no question's store could be verified fresh
+(:class:`~ccf.products.resolver.AcquisitionOverUnverifiableStore`; SEC-020
+P4 (a), ``D-IMPL-378``).
 
 Single-writer, stated
 ---------------------
@@ -144,6 +147,7 @@ from ccf.deployment.environment import (
 )
 from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.manifest import (
+    _path_valued_settings,
     keys_under_tenant,
     manifest_under_tenant,
     register_manifest_entries,
@@ -165,6 +169,7 @@ from ccf.products.contract import version_satisfies_floor
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
+    AcquisitionOverUnverifiableStore,
     PopulationQuestion,
     ProductGateProtocol,
     ProductNotResolvable,
@@ -1196,6 +1201,12 @@ def open_product(
         ValueError: any open-time refusal in the module docstring — each
             names the section or the key; a grant the Control Plane refused,
             with the refusal's own detail.
+        ccf.products.resolver.AcquisitionOverUnverifiableStore: the
+            environment's ``substrate.setting`` is not a path-valued setting
+            of the adapter ``ccf_config.yaml`` declares, so the store this road
+            mints per question could never be verified fresh (SEC-020 P4 (a),
+            ``D-IMPL-378``). Read off the adapter's declared connection
+            contract: nothing is minted, booted or connected to.
         FileNotFoundError: the environment document is absent.
         ccf.deployment.environment.EnvironmentMissing: a variable a source
             names is unset; the document's remedy is the message.
@@ -1221,6 +1232,20 @@ def open_product(
     config_path = root / environment.config
     config = load_artifact(config_path.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
     assert isinstance(config, DeploymentConfig)  # DEPLOYMENT_CONFIG's contract
+    # SEC-020 P4 (a) made strict (`D-IMPL-378`; Dave, 2026-10-08 12:29 MST:
+    # *"Unsupported network compositions must refuse before questions run"*):
+    # this road acquires into a store it mints for every question, and a
+    # substrate setting the declared adapter does not take as a path names no
+    # store the SDK can verify fresh. Read off the adapter's declared contract,
+    # so nothing is minted, booted or connected to.
+    if environment.substrate.setting not in _path_valued_settings(config.backend):
+        raise AcquisitionOverUnverifiableStore(
+            "the paved road boots a fresh store for every question, at a path"
+            f" it mints into the substrate setting {environment.substrate.setting!r},"
+            f" and the {config.backend!r} adapter takes no path-valued setting by"
+            " that name, so no question's store could be verified fresh; every"
+            " question would be refused (SEC-020, P4)"
+        )
     # `D-IMPL-341` R-3 (first row), at the paved road's registration moment:
     # a class declaring `ttl_anchor: from_entity_freshness` over a λ_c table
     # with no `decay_basis: valid-from` row could never be honored by any

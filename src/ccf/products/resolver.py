@@ -317,6 +317,7 @@ __all__ = [
     "DEBT_SCORER_INPUTS",
     "AcquiredFabricReused",
     "AcquisitionNeedsAQuestionFabric",
+    "AcquisitionOverUnverifiableStore",
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
@@ -346,6 +347,7 @@ __all__ = [
     "ServedProductResolverProtocol",
     "SubjectDisclosingPlanFactoryProtocol",
     "UndisclosedSubjectAnswered",
+    "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
     "declared_refusal_recorder",
     "refuse_incompatible_refusal_recorder",
@@ -650,7 +652,37 @@ class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
     (:class:`~ccf.deployment.manifest.BootedFabric`). Checked there rather than
     at construction because a resolver built over a fabric it never acquires
     into — the one :class:`~ccf.replay.environment.RecordedEnvironment` builds to
-    rebuild a plan — is a supported composition.
+    rebuild a plan — is a supported composition. Over a store whose connection
+    names no path, which no boot can make a question fabric, the composition
+    is refused at construction instead
+    (:class:`AcquisitionOverUnverifiableStore`).
+    """
+
+
+class AcquisitionOverUnverifiableStore(AcquisitionNeedsAQuestionFabric):
+    """An acquisition phase composed over a store whose fresh creation the SDK cannot verify, refused before any question runs.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"Require verifiable fresh creation or refuse acquisition-backed serving.
+    Unsupported network compositions must refuse before questions run."*). A
+    question fabric is one the boot verified fresh: a store minted at a path
+    that did not exist, reserved exclusively by its marker
+    (:class:`~ccf.deployment.manifest.QuestionFabricNotFresh` otherwise). A
+    store whose adapter connection names no path — a network store's address,
+    an in-process store — offers nothing to verify or to mark
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation`
+    ``"unverifiable"``), so no fabric over it is ever a question fabric and an
+    acquisition composition over it could never answer. It is refused at the
+    earliest point where the composition and the store kind are both known:
+    when :class:`GovernedResolver` is constructed with an acquisition or a
+    population phase over such a fabric, and when the paved road is opened
+    over a substrate setting its adapter does not take as a path
+    (:func:`~ccf.products.product.open_product`). Measured before this: the
+    first was refused only at its first call, the second at every question's
+    boot. A subclass of :class:`AcquisitionNeedsAQuestionFabric`, whose
+    refusal it moves earlier. An adapter declaring its own freshness (P4 (b))
+    is not built; until then such a store serves only compositions with no
+    acquisition phase.
     """
 
 
@@ -789,7 +821,35 @@ class QuestionStoreReopened(UnsupportedComposition):
     by the marker and the boot, never by the subject the question names or by
     what the store holds. The marker sits beside the store, not inside it: a
     copy of the store taken without it, or a store booted for a question
-    before the marker existed, is not recognized.
+    before the marker existed, carries no marker at all, and is refused as
+    unmarked instead (:class:`UnmarkedStoreNotPresumedFresh`).
+    """
+
+
+class UnmarkedStoreNotPresumedFresh(UnsupportedComposition):
+    """A governed call over an existing store that carries no marker, refused before the graph is read.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"An unmarked existing store must not be presumed fresh. Require
+    verifiable fresh creation or refuse acquisition-backed serving."*). Every
+    store the deployment doors create at a path gets a marker beside it before
+    it exists — the question marker on a boot for one question, the deployment
+    marker on any other — so an existing store with neither
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation` ``"unmarked"``)
+    is one nothing shows was never a question's: a store booted for a question
+    before the markers existed, a copy of a used store taken without its
+    marker, a store created outside the doors. A later question answered from
+    it would answer from what an earlier question's acquisition fetched, so a
+    governed call over it is refused here, at the point a question fabric is
+    claimed: after the question-level refusals (its address, its request, its
+    temporal bound), which read no graph, and before the graph is read. A call
+    that declares an acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`, as before. Decision Replay
+    rebuilds a resolver over the store and never calls it, so it reads the
+    store as before. Decided by the markers and the boot, never by the subject
+    or by what the store holds. Remedy: boot a new store through a deployment
+    door, which creates and marks it; a deployment's own kept store, created
+    by a door, carries its marker and is not refused.
     """
 
 
@@ -2801,6 +2861,20 @@ class GovernedResolver:
         # declared acquisition phases is refused here, at construction.
         if self.population_acquisition is not None and self.acquisition is not None:
             _refuse_shared_owner(self.population_acquisition, self.acquisition)
+        # SEC-020 P4 (a) made strict (`D-IMPL-378`): an acquisition phase over a
+        # store with no path, which no boot can make a question fabric, is
+        # refused here, before any question runs.
+        if (
+            self.acquisition is not None or self.population_acquisition is not None
+        ) and self.fabric.store_creation == "unverifiable":
+            raise AcquisitionOverUnverifiableStore(
+                "this resolver declares an acquisition phase over a fabric whose"
+                " store the SDK cannot verify fresh — its adapter's connection"
+                " names no path, so no boot can make it a question fabric, and"
+                " every question would be refused; compose this store without an"
+                " acquisition phase, or acquire into a file-backed question"
+                " fabric (SEC-020, P4)"
+            )
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
         # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
@@ -3428,6 +3502,21 @@ class GovernedResolver:
                 " booted again; it keeps what that question's acquisition"
                 " fetched, so it answers no later question (boot a new store"
                 " for each question; SEC-020, Q9)"
+            )
+        elif self.fabric.store_creation == "unmarked":
+            # SEC-020 P4 (a) made strict (Dave, 2026-10-08 12:29 MST: *"An
+            # unmarked existing store must not be presumed fresh"*): a store
+            # that existed at boot with no marker beside it may be a question's
+            # store from before the markers, or a copy taken without one.
+            # Refused here, before the graph is read, by the boot's reading of
+            # the markers and never by the question; replay builds a resolver
+            # over it and never calls it.
+            raise UnmarkedStoreNotPresumedFresh(
+                "this fabric reads a store that existed before its boot and"
+                " carries no marker a deployment door left when it created it;"
+                " nothing shows that no earlier question's acquisition wrote"
+                " into it, so it is not presumed fresh and answers no question"
+                " (boot a new store through a deployment door; SEC-020, P4)"
             )
         if acquires:
             # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no

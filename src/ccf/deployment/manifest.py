@@ -64,15 +64,16 @@ is not a contradiction.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin
 
 import dataclasses
 
 import os
+import types
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from pydantic import SecretStr
 
@@ -114,7 +115,7 @@ from ccf.deployment.pins import ArtifactPin, ResolvedPins
 # SEC-023 (`D-IMPL-374`): the refusal now lives beside the view the
 # consumer-time check reads; re-exported here under its batch-5 name.
 from ccf.graph.protocols import UngovernedClassificationAttribute
-from ccf.graph.leases import _without_lock_directory_setting
+from ccf.graph.leases import _LOCK_DIRECTORY_SETTING, _without_lock_directory_setting
 from ccf.graph.registry import (
     ResolvedBackend,
     ResolvedSecret,
@@ -231,6 +232,33 @@ class BootedFabric:
             calling it, reads it as before. Read from the marker, never from
             the store's contents. A store whose settings name no path carries
             no marker, and cannot be booted for a question.
+        store_creation: Whether the SDK can vouch for how the store this
+            fabric reads was created. SEC-020 P4 (a) made strict,
+            ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST: *"An unmarked existing
+            store must not be presumed fresh. Require verifiable fresh creation
+            or refuse acquisition-backed serving. Unsupported network
+            compositions must refuse before questions run."*). Every store a
+            boot through this module creates at a path gets a marker beside it,
+            created exclusively before the store exists: the question marker
+            on a boot for one question, ``<resolved path>.ccf-deployment-store``
+            on any other boot. ``"verified"``: every path naming the store
+            carries one of the two, written by this boot or an earlier one.
+            ``"unmarked"``: the store existed at boot and carries neither — a
+            store booted for a question before the markers existed, a copy
+            taken without its marker, a store created outside these doors —
+            so nothing shows that no question's acquisition wrote into it, and
+            a governed call over it is refused before the graph is read
+            (``src/ccf/products/resolver.py::UnmarkedStoreNotPresumedFresh``).
+            ``"unverifiable"``: the adapter's connection names no path, so no
+            boot can show the store fresh and none can mark it; an acquisition
+            composition over it is refused when its resolver is constructed,
+            and the paved road over such a substrate when it is opened
+            (``src/ccf/products/resolver.py::AcquisitionOverUnverifiableStore``).
+            The default, for a value this module did not produce, is
+            ``"unmarked"``: nothing is presumed. Read from the markers, never
+            from the store's contents; a marker binds to its store by path
+            alone, so it vouches for reuse by deployments and operators, not
+            against an actor who can write into the store's directory.
     """
 
     handle: FabricHandle
@@ -241,6 +269,7 @@ class BootedFabric:
     keys: DeploymentKeys | None = None
     for_question: bool = False
     question_store: bool = False
+    store_creation: Literal["verified", "unmarked", "unverifiable"] = "unmarked"
 
 
 class QuestionFabricNotFresh(ValueError):
@@ -253,7 +282,17 @@ class QuestionFabricNotFresh(ValueError):
     minted at a new path per question as the paved road mints it, passes; a
     substrate whose settings name no path (a network store's address and
     credentials) cannot be shown fresh by them and is refused rather than
-    assumed. Raised before anything is registered or booted.
+    assumed. Raised before anything is registered.
+
+    **And the path is reserved for this boot alone** (SEC-020 P4 (a) made
+    strict; Dave, 2026-10-08 12:29 MST: *"Require verifiable fresh
+    creation"*): after registration and before the store is booted, each
+    path's question marker is created exclusively, so a second boot for a
+    question at a path another boot holds is raised here, and so is a store,
+    or another boot's deployment marker, that appeared at a path after the
+    check. The SDK then creates nothing at the store's path itself — the
+    adapter does, at the boot — so a store another actor writes at the path
+    after this last check is opened as the one this boot created.
     """
 
 
@@ -311,35 +350,175 @@ def _store_paths(backend: str, connection: Mapping[str, object] | None) -> list[
     return [value for value in vars(validated).values() if isinstance(value, Path)]
 
 
-#: SEC-020 P4 (a) (``D-IMPL-378``; a candidate Dave has not ruled): what a boot
-#: for one question appends to the resolved spelling of each path naming its
-#: store, to name the durable marker it leaves there.
+#: SEC-020 P4 (a) (``D-IMPL-378``): what a boot for one question appends to the
+#: resolved spelling of each path naming its store, to name the durable marker
+#: it leaves there. Created exclusively, so it is also the boot's reservation
+#: of the path.
 _QUESTION_STORE_MARKER_SUFFIX = ".ccf-question-store"
+
+#: SEC-020 P4 (a) made strict (``D-IMPL-378``; Dave, 2026-10-08 12:29 MST): what
+#: any other boot that creates its store appends, so a store these doors
+#: created for a deployment is told apart from an unmarked one.
+_DEPLOYMENT_STORE_MARKER_SUFFIX = ".ccf-deployment-store"
+
+_QUESTION_STORE_MARKER_TEXT = "booted for one question; it serves no later one (SEC-020, D-IMPL-378)\n"
+_DEPLOYMENT_STORE_MARKER_TEXT = (
+    "created by a boot not for a question; no acquisition phase writes into it (SEC-020, D-IMPL-378)\n"
+)
+
+
+def _marker(path: Path, suffix: str) -> Path:
+    """The marker ``suffix`` names beside ``path``, keyed on its resolved spelling, so two spellings of one store share it."""
+    return Path(f"{path.resolve()}{suffix}")
 
 
 def _question_store_marker(path: Path) -> Path:
-    """The marker beside ``path``, keyed on its resolved spelling, so two spellings of one store share it."""
-    return Path(f"{path.resolve()}{_QUESTION_STORE_MARKER_SUFFIX}")
+    """The question marker beside ``path`` (SEC-020 P4 (a))."""
+    return _marker(path, _QUESTION_STORE_MARKER_SUFFIX)
 
 
-def _mark_question_store(paths: Sequence[Path]) -> None:
-    """Leave the durable marker beside every path naming a question's store, before the store exists.
+def _deployment_store_marker(path: Path) -> Path:
+    """The deployment marker beside ``path`` (SEC-020 P4 (a) made strict)."""
+    return _marker(path, _DEPLOYMENT_STORE_MARKER_SUFFIX)
 
-    SEC-020 P4 (a). Written, flushed and synced BEFORE ``boot`` creates the
-    store, so no store booted for a question exists without it, even if this
-    process dies before the question is asked. What the filesystem raises
-    propagates: a store that cannot be marked is not booted for a question.
+
+def _create_marker_exclusively(marker: Path, text: str) -> None:
+    """Create ``marker`` holding ``text`` only if nothing exists there, and make it durable.
+
+    ``O_CREAT | O_EXCL``: of two boots creating one marker, exactly one
+    succeeds and the other meets :class:`FileExistsError`. The file is synced
+    and so is its directory, so the entry survives a crash as well as the
+    process. What the filesystem raises propagates.
+    """
+    descriptor = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    try:
+        os.write(descriptor, text.encode("utf-8"))
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    directory = os.open(marker.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
+def _created_or_claimed_elsewhere(paths: Sequence[Path]) -> bool:
+    """Whether a store, or another boot's deployment marker, exists at any path this boot has reserved."""
+    return any(path.exists() or _deployment_store_marker(path).exists() for path in paths)
+
+
+def _reserve_question_store(paths: Sequence[Path]) -> None:
+    """Reserve every path naming a question's store for this boot alone, before the store exists.
+
+    SEC-020 P4 (a) made strict (``D-IMPL-378``; Dave, 2026-10-08 12:29 MST:
+    *"Require verifiable fresh creation"*). The freshness check ran before
+    anything was registered; this is what makes it hold at the boot. Each
+    question marker is created exclusively (:func:`_create_marker_exclusively`),
+    so a second boot for a question at the same path — concurrent, or reusing a
+    path whose marker was left behind — is refused here, and then no store and
+    no other boot's deployment marker may exist at any path: a store created
+    after the check is refused rather than booted "for one question". Written
+    and synced BEFORE ``boot`` creates the store, so no store booted for a
+    question exists without its marker. A refused reservation removes the
+    markers this call created, and only those.
+
+    Raises:
+        QuestionFabricNotFresh: another boot holds a path, or a store (or
+            another boot's deployment marker) appeared at one after the check.
+    """
+    reserved: list[Path] = []
+    try:
+        for path in paths:
+            marker = _question_store_marker(path)
+            try:
+                _create_marker_exclusively(marker, _QUESTION_STORE_MARKER_TEXT)
+            except FileExistsError:
+                raise QuestionFabricNotFresh(
+                    "a fabric booted for one question must be a fresh one, and"
+                    " another boot already reserved the store this boot names"
+                    " (its question marker exists), so two questions would"
+                    " share it (SEC-020, Q9)"
+                ) from None
+            reserved.append(marker)
+        if _created_or_claimed_elsewhere(paths):
+            raise QuestionFabricNotFresh(
+                "a fabric booted for one question must be a fresh one, and the"
+                " store this boot names was created, or claimed by another"
+                " boot, after its freshness was checked (SEC-020, Q9)"
+            )
+    except BaseException:
+        for marker in reserved:
+            marker.unlink(missing_ok=True)
+        raise
+
+
+def _mark_deployment_store(paths: Sequence[Path]) -> None:
+    """Leave the deployment marker beside every path whose store this boot is about to create.
+
+    SEC-020 P4 (a) made strict. A path with no store and no marker of either
+    kind names a store this boot creates, so the marker goes first, created
+    exclusively; a concurrent boot that created one first wins, and its marker
+    is read as it stands. A path whose directory is absent is left to the
+    adapter, which creates the store or refuses it. A path holding a store, or
+    a marker already, is read as it stands: never marked after the fact,
+    because a marker written beside a store that already exists would vouch
+    for contents this boot did not create.
     """
     for path in paths:
-        with open(_question_store_marker(path), "w", encoding="utf-8") as marker:
-            marker.write("booted for one question; it serves no later one (SEC-020, D-IMPL-378)\n")
-            marker.flush()
-            os.fsync(marker.fileno())
+        if path.exists() or not path.resolve().parent.is_dir():
+            continue
+        if _question_store_marker(path).exists() or _deployment_store_marker(path).exists():
+            continue
+        try:
+            _create_marker_exclusively(_deployment_store_marker(path), _DEPLOYMENT_STORE_MARKER_TEXT)
+        except FileExistsError:
+            continue
 
 
 def _marked_for_a_question(paths: Sequence[Path]) -> bool:
     """Whether a question boot left its marker beside any path naming this store (SEC-020 P4 (a))."""
     return any(_question_store_marker(path).exists() for path in paths)
+
+
+def _store_creation(paths: Sequence[Path]) -> Literal["verified", "unmarked", "unverifiable"]:
+    """What :attr:`BootedFabric.store_creation` reads: from the markers beside the store, never its contents."""
+    if not paths:
+        return "unverifiable"
+    if all(
+        _question_store_marker(path).exists() or _deployment_store_marker(path).exists()
+        for path in paths
+    ):
+        return "verified"
+    return "unmarked"
+
+
+def _names_a_path(annotation: object) -> bool:
+    """Whether a contract field's annotation admits a path: a ``PurePath`` type, or a union or annotation over one."""
+    origin = get_origin(annotation)
+    if origin is Annotated:
+        return _names_a_path(get_args(annotation)[0])
+    if origin is Union or origin is types.UnionType:
+        return any(_names_a_path(member) for member in get_args(annotation))
+    return isinstance(annotation, type) and issubclass(annotation, PurePath)
+
+
+def _path_valued_settings(backend: str) -> frozenset[str]:
+    """The settings of ``backend``'s own connection contract that take a path: where a store can be minted fresh.
+
+    SEC-020 P4 (a) made strict (``D-IMPL-378``). Read from the declared
+    contract, never from a value, so it can be asked before anything is
+    minted or booted: a substrate the paved road mints per question goes into
+    one of these, or the SDK cannot verify the question's store fresh. The
+    lock-directory setting is set aside, as :func:`_store_paths` sets it
+    aside.
+    """
+    fields = resolve(backend).registration.config_model.model_fields
+    return frozenset(
+        name
+        for name, field in fields.items()
+        if name != _LOCK_DIRECTORY_SETTING and _names_a_path(field.annotation)
+    )
 
 
 def _refuse_unless_fresh(backend: str, paths: Sequence[Path]) -> None:
@@ -838,13 +1017,20 @@ def _register_and_boot(
     # Phase two: register the ones the manifest marks `role: register`.
     pinned = register_manifest_entries(manifest, parsed, registry=registry, tenant=resolved_tenant)
     pins = ResolvedPins(entries=pinned)
-    # SEC-020 P4 (a) (`D-IMPL-378`; a candidate Dave has not ruled): the marker
-    # BEFORE the boot creates the store, so a question's store never exists
-    # without it; and every boot reads it, so a later boot of that store knows
-    # it is one (`BootedFabric.question_store`).
+    # SEC-020 P4 (a) (`D-IMPL-378`): the marker BEFORE the boot creates the
+    # store, so a question's store never exists without it; and every boot
+    # reads it, so a later boot of that store knows it is one
+    # (`BootedFabric.question_store`). Made strict (Dave, 2026-10-08 12:29 MST:
+    # *"Require verifiable fresh creation"*): a question boot's marker is its
+    # exclusive reservation of the path, and any other boot that creates its
+    # store marks it too, so an existing store with neither marker is unmarked
+    # and never presumed fresh (`BootedFabric.store_creation`).
     if for_question:
-        _mark_question_store(paths)
+        _reserve_question_store(paths)
+    else:
+        _mark_deployment_store(paths)
     question_store = _marked_for_a_question(paths)
+    store_creation = _store_creation(paths)
     handle = boot(
         backend=manifest.backend,
         connection=connection or {},
@@ -869,6 +1055,7 @@ def _register_and_boot(
         keys=keys,
         for_question=for_question,
         question_store=question_store,
+        store_creation=store_creation,
     )
 
 

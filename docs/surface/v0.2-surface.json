@@ -2742,7 +2742,7 @@
       },
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False) -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False, store_creation: \"Literal['verified', 'unmarked', 'unverifiable']\" = 'unmarked') -> None"
       },
       "DeploymentManifest": {
         "kind": "contract",
@@ -3038,7 +3038,7 @@
     "exports": {
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False) -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False, store_creation: \"Literal['verified', 'unmarked', 'unverifiable']\" = 'unmarked') -> None"
       },
       "ManifestKeysPlaceToOneKey": {
         "kind": "class",
@@ -8623,6 +8623,7 @@
     "__all__": [
       "AcquiredFabricReused",
       "AcquisitionNeedsAQuestionFabric",
+      "AcquisitionOverUnverifiableStore",
       "AcquisitionSeamProtocol",
       "AssemblyDebtScorerProtocol",
       "ChildAwareDebtScorerProtocol",
@@ -8651,6 +8652,7 @@
       "SubjectDisclosingPlanFactoryProtocol",
       "UndeclaredMechanismClass",
       "UndisclosedSubjectAnswered",
+      "UnmarkedStoreNotPresumedFresh",
       "UnsupportedComposition",
       "WithholdingClassListedReadable",
       "build_governed_resolver",
@@ -8663,6 +8665,10 @@
         "shape": "type"
       },
       "AcquisitionNeedsAQuestionFabric": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "AcquisitionOverUnverifiableStore": {
         "kind": "class",
         "shape": "type"
       },
@@ -8782,6 +8788,10 @@
         "shape": "type"
       },
       "UndisclosedSubjectAnswered": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UnmarkedStoreNotPresumedFresh": {
         "kind": "class",
         "shape": "type"
       },

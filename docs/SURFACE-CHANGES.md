@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2362 entries**, of which **2086** name a public Python surface.
+**2373 entries**, of which **2097** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1309 entries — 1264 public Python surface, 45 not public Python API.
+1311 entries — 1266 public Python surface, 45 not public Python API.
 
 ### Public Python surface
 
@@ -19244,6 +19244,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
 
+#### ccf.products.resolver.UnmarkedStoreNotPresumedFresh
+
+- Surface: ccf.products.resolver.UnmarkedStoreNotPresumedFresh
+- Public surface: true
+- Change type: added
+- Before: absent; a governed call with no acquisition phase over an existing store with no marker was answered.
+- After: an `UnsupportedComposition` (so a `ProductNotResolvable`) raised by `GovernedResolver.__call__` at the point a question fabric is claimed — after the question-level refusals, which read no graph, and before the graph is read — when `BootedFabric.store_creation` is `"unmarked"` and the call declares no acquisition phase. Decided by the boot's reading of the markers, never by the subject or the store's contents.
+- Why: SEC-020 P4 (a), made strict: an unmarked existing store is not presumed fresh.
+- Migration: none; additive.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.resolver.AcquisitionOverUnverifiableStore
+
+- Surface: ccf.products.resolver.AcquisitionOverUnverifiableStore
+- Public surface: true
+- Change type: added
+- Before: absent; an acquisition composition over a store with no path was refused `AcquisitionNeedsAQuestionFabric` at its first call, and the paved road over such a substrate at every question's boot.
+- After: a subclass of `AcquisitionNeedsAQuestionFabric`, raised by `GovernedResolver` construction when an acquisition or a population phase is declared over a fabric whose `store_creation` is `"unverifiable"`, and by `open_product` when the environment's substrate setting is not a path-valued setting of the declared adapter's connection contract.
+- Why: SEC-020 P4 (a), made strict: an unsupported network composition refuses before questions run.
+- Migration: none; additive. A handler for `AcquisitionNeedsAQuestionFabric` also catches it.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19967,7 +19991,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-619 entries — 427 public Python surface, 192 not public Python API.
+621 entries — 429 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -27163,6 +27187,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
 
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `for_question` and `question_store` said whether this boot, or an earlier one, was for one question; nothing said whether an existing store's creation was known.
+- After: adds `store_creation: Literal["verified", "unmarked", "unverifiable"] = "unmarked"`, read from the markers beside the store: `"verified"` when every path naming the store carries a question or deployment marker, `"unmarked"` when the store existed with neither, `"unverifiable"` when the adapter's connection names no path. The default, for a value no boot produced, presumes nothing.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none for a value a boot returns.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no `store_creation` field.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -30179,7 +30227,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-387 entries — 348 public Python surface, 39 not public Python API.
+394 entries — 355 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35954,6 +36002,90 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+
+- Surface: ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+- Public surface: true
+- Change type: behavior
+- Before: raised at the first call for every acquisition composition over a fabric not booted for its question.
+- After: unchanged over a store with a path; over a store with no path its subclass `AcquisitionOverUnverifiableStore` is raised at construction instead.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none for a handler of this class; a test that constructed such a composition and expected the refusal at the call sees it at construction.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: an acquisition composition over a store with no path was constructed; a call with no acquisition phase over an existing unmarked store was answered.
+- After: construction raises `AcquisitionOverUnverifiableStore` for the first; the call raises `UnmarkedStoreNotPresumedFresh` for the second, at the claim point. A resolver constructed over an unmarked or a question's store and never called, as `RecordedEnvironment` builds it, is unaffected.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: compose a store with no path without an acquisition phase; recreate an unmarked store through a deployment door.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: opened over any substrate setting; a substrate the SDK could not verify fresh was refused at every question's boot.
+- After: refuses `AcquisitionOverUnverifiableStore` at open when the environment's `substrate.setting` is not a path-valued setting of the adapter `ccf_config.yaml` declares, read off its declared connection contract; nothing is minted, booted or connected to.
+- Why: SEC-020 P4 (a), made strict: the paved road always acquires, so it refuses before questions run.
+- Migration: name a path-valued setting of a file-backed adapter as the substrate.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: raised before anything was registered, when a path named by the store existed or none was named.
+- After: also raised after registration and before the boot, when another boot already holds a path's question marker, or when a store or another boot's deployment marker appeared at a path after the check; the markers this boot created are removed first.
+- Why: SEC-020 P4 (a), made strict: verifiable fresh creation.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` checked the store paths did not exist, then wrote the question marker with a truncating open before the boot; a boot not for a question wrote nothing beside the store.
+- After: `for_question=True` creates each question marker exclusively, file and directory synced, and then requires that no store and no deployment marker exists at any path. Any other boot that is about to create its store first creates `<resolved path>.ccf-deployment-store` beside it, exclusively; an existing store is never marked afterwards. Every boot reads the markers into `BootedFabric.store_creation`.
+- Why: SEC-020 P4 (a), made strict: verifiable fresh creation, and an existing store with no marker is not presumed fresh.
+- Migration: delete or copy a store together with its marker. A store created before this change, or below these doors, is booted as before and refused for governed calls; recreate it through a door.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
 
 ### Not public Python API
 
