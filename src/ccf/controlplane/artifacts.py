@@ -180,6 +180,7 @@ __all__ = [
     "ProjectionRequirements",
     "RegistrationMode",
     "ReplayBinding",
+    "ReservedArtifactClassId",
     "SecretReference",
     "SignalBatch",
     "SimilaritySelectParametersArtifact",
@@ -246,12 +247,66 @@ class DeclaredArtifact(VersionedArtifact):
     declaration: Mapping[str, Any]
 
 
+#: The prefix the SDK owns (``D-IMPL-84``), stated once for both doors that
+#: apply the reservation: :func:`declared_artifact_class` below and
+#: :func:`ccf.deployment.classes.resolve_artifact_class`, which imports it.
+#: Private, and deliberately not in ``__all__``: the reservation is a behavior
+#: of those two functions, and an exported string would invite an adopter to
+#: branch on it instead of letting the refusal fire.
+_RESERVED_CLASS_ID_PREFIX: Final = "ccf."
+
+
+class ReservedArtifactClassId(ValueError):
+    """A class id in the SDK's reserved ``ccf.`` namespace, offered for an adopter's class.
+
+    ``D-IMPL-84`` reserves the prefix for the SDK, and ``D-IMPL-378`` K1 (b)
+    (Dave, 2026-10-08) applies the reservation at :func:`declared_artifact_class`,
+    the public function a program calls to build an adopter class over the open
+    :class:`DeclaredArtifact` envelope. Without it a program could register a
+    document of arbitrary content under an SDK class name — the squat
+    :func:`ccf.deployment.classes.resolve_artifact_class` already refuses for a
+    manifest — and the registry would bind the key to that name and pin it into
+    Decision Replay dimension 2. A ``ValueError``, as the manifest door's refusal
+    of the same reservation is.
+
+    Attributes:
+        class_id: The id that was refused.
+    """
+
+    def __init__(self, class_id: str) -> None:
+        super().__init__(
+            f"artifact class id {class_id!r} claims the SDK's reserved"
+            f" {_RESERVED_CLASS_ID_PREFIX!r} prefix (D-IMPL-84; D-IMPL-378 K1);"
+            " the open DeclaredArtifact envelope is refused under it, because a"
+            " document that satisfies the envelope would register, pin and enter"
+            " Decision Replay dimension 2 under an SDK class name with arbitrary"
+            " content — register an SDK class with the SDK's own ArtifactClass"
+            " constant, or choose a class id in your own namespace"
+        )
+        self.class_id = class_id
+
+
 def declared_artifact_class(class_id: str) -> ArtifactClass:
     """Return an :class:`ArtifactClass` for a user-declared artifact class.
 
     A :class:`DeclaredArtifact` it validates must state ``class_id`` as its own
     (``D-IMPL-378``; :class:`ArtifactClassIdMismatch`).
+
+    An id in the SDK's reserved ``ccf.`` namespace (``D-IMPL-84``) is refused
+    here, by name, before any class exists (``D-IMPL-378`` K1 (b)). The SDK's
+    own classes are its typed ``ArtifactClass`` constants — the class
+    ``ccf.workflow-definition`` is
+    :data:`~ccf.workflow.definitions.WORKFLOW_DEFINITION` — and never this
+    envelope, so no SDK registration passes through this function with such an
+    id: :func:`ccf.deployment.classes.resolve_artifact_class` serves an SDK id
+    from its reviewed mappings before it reaches the envelope.
+
+    Raises:
+        ReservedArtifactClassId: ``class_id`` starts with the reserved ``ccf.``
+            prefix.
     """
+    if class_id.startswith(_RESERVED_CLASS_ID_PREFIX):
+        raise ReservedArtifactClassId(class_id)
     return ArtifactClass(class_id=class_id, contract=DeclaredArtifact)
 
 

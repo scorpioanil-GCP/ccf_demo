@@ -1864,6 +1864,7 @@
       "RegistrationMode",
       "ReplayBinding",
       "RequestBoundParameter",
+      "ReservedArtifactClassId",
       "SIGNAL_BATCH",
       "SeamRefusalBinding",
       "SecretReference",
@@ -2200,6 +2201,10 @@
           "parameter": "<class 'str'>",
           "source": "typing.Literal['effective_request']"
         }
+      },
+      "ReservedArtifactClassId": {
+        "kind": "class",
+        "shape": "(class_id: 'str') -> 'None'"
       },
       "SIGNAL_BATCH": {
         "kind": "constant",

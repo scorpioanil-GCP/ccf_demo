@@ -108,6 +108,7 @@ from ccf.controlplane.artifacts import (
     ArtifactClass,
     ArtifactRole,
     RegistrationMode,
+    _RESERVED_CLASS_ID_PREFIX,
     declared_artifact_class,
 )
 from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
@@ -127,12 +128,15 @@ __all__ = [
     "resolve_artifact_class",
 ]
 
-#: The prefix the SDK owns (D-IMPL-84). Private and stated once, so the
-#: reservation and its refusal message cannot drift apart. Deliberately not in
-#: ``__all__``: the reservation is a *behavior* of
-#: :func:`resolve_artifact_class`, and exporting the string would invite an
-#: adopter to branch on it instead of letting the refusal fire.
-_CCF_NAMESPACE = "ccf."
+#: The prefix the SDK owns (D-IMPL-84). Private and stated once — in
+#: :mod:`ccf.controlplane.artifacts`, beside
+#: :func:`~ccf.controlplane.artifacts.declared_artifact_class`, which applies
+#: the same reservation (D-IMPL-378 K1) — so the two doors and their refusal
+#: messages cannot drift apart. Deliberately not in ``__all__``: the
+#: reservation is a *behavior* of :func:`resolve_artifact_class`, and exporting
+#: the string would invite an adopter to branch on it instead of letting the
+#: refusal fire.
+_CCF_NAMESPACE = _RESERVED_CLASS_ID_PREFIX
 
 #: Every artifact class whose schema the SDK owns, keyed by ``class_id``.
 #:

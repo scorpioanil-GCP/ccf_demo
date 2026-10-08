@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2324 entries**, of which **2048** name a public Python surface.
+**2326 entries**, of which **2050** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1294 entries — 1249 public Python surface, 45 not public Python API.
+1295 entries — 1250 public Python surface, 45 not public Python API.
 
 ### Public Python surface
 
@@ -19064,6 +19064,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
 
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: added
+- Before: absent. `declared_artifact_class` built an envelope class for an id in the SDK's reserved `ccf.` namespace
+- After: a `ValueError` raised by `declared_artifact_class` for an id starting `ccf.`, before any class exists. Its attribute `class_id` is the refused id, and its message names the id and cites `D-IMPL-84`
+- Why: `D-IMPL-378` K1 (b). A program could register a document of arbitrary content under an SDK class name, the squat `D-IMPL-84` refuses for a manifest, and the registry would bind the key to that name and pin it into Decision Replay dimension 2. Red tests: `tests/deployment/test_declaration_function_reserved_namespace.py::test_the_declaration_function_refuses_a_reserved_ccf_id_by_name`, `::test_the_programmatic_squat_registers_nothing`
+- Migration: none; additive
+
+*Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29915,7 +29927,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-371 entries — 332 public Python surface, 39 not public Python API.
+372 entries — 333 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35498,6 +35510,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.manifest.load_and_boot`
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.declared_artifact_class
+
+- Surface: ccf.controlplane.artifacts.declared_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: same signature. It returned an envelope class for any id, including `ccf.workflow-definition` and every other `ccf.` id
+- After: same signature. An id starting `ccf.` raises `ReservedArtifactClassId`; every other id is unchanged
+- Why: `D-IMPL-378` K1 (b), extending `D-IMPL-84` from the manifest resolver to the public declaration function. Red tests as for `ReservedArtifactClassId`
+- Migration: a program that passed a `ccf.` id registers an SDK class with the SDK's own `ArtifactClass` constant (for example `ccf.workflow.definitions.WORKFLOW_DEFINITION`), or chooses an id in its own namespace
+
+*Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
 
 ### Not public Python API
 
