@@ -986,11 +986,11 @@ def test_control_4_on_the_class_seeded_paved_road_each_decision_replays_to_its_o
 # keeps the real read by ruling. So on a plan whose walk reaches the subject's
 # acquired records, the withheld answer's record NAME differs from a nonexistent
 # subject's while the vessels match: `_assert_indistinguishable` drops
-# `replay_reference` and compares the vessel only, so it cannot see this. Held
-# here as a STRICT expected failure. It fails today for exactly that reason; the
-# day the channel closes it XPASSes, which strict mode reports as a failure, so
-# the marker must be removed and the closure claimed on evidence (security
-# how-to, section 4.12).
+# `replay_reference` and compares the vessel only, so it cannot see this. It was
+# held as a strict expected failure until lane 378-s020record promoted it to a
+# REQUIRED assertion (D-IMPL-378 work on SEC-020 channel 2): it fails for exactly
+# that reason until the record name stops hashing the real read (security how-to,
+# section 4.12).
 
 
 def _record_name(outcome: Any) -> str:
@@ -1002,16 +1002,6 @@ def _record_name(outcome: Any) -> str:
     pytest.fail(f"neither served nor refused: {outcome!r}")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "SEC-020 OPEN, channel C-1 (security how-to, section 4.12): the replay"
-        " record is named by dimension 1's graph_snapshot_id, which keeps the"
-        " REAL read, so a withheld answer's replay-reference name differs from a"
-        " nonexistent subject's. When this passes, remove the marker."
-    ),
-)
 @pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
 def test_c1_a_withheld_answer_carries_the_record_name_a_nonexistent_subject_gets(
     tmp_path: pathlib.Path, anchor: str
@@ -1019,7 +1009,7 @@ def test_c1_a_withheld_answer_carries_the_record_name_a_nonexistent_subject_gets
     """C-1: the replay-reference NAME, on the class-seeded paved road, both anchors.
 
     Every precondition fails through `pytest.fail`, never an `AssertionError`,
-    so the strict expected failure can only be the C-1 comparison itself: two
+    so an assertion failure here can only be the C-1 comparison itself: two
     nonexistent subjects must share one record name (the instrument), and the
     withheld decision's real read must have reached the acquired subject (the
     case is constructed).
