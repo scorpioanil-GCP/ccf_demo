@@ -1333,34 +1333,42 @@ the same id is refused "already exists".
   `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
   The engine can refuse an implementation that lacks the members; it cannot
   see whether one keeps the atomicity it declares.
-- **A passage interrupted after its commit is never retried** (`D-IMPL-378`).
+- **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
-  committed. The execution stays `running` at the step after the gate, and
-  `GET /workflow/execution` answers `status: "running"`. Every later
-  resumption, in any process, is refused with "An interrupted passage is
-  never retried", because that step may already have had effects the engine
-  cannot see. The SDK offers no primitive that reconciles such an execution:
-  an operator reads the gate's closure
-  (`src/ccf/hitl/transport.py::HITLTransportProtocol.closures`) and the
-  attributed `workflow_resumed` row, settles what the step did, and acts
-  outside the fabric. A resumption whose commit never landed (the write
-  itself failed) left the execution `suspended` with no step run. Presented
-  again from any process, it re-takes the same closure and runs the step after
-  the gate once. Both halves were measured across two processes:
-  `tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`
-  and `::test_an_interrupted_passage_is_never_retried_by_any_process`.
+  committed. The execution stays `running`, and `GET /workflow/execution`
+  answers `status: "running"`. What happens next depends on where it stopped.
+  - **At a step.** Every later resumption, in any process, is refused with
+    "An interrupted passage is never retried", because that step may already
+    have had effects the engine cannot see. The SDK offers no primitive that
+    reconciles such an execution: an operator reads the gate's closure
+    (`src/ccf/hitl/transport.py::HITLTransportProtocol.closures`) and the
+    attributed `workflow_resumed` row, settles what the step did, and acts
+    outside the fabric
+    (`tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process`).
+  - **At a gate or a terminal state** (Dave's D2 ruling). This happens when a
+    gate's route leads straight to a terminal state, or when an execution's
+    first node is a gate, which the engine records as `running` before it
+    suspends. No step runs in that window, so a later resumption from any
+    process FINISHES the passage. It makes the version-fenced suspension or
+    completion write and, at a gate, the one queue event. It invokes no step
+    callable and writes no second attributed row. It finishes only when the
+    passage's durable claim names it. For a passage past a gate, the claim is
+    that gate's closure for the suspension the passage left, and its decided
+    verdict must route to that state. For a start, the claim is the
+    create-if-absent record, and the starter's own retried start finishes it
+    too. A passage no claim names is refused: "no durable claim on the HITL
+    authority path names it". If the original passage is still live, one
+    fenced write lands and the other raises `ExecutionFenced` in the engine
+    (`tests/workflow/test_finish_interrupted_passage.py`). The erasure door's
+    retries reach this path. An erasure request or completion interrupted in
+    that window completes on retry, and the record it files is the one its
+    write-ahead entries name
+    (`tests/erasure/test_interrupted_erasure_passage.py`).
 
-  The rule applies even where no step runs between the commit and the
-  execution's next write: a gate whose route leads straight to a terminal
-  state, or an execution whose first node is a gate, which the engine records
-  as `running` before it suspends. A store failure inside that window leaves
-  the execution `running` as well. The erasure door is such a caller. An
-  erasure request interrupted there is refused on retry with
-  `workflow-not-suspended`. An erasure completion interrupted there is refused
-  on retry with `approval-not-recorded`, which misnames the cause; its address
-  stays withheld (`index-unsupported`) and no erasure record is filed. Before
-  `D-IMPL-378` both retries recovered, the completion with a second attributed
-  `workflow_resumed` row (measured).
+  A resumption whose commit never landed (the write itself failed) left the
+  execution `suspended` with no step run. Presented again from any process,
+  it re-takes the same closure and runs the step after the gate once
+  (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the
