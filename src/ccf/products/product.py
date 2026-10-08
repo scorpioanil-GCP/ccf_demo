@@ -1055,7 +1055,10 @@ def open_product(
     keys, parses the bindings the road reads, resolves every source variable
     the environment names, and builds the ONE store and the ONE recorder.
     **Boots nothing**: every question boots its own fabric (module docstring,
-    §1), so opening is cheap and refuses only on what a document says.
+    §1), so opening is cheap and refuses only on what a document says. So a
+    process that only opens cannot replay an earlier record: build the replay
+    environment first,
+    :class:`~ccf.replay.environment.RecordedEnvironment` (`D-IMPL-378` R-A2).
 
     **A consumer opens the same way** (`D-IMPL-343`, the consumer half). A
     deployment declaring ``producers:`` has every declared producer registered

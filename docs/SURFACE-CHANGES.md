@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2331 entries**, of which **2054** name a public Python surface.
+**2333 entries**, of which **2056** name a public Python surface.
 
 ## Added
 
@@ -29951,7 +29951,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-375 entries — 336 public Python surface, 39 not public Python API.
+377 entries — 338 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35582,6 +35582,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a third-party Control Plane calls `artifact_class.validate(artifact)` in `register_typed` and `register_versioned` before storing or auditing, adds its factory to `PLANES` in `tests/conformance/test_control_plane_class_identity.py`, and runs that module
 
 *Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring did not say that a process which only opens a product must build this environment before it can replay
+- After: same signature and behavior; documentation only. The docstring names this class as the supported way to replay from a process that did not answer the question, states the `ReplayUnresolvable` an open-only process meets, and says how to build it
+- Why: `D-IMPL-378` R-A2 (a). Measured by `tests/replay/test_paved_replay_needs_its_environment.py::test_an_opened_product_replays_an_earlier_record_only_after_its_environment_is_built` and `tests/replay/test_fresh_process_replay.py::test_a_fresh_process_that_asked_nothing_replays_paved_road_records`
+- Migration: none
+
+*Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring said opening boots nothing
+- After: same signature and behavior; documentation only. The docstring adds that a process which only opens cannot replay an earlier record until it builds the replay environment, `RecordedEnvironment`
+- Why: `D-IMPL-378` R-A2 (a)
+- Migration: none
+
+*Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
 
 ### Not public Python API
 

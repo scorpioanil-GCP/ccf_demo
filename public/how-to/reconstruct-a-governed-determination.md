@@ -112,6 +112,26 @@ anchor held to the recorded instant, and its address held to the record's.
 - **The documents.** The environment reads the product class and the TTL
   window from the deployment's `ccf_config.yaml`, and the substrate naming from
   its `ccf_environment.yaml`.
+- **The environment, built in the process that replays.** This is the
+  supported path for replaying from a process that did not answer the question
+  — an auditor's process, or the service after a restart (`D-IMPL-378`, ruling
+  R-A2 (a)). Opening a product boots nothing, so the Control Plane it holds
+  carries none of the declarations a record pins until a fabric is booted over
+  it. A process that only opens the product and then replays is refused at the
+  first pin it cannot resolve, with `ReplayUnresolvable`. Build the environment
+  first: boot the substrate the record was answered on through
+  `load_config_and_boot` over the opened product's documents and its Control
+  Plane, and construct `RecordedEnvironment` from the record, the opened product
+  and that fabric, as the example above does. (`RecordedEnvironment` asks for a
+  read-only boot, `read_only=True`, so a replay takes no writer lease beside a
+  live writer.) That boot and that construction register what the deployment's
+  documents declare, including the request contract, and ask and acquire
+  nothing
+  (`tests/replay/test_paved_replay_needs_its_environment.py::test_an_opened_product_replays_an_earlier_record_only_after_its_environment_is_built`,
+  `tests/replay/test_fresh_process_replay.py::test_a_fresh_process_that_asked_nothing_replays_paved_road_records`).
+  Asking a question first would also make the pins resolvable, but asking is a
+  governed decision in its own right, recorded like any other, not a step of a
+  replay.
 
 ## Who supplies the environment, and what that does not permit
 
