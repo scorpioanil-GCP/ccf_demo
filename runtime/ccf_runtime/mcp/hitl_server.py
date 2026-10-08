@@ -100,6 +100,7 @@ from ccf.hitl.transport import (
     ApproverNotEligible,
     HitlActionSubmission,
     HitlEventRevalidationRefused,
+    HitlGateClosed,
     PendingHitlEvent,
     SignedBindingInvalidRefused,
     SignedBindingMismatchRefused,
@@ -110,6 +111,7 @@ from ccf_runtime.authz.protocol import TenantAuthorizerProtocol
 from ccf_runtime.http_api.errors import (
     ERROR_APPROVER_NOT_ELIGIBLE,
     ERROR_HITL_EVENT_REVALIDATION_REFUSED,
+    ERROR_HITL_GATE_CLOSED,
     ERROR_SIGNED_BINDING_INVALID,
     ERROR_SIGNED_BINDING_MISMATCH,
     ERROR_SIGNED_BINDING_REQUIRED,
@@ -381,10 +383,11 @@ def build_hitl_server(
                 ``ERROR_SIGNED_BINDING_INVALID`` /
                 ``ERROR_SIGNED_BINDING_MISMATCH`` /
                 ``ERROR_SIGNED_BINDING_STALE``), the principal may not approve
-                the gate (``ERROR_APPROVER_NOT_ELIGIBLE``; SEC-006) or the event
+                the gate (``ERROR_APPROVER_NOT_ELIGIBLE``; SEC-006), the event
                 changed under the submission
-                (``ERROR_HITL_EVENT_REVALIDATION_REFUSED``) — each carrying the
-                one refusal-body shape (D-08).
+                (``ERROR_HITL_EVENT_REVALIDATION_REFUSED``), or the gate the
+                verdict names was already decided (``ERROR_HITL_GATE_CLOSED``;
+                D-IMPL-378) — each carrying the one refusal-body shape (D-08).
         """
         authentication = _verified_authentication()
         derived = principal_from_authorized(
@@ -436,6 +439,16 @@ def build_hitl_server(
                 json.dumps(
                     refusal_detail(
                         error_code=ERROR_HITL_EVENT_REVALIDATION_REFUSED,
+                        message=str(error),
+                    )
+                )
+            ) from error
+        except HitlGateClosed as error:
+            # D-IMPL-378: the same code the HTTP door answers with 409.
+            raise ValueError(
+                json.dumps(
+                    refusal_detail(
+                        error_code=ERROR_HITL_GATE_CLOSED,
                         message=str(error),
                     )
                 )

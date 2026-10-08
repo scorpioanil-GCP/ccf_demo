@@ -88,6 +88,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import threading
 from typing import Final, Protocol, TypeAlias, runtime_checkable
 
 from ccf.authz.capability import (
@@ -108,8 +109,10 @@ __all__ = [
     "STATE_KEY_SEPARATOR",
     "STATE_WRITE_KINDS",
     "AuditedStateWriter",
+    "ConditionalStateStore",
     "ControlPlaneStateStore",
     "InMemoryStateStore",
+    "StateConflict",
     "StateKeyError",
     "StateTenantMismatch",
     "StateWriteAuthority",
@@ -150,6 +153,21 @@ class StateTenantMismatch(PermissionError):
     store files under ``authorized.tenant`` and nothing else may name one, so
     a record carrying another tenant would be filed under a tenant it does not
     describe — broken wiring, refused before the dict is touched.
+    """
+
+
+class StateConflict(RuntimeError):
+    """A conditional state write found the record moved since its writer read it.
+
+    SDK-defined (``D-IMPL-378``; Dave's ruling on the conditional state write,
+    2026-10-07). :meth:`ConditionalStateStore.put_if` writes only when the key
+    is still at the version its writer read; otherwise it writes nothing and
+    raises this. The workflow engine reads it as "another writer moved this
+    execution first" and refuses, so two passages past one suspension, or two
+    starts of one execution id, cannot both commit, whichever process or
+    state-store object each runs in. Measured by
+    ``tests/workflow/test_approval_gate_limits.py`` and
+    ``tests/conformance/test_gate_closure_and_conditional_write.py``.
     """
 
 
@@ -316,6 +334,58 @@ class ControlPlaneStateStore(Protocol):
         ...
 
 
+@runtime_checkable
+class ConditionalStateStore(ControlPlaneStateStore, Protocol):
+    """The conditional write a store offers, so no write overwrites a record it never saw.
+
+    SDK-defined (``D-IMPL-378``; Dave's ruling of 2026-10-07 approved the
+    conditional state write). Every successful write of a key — conditional or
+    not — increments that key's version; version ``0`` means absent.
+    :meth:`put_if` runs every proof :meth:`put` runs and then writes only if the
+    key's current version equals ``expected_version``, atomically against every
+    other write of the same key by every client of the same durable store: an
+    optimistic version column in a database, or a row lock in one transaction.
+    ``expected_version=0`` creates only if absent.
+
+    ``scope`` declares who shares the records: ``"process"`` for a store no
+    other process can reach, ``"shared"`` for a durable store several reach.
+    The workflow engine refuses, at construction and by name, a state store
+    that is not a ``ConditionalStateStore`` or declares no known scope, and a
+    ``"shared"`` store paired with a HITL transport that is not ``"shared"``
+    (Dave: *"Unsupported third-party implementations must fail at
+    construction."*). The reference store's behavior under concurrent writers
+    is pinned by ``tests/conformance/test_gate_closure_and_conditional_write.py``;
+    a deployment runs that suite against its own store.
+    """
+
+    @property
+    def scope(self) -> str:
+        """``"process"`` or ``"shared"``."""
+        ...
+
+    def get_versioned(self, record_class: str, key: str) -> tuple[object | None, int]:
+        """The record under ``key`` and its version; ``(None, 0)`` when absent."""
+        ...
+
+    def put_if(
+        self,
+        authorized: StateWriteAuthority,
+        record_class: str,
+        record: object,
+        *,
+        record_id: str,
+        token: StateWriteToken,
+        expected_version: int,
+    ) -> int:
+        """Write only if the key is still at ``expected_version``; return the new version.
+
+        Raises:
+            StateConflict: the key's version is not ``expected_version``;
+                nothing was written.
+        """
+        ...
+
+
 class InMemoryStateStore:
     """In-process reference implementation of :class:`ControlPlaneStateStore`.
 
@@ -325,14 +395,33 @@ class InMemoryStateStore:
     development and single-process implementation, not a placeholder for one —
     a durable store is an alternative implementation of the same Protocol,
     added without touching a consumer.
+
+    It is a :class:`ConditionalStateStore` of scope ``"process"``
+    (``D-IMPL-378``): every write increments the key's version under one lock,
+    and :meth:`put_if` compares and writes inside that same lock.
     """
+
+    #: No other process can reach these records (``D-IMPL-378``).
+    scope = "process"
 
     def __init__(self) -> None:
         self._records: dict[tuple[str, str], object] = {}
+        self._versions: dict[tuple[str, str], int] = {}
+        self._write_lock = threading.Lock()
 
     def get(self, record_class: str, key: str) -> object | None:
         """Return the record under ``key``, or ``None`` if there is none."""
         return self._records.get((record_class, key))
+
+    def get_versioned(self, record_class: str, key: str) -> tuple[object | None, int]:
+        """The record under ``key`` and its version; ``(None, 0)`` when absent (``D-IMPL-378``).
+
+        The version is read BEFORE the record, without the write lock, so a
+        torn read can only pair a newer record with an older version — which
+        makes the reader's later :meth:`put_if` conflict, never succeed wrongly.
+        """
+        version = self._versions.get((record_class, key), 0)
+        return self._records.get((record_class, key)), version
 
     def put(
         self,
@@ -366,7 +455,58 @@ class InMemoryStateStore:
                 " (D-IMPL-353 §1.3)"
             )
         key = state_key(tenant=authorized.tenant, record_id=record_id)
-        self._records[(record_class, key)] = record
+        with self._write_lock:
+            self._records[(record_class, key)] = record
+            self._versions[(record_class, key)] = (
+                self._versions.get((record_class, key), 0) + 1
+            )
+
+    def put_if(
+        self,
+        authorized: StateWriteAuthority,
+        record_class: str,
+        record: object,
+        *,
+        record_id: str,
+        token: StateWriteToken,
+        expected_version: int,
+    ) -> int:
+        """Write only if the key is still at ``expected_version`` (``D-IMPL-378``).
+
+        The same proofs as :meth:`put`, in the same order, then one locked
+        compare-and-write; returns the new version. ``expected_version=0``
+        creates only if absent.
+
+        Raises:
+            StateConflict: the key is at another version; nothing was written.
+        """
+        verify_any(
+            authorized,
+            kinds=STATE_WRITE_KINDS,
+            resource=getattr(authorized, "resource", ""),
+        )
+        _verify(token)
+        claimed = getattr(record, "tenant", authorized.tenant)
+        if claimed != authorized.tenant:
+            raise StateTenantMismatch(
+                f"the record declares tenant {claimed!r} but the capability is"
+                f" for {authorized.tenant!r}; state is filed under the"
+                " capability's tenant and a record may not name another"
+                " (D-IMPL-353 §1.3)"
+            )
+        key = state_key(tenant=authorized.tenant, record_id=record_id)
+        with self._write_lock:
+            current = self._versions.get((record_class, key), 0)
+            if current != expected_version:
+                raise StateConflict(
+                    f"the record under {key!r} is at version {current}, not"
+                    f" {expected_version}: another writer moved it after this"
+                    " writer read it, so this write is refused rather than"
+                    " overwriting what it never saw"
+                )
+            self._records[(record_class, key)] = record
+            self._versions[(record_class, key)] = current + 1
+            return current + 1
 
     def items(self, record_class: str) -> tuple[tuple[str, object], ...]:
         """Every ``(key, record)`` pair in one class, key-sorted."""
@@ -440,4 +580,49 @@ class AuditedStateWriter:
             actor=event.actor,
             artifact_class=event.artifact_class,
         )
+
+    def write_if(
+        self,
+        authorized: StateWriteAuthority,
+        record_class: str,
+        record: object,
+        *,
+        record_id: str,
+        event: AuditEvent,
+        expected_version: int,
+    ) -> tuple[AuditEvent, int]:
+        """:meth:`write`, conditional (``D-IMPL-378``).
+
+        The store's :meth:`ConditionalStateStore.put_if` first, then the event:
+        a refused write appends nothing, so the audit log never records a
+        transition the store did not take. Returns the appended event and the
+        record's new version.
+
+        Raises:
+            StateConflict: the record moved since ``expected_version`` was read.
+            TypeError: the store offers no conditional write.
+        """
+        if not isinstance(self._store, ConditionalStateStore):
+            raise TypeError(
+                f"the Control Plane state store {type(self._store).__name__}"
+                " offers no conditional write (get_versioned / put_if)"
+            )
+        version = self._store.put_if(
+            authorized,
+            record_class,
+            record,
+            record_id=record_id,
+            token=StateWriteToken(_STATE_WRITE_TOKEN),
+            expected_version=expected_version,
+        )
+        appended = self._audit.append(
+            action=event.action,
+            key=event.key,
+            version=event.version,
+            resolved=event.resolved,
+            occurred_at=event.occurred_at,
+            actor=event.actor,
+            artifact_class=event.artifact_class,
+        )
+        return appended, version
 

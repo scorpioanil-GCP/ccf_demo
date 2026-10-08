@@ -85,12 +85,19 @@ from ccf.controlplane.audit import (
 )
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.resolution import resolve_pinned
-from ccf.controlplane.state import AuditedStateWriter, state_key
+from ccf.controlplane.state import (
+    AuditedStateWriter,
+    ConditionalStateStore,
+    StateConflict,
+    state_key,
+)
 from ccf.halflife.debt import DebtAssessment, DebtSignal
 from ccf.hitl.approval_gate import GATE_ACTIONS, GATE_EVENT_CLASS
 from ccf.hitl.escalation import ESCALATION_EVENT_CLASS
 from ccf.hitl.transport import (
     ApproverNotEligible,
+    GateAlreadyClosed,
+    GateVerdictsChanged,
     check_approver_eligibility,
     HITLTransportProtocol,
     HitlActionSubmission,
@@ -114,6 +121,7 @@ __all__ = [
     "WORKFLOW_TRACE_ARTIFACT_CLASS",
     "AgentNodeBinding",
     "DebtAssessmentBinding",
+    "ExecutionFenced",
     "ForeignStateRecordError",
     "SkillNodeBinding",
     "UnboundDebtAssessmentError",
@@ -141,6 +149,12 @@ WORKFLOW_TRACE_ARTIFACT_CLASS = "ccf.workflow-trace"
 #: held across an ``await``.
 _RESUMPTIONS_IN_FLIGHT: set[tuple[int, str]] = set()
 _RESUMPTIONS_IN_FLIGHT_LOCK = threading.Lock()
+
+#: The two sharing scopes a Control Plane state store and a HITL transport
+#: declare (``D-IMPL-378``): ``process`` — no other process reaches them — and
+#: ``shared`` — a durable implementation several processes reach. Mechanism
+#: vocabulary, read by the construction checks; no deployment value.
+_SCOPES: frozenset[str] = frozenset({"process", "shared"})
 
 
 def _claim_resumption(claim: tuple[int, str]) -> bool:
@@ -191,6 +205,18 @@ class UnboundDebtAssessmentError(WorkflowWiringError):
     (INV-CH7-68), so an engine asked to hand off to an agent node without a
     :class:`DebtAssessmentBinding` is a broken deployment — a raised
     exception on the I.1 line, never a returned refusal.
+    """
+
+
+class ExecutionFenced(RuntimeError):
+    """A later write of a passage found the record moved by another writer.
+
+    SDK-defined (``D-IMPL-378``). Every write after a passage commit is
+    conditional on the version that passage wrote. A conflict means a writer
+    other than this passage moved the execution's record while the passage
+    ran — which the engine's own refusals make impossible on a conforming
+    store, since a ``running`` execution is never resumed or restarted — so the
+    engine fails closed rather than overwrite what it never saw.
     """
 
 
@@ -384,6 +410,39 @@ class WorkflowEngine:
                 " defaults to `control_plane.audit_log`) or pass that same"
                 " log (INV-CH7-71; CLAUDE.md §10)"
             )
+        # D-IMPL-378 (Dave: "Unsupported third-party implementations must fail
+        # at construction"): a store or transport that cannot make a gate's
+        # passage exactly-once is refused here, by name, before any execution
+        # runs — never discovered at the first resumption.
+        store = control_plane.state_store
+        store_scope = getattr(store, "scope", None)
+        if not isinstance(store, ConditionalStateStore) or store_scope not in _SCOPES:
+            raise WorkflowWiringError(
+                f"the Control Plane state store {type(store).__name__} is not a"
+                " ConditionalStateStore declaring a scope of 'process' or"
+                " 'shared' (get_versioned, put_if, scope); without a conditional"
+                " write, two resumptions of one suspension, or two starts of one"
+                " execution id, can both commit (D-IMPL-378; SEC-001)"
+            )
+        transport_scope = getattr(hitl_transport, "scope", None)
+        if (
+            not isinstance(hitl_transport, HITLTransportProtocol)
+            or transport_scope not in _SCOPES
+        ):
+            raise WorkflowWiringError(
+                f"the HITL transport {type(hitl_transport).__name__} does not"
+                " offer the whole HITLTransportProtocol (close_gate, closures,"
+                " scope among it) with a scope of 'process' or 'shared'; without"
+                " close_gate, a verdict recorded while a gate is being decided"
+                " is never judged (D-IMPL-378; SEC-001)"
+            )
+        if store_scope == "shared" and transport_scope != "shared":
+            raise WorkflowWiringError(
+                "the Control Plane state store is shared between processes but"
+                " the HITL transport is not: a verdict recorded through another"
+                " process would never be judged here, and that process's gate"
+                " closures would never be seen (D-IMPL-378; SEC-001)"
+            )
         self._control_plane = control_plane
         self._artifact_store = artifact_store
         self._hitl_transport = hitl_transport
@@ -433,7 +492,29 @@ class WorkflowEngine:
         verify(authorized, kind=Execute, resource=workflow.definition_key)
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
-        if self._control_plane.state_store.get(WORKFLOW_STATE, key) is not None:
+        # D-IMPL-378: the execution is recorded as started BEFORE its first
+        # node runs, by a create-if-absent write, so a second start of the same
+        # id is refused before it runs anything — in this process or any other
+        # over the same store (D-23: an execution id is started once).
+        try:
+            version = self._write_state(
+                authorized,
+                workflow,
+                key,
+                self._record(
+                    workflow,
+                    tenant=tenant,
+                    execution_id=execution_id,
+                    current_state=workflow.definition.start,
+                    status="running",
+                    trace=(),
+                    started_by=authorized.principal,
+                ),
+                action="workflow_started",
+                actor=None,
+                expected_version=0,
+            )
+        except StateConflict:
             return self._refuse(
                 authorized,
                 workflow,
@@ -453,6 +534,7 @@ class WorkflowEngine:
             # execution reaches is the starter — the Execute capability's
             # principal — stamped once here and carried on every record.
             started_by=authorized.principal,
+            version=version,
         )
 
     async def resume(
@@ -476,29 +558,51 @@ class WorkflowEngine:
         from the suspended node (CINV-01 — routing is the artifact's
         statement; the engine interprets, never decides).
 
-        **One resumption per execution at a time, in this process
-        (D-IMPL-377).** Before the state record is read, the resumption
-        takes a single-flight claim on the execution, keyed by the Control
-        Plane state store the record lives in and by its state key, and
-        shared by every engine in this process over that store. While it is
-        held, a second resumption of the same execution is REFUSED, never
-        queued: a typed :class:`WorkflowResumeRefused`, audited
-        ``resolved=False``, which the HTTP door answers with the same 409 as
-        the sequential refusal. Without it, two resumes of one approved
-        suspension both read the record before either committed over it,
-        both passed the authority and conflict checks, and ran the
-        downstream node twice under two attributed ``workflow_resumed`` rows
-        (residual 2(a) of :meth:`_gate_authority`). The claim is released on
-        every exit — completion, refusal, exception and cancellation — and
-        its lock guards only the test-and-set, never an ``await``, so it
-        holds for threads and for one event loop alike. **It does not
-        reach** several processes, or several state-store objects fronting
-        one durable store:
-        :class:`~ccf.controlplane.state.ControlPlaneStateStore` offers no
-        compare-and-set, so serialize resumptions per execution in front of
-        the door there. Nor does it reach a verdict recorded while a
-        resumption is in flight (residual 2(b)): verdicts are recorded
-        through the HITL transport, which this claim never touches.
+        **One approval, one passage, however many processes resume**
+        (``D-IMPL-378``; ``SEC-001``). Three mechanisms stand between one
+        human approval and a second passage, and each is measured on its own:
+
+        * **The in-process claim** (``D-IMPL-377``). Before the state record
+          is read, the resumption takes a single-flight claim on the
+          execution, keyed by the Control Plane state store the record lives
+          in and by its state key, and shared by every engine in this process
+          over that store. While it is held, a second resumption of the same
+          execution is REFUSED, never queued: a typed
+          :class:`WorkflowResumeRefused`, audited ``resolved=False``, which the
+          HTTP door answers with the same 409 as the sequential refusal. It is
+          released on every exit — completion, refusal, exception and
+          cancellation — and its lock guards only the test-and-set, never an
+          ``await``.
+        * **The gate's closure on the authority path.** After every check has
+          passed and before anything is written, the resumption asks the HITL
+          transport to close the gate on exactly the verdicts it judged
+          (:meth:`~ccf.hitl.transport.HITLTransportProtocol.close_gate`). A
+          verdict recorded after the resumption read the verdicts makes the
+          closure fail, and the resumption is refused ("present the resumption
+          again"); a verdict arriving after the closure is refused at every
+          door with ``hitl-gate-closed``, so it never stands beside a decision
+          it can no longer reach, and the queue stops offering the gate.
+        * **The conditional passage commit.** The passage — the record leaving
+          the gate, together with its attributed ``workflow_resumed`` row, in
+          ONE audited write — is committed conditionally on the version the
+          resumption read, BEFORE the step after the gate runs. Of two
+          resumptions in two processes, or through two state-store objects
+          over one durable store, exactly one commit lands; the other is
+          refused before it runs anything.
+
+        **An interrupted passage is never retried** (Dave's ruling on
+        ``D-IMPL-378``). A passage whose commit never landed leaves the record
+        ``suspended`` with no step started, so presenting the resumption again
+        re-takes the same closure (it names the passage, not the engine) and
+        exactly one commit can land. A passage whose commit landed is
+        ``running`` until it suspends or completes; a resumption that finds it
+        ``running`` is refused, typed, because the step after the gate may
+        already have had effects no engine can see, and an operator reconciles
+        the execution outside the fabric.
+
+        Measured by ``tests/workflow/test_approval_gate_limits.py``,
+        ``tests/http_api/test_approval_gate_limits_door.py`` and
+        ``tests/workflow/test_resume_single_flight.py``.
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
@@ -507,6 +611,8 @@ class WorkflowEngine:
                 not a ``Resume``, or minted for another definition key.
             ForeignStateRecordError: the state store returned a record this
                 machine did not write.
+            ExecutionFenced: a writer other than this passage moved the
+                execution's record while the passage ran.
         """
         self._require_handle(workflow)
         verify(authorized, kind=Resume, resource=workflow.definition_key)
@@ -550,7 +656,7 @@ class WorkflowEngine:
     ) -> WorkflowOutcome:
         """:meth:`resume`'s body, run only while its single-flight claim is held."""
         tenant = authorized.tenant
-        record = self._control_plane.state_store.get(WORKFLOW_STATE, key)
+        record, version = self._read_versioned(key)
         if record is None:
             return self._refuse(
                 authorized,
@@ -597,6 +703,30 @@ class WorkflowEngine:
                     " SEC-001)"
                 ),
             )
+        if record.status == "running":
+            # D-IMPL-378, Dave's Q4 ruling: an interrupted passage is never
+            # retried. A ``running`` record is a passage whose commit LANDED, so
+            # the step after its gate may have started, and what that step did
+            # is outside anything this engine can see: no retry of it can be
+            # shown not to repeat an effect. So it is refused, typed, whoever
+            # asks, until an operator reconciles the execution outside the
+            # fabric. (A passage whose commit never landed is still
+            # ``suspended`` and IS retried below: its step never started, its
+            # gate's closure names it, and only one commit can land.)
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} has a committed passage that has not"
+                    " finished: it is running in another process, or it was"
+                    " interrupted after its step began. An interrupted passage"
+                    " is never retried, because the effects its step may"
+                    " already have had cannot be shown not to repeat; an"
+                    " operator reconciles it outside the fabric (D-IMPL-378;"
+                    " SEC-001)"
+                ),
+            )
         if record.status == "suspended":
             # SEC-001: a gate opens on a human action returned through the
             # HITL authority path, never on the caller's decision string.
@@ -621,12 +751,17 @@ class WorkflowEngine:
             # ``resolved=True, actor=None`` in the audit — the exact
             # signature SEC-001 named. Never ask the caller what kind of
             # node the fabric is waiting on.
+            # D-IMPL-378: ONE read of the recorded verdicts, from which the
+            # authority, the conflict population and the count the gate's
+            # closure is judged against are all derived.
+            snapshot = self._hitl_transport.submissions(tenant=tenant)
             qualifying = self._gate_authority(
                 tenant=tenant,
                 key=key,
                 gate=record.current_state,
                 record=record,
                 workflow=workflow,
+                snapshot=snapshot,
             )
             if not qualifying:
                 return self._refuse(
@@ -655,6 +790,7 @@ class WorkflowEngine:
                 key=key,
                 gate=record.current_state,
                 record=record,
+                snapshot=snapshot,
             )
             if len({submission.action for submission in recorded}) > 1:
                 # D-IMPL-357 A4: two distinct human verdicts on ONE
@@ -736,18 +872,105 @@ class WorkflowEngine:
                     verdict_integrity="route_disagreement",
                     recorded_approver=actor,
                 )
+            # D-IMPL-378: decide the gate ONCE, on exactly the verdicts judged
+            # above, in the authority path's own atomic step. A verdict recorded
+            # since the read changes the count and the decision fails; one
+            # arriving after it is refused by name at every door; another
+            # passage cannot take the closure.
+            event_key = self._event_key(key, record.current_state)
+            suspension = content_hash(record)
+            observed = sum(
+                1
+                for submission in snapshot
+                if submission.event_key == event_key
+                and submission.principal.product_content_hash == suspension
+            )
+            # The passage is named by WHAT it decides — this suspension, this
+            # authority submission, this verdict — never by who decides it. A
+            # retry of a passage whose commit never landed re-presents the same
+            # name, so the gate's closure (the durable claim on the authority
+            # path) is re-taken idempotently, and the conditional passage
+            # commit below lets exactly one attempt land (D-IMPL-378, Q4).
+            passage = content_hash(
+                {
+                    "suspension": suspension,
+                    "authority": content_hash(authority),
+                    "action": authority.action,
+                }
+            )
+            try:
+                self._hitl_transport.close_gate(
+                    authorized,
+                    event_key=event_key,
+                    product_content_hash=suspension,
+                    passage=passage,
+                    decided_action=authority.action,
+                    decided_by=authority.principal.approver.subject_id,
+                    observed_submissions=observed,
+                )
+            except GateAlreadyClosed:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"the gate {record.current_state!r} of execution"
+                        f" {key!r} was already decided by another passage; one"
+                        " approval authorizes one passage (D-IMPL-378; SEC-001)"
+                    ),
+                )
+            except GateVerdictsChanged:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"a verdict on gate {record.current_state!r} of"
+                        f" execution {key!r} was recorded while this resumption"
+                        " was deciding, so nothing was decided; present the"
+                        " resumption again and it judges the verdicts that now"
+                        " stand (D-IMPL-378; D-IMPL-357 A4)"
+                    ),
+                )
             trace = record.trace + (
                 self._entry(
                     record.trace, record.current_state, decision, "resume"
                 ),
             )
-            self._append(
-                workflow,
-                key,
-                action="workflow_resumed",
-                resolved=True,
-                actor=actor,
-            )
+            # D-IMPL-378: the passage — the record leaving the gate — and its
+            # attributed row are ONE audited write, committed conditionally on
+            # the version read, BEFORE the step after the gate runs. Of two
+            # resumptions anywhere, exactly one commit lands; a refused or
+            # failed commit appends no row.
+            try:
+                version = self._write_state(
+                    authorized,
+                    workflow,
+                    key,
+                    self._record(
+                        workflow,
+                        tenant=tenant,
+                        execution_id=execution_id,
+                        current_state=decision,
+                        status="running",
+                        trace=trace,
+                        started_by=record.started_by,
+                    ),
+                    action="workflow_resumed",
+                    actor=actor,
+                    expected_version=version,
+                )
+            except StateConflict:
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} moved while this resumption decided"
+                        " its gate; the passage that moved it stands, and one"
+                        " approval authorizes one passage (D-IMPL-378; SEC-001)"
+                    ),
+                )
             if decision in workflow.definition.effective_terminal_states:
                 return self._complete(
                     authorized,
@@ -756,6 +979,7 @@ class WorkflowEngine:
                     terminal_state=decision,
                     trace=trace,
                     started_by=record.started_by,
+                    version=version,
                 )
             return await self._advance(
                 authorized,
@@ -764,6 +988,7 @@ class WorkflowEngine:
                 state=decision,
                 trace=trace,
                 started_by=record.started_by,
+                version=version,
             )
         # exception-routed: the handler handed the state back — retry the
         # node it was routed from.
@@ -801,17 +1026,42 @@ class WorkflowEngine:
         resolution = self._escalation_authority(
             tenant=tenant, key=key, record=record
         )
-        self._append(
-            workflow,
-            key,
-            action="workflow_resumed",
-            resolved=True,
-            actor=(
-                None
-                if resolution is None
-                else resolution.principal.approver.subject_id
-            ),
-        )
+        # D-IMPL-378: the retry of the routed node is a passage too, committed
+        # conditionally before the node runs, so two resumptions of one
+        # exception-routed execution cannot both re-run it.
+        try:
+            version = self._write_state(
+                authorized,
+                workflow,
+                key,
+                self._record(
+                    workflow,
+                    tenant=tenant,
+                    execution_id=execution_id,
+                    current_state=record.current_state,
+                    status="running",
+                    trace=record.trace,
+                    started_by=record.started_by,
+                ),
+                action="workflow_resumed",
+                actor=(
+                    None
+                    if resolution is None
+                    else resolution.principal.approver.subject_id
+                ),
+                expected_version=version,
+            )
+        except StateConflict:
+            return self._refuse(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                reason=(
+                    f"execution {key!r} moved while this resumption decided its"
+                    " retry; the passage that moved it stands (D-IMPL-378;"
+                    " SEC-001)"
+                ),
+            )
         return await self._advance(
             authorized,
             workflow,
@@ -819,6 +1069,7 @@ class WorkflowEngine:
             state=record.current_state,
             trace=record.trace,
             started_by=record.started_by,
+            version=version,
         )
 
     # -- the machine ----------------------------------------------------------
@@ -832,8 +1083,13 @@ class WorkflowEngine:
         state: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowOutcome:
         """Drive the machine from ``state`` until suspend or terminal.
+
+        ``version`` is the state record's version this passage wrote
+        (``D-IMPL-378``); the one write this drive ends in is conditional on
+        it.
 
         ``started_by`` is the starter recorded for this execution (SEC-006;
         `D-IMPL-366` G1 (a)), threaded unchanged into every record and every
@@ -862,6 +1118,7 @@ class WorkflowEngine:
                     gate=state,
                     trace=trace,
                     started_by=started_by,
+                    version=version,
                 )
             assert step.ref is not None  # non-gate steps carry refs by schema
             if resolve_pinned(self._control_plane, step.ref) is None:
@@ -898,6 +1155,7 @@ class WorkflowEngine:
                         node=state,
                         trace=trace,
                         started_by=started_by,
+                        version=version,
                     )
             try:
                 if step.kind == "skill":
@@ -916,6 +1174,7 @@ class WorkflowEngine:
                     node=state,
                     trace=trace,
                     started_by=started_by,
+                    version=version,
                 )
             targets = self._targets(workflow, state)
             if len(targets) != 1:
@@ -942,6 +1201,7 @@ class WorkflowEngine:
                     terminal_state=target,
                     trace=trace,
                     started_by=started_by,
+                    version=version,
                 )
             state = target
 
@@ -954,6 +1214,7 @@ class WorkflowEngine:
         gate: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowSuspended:
         """Suspend on a hitl-gate: persist, enqueue, return a typed handle.
 
@@ -972,8 +1233,8 @@ class WorkflowEngine:
             trace=trace,
             started_by=started_by,
         )
-        self._persist(
-            authorized, workflow, key, record, action="workflow_suspended"
+        self._fenced_write(
+            authorized, workflow, key, record, action="workflow_suspended", version=version
         )
         trace_artifact = self._write_trace(authorized, key, execution_id, trace)
         event_key = self._event_key(key, gate)
@@ -1006,6 +1267,7 @@ class WorkflowEngine:
         node: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowOutcome:
         """Take ``node``'s exception path (D-13; D-IMPL-61 option-a)."""
         tenant = authorized.tenant
@@ -1024,8 +1286,8 @@ class WorkflowEngine:
                 trace=trace,
                 started_by=started_by,
             )
-            self._persist(
-                authorized, workflow, key, record, action="workflow_exception"
+            self._fenced_write(
+                authorized, workflow, key, record, action="workflow_exception", version=version
             )
             trace_artifact = self._write_trace(
                 authorized, key, execution_id, trace
@@ -1056,6 +1318,7 @@ class WorkflowEngine:
             terminal_state=WORKFLOW_FAILED_STATE,
             trace=trace,
             started_by=started_by,
+            version=version,
         )
 
     def _complete(
@@ -1067,6 +1330,7 @@ class WorkflowEngine:
         terminal_state: str,
         trace: tuple[TraceEntry, ...],
         started_by: str | None,
+        version: int,
     ) -> WorkflowCompleted:
         """Reach a terminal condition: persist, write through, hand to replay."""
         tenant = authorized.tenant
@@ -1080,8 +1344,8 @@ class WorkflowEngine:
             trace=trace,
             started_by=started_by,
         )
-        self._persist(
-            authorized, workflow, key, record, action="workflow_completed"
+        self._fenced_write(
+            authorized, workflow, key, record, action="workflow_completed", version=version
         )
         trace_artifact = self._write_trace(authorized, key, execution_id, trace)
         visited = {entry.source for entry in trace} | {
@@ -1142,6 +1406,7 @@ class WorkflowEngine:
         gate: str,
         record: WorkflowStateRecord,
         workflow: Workflow,
+        snapshot: tuple[HitlActionSubmission, ...],
     ) -> tuple[HitlActionSubmission, ...]:
         """Every recorded human verdict ELIGIBLE to authorize passage past ``gate``.
 
@@ -1241,17 +1506,17 @@ class WorkflowEngine:
         with the target the artifact declares for the verdict that action
         carries.
 
-        **A VERDICT RECORDED BEFORE THIS RESUMPTION READS THE CONFLICT
-        POPULATION CANNOT REACH THE APPROVING TERMINAL** — whatever it
-        contradicts, in either arrival order, stamped or not (D-IMPL-357
-        A3 + A4). **That bound is the claim, and it is deliberately not
-        unconditional:** a verdict recorded *concurrently with* a
-        resumption, after the read and before the attributed commit, is
-        not in the population this check saw, which is residual 2(b)
-        below. Routing is the compare above; selection integrity is the
-        conflict refusal in :meth:`resume` over
-        :meth:`_recorded_gate_verdicts`. Both of the paths A3's review
-        measured are shut, and each was measured again going red:
+        **No verdict recorded on this suspension is outvoted by a passage**
+        (``D-IMPL-378``). A verdict recorded before the resumption reads the
+        verdicts is in the population judged here and refuses the resumption if
+        it disagrees (``D-IMPL-357`` A3 + A4); one recorded after that read and
+        before the decision makes the gate's closure fail, and the resumption
+        is refused; one arriving after the closure is refused at the door
+        (``hitl-gate-closed``). Routing is the compare in :meth:`resume`;
+        selection integrity is the conflict refusal over
+        :meth:`_recorded_gate_verdicts`; timing integrity is the closure. The
+        paths A3's review measured are shut, and each was measured again going
+        red:
 
         * **Two distinct verdicts on one suspension** no longer resolve to
           the oldest and route on it. They refuse, in either arrival order,
@@ -1267,17 +1532,10 @@ class WorkflowEngine:
 
         **What remains OPEN, stated here because this docstring is the
         residual ledger a close panel, an adopter and the next maintainer
-        read.** Both items are real and neither may be read as closed:
-        item (2)'s first shape is refused within one process and nowhere
-        else, and its second shape is untouched. The
-        second one **can** put a rejection at an approving terminal — no
-        sentence here may reassure a reader otherwise, because a
-        reassurance is exactly what stops a maintainer looking for the
-        shape.
+        read.**
 
         * **(1) The stamp race itself is still there, in the transport.**
-          A
-          claim is keyed ``(tenant, event_key)`` and consumed by whichever
+          A claim is keyed ``(tenant, event_key)`` and consumed by whichever
           submission for that pair arrives first, so an attacker holding
           submit authority can still cause an officer's verdict to be
           recorded unstamped. What changed is the consequence: the pair now
@@ -1289,67 +1547,35 @@ class WorkflowEngine:
           ``remove`` minting an opaque claim token that ``submit``
           requires, a :class:`~ccf.hitl.transport.HITLTransportProtocol`
           signature change that belongs with the D-IMPL-62 door ruling.
-        * **(2) THIS RESUMPTION'S READ-DECIDE-COMMIT IS ATOMIC ONLY AGAINST
-          OTHER RESUMPTIONS OF THE SAME EXECUTION IN THIS PROCESS**, and
-          two shapes fall out of that. :meth:`resume` performs no
-          compare-and-set: it reads the state record, reads the authority
-          and conflict populations, decides, and only then writes. Since
-          D-IMPL-377 it does all of that under a single-flight claim on the
-          execution (keyed by the state store and the state key, shared by
-          every engine in the process over that store), so **(a)** — two
-          concurrent resumes of one suspension both passing the authority
-          read AND the conflict check, executing the downstream node twice
-          from one human action and writing two attributed resumption rows
-          — is REFUSED within one process: the second resume is a typed
-          refusal. (a) stays OPEN across processes, and across several
-          state-store objects that front one durable store, because
-          :class:`~ccf.controlplane.state.ControlPlaneStateStore` offers no
-          compare-and-set. **(b) is unchanged:** a verdict
-          recorded *inside that window* is not seen at all, so a rejection
-          submitted after the conflict read and before the attributed
-          commit leaves BOTH verdicts standing in the record while the
-          execution completes at the approving terminal — the outcome the
-          check above refuses when the same rejection lands first.
-          **These are one defect, and closing both takes a fix that
-          reaches both: one per-execution lock taken by both the resumption
-          and the submission path for that execution's event, or a
-          compare-and-set that covers the conflict population as well as
-          the state record, closes both; a lock or compare-and-set on the
-          state record ALONE closes only (a).** D-IMPL-377's claim is the
-          resumption half of the first remedy only — the submission path
-          does not take it — so it closes (a) in one process and leaves
-          (b) exactly as it was. The reason is structural
-          rather than incidental, and it is stated because this is the
-          sentence a maintainer would implement from: submissions live in
-          the transport's own list, and
-          :mod:`ccf.hitl.transport` names ``state_store``,
-          ``WORKFLOW_STATE`` and :class:`WorkflowStateRecord` zero times —
-          a late rejection never touches the state record at all, so a
-          compare-and-set on the state record SUCCEEDS and (b) stands. A
-          second read before the commit is not the fix
-          either: it narrows the window and invites a reader to think the
-          class is handled. **Nothing in this docstring may be read as
-          closing the concurrency class**, and no state-record guarantee
-          may be read as settling (b). Closing it needs the serialization
-          ruling.
+        * **(2) A conflicted gate stays suspended for good** (``D-GATE-357``
+          (2)). The fabric offers no primitive that reopens it; a human settles
+          the disagreement outside the fabric.
+        * **(3) An interrupted passage stays ``running`` for good.** It is
+          never retried (Dave's ruling on ``D-IMPL-378``), and the fabric
+          offers no primitive that reconciles it; an operator reads the gate's
+          closure (:meth:`~ccf.hitl.transport.HITLTransportProtocol.closures`)
+          and the audit row, and reconciles outside the fabric.
+        * **(4) The guarantees are the store's and the transport's.** They
+          hold over a :class:`~ccf.controlplane.state.ConditionalStateStore`
+          and a transport whose ``close_gate`` and ``submit`` are atomic with
+          respect to each other, as the reference implementations are. The
+          engine refuses at construction an implementation that offers neither
+          the methods nor a declared scope; it cannot see whether a
+          third-party implementation keeps the atomicity it declares —
+          ``tests/conformance/test_gate_closure_and_conditional_write.py`` is
+          the suite a deployment runs against its own.
 
-          **The probe shape, carried so it is not re-derived.** No engine
-          logic is altered: a pure helper on this read path is wrapped
-          with a tenth-of-a-second sleep purely to widen a window that is
-          already there, and a real second operating-system thread submits
-          the rejection through the real transport with a real capability.
-          Both verdicts end up recorded and the execution completes
-          approved. **The window is reachable in the shipped server
-          topology** — the resumption endpoint is asynchronous on the
-          event loop, the human-action endpoint is a synchronous handler
-          the server runs on a worker thread, and the unwidened window
-          spans the target lookup, the route lookup, the trace
-          serialization and the audit construction with its canonical
-          hashing: thousands of operations against a five-millisecond
-          thread-switch interval. An in-process sweep landed zero times in
-          480 trials, which is the honest counterweight — **structurally
-          open, not demonstrated in process, and given true concurrency by
-          the served doors.**
+        **What the closure replaced, carried so it is not re-derived.**
+        Before ``D-IMPL-378`` the read-decide-commit was atomic only against
+        other resumptions in one process. Measured on 2026-10-07: two
+        resumptions through two state-store objects over one durable store
+        both passed the gate on one approval; a rejection recorded right
+        after the resumption's last read of the verdicts was outvoted
+        (15 of 15 forced-timing runs), and so was one recorded through the
+        served action door while the step after the gate ran. A second read
+        before the commit was rejected as a fix: it narrows the window and
+        invites a reader to think the class is handled, and when the step
+        after the gate has already run there is nothing left to refuse.
 
         The bound on the claim above is deliberate, because this project
         has already paid once for stating it wider: an earlier fix on this
@@ -1358,7 +1584,9 @@ class WorkflowEngine:
         in place.
 
         Note the direction of trust: the engine *reads* the authority path
-        and never writes a verdict to it. Resolution stays the gate
+        and never writes a verdict to it. The one thing it records there is
+        the gate's closure (``D-IMPL-378``), which decides no verdict: it
+        freezes the verdicts the engine judged. Resolution stays the gate
         primitive's act (CLAUDE.md §8.2).
         """
         event_key = self._event_key(key, gate)
@@ -1392,7 +1620,7 @@ class WorkflowEngine:
 
         return tuple(
             submission
-            for submission in self._hitl_transport.submissions(tenant=tenant)
+            for submission in snapshot
             if submission.event_key == event_key
             and submission.principal.product_content_hash == suspension
             and submission.action in GATE_ACTIONS
@@ -1419,6 +1647,7 @@ class WorkflowEngine:
         key: str,
         gate: str,
         record: WorkflowStateRecord,
+        snapshot: tuple[HitlActionSubmission, ...],
     ) -> tuple[HitlActionSubmission, ...]:
         """Every gate verdict RECORDED against this suspension, oldest first.
 
@@ -1499,7 +1728,7 @@ class WorkflowEngine:
         suspension = content_hash(record)
         return tuple(
             submission
-            for submission in self._hitl_transport.submissions(tenant=tenant)
+            for submission in snapshot
             if submission.event_key == event_key
             and submission.principal.product_content_hash == suspension
             and submission.action in GATE_ACTIONS
@@ -1667,7 +1896,13 @@ class WorkflowEngine:
             started_by=started_by,
         )
 
-    def _persist(
+    def _read_versioned(self, key: str) -> tuple[object | None, int]:
+        """The execution's record and its version (``D-IMPL-378``)."""
+        store = self._control_plane.state_store
+        assert isinstance(store, ConditionalStateStore)  # refused at construction otherwise
+        return store.get_versioned(WORKFLOW_STATE, key)
+
+    def _write_state(
         self,
         authorized: Authorized[Execute] | Authorized[Resume],
         workflow: Workflow,
@@ -1675,8 +1910,10 @@ class WorkflowEngine:
         record: WorkflowStateRecord,
         *,
         action: AuditAction,
-    ) -> None:
-        """Write state through the audited surface — one write, one event.
+        actor: str | None,
+        expected_version: int,
+    ) -> int:
+        """Write state through the audited surface, conditionally — one write, one event.
 
         A DERIVED write (D-IMPL-353 §1.2, derived-writes rule): the state
         store derives the key it writes under from ``authorized.tenant`` and
@@ -1685,10 +1922,17 @@ class WorkflowEngine:
         ``key`` here is the engine's own reading of that same derivation
         (:meth:`_key`), used for the audit event and asserted equal to what
         the store derives, so the two cannot drift apart silently.
+
+        The write is conditional on ``expected_version`` and the event is
+        appended only when it lands (``D-IMPL-378``), so the audit log never
+        records a transition the store did not take.
+
+        Raises:
+            StateConflict: the record moved since ``expected_version`` was read.
         """
         execution_id = key[len(authorized.tenant) + 1 :]
         assert self._key(authorized.tenant, execution_id) == key
-        self._writer.write(
+        _, version = self._writer.write_if(
             authorized,
             WORKFLOW_STATE,
             record,
@@ -1700,10 +1944,44 @@ class WorkflowEngine:
                 version=workflow.identity.definition_hash,
                 resolved=True,
                 occurred_at=self._clock(),
-                actor=None,
+                actor=actor,
                 artifact_class=WORKFLOW_DEFINITION.class_id,
             ),
+            expected_version=expected_version,
         )
+        return version
+
+    def _fenced_write(
+        self,
+        authorized: Authorized[Execute] | Authorized[Resume],
+        workflow: Workflow,
+        key: str,
+        record: WorkflowStateRecord,
+        *,
+        action: AuditAction,
+        version: int,
+    ) -> int:
+        """A write that ends a passage, conditional on the version the passage wrote.
+
+        ``D-IMPL-378``. A conflict here means a writer other than this passage
+        moved the execution's record while the passage ran; fail closed
+        (:class:`ExecutionFenced`).
+        """
+        try:
+            return self._write_state(
+                authorized,
+                workflow,
+                key,
+                record,
+                action=action,
+                actor=None,
+                expected_version=version,
+            )
+        except StateConflict as error:
+            raise ExecutionFenced(
+                f"execution {key!r} was moved by another writer while this"
+                " passage ran; nothing was written (D-IMPL-378)"
+            ) from error
 
     def _append(
         self,

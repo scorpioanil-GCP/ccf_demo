@@ -49,6 +49,7 @@ __all__ = [
     "ERROR_SIGNED_BINDING_STALE",
     "ERROR_APPROVER_NOT_ELIGIBLE",
     "ERROR_HITL_EVENT_REVALIDATION_REFUSED",
+    "ERROR_HITL_GATE_CLOSED",
     "ERROR_SUBJECT_CONFLICT",
     "ERROR_TENANT_UNAUTHORIZED",
     "ERROR_UNAUTHENTICATED",
@@ -198,6 +199,11 @@ ERROR_APPROVER_NOT_ELIGIBLE: Final[str] = "approver-not-eligible"
 #: snapshot and its record (409; `D-IMPL-366` §4b 6a). Nothing was consumed
 #: or recorded; the client re-presents against the current event.
 ERROR_HITL_EVENT_REVALIDATION_REFUSED: Final[str] = "hitl-event-revalidation-refused"
+
+#: The suspension a verdict names was already decided, so the verdict is
+#: refused and nothing is recorded (409; ``D-IMPL-378``): it can no longer
+#: change that gate's passage, and it does not stand beside it.
+ERROR_HITL_GATE_CLOSED: Final[str] = "hitl-gate-closed"
 
 #: The authenticated caller's grant does not authorize this tenant ×
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —

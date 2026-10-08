@@ -1,11 +1,11 @@
 """The approval-gate limits, through the served doors (D-IMPL-377 close-out §4d).
 
-RED BY DESIGN, like its in-process sibling
+RED FIRST, NOW THE ACCEPTANCE TESTS, like their in-process sibling
 ``tests/workflow/test_approval_gate_limits.py``, whose docstring states the
-limits, Dave's ruling (*"Disclosure alone does not close them."*), and how
-these tests assert without naming a refusal that no ruled fix has defined
-yet. Here every human action and every resumption travels the shipped HTTP
-doors (``POST /hitl/actions``, ``POST /workflow/resumptions``,
+limits, Dave's rulings (*"Disclosure alone does not close them."*, and the
+``D-IMPL-378`` fix) and how these tests assert: the hole's own end state
+first, then the refusing mechanism by name. Here every human action and every
+resumption travels the shipped HTTP doors (``POST /hitl/actions``, ``POST /workflow/resumptions``,
 ``POST /workflow/invocations``, ``GET /hitl/queue``), over the suite's own
 governed application (``tests/http_api/conftest.py::Fabric`` and
 ``tests/http_api/gate_fixtures.py::build_gate_app``), driven in process over
@@ -50,6 +50,7 @@ import httpx
 from ccf.agents.definitions import TASK_DEFINITION
 from ccf.controlplane.artifacts import parse_artifact
 from ccf.controlplane.state import InMemoryStateStore
+from ccf_runtime.http_api.errors import ERROR_HITL_GATE_CLOSED
 from ccf_runtime.workflow.engine import WorkflowEngine
 from http_api.composition_authority import register_versioned_at_composition
 from http_api.conftest import Fabric, _register_workflow
@@ -64,9 +65,11 @@ from http_api.gate_fixtures import (
 from tests.hitl.sec006_harness import register_typed_policy
 from tests.workflow import test_engine as eh
 from tests.workflow.test_approval_gate_limits import (
+    ALREADY_EXISTS,
     APPROVING_TERMINAL,
     COVENANT_GATE,
     FIRST_GATE,
+    RUNNING,
     START,
     SharedBackingStore,
     StandInRecords,
@@ -273,6 +276,7 @@ def two_doors(tmp_path: Path, bindings: eh._Bindings) -> tuple[Door, Door]:
     give_state_store(fabric_a, SharedBackingStore(records))
     give_state_store(fabric_b, SharedBackingStore(records))
     fabric_b.hitl = fabric_a.hitl  # the one authority path both replicas reach
+    fabric_a.hitl.scope = "shared"  # type: ignore[misc]  # it declares itself shared (D-IMPL-378)
     door_a = open_door(fabric_a, key_a, version_a, tmp_path / "gate-a", bindings)
     door_b = open_door(fabric_b, key_b, version_b, tmp_path / "gate-b", bindings)
     assert door_a.fabric.registry.state_store is not door_b.fabric.registry.state_store
@@ -307,6 +311,13 @@ def test_two_processes_over_one_durable_store_spend_one_approval_once_at_the_doo
             assert approved.status_code == 200, approved.text
             first = asyncio.create_task(resume_at(a, door_a, DOWNSTREAM))
             await asyncio.wait_for(bindings.entered.wait(), HOLD_SECONDS)
+            # Mid-passage, the status door of the OTHER process answers
+            # `running`: the passage committed before its step began.
+            status = await b.get(
+                "/workflow/execution", params={"execution_id": EXECUTION}, headers=STARTER
+            )
+            assert status.status_code == 200, status.text
+            assert status.json()["status"] == "running", status.json()
             second = await resume_at(b, door_b, DOWNSTREAM)
             bindings.release.set()
             return tenant, [await first, second]
@@ -334,6 +345,10 @@ def test_two_processes_over_one_durable_store_spend_one_approval_once_at_the_doo
         "LIMIT (a) AT THE DOORS: ONE approval became more than one passage"
         " across two processes over one durable store: " + "; ".join(problems)
     )
+    # D-IMPL-378, by name: B finds the passage A committed before its step —
+    # still running — and is refused, typed, before it runs anything.
+    refused = next(r for r in answered if r.status_code == 409)
+    assert RUNNING in refused.json()["reason"], refused.json()
 
 
 def test_either_door_alone_passes_the_gate_on_the_one_approval(tmp_path: Path) -> None:
@@ -403,6 +418,9 @@ def test_a_rejection_posted_while_the_step_after_the_gate_runs_is_not_outvoted(
         f" execution left that gate on the approving route (now at {NEXT_GATE!r}):"
         " the rejection was outvoted"
     )
+    # D-IMPL-378, by name: the gate's closure refuses the verdict at the door.
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["detail"]["error_code"] == ERROR_HITL_GATE_CLOSED, rejected.json()
 
 
 def test_the_same_rejection_posted_before_the_resumption_refuses_it(tmp_path: Path) -> None:
@@ -447,7 +465,7 @@ def test_a_rejection_posted_during_the_terminal_commit_is_not_outvoted_at_the_do
     """
     records = StandInRecords()
     fabric, key, version = fabric_at(tmp_path / "fabric", two_gate=False)
-    give_state_store(fabric, SharedBackingStore(records))
+    give_state_store(fabric, SharedBackingStore(records, scope="process"))
     door = open_door(fabric, key, version, tmp_path / "gate", eh._Bindings())
 
     async def start() -> tuple[str, str, str]:
@@ -488,6 +506,9 @@ def test_a_rejection_posted_during_the_terminal_commit_is_not_outvoted_at_the_do
         f" {described} during the resumption's commit, and the execution"
         f" completed at {APPROVING_TERMINAL!r}: the rejection was outvoted"
     )
+    # D-IMPL-378, by name: the gate's closure refuses the verdict at the door.
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["detail"]["error_code"] == ERROR_HITL_GATE_CLOSED, rejected.json()
 
 
 # --- (b') the verdict after the passage, at the doors -----------------------------
@@ -537,6 +558,16 @@ def test_a_passed_gate_is_neither_offered_nor_accepted_as_pending_at_the_doors(
             f" event_pending={receipt['event_pending']}"
         )
     assert not problems, "LIMIT (b') AT THE DOORS: " + "; ".join(problems)
+    # D-IMPL-378, by name: the gate's closure refuses the verdict at the door.
+    assert rejected.status_code == 409, rejected.text
+    assert rejected.json()["detail"]["error_code"] == ERROR_HITL_GATE_CLOSED, rejected.json()
+    # Nothing was recorded: the passed suspension holds the approval alone.
+    verdicts = [
+        s.action
+        for s in fabric.hitl.submissions(tenant=str(fabric.product_address.tenant))
+        if s.event_key == event_key
+    ]
+    assert verdicts == ["approve"], verdicts
 
 
 # --- (c) one execution id started twice, at the invocation door --------------------
@@ -583,4 +614,7 @@ def test_two_invocations_of_one_execution_id_at_the_door_run_the_start_node_once
     assert not problems, (
         "LIMIT (c) AT THE DOOR: one execution id was started twice: " + "; ".join(problems)
     )
+    # D-IMPL-378, by name: the create-if-absent start.
+    refused = next(r for r in answered if r.status_code == 409)
+    assert ALREADY_EXISTS in refused.json()["reason"], refused.json()
 
