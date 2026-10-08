@@ -46,7 +46,7 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from tests.composition import declaring_store
+from tests.replay.authority import mechanism_put
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.signal.envelope import SignalEnvelope
 from ccf.controlplane.artifacts import HalfLifeTable
@@ -135,9 +135,14 @@ def _ask(opened: OpenedProduct) -> Any:
 
 
 def _record(opened: OpenedProduct, outcome: Any) -> tuple[DecisionReplayRecord, FileArtifactStore, str]:
-    # A read-back store declaring nothing writable: the test reads what the
-    # product's own writer filed and files nothing itself (D-IMPL-353 §1.2).
-    fresh = declaring_store(opened.scratch / opened.replay.store_dirname)
+    # A read-back store under the deployment's OWN declaration: a record is
+    # read only where the store shows the fabric's record writer filed it, and
+    # which classes that writer files under is the declaration's to say
+    # (`D-IMPL-378`). Declaring nothing would refuse every record it holds.
+    fresh = FileArtifactStore(
+        root=opened.scratch / opened.replay.store_dirname,
+        write_kinds=opened.artifact_store.write_kinds,
+    )
     address = outcome.replay_ref.content_address if isinstance(outcome, ServedProduct) else fresh.resolve_uri(uri=outcome.replay_reference)
     return DecisionReplayRecord.model_validate_json(fresh.get(content_address=address)), fresh, address
 
@@ -594,7 +599,16 @@ def test_c9_replay_re_derives_the_anchor_and_a_pre_341_record_is_skipped_by_name
             assert older_record.content_generation_path.ttl_anchor_at is None
             older_address = hashlib.sha256(older_bytes).hexdigest()
             assert content_hash(older_record) == older_address, "a record lacking the member reloads to its own address"
-            (fresh.root / older_address).write_bytes(older_bytes)
+            # Filed as the deployment's writer filed the genuine record — by
+            # mechanism, under the same tenant and record class — and checked
+            # byte-for-byte: a record is read only where the store shows the
+            # record writer filed it (`D-IMPL-378`).
+            (genuine_filing,) = fresh.names_at(content_address=address)
+            filed = mechanism_put(
+                fresh, tenant=genuine_filing.tenant_id, artifact_class=genuine_filing.artifact_class,
+                name=older_address, artifact=json.loads(older_bytes),
+            )
+            assert filed.content_address == older_address and fresh.get(content_address=older_address) == older_bytes
             plain = _Environment(opened=opened, fabric=fabric, record=older_record, window=WINDOW, ttl_anchor="from_entity_freshness", carry_anchor=False)
             older_outcome = replay(record_address=older_address, store=fresh, reader=fabric.handle.reader, control_plane=opened.control_plane, environment=plain)
             assert older_outcome.product.ttl_anchor_at is None and older_outcome.product.expires_at == record.recorded_at + WINDOW

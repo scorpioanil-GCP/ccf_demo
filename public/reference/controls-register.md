@@ -75,6 +75,33 @@ STARTER (`WorkflowStateRecord.started_by`, copied to every gate event's
 | the SEC-001 hash binding, beside eligibility | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority` — `product_content_hash == suspension` | an ELIGIBLE approver's verdict over a hash other than the suspension's (the impostor control proves the ineligible path; this one proves the hash term) | **Resumption.** | `tests/workflow/test_engine.py::test_an_eligible_approvers_stale_hash_verdict_is_not_authority` |
 | the escalation pin (E) | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._escalation_authority` and `src/ccf/hitl/escalation.py::ExceptionEscalation.resolve` are NOT instrumented (RULED; the `D-IMPL-366` §9 follow-on) | nothing — the pin records that escalation eligibility is deliberately absent | **Exception-routed resumption.** | `tests/workflow/test_sec006_engine_controls.py::test_t13_escalation_resolution_judges_no_eligibility` |
 
+## One approval, one passage — SEC-001 (`D-IMPL-378`)
+
+One human approval carries an execution past its gate once. In one process the
+single-flight claim keeps two resumptions apart (`D-IMPL-377`). Beyond one process, the
+HITL transport closes the gate on exactly the verdicts a resumption judged
+(`src/ccf/hitl/transport.py::HITLTransportProtocol.close_gate`), and the passage is
+committed by a conditional state write before the step after the gate runs
+(`src/ccf/controlplane/state.py::ConditionalStateStore`). Dave's ruling of
+2026-10-07 approved both, refuses unsupported implementations at construction, and
+never retries an interrupted passage. Each row's test went red when its control was
+removed (lane 378-approval's severings).
+
+| control | where | what it refuses | path on which it can fail | the test that reddens it |
+| --- | --- | --- | --- | --- |
+| the gate's closure: the count | `src/ccf/hitl/transport.py::InMemoryHitlTransport.close_gate` | a decision over verdicts that changed after the resumption read them | **Resumption**, whatever the step after the gate takes | `tests/workflow/test_approval_gate_limits.py::test_a_rejection_recorded_right_after_the_resumptions_verdict_read_is_not_outvoted`; `tests/conformance/test_gate_closure_and_conditional_write.py::test_a_stale_count_changes_nothing` |
+| the gate's closure: one passage | `src/ccf/hitl/transport.py::InMemoryHitlTransport.close_gate` | a second passage taking a suspension another passage decided | **Resumption** | `tests/conformance/test_gate_closure_and_conditional_write.py::test_racing_closures_by_different_passages_admit_exactly_one` |
+| the decided gate at submission | `src/ccf/hitl/transport.py::InMemoryHitlTransport.submit`, before the revalidation and the nonce | a verdict on a decided suspension, which would stand beside a decision it can no longer reach | **The served path, both doors** | `tests/workflow/test_approval_gate_limits.py::test_a_rejection_recorded_during_the_resumptions_commit_is_not_outvoted`; `tests/workflow/test_approval_gate_limits.py::test_a_verdict_recorded_after_the_passage_is_not_taken_as_a_verdict_on_an_open_gate` |
+| the door mapping, HTTP | `runtime/ccf_runtime/http_api/routes/hitl.py` — `HitlGateClosed` → 409 `hitl-gate-closed` | the same refusal, rendered as its code | **The HTTP door** | `tests/http_api/test_approval_gate_limits_door.py::test_a_passed_gate_is_neither_offered_nor_accepted_as_pending_at_the_doors` |
+| the door mapping, MCP | `runtime/ccf_runtime/mcp/hitl_server.py` — `HitlGateClosed` → the refusal body with `hitl-gate-closed` | the same | **The MCP door** | `tests/mcp/test_hitl_gate_closed_mcp.py::test_a_verdict_on_a_decided_gate_is_refused_at_the_mcp_door` |
+| the engine closes the gate before it writes | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume` | an outvoted rejection: a passage on an approval while an opposite verdict is being recorded | **Resumption** | `tests/http_api/test_approval_gate_limits_door.py::test_a_rejection_posted_while_the_step_after_the_gate_runs_is_not_outvoted` |
+| the conditional passage commit | `src/ccf/controlplane/state.py::InMemoryStateStore.put_if`, through `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume` | a second passage of one approval through another process or state-store object | **Resumption beyond one process** | `tests/workflow/test_approval_gate_limits.py::test_two_state_store_objects_over_one_durable_store_spend_one_approval_once` |
+| the create-if-absent start | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.execute` | a second start of one execution id | **Execution** | `tests/workflow/test_approval_gate_limits.py::test_two_concurrent_starts_of_one_execution_id_run_the_start_node_once` |
+| the passage and its row are one write | `src/ccf/controlplane/state.py::AuditedStateWriter.write_if` | an attributed `workflow_resumed` row for a passage that never committed | **Resumption** | `tests/workflow/test_approval_gate_limits.py::test_a_resumption_that_never_commits_leaves_no_attributed_passage_row` |
+| a passage's closing write is fenced by version | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._fenced_write` | overwriting a record another writer moved while the step after the gate ran (`ExecutionFenced`; nothing is written, audited or enqueued) | **Resumption**, against a writer outside the engine | `tests/workflow/test_execution_fenced.py::test_a_record_moved_by_another_writer_while_the_step_runs_fences_the_passage` |
+| an interrupted passage is never retried | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`, on a `running` record | running again a step whose effects no engine can see | **Every resumption, in any process** | `tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process`; `tests/http_api/test_approval_gate_limits_door.py::test_two_processes_over_one_durable_store_spend_one_approval_once_at_the_doors` |
+| unsupported seams refused at construction | `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine` construction | a state store without the conditional write or a known scope; a transport without the whole Protocol; a shared store with a process-scoped transport | **Construction** | `tests/workflow/test_engine_refuses_unsupported_seams.py::test_a_store_without_the_conditional_write_is_refused_at_construction`; `tests/workflow/test_engine_refuses_unsupported_seams.py::test_a_transport_without_the_gate_closure_is_refused_at_construction`; `tests/workflow/test_engine_refuses_unsupported_seams.py::test_a_shared_store_with_a_process_scoped_transport_is_refused_at_construction` |
+
 ## What this page does not claim
 
 It does not claim Gate 2 can fail on the governed path; it says where that work

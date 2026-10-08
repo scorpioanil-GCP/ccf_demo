@@ -21,7 +21,10 @@ The pipeline, in order, with each step's failure mode named:
    is stated once. ``ccf.admission-record`` (D-IMPL-58 reading (d)) resolves
    through it as any other class does; no federation-shaped special case exists
    inside this engine, which is what keeps the seam described in one place
-   rather than two.
+   rather than two. The decision record is the one class also held to its
+   **provenance** there (`D-IMPL-378`): the store must show the fabric's record
+   writer filed the address under the tenant the record names, or the bytes —
+   however record-shaped — answer as a missing record does.
 
    Then — for the decision record only, and **before anything is resolved
    or re-executed** — the record's stored canonical form is held against the
@@ -133,6 +136,10 @@ from ccf.replay.record import (
     NO_PRODUCT_ADDRESS,
     NO_REQUEST_RESOLUTION,
     ResolutionNotApplicable,
+)
+from ccf.replay.provenance import (
+    RecordNotFiledByRecordWriter,
+    require_filed_by_record_writer,
 )
 from ccf.replay.snapshots import SnapshotReader, snapshot_of_execution
 from ccf.products.expiry import (
@@ -684,8 +691,20 @@ def resolve_artifact(
       makes the sentinel-default extension strategy (D-IMPL-87 lineage) keep
       its compatibility promise.
 
+    **One contract carries a third guarantee: provenance** (`D-IMPL-378`). A
+    :class:`~ccf.replay.record.DecisionReplayRecord` is the fabric's own
+    evidence, and its bytes name their tenant and principal themselves; so
+    after the bytes verify and parse, the store's naming must show the address
+    filed by the fabric's record writer — a ``ReplayMint`` class of its
+    ``WriteKinds`` — under the tenant the record names
+    (:func:`~ccf.replay.provenance.require_filed_by_record_writer`).
+    Record-shaped bytes filed any other way, a client-lane artifact included,
+    are answered as a missing record is.
+
     Args:
-        store: Where the artifact lives (CLAUDE.md §7.4).
+        store: Where the artifact lives (CLAUDE.md §7.4). To resolve a
+            ``DecisionReplayRecord`` it must answer ``write_kinds`` and
+            ``names_at``, as both shipped stores do.
         content_address: The address to resolve. An address, not a name: names
             move, addresses do not.
         contract: The contract the bytes must satisfy. Supplied by the caller
@@ -693,10 +712,16 @@ def resolve_artifact(
             caller's business — the store's contract is byte fidelity.
 
     Raises:
-        ReplayUnresolvable: nothing is stored at that address.
+        ReplayUnresolvable: nothing is stored at that address; or, for a
+            ``DecisionReplayRecord``, the store shows no filing of it by the
+            fabric's record writer under the record's tenant — chained from
+            :class:`~ccf.replay.provenance.RecordNotFiledByRecordWriter`.
         ReplayDivergence: the stored bytes do not hash to the address asked for.
         ccf.erasure.ErasedContentRefused: the address was erased
             (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
+        ccf.replay.provenance.UnattributableRecordStore: a
+            ``DecisionReplayRecord`` was read through a store that cannot say
+            who filed an address.
     """
     try:
         payload = store.get(content_address=content_address)
@@ -723,7 +748,23 @@ def resolve_artifact(
             f"store returned bytes that are not the {contract.__name__} that "
             "was asked for"
         )
-    return contract.model_validate_json(payload)
+    artifact = contract.model_validate_json(payload)
+    if isinstance(artifact, DecisionReplayRecord):
+        # `D-IMPL-378` (Dave, item 3): bytes shaped as a record are a record
+        # only where the store shows the fabric's record writer filed them,
+        # under the tenant they name — `govern_dereference`'s provenance rule.
+        # Anything else answers as a missing record does, the cause naming why.
+        try:
+            require_filed_by_record_writer(
+                store, content_address=content_address, tenant_id=artifact.tenant_id
+            )
+        except RecordNotFiledByRecordWriter as unfiled:
+            raise ReplayUnresolvable(
+                f"no {contract.__name__} filed by the fabric's record writer is"
+                f" stored at {content_address!r}; bytes filed any other way are"
+                " not a record, and replay has no fallback (D-IMPL-378)"
+            ) from unfiled
+    return artifact
 
 
 def resolve_artifact_at_uri(
@@ -751,11 +792,16 @@ def resolve_artifact_at_uri(
             not fail to find something, the caller asked a question replay must
             never answer.
         ReplayUnresolvable: the URI is malformed, names no stored version, or
-            names a version whose bytes are absent.
+            names a version whose bytes are absent — or, for a
+            ``DecisionReplayRecord``, names bytes the fabric's record writer
+            did not file under the record's tenant (`D-IMPL-378`; see
+            :func:`resolve_artifact`).
         ReplayDivergence: the resolved bytes do not hash to the address the name
             pointed at.
         ccf.erasure.ErasedContentRefused: the named version was erased
             (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
+        ccf.replay.provenance.UnattributableRecordStore: as for
+            :func:`resolve_artifact`.
     """
     try:
         content_address = store.resolve_uri(uri=uri)

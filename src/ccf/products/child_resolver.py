@@ -77,6 +77,7 @@ from ccf.products.contract import (
 )
 from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, WireRequest
 from ccf.products.request import ProductRequest
+from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import McpProductBinding
@@ -597,21 +598,43 @@ class GrantBoundChildResolver:
         statement that its execution record is not resolvable here, which the
         admission gate must not read as *"nothing was touched"*.
 
-        **The binding, stated because it is the whole guarantee.** The
+        **Provenance first** (`D-IMPL-378`). The bytes the reference names are
+        a record only where the store shows the fabric's record writer filed
+        them under the tenant they name
+        (:func:`~ccf.replay.provenance.require_filed_by_record_writer`); a
+        record-shaped artifact filed on a client lane is refused before
+        anything is read out of it.
+
+        **Then the binding.** The
         referenced record's own ``product_content_address`` is held against the
         child's **recomputed** address — ``content_hash(contract)``, never the
         address the producer reported — and that comparison happens **before**
         any dependency evidence is read out of the record.
 
         Raises:
+            ccf.replay.provenance.RecordNotFiledByRecordWriter: the store shows
+                no filing of the referenced bytes by the fabric's record writer
+                under the tenant they name — they are not the child's record.
+                An :class:`~ccf.artifacts.protocol.ArtifactNotFound`, as a
+                reference naming nothing is.
+            ccf.replay.provenance.UnattributableRecordStore: this resolver's
+                store cannot say who filed an address.
             ChildRecordMismatch: the referenced record describes a different
                 product. Raised rather than refused: evidence about another
                 product is not a fact about this child's eligibility.
         """
         if replay_ref is None:
             return None
+        record_address = self._store.resolve_uri(uri=replay_ref)
         record = DecisionReplayRecord.model_validate_json(
-            self._store.get(content_address=self._store.resolve_uri(uri=replay_ref))
+            self._store.get(content_address=record_address)
+        )
+        # `D-IMPL-378` (Dave, item 3): the bytes the reference names are the
+        # child's record only if the store shows the fabric's record writer
+        # filed them under the tenant they name — a record-shaped artifact on
+        # a client lane is no execution record, and nothing is read out of it.
+        require_filed_by_record_writer(
+            self._store, content_address=record_address, tenant_id=record.tenant_id
         )
         # **The record must be THIS product's.** Found by the final review and
         # reproduced: `contract` was a declared parameter this method never

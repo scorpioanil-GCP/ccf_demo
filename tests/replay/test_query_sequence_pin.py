@@ -598,15 +598,35 @@ def test_a_doctored_pin_sequence_is_caught_as_divergence(
 # --- 5. the compatibility matrix (T-15.2-16, D-IMPL-89) ----------------------
 
 
+#: The record class an older writer filed the verbatim records under; every
+#: store handed to :func:`_stored_verbatim` declares it under ``ReplayMint``.
+VERBATIM_RECORD_CLASS = "decision-replay-record"
+
+
 def _stored_verbatim(store: FileArtifactStore, payload: bytes) -> str:
     """File ``payload`` exactly as an older writer stored it; return its address.
 
-    Written straight to the substrate rather than through ``put`` because
-    ``put`` canonicalizes through the *current* model — the whole point of
-    these cases is bytes a **previous** contract version produced.
+    Filed as the PARSED canonical object rather than as a model, because a
+    model would canonicalize through the *current* contract — the whole point
+    of these cases is bytes a **previous** contract version produced — and
+    canonical JSON re-canonicalizes to itself, which the assertion below holds
+    rather than assumes. Filed by mechanism (a derived write under
+    ``ReplayMint``) under the record class and the record's own tenant, as
+    the older writer filed it: a record is read only where the store shows
+    the fabric's record writer filed it (``D-IMPL-378``). Before that rule this
+    helper wrote the bytes straight to the substrate, leaving no filing at all.
     """
     address = hashlib.sha256(payload).hexdigest()
-    (store.root / address).write_bytes(payload)
+    parsed = json.loads(payload)
+    filed = mechanism_put(
+        store,
+        tenant=parsed["tenant_id"],
+        artifact_class=VERBATIM_RECORD_CLASS,
+        name=address,
+        artifact=parsed,
+    )
+    assert filed.content_address == address, "re-filing changed the older writer's bytes"
+    assert store.get(content_address=address) == payload
     return address
 
 

@@ -596,6 +596,22 @@ class ResourceRequestIdentity(CCFContract):
             read from the deployment's own declared clock — the **same**
             instant the replay record's ``recorded_at`` carries, so the shell
             and its record cannot disagree about when the fabric decided.
+        tenant_from: Where :attr:`tenant_id` came from — the marker a
+            read-refusal record carries (Dave, 2026-10-07, ruling Q3;
+            ``D-IMPL-378``). ``"capability"`` is the positive claim that
+            :attr:`tenant_id` is the tenant the deciding capability was
+            verified for, bound to the principal replay dimension 4 records.
+            Only the governed evidence read
+            (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``)
+            writes it, on the read refusals it mints, and only that read
+            reads it — and only on a record its provenance check has proved
+            the fabric's record writer filed, so bytes a caller filed carrying
+            it confer nothing. ``None``, the sentinel, states nothing: a
+            read-refusal record minted before the marker named the recorder's
+            tenant whichever tenant asked, so the governed read answers it as
+            a missing address for every caller, the principal it names
+            included. Hash-transparent at ``None``, so every record minted
+            before the field existed keeps its content address.
 
     Raises:
         ValueError: ``determined_at`` carries no UTC offset. ``D-IMPL-38``
@@ -610,6 +626,9 @@ class ResourceRequestIdentity(CCFContract):
     address: str
     tenant_id: str
     determined_at: datetime
+    tenant_from: Literal["capability"] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @field_validator("determined_at")
     @classmethod
@@ -970,10 +989,16 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:   contradictions"*): a governed "no" is a determination the fabric reached,
 #:   while two contradicting authoritative inputs are a state in which it
 #:   cannot determine what is true.
+#: * ``StateConflict`` — raised by a Control Plane state store's conditional
+#:   write when the record moved after its writer read it (``D-IMPL-378``). The
+#:   workflow engine turns it into its own typed resumption refusal, so no
+#:   consumer receives it as a determination: it is the store reporting a
+#:   concurrent writer, a state in which the write cannot proceed, never a
+#:   governed "no" about a product.
 #:
-#: The last two joined in ``24.6-L-07`` for the reason ``DefaultConflict``
-#: joined the allowlist above: the structural walk widened to the ``…Conflict``
-#: name family so that
+#: ``WebhookEndpointConflict`` and ``FragmentFamilyConflict`` joined in
+#: ``24.6-L-07`` for the reason ``DefaultConflict`` joined the allowlist above:
+#: the structural walk widened to the ``…Conflict`` name family so that
 #: :class:`~ccf.products.constraints.PolicyResolutionConflict` could not enter
 #: the vocabulary by exemption, and widening a walk means placing everything it
 #: then finds. Both are pre-existing ``ValueError`` subclasses and neither
@@ -995,6 +1020,7 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
         "WebhookEndpointConflict",
         "FragmentFamilyConflict",
         "ConstraintEffectivityConflict",
+        "StateConflict",
     }
 )
 
