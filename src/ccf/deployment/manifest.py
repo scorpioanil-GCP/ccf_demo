@@ -122,7 +122,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "QuestionFabricNotFresh", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "ManifestKeysPlaceToOneKey", "QuestionFabricNotFresh", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -231,6 +231,42 @@ class QuestionFabricNotFresh(ValueError):
     credentials) cannot be shown fresh by them and is refused rather than
     assumed. Raised before anything is registered or booted.
     """
+
+
+class ManifestKeysPlaceToOneKey(ValueError):
+    """Two manifest entries' keys place to ONE Control Plane key under the tenant.
+
+    SDK-defined (CLAUDE.md §6.4 and §10), ``D-IMPL-378``. Placement
+    (:func:`manifest_under_tenant`, ``D-IMPL-354``) writes a bare key ``k`` as
+    ``{tenant}/k`` and leaves a key already written ``{tenant}/k`` unchanged, so
+    two entries authored as ``k`` and ``{tenant}/k`` are distinct strings, which
+    the contract's own key-uniqueness check admits, and ONE key once placed. One
+    key holds one artifact in force. Placed anyway, the boot would keep one of the
+    two documents and the register loop would register it under both entries:
+    for one class the other document is never registered, pinned or returned, and
+    nothing says so. Refused instead, by name, before anything is minted or
+    registered, whatever the two entries' classes and roles, through every door
+    that places keys (``load_and_boot``, ``load_config_and_boot`` and the
+    consumer chain ``ccf.products.product.open_product`` derives).
+
+    Attributes:
+        authored_keys: The two keys as the manifest wrote them, in manifest order.
+        placed_key: The one key both place to.
+        tenant: The tenant they were placed under.
+    """
+
+    def __init__(self, *, authored_keys: tuple[str, str], placed_key: str, tenant: str) -> None:
+        self.authored_keys, self.placed_key, self.tenant = authored_keys, placed_key, tenant
+        first, second = authored_keys
+        super().__init__(
+            f"ManifestKeysPlaceToOneKey: manifest keys {first!r} and {second!r}"
+            f" both place to {placed_key!r} under tenant {tenant!r}. A bare key"
+            " and the same key written under the tenant are one Control Plane key"
+            " once placed (D-IMPL-354), and one key holds one artifact in force:"
+            " booting would register one of the two documents under both entries"
+            " and drop the other with no record, so nothing is registered. Remove"
+            " one entry, or give the two keys that differ once placed (D-IMPL-378)"
+        )
 
 
 def _refuse_unless_fresh(backend: str, connection: Mapping[str, object] | None) -> None:
@@ -804,10 +840,34 @@ def manifest_under_tenant(
     :class:`~ccf.deployment.keys.DeploymentKeys` — so the key an artifact is
     registered under and the key the resolver later resolves are the same
     string by construction (D-IMPL-354; D-IMPL-353 §1.3).
+
+    The derivation is many-to-one — a bare ``k`` and ``{tenant}/k`` place to
+    the same key — and the parsed mapping it re-keys holds one document per
+    key. So two of the manifest's entries placing to one key are refused here,
+    from the entries rather than from ``parsed`` (which a caller may pass
+    partial), before anything is re-keyed (``D-IMPL-378``).
+
+    Raises:
+        ManifestKeysPlaceToOneKey: two entries' keys place to one key under
+            ``tenant``, whatever their classes and roles.
     """
 
     def under(key: str) -> str:
         return namespaced_key(tenant=tenant, key=key)
+
+    # `D-IMPL-378`: BEFORE the re-keying below, whose mapping would keep one of
+    # two colliding documents and hand the register loop the survivor for both
+    # entries. Every door that places keys reaches this before it mints.
+    authored_by_placed: dict[str, str] = {}
+    for entry in manifest.artifacts:
+        placed = under(entry.key)
+        if placed in authored_by_placed:
+            raise ManifestKeysPlaceToOneKey(
+                authored_keys=(authored_by_placed[placed], entry.key),
+                placed_key=placed,
+                tenant=tenant,
+            )
+        authored_by_placed[placed] = entry.key
 
     entries = tuple(entry.model_copy(update={"key": under(entry.key)}) for entry in manifest.artifacts)
     renamed = manifest.model_copy(
@@ -1093,6 +1153,11 @@ def load_and_boot(
             turned into a loud failure here, naming the key, the class and the
             refusal type: a refusal is never swallowed, never downgraded to a
             warning, and never retried down the ``typed`` path.
+        ManifestKeysPlaceToOneKey: two entries' keys place to one key under
+            the resolved tenant (a bare ``k`` beside ``{tenant}/k``), whatever
+            their classes and roles. A ``ValueError``, raised after every
+            document is parsed and before anything is minted or registered
+            (``D-IMPL-378``).
         TypeError: a ``registration: versioned`` entry names a class whose
             documents declare no string ``artifact_version``, so the bump check
             has nothing to verify. This is what an adopter sees when they declare
