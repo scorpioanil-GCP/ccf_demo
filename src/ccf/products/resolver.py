@@ -1485,6 +1485,17 @@ class ReplayRefusalRecorder:
             which is the observational difference ``D-IMPL-253`` amendment 2
             (4) forbids.
 
+            **Keyed by the determination's tenant together with the
+            principal** (Dave, 2026-10-07; ``D-IMPL-378``): a delivery-boundary
+            determination's own resource identity names the tenant its door
+            established for the caller, and that tenant is the one asked; this
+            recorder's own tenant is asked only for a determination that names
+            none — a resolver's own refusal, decided under the tenant this
+            recorder files for. Asked under this recorder's tenant alone, a
+            door serving several tenants through one recorder disclosed another
+            tenant's caller at whatever level this tenant declares for a
+            colliding principal id.
+
             The default is :func:`_minimal_disclosure`, which reads nothing and
             answers ``(DISCLOSURE_MINIMAL, None)``. A recorder wired with no
             Control Plane to ask cannot resolve a policy, and the safe default
@@ -1584,8 +1595,17 @@ class ReplayRefusalRecorder:
         wrappers all reach disclosure only through here, so one determination
         cannot be disclosed twice by two readings of the policy.
         """
+        # The tenant the determination was made under, with the principal it
+        # was made for: a delivery-boundary determination names it on its
+        # resource identity; a resolver's own refusal names none and was made
+        # under this recorder's tenant (Dave, 2026-10-07; `D-IMPL-378`).
         level, disclosure_policy = self.disclosure_level_for(
-            tenant=self.tenant_id, principal_id=perspective.principal_id
+            tenant=(
+                envelope.resource.tenant_id
+                if envelope.resource is not None
+                else self.tenant_id
+            ),
+            principal_id=perspective.principal_id,
         )
         disclosed, decision = disclose(
             envelope, level=level, policy=disclosure_policy
