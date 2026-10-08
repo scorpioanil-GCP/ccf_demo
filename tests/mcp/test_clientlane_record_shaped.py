@@ -73,6 +73,7 @@ from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.delivery_boundary import DEREFERENCE_PRODUCT_ID
 from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource
 from ccf_runtime.mcp.artifact_server import (
+    PUT_ARTIFACT_TOOL,
     artifact_blob_uri,
     artifact_meta_uri,
     artifact_names_uri,
@@ -81,6 +82,7 @@ from ccf_runtime.mcp.artifact_server import (
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource
 from tests.composition import declared_erasure_trust, no_erasures
 from tests.controlplane.capabilities import capability
+from tests.erasure import harness as h
 from tests.http_api.composition_authority import (
     deployment_store,
     refusal_recorder,
@@ -97,6 +99,7 @@ from tests.mcp.guarded_servers import (
 )
 from tests.mcp.test_artifact_server_authorized import _as_grant
 from tests.mcp.test_c2_tenant_hold_mcp import _file, _grant, _policy, _record
+from tests.mcp import test_sec009_mcp_names_at as names_world
 from tests.mcp.test_sec009_mcp_names_at import _Run
 
 #: A client-lane class: one the substrate does not declare governed.
@@ -426,3 +429,94 @@ def test_a_tenants_answers_for_its_record_shaped_filing_do_not_depend_on_another
     ]
     assert answers["no-other-filing"]["blob"] != canonical_bytes(record), "the record's bytes crossed the client lane"
     RefusalEnvelope.model_validate_json(answers["no-other-filing"]["meta"])
+
+
+def _put_through_the_door(world: _World, document: Any, *, name: str) -> dict[str, Any]:
+    """``PRINCIPAL`` files ``document`` on the client lane through the server's own ``put_artifact`` tool."""
+    reset = _as_grant(_grant())
+    try:
+        _content, structured = anyio.run(
+            world.server.call_tool,
+            PUT_ARTIFACT_TOOL,
+            {
+                "artifact_class": CLIENT_CLASS,
+                "name": name,
+                "canonical_b64": base64.b64encode(canonical_bytes(document)).decode("ascii"),
+            },
+        )
+    finally:
+        auth_context_var.reset(reset)
+    assert isinstance(structured, dict), structured
+    return structured
+
+
+def test_the_write_is_not_refused_and_the_names_resource_still_lists_the_filing(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the serve is refused. A principal files a record's bytes on its
+    tenant's client lane through the server's own ``put_artifact`` tool: the
+    write files them and answers their reference, the names resource lists the
+    filing under its stored class, and the bytes read back as absent, decided by
+    the governed dereference."""
+    world = _world(tmp_path)
+    client = _client(world, monkeypatch)
+    forged = _record(tenant=TENANT, principal=VICTIM, subject="clientlane-through-the-door")
+    address = content_hash(forged)
+
+    reference = _put_through_the_door(world, json.loads(canonical_bytes(forged)), name="through-the-door")
+    assert (reference["content_address"], reference["tenant_id"], reference["artifact_class"]) == (
+        address,
+        TENANT,
+        CLIENT_CLASS,
+    )
+    assert client.names_at(content_address=address) == (
+        ArtifactName(tenant_id=TENANT, artifact_class=CLIENT_CLASS, name="through-the-door", artifact_version=address),
+    )
+    since = len(world.audit_log.events())
+    with pytest.raises(ArtifactNotFound):
+        client.get(content_address=address)
+    assert _trail(world, address, since) == [(DEREFERENCE_PRODUCT_ID, False)]
+
+
+def test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_filing_to_verify_its_subject(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A consequence of the refusal, disclosed on the security page (§4.10). The
+    erasure door verifies the subject of every address a request names by
+    reading that address's bytes (``ErasureDoor._verify_addresses``). Over the
+    MCP-backed store the read is a blob read, so a request naming a
+    record-shaped client-lane filing is refused ``subject-unverifiable``. The
+    in-process door reads the store directly and judges the subject from the
+    bytes: ``subject-not-found`` here, because the record carries nothing at the
+    subject's declared key path."""
+    plane = h.compose(tmp_path)
+    record = _record(tenant=h.TENANT, principal=VICTIM, subject="clientlane-erasure")
+    filed = h.client_put(plane.store, name="record-copy", document=json.loads(canonical_bytes(record)))
+    base = h.request(plane)
+    (named,) = base.addresses
+    request = base.model_copy(
+        update={"addresses": (named.model_copy(update={"content_address": filed.content_address}),)}
+    )
+    session = names_world._InProcessSession(names_world._server(tmp_path, plane.store))
+
+    async def run_with_session(*, url: str, operation: Any, http_client_factory: Any) -> Any:
+        return await operation(session)
+
+    monkeypatch.setattr(mcp_store_module, "run_with_session", run_with_session)
+    client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=_Run(), write_kinds=h.write_kinds())  # type: ignore[arg-type]
+    refused = h.door_module("ErasureRefused")
+
+    with pytest.raises(refused) as over_mcp:
+        h.run(
+            h.door(plane, store=client).request(
+                h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)
+            )
+        )
+    assert over_mcp.value.reason_code == "subject-unverifiable"
+    with pytest.raises(refused) as in_process:
+        h.run(
+            h.door(plane).request(
+                h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)
+            )
+        )
+    assert in_process.value.reason_code == "subject-not-found"
