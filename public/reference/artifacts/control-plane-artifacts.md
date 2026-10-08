@@ -36,7 +36,11 @@ The debt profile:
 
 And a class the SDK does *not* own, carried in the open `DeclaredArtifact`
 envelope. The SDK fixes `semver`, `class_id` and canonical serializability;
-everything under `declaration:` is the deployment's own:
+everything under `declaration:` is the deployment's own. The document's
+`class_id` must name the class it is parsed or registered as — the class its
+manifest entry names — or it is refused with
+`ccf.controlplane.artifacts.ArtifactClassIdMismatch` before anything is
+registered (`D-IMPL-378`):
 
 ```yaml
 --8<-- "archive/examples/00-quickstart/artifacts/policy-bundle.yaml"

@@ -1792,6 +1792,7 @@
   "ccf.controlplane.artifact_base": {
     "__all__": [
       "ArtifactClass",
+      "ArtifactClassIdMismatch",
       "VersionedArtifact",
       "validate_semver"
     ],
@@ -1799,6 +1800,10 @@
       "ArtifactClass": {
         "kind": "class",
         "shape": "(class_id: 'str', contract: 'type[CCFContract]') -> None"
+      },
+      "ArtifactClassIdMismatch": {
+        "kind": "class",
+        "shape": "(*, presented_class_id: 'str', document_class_id: 'object') -> 'None'"
       },
       "VersionedArtifact": {
         "kind": "contract",
@@ -1815,6 +1820,7 @@
   "ccf.controlplane.artifacts": {
     "__all__": [
       "ArtifactClass",
+      "ArtifactClassIdMismatch",
       "ArtifactLoadError",
       "ArtifactRole",
       "CONSTRAINT_OPERATORS",
@@ -1879,6 +1885,10 @@
       "ArtifactClass": {
         "kind": "class",
         "shape": "(class_id: 'str', contract: 'type[CCFContract]') -> None"
+      },
+      "ArtifactClassIdMismatch": {
+        "kind": "class",
+        "shape": "(*, presented_class_id: 'str', document_class_id: 'object') -> 'None'"
       },
       "ArtifactLoadError": {
         "kind": "class",

@@ -553,6 +553,10 @@ class ControlPlaneRegistry:
                 capability's tenant.
             TypeError: the artifact does not satisfy the class contract, or the
                 key is already bound to a different artifact class.
+            ccf.controlplane.artifact_base.ArtifactClassIdMismatch: the
+                artifact states a ``class_id`` other than ``artifact_class``'s
+                own — a ``TypeError``, raised by ``artifact_class.validate``
+                before anything is stored or audited (``D-IMPL-378``).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """
@@ -653,6 +657,10 @@ class ControlPlaneRegistry:
             TypeError: the artifact fails the class contract, the key is bound
                 to a different class, or the artifact declares no string
                 ``artifact_version``.
+            ccf.controlplane.artifact_base.ArtifactClassIdMismatch: the
+                artifact states a ``class_id`` other than ``artifact_class``'s
+                own — a ``TypeError``, raised by ``artifact_class.validate``
+                before anything is stored or audited (``D-IMPL-378``).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """

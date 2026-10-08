@@ -255,7 +255,7 @@ Rows by coupling shape:
 | `public/reference/artifacts/agent-definitions.md` | 31 | `archive/examples/01-agent-basics` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/control-plane-artifacts.md` | 28 | `archive/examples/00-quickstart` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/control-plane-artifacts.md` | 34 | `archive/examples/00-quickstart` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/reference/artifacts/control-plane-artifacts.md` | 42 | `archive/examples/00-quickstart` | `snippet-include` | live | - | - | 23-04 |  |
+| `public/reference/artifacts/control-plane-artifacts.md` | 46 | `archive/examples/00-quickstart` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/product-registration.md` | 31 | `archive/examples/00-quickstart` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/product-registration.md` | 39 | `archive/examples/00-quickstart` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/prompt-artifacts.md` | 15 | `archive/examples/01-agent-basics` | `snippet-include` | live | - | - | 23-04 |  |
