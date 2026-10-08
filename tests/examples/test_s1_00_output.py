@@ -48,6 +48,17 @@ from ccf.replay.record import DecisionReplayRecord
 
 pytestmark = pytest.mark.postgres
 
+#: D-IMPL-378 C4 (Dave, 2026-10-07 21:18 MST; confirmed 2026-10-08 04:07 MST).
+#: D-IMPL-355 (Option A) keeps s1-00 out of the repair. Its deployment reads the
+#: bare key 'request_contract', which the placed-key Control Plane no longer
+#: serves (SEC353-G-07), so each test below raises KeyError before it asserts.
+#: Quarantined under D-IMPL-261: strict, so the day one passes CI goes red, and
+#: raises=KeyError, so a different failure is reported rather than absorbed.
+_FROZEN_FAMILY_REASON = (
+    "SEC353-G-07: s1-00 reads the bare key 'request_contract' (KeyError); kept out of"
+    " the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4"
+)
+
 EXAMPLE = (
     pathlib.Path(__file__).resolve().parents[2]
     / "examples"
@@ -157,6 +168,7 @@ LOW = 100_000_000
 HIGH = 3_000_000_000
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     """A low threshold admits strictly more companies than a high one."""
     low = _over(tmp_path / "low", LOW)
@@ -170,6 +182,7 @@ def test_the_threshold_selects(tmp_path: pathlib.Path, seeded: str) -> None:
     assert sorted(names) == [name for name, _ in _expected(seeded, LOW)]
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_two_thresholds_are_two_products(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -183,6 +196,7 @@ def test_two_thresholds_are_two_products(
     assert content_hash(low.product) != content_hash(high.product)
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_same_question_is_stable(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -192,6 +206,7 @@ def test_the_same_question_is_stable(
     assert content_hash(first.product) == content_hash(second.product)
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_a_missing_threshold_is_refused_not_defaulted(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -226,6 +241,7 @@ def test_a_missing_threshold_is_refused_not_defaulted(
     assert outcome.replay_reference != NO_REPLAY_REFERENCE
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_debt_is_driven_by_last_updated(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -245,6 +261,7 @@ def test_debt_is_driven_by_last_updated(
     assert late.product.debt.debt > early.product.debt.debt
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_debt_rides_the_product(tmp_path: pathlib.Path, seeded: str) -> None:
     """D_c is delivered WITH the answer and is inside its content address."""
     result = _over(tmp_path / "d", LOW)
@@ -253,6 +270,7 @@ def test_debt_rides_the_product(tmp_path: pathlib.Path, seeded: str) -> None:
     assert result.product.debt.signal is not None
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_one_operator_and_the_gates_agree(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -268,6 +286,7 @@ def test_one_operator_and_the_gates_agree(
     assert result.product.lineage.operators_invoked == frozenset(declared)
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_record_is_written_before_delivery(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -284,6 +303,7 @@ def test_the_record_is_written_before_delivery(
     assert recorded.parameters[deployment.THRESHOLD_PARAMETER] == LOW
 
 
+@pytest.mark.xfail(strict=True, raises=KeyError, reason=_FROZEN_FAMILY_REASON)
 def test_the_answer_is_the_select_plus_four_things_it_cannot_return(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
