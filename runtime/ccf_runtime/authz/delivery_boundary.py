@@ -1398,8 +1398,14 @@ def govern_dereference(
         return erased_reading(erased)
 
     # --- hold 3: the level that disclosed the serve -------------------------
+    # Read through the door's recorder (`D-IMPL-345` R-2), keyed on the
+    # capability's tenant AND principal together (Dave, 2026-10-07;
+    # `D-IMPL-378`) — after hold 0 that is the tenant the record was decided
+    # under. Keyed on the RECORDER's tenant, a door serving several tenants read
+    # the level its own tenant declares for a colliding principal id: another
+    # tenant's record crossed at that level, or was withheld at it.
     level, _policy = refusal_recorder.disclosure_level_for(
-        tenant=refusal_recorder.tenant_id, principal_id=principal
+        tenant=authorized.tenant, principal_id=principal
     )
     if level != DISCLOSURE_FULL:
         return refuse(
