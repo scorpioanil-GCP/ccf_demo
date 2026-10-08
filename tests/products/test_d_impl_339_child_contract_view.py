@@ -40,7 +40,7 @@ from ccf.replay.engine import replay
 from ccf.graph.protocols import GraphView
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal, context_debt
 from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS, ChildContractView
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -246,13 +246,19 @@ class _Asking:
 
 @pytest.fixture
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    yield from boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, `_ChildReadingFactory` or
+    # `_LegacyFactorySpy`, whose projection never raises the withheld signal
+    # (`ProjectionOutput.withheld` stays False), so the class states it never withholds
+    # its subject (both fixtures here alike).
+    yield from boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
 
 
 @pytest.fixture
 def booted_with_a_tight_tolerance(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     yield from boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
         product_class_overrides={"serve_obligations": {"default_debt_tolerance": "0.10"}},
         request_contract_overrides=TOLERANCE_ARGUMENT,
     )

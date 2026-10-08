@@ -49,6 +49,7 @@ from ccf.artifacts.protocol import ArtifactRef
 from ccf.authz.capability import ArtifactWrite
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.erasure import compose_erasure_consult
 from ccf.replay.engine import (
     RefusalReplayOutcome,
@@ -94,7 +95,12 @@ def _provenance() -> ModuleType:
 
 @pytest.fixture
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    yield from boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory` or
+    # `tests/products/test_d_impl_339_child_contract_view.py::_ChildReadingFactory`,
+    # whose projection never raises the withheld signal (`ProjectionOutput.withheld`
+    # stays False), so the class states it never withholds its subject.
+    yield from boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
 
 
 def _fresh(booted: _Booted) -> FileArtifactStore:

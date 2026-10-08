@@ -49,7 +49,7 @@ from ccf.deployment.operators import build_operator_registry
 from ccf.mcp.client import SyncMcpBridge
 from ccf.products.child_resolver import ChildQuestion, QuestionBoundChildResolver
 from ccf.products.composite import CHILD_QUESTION_CLASS, CompositeAdmissionGate
-from ccf.products.contract import ChildRequirement, ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ChildRequirement, ContextProductContract
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver
 from ccf.replay.engine import replay
@@ -102,7 +102,12 @@ def bridge() -> Iterator[SyncMcpBridge]:
 
 @pytest.fixture
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    deployment = boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory` or
+    # `tests/products/test_d_impl_339_child_contract_view.py::_ChildReadingFactory`,
+    # whose projection never raises the withheld signal (`ProjectionOutput.withheld`
+    # stays False), so the class states it never withholds its subject.
+    deployment = boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     yield next(deployment)
     deployment.close()
 
@@ -418,6 +423,7 @@ def test_a_lane_the_producer_does_not_serve_is_refused_and_an_unoffered_class_is
     the binding's lane is a deployment error before any socket."""
     deployment = boot_composite(
         tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,  # as `booted`: `_plan_factory` never withholds
         product_class_overrides={
             "requires": [
                 {"product_class": PRODUCT_CLASS, "required": True, "compatible_from": "2.0.0"}
