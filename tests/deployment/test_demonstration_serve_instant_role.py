@@ -96,3 +96,10 @@ def test_a_register_role_demonstration_instant_boots_and_is_registered(
         assert registry.versions(f"{TENANT}/{CLASS_ID}"), registry.audit_events()
     finally:
         booted.handle.close()
+
+
+def test_every_fixed_role_states_its_reason() -> None:
+    """No class is fixed without the reason its refusal speaks (`_SDK_ROLE_REASONS`)."""
+    from ccf.deployment.classes import SDK_ARTIFACT_ROLES, _SDK_ROLE_REASONS
+
+    assert set(_SDK_ROLE_REASONS) == set(SDK_ARTIFACT_ROLES)

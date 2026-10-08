@@ -204,6 +204,36 @@ declaration).
 - Why: without it, `as_of=None` would ask at today's date and be served at the declared instant, and the two transports would disagree (`D-IMPL-150`)
 - Migration: none
 
+## ccf.deployment.classes.SDK_ARTIFACT_ROLES
+
+- Surface: ccf.deployment.classes.SDK_ARTIFACT_ROLES
+- Public surface: true
+- Change type: behavior
+- Before: one class with a role the SDK fixes, `ccf.signal-batch` (`load`)
+- After: two; `ccf.demonstration-serve-instant` is fixed to `register`
+- Why: a manifest entry declaring the class `role: load` was parsed and never registered, so the composition found no declaration and the fabric served on its real clock while the manifest said it declared an instant, with nothing saying so (lane `378d-democlock` finding (d)). `D-IMPL-134` reads the role of a `ccf.*` class as the SDK's to know, and here there is one correct value. Measured by `tests/deployment/test_demonstration_serve_instant_role.py`
+- Migration: a manifest that declares `ccf.demonstration-serve-instant` must declare `role: register`; `role: load` is now refused at boot. The `demonstration_serve_instant:` config section always derived `register` and is unaffected
+
+## ccf.deployment.classes.refuse_role_the_sdk_fixes
+
+- Surface: ccf.deployment.classes.refuse_role_the_sdk_fixes
+- Public surface: true
+- Change type: behavior
+- Before: refused only `ccf.signal-batch` declared `register`, and its message gave the signal-batch rationale for any class
+- After: also refuses `ccf.demonstration-serve-instant` declared `load`, by name, in the preflight both boot doors run before anything is read or registered and in the single-file derivation. The message states each fixed class's own reason; for `ccf.signal-batch` it is byte-identical to before
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none beyond `SDK_ARTIFACT_ROLES`'s
+
+## ccf.controlplane.artifacts.ManifestEntry
+
+- Surface: ccf.controlplane.artifacts.ManifestEntry
+- Public surface: true
+- Change type: behavior
+- Before: the `role` docstring said the SDK knows the answer for one class
+- After: documentation only; it names both classes whose role the SDK fixes. The committed `docs/schemas/ccf.deployment-manifest.json` carries the same description, regenerated
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none
+
 ## ccf.demonstration-serve-instant
 
 - Surface: ccf.demonstration-serve-instant

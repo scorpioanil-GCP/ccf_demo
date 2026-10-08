@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2304 entries**, of which **2028** name a public Python surface.
+**2307 entries**, of which **2031** name a public Python surface.
 
 ## Added
 
@@ -29867,7 +29867,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-355 entries — 316 public Python surface, 39 not public Python API.
+358 entries — 319 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35147,6 +35147,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Before: `as_of=None` resolved to the adapter's clock
 - After: the client reads the declaration from the deployment's `ccf_config.yaml` (which it already reads for the tenant and lane) and resolves `as_of=None` to it; a `clock` passed beside it is refused with `DemonstrationServeInstantConflict` before anything is spawned. The server child serves at the same declaration through `build_governed_resolver`
 - Why: without it, `as_of=None` would ask at today's date and be served at the declared instant, and the two transports would disagree (`D-IMPL-150`)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.classes.SDK_ARTIFACT_ROLES
+
+- Surface: ccf.deployment.classes.SDK_ARTIFACT_ROLES
+- Public surface: true
+- Change type: behavior
+- Before: one class with a role the SDK fixes, `ccf.signal-batch` (`load`)
+- After: two; `ccf.demonstration-serve-instant` is fixed to `register`
+- Why: a manifest entry declaring the class `role: load` was parsed and never registered, so the composition found no declaration and the fabric served on its real clock while the manifest said it declared an instant, with nothing saying so (lane `378d-democlock` finding (d)). `D-IMPL-134` reads the role of a `ccf.*` class as the SDK's to know, and here there is one correct value. Measured by `tests/deployment/test_demonstration_serve_instant_role.py`
+- Migration: a manifest that declares `ccf.demonstration-serve-instant` must declare `role: register`; `role: load` is now refused at boot. The `demonstration_serve_instant:` config section always derived `register` and is unaffected
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.classes.refuse_role_the_sdk_fixes
+
+- Surface: ccf.deployment.classes.refuse_role_the_sdk_fixes
+- Public surface: true
+- Change type: behavior
+- Before: refused only `ccf.signal-batch` declared `register`, and its message gave the signal-batch rationale for any class
+- After: also refuses `ccf.demonstration-serve-instant` declared `load`, by name, in the preflight both boot doors run before anything is read or registered and in the single-file derivation. The message states each fixed class's own reason; for `ccf.signal-batch` it is byte-identical to before
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none beyond `SDK_ARTIFACT_ROLES`'s
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.ManifestEntry
+
+- Surface: ccf.controlplane.artifacts.ManifestEntry
+- Public surface: true
+- Change type: behavior
+- Before: the `role` docstring said the SDK knows the answer for one class
+- After: documentation only; it names both classes whose role the SDK fixes. The committed `docs/schemas/ccf.deployment-manifest.json` carries the same description, regenerated
+- Why: as for `SDK_ARTIFACT_ROLES`
 - Migration: none
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*

@@ -1757,8 +1757,10 @@ class ManifestEntry(CCFContract):
             default (D-IMPL-38). An entry naming no ``role`` is refused by the
             contract before anything is read, let alone registered.
 
-            For the one class where the SDK *does* know the answer, the choice
-            is additionally held to it by
+            For the classes where the SDK *does* know the answer
+            (``ccf.signal-batch``, and since `D-IMPL-378` C1
+            ``ccf.demonstration-serve-instant``), the choice is additionally
+            held to it by
             :func:`~ccf.deployment.classes.refuse_role_the_sdk_fixes`, which
             runs before any registration. That check lives beside the class
             registry rather than here because it is a property of the class, and
