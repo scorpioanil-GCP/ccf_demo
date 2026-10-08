@@ -218,16 +218,21 @@ def _answer_body(answer: httpx.Response) -> Any:
 def _read_body(read: httpx.Response, *, asked: str) -> Any:
     """What a caller reads off a dereference.
 
-    A delivered record is compared whole. A refusal shell is compared minus its
-    own ``replay_reference``, with its ``request`` held first to the one shape a
-    dereference refusal may carry — the mechanism constant and the caller's own
-    reference (``D-IMPL-345`` R-4) — because the references the two worlds
-    present are themselves what is under test, and must not make two equal
-    refusals look different.
+    A delivered record is compared whole but for its per-answer issuance
+    (``content_generation_path.issuance``, Dave's Q11): a fresh value from the
+    OS's CSPRNG in every answer, drawn the same way in both worlds, dropped for
+    the reason a refusal's ``replay_reference`` is. A refusal shell is compared
+    minus its own ``replay_reference``, with its ``request`` held first to the
+    one shape a dereference refusal may carry — the mechanism constant and the
+    caller's own reference (``D-IMPL-345`` R-4) — because the references the two
+    worlds present are themselves what is under test, and must not make two
+    equal refusals look different.
     """
     body = read.json()
     if read.status_code == int(httpx.codes.OK):
-        return body
+        path = dict(body["content_generation_path"])
+        path.pop("issuance", None)
+        return {**body, "content_generation_path": path}
     refusal = dict(body["refusal"])
     request = refusal.pop("request")
     assert request["parameters"] == {"reference": asked}, request
@@ -284,12 +289,16 @@ def test_two_nonexistent_worlds_are_observationally_identical_through_the_door(
     tmp_path: pathlib.Path, anchor: str
 ) -> None:
     """The comparison has no noise: two separately built worlds that both hold
-    nothing yield the same answer, the same reference and the same dereference."""
+    nothing yield the same answer and the same dereference, but for the
+    per-answer issuance (Dave's Q11): each answer's reference is its own."""
     left, right = _both(tmp_path, anchor=anchor, left_holds=False, right_holds=False)
     _require_equal_answers(left, right, case=f"{anchor}, nonexistent vs nonexistent")
-    assert left.reference == right.reference
+    assert left.reference != right.reference, "issued per answer (Q11)"
     assert left.read.status_code == right.read.status_code == int(httpx.codes.OK), left.read.text[:300]
-    assert left.read.content == right.read.content
+    assert not _diff_paths(
+        _read_body(left.read, asked=left.reference),
+        _read_body(right.read, asked=right.reference),
+    )
 
 
 def test_the_door_delivers_an_answered_subjects_record_and_the_comparison_sees_it(

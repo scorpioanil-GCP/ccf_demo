@@ -245,6 +245,10 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         # record refuse, and that is the load-bearing half of this assertion.
         "content_generation_path.served_at",
         "content_generation_path.child_resolutions",
+        # Dave's Q11 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the answer's
+        # per-answer issuance. `NO_ISSUANCE` on every record written before it
+        # existed, so it joins this side and NOT `THE_FIFTEEN`.
+        "content_generation_path.issuance",
     )
     assert not [name for name, key in absent if key is False]
 

@@ -174,7 +174,9 @@ def test_c_a1_a_door_refusal_reaches_the_row_as_the_door_disclosed_it(
     assert oracle.replay_ref is not None and oracle.replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
     assert row.child_replay_ref is not None and row.child_replay_ref.startswith(f"ccf-artifact://{PRODUCER_TENANT}/ccf.replay-record/")
     name, _, version = row.child_replay_ref.rpartition("@")
-    assert len(version) == 64 and set(version) <= set("0123456789abcdef") and name.rsplit("/", 1)[1] != version
+    # Dave's Q11 (`D-IMPL-378`): a record is named by its own content address,
+    # so the reference's name and version are one 64-hex identity.
+    assert len(version) == 64 and set(version) <= set("0123456789abcdef") and name.rsplit("/", 1)[1] == version
     assert not _fresh(opened).exists(content_address=version), "the consumer did not copy the producer's record"
     # the composite refusal did not erase it: the record's block and the record's row agree
     block = json.loads(record.content_generation_path.assembly_refusal)

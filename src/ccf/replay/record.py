@@ -62,6 +62,7 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import secrets
 from collections.abc import Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Final, Literal
@@ -158,6 +159,7 @@ __all__ = [
     "NO_PACKAGING_TRACE",
     "NO_REFUSAL_SEAM",
     "NO_HITL_ACTIONS",
+    "NO_ISSUANCE",
     "NO_WORKFLOW_TRACE",
     "ChildResolution",
     "ContentGenerationPath",
@@ -173,6 +175,7 @@ __all__ = [
     "ResolutionNotApplicable",
     "ResolutionNotApplicableReason",
     "build_replay_record",
+    "new_issuance",
 ]
 
 #: Dimension 3's value when no model was invoked (INV-CH7-83, Mode 1). The
@@ -393,6 +396,32 @@ NO_DISCLOSURE_DECISION = "no-disclosure-decision"
 #: so — which is also why :attr:`ContentGenerationPath.product_content_address`
 #: stays a **required** field and gains no ``None``.
 NO_PRODUCT_ADDRESS = "no-product-address"
+
+#: The positive claim *this record was not issued to a caller under its own
+#: identifier* (Dave's Q11, 2026-10-07; ``D-IMPL-378``; SDK-defined, CLAUDE.md
+#: §11). Every record written before
+#: :attr:`ContentGenerationPath.issuance` existed reads as this, and so does a
+#: record built by a writer that issues none; the member is hash-transparent at
+#: it, so no such record's bytes or address move.
+NO_ISSUANCE = "no-issuance"
+
+
+def new_issuance() -> str:
+    """A fresh per-answer issuance identifier: 256 bits from the OS's CSPRNG.
+
+    **Dave's Q11 (2026-10-07; ``D-IMPL-378``), SDK-defined (CLAUDE.md §11):**
+    *"Equal public references must not identify different immutable record
+    contents."* A governed determination's record carries one of these in
+    :attr:`ContentGenerationPath.issuance`, minted where the determination is
+    made (the governed resolver's served path and the reference refusal
+    recorder), so every answer's record is a distinct immutable content whose
+    address no caller can compute, and the reference that names it — which the
+    record writer files under that address — is issued per answer. Nothing a
+    caller supplies and nothing the answer read reaches it.
+
+    64 lowercase hexadecimal characters, the shape of a content address.
+    """
+    return secrets.token_hex(32)
 
 #: Dimension 4's ``role`` when the decision was reached before any Π role was
 #: resolved (24.6-07; ``D-IMPL-256`` (1)). A door-level entitlement denial is
@@ -1506,6 +1535,30 @@ class ContentGenerationPath(CCFContract):
     child_resolutions: tuple[ChildResolution, ...] = Field(
         default=(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # Dave's Q11 (2026-10-07; `D-IMPL-378`) — THE IDENTIFIER THIS ANSWER WAS
+    # ISSUED UNDER (`new_issuance`), minted where the determination is made. It
+    # makes every answer's record a distinct immutable content, so the record's
+    # content address — the name and the version of the reference the caller is
+    # handed — is unique per answer and computable by nobody who does not hold
+    # the record: two answers never share a reference, and a reference never
+    # reflects what the answer read. A recorded fact: replay reads it and never
+    # re-derives it. Transparent at `NO_ISSUANCE`, so every record written
+    # before it existed keeps its bytes and address.
+    issuance: str = Field(
+        default=NO_ISSUANCE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+
+    @field_validator("issuance")
+    @classmethod
+    def _issuance_is_a_token_or_the_sentinel(cls, value: str) -> str:
+        if value != NO_ISSUANCE and (
+            len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value)
+        ):
+            raise ValueError(
+                "issuance is either NO_ISSUANCE or 64 lowercase hexadecimal"
+                " characters minted by new_issuance()"
+            )
+        return value
 
 
 class DecisionReplayRecord(CCFContract):
@@ -1745,6 +1798,7 @@ def build_replay_record(
     adapter: AdapterPin | None = None,
     request: ProductRequest | None = None,
     child_resolutions: tuple[ChildResolution, ...] = (),
+    issuance: str | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -1964,6 +2018,13 @@ def build_replay_record(
     calibration that bound nothing yields
     :data:`~ccf.halflife.assessment.NO_OBLIGATION_IN_FORCE`, so every call site
     written before this extension is byte-for-byte what it was.
+
+    ``issuance`` is the identifier the answer is issued under (Dave's Q11,
+    2026-10-07; ``D-IMPL-378``): a fresh :func:`new_issuance` value from the
+    determination that issues the answer — the governed resolver's served path
+    and the reference refusal recorder — recorded verbatim in dimension 5 and
+    never minted here, so a record built for comparison keeps
+    :data:`NO_ISSUANCE` and its address.
     """
     # 24.7-04: the resolution-state guard, FIRST — before any outcome is
     # judged — because a missing resolution state is not a malformed outcome,
@@ -2167,6 +2228,11 @@ def build_replay_record(
             # so every caller that does not supply it writes a record whose
             # address is exactly what it was.
             served_at=served_at,
+            # Dave's Q11 (`D-IMPL-378`): passed, never minted here — the
+            # determination that issues the answer mints it (`new_issuance`),
+            # so a record built for comparison or by a writer that issues none
+            # keeps the sentinel and its address.
+            issuance=issuance if issuance is not None else NO_ISSUANCE,
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,

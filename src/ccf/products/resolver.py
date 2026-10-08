@@ -286,6 +286,7 @@ from ccf.replay.record import (
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
+    new_issuance,
 )
 from ccf.replay.serve import (
     QueryPinWriter,
@@ -1648,6 +1649,15 @@ class ReplayRefusalRecorder:
             disclosure=canonical_bytes(decision).decode("utf-8"),
             resolution=resolution,
             request=request,
+            # Dave's Q11 (`D-IMPL-378`): a refusal that answers a product
+            # QUESTION is issued to its caller under a fresh identifier, so its
+            # record — and the `replay_reference` the shell carries — is unique
+            # per answer and reflects nothing the determination read. A
+            # determination with no question (an evidence read, a door-level
+            # entitlement denial, an erasure, an absence) read no subject; its
+            # record keeps the sentinel and is still named by its own content
+            # address, unique per content.
+            issuance=new_issuance() if request is not None else None,
         )
         reference = record_refusal(
             record=record,
@@ -3744,6 +3754,10 @@ class GovernedResolver:
                 if self.packaging_trace is not None
                 else None
             ),
+            # Dave's Q11 (`D-IMPL-378`): the answer is issued under a fresh
+            # identifier, so its record is unique per answer and the
+            # `replay_ref` every door hands out reflects nothing it read.
+            issuance=new_issuance(),
         )
         return serve(
             product=gated,

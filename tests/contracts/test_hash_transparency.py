@@ -348,6 +348,11 @@ _MARKED_IN_THE_TREE = frozenset(
         # moves, while a real finding is a real claim and is rendered.
         "ccf.projection.plan.ProjectionOutput.withheld",
         "ccf.replay.record.ContentGenerationPath.computed_empty",
+        # Dave's Q11 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the answer's
+        # per-answer issuance. `NO_ISSUANCE` on every record written before it
+        # existed and on every record no determination issued, so no stored
+        # record's address moves; a real issuance is a real claim and renders.
+        "ccf.replay.record.ContentGenerationPath.issuance",
         # `D-IMPL-353` — seven marks, ticked deliberately. The authorization
         # capability's evidence on the objects that predate it: the audit id
         # of the decision an `AuthzDecision` was minted from, the resource
