@@ -237,21 +237,27 @@ def producer_config(**overrides: Any) -> dict[str, Any]:
     return document
 
 
-def producer_environment_text() -> str:
-    return "\n".join(
-        [
-            "config: ccf_config.yaml",
-            "substrate: {setting: database_path, prefix: paved_child, suffix: .sqlite3}",
-            "sources:",
-            "  store:",
-            f"    dsn: {{from_env: {CHILD_DSN_VAR}, remedy: 'export {CHILD_DSN_VAR} with the fixture DSN'}}",
-            "door:",
-            f"  credential: {{from_env: {CREDENTIAL_VAR}, remedy: 'set, or leave unset to mint one per boot'}}",
+def producer_environment_text(*, addresses: bool = True) -> str:
+    """The producer's environment document. ``addresses=False`` names the door's credential only.
+
+    The two address names are optional (`D-IMPL-378` C2-A2 (a)): no SDK
+    transport reads them, so a document may leave them out.
+    """
+    lines = [
+        "config: ccf_config.yaml",
+        "substrate: {setting: database_path, prefix: paved_child, suffix: .sqlite3}",
+        "sources:",
+        "  store:",
+        f"    dsn: {{from_env: {CHILD_DSN_VAR}, remedy: 'export {CHILD_DSN_VAR} with the fixture DSN'}}",
+        "door:",
+        f"  credential: {{from_env: {CREDENTIAL_VAR}, remedy: 'set, or leave unset to mint one per boot'}}",
+    ]
+    if addresses:
+        lines += [
             "  issuer_url: {from_env: PAVED_CHILD_ISSUER, remedy: 'export the issuer (stdio only)'}",
             "  resource_server_url: {from_env: PAVED_CHILD_RESOURCE, remedy: 'export the resource server (stdio only)'}",
-            "",
         ]
-    )
+    return "\n".join([*lines, ""])
 
 
 def producer_section(
