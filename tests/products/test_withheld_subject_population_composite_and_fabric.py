@@ -414,7 +414,7 @@ class _PopulationSource:
         self.subject_contexts: list[Any] = []
 
     @staticmethod
-    def _envelope(ref: str, context: Any) -> SignalEnvelope:
+    def _envelope(ref: str, context: Any, *, observed: datetime | None = None) -> SignalEnvelope:
         from tests.deployment.test_replay_binding import OBSERVED_AT as PAVED_OBSERVED  # noqa: PLC0415
 
         return SignalEnvelope.model_validate(
@@ -423,7 +423,7 @@ class _PopulationSource:
                 "envelope_id": f"envelope-population-{ref}",
                 "source": {"system_id": "fixture-system"},
                 "ingestion_timestamp": context.instant,
-                "observed_time": PAVED_OBSERVED,
+                "observed_time": observed or PAVED_OBSERVED,
                 "raw_payload": {
                     "account_ref": ref,
                     "classification": "fixture-open",
@@ -440,8 +440,19 @@ class _PopulationSource:
     def __call__(self, context: Any) -> tuple[SignalEnvelope, ...]:
         self.subject_contexts.append(context)
         if self._hybrid and context.request.subject == sec020.PAVED_WITHHELD:
-            return (self._envelope(sec020.PAVED_WITHHELD_REF, context),)
+            return (self._envelope(sec020.PAVED_WITHHELD_REF, context, observed=SUBJECT_OBSERVED),)
         return ()
+
+
+#: When the hybrid source's subject-keyed half observed the withheld account:
+#: inside the paved class's 600-second window at the decision instant (12:00)
+#: and at serve (12:07), while the population's claims (11:00) are not. A
+#: rendering that walked the subject-keyed claim would therefore SERVE an
+#: evidence-anchored class where a nonexistent subject is refused, and would
+#: not be hidden by minimal disclosure (which withholds a ``ttl-refusal``'s
+#: ``expires_at``) or by the paved fixture's constant debt rule. A test-side
+#: calibration that makes the subject-keyed half's leak observable.
+SUBJECT_OBSERVED = datetime.fromisoformat("2026-03-02T11:59:00+00:00")
 
 
 def _paved_ask(opened: Any, subject: str) -> Any:
@@ -516,9 +527,12 @@ def test_channel_1_an_early_withheld_subject_is_indistinguishable_under_any_acqu
         def __call__(self, context: Any) -> tuple[SignalEnvelope, ...]:
             self.subject_contexts.append(context)
             refs = ["acct-2"] if self._hybrid else [sec020.PAVED_WITHHELD_REF, "acct-2"]
+            found = [self._envelope(ref, context) for ref in refs]
             if self._hybrid and context.request.subject == sec020.PAVED_WITHHELD:
-                refs.append(sec020.PAVED_WITHHELD_REF)
-            return tuple(self._envelope(ref, context) for ref in refs)
+                found.append(
+                    self._envelope(sec020.PAVED_WITHHELD_REF, context, observed=SUBJECT_OBSERVED)
+                )
+            return tuple(found)
 
     # A seam with no population capability at all: strip the method.
     source = _OneSeam(hybrid=shape == "hybrid")
