@@ -325,6 +325,7 @@ __all__ = [
     "WithholdingClassListedReadable",
     "ChildAwareDebtScorerProtocol",
     "CompositeNeedsAnEarlyPolicy",
+    "CompositeNeedsAWithholdingStance",
     "CompositePlanFactoryProtocol",
     "CompositeWithheldLate",
     "EarlyPolicyNeedsRequestAwareChildren",
@@ -676,6 +677,28 @@ class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
     :class:`SubjectDisclosingPlanFactoryProtocol`, that it withholds — must
     declare the early policy, and one that declares withholding with no policy
     is refused when the resolver is constructed.
+    """
+
+
+class CompositeNeedsAWithholdingStance(UnsupportedComposition):
+    """A composite that declares no withholding stance: no early policy, and no affirmation it never withholds.
+
+    ``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE (SDK-defined,
+    CLAUDE.md §11): Dave has not ruled it, and SEC-020 stays OPEN. Q8:
+    *"Require early withholding for affected composites. Make it an enforced
+    policy decision before subject-dependent fetches, child resolution or
+    scoring. It cannot depend on learning whether the subject exists."* A
+    composite asks its children about the subject before its plan runs, and
+    nothing at construction says whether its projection will withhold; a
+    refusal decided when the projection withholds (:class:`CompositeWithheldLate`)
+    is decided for the withheld subject only, and is itself an answer a
+    nonexistent subject's question does not get. So a composite — a class that
+    declares ``requires`` — states its stance when its resolver is constructed:
+    an early policy, through :class:`SubjectDisclosingPlanFactoryProtocol`, or
+    its class's affirmation ``subject_withholding: never`` (Dave's Q12), which
+    :meth:`GovernedResolver.__call__` enforces when the projection withholds
+    anyway. One that declares neither is refused here, before any question —
+    the same refusal whatever subject would have been asked.
     """
 
 
@@ -2696,6 +2719,24 @@ class GovernedResolver:
         _refuse_a_listed_class_that_may_withhold(
             control_plane=self.control_plane, tenant=tenant, declaration=declaration
         )
+        # `D-IMPL-378` P2 (c), a CANDIDATE (Dave has not ruled P2): a composite
+        # states its withholding stance here — an early policy, or its class's
+        # affirmation that it never withholds — or it is refused, before any
+        # question, so the refusal cannot depend on a subject.
+        if (
+            declaration.requires
+            and disclosure is None
+            and declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise CompositeNeedsAWithholdingStance(
+                f"class {declaration.schema_name!r} composes children and declares no"
+                " withholding stance: neither an early policy (its plan factory's"
+                " subject_disclosure(), SubjectDisclosingPlanFactoryProtocol) nor"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} on the class; a"
+                " composite asks its children before its plan runs, so a withhold"
+                " decided inside its projection would be decided too late and for the"
+                " withheld subject only (SEC-020; D-IMPL-378 P2 (c), a candidate)"
+            )
         minted = _ComposedAuthorities(
             replay=_mint_replay_at_composition(
                 self.control_plane, tenant=tenant, artifact_class=self.replay_record_class

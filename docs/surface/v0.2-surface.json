@@ -8526,6 +8526,7 @@
       "AcquisitionSeamProtocol",
       "AssemblyDebtScorerProtocol",
       "ChildAwareDebtScorerProtocol",
+      "CompositeNeedsAWithholdingStance",
       "CompositeNeedsAnEarlyPolicy",
       "CompositePlanFactoryProtocol",
       "CompositeWithheldLate",
@@ -8573,6 +8574,10 @@
       "ChildAwareDebtScorerProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "CompositeNeedsAWithholdingStance": {
+        "kind": "class",
+        "shape": "type"
       },
       "CompositeNeedsAnEarlyPolicy": {
         "kind": "class",

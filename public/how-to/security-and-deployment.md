@@ -1278,6 +1278,11 @@ unless another test is named.
   factory's `subject_disclosure()` returns no policy
   (`CompositeNeedsAnEarlyPolicy`), and an early policy over a child resolver
   that is never handed the request (`EarlyPolicyNeedsRequestAwareChildren`).
+  On this tree it also refuses a composite that declares no stance at all,
+  neither an early policy nor `subject_withholding: never` on its class
+  (`CompositeNeedsAWithholdingStance`, measured by
+  `tests/products/test_sec020_p2c_composite_stance.py`). That refusal is a
+  candidate for the owed ruling P2, option (c), and is not ruled.
   With the early policy, a withheld composite matched a nonexistent subject's
   on both child anchors.
 - **Each phase once, and one computation (Q10).** Each declared phase runs
@@ -1367,11 +1372,15 @@ a nonexistent one. Each was measured on test fixtures.
   `composite-child-refusal` (the child answered a question other than the one
   the composite asked) where a nonexistent subject's composite was served.
   Derive child arguments from the request your child resolver's `resolve_for`
-  is handed. A composite that declares nothing and withholds inside its
-  projection raises `CompositeWithheldLate` at call time, for that subject
-  only and after its children were asked: an error the caller can see, where
-  before the two products differed at `debt.debt` and
-  `debt.factors.freshness`.
+  is handed. Without the P2 (c) candidate above, a composite that declares
+  nothing and withholds inside its projection raises `CompositeWithheldLate`
+  at call time, for that subject only and after its children were asked: an
+  error the caller can see, where before the two products differed at
+  `debt.debt` and `debt.factors.freshness`. With it, such a composite is
+  refused when its resolver is built, and `CompositeWithheldLate` remains for
+  a composite that declares a stance and withholds a subject the stance does
+  not cover (measured for a class affirming `never` by
+  `tests/products/test_sec020_combined_proof.py::test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record`).
 - **A question's store, booted again.** The withheld subject's acquisition
   stays in the store its question wrote, and the paved road leaves that store
   on disk when it closes the fabric (the replay road reopens it). Booted again

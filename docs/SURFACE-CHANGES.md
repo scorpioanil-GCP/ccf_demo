@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2292 entries**, of which **2017** name a public Python surface.
+**2294 entries**, of which **2019** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1287 entries — 1243 public Python surface, 44 not public Python API.
+1288 entries — 1244 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18992,6 +18992,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
 
+#### ccf.products.resolver.CompositeNeedsAWithholdingStance
+
+- Surface: ccf.products.resolver.CompositeNeedsAWithholdingStance
+- Public surface: true
+- Change type: added
+- Before: absent; a composite that declared no early policy constructed, and a withhold decided inside its projection raised `CompositeWithheldLate` at call time, for the withheld subject only.
+- After: an `UnsupportedComposition` raised by `GovernedResolver` construction when a class that declares `requires` has neither an early policy (`SubjectDisclosingPlanFactoryProtocol.subject_disclosure()` returning a `SubjectDisclosurePolicy`) nor `subject_withholding: never` on its declaration.
+- Why: SEC-020, owed ruling P2 option (c), a candidate: a refusal decided when a projection withholds is decided for the withheld subject only and is itself distinguishable; a refusal at construction is the same for every subject.
+- Migration: declare a stance on every composite: `subject_withholding: never` on the product class when its projection never withholds, or an early policy through the plan factory's `subject_disclosure()`.
+
+*Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29855,7 +29867,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-344 entries — 305 public Python surface, 39 not public Python API.
+345 entries — 306 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35114,6 +35126,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none; SEC-009's door contract is otherwise unchanged
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted a composite that declared no withholding stance.
+- After: construction refuses such a composite with `CompositeNeedsAWithholdingStance`, after the Q12 listed-class check and before any authority is minted.
+- Why: SEC-020, owed ruling P2 option (c), a candidate (see above).
+- Migration: as above; a non-composite class is unaffected.
+
+*Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
 
 ### Not public Python API
 
