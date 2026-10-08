@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2177 entries**, of which **1905** name a public Python surface.
+**2191 entries**, of which **1916** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1245 entries — 1201 public Python surface, 44 not public Python API.
+1246 entries — 1202 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -2712,7 +2712,10 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Why: D-06 ships all five adapters; 15.2-12 is the pushdown proof — a
   graph-native engine used as one
 - Migration: new surface — none. `boot(neo4j_uri=…)` constructs the store;
-  install with `pip install "ccf[neo4j]"`
+  install the `neo4j` extra from the same source the SDK was installed
+  from (`pip install -e ".[neo4j]"` in a checkout, or `ccf-sdk[neo4j]`
+  against the deployment's private index), never by bare name from public PyPI
+  (distribution renamed ccf-sdk 2026-10-07, D-IMPL-376 (4))
 
 *Recorded by `15.2-12-neo4j-backend.md`.*
 
@@ -2812,7 +2815,10 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
   substrate family neither SQL nor Cypher represents — the proof that the
   read seam is not shaped like a query language
 - Migration: new surface — none. `boot(mongo_uri=…)` constructs the store;
-  install with `pip install "ccf[mongo]"`
+  install the `mongo` extra from the same source the SDK was installed
+  from (`pip install -e ".[mongo]"` in a checkout, or `ccf-sdk[mongo]`
+  against the deployment's private index), never by bare name from public PyPI
+  (distribution renamed ccf-sdk 2026-10-07, D-IMPL-376 (4))
 
 *Recorded by `15.2-13-mongo-backend.md`.*
 
@@ -18471,6 +18477,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `375-03-sec-022-replay-scope.md`.*
 
+#### ccf_runtime.authz.delivery_boundary.UnattributableDeliveryBoundaryError
+
+- Surface: ccf_runtime.authz.delivery_boundary.UnattributableDeliveryBoundaryError
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `TypeError` `govern_dereference` raises when its store's substrate answers no `names_at` or declares no `WriteKinds`, so it cannot show who filed an address. Raised right after the capability check and the PM5 check, before anything is read, recorded or clocked: a wiring defect, refused where an operator sees it, never a determination about a caller — the posture of `UnconsultedDeliveryBoundaryError`.
+- Why: the forged-record finding (`D-IMPL-376` close-out): "a store that cannot answer that question refuses rather than serves."
+- Migration: none for the shipped stores.
+
+*Recorded by `377-07-forged-record-provenance.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19182,7 +19200,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-593 entries — 401 public Python surface, 192 not public Python API.
+597 entries — 405 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -25347,6 +25365,42 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `369-21-sec-021-receive-queue-bound.md`.*
 
+#### ccf.projection.plan.ProjectionOutput
+
+- Surface: ccf.projection.plan.ProjectionOutput
+- Public surface: true
+- Change type: reshaped
+- Before: `plan_id: str`, `payload: Mapping[str, Any]`. A projection that withheld a subject could only do so silently.
+- After: adds `withheld: bool = False`, which is hash-transparent at `False`, so every output written before the field existed is byte-identical. A projection sets `withheld=True` and returns, as `payload`, exactly what it returns for a subject it cannot see. The governed resolver then computes the product's debt, empty finding, TTL anchor, the staleness gate's touched set and a declared product gate's evidence from the same plan re-executed without the request seed (`ProjectionEngine.execute_without_request_seed`), over the fabric as it stood before this request's acquisition (`377-01`). The replay record keeps the execution that ran.
+- Why: SEC-020 and Q12 (a). The withheld subject's claims must not move any member a consumer reads. A withhold is never inferred from an empty payload (`D-IMPL-242` amendment 1).
+- Migration: none for a projection that does not withhold. A projection that withholds today by returning an empty payload should set `withheld=True` to get the constant-fill rendering.
+
+*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: reshaped
+- Before: no way to re-execute a plan as a question naming nothing would execute it.
+- After: adds the method `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)`. It re-executes the operator plan on a fresh engine with this engine's registry and survivor cap and with `seeds=None`. That is the only difference from the real execution. Every query is answered at `executed.store_snapshot_pin` where the store can pin. Acquired content is re-fed from `executed`, never re-acquired. The result carries the real execution's attestation and pin.
+- Why: SEC-020, `D-IMPL-371`. This is the one definition of "what a subject that names nothing reads" that the resolver's constant-fill branch reads.
+- Migration: none. The method is additive.
+
+*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
+
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
+- After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`, and its replay still fails with `ReplayDivergence`: measured with a computed-empty product's record filed without the member, as a writer before this change filed it.
+- Migration: none is possible for a record written before this change: records are immutable, it carries no finding to copy, and its replay still diverges. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
+
+*Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
+
 #### ccf.products.child_resolver.GrantBoundChildResolver
 
 - Surface: ccf.products.child_resolver.GrantBoundChildResolver
@@ -26061,6 +26115,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: every constructor call must now pass `max_request_bytes`. Declare it large enough for the JSON-RPC request that carries a document of `max_message_bytes`: that request carries the document base64-encoded, about four thirds of its size, plus an envelope that depends on the deployment's own identifiers, so measure it. A body over `max_request_bytes` is answered `413`, which a sending peer sees as `PeerUnreachable` from `emit` or `emit_async`.
 
 *Recorded by `375-02-sec-021-u1-body-cap-before-parse.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: reshaped
+- Before: `execute_without_request_seed(*, executed, plan, perspective, tenant_id, temporal_boundary)` always read the store at `executed.store_snapshot_pin` where it could pin, so it walked whatever the store held at that pin.
+- After: adds the keyword `before_acquisition: GraphView | None = None`. When given, every query of the re-execution is answered over that one as-of read by the reference semantics, carrying and enforcing the classification authority the read carried. A query at another tenant or instant, and the two history reads, are refused rather than answered from a state the reader does not hold. `None` keeps the previous behavior.
+- Why: SEC-020, `D-IMPL-376` (3) route A. The fabric before this request's acquisition is the state the walk of a subject that names nothing reads, when the acquisition is keyed on the subject and the fabric is booted for the question.
+- Migration: none. The keyword is additive and defaults to the previous behavior.
+
+*Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
 
 ### Not public Python API
 
@@ -29078,7 +29144,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-292 entries — 256 public Python surface, 36 not public Python API.
+301 entries — 262 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -33750,6 +33816,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `375-03-sec-022-replay-scope.md`.*
 
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a subject Π withheld was rendered from the plan re-executed without the request seed over the fabric as it stood after the declared acquisition seam had ingested the asked subject's evidence. On a class-seeded plan its debt, empty finding and TTL anchor therefore reflected evidence that a never-acquired subject's fabric does not hold.
+- After: when `acquisition` is declared, `__call__` reads the fabric (`reader.as_of` at `request.asked_at`) once, after every refusal that precedes the seam and immediately before the seam runs. A subject Π withholds is rendered from the plan re-executed without the request seed over that read. With no seam declared nothing is read in addition and the rendering is unchanged. Every refusal before the seam still reads nothing.
+- Why: SEC-020, `D-IMPL-376` (3) route A. On the paved road acquisition populates each question's fabric before the plan runs, and this removes the difference that made in the served product. SEC-020 stays OPEN: see the channels above.
+- Migration: none for a product whose Π never withholds. A deployment with an acquisition seam makes one more as-of read of the tenant's graph per governed call (the call already makes one). Before relying on Π's withheld signal, read the channels above that still tell a withheld subject from a nonexistent one.
+
+*Recorded by `377-01-sec-020-withheld-before-acquisition.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the blob (`ccf-artifact-blob://`) and presence (`ccf-artifact-meta://`) resources took the governed dereference when ANY tenant's name for the address had a class declared under `ReplayMint`, and the names resource (`ccf-artifact-names://`) answered the governed refusal's shell in the same case. A tenant's own client-lane filing therefore read as `subject-unavailable` once another tenant filed identical bytes under a governed class, and the names resource answered `[]` for an unknown address but the shell for an address only another tenant had filed governed.
+- After: "governed" is judged over the names the caller's own tenant filed the address under, never another tenant's. For an address the caller's own tenant filed on its client lane, the blob, presence and names answers are byte-identical whether or not any other tenant filed the same bytes, under any class. For an address the caller's tenant never filed, the names resource answers `[]` whatever other tenants filed, and the blob and presence resources take the governed dereference. That read held the caller to a record's principal but not to its tenant, so another tenant's genuine replay record was not answered as a missing address in two cases: a caller whose principal id matched the record's, entitled in the record's tenant and at `full` in its own, read it; and at `full` it answered `unauthorized` where a missing address answers `nonexistent`. Both close with hold 0 of `govern_dereference` (`377-06`). Unchanged: a governed filing by the caller's own tenant still takes the governed dereference for every principal of that tenant (N4, `D-IMPL-345`); the client lane's read still appends the `D-IMPL-345` R-5 `authz_decision` event under the caller's class.
+- Why: C8 (`D-IMPL-376` ruling (6)). Red tests: `tests/mcp/test_c8_governed_judged_per_tenant.py::test_another_tenants_governed_filing_does_not_change_the_owners_reads`, `::test_the_owners_answers_do_not_depend_on_any_other_tenants_filing` (both parametrizations) and `::test_the_owners_erasure_over_the_mcp_backed_store_is_not_refused_by_another_tenants_governed_filing`.
+- Migration: none for a single-tenant store. Where tenants share one artifact store, an owner's reads and erasure requests no longer depend on other tenants' filings. Erasure is unchanged: it is a per-tenant fact and destroys no bytes. Measured on the file-backed door, identically before and after this change: once tenant A erases an address tenant B also filed, B's filing and the bytes stay, B's tenant-scoped reads (`ErasureConsultingStore.scoped`, which the client lane and the governed dereference's erasure consult use) still serve them, and a tenantless read (`ErasureConsultingStore.get` with no tenant; SEC-009 ruling (i) names the replay engine, `record_of` and child admission) withholds them with the reason redacted. Over the MCP-backed store A's request was refused `class-unverifiable` before this change, so that state was reachable only through a door on the file-backed store; it is now reachable through either.
+
+*Recorded by `377-02-c8-governed-judged-per-tenant.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `resume` took no claim on the execution. Two concurrent resumptions of one suspension each read the state record before either wrote over it. Both passed the gate's authority and conflict checks and ran the node after the gate, and each appended an attributed `workflow_resumed` row for the one approval.
+- After: `resume` takes a single-flight claim on the execution before it reads the record and gives it back on every exit: completion, refusal, exception and cancellation. The claim is keyed by the Control Plane state store the record lives in and by the execution's state key, and every engine in the process over that store shares it. A second resumption of the same execution while one is in flight returns `WorkflowResumeRefused`, whose reason says the execution "already has a resumption in flight in this process". It is audited `resolved=False` with no actor, and the HTTP door answers it 409, as it answers the sequential refusal. Nothing is queued, and no lock is held across an await.
+- Why: `D-IMPL-377` (Dave, 2026-10-07: *"Small fix now"*): one human approval must authorize one passage past its gate.
+- Migration: a caller that resumes one execution concurrently in one process now receives a refusal for every request but one, and presents it again after the first has returned. A deployment that can resume one execution from several processes, or through several state-store objects fronting one durable store, must still serialize resumptions per execution in front of the door. Keep the steps after a gate idempotent.
+
+*Recorded by `377-05-resume-single-flight.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: three holds — the record's principal, the product grant re-decided under the tenant the record was decided under, and `full` disclosure. The capability's tenant was compared with the record's nowhere, so another tenant's record crossed to a caller whose principal id matched the record's principal, entitled in the record's tenant and at `full` in its own; and at `full` another tenant's record answered `unauthorized` / `evidence-principal-mismatch` where a missing address answers `nonexistent` / `evidence-absent`.
+- After: hold 0 runs first: the tenant the record was decided under (`_decided_identity`; the record's own `tenant_id` when no identity is recoverable) must equal `authorized.tenant`, or the read is refused exactly as a missing address is — `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level. Hold 2 therefore only ever re-decides a grant under the capability's own tenant. Every caller inherits it: the HTTP `/replay/decisions`, `/replay/resolutions` and `/artifact` routes and the MCP artifact server's governed reads. Unchanged within a tenant: the owner reads its own record, and another principal's genuine record answers `unauthorized` at `full` (R-4). A read-refusal record is decided under the tenant of the recorder that wrote it, so a caller of another tenant whose read was refused at that door cannot read the refusal record back.
+- Why: C-2 (`D-IMPL-345` R-2; the `D-IMPL-376` close-out). Red tests: `tests/http_api/test_c2_tenant_hold_http.py::test_another_tenants_record_with_a_colliding_principal_answers_as_a_missing_address_does` and `::test_at_full_another_tenants_record_answers_as_a_missing_address_does`, and the same two in `tests/mcp/test_c2_tenant_hold_mcp.py`; each asks one address before and after another tenant files its record there and requires the same bytes.
+- Migration: none where each principal reads its records through a capability for the tenant they were decided under. A deployment that read a record decided under one tenant through a capability for another now receives `nonexistent`; read it through a capability for the record's tenant.
+
+*Recorded by `377-06-c2-tenant-hold-and-m4-tenant-segment.md`.*
+
+#### ccf.artifacts.protocol.authorized_write_target
+
+- Surface: ccf.artifacts.protocol.authorized_write_target
+- Public surface: true
+- Change type: behavior
+- Before: a capability whose tenant contained `NAME_SEGMENT_SEPARATOR` (`/`) was filed. `FileArtifactStore.names_at` split the naming key at its first two separators, so the filing was attributed to the tenant id's prefix, and the MCP artifact server served it to that tenant on its client lane.
+- After: refused with `ArtifactWriteRefused` naming the tenant, after `verify_any` and before anything is canonicalized, addressed or opened, so no bytes and no name are filed. Every shipped store's `put` runs it first (`FileArtifactStore`, `McpArtifactStore`; `ErasureConsultingStore` passes its writes to the store it wraps). A tenant id is one naming segment, as a declared class already is (SEC-004).
+- Why: M-4 (the `D-IMPL-376` close-out review). Red tests: `tests/artifacts/test_m4_tenant_segment_refused.py` (the addressed write, the derived write, and the artifact-server scenario end to end).
+- Migration: a deployment whose tenant ids contain `/` renames them before writing artifacts. Names filed before this change are not re-read: a store that already holds a filing under such a tenant id still attributes it to the prefix.
+
+*Recorded by `377-06-c2-tenant-hold-and-m4-tenant-segment.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: the holds read the record's tenant and principal from the bytes at the address; nothing checked who filed those bytes, so a record-shaped forgery filed on any client lane was served to the principal it named.
+- After: before any hold, the store's own naming (`names_at`) must show the address filed under the record's deciding tenant in a class the store's `WriteKinds` declares under `ReplayMint` — a kind no door can mint, held only by the fabric's record writers, which file a record only under the tenant it names. Anything else answers exactly as a missing address does: `nonexistent` / `evidence-absent`, recorded through the door's recorder, at every disclosure level. A store whose substrate answers no `names_at` or declares no `WriteKinds` raises `UnattributableDeliveryBoundaryError` before anything is read, recorded or clocked. Every caller inherits it: the HTTP evidence routes and the MCP artifact server's governed reads. Unchanged: genuine records read for their owners, the owner's own read-refusal chain reads (`D-IMPL-345` C20), and the C-2 tenant hold.
+- Why: the forged-record finding (`D-IMPL-376` close-out). Red tests: `tests/http_api/test_forged_record_http.py::test_a_record_forged_on_another_tenants_client_lane_answers_as_a_missing_address_does` and `::test_a_record_forged_on_the_tenants_own_client_lane_answers_as_a_missing_address_does` (all three routes); `tests/mcp/test_forged_record_mcp.py::test_a_record_forged_on_another_tenants_client_lane_answers_as_a_missing_address_does` and `::test_a_store_that_cannot_attribute_an_address_refuses_rather_than_serves` (both parametrizations).
+- Migration: a deployment-supplied artifact substrate behind a governed door answers `names_at` and declares `WriteKinds`, as the shipped `FileArtifactStore` and `McpArtifactStore` do. A record filed under a tenant other than the one it was decided under — a delivery-boundary denial addressed to another tenant at a door whose recorder is a different tenant's — no longer reads for anyone.
+
+*Recorded by `377-07-forged-record-provenance.md`.*
+
 ### Not public Python API
 
 #### runtime/ccf_runtime/mcp/hitl_server.py
@@ -34660,3 +34798,39 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `374-05-final-fix-wave.md`.*
+
+#### ccf.graph.registry.SDK_DISTRIBUTION
+
+- Surface: ccf.graph.registry.SDK_DISTRIBUTION
+- Public surface: false
+- Change type: behavior
+- Before: `"ccf"`. `ccf.graph.registry.resolve` read every built-in adapter's version through it (`importlib.metadata.version("ccf")`), and that version reached `ccf.graph.registry.AdapterPin.version` and replay dimension 2's `graph_adapter_version`. A distribution named `ccf` on the path, Microsoft's or this SDK's former install, answered that lookup.
+- After: `"ccf-sdk"`. A built-in adapter resolves with `distribution == "ccf-sdk"` and the `ccf-sdk` distribution's version. In an environment where `ccf-sdk` is not installed (a source checkout, or one still holding only the former `ccf` install), the version is the documented `unknown` marker instead of another distribution's version. The constant is not exported (`__all__`) and is absent from the generated manifest, hence `Public surface: false`.
+- Why: SEC-027 (`D-IMPL-376` ruling 4). Red test: `tests/test_distribution_name.py::test_the_builtin_adapter_pin_reads_ccf_sdk_and_never_a_distribution_named_ccf`, which on the former code resolved `("ccf", "7.0.18")` with a foreign `ccf` 7.0.18 on the path.
+- Migration: none for code that only imports `ccf`. A consumer that looked the SDK's version up by name reads `importlib.metadata.version("ccf-sdk")`.
+
+*Recorded by `377-03-sec-027-distribution-name.md`.*
+
+#### The distribution name `ccf` becomes `ccf-sdk`
+
+- Surface: the distribution name in `pyproject.toml` (`[project] name`), its five self-referencing extras, and `tools/check_version_stamp.py::DISTRIBUTION`
+- Public surface: false
+- Change type: behavior
+- Before: the SDK built and installed as the distribution `ccf` (`ccf-<version>.dist-info`), its aggregate extras were spelled `ccf[...]`, the lock was compiled with `--unsafe-package ccf`, and the release version gate discovered `ccf`.
+- After: it builds and installs as `ccf-sdk` (`ccf_sdk-<version>.dist-info`; `ccf-sdk`, `ccf_sdk` and `ccf.sdk` are the same project under PEP 503); `harnesses` and `dev` compose `ccf-sdk[...]`; `requirements.lock` is regenerated with `--unsafe-package ccf-sdk` (pins and hashes unchanged); the gate discovers `ccf-sdk` and refuses when it finds none, even if a distribution named `ccf` is present. Installed packages are still `ccf` and `ccf_runtime`, and the `ccf` command is unchanged. The metadata also carries the classifier `Private :: Do Not Upload` (Dave's ruling, 2026-10-07), which PyPI refuses on every upload, so the SDK cannot be published there by accident; the empty name-reservation placeholder in `packaging/pypi-placeholder/` carries none.
+- Why: SEC-027 (`D-IMPL-376` ruling 4). Red tests: `tests/test_distribution_name.py::test_the_package_metadata_names_the_distribution_ccf_sdk`, `::test_no_declared_requirement_names_the_foreign_pypi_project_ccf`, `::test_every_reader_of_the_sdks_own_metadata_names_the_declared_distribution`, `::test_the_version_gate_refuses_when_only_a_distribution_named_ccf_is_visible` and `::test_the_version_gate_reads_the_ccf_sdk_distribution_beside_a_foreign_ccf`.
+- Migration: in an environment that holds the former install, run `pip uninstall -y ccf` before installing `ccf-sdk`; neither `pip install` nor `make install` removes it. pip keeps both names. While both are present, `import ccf` can load the former code, whose built-in adapters resolve against the former distribution, so the replay record carries the former version, while the release version gate, which reads `ccf-sdk`, can still pass. Uninstalling `ccf` afterwards deletes the files the two share: for a non-editable install, every package file of `ccf-sdk`. Repair it with `--force-reinstall` from the same wheel file or private index it was installed from, never by its bare name from public PyPI. Never `pip install ccf` and never `pip install "ccf[...]"`: from a public index those install Microsoft's package. Install `ccf-sdk` from the repository or from the deployment's own index.
+
+*Recorded by `377-03-sec-027-distribution-name.md`.*
+
+#### The registry's reinstall remedies name their source
+
+- Surface: the refusal texts of `ccf.graph.registry` (unreadable built-in adapter package; one distribution's disagreeing declarations; a third-party declaration that fails to load) and the `GET /backends` 503 that carries them
+- Public surface: false
+- Change type: behavior
+- Before: the unreadable-package refusal told the operator to "`pip install --force-reinstall` the SDK", and the broken-declaration refusal to "`pip install --force-reinstall` the distribution named above", with no source named.
+- After: the SDK's remedy reinstalls from the same wheel file or private index the deployment installed it from, "never by its bare name from public PyPI"; the two third-party remedies reinstall "from the source it was installed from". Each refusal's diagnosis is unchanged.
+- Why: SEC-027 independent review M-1. With the `ccf-sdk` placeholder on PyPI, a bare-name `pip install --force-reinstall ccf-sdk` replaces the SDK with the empty 0.0.0; the review measured `ccf/__init__.py` deleted. Red test: `tests/http_api/test_routes.py::test_backends_refuses_503_when_the_sdks_own_adapter_package_is_unreadable`.
+- Migration: none. An operator follows the new wording; anything that matched the old text matches `force-reinstall`, which the SDK's remedy still contains.
+
+*Recorded by `377-03-sec-027-distribution-name.md`.*

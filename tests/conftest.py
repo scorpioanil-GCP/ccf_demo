@@ -266,10 +266,14 @@ def mongo_uri() -> str:
 #: ruling 12). `CCF_TEST_MONGO_URI` was DEFINED at :231 and absent from this
 #: tuple, while eight estate-gated trees read curated Mongo `fibo_v2` — so the
 #: one store the fence did not cover was a store the suite actually reaches.
+#: `CCF_TEST_NEO4J_URI` joined under `377-FENCE` (Dave, 2026-10-07) for the same
+#: reason: the neo4j leg creates indexes and MERGEs nodes into whatever it names,
+#: and the curated host runs a Neo4j.
 DISPOSABLE_STORE_ENV = (
     "CCF_TEST_FLUREE_URL",
     "CCF_TEST_POSTGRES_DSN",
     MONGO_URI_ENV,
+    NEO4J_URI_ENV,
 )
 
 

@@ -122,7 +122,7 @@ def test_a_new_build_requirement_absent_from_the_lock_is_refused(
 
 
 def test_an_extra_reached_through_a_self_reference_is_checked(tmp_path: pathlib.Path) -> None:
-    """``dev`` -> ``ccf[harnesses]`` -> ``ccf[adk,claude-agent,langgraph]``."""
+    """``dev`` -> ``ccf-sdk[harnesses]`` -> ``ccf-sdk[adk,claude-agent,langgraph]``."""
     base = _copy(tmp_path)
     _edit(base / "pyproject.toml", 'langgraph = ["langgraph==1.2.9"]', 'langgraph = ["langgraph>=1.3"]')
     findings = _rule_findings(_checker()(base))

@@ -29,7 +29,16 @@ from pathlib import Path
 
 import pytest
 
+from tools.check_version_stamp import DISTRIBUTION
+
 GATE = Path(__file__).resolve().parent.parent / "check_version_stamp.py"
+
+#: The metadata-directory stem of ``DISTRIBUTION`` — ``-`` escaped to ``_``, as the
+#: wheel specification requires and as ``pip`` writes it (``ccf_sdk-1.0.0.dist-info``).
+#: The fixtures below follow the gate's own name; which name that is (SEC-027:
+#: ``ccf-sdk``, never ``ccf``) is pinned by
+#: ``tests/test_distribution_name.py::test_every_reader_of_the_sdks_own_metadata_names_the_declared_distribution``.
+_STEM = DISTRIBUTION.replace("-", "_")
 
 #: Minimal, deterministic environment for the git-repo-building helpers
 #: below — no reliance on this host's global git config for author identity.
@@ -90,7 +99,7 @@ def _make_repo(root: Path) -> Path:
 
 
 def _write_distribution(root: Path, version: str, *, kind: str) -> None:
-    """Write a ``ccf`` distribution's metadata directly, no build tool involved.
+    """Write the SDK distribution's (``DISTRIBUTION``) metadata directly, no build tool involved.
 
     ``kind`` is ``"dist-info"`` (a normal installed wheel) or ``"egg-info"``
     (what a plain ``setup.py``/legacy editable build — or a stray leftover
@@ -99,15 +108,15 @@ def _write_distribution(root: Path, version: str, *, kind: str) -> None:
     each scenario below control the exact "installed stamp" the gate sees.
     """
     if kind == "dist-info":
-        info = root / f"ccf-{version}.dist-info"
+        info = root / f"{_STEM}-{version}.dist-info"
     elif kind == "egg-info":
-        info = root / "ccf.egg-info"
+        info = root / f"{_STEM}.egg-info"
     else:
         raise ValueError(kind)
     info.mkdir(parents=True, exist_ok=True)
     metadata_name = "METADATA" if kind == "dist-info" else "PKG-INFO"
     (info / metadata_name).write_text(
-        f"Metadata-Version: 2.1\nName: ccf\nVersion: {version}\n"
+        f"Metadata-Version: 2.1\nName: {DISTRIBUTION}\nVersion: {version}\n"
     )
 
 
@@ -199,7 +208,7 @@ def test_mismatching_tag_is_refused(tmp_path: Path) -> None:
     result = _run_gate(repo)
 
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "tag v2.0.0 but installed ccf is 2.0.1" in result.stdout
+    assert f"tag v2.0.0 but installed {DISTRIBUTION} is 2.0.1" in result.stdout
 
 
 def test_no_git_at_all_is_refused_not_passed(tmp_path: Path) -> None:
@@ -416,7 +425,7 @@ def test_underived_fallback_stamp_is_refused_unconditionally(
     # ...and the message catches it independently: this is the marker
     # refusal's OWN opening text, not a value the fall-through echoes back.
     assert result.stdout.startswith(
-        f"check_version_stamp: installed ccf is {stamp!r} — "
+        f"check_version_stamp: installed {DISTRIBUTION} is {stamp!r} — "
     ), result.stdout
     assert (
         f"the {marker!r} marker means the version was NOT derived from git"
@@ -448,7 +457,7 @@ def test_a_non_release_tag_on_head_takes_the_off_tag_path(tmp_path: Path) -> Non
 
 
 def test_ambiguous_metadata_on_sys_path_is_refused(tmp_path: Path) -> None:
-    """Two `ccf` distributions with disagreeing versions in the same directory: REFUSE.
+    """Two SDK distributions with disagreeing versions in the same directory: REFUSE.
 
     Fix round 1 finding 1, MEASURED: a stale, git-ignored `ccf.egg-info/`
     left by an older editable build sits beside the current install and
@@ -475,7 +484,7 @@ def test_ambiguous_metadata_on_sys_path_is_refused(tmp_path: Path) -> None:
     # this gate ever prints as its first line can be a fixture path, because
     # every code path's first `print` begins with `"check_version_stamp: "`.
     assert result.stdout.startswith(
-        "check_version_stamp: ambiguous 'ccf' metadata"
+        f"check_version_stamp: ambiguous {DISTRIBUTION!r} metadata"
     ), result.stdout
     assert "2.0.0" in result.stdout
     assert "0.1.0" in result.stdout
@@ -497,7 +506,7 @@ def test_unreadable_metadata_is_a_named_refusal_not_a_traceback(tmp_path: Path) 
     repo = _make_repo(tmp_path)
     _git(repo, "tag", "v1.0.0")
     _write_distribution(repo, "1.0.0", kind="dist-info")
-    (repo / "ccf-2.0.0.dist-info").mkdir()  # exists, but no METADATA inside
+    (repo / f"{_STEM}-2.0.0.dist-info").mkdir()  # exists, but no METADATA inside
 
     result = _run_gate(repo)
 
@@ -513,20 +522,20 @@ def test_unreadable_metadata_is_a_named_refusal_not_a_traceback(tmp_path: Path) 
     # this assertion passing; so did rewording the header to "not readable".
     # Anchoring on the START of stdout is immune to both.
     assert result.stdout.startswith(
-        "check_version_stamp: 'ccf' metadata is present but unreadable"
+        f"check_version_stamp: {DISTRIBUTION!r} metadata is present but unreadable"
     ), result.stdout
-    assert "ccf-2.0.0.dist-info" in result.stdout
+    assert f"{_STEM}-2.0.0.dist-info" in result.stdout
 
 
 def test_no_distribution_found_is_refused(tmp_path: Path) -> None:
-    """Nothing named `ccf` visible anywhere: REFUSE, not a crash and not a pass."""
+    """No SDK distribution visible anywhere: REFUSE, not a crash and not a pass."""
     repo = _make_repo(tmp_path)
     _git(repo, "tag", "v1.0.0")
 
     result = _run_gate(repo)
 
     assert result.returncode == 1, result.stdout + result.stderr
-    assert "no 'ccf' distribution found" in result.stdout
+    assert f"no {DISTRIBUTION!r} distribution found" in result.stdout
 
 
 def test_multiple_release_tags_on_head_is_refused_not_guessed(tmp_path: Path) -> None:

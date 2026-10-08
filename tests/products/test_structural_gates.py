@@ -547,17 +547,36 @@ def test_the_resolver_resolves_then_gates_then_withholds_and_hands_no_principal(
     # ran after the read would have bounded a question the engine had already
     # answered; a tolerance step that ran before the gates would withhold a
     # product nobody had established could exist.
-    reads = [
-        c for c in calls if ast.unparse(c.func).endswith("handle.reader.as_of")
-    ]
-    assert len(reads) == 1
+    #
+    # TWO graph reads since SEC-020's acquisition round (`D-IMPL-376` (3), route
+    # A), each still after the resolution and before the gates: the fabric as
+    # it stood BEFORE the declared acquisition seam (the state a Π-withheld
+    # subject is rendered over), and the read the plan's registry is built
+    # from AFTER it. The seam call sits between them, which is the property
+    # that read exists for.
+    reads = sorted(
+        (c for c in calls if ast.unparse(c.func).endswith("handle.reader.as_of")),
+        key=lambda call: call.lineno,
+    )
+    assert len(reads) == 2
+    before_acquisition, plan_read = reads
+    seams = [c for c in calls if ast.unparse(c.func) == "self.acquisition"]
+    assert len(seams) == 1, "the declared acquisition seam is invoked in one place"
+    (seam,) = seams
+    assert before_acquisition.lineno < seam.lineno < plan_read.lineno
     gate_calls = [c for c in calls if _named(c) == "run_gates"]
     assert len(gate_calls) == 1
     (gate_call,) = gate_calls
     withholds = [c for c in calls if _named(c) == "refuse_over_tolerance"]
     assert len(withholds) == 1, "the delivery decision is made in one place"
     (withhold,) = withholds
-    assert resolution.lineno < reads[0].lineno < gate_call.lineno < withhold.lineno
+    assert (
+        resolution.lineno
+        < before_acquisition.lineno
+        < plan_read.lineno
+        < gate_call.lineno
+        < withhold.lineno
+    )
 
     # The gate no longer receives a tolerance at all.
     gate_keywords = {kw.arg: ast.unparse(kw.value) for kw in gate_call.keywords}

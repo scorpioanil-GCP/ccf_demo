@@ -340,3 +340,13 @@ used where order was the claim.**
 `required_operator_keys` still produces a policy-first plan — the planner orders
 by category — so the bad state is unreachable from this deployment. The gate
 stays `passed` on limb (b), where the retrieval bound is genuinely sabotageable.
+
+## Security remediation — `EX-09` (2026-10-07)
+
+**This is a frozen specimen (`D-IMPL-261`), changed on Dave's ruling of 2026-10-07 13:20 MST: *"Fix the one line"*.** The successor's pin `tests/examples/test_cp_13_canonical_output.py::test_the_specimen_is_untouched_and_no_identity_is_reused` (`CXRC-G17`) compares this tree with `git merge-base HEAD main`, so it reads this repair as a change on a branch until the merge — the same as the `D-IMPL-375` specimen pins.
+
+Classified under `docs/EXAMPLE-EVALUATION-CRITERIA.md` §B before the change: §B.4, the example's own code rather than the SDK. Changed under `D-IMPL-261`'s "objectively wrong" reason, authorized by `D-IMPL-376` ruling (7): *"SDK input rejection is useful defense, but leaves fragile example code for adopters to copy."*
+
+- **`EX-09`.** `acquisition.py::_Relational.rows` built `SET search_path TO {schema}` by f-string (security review 2026-09-23). It now composes the statement with the driver's own `psycopg.sql` — `SQL("SET search_path TO {}").format(Identifier(schema))` — so the configured schema reaches PostgreSQL as one quoted identifier, whatever it contains. That is the statement and one import; nothing else in the specimen changed. The documented schema `ccf_v2` is one lowercase identifier, so it names the same schema quoted or not.
+
+Evidence: `tests/examples/test_ex_09_search_path_identifier.py`.

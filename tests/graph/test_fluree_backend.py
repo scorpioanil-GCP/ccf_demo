@@ -3041,7 +3041,7 @@ def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
     from tests.conformance.test_substrate_properties import (
         PERMITTED_CLASSIFICATIONS,
     )
-    from tests.properties.strategies import CLASSIFICATION_ATTRIBUTE
+    from tests.properties.strategies import AUTHORITY, CLASSIFICATION_ATTRIBUTE
 
     entities, relationships = chain_claims(
         mid_classification=PERMITTED_CLASSIFICATION
@@ -3051,7 +3051,10 @@ def test_fluree_non_traverse_queries_are_pushed_not_silently_degraded(
     answers: dict[str, list[bytes]] = {}
     reached: dict[str, list[list[str]]] = {}
     for backend in ("fluree", "memory"):
-        handle = fabric_boot(backend=backend)
+        # SEC-023 (D-IMPL-372 Q15): a classification-filtered read refuses an
+        # attribute no boot-minted authority governs, so the boot declares the
+        # shared authority its SQL siblings declare (tests/graph/test_sql_pushdown.py).
+        handle = fabric_boot(backend=backend, governed_classification=AUTHORITY.governed)
         for claim in entities:
             handle.worker.admit_entity_claim(tenant_id=TENANT, claim=claim)
         for edge in relationships:

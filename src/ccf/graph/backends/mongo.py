@@ -287,7 +287,12 @@ class MongoGraphStore:
         ModuleNotFoundError: When the ``mongo`` extra is not installed. Raised
             here rather than at import so the module remains importable and
             the failure names the moment a deployment actually asked for
-            MongoDB: install it with ``pip install "ccf[mongo]"``.
+            MongoDB. Install the ``mongo`` extra from the same source the SDK
+            was installed from: ``pip install -e ".[mongo]"`` in a repository
+            checkout, the SDK wheel file with ``[mongo]`` appended, or
+            ``ccf-sdk[mongo]`` with ``--index-url`` set to the deployment's
+            private index. Never install it by bare name from public PyPI,
+            where ``ccf-sdk`` holds only an empty name placeholder.
     """
 
     def __init__(

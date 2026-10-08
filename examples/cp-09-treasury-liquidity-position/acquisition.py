@@ -44,6 +44,7 @@ from typing import Any
 
 import psycopg
 import yaml
+from psycopg.sql import SQL, Identifier
 
 HERE = Path(__file__).parent
 
@@ -180,7 +181,7 @@ class _Relational:
     def rows(self, sql: str, args: Sequence[Any] = ()) -> list[tuple[Any, ...]]:
         with psycopg.connect(self._dsn) as connection:
             cursor = connection.cursor()
-            cursor.execute(f"SET search_path TO {self._schema}")
+            cursor.execute(SQL("SET search_path TO {}").format(Identifier(self._schema)))
             cursor.execute(sql, args)
             return list(cursor.fetchall())
 

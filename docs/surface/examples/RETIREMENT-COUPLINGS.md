@@ -59,16 +59,16 @@ Rows by coupling shape:
 | `Makefile` | 355 | `examples/s1-01-hello-context-product` | `makefile-recipe` | live | - | - | 17-08 |  |
 | `Makefile` | 379 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
 | `Makefile` | 383 | `examples/s1-00-companies-over-revenue` | `makefile-recipe` | live | - | - | 17-08 |  |
-| `README.md` | 82 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
-| `README.md` | 86 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
-| `README.md` | 107 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 108 | `archive/examples/01-agent-basics` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 109 | `archive/examples/02-skilling` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 110 | `archive/examples/03-harness-portability` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 111 | `archive/examples/04-cross-process` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 112 | `archive/examples/05-workflow-hitl` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 113 | `archive/examples/06-decision-replay` | `markdown-link` | live | - | - | 23-04 |  |
-| `README.md` | 114 | `archive/examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 122 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
+| `README.md` | 126 | `archive/examples/00-quickstart` | `prose` | documentary | - | - | 23-04 |  |
+| `README.md` | 147 | `archive/examples/00-quickstart` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 148 | `archive/examples/01-agent-basics` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 149 | `archive/examples/02-skilling` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 150 | `archive/examples/03-harness-portability` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 151 | `archive/examples/04-cross-process` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 152 | `archive/examples/05-workflow-hitl` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 153 | `archive/examples/06-decision-replay` | `markdown-link` | live | - | - | 23-04 |  |
+| `README.md` | 154 | `archive/examples/07-artifact-store-mcp` | `markdown-link` | live | - | - | 23-04 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 4 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_REVISION.md` | 342 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `docs/CONTEXT_PRODUCT_RULING_EVIDENCE.md` | 162 | `examples/06-decision-replay` | `prose` | documentary | - | - | 23-04 |  |
@@ -248,7 +248,7 @@ Rows by coupling shape:
 | `public/reference/artifacts/skill-grants.md` | 25 | `archive/examples/02-skilling` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/task-definitions.md` | 16 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/reference/artifacts/workflow-definitions.md` | 22 | `archive/examples/05-workflow-hitl` | `snippet-include` | live | - | - | 23-04 |  |
-| `pyproject.toml` | 83 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
+| `pyproject.toml` | 100 | `tests/examples/test_ext00_fixture_schemas.py` | `comment` | documentary | - | - | 23-10 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 514 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `runtime/ccf_runtime/mcp/egress.py` | 516 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `runtime/ccf_runtime/mcp/experience.py` | 445 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
@@ -259,7 +259,7 @@ Rows by coupling shape:
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 2985 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/resolver.py` | 1871 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 4537 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 4620 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 380 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 413 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |

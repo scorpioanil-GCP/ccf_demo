@@ -81,7 +81,7 @@ from ccf.artifacts.protocol import (
     held_content_address,
     parse_artifact_uri,
 )
-from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
+from ccf.authz.capability import ArtifactRead, Authorized, ReplayMint, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
 from ccf.contracts.base import CCFContract
 from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
@@ -141,6 +141,7 @@ __all__ = [
     "DereferenceRequest",
     "DereferencedEvidence",
     "DisclosingRecorderProtocol",
+    "UnattributableDeliveryBoundaryError",
     "UnconsultedDeliveryBoundaryError",
     "UnrecordableDeliveryBoundaryError",
     "disclosing_boundary",
@@ -246,6 +247,22 @@ class UnconsultedDeliveryBoundaryError(TypeError):
     bytes with no refusal at all. Raised after the capability check and before
     anything is read, recorded or clocked: a wiring defect, refused where an
     operator sees it, never a determination about a caller.
+    """
+
+
+class UnattributableDeliveryBoundaryError(TypeError):
+    """A governed evidence read was handed a store that cannot say who filed an address (the forged-record finding; `D-IMPL-376` close-out).
+
+    :func:`govern_dereference` serves a record only if the store's own naming
+    shows the address filed by the fabric's record writer — under a class the
+    store's :class:`~ccf.artifacts.protocol.WriteKinds` declares under
+    ``ReplayMint`` — under the tenant the record was decided under; the bytes
+    alone say nothing about who filed them. A store whose substrate answers no
+    ``names_at``, or declares no ``WriteKinds``, cannot answer that, so the
+    read refuses rather than serves. Raised after the capability check and
+    before anything is read, recorded or clocked, as
+    :class:`UnconsultedDeliveryBoundaryError` is: a wiring defect, refused
+    where an operator sees it, never a determination about a caller.
     """
 
 
@@ -891,8 +908,13 @@ def _is_read_refusal(internal: RefusalEnvelope | None) -> bool:
     never by either alone. A record filed through the still-open write path
     (``D-IMPL-73``) could carry one and borrow the other's meaning; requiring
     both makes that forgery a record with no recoverable identity instead.
-    It is safe rather than merely careful because hold 1 binds every record to
-    its author: a forged record is readable by its forger and by nobody else.
+    It is safe rather than merely careful because :func:`govern_dereference`
+    reads a record only where the store's naming shows the fabric's own
+    record writer filed it, under a ``ReplayMint`` class and the record's
+    deciding tenant: bytes filed through the open write path are never read as
+    a record at all, so neither constant can be borrowed. (Hold 1 alone was
+    not that guarantee: a forger names whichever principal it likes — the
+    forged-record finding of the ``D-IMPL-376`` close-out.)
     """
     return (
         internal is not None
@@ -959,6 +981,24 @@ def govern_dereference(
     **The holds, in order, and the order is the property** (``D-IMPL-345``
     R-2):
 
+    - **Provenance, before any hold.** The bytes at an address say nothing
+      about who filed them, and every hold reads the record's tenant and
+      principal from those bytes. So the store's own naming must show the
+      address filed by the fabric's record writer — under a class the store's
+      ``WriteKinds`` declares under ``ReplayMint``, a kind no door can mint —
+      and under the tenant the record was decided under. Bytes filed any other
+      way, a forgery on a client lane included, answer exactly as a missing
+      address does (the forged-record finding; ``D-IMPL-376`` close-out).
+    0. **Tenant.** The tenant the record was decided under
+       (:func:`_decided_identity`; the record's own ``tenant_id`` when no
+       identity is recoverable) equals the capability's ``authorized.tenant``.
+       On a mismatch the read is answered exactly as a missing address is —
+       ``nonexistent``, the one outcome at every disclosure level — so a caller
+       learns nothing about another tenant's records, not even that one exists
+       at an address it computed (C-2, the ``D-IMPL-376`` close-out). First,
+       because hold 1's ``unauthorized`` at ``full`` would otherwise be that
+       signal, and so that hold 2 only ever re-decides a grant under the
+       capability's own tenant.
     1. **Principal.** The verified ``client_id`` equals the record's own
        ``perspective_conditioning.principal_id``. On a mismatch the boundary
        stops reading the record: ``authorize`` is never called, no policy pin
@@ -1012,11 +1052,13 @@ def govern_dereference(
     **Every refusal and every absence is one outcome**: a
     :class:`~ccf.products.refusal.SubjectUnavailableRefusal` recorded through
     the door's recorder and returned disclosed. ``cause="unauthorized"``
-    distinguishes a hold failure on a genuine record from ``"nonexistent"``
-    for everything else, as internal truth; below ``full`` the two are one
-    shell, and the request identity every shell carries is the mechanism
-    constant plus the caller's own reference, never anything recovered from
-    the target.
+    distinguishes a failure of holds 1 to 3 on a genuine record of the
+    caller's own tenant from ``"nonexistent"`` for everything else — another
+    tenant's record (hold 0) and bytes the record writer did not file
+    (provenance) included — as internal truth; below ``full`` the
+    two are one shell, and the request identity every shell carries is the
+    mechanism constant plus the caller's own reference, never anything
+    recovered from the target.
 
     **The capability first** (D-IMPL-353 §1.2, §1.5). ``authorized`` is the
     ``Authorized[ArtifactRead]`` or ``Authorized[ReplayRead]`` the HTTP gate or
@@ -1073,6 +1115,10 @@ def govern_dereference(
             :class:`~ccf.erasure.ErasureConsultingStore` (PM5, panel C5;
             U12). Raised right after the capability check, before anything
             is read, recorded or clocked.
+        UnattributableDeliveryBoundaryError: ``store``'s substrate answers no
+            ``names_at`` or declares no ``WriteKinds``, so it cannot show who
+            filed an address. Raised right after the PM5 check, before
+            anything is read, recorded or clocked.
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
             ``@latest``. A request-shape refusal raised by the shared parser
             before any lookup, which reveals nothing and which the route
@@ -1092,6 +1138,18 @@ def govern_dereference(
             " ccf.erasure.compose_erasure_consult first — a governed evidence read"
             " over an unconsulted store would serve erased content (SEC-009; U12;"
             " D-IMPL-374)"
+        )
+    # The forged-record finding (`D-IMPL-376` close-out): a record is served only
+    # where the store shows who filed it, so a store that cannot say is refused
+    # here, before anything is read, as PM5 refuses an unconsulted one.
+    write_kinds = store.write_kinds
+    if write_kinds is None or not callable(getattr(store.inner, "names_at", None)):
+        raise UnattributableDeliveryBoundaryError(
+            f"govern_dereference was handed a store over {type(store.inner).__name__},"
+            " which cannot say who filed an address (it answers no names_at or"
+            " declares no WriteKinds); a governed evidence read serves a record only"
+            " where the store shows the fabric's own record writer filed it, so it"
+            " refuses rather than serves (the forged-record finding; D-IMPL-376)"
         )
     principal = authorized.principal
     # The one seam that still takes a grant: handed the capability's principal
@@ -1241,6 +1299,44 @@ def govern_dereference(
             cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
         )
 
+    internal = _internal_refusal(record)
+    decided = _decided_identity(record, internal)
+
+    # --- hold 0: the tenant the record was decided under --------------------
+    # C-2 (`D-IMPL-345` R-2: the caller is held to the record's retained
+    # principal/TENANT/product identity). A record decided under any tenant but
+    # the capability's answers exactly as a missing address does — the one
+    # `nonexistent` outcome, at every level — and FIRST: hold 1's
+    # `unauthorized` would otherwise tell a `full` caller that another tenant
+    # holds a record at an address it computed, and hold 2 would re-decide a
+    # grant under a tenant the capability does not name.
+    deciding_tenant = decided[0] if decided is not None else record.tenant_id
+
+    # --- provenance: filed by the fabric's own record writer ----------------
+    # The forged-record finding (`D-IMPL-376` close-out; Dave's ruling). Every
+    # hold below reads the record's tenant and principal from the BYTES at the
+    # address, and anyone who can file an artifact can file bytes shaped as a
+    # record that claim any tenant and principal. So the store's own naming
+    # must show the address filed under the deciding tenant in a class its
+    # WriteKinds declares under ReplayMint — a kind no door can mint, held only
+    # by the fabric's record writers. Anything else answers exactly as a
+    # missing address does.
+    filed_by_the_record_writer = any(
+        named.tenant_id == deciding_tenant
+        and ReplayMint in write_kinds.for_class(named.artifact_class)
+        for named in store.names_at(content_address=content_address)
+    )
+    if not filed_by_the_record_writer:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
+
+    # --- hold 0: the tenant the record was decided under (as above) ---------
+    if deciding_tenant != authorized.tenant:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
+
     # --- hold 1: the record's own principal ---------------------------------
     if principal != record.perspective_conditioning.principal_id:
         return refuse(
@@ -1252,11 +1348,8 @@ def govern_dereference(
             ),
         )
 
-    internal = _internal_refusal(record)
-
     # --- hold 2: the product grant that governed the serve ------------------
     if not _is_read_refusal(internal):
-        decided = _decided_identity(record, internal)
         if decided is None:
             return refuse(
                 cause="unauthorized",

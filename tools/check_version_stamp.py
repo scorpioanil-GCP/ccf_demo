@@ -1,4 +1,15 @@
-"""Fail when the installed ``ccf`` version stamp cannot be trusted (D-IMPL-357 §D, SEC-029).
+"""Fail when the installed ``ccf-sdk`` version stamp cannot be trusted (D-IMPL-357 §D, SEC-029).
+
+The distribution is ``ccf-sdk`` since SEC-027 (``D-IMPL-376`` ruling 4); the import
+name stays ``ccf``. ``ccf`` on public PyPI is Microsoft's Confidential Consortium
+Framework, so this gate discovers by the distribution name and never by the import
+name: with Microsoft's package installed, a lookup by ``ccf`` would certify its
+version as the SDK's. ``DISTRIBUTION`` below equals ``[project] name`` and
+``src/ccf/graph/registry.py::SDK_DISTRIBUTION``, the runtime reader this gate
+certifies. The measurements quoted below were taken under the earlier name ``ccf``;
+the renamed metadata directories are ``ccf_sdk.egg-info/`` and
+``ccf_sdk-X.Y.Z.dist-info/``, and a stale ``ccf.egg-info/`` from before the rename
+is invisible to both readers alike.
 
 Three things this gate refuses, each measured against a real defect in fix
 round 1 and each with its own posture below:
@@ -19,7 +30,7 @@ round 1 and each with its own posture below:
    gate. So this script adds the current working directory to ``sys.path``
    itself (matching the worst-case runtime posture rather than whatever
    posture happens to invoke the script) and uses
-   ``importlib.metadata.Distribution.discover`` to see EVERY ``ccf``
+   ``importlib.metadata.Distribution.discover`` to see EVERY ``ccf-sdk``
    distribution visible, refusing outright when more than one distinct
    version is found.
 2. **An undetected fallback.** ``[tool.setuptools_scm] fallback_version``
@@ -57,7 +68,8 @@ import os
 import subprocess
 import sys
 
-DISTRIBUTION = "ccf"
+#: The SDK's DISTRIBUTION name (SEC-027) — not the import name ``ccf``.
+DISTRIBUTION = "ccf-sdk"
 
 #: Markers `fallback_version` (or a git-describe failure setuptools_scm
 #: cannot recover from) writes into the local version segment. Their
@@ -75,7 +87,7 @@ _GIT_TIMEOUT_SECONDS = 10
 
 
 def _discover_versions() -> dict[str, str | None]:
-    """Every ``ccf`` distribution visible on ``sys.path``, keyed by its own
+    """Every ``ccf-sdk`` distribution visible on ``sys.path``, keyed by its own
     metadata directory (its ``*.dist-info`` or ``*.egg-info``), never by the
     distribution's root.
 

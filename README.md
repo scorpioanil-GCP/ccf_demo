@@ -17,8 +17,11 @@ loop — as the trust-and-control plane; it never absorbs the agent loop and it
 does not ship one. The canonical specification is the whitepaper at
 [`docs/CCF_Whitepaper_1-2.md`](docs/CCF_Whitepaper_1-2.md).
 
-This repository is **private** and the SDK is proprietary; there is no PyPI
-distribution.
+This repository is **private** and the SDK is proprietary; it is not published
+to PyPI or any other public index. Its distribution name is `ccf-sdk` and its
+import name is `ccf`: read
+[the distribution name](#the-distribution-is-ccf-sdk-the-import-name-is-ccf)
+before installing.
 
 ## Install
 
@@ -33,6 +36,39 @@ The `dev` extra installs the test toolchain **and all three harness legs**
 (Google ADK, Claude Agent SDK, LangGraph). To install a single harness leg
 only: `pip install -e ".[langgraph]"` (likewise `adk`, `claude-agent`).
 
+### The distribution is `ccf-sdk`; the import name is `ccf`
+
+The SDK installs as the distribution `ccf-sdk` and is imported as `ccf`
+(`SEC-027`). Install it from this repository as shown here, never by name from
+a public index. **Never run `pip install ccf`:** the PyPI project `ccf` is
+Microsoft's Confidential Consortium Framework (7.0.18 when measured), an
+unrelated package that also installs a top-level `ccf` package and also
+requires Python 3.12 or newer.
+
+The two cannot share an environment. pip installs either one beside the other
+without a warning: the second overwrites the first's `ccf/__init__.py`, both
+appear in `pip list`, and uninstalling either one deletes that file from under
+the other. Keep Microsoft's `ccf` out of any environment that holds `ccf-sdk`.
+
+An environment that already holds this SDK under its former distribution name,
+`ccf`, needs one step first, and the order matters:
+
+```sh
+pip uninstall -y ccf     # first: remove the former distribution
+pip install -e ".[dev]"  # then install ccf-sdk as above
+```
+
+pip treats `ccf` and `ccf-sdk` as two projects and keeps both, and neither
+`pip install` nor `make install` removes the former one. Until it is gone,
+`import ccf` can load the former install's code. That code still looks the SDK
+up as `ccf`, so built-in adapters resolve against the former distribution and
+the replay record carries its version, while the release version gate, which
+reads `ccf-sdk`, can still pass. Uninstalling `ccf` after `ccf-sdk` is in place
+deletes the files the two share; for a non-editable install that is every
+package file of `ccf-sdk`. Repair it with `--force-reinstall` from the same
+wheel file or private index you installed it from, never by its bare name from
+public PyPI, where the name `ccf-sdk` holds no SDK code.
+
 ### Hash-verified install (what CI and `make install` run)
 
 CI never resolves a dependency at run time. Every workflow and the Makefile's
@@ -46,6 +82,10 @@ python -m venv .venv
 .venv/bin/pip install -e . --no-deps --no-build-isolation
 ```
 
+`make install` does not remove an earlier install of this SDK under its former
+distribution name `ccf`. In such an environment, run
+`.venv/bin/pip uninstall -y ccf` first, as described above.
+
 `--no-build-isolation` is load-bearing: without it pip fetches the build
 dependencies unhashed into a temporary environment. The `dependency-lock` lint
 (`tools/lints/dependency_lock.py::check_tree`, `SEC-028`) refuses any other
@@ -58,17 +98,17 @@ pip-tools (in the `dev` extra) and commit it with the change:
 
 ```sh
 SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 .venv/bin/pip-compile --generate-hashes \
-  --all-build-deps --unsafe-package ccf --no-strip-extras \
+  --all-build-deps --unsafe-package ccf-sdk --no-strip-extras \
   --extra dev --extra neo4j --extra mongo -o requirements.lock pyproject.toml
 ```
 
-`--all-build-deps` puts the build set in the lock; `--unsafe-package ccf` keeps
-the project's own self-referencing extras out of it (an unhashable
+`--all-build-deps` puts the build set in the lock; `--unsafe-package ccf-sdk`
+keeps the project's own self-referencing extras out of it (an unhashable
 `file://` entry `--require-hashes` would refuse). Do not use `--all-extras`: it
-would pull `chromadb` into every CI job. pip-compile leaves a `ccf.egg-info/`
-stamped `0.0.0` at the repository root (gitignored); delete it afterwards, or
-`importlib.metadata` run from the root reports that version instead of the
-installed one.
+would pull `chromadb` into every CI job. pip-compile leaves a
+`ccf_sdk.egg-info/` stamped `0.0.0` at the repository root (gitignored); delete
+it afterwards, or `importlib.metadata` run from the root reports that version
+instead of the installed one.
 A pin changed in `pyproject.toml` without regenerating the lock fails the
 `dependency-lock-freshness` lint
 (`tools/lints/dependency_lock_freshness.py::check_tree`, `SEC-028-F1`).

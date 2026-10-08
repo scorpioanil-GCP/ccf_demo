@@ -49,8 +49,10 @@ base class** (close-review finding F5). The unreadable-package refusal is a
 ``RuntimeError`` and the other three are ``ValueError`` subclasses, so a catch
 tuple assembled from the ones that *looked* alike let the fourth through as an
 unshaped 500. It is the case where an unshaped 500 costs most: the remedy is
-`pip install --force-reinstall` of the SDK, which is the one an operator
-staring at a backend endpoint is least likely to guess.
+reinstalling the SDK from the wheel or private index the deployment
+installed it from (never by its bare name from public PyPI, which serves
+no SDK code under that name), which is the one an operator staring at a
+backend endpoint is least likely to guess.
 
 ``503`` because the deployment is misconfigured rather than the request
 malformed. Not ``200`` with an empty list, because an empty list is a

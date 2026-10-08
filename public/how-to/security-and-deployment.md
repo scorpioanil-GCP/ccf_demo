@@ -311,10 +311,31 @@ Per the Phase I.4 gate (§1.2) and CLAUDE.md §3.1:
   `[build-system].requires` build set), pins a version the declared specifier
   does not admit, or whose compile header does not name the ruled extras.
 
+### 3.1 The distribution name is `ccf-sdk` (SEC-027)
+
+The SDK's distribution is named `ccf-sdk`; its import name is `ccf`. The PyPI
+name `ccf` belongs to Microsoft's Confidential Consortium Framework, which also
+installs a top-level `ccf` package, so a distribution named `ccf` made
+`pip install ccf` a dependency-confusion path. The SDK is not published to any
+public index: install it from the repository, never by name, and never into an
+environment that holds Microsoft's `ccf`. pip installs the two side by side
+without a warning, and each overwrites or deletes the other's
+`ccf/__init__.py`. `README.md` ("The distribution is `ccf-sdk`") gives the
+install and migration steps. The SDK's own metadata carries the classifier
+`Private :: Do Not Upload`, which PyPI refuses on every upload, so a stray
+upload of the SDK to PyPI is rejected rather than published. Every reader of the SDK's own installed metadata
+names `ccf-sdk`: the built-in adapter's replay pin reads its version through
+`src/ccf/graph/registry.py::SDK_DISTRIBUTION`, and the release version gate
+discovers through `tools/check_version_stamp.py::DISTRIBUTION`. The test
+`tests/test_distribution_name.py::test_every_reader_of_the_sdks_own_metadata_names_the_declared_distribution`
+holds both to `[project] name`.
+
 ## 4. Deployment posture: what to decide before a surface is up
 
-Ten decisions have to be made explicitly, and §4.8 records two limitations the
-SDK discloses rather than fixes. Each decision is a construction-time argument
+Ten decisions have to be made explicitly; §4.8 records two limitations the
+SDK discloses rather than fixes, §4.12 an open row (SEC-020) a deployment must
+plan around, and §4.13 how far the SDK serializes the resumption of a suspended
+run, and what a deployment must serialize beyond that. Each decision is a construction-time argument
 or a declared artifact rather than a setting buried in configuration; where the
 SDK behaves a particular way when nothing is declared, its section says so. The
 first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
@@ -545,7 +566,13 @@ Consequences for a deployment on the stores that do lease:
 - **SQLite.** The lease is only as good as the filesystem's `flock`. WAL-mode
   SQLite is already unsupported on network filesystems, so keep the database
   file and its sidecar on a local filesystem. A process forked while holding
-  the lease shares it until that child exits.
+  the lease shares it until that child exits. The sidecar is opened without
+  `O_NOFOLLOW` (`src/ccf/graph/backends/sqlite.py::SqliteWriterLease`), so a
+  symbolic link placed at `<database file>.ccf-writer.lock` is followed: an
+  account that can write to the database file's directory can redirect the
+  lease to a file of its choosing. Keep that directory writable only by the
+  account the SDK runs as (disclosed 2026-10-07, `D-IMPL-377`; `D-IMPL-375`
+  recorded this residual as disclosed here before it was).
 - **Postgres.** Connect directly or through a *session*-pooled connection. A
   transaction- or statement-pooled connection (PgBouncer in those modes)
   cannot carry a session lock. A dropped connection loses the lease silently:
@@ -904,8 +931,11 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   tenantless reads.** A holder of the erase capability in tenant B can append
   an entry — genuine, or forged and so `index-unsupported` — naming an
   address of tenant A. Every tenantless read (the replay engine, `record_of`,
-  child admission, the MCP client lane) then withholds A's artifact, with the
-  reason redacted; reads scoped to tenant A still serve it. The by-URI naming
+  child admission) then withholds A's artifact, with the reason redacted;
+  reads scoped to tenant A still serve it. The MCP artifact server's client
+  lane is scoped to its caller's tenant and is not among them (corrected
+  2026-10-07, `D-IMPL-377`: this list named it, and a measured read of
+  another tenant's erased address over that lane is served). The by-URI naming
   check inside the governed evidence read (`govern_dereference`) was one such
   tenantless read, and answered A's examiner "absent", recorded as
   `nonexistent`; it now reads through the caller's tenant view, and an
@@ -943,19 +973,73 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   fsynced, and the append raises `ErasureIndexWriteFailed`, which the door's
   completion propagates by name, filing no record (PC1). The completion can
   be retried once the cause is cleared.
-- **Another tenant's governed filing of identical bytes changes the owner's
-  reads over the MCP artifact server.** The server decides whether an address
-  is governed evidence over every name it was filed under, in every tenant,
-  before it filters to the caller's own (the D-IMPL-345 R-5 rule, which the
-  SEC-009 names resource inherits). Once tenant B files the same bytes under
-  a governed (`ReplayMint`) class, tenant A's own names and blob reads of its
-  client-lane artifact answer `subject-unavailable`. The consequence for
-  erasure: A's erasure door over the MCP-backed store can no longer read A's
-  own naming of that address, and refuses to erase it as
-  `class-unverifiable`. It fails closed, and the precondition is narrow — B
-  must hold identical bytes and write authority for a governed class — but
-  while B's filing stands, A cannot erase that artifact through a door over
-  the MCP-backed store.
+- **Another tenant's filings do not change a tenant's answers (C8 and C-2,
+  D-IMPL-376).** The MCP artifact server decides whether an address is
+  governed evidence over the names the caller's own tenant filed it under,
+  never another tenant's. An address the caller's tenant never filed goes to
+  the governed evidence read
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`),
+  which holds the caller to the tenant a record was decided under before any
+  other hold: another tenant's record answers exactly as a missing address
+  does, `nonexistent`, at every disclosure level. The HTTP evidence routes
+  (`/replay/decisions`, `/replay/resolutions`, `/artifact`) read through the
+  same function and hold the same way. Before any hold, the governed read
+  serves a record only where the store's naming shows the fabric's own record
+  writer filed it — under a class the store's `WriteKinds` declares under
+  `ReplayMint`, a kind no door can mint — under the tenant the record was
+  decided under. Bytes shaped as a record and filed any other way, on another
+  tenant's client lane or on this tenant's, answer exactly as a missing address
+  does, and a store that cannot say who filed an address is refused by name
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::UnattributableDeliveryBoundaryError`).
+  Within a tenant nothing changes: the
+  owner reads its own record, and another principal's genuine record answers
+  `unauthorized` at `full`. So a tenant's blob, presence and names answers,
+  and its erasure door over the MCP-backed store, do not depend on whether
+  any other tenant filed the same bytes, under any class. Two properties of
+  the store keep that attribution sound. A name is filed only together with
+  its bytes: the address is derived from the bytes `put` receives
+  (`src/ccf/artifacts/protocol.py::ArtifactStoreProtocol.put`), and no verb
+  registers a name for an address by reference. A deployment's own substrate
+  behind the artifact server
+  (`runtime/ccf_runtime/mcp/artifact_server.py::ArtifactSubstrate`) must keep
+  that property; one that can register a name without receiving the bytes
+  must not back a store several tenants share. And a tenant id is one naming
+  segment: a write whose tenant contains `/` is refused at the store's write
+  boundary (`src/ccf/artifacts/protocol.py::authorized_write_target`), because
+  the naming index is read back by splitting `tenant/class/name` and such a
+  filing would be attributed to another tenant (M-4). Names filed before that
+  refusal existed are not re-read: a store that already holds a filing under a
+  tenant id containing `/` still attributes it to the id's prefix. Erasure
+  still crosses tenants on tenantless reads, as described above: an erasure
+  destroys no bytes and is recorded for the erasing tenant only, so once
+  tenant A erases an address that tenant B also filed, B's tenant-scoped reads
+  still serve it and every tenantless read of it withholds it, with the
+  reason redacted.
+- **The MCP client lane is not a governed read (forged-record review,
+  D-IMPL-376).** The artifact server serves a tenant's own client-lane filings
+  to every principal of that tenant as the exact stored bytes, whatever their
+  shape (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`).
+  Bytes a principal files on its tenant's client lane, shaped as another
+  principal's Decision Replay record, therefore cross the MCP blob and
+  presence resources to that tenant's principals — as a client-lane artifact,
+  and the answer does not say which lane served it. They never cross a
+  governed read: the HTTP evidence routes and the artifact server's governed
+  reads answer them as a missing address. Treat a record as evidence only
+  when a governed read returned it.
+- **A read-refusal record is attributed to the door's tenant (forged-record
+  re-review, D-IMPL-376).** The governed read records each refusal through the
+  recorder of the door that refused it, and the record names the door's
+  tenant whichever tenant the refused caller's capability named
+  (`runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`); the
+  tenant hold attributes the record to that tenant, and the product-grant
+  hold does not apply to read refusals. On a door that serves several
+  tenants through one recorder, as the MCP artifact server is built, a
+  principal holding a capability for the door's tenant reads the read-refusal
+  records of a principal of another tenant that has the same client id, and
+  learns which reference that principal asked for: an address or a URI, never
+  any content. The refused principal reads them back only through a
+  capability for the door's tenant. Keep client ids distinct across tenants
+  that share a door, or give each tenant its own door and recorder.
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the
@@ -1025,6 +1109,199 @@ argument is required).
   yet reads either property into a Decision Replay record, so no record shows
   which resolver version made its resolution; do not read the version bump as
   already replay-pinned.
+
+### 4.12 A withheld subject can still be told from a nonexistent one (SEC-020, open; D-IMPL-376)
+
+A projection that must not tell the asking principal about a subject sets
+`withheld=True` on its `ProjectionOutput` and returns the payload it returns
+for a subject it cannot see. The governed call then computes the product's
+Context Debt, empty finding and TTL anchor from the same plan run without the
+request's subject as a walk start, over the fabric as it stood immediately
+before the call's declared acquisition seam ran
+(`src/ccf/products/resolver.py::GovernedResolver`).
+
+**What that makes equal, as measured.** On the paved road's test fixture, a
+withheld subject's served product, every member of it, and its refusal shell,
+every member except `replay_reference`, matched a nonexistent subject's on both
+TTL anchors. That is a measurement, not a proof. The fixture meets four
+conditions, and the list below includes a measured break of each: your
+`acquire` is keyed on the subject, so an identifier it does not hold acquires
+nothing; the fabric is booted for the question, as the paved road boots one
+per question; the product class composes no child about the subject; and no
+similarity operator in the plan scores an entity the acquisition refreshed.
+The test is
+`tests/products/test_withheld_is_indistinguishable_from_absent.py::test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject`.
+
+**SEC-020 is open.** Each of the following still tells a withheld subject from
+a nonexistent one. Each was measured on test fixtures.
+
+- **The answer's replay reference.** Every answer names its decision record:
+  `ServedProduct.replay_ref`, the MCP egress door's `replay_ref`, the HTTP
+  product route's `X-CCF-Replay-Ref` header, and a refusal's
+  `replay_reference`. The record is filed under its graph snapshot id, a hash
+  of what the plan actually read together with the tenant and the question's
+  instant (`src/ccf/replay/serve.py::ReplayWriter`). When the plan's walk
+  reaches the subject's acquired records, as a class-seeded plan on the paved
+  road does, the withheld answer's reference carried a different record name
+  from the one two nonexistent subjects' answers shared, on both anchors, with
+  no dereference at all. The vessels still matched, so this channel is the
+  reference, not the product.
+- **The record behind it.** Dimension 1 of a withheld decision's record lists
+  what the plan actually read, the acquired subject included, and an owner at
+  full disclosure can read its own record through the governed dereference
+  (D-IMPL-345). Each half was measured on its own; reading a withheld
+  decision's record end to end through the dereference was not run. Protect
+  access to records as you would the subject itself.
+- **Composite children.** A class that declares `requires` resolves its
+  children for the asked subject before its plan runs and composes them
+  afterward: the composed factors replace the debt, and the composed expiry
+  and lineage stand in the product
+  (`src/ccf/products/resolver.py::GovernedResolver`). None of that is
+  re-rendered for a withheld subject. With a required child asked about the
+  composite's own subject from a source keyed on it, the two products differed
+  at `debt.debt` and `debt.factors.freshness`; with the child asked about a
+  fixed subject, they did not.
+- **Similarity over an entity the acquisition refreshed.** The re-run reuses
+  the operator registry built from the view read after acquisition, so the
+  similarity operator scores the subject against the text acquisition just
+  wrote. On a fabric that already held the subject, an acquisition that
+  changed its similarity attribute made the two products differ at the empty
+  finding and the debt. Without the similarity operator, with the attribute
+  unchanged, or with the registry built from the view read before
+  acquisition, they did not.
+- **A fabric that outlives the question.** The withheld subject's acquisition
+  stays in the fabric, and later questions read it. After one question about a
+  withheld subject the source holds, a later answer about an identifier that
+  names nothing moved at `debt.debt` and `debt.factors.freshness`; when the
+  source held nothing, it did not. The paved road boots a fabric for each
+  question; a deployment composed by hand over a long-lived fabric does not.
+- **An acquisition not keyed on the subject.** If your `acquire` reads the same
+  content whatever is asked (a population read), a nonexistent subject's
+  question walks that content and the withheld rendering does not. The two
+  differ at the empty finding under `from_decision`, and as `ttl-refusal`
+  against `ttl-anchor-refusal` under `from_entity_freshness`.
+
+**Until SEC-020 closes,** do not rely on `withheld=True` to keep a subject's
+existence from a caller that can see an answer's replay reference, whenever the
+plan's walk reaches the subject's records. The in-process answer, the MCP
+egress door and the HTTP product route all return one.
+
+- **One more read per question.** With an acquisition seam declared, every
+  governed call reads the tenant's graph once more, before the seam, whether
+  or not the projection later withholds. On a test fabric of about 3,000
+  entities this raised a governed call's median time to 1.2 to 1.3 times that
+  of the same call with no seam, over two runs of six calls. That is one
+  fixture's figure, not a sizing guide.
+- **The withheld branch's own time, measured at one scale only.** A withheld
+  answer runs the plan a second time. On a test fabric of about 1,500
+  entities, withheld and nonexistent answers had medians within 2 percent of
+  each other and overlapping ranges over eight calls each. Larger fabrics and
+  heavier plans are unmeasured.
+
+### 4.13 Resume a suspended run from one process, and serialize resumes beyond it (D-IMPL-377)
+
+A resumption takes a single-flight claim on its execution before it reads
+the execution's state record, and gives the claim back on every exit:
+completion, refusal, exception and cancellation
+(`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). The claim
+is keyed by the Control Plane state store the record lives in and by the
+execution's state key, and every engine in the process over that store
+shares it. While one resumption of an execution is in flight in the
+process, a second is refused rather than queued. The refusal is a
+`WorkflowResumeRefused` audited `resolved=False`, and
+`POST /workflow/resumptions` answers it with the same 409 it gives the
+sequential refusal. Before the claim existed, two resumptions of one
+approved suspension both passed the gate. On one human approval, the step
+after the gate ran twice, two `workflow_resumed` rows named the one
+approver, and the next gate held two pending events, one of them bound to a
+state record that had already been overwritten.
+
+- **Present a refused resumption again only after the other one has
+  returned.** The 409 means another resumption of the same execution is in
+  flight in this process. A repeat presented after that one has returned is
+  judged on the execution as it then stands: if the other passed the gate,
+  at the gate the execution now waits on.
+- **Serialize resumptions per execution in front of the door when more
+  than one process can resume.** The claim lives in one process's memory.
+  It does not cover several processes, or several state-store objects that
+  front one durable store, because the state-store Protocol has no
+  compare-and-set (`src/ccf/controlplane/state.py::ControlPlaneStateStore`).
+  The shipped `InMemoryStateStore` is per process, so the shipped
+  composition never shares an execution between processes. A deployment
+  that supplies a shared store must route every resumption of one
+  execution through one process, or take its own per-execution lock before
+  the door.
+- **Keep the steps after a gate idempotent.** A resumption that fails or is
+  cancelled after its step has started gives the claim back, so a retry is
+  admitted and runs that step again.
+- **A verdict recorded while a resumption is in flight is still not seen.
+  This remains open.** A rejection recorded between a resumption's conflict
+  check and its commit is outvoted: the execution completes at the
+  approving terminal with both verdicts on record
+  (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`,
+  residual 2(b)). The claim cannot reach this, because verdicts are recorded
+  through the HITL transport
+  (`src/ccf/hitl/transport.py::HITLTransportProtocol`), which the claim
+  never touches. Covering it means the submission path taking the same
+  per-execution claim, which changes the transport's contract for every
+  transport a deployment supplies. Until then, reconcile: find every
+  execution that has left a gate whose suspension holds both an approve and
+  a reject verdict, and route it to human review.
+- **A step that never returns keeps the claim for the life of the
+  process.** The SDK has no timeout and no operator override for the claim.
+  The claim is given back only when the resumption itself exits, and
+  cancelling the resumption counts as an exit (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). While a
+  step after a gate hangs, every later resumption of that execution in the
+  process is refused as in flight. Measured: refused at once and again two
+  seconds later, then admitted once the hung resumption was cancelled. If
+  you cannot cancel it, restart the process. What the restarted process
+  finds depends on where the execution's state lives. The shipped
+  composition keeps its state store, HITL transport and audit log in
+  memory, so a restart loses the execution. Measured: the restarted
+  process holds no state record and no recorded approval for it, a
+  resumption is refused "no execution exists", and the trace artifact its
+  suspension wrote to the artifact store survives. Starting it
+  again under the same execution id runs it from its first step to its
+  first gate, where it waits for a new approval (measured). The audit rows
+  the killed process wrote are gone with its memory (code reading). A
+  durable state store and HITL transport instead keep the execution
+  suspended at the gate the hung resumption was carrying it past, because
+  that resumption committed nothing. The next resumption passes on the same
+  recorded approval and runs the step after the gate again. This was
+  measured with the reference store and transport, persisted to disk after
+  every write, standing in for durable ones.
+- **The in-flight refusal tells a `Resume` holder that a resumption is
+  running.** The claim is taken after the `Resume` capability is verified
+  and before the gate's authority is checked (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). So a
+  principal can learn that another resumption of an execution is running
+  if it holds a `Resume` capability for the workflow's definition key in
+  that execution's tenant and names the execution id, whether or not it is
+  an eligible approver. While another resumption runs, its request is
+  refused as in flight. Without one, the same request is answered from the
+  execution's state instead. Measured with a principal that neither started
+  nor approved the run. A `Resume` capability minted for another tenant on
+  the same definition key is answered "no execution exists" under its own
+  tenant, so it learns nothing about this one (measured). Each refused
+  request is audited as a refused resumption with no actor (measured).
+  Grant `Resume` only to principals entitled to know when a run is being
+  resumed.
+- **At the erasure door, read the reason code, not the message, and
+  retry.** When two completions of one erasure request run at once, the one
+  the claim refuses raises `ErasureRefused` with reason code
+  `workflow-refused` (measured). The door builds the message from the
+  engine's refusal and cuts it at 400 characters (code reading of
+  `runtime/ccf_runtime/erasure/door.py::ErasureDoor.complete`). The
+  request's 64-character identity appears twice in that refusal, so the cut
+  falls inside the engine's reason. The closing clause the door writes,
+  "the address stays withheld (index-unsupported) and the audit says so",
+  is therefore missing from the message (measured). Had it appeared, it
+  would not hold. Until the other completion returns, a read of the
+  address is refused `index-unsupported`, because its index entry is
+  written and its record is not yet filed. Once the other completion files
+  the record, the read is refused as erased with the request's reason, and
+  a retry of the refused completion returns the same record (measured).
 
 ## Validation-error text and caller values (SEC-024, choice C)
 

@@ -8683,7 +8683,8 @@
         "kind": "contract",
         "shape": {
           "payload": "collections.abc.Mapping[str, typing.Any]",
-          "plan_id": "<class 'str'>"
+          "plan_id": "<class 'str'>",
+          "withheld": "<class 'bool'>"
         }
       },
       "ProjectionPlan": {
@@ -9003,6 +9004,7 @@
         "shape": {
           "assembly_refusal": "<class 'str'>",
           "child_resolutions": "tuple[ccf.replay.record.ChildResolution, ...]",
+          "computed_empty": "ccf.products.contract.ComputedEmptyFinding | None",
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "disclosure_decision": "<class 'str'>",
@@ -10945,6 +10947,7 @@
       "SURFACE_HTTP_ROUTE",
       "SURFACE_MCP_RESOURCE",
       "SURFACE_MCP_TOOL",
+      "UnattributableDeliveryBoundaryError",
       "UnconsultedDeliveryBoundaryError",
       "UnrecordableDeliveryBoundaryError",
       "disclosing_boundary",
@@ -11002,6 +11005,10 @@
       "SURFACE_MCP_TOOL": {
         "kind": "constant",
         "shape": "str"
+      },
+      "UnattributableDeliveryBoundaryError": {
+        "kind": "class",
+        "shape": "type"
       },
       "UnconsultedDeliveryBoundaryError": {
         "kind": "class",

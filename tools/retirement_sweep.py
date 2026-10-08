@@ -336,7 +336,8 @@ BINARY_SUFFIXES: frozenset[str] = frozenset(
 #: catch, and a second hand-list is a second thing that can drift, so the walk
 #: now asks git and keeps this set only as the fallback.
 ARTIFACT_DIRS: frozenset[str] = frozenset(
-    {".pytest_cache", ".hypothesis", ".ruff_cache", "ccf.egg-info", "site",
+    {".pytest_cache", ".hypothesis", ".ruff_cache", "ccf.egg-info",
+     "ccf_sdk.egg-info", "site",
      "htmlcov", ".tox", "node_modules", ".claude", ".mypy_cache", "build",
      "dist", "__pycache__"}
 )

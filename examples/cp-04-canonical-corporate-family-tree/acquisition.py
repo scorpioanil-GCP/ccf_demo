@@ -35,6 +35,7 @@ policy check look populated while measuring nothing.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -189,6 +190,21 @@ def _values(terms: Sequence[str]) -> str:
     return " ".join(f"<{term}>" for term in terms)
 
 
+#: What may stand between a SPARQL string literal's quotes WITHOUT an escape.
+#: SPARQL 1.1 `STRING_LITERAL2` excludes `"`, `\`, LF and CR; this holds the
+#: text tighter, to no control character at all. A value outside it is REFUSED,
+#: never escaped, so no escape processing — an `ECHAR`, or the `\u` pre-pass
+#: SPARQL 1.1 §19.2 applies before parsing — ever reads request text (`EX-01`).
+_LITERAL_TEXT = re.compile(r'[^"\\\x00-\x1f\x7f]*')
+
+
+def _literal(value: str) -> str:
+    """`value` as a quoted SPARQL string literal, or refused before any read."""
+    if not _LITERAL_TEXT.fullmatch(value):
+        raise ValueError(f"{value!r} cannot be placed in a SPARQL string literal")
+    return f'"{value}"'
+
+
 def _walk(
     leg: _GraphLeg, *, anchor_uri: str, depth: int, predicates: Mapping[str, str]
 ) -> tuple[dict[str, int], list[Edge], int]:
@@ -320,6 +336,8 @@ def acquire(
         LookupError: the anchor resolves to no node. An unresolvable anchor is
             a refusal, never an empty payload — an empty family is a claim
             about the world, and this one would be a claim about the request.
+        ValueError: the anchor holds text a SPARQL string literal cannot carry
+            unescaped, refused by ``_literal`` before any store is read.
     """
     vocab = vocabulary()
     predicates: Mapping[str, str] = vocab["graph_leg"]["family_predicates"]
@@ -329,7 +347,7 @@ def acquire(
 
         anchors = leg.query(
             f"SELECT ?s FROM <{leg.ledger}> WHERE {{"
-            f" ?s <{vocab['graph_leg']['lei_predicate']}> \"{anchor_lei}\" }}"
+            f" ?s <{vocab['graph_leg']['lei_predicate']}> {_literal(anchor_lei)} }}"
         )
         if not anchors:
             raise LookupError(

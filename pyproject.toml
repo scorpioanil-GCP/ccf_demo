@@ -3,12 +3,29 @@ requires = ["setuptools>=77", "setuptools_scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ccf"
+# The DISTRIBUTION name (SEC-027; D-IMPL-376 ruling 4). It is not `ccf`: that
+# name on public PyPI is Microsoft's Confidential Consortium Framework, so a
+# distribution named `ccf` made `pip install ccf` install Microsoft's package.
+# The IMPORT name stays `ccf`. Every reader of this SDK's own installed
+# metadata names this same string (`src/ccf/graph/registry.py::SDK_DISTRIBUTION`,
+# `tools/check_version_stamp.py::DISTRIBUTION`), and so does every
+# self-referencing extra below; `tests/test_distribution_name.py` holds them
+# together.
+name = "ccf-sdk"
 dynamic = ["version"]          # was: version = "0.1.0"  (SEC-029; D-IMPL-357 §D)
 description = "Cognitive Context Fabric SDK — governed, typed, replay-ready context for AI agents"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 authors = [{ name = "drcastillo" }]
+# SEC-027 (D-IMPL-376; Dave's ruling 2026-10-07): PyPI "will always reject
+# packages with classifiers beginning with Private ::"
+# (https://pypi.org/classifiers/). This SDK's distribution name `ccf-sdk` is
+# held on PyPI by Dave's account through the empty placeholder in
+# packaging/pypi-placeholder/, so without this classifier a stray
+# `twine upload dist/*` of this proprietary SDK under that account would be
+# accepted. The placeholder must never carry it, or the name could not be
+# claimed; tests/test_distribution_name.py holds both.
+classifiers = ["Private :: Do Not Upload"]
 
 # Pins per 04-RESEARCH.md Standard Stack (all slopcheck-audited 2026-07-25).
 # Pins per 06-RESEARCH.md Standard Stack (slopcheck-audited 2026-07-26) — the four
@@ -95,7 +112,7 @@ anthropic = ["anthropic==0.120.2"]
 # Aggregate extra satisfying D-08's one-command requirement. Self-referential extras are
 # resolved by the pinned setuptools>=77 / pip in use (research assumption A1, verified
 # empirically at plan 06-02 execution).
-harnesses = ["ccf[adk,claude-agent,langgraph]"]
+harnesses = ["ccf-sdk[adk,claude-agent,langgraph]"]
 # 11-RESEARCH.md Standard Stack (D-01): pytest-benchmark is the locked timing
 # harness for the perf battery — benchmarks are pytest tests under perf/ and
 # never join always-on CI (Phase-8 D-10 / D-IMPL-70). A1 compatibility with
@@ -123,14 +140,14 @@ dev = [
   "mypy==2.3.0",
   "pytest-cov==7.1.0",
   # D-08: CI and contributors get all three harness legs from `pip install -e ".[dev]"`.
-  "ccf[harnesses]",
+  "ccf-sdk[harnesses]",
   # Phase 11 D-01: dev environments get the perf harness from the same one command.
-  "ccf[perf]",
+  "ccf-sdk[perf]",
   # Phase 13.1: CI installs the Anthropic client leg for examples/external (EXAM-04).
-  "ccf[anthropic]",
+  "ccf-sdk[anthropic]",
   # Phase 14 D-IMPL-71: the docs toolchain arrives with the same one command, so no
   # existing CI job's `pip install -e ".[dev]"` step changes to gain `make docs`.
-  "ccf[docs]",
+  "ccf-sdk[docs]",
   # SEC-028 (D-IMPL-369, ruling Q17 of D-IMPL-368): the lock tool, so the lock
   # carries the tool that regenerates it. See README.md "Regenerating the lock".
   "pip-tools==7.6.1",

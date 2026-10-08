@@ -447,9 +447,11 @@ def authorized_write_target(
        undeclared one), with the capability's own resource as the resource
        bind. A fabricated, retargeted or wrong-kind capability dies here — the
        same line and the same exception whichever shape was presented.
-    3. **Shape refusals**, now that the capability is known genuine: a derived
-       write into an undeclared class, or an addressed write whose resource is
-       not ``"<class>/<name>"``.
+    3. **Shape refusals**, now that the capability is known genuine: a tenant
+       id containing :data:`NAME_SEGMENT_SEPARATOR` (M-4 — the naming key
+       could not be read back to the tenant that filed it), a derived write
+       into an undeclared class, or an addressed write whose resource is not
+       ``"<class>/<name>"``.
 
     Returns:
         The target under ``authorized.tenant``, and the payload to canonicalize
@@ -471,6 +473,18 @@ def authorized_write_target(
     kinds = write_kinds.for_class(artifact_class) if artifact_class else (ArtifactWrite,)
     verify_any(authorized, kinds=kinds, resource=resource)
     assert isinstance(authorized, Authorized)  # proven by verify_any
+    if NAME_SEGMENT_SEPARATOR in authorized.tenant:
+        # M-4 (the D-IMPL-376 close-out review): the naming key is
+        # "<tenant>/<class>/<name>", read back by splitting at its first two
+        # separators, so a tenant carrying one would be read back as ANOTHER
+        # tenant — and the artifact server decides "own" from that reading.
+        # A tenant id is one naming segment, as a declared class is (SEC-004).
+        raise ArtifactWriteRefused(
+            f"the capability's tenant {authorized.tenant!r} contains"
+            f" {NAME_SEGMENT_SEPARATOR!r}, the naming key's segment separator,"
+            " so the store's reverse naming would attribute this filing to"
+            " another tenant; a tenant id is one naming segment (M-4)"
+        )
     if derived:
         if not write_kinds.is_declared(artifact_class):
             raise ArtifactWriteRefused(

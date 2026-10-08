@@ -118,7 +118,7 @@ def test_an_unhashed_entry_is_refused() -> None:
 
 
 def test_a_direct_file_reference_is_refused() -> None:
-    found = lint.check_lock(GOOD_LOCK + "ccf[dev] @ file:///home/x \\\n    --hash=sha256:" + H + "\n")
+    found = lint.check_lock(GOOD_LOCK + "ccf-sdk[dev] @ file:///home/x \\\n    --hash=sha256:" + H + "\n")
     assert len(found) == 1 and "not a `name==version`" in found[0]
 
 
