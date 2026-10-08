@@ -449,3 +449,89 @@ def test_q12_a_record_that_read_nothing_needs_only_the_listing(tmp_path: pathlib
     )
     shell = RefusalEnvelope.model_validate_json(answer)
     assert _internal_error_code(world.recorded, shell.replay_reference) == ERROR_EVIDENCE_CLASS_SEALED
+
+
+# --- the CLI: a client of the same governed routes ----------------------------------
+
+
+def _cli(door: Any, argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
+    """One ``ccf`` invocation against the door's own deployment, as the owner.
+
+    The CLI drives the HTTP routes in-process with the same ``ApiDependencies``
+    and the same five seams any app is built with (``SEC-002``); its credential
+    is the owner's."""
+    from pydantic import SecretStr  # noqa: PLC0415
+
+    from ccf_runtime.authz.product_entitlement import ControlPlaneProductEntitlementSource  # noqa: PLC0415
+    from ccf_runtime.cli.main import main  # noqa: PLC0415
+    from ccf_runtime.http_api.dependencies import ApiDependencies  # noqa: PLC0415
+    from http_api.gate_fixtures import SCOPE_EVERYTHING, authority  # noqa: PLC0415
+    from tests.http_api.test_sec020_withheld_record_dereference import (  # noqa: PLC0415
+        DETERMINED_AT,
+        OWNER,
+        _resolve_perspective,
+    )
+
+    opened = door.opened
+    code = main(
+        argv,
+        dependencies=ApiDependencies(
+            control_plane=opened.control_plane,
+            artifact_store=opened.artifact_store,
+            erasure_trust=opened.erasure_trust,
+            erasure_index=opened.erasure_index,
+            product_resolver=opened.resolve,
+        ),
+        authority=authority(
+            tenant=opened.tenant_id,
+            key=f"{opened.tenant_id}/scope-mapping/q12-cli",
+            grants={OWNER_TOKEN: (OWNER, (SCOPE_EVERYTHING,))},
+            product_entitlement=ControlPlaneProductEntitlementSource(
+                control_plane=opened.control_plane, clock=lambda: DETERMINED_AT
+            ),
+            perspective_resolver=_resolve_perspective,
+            refusal_recorder=opened.refusal_recorder,
+        ),
+        credential=SecretStr(OWNER_TOKEN),
+    )
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
+
+
+def _cli_argv(verb: str, *, reference: str, address: str) -> list[str]:
+    return {
+        "replay-query": ["replay", "query", "--content-address", address],
+        "replay-resolve": ["replay", "resolve", "--uri", reference],
+        "artifact-inspect": ["artifact", "inspect", address],
+    }[verb]
+
+
+@pytest.mark.parametrize("verb", ["replay-query", "replay-resolve", "artifact-inspect"])
+def test_q12_the_cli_reads_are_held_to_the_same_rule(
+    tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str], verb: str
+) -> None:
+    """``ccf replay query|resolve`` and ``ccf artifact inspect``: the owner, at
+    ``full``, presents its own withheld answer's reference through the CLI. The
+    class is not listed, so the read is refused by hold 2b, named in the record
+    the refusal minted. The control: a listed class affirming ``never``, whose
+    projection withholds nothing, has its record read back through the same verb."""
+    from ccf_runtime.http_api.errors import ERROR_EVIDENCE_CLASS_SEALED  # noqa: PLC0415
+    from tests.deployment.test_replay_binding import _plan_factory  # noqa: PLC0415
+
+    with _door(tmp_path, "q12-cli-control", anchor=FROM_DECISION, holds_subject=True,
+               project=_plan_factory, readable=True) as door:
+        reference = _reference(_ask(door, PAVED_WITHHELD))
+        address = door.opened.artifact_store.resolve_uri(uri=reference)
+        code, out, err = _cli(door, _cli_argv(verb, reference=reference, address=address), capsys)
+        assert (code, err) == (0, ""), f"the control did not read back: {code} {out[:200]} {err[:200]}"
+        assert PAVED_WITHHELD in out, "the control read back something other than the record"
+
+    with _door(tmp_path, "q12-cli-sealed", anchor=FROM_DECISION, holds_subject=True) as door:
+        reference = _reference(_ask(door, PAVED_WITHHELD))
+        store = door.opened.artifact_store
+        address = store.resolve_uri(uri=reference)
+        code, out, err = _cli(door, _cli_argv(verb, reference=reference, address=address), capsys)
+        assert (code, err) == (1, ""), f"{verb}: {code} {out[:200]} {err[:200]}"
+        assert PAVED_WITHHELD not in out, f"{verb}: the CLI printed the withheld subject"
+        shell_reference = json.loads(out)["refusal"]["replay_reference"]
+        assert _internal_error_code(store, shell_reference) == ERROR_EVIDENCE_CLASS_SEALED
