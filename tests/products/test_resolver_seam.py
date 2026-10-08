@@ -646,8 +646,10 @@ def _internal(booted: _Booted, shell: RefusalEnvelope) -> RefusalEnvelope:
     stronger pair than either alone, because the two must agree about the
     determination and disagree about what crossed.
 
-    Resolution IS part of the assertion: the store refuses bytes that do not
-    hash to the address asked for.
+    Read back through the file store, which hands back the bytes it holds
+    without checking that they hash to the address, and parsed as they come:
+    this helper verifies nothing about them (the readers that do re-hash are
+    measured in ``tests/replay/test_record_content_address_integrity.py``).
     """
     assert shell.replay_reference != NO_REPLAY_REFERENCE, (
         "a shell with no record cannot have an internal form to read; the seam"
