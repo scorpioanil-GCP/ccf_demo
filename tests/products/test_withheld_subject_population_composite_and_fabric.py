@@ -1042,9 +1042,9 @@ class _ChildArgumentsFromTheRequest:
         self.subject: str | None = None
         self.inner: Any = None
 
-    def arguments(self, requirement: Any, asked_at: datetime) -> Mapping[str, str]:
+    def arguments(self, requirement: Any, request: ProductRequest) -> Mapping[str, str]:
         assert self.subject is not None, "child arguments asked for outside resolve_for"
-        return {"subject": self.subject, "asked_at": asked_at.isoformat(), "threshold": "1000"}
+        return {"subject": self.subject, "asked_at": request.asked_at.isoformat(), "threshold": "1000"}
 
     def resolve_for(self, **kwargs: Any) -> dict[str, object]:
         self.subject = kwargs["request"].subject

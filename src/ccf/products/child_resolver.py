@@ -153,7 +153,18 @@ class ChildRecordMismatch(ValueError):
 #: How a deployment turns one declared requirement into the typed arguments its
 #: producing skill takes. Deployment configuration, not SDK knowledge: what a
 #: child needs to be asked is the deployment's to state (`D-IMPL-38`).
-ChildArguments = Callable[[ChildRequirement, datetime], Mapping[str, str]]
+#:
+#: **Handed the request the composite asks its children about** (SEC-020 P3
+#: (a), ``D-IMPL-378``; a candidate Dave has not ruled). That is the EFFECTIVE
+#: request ``resolve_for`` is handed, the one :data:`ChildQuestions` mints each
+#: child's question from, and its ``asked_at`` is the composite's. Under an
+#: early :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` it
+#: names the declared undisclosed subject in place of a subject the policy does
+#: not disclose, so a mapping that reads the subject off it asks the child
+#: exactly what a nonexistent subject's composite asks. A mapping that reads
+#: the subject from state the deployment captured itself still asks about the
+#: caller's subject, and the gate then refuses that child ``question-mismatch``.
+ChildArguments = Callable[[ChildRequirement, ProductRequest], Mapping[str, str]]
 
 
 class ChildQuestion(CCFContract):
@@ -175,10 +186,12 @@ class ChildQuestion(CCFContract):
 
 #: How a deployment turns one requirement and the composite's EFFECTIVE
 #: request into the question its producer is asked. Deployment configuration,
-#: never SDK knowledge (`D-IMPL-38`); what differs from :data:`ChildArguments`
-#: is that the composite's own request — its subject, its resolved parameters
-#: — is in scope, so a per-request anchor reaches the child through the
-#: declared mapping rather than through state closed over beside it.
+#: never SDK knowledge (`D-IMPL-38`). The composite's own request — its
+#: subject, its resolved parameters — is in scope, so a per-request anchor
+#: reaches the child through the declared mapping rather than through state
+#: closed over beside it; :data:`ChildArguments` is handed the same request,
+#: and what differs is what each returns: the question the child's answer is
+#: held to, against the arguments its skill is dispatched with.
 ChildQuestions = Callable[[ChildRequirement, ProductRequest], ChildQuestion]
 
 
@@ -195,7 +208,8 @@ class GrantBoundChildResolver:
             per-agent (`D-07`), so this names the composing agent — it is not
             a fabric identity and no new identity axis is introduced.
         gate: The composite admission gate, which performs the fit checks.
-        child_arguments: Turns a requirement into its skill's arguments.
+        child_arguments: Turns a requirement and the request the composite asks
+            its children about into the skill's arguments (:data:`ChildArguments`).
         callable_registry: For ``local_callable`` entries.
         mcp_skills: For ``mcp`` entries. ``None`` means this deployment binds
             none, and an MCP-bound grant then fails loudly rather than being
@@ -301,9 +315,11 @@ class GrantBoundChildResolver:
         a required slot refuses, an optional one takes its declared treatment.
 
         **Request-less, so question-less (`SEC-025`).** Without the
-        composite's request no question can be minted, and the gate refuses a
-        ``local-dispatch`` or ``mcp`` child ``question-mismatch``; a composite
-        reaches :meth:`resolve_for` instead.
+        composite's request no question can be minted for a child and no
+        arguments derived for it (:data:`ChildArguments` is handed that
+        request), so every granted requirement is refused
+        ``question-mismatch`` and its skill is not dispatched (SEC-020 P3
+        (a)); a composite reaches :meth:`resolve_for` instead.
         """
         return self._resolve(
             requirements=requirements,
@@ -333,16 +349,30 @@ class GrantBoundChildResolver:
                 # refused is a refusal, never an omission (`F1`).
                 outcomes[requirement.product_class] = None
                 continue
+            if request is None:
+                # SEC-020 P3 (a): the arguments mapping is handed the request,
+                # and a request-less call has none — nor a question to hold the
+                # answer to (`SEC-025`), so the gate would refuse whatever the
+                # child said. The child is not asked at all.
+                outcomes[requirement.product_class] = _refusal_for(requirement)(
+                    "question-mismatch",
+                    "this call carries no composite request, so no question can"
+                    " be minted for this child and no arguments derived for it;"
+                    " the child is not asked (SEC-025)",
+                )
+                continue
             # `SEC-025`: the question the composite asks THIS child, minted from
             # its own request — never read back off the skill's arguments.
             asked = (
                 self._child_questions(requirement, request)
-                if self._child_questions is not None and request is not None
+                if self._child_questions is not None
                 else None
             )
             dispatched = dispatch_skill(
                 producer.entry,
-                arguments=self._child_arguments(requirement, asked_at),
+                # SEC-020 P3 (a): the SAME request the question above is
+                # minted from — under an early policy, the stand-in's.
+                arguments=self._child_arguments(requirement, request),
                 callable_registry=self._callables,
                 mcp_skills=self._mcp,
                 peering_skills=self._peering,
@@ -821,8 +851,9 @@ class QuestionBoundChildResolver:
             construction, against exactly the child-question class, and its
             tenant is held equal to the gate's — one consumer tenant, compared
             once (§1.3).
-        child_arguments: Optional. The legacy mapping, for non-``mcp_product``
-            entries granted to the same agent.
+        child_arguments: Optional. The mapping for non-``mcp_product``
+            entries granted to the same agent, handed the same effective
+            request ``child_questions`` is (:data:`ChildArguments`).
         (every other argument): exactly as :class:`GrantBoundChildResolver`.
     """
 
@@ -927,7 +958,7 @@ class QuestionBoundChildResolver:
             elif self._has_arguments:
                 dispatched = dispatch_skill(
                     producer.entry,
-                    arguments=legacy._child_arguments(requirement, asked_at),
+                    arguments=legacy._child_arguments(requirement, request),
                     callable_registry=legacy._callables,
                     mcp_skills=legacy._mcp,
                     peering_skills=legacy._peering,
@@ -1008,7 +1039,7 @@ class QuestionBoundChildResolver:
 
 
 def _no_child_arguments(
-    requirement: ChildRequirement, asked_at: datetime
+    requirement: ChildRequirement, request: ProductRequest
 ) -> Mapping[str, str]:
     raise TypeError(
         f"no child_arguments mapping was supplied for {requirement.product_class!r}"

@@ -55,7 +55,7 @@ from __future__ import annotations
 import json
 import pathlib
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -592,7 +592,7 @@ def test_case_7_a_store_that_cannot_retain_fails_the_determination_before_any_re
 # --- case 8: an optional child invoked, then refused ---------------------------------
 
 
-def _a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
+def _a_day_late(requirement: Any, request: Any) -> dict[str, str]:
     """The child answers at a different instant, so admission refuses it
     (`as-of-mismatch`) AFTER it was genuinely dispatched and served."""
     # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
@@ -600,7 +600,7 @@ def _a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
     # while Gate 3 measured its ceiling from the child's own (future) decision.
     # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
     # the child refuses `ttl-bounds` before this test's subject is reached.
-    return {"subject": "acct-1", "asked_at": (asked_at + timedelta(minutes=1)).isoformat(), "threshold": "1000"}
+    return {"subject": "acct-1", "asked_at": (request.asked_at + timedelta(minutes=1)).isoformat(), "threshold": "1000"}
 
 
 def test_case_8_an_optional_child_invoked_and_refused_blocks_and_reconstructs_as_optional(
