@@ -189,6 +189,11 @@ def _policy(
             ),
         },
         disclosure_level=DISCLOSURE_MINIMAL,
+        # Dave's Q12 (`D-IMPL-378`): owner read-back is default-deny behind an
+        # explicit tenant class allowlist. This suite's controls are about the
+        # four D-IMPL-345 holds, so its governed class is listed (and its
+        # records carry the class's affirmation, `_served_record`).
+        evidence_readable_classes=frozenset({product_class}),
     )
 
 
@@ -300,7 +305,11 @@ def _served_record(
                 freshness="event-driven",
                 asked_at=AUDIT_INSTANT,
                 parameters={},
-            )
+            ),
+            # Dave's Q12 (`D-IMPL-378`): the deciding class affirmed its answers
+            # never withhold their subject, as a record that may be read back
+            # must say; this suite's controls are about the D-IMPL-345 holds.
+            "subject_withholding": "never",
         }
     )
     record = base.model_copy(
@@ -351,13 +360,36 @@ def _requestless_record(governed: Governed, *, principal: str) -> str:
 
 
 def _uri_for(governed: Governed, address: str) -> str:
+    # The record writer names a record by its own content address (Dave's Q11,
+    # `D-IMPL-378`), so the URI it is registered under is `{address}@{address}`.
     record = governed.record_at(address)
     return artifact_uri(
         tenant_id=record.tenant_id,
         artifact_class=REPLAY_RECORD_CLASS,
-        name=record.context_fabric_snapshot.graph_snapshot_id,
+        name=address,
         artifact_version=address,
     )
+
+
+def _decision_records(governed: Governed) -> int:
+    """Every decision record the ONE store holds, under any name.
+
+    Counted by walking the store, not by the versions under one name: the
+    writer names a record by its own content address (Dave's Q11), so a new
+    determination never lands under another record's name and a per-name count
+    could not see it.
+    """
+    count = 0
+    for path in governed.store.root.rglob("*"):
+        if not path.is_file() or path.name.startswith("."):
+            continue
+        try:
+            document = json.loads(path.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if isinstance(document, dict) and "context_fabric_snapshot" in document:
+            count += 1
+    return count
 
 
 # =========================================================================
@@ -1215,12 +1247,11 @@ def test_c22_the_uri_naming_cannot_be_probed_segment_by_segment(
     those three facts about a record it may not read by varying the segments.
     """
     owned = _served_record(governed, principal=A)
-    record = governed.record_at(owned)
     right = _uri_for(governed, owned)
     wrong = artifact_uri(
         tenant_id="a-tenant-that-registered-nothing",
         artifact_class=REPLAY_RECORD_CLASS,
-        name=record.context_fabric_snapshot.graph_snapshot_id,
+        name=owned,
         artifact_version=owned,
     )
 
@@ -1270,11 +1301,7 @@ def test_c24_every_dereference_is_audited_and_an_allowed_one_writes_no_record(
 ) -> None:
     """R-5: one event naming the reference asked and the address delivered."""
     owned = _served_record(governed, principal=A)
-    before = len(governed.store.versions(
-        tenant_id=governed.tenant,
-        artifact_class=REPLAY_RECORD_CLASS,
-        name=governed.record_at(owned).context_fabric_snapshot.graph_snapshot_id,
-    ))
+    before = _decision_records(governed)
 
     assert _get_record(governed, owned, token=A_TOKEN).status_code == 200
 
@@ -1286,11 +1313,7 @@ def test_c24_every_dereference_is_audited_and_an_allowed_one_writes_no_record(
     assert allowed.version == owned
     assert allowed.resolved is True
     # No new determination was created merely because evidence was read.
-    after = len(governed.store.versions(
-        tenant_id=governed.tenant,
-        artifact_class=REPLAY_RECORD_CLASS,
-        name=governed.record_at(owned).context_fabric_snapshot.graph_snapshot_id,
-    ))
+    after = _decision_records(governed)
     assert after == before
 
     assert _get_artifact(governed, NOWHERE, token=A_TOKEN).status_code == (

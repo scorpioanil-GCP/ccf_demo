@@ -46,6 +46,7 @@ import pytest
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.composite import CHILD_QUESTION_CLASS
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.door import WireRequest
 from ccf.products.refusal import RefusalEnvelope
 from ccf.replay.engine import (
@@ -113,7 +114,13 @@ def _fresh(opened: Any) -> FileArtifactStore:
 
 
 def _lane_floor_config() -> dict[str, Any]:
-    return fixture.consumer_config(compatible_from="1.5.0", producers={"child": fixture.producer_section(versions_from="1.5.0")})
+    # `D-IMPL-378` P2 (c): opened through `test_paved_consumer._open`, whose plan
+    # factory never raises the withheld signal — the stance `_tree`'s default states.
+    return fixture.consumer_config(
+        compatible_from="1.5.0",
+        producers={"child": fixture.producer_section(versions_from="1.5.0")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
 
 
 def _record_address(opened: Any, outcome: Any, store: FileArtifactStore) -> str:
@@ -183,7 +190,10 @@ def test_c_b12_a_served_answer_rejected_inside_the_gate_leaves_its_exact_questio
     the row must reference it — the branch the candidate's review found writing
     an address with no reference — and the hold must reach it: other bytes at
     the address are a divergence on the refused reconstruction."""
-    config = fixture.consumer_config(producers={"child": fixture.producer_section(producer_id="someone-else")})
+    config = fixture.consumer_config(
+        producers={"child": fixture.producer_section(producer_id="someone-else")},
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,  # as `_tree`'s default (P2 (c))
+    )
     root = _tree(tmp_path, config=config)
     with _open(root, tmp_path / "scratch", producer_url) as opened:
         refused = opened.answer(_question(opened))

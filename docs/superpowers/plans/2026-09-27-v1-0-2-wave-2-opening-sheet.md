@@ -183,7 +183,7 @@ hand. `govern_absence` (`runtime/ccf_runtime/authz/delivery_boundary.py:412`) an
 
 §4.3(4) states `served_at` is marked `{HASH_TRANSPARENT_KEY: True}` **and** cites
 `child_admitted_at` as "the posture O3 already chose". Measured:
-`child_admitted_at` at `src/ccf/replay/record.py:1117-1119` is marked
+`child_admitted_at` at `src/ccf/replay/record.py::ChildResolution` is marked
 **`{HASH_TRANSPARENT_KEY: False}`** — a declared generation boundary. **These are
 two different postures with different compatibility consequences**
 (transparent-at-sentinel preserves historical addresses; a generation boundary

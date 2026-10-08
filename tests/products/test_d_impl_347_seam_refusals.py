@@ -29,6 +29,7 @@ from typing import Any
 
 import pytest
 
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.refusal import (
     RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
@@ -199,6 +200,11 @@ def test_a_refusal_raised_by_the_child_factory_refuses_the_COMPOSITE(
     config["product_class"]["requires"] = [
         {"product_class": "fixture.child", "required": True, "compatible_from": "1.0.0"}
     ]
+    # `D-IMPL-378` P2 (c): opened with `test_paved_road._open`'s plan factory,
+    # `tests/deployment/test_replay_binding.py::_plan_factory`, whose projection
+    # (`_CountProjection`) never raises the withheld signal, so the composite's
+    # class states it never withholds its subject.
+    config["product_class"]["subject_withholding"] = SUBJECT_WITHHOLDING_NEVER
     root = _write_tree(tmp_path / "composite", config=config)
     scratch = tmp_path / "composite" / "scratch"
 

@@ -62,6 +62,8 @@ from ccf.client.result import GUARDED_FIELDS
 from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
 from ccf.contracts.canonical import canonical_bytes
 from ccf.products.contract import ContextProductContract
+from ccf.products import resolver as resolver_module
+from ccf.replay.record import NO_ISSUANCE
 
 from tests.client.conformance import suite
 from tests.client.conformance.suite import (
@@ -287,6 +289,109 @@ def test_served_parity_fires_when_only_the_content_address_differs(
         "the payload moved too, so this control is no longer isolating the"
         " content address and proves nothing about the trap"
     )
+
+
+# ---------------------------------------------------------------------------
+# Controls 2b–2d — the `replay_ref` column, compared by the record it resolves to.
+#
+# E1 (a) (Dave, 2026-10-08 12:29 MST; `D-IMPL-378`) authorized the one edit that
+# changed this column from string equality to "resolves to a record equal modulo
+# the per-answer issuance". Each control below observes that changed column
+# failing, through the real leg, for one way it could stop checking.
+# ---------------------------------------------------------------------------
+
+
+class _HandsOutAnotherAnswersReference:
+    """A door that answers honestly, then hands out the reference of ANOTHER answer it gave.
+
+    It first asks the same deployment a different question the fixture serves
+    (:data:`OTHER_PARAMETERS`), so the reference it substitutes is genuine and
+    resolves where this door answered — to the record of a different
+    determination. Every other field of the answer is the honest one, so only
+    comparing what the reference resolves to can catch it.
+    """
+
+    def __init__(self, inner: TransportAdapter) -> None:
+        self._inner = inner
+
+    def ask(self, request: WireRequest) -> bytes:
+        other = _off_the_wire(
+            self._inner.ask(request.model_copy(update={"parameters": OTHER_PARAMETERS}))
+        )
+        assert other.replay_ref is not None, (
+            "the other question was not answered with a reference, so this"
+            " control would substitute nothing"
+        )
+        honest = _off_the_wire(self._inner.ask(request))
+        assert honest.replay_ref != other.replay_ref
+        return encode_outcome(honest.model_copy(update={"replay_ref": other.replay_ref}))
+
+
+def test_served_parity_fires_on_a_reference_to_another_answer(provision: Provision) -> None:
+    """2b. A genuine reference to the wrong record: the column compares records, not strings."""
+    subjects = (
+        *SUBJECTS,
+        AdapterSubject(
+            name="another-answers-reference",
+            connect=lambda root: _HandsOutAnotherAnswersReference(connect_in_process(root)),
+            break_transport=break_in_process,
+        ),
+    )
+
+    with _fails("served parity") as observed:
+        suite.assert_served_parity(subjects, provision=provision, question=QUESTION)
+
+    message = str(observed.value)
+    assert "`replay_ref`" in message
+    assert "`content_address`" not in message, (
+        "the content address moved too, so this control is no longer isolating"
+        " the replay_ref column and proves nothing about it"
+    )
+
+
+def _point_the_reference_at_nothing(raw: bytes) -> bytes:
+    """Keep the reference's tenant and class, and name a record no store holds."""
+    outcome = _off_the_wire(raw)
+    assert outcome.replay_ref is not None
+    naming = outcome.replay_ref.rsplit("/", 1)[0]
+    nothing = "0" * 64
+    return encode_outcome(outcome.model_copy(update={"replay_ref": f"{naming}/{nothing}@{nothing}"}))
+
+
+def test_served_parity_fires_on_a_reference_that_names_nothing(provision: Provision) -> None:
+    """2c. A well-formed reference that resolves nowhere is caught where the answer was decided."""
+    subjects = _pair("names-nothing", _point_the_reference_at_nothing)
+
+    with _fails("names no record") as observed:
+        suite.assert_served_parity(subjects, provision=provision, question=QUESTION)
+
+    assert "replay_ref" in str(observed.value)
+
+
+def test_served_parity_fires_on_a_deployment_whose_answers_are_not_issued(
+    provision: Provision, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """2d. Records that carry no issuance cannot stand in the column at all.
+
+    The resolver's served path is made to mint the sentinel instead of an
+    issuance — a deployment on the pre-Q11 behavior. Both subjects then agree
+    perfectly modulo an issuance neither carries, so the per-subject check is
+    the only thing left to catch it.
+    """
+    monkeypatch.setattr(resolver_module, "new_issuance", lambda: NO_ISSUANCE)
+    honest = (
+        *SUBJECTS,
+        AdapterSubject(
+            name=f"{SUBJECTS[0].name}-twin",
+            connect=connect_in_process,
+            break_transport=break_in_process,
+        ),
+    )
+
+    with _fails("issuance") as observed:
+        suite.assert_served_parity(honest, provision=provision, question=QUESTION)
+
+    assert "replay_ref" in str(observed.value)
 
 
 # ---------------------------------------------------------------------------

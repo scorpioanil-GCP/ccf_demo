@@ -54,7 +54,7 @@ from ccf.products.composite import (
     RequestAwareChildResolverProtocol,
     invocation_from_dispatch,
 )
-from ccf.products.contract import ChildRequirement, ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ChildRequirement, ContextProductContract
 from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, WireRequest
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
@@ -362,7 +362,11 @@ def honest_assertion() -> ProducerAssertion:
 
 @pytest.fixture
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
-    deployment = boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, whose projection never
+    # raises the withheld signal (`ProjectionOutput.withheld` stays False), so the class
+    # states it never withholds its subject.
+    deployment = boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     yield next(deployment)
     deployment.close()
 

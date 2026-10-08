@@ -41,7 +41,7 @@ from ccf.graph.protocols import GraphView
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
 from ccf.products.child_resolver import ChildQuestion
-from ccf.products.contract import ChildRequirement
+from ccf.products.contract import ChildRequirement, SubjectWithholding
 from ccf.products.product import AcquisitionContext, AssessmentContext
 from ccf.products.request import ProductRequest
 from ccf.projection.plan import Perspective, ProjectionOutput
@@ -310,18 +310,29 @@ def consumer_config(
     skills: Mapping[str, Mapping[str, Any]] | None | str = "declared",
     agent: Mapping[str, Any] | None | str = "declared",
     governance: Mapping[str, Any] | None = None,
+    subject_withholding: SubjectWithholding | None = None,
     **overrides: Any,
 ) -> dict[str, Any]:
     """The consumer: the parent fixture requiring the child, with its four declarations.
 
     ``producers``, ``skills`` and ``agent`` take the sentinel ``"declared"``
     for the canonical section, ``None`` to omit the section, or a body.
+
+    ``subject_withholding`` is the withholding stance the consumer's class — a
+    composite — states, and defaults to no statement, the SDK's own default
+    (``may-withhold``). ``D-IMPL-378`` P2 (c) refuses, when its resolver is
+    constructed, a composite that declares neither an early policy nor
+    ``never``; so a test that opens and asks this consumer states the stance
+    its projection has. The fixture states none on its behalf: the projection
+    is the opener's (``project=``), not this document's.
     """
     document = _servable_config(**_paved_sections(producer_id="paved-consumer-egress", tenant=CONSUMER_TENANT))
     del document["door"]  # the consumer opens no door in this proof
     document["product_class"]["requires"] = [
         {"product_class": CHILD_CLASS, "required": True, "compatible_from": compatible_from}
     ]
+    if subject_withholding is not None:
+        document["product_class"]["subject_withholding"] = subject_withholding
     # The regime's skilling envelope, and the two `key:` overrides an agent's
     # pinned references need (`ccf-artifact://{tenant}/{class}/{name}@{version}`).
     document["policy"]["key"] = f"{CONSUMER_TENANT}/policy-bundle/paved-consumer"

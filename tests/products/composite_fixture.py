@@ -33,7 +33,7 @@ from ccf.products.child_resolver import (
     GrantBoundChildResolver,
 )
 from ccf.products.composite import CompositeAdmissionGate
-from ccf.products.contract import ChildRequirement
+from ccf.products.contract import ChildRequirement, SubjectWithholding
 from ccf.products.door import WireRequest, door_answer
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver
@@ -164,6 +164,8 @@ def boot_composite(
     *,
     product_class_overrides: Mapping[str, Any] | None = None,
     request_contract_overrides: Mapping[str, Any] | None = None,
+    subject_withholding: SubjectWithholding | None = None,
+    higher_subject_withholding: SubjectWithholding | None = None,
 ) -> Iterator[_Booted]:
     """One deployment declaring TWO product classes: a parent and its child.
 
@@ -179,6 +181,19 @@ def boot_composite(
     is refused unless the contract declares the argument (`D-IMPL-251` C1=A).
     Both default to nothing, so every existing caller boots exactly the
     documents it always booted.
+
+    ``subject_withholding`` and ``higher_subject_withholding`` are the
+    withholding stance the deployment's two COMPOSITE classes state — the
+    parent and :func:`higher_product_class` respectively — and default to no
+    statement, the SDK's own default (``may-withhold``). ``D-IMPL-378`` P2 (c)
+    refuses, when its resolver is constructed, a composite that declares
+    neither an early policy nor ``subject_withholding: never``; so a caller
+    that builds a composite over this deployment states the stance its
+    projection actually has. The fixture states none on anyone's behalf: the
+    composites built over it do not all behave alike (the stance is a
+    property of the plan factory a test wires, which this function never
+    sees), and ``tests/products/test_sec020_p2c_composite_stance.py`` needs
+    the undeclared composite this function boots by default.
     """
     root = tmp_path / "deployment"
     root.mkdir()
@@ -186,11 +201,17 @@ def boot_composite(
         if key == PRODUCT_CLASS_KEY:
             document = copy.deepcopy(document)
             document["requires"] = _parent_requires()
+            if subject_withholding is not None:
+                document["subject_withholding"] = subject_withholding
             if product_class_overrides:
                 document.update(copy.deepcopy(dict(product_class_overrides)))
         write_artifact(root, filename, document)
     write_artifact(root, "product-class-child.yaml", child_product_class())
-    write_artifact(root, "product-class-higher.yaml", higher_product_class())
+    write_artifact(
+        root,
+        "product-class-higher.yaml",
+        higher_product_class(subject_withholding=higher_subject_withholding),
+    )
     write_artifact(root, "request-contract-higher.yaml", higher_request_contract())
     request_contract = copy.deepcopy(REQUEST_CONTRACT_DOCUMENT)
     if request_contract_overrides:
@@ -461,7 +482,41 @@ def build_composite(
     child_door: Any | None = None,
     child_questions: ChildQuestions | None = None,
 ) -> tuple[GovernedResolver, GrantBoundChildResolver]:
-    """The composite, wired. **Only ``binding`` changes between the two proofs.**
+    """The composite, wired: :func:`build_child_resolver`, then the resolver over it.
+
+    Arguments as :func:`build_child_resolver`'s.
+    """
+    children = build_child_resolver(
+        booted,
+        grant=grant,
+        binding=binding,
+        mcp_skills=mcp_skills,
+        resource=resource,
+        child_arguments=child_arguments,
+        child_door=child_door,
+        child_questions=child_questions,
+    )
+    arguments = _arguments(booted)
+    arguments.update(composite_children=children)
+    return GovernedResolver(**arguments), children
+
+
+def build_child_resolver(
+    booted: _Booted,
+    *,
+    grant: bool = True,
+    binding: str = "local_callable",
+    mcp_skills: McpSkillRegistry | None = None,
+    resource: str | None = None,
+    child_arguments: ChildArguments | None = None,
+    child_door: Any | None = None,
+    child_questions: ChildQuestions | None = None,
+) -> GrantBoundChildResolver:
+    """The composite's child resolver, wired. **Only ``binding`` changes between the two proofs.**
+
+    No resolver is constructed here, so a test that composes its own resolver
+    over these children (``tests/products/sec020_worlds.py``) meets only the
+    construction it asked for.
 
     Args:
         booted: The consuming deployment.
@@ -505,7 +560,6 @@ def build_composite(
         assert isinstance(outcome, str), outcome
     callables = CallableRegistry()
     callables.register(CHILD_CALLABLE, child_door or _child_door(booted))
-    arguments = _arguments(booted)
     children = GrantBoundChildResolver(
         ledger=ledger,
         agent_definition_hash=agent_hash,
@@ -518,9 +572,9 @@ def build_composite(
         # domain value and cannot know (`D-IMPL-38`).
         child_arguments=child_arguments
         or (
-            lambda requirement, asked_at: {
+            lambda requirement, request: {
                 "subject": "acct-1",
-                "asked_at": asked_at.isoformat(),
+                "asked_at": request.asked_at.isoformat(),
                 "threshold": "1000",
             }
         ),
@@ -529,8 +583,7 @@ def build_composite(
         mcp_skills=mcp_skills,
         child_questions=child_questions or asks_its_own_subject,
     )
-    arguments.update(composite_children=children)
-    return GovernedResolver(**arguments), children
+    return children
 
 
 def ask_composite(resolver: GovernedResolver) -> Any:
@@ -563,15 +616,20 @@ HIGHER_CALLABLE = "fixture.composite-door"
 HIGHER_REGIME_KEY = f"{TENANT}/policy-bundle/higher-composite"
 
 
-def higher_product_class() -> dict[str, Any]:
+def higher_product_class(
+    *, subject_withholding: SubjectWithholding | None = None
+) -> dict[str, Any]:
     """A class whose declared child is ITSELF a composite.
 
     `INT-01b`. Its operator is the traversal the middle class also runs, so
     the nesting is what this fixture varies and not the operator set — the
     union across two levels is asserted from the LEAF's operator appearing at
     the top, which it can only do by travelling through the middle.
+
+    ``subject_withholding`` is the stance the class states (``D-IMPL-378``
+    P2 (c)); ``None``, the default, states none — see :func:`boot_composite`.
     """
-    return {
+    document: dict[str, Any] = {
         "semver": "1.0.0",
         "schema_name": HIGHER_CLASS,
         "schema_version": "1.0.0",
@@ -587,6 +645,9 @@ def higher_product_class() -> dict[str, Any]:
             }
         ],
     }
+    if subject_withholding is not None:
+        document["subject_withholding"] = subject_withholding
+    return document
 
 
 def higher_request_contract() -> dict[str, Any]:
@@ -743,9 +804,9 @@ def build_higher_composite(
             consumer_scope="consumer://higher-composite",
             registry=registry,
         ),
-        child_arguments=lambda requirement, asked_at: {
+        child_arguments=lambda requirement, request: {
             "subject": "acct-1",
-            "asked_at": asked_at.isoformat(),
+            "asked_at": request.asked_at.isoformat(),
             "threshold": "1000",
         },
         callable_registry=callables,

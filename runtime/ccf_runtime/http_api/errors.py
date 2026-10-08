@@ -28,6 +28,7 @@ __all__ = [
     "ERROR_AMBIGUOUS_TENANT",
     "ERROR_DECISION_UNMINTABLE",
     "ERROR_EVIDENCE_ABSENT",
+    "ERROR_EVIDENCE_CLASS_SEALED",
     "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
     "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
     "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
@@ -146,6 +147,16 @@ ERROR_EVIDENCE_CLASS_UNRECOVERABLE: Final[str] = "evidence-class-unrecoverable"
 #: withholds its record — a dereference never upgrades a caller to the cause
 #: its own shell hid.
 ERROR_EVIDENCE_DISCLOSURE_WITHHELD: Final[str] = "evidence-disclosure-withheld"
+
+#: The caller's own record exists and its grant holds, but owner read-back is
+#: not open for it (Dave's Q12, 2026-10-07; ``D-IMPL-378``): the tenant's
+#: entitlement policy does not list the record's product class in
+#: ``evidence_readable_classes``, or the record does not carry its class's
+#: affirmation that its answers never withhold their subject — which no record
+#: written before the affirmation existed does. Internal truth only; decided per
+#: class and per record generation, never per decision, so it is never an
+#: existence channel.
+ERROR_EVIDENCE_CLASS_SEALED: Final[str] = "evidence-class-sealed"
 
 #: Nothing readable is at the reference: no such address, a malformed one, a
 #: URI naming no registered version, bytes that are not a record, or bytes

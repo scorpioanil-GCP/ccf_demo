@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2333 entries**, of which **2056** name a public Python surface.
+**2386 entries**, of which **2109** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1296 entries — 1250 public Python surface, 46 not public Python API.
+1314 entries — 1268 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -18836,6 +18836,138 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
 
+#### ccf.replay.record.NO_ISSUANCE
+
+- Surface: ccf.replay.record.NO_ISSUANCE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"no-issuance"`, the issuance of every record written before the member existed and of every record no product question issued (evidence reads, door-level denials, erasures).
+- Why: PROPOSAL, Dave's Q11.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.replay.record.new_issuance
+
+- Surface: ccf.replay.record.new_issuance
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: returns a fresh issuance: 256 bits from the operating system's CSPRNG (`secrets.token_hex(32)`). Called by the governed resolver on the served path and by the reference refusal recorder for a refusal that answers a product question; `build_replay_record` never mints one.
+- Why: PROPOSAL, Dave's Q11.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.replay.record.UNSTATED_SUBJECT_WITHHOLDING
+
+- Surface: ccf.replay.record.UNSTATED_SUBJECT_WITHHOLDING
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"unstated"`, the posture every record written before `ContentGenerationPath.subject_withholding` existed reads as. The governed evidence read treats it as a class that may withhold.
+- Why: PROPOSAL, Dave's Q12: *"apply the restriction to existing records"*.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.WithholdingClassListedReadable
+
+- Surface: ccf.products.resolver.WithholdingClassListedReadable
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised where the resolver is built when the tenant lists for owner read-back a class whose declaration does not affirm `subject_withholding: never`. The check reads the class declaration, so a composite class is held exactly as any other.
+- Why: PROPOSAL, Dave's Q12: *"Reject withholding classes—including affected composites"*. Measured by `tests/http_api/test_sec020_q12_owner_read_back.py::test_q12_a_tenant_listing_a_class_that_may_withhold_is_refused_where_the_resolver_boots` and `::test_q12_the_boot_check_rejects_every_listed_class_that_may_withhold_composites_included`.
+- Migration: none unless a tenant lists a class; then the class declaration affirms `never` or the class leaves the list.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.NeverWithholdingContradicted
+
+- Surface: ccf.products.resolver.NeverWithholdingContradicted
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ProductNotResolvable` raised at serve time when the projection withholds the subject under a class that affirms `subject_withholding: never`, before anything is rendered, recorded or served.
+- Why: PROPOSAL, Dave's Q12. The affirmation is what lets the class's records be read back, so it is enforced. Measured by `tests/http_api/test_sec020_q12_owner_read_back.py::test_q12_a_class_that_affirms_never_cannot_withhold_its_subject`.
+- Migration: none for a class at the default.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.contract.SubjectWithholding
+
+- Surface: ccf.products.contract.SubjectWithholding
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `Literal["may-withhold", "never"]`, a product class's posture on withholding its subject.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.contract.SUBJECT_WITHHOLDING_POSSIBLE
+
+- Surface: ccf.products.contract.SUBJECT_WITHHOLDING_POSSIBLE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"may-withhold"`, the default every class declaration carries.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.contract.SUBJECT_WITHHOLDING_NEVER
+
+- Surface: ccf.products.contract.SUBJECT_WITHHOLDING_NEVER
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"never"`, the affirmation that a class's answers never withhold their subject; the governed resolver enforces it.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.authz.product_entitlement.EvidenceReadabilitySourceProtocol
+
+- Surface: ccf_runtime.authz.product_entitlement.EvidenceReadabilitySourceProtocol
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: an optional, runtime-checkable capability of an entitlement source: `evidence_readable(*, tenant, product_class) -> tuple[bool, ProvenanceSource | None]`. `govern_dereference` reads a source that does not implement it as answering no for every class.
+- Why: PROPOSAL, Dave's Q12; fail-closed for a deployment that never considered owner read-back.
+- Migration: a deployment-supplied entitlement source that should let some classes' records reach their owners implements it. `ControlPlaneProductEntitlementSource` implements it over the tenant's own policy, with the same two near-miss refusals as `disclosure_level_for`; no policy answers `(False, None)`.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_EVIDENCE_CLASS_SEALED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_EVIDENCE_CLASS_SEALED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"evidence-class-sealed"`, the internal error code of an evidence read refused because the tenant does not list the record's class or the record does not carry its class's affirmation. Internal truth only; decided per class and per record generation, never per decision.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: none.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceReplayReadRefused
+
+- Surface: ccf_runtime.mcp.experience.ExperienceReplayReadRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `PermissionError` the Experience door's `get_replay_record` raises on every call, for every caller, before the deployment's `ReplayRecordReaderProtocol` is called.
+- Why: PROPOSAL, Dave's Q12: *"every read/replay path"*. The tool names no address and returns whatever the deployment's reader returns, so it cannot show that the fabric's record writer filed the record, whose record it is, or what its class affirms. Measured by `tests/http_api/test_sec020_q12_owner_read_back.py::test_q12_the_experience_door_does_not_serve_the_record_behind_a_withheld_answer`.
+- Migration: a deployment that exposed `get_replay_record` keeps constructing the door as before (the reader is still required where the tool is exposed); its callers read their own records back through a governed evidence read.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
 #### ccf_runtime.http_api.errors.ERROR_EXECUTION_FENCED
 
 - Surface: ccf_runtime.http_api.errors.ERROR_EXECUTION_FENCED
@@ -19016,6 +19148,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
 
+#### ccf.products.resolver.QuestionStoreReopened
+
+- Surface: ccf.products.resolver.QuestionStoreReopened
+- Public surface: true
+- Change type: added
+- Before: absent; a question's store booted again plainly answered any governed call that declared no acquisition phase.
+- After: an `UnsupportedComposition` (so a `ProductNotResolvable`) raised by `GovernedResolver.__call__` at the point a question fabric is claimed — after the question-level refusals, which read no graph, and before the graph is read — when the fabric reads a question's store booted again and the call declares no acquisition phase. Decided by the boot's marker, never by the subject or the store's contents.
+- Why: SEC-020 residual P4. That store keeps what its question's acquisition fetched.
+- Migration: none; additive.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.products.resolver.CompositeNeedsAWithholdingStance
+
+- Surface: ccf.products.resolver.CompositeNeedsAWithholdingStance
+- Public surface: true
+- Change type: added
+- Before: absent; a composite that declared no early policy constructed, and a withhold decided inside its projection raised `CompositeWithheldLate` at call time, for the withheld subject only.
+- After: an `UnsupportedComposition` raised by `GovernedResolver` construction when a class that declares `requires` has neither an early policy (`SubjectDisclosingPlanFactoryProtocol.subject_disclosure()` returning a `SubjectDisclosurePolicy`) nor `subject_withholding: never` on its declaration.
+- Why: SEC-020, owed ruling P2 option (c), a candidate: a refusal decided when a projection withholds is decided for the withheld subject only and is itself distinguishable; a refusal at construction is the same for every subject.
+- Migration: declare a stance on every composite: `subject_withholding: never` on the product class when its projection never withholds, or an early policy through the plan factory's `subject_disclosure()`.
+
+*Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
+
 #### ccf.deployment.manifest.ManifestKeysPlaceToOneKey
 
 - Surface: ccf.deployment.manifest.ManifestKeysPlaceToOneKey
@@ -19063,6 +19219,66 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none; additive
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.resolver.IncompatibleRefusalRecorder
+
+- Surface: ccf.products.resolver.IncompatibleRefusalRecorder
+- Public surface: true
+- Change type: added
+- Before: absent; a recorder whose `record` could not be passed `subject_withholding=` built cleanly and raised `TypeError` at the first refusal the governed resolver recorded.
+- After: a `TypeError` raised where a resolver or an entitling door is built, naming the builder and the recorder's type, before anything is minted, registered or answered.
+- Why: Dave's E2 (iii) (`D-IMPL-378`): detect incompatible recorders at construction, rather than on the first refusal.
+- Migration: give your recorder's `record` the keyword `subject_withholding: str | None = None` (`RefusalRecorderProtocol`), or let it take `**kwargs`. The SDK's `ReplayRefusalRecorder` already does.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.refuse_incompatible_refusal_recorder
+
+- Surface: ccf.products.resolver.refuse_incompatible_refusal_recorder
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `refuse_incompatible_refusal_recorder(recorder, *, builder)` reads `record`'s signature, never calling it, and raises `IncompatibleRefusalRecorder` when `record` is missing, its signature cannot be read, or it can be passed `subject_withholding=` neither by name nor through `**kwargs`. Called by `GovernedResolver` and by every entitling door's builder.
+- Why: Dave's E2 (iii) (`D-IMPL-378`); one check, stated once, for every path that accepts a recorder.
+- Migration: none for a deployment; a door or a composition root that accepts a recorder of its own may call it at construction.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.NeverWithholdingProjectionCanWithhold
+
+- Surface: ccf.products.resolver.NeverWithholdingProjectionCanWithhold
+- Public surface: true
+- Change type: added
+- Before: absent; a class affirming `never` constructed whatever its plan factory declared, and the question about a subject its projection withheld raised `NeverWithholdingContradicted` at serve, for that subject only.
+- After: an `UnsupportedComposition` raised by `GovernedResolver` construction when the class declaration affirms `subject_withholding: never` and the plan factory, through `SubjectDisclosingPlanFactoryProtocol`, returns `None` or a `SubjectDisclosurePolicy` that does not disclose some subject to some principal or role.
+- Why: SEC-020, E2 (ii) (Dave, 2026-10-08 12:29 MST): validate withholding capability against the class declaration at construction. A refusal at construction is the same whatever subject would have been asked; one at serve is raised for the withheld subject alone.
+- Migration: affirm `never` only for a class whose projection never withholds; a class whose plan factory declares withholding keeps the default `may-withhold`.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.UnmarkedStoreNotPresumedFresh
+
+- Surface: ccf.products.resolver.UnmarkedStoreNotPresumedFresh
+- Public surface: true
+- Change type: added
+- Before: absent; a governed call with no acquisition phase over an existing store with no marker was answered.
+- After: an `UnsupportedComposition` (so a `ProductNotResolvable`) raised by `GovernedResolver.__call__` at the point a question fabric is claimed — after the question-level refusals, which read no graph, and before the graph is read — when `BootedFabric.store_creation` is `"unmarked"` and the call declares no acquisition phase. Decided by the boot's reading of the markers, never by the subject or the store's contents.
+- Why: SEC-020 P4 (a), made strict: an unmarked existing store is not presumed fresh.
+- Migration: none; additive.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.resolver.AcquisitionOverUnverifiableStore
+
+- Surface: ccf.products.resolver.AcquisitionOverUnverifiableStore
+- Public surface: true
+- Change type: added
+- Before: absent; an acquisition composition over a store with no path was refused `AcquisitionNeedsAQuestionFabric` at its first call, and the paved road over such a substrate at every question's boot.
+- After: a subclass of `AcquisitionNeedsAQuestionFabric`, raised by `GovernedResolver` construction when an acquisition or a population phase is declared over a fabric whose `store_creation` is `"unverifiable"`, and by `open_product` when the environment's substrate setting is not a path-valued setting of the declared adapter's connection contract.
+- Why: SEC-020 P4 (a), made strict: an unsupported network composition refuses before questions run.
+- Migration: none; additive. A handler for `AcquisitionNeedsAQuestionFabric` also catches it.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
 
 #### ccf.controlplane.artifacts.ReservedArtifactClassId
 
@@ -19811,7 +20027,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-613 entries — 421 public Python surface, 192 not public Python API.
+622 entries — 430 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26899,6 +27115,54 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
 
+#### ccf.replay.record.ContentGenerationPath
+
+- Surface: ccf.replay.record.ContentGenerationPath
+- Public surface: true
+- Change type: reshaped
+- Before: dimension 5 carried nothing unique to one answer and nothing about whether the deciding class's answers may withhold their subject.
+- After: adds `issuance: str`, 64 lowercase hex characters or the sentinel `NO_ISSUANCE`, and `subject_withholding: str`, the deciding class's posture (`"may-withhold"` or `"never"`) or the sentinel `UNSTATED_SUBJECT_WITHHOLDING`. Both are hash-transparent at their sentinels, so every record written before them keeps its bytes and its content address.
+- Why: PROPOSAL, Dave's Q11 and Q12 (`D-IMPL-378`). The issuance makes each product answer's record unique; the posture is what the governed evidence read requires before an owner reads a record back.
+- Migration: none for a reader. A record built for comparison without either value keeps the sentinels and its address.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.replay.record.build_replay_record
+
+- Surface: ccf.replay.record.build_replay_record
+- Public surface: true
+- Change type: reshaped
+- Before: no `issuance` or `subject_withholding` keyword.
+- After: adds `issuance: str | None = None` and `subject_withholding: str | None = None`, each recorded verbatim in dimension 5; `None` records the sentinel.
+- Why: PROPOSAL, Dave's Q11 and Q12.
+- Migration: none. Both keywords are additive and default to the sentinels.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.controlplane.artifacts.ProductClassDeclaration
+
+- Surface: ccf.controlplane.artifacts.ProductClassDeclaration
+- Public surface: true
+- Change type: reshaped
+- Before: no withholding posture.
+- After: adds `subject_withholding: SubjectWithholding`, default `"may-withhold"` and hash-transparent at it, so every declaration registered before the field keeps its content address. `docs/schemas/ccf.product-class.json` is regenerated.
+- Why: PROPOSAL, Dave's Q12.
+- Migration: a class whose records owners should read back declares `subject_withholding: never`, and only if its projection never withholds the subject.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.entitlement.ProductEntitlementPolicy
+
+- Surface: ccf.products.entitlement.ProductEntitlementPolicy
+- Public surface: true
+- Change type: reshaped
+- Before: `tenant_id`, `policy_version`, `principals`, `disclosure_level`.
+- After: adds `evidence_readable_classes: frozenset[str]`, default empty and hash-transparent at it, so every policy registered before the field keeps its content address. `docs/schemas/ccf.product-entitlement-policy.json` is regenerated.
+- Why: PROPOSAL, Dave's Q12: *"Default-deny owner read-back, with an explicit tenant class allowlist"*.
+- Migration: owner read-back stops for every product record until the tenant lists the class and the class affirms `never`. Measured on this tree: the test worlds whose job is to deliver an owner's record (`tests/http_api/test_evidence_dereference.py`, the C2 tenant-hold suites for HTTP and MCP, the read-refusal attribution suites for HTTP and MCP) now list their class and stamp `never` on the records they file.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
 #### ccf.graph.registry.BackendRegistration
 
 - Surface: ccf.graph.registry.BackendRegistration
@@ -26922,6 +27186,66 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none; absence means the real clock
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.child_resolver.ChildArguments
+
+- Surface: ccf.products.child_resolver.ChildArguments
+- Public surface: true
+- Change type: reshaped
+- Before: `Callable[[ChildRequirement, datetime], Mapping[str, str]]`, handed the requirement and the composite's `asked_at`; a mapping could learn the composite's subject only from state captured beside the resolver.
+- After: `Callable[[ChildRequirement, ProductRequest], Mapping[str, str]]`, handed the requirement and the EFFECTIVE request `resolve_for` is handed (the one `ChildQuestions` mints the child's question from); its `asked_at` is the composite's.
+- Why: SEC-020 residual P3. Under the early policy that request names the declared undisclosed subject, so a mapping that reads the subject off it asks the child what a nonexistent subject's composite asks. It also lifts the limit fragment 370-25 disclosed: a multi-subject composite's `local-dispatch` and `mcp` children can now be asked about the composite's own subject without captured state.
+- Migration: change `(requirement, asked_at)` to `(requirement, request)` and read `request.asked_at`; take any per-request value (the subject, a parameter) from `request`. In this tree nine mappings in seven test modules moved this way, and no example or `runtime/` module supplies one.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `for_question: bool = False` said whether THIS boot was for one question; nothing said whether the store had been booted for one before.
+- After: adds `question_store: bool = False`: the store was booted for one question, by this boot or by an earlier one, read from the marker `<resolved path>.ccf-question-store` beside every path naming the store.
+- Why: SEC-020 residual P4.
+- Migration: none; the default is a store never booted for a question.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no `question_store` field.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 residual P4.
+- Migration: none.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: `for_question` and `question_store` said whether this boot, or an earlier one, was for one question; nothing said whether an existing store's creation was known.
+- After: adds `store_creation: Literal["verified", "unmarked", "unverifiable"] = "unmarked"`, read from the markers beside the store: `"verified"` when every path naming the store carries a question or deployment marker, `"unmarked"` when the store existed with neither, `"unverifiable"` when the adapter's connection names no path. The default, for a value no boot produced, presumes nothing.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none for a value a boot returns.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.BootedFabric
+
+- Surface: ccf.deployment.BootedFabric
+- Public surface: true
+- Change type: reshaped
+- Before: no `store_creation` field.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
 
 #### ccf.deployment.environment.DoorEnvironment
 
@@ -29951,7 +30275,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-377 entries — 338 public Python surface, 39 not public Python API.
+403 entries — 364 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35103,6 +35427,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
 
+#### ccf.replay.serve.ReplayWriter
+
+- Surface: ccf.replay.serve.ReplayWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_replay_record` filed every record under dimension 1's `graph_snapshot_id`, a hash of the real read (`D-IMPL-371`), so a reference's name could differ between a withheld subject's answer and a nonexistent subject's with no dereference at all.
+- After: files every record under its own content address, so a reference's name and version are one identity. Replay resolves by content address, unchanged.
+- Why: PROPOSAL, Dave's Q11. Measured by the severing `sever-q11-name-2c96526` in the lane record: restoring the old name turns 12 of the Q11 tests red.
+- Migration: none for a replay reader. Records already filed keep the names they were filed under.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a served answer and a refused answer to a product question were the same record whenever the question, the governed state and the instant were the same, and a record carried nothing about its class's withholding posture.
+- After: mints a fresh issuance for every served answer and every refusal it records for a product question, and stamps every record with its class declaration's `subject_withholding`. At construction it raises `WithholdingClassListedReadable` when the tenant's entitlement policy lists its class in `evidence_readable_classes` and the class does not affirm `"never"`. At serve time it raises `NeverWithholdingContradicted` when the projection withholds the subject under a class that affirms `"never"`, before anything is rendered, recorded or served.
+- Why: PROPOSAL, Dave's Q11 and Q12.
+- Migration: two answers to one question at one instant are now two records with two references; the 13 tests named above pin the old property and stay red until Dave rules. A class's records reach their owners only after the class declaration affirms `subject_withholding: never` and the tenant lists it; a projection that may withhold leaves its class at the default. Measured residual: a class that affirms `"never"` and then withholds is a broken deployment, and the answer door shows it as an error where a nonexistent subject's question answers (lane probe `probe_never_contradicted_at_the_door.py`).
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: `record(...)` took no withholding posture.
+- After: `record(..., subject_withholding: str | None = None)`, recorded in dimension 5. The governed resolver passes it on every refusal it records, so a recorder that cannot take it fails on every refusal alike, never only on one about a withheld subject.
+- Why: PROPOSAL, Dave's Q12: the refusal records of a class that affirms `never` are read back by their owners only if they carry the affirmation.
+- Migration: a deployment's own recorder accepts the keyword and hands it to `build_replay_record`. Without it, every refusal the governed resolver records raises `TypeError`.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: a genuine record of the caller's own tenant and principal crossed after the grant was re-decided and at `full` disclosure (`D-IMPL-345` R-2).
+- After: hold 2b, after the grant is re-decided and before the erasure consult and the disclosure hold: the tenant must list the record's class (asked through `EvidenceReadabilitySourceProtocol`), and a record that read the fabric must carry `subject_withholding: never`; a record whose dimension 1 is exactly the claim that nothing was read needs only the listing. Otherwise the read is refused `unauthorized` with `evidence-class-sealed`, pinning the policy that answered. Read-refusal records skip it, as they skip hold 2. Every caller inherits it: the HTTP replay and artifact routes, the MCP artifact server's blob, presence and names resources, and the `ccf` CLI's `replay query`, `replay resolve` and `artifact inspect`.
+- Why: PROPOSAL, Dave's Q12, amending `D-IMPL-345` R-2. Measured by the severing `sever-q12-hold2b-0b01cee` in the lane record: removing the hold turns 11 of the Q12 and channel-3 tests red.
+- Migration: list the classes whose records owners read in each tenant's entitlement policy, and affirm `never` in each such class declaration. Records written before this change stay sealed: they still replay to their own addresses through the replay engine, read from the store by an examiner, not through a door.
+
+*Recorded by `378-12-sec-020-per-answer-reference-and-owner-read-back.md`.*
+
 #### ccf_runtime.erasure.ErasureDoor
 
 - Surface: ccf_runtime.erasure.ErasureDoor
@@ -35294,6 +35666,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for` handed `child_arguments` the requirement and `asked_at`. The request-less `__call__` dispatched every granted child, and the admission gate then refused every bound leg's answer `question-mismatch`, because no question was minted.
+- After: `resolve_for` hands `child_arguments` the request it is handed. The request-less `__call__` refuses every granted requirement `question-mismatch` before its skill is dispatched; an ungranted one is still the honest absence `None`.
+- Why: SEC-020 residual P3. A request-less call has no request to hand the mapping and no question to hold the child's answer to.
+- Migration: none for `GovernedResolver`, which calls `resolve_for`. A caller of the request-less `__call__` gets the same refusal it got for every bound leg, without the child being asked.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: its optional `child_arguments`, for entries other than `mcp_product`, was handed the requirement and `asked_at`.
+- After: it is handed the same effective request `child_questions` is handed.
+- Why: SEC-020 residual P3.
+- Migration: as for `ChildArguments`.
+
+*Recorded by `378-23-sec-020-p3-child-arguments-handed-the-request.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the Q9 claim was taken only by a call that declares an acquisition phase.
+- After: every call over a fabric booted for its question claims it, with an acquisition phase or without, so a later call on the same fabric raises `AcquiredFabricReused`; a call with no acquisition phase over a question's store booted again raises `QuestionStoreReopened`. A call that declares an acquisition phase over such a store is still refused `AcquisitionNeedsAQuestionFabric`, unchanged.
+- Why: SEC-020 residual P4: Q9 alone bound only where acquisition exists.
+- Migration: a composition that asks one fabric booted `for_question=True` more than one question with no acquisition phase now gets `AcquiredFabricReused` at the second; boot a new store for each question, as the paved road does.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` verified the store fresh and wrote nothing beside it.
+- After: `for_question=True` also writes, flushes and syncs `<resolved path>.ccf-question-store` beside every path naming the store, before the store is booted; every boot reads it into `BootedFabric.question_store`. The marker is never read for the store's contents.
+- Why: SEC-020 residual P4: a durable record, beside the store, that it was booted for one question.
+- Migration: delete a question's store together with its marker. A marker left at a path makes a later plain boot there refuse to serve, which fails closed.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020 residual P4.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-23-sec-020-p4-question-store-marker.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted a composite that declared no withholding stance.
+- After: construction refuses such a composite with `CompositeNeedsAWithholdingStance`, after the Q12 listed-class check and before any authority is minted.
+- Why: SEC-020, owed ruling P2 option (c), a candidate (see above).
+- Migration: as above; a non-composite class is unaffected.
+
+*Recorded by `378-24-p2c-composite-withholding-stance-candidate.md`.*
 
 #### ccf.products.resolver.GovernedResolver
 
@@ -35534,6 +35978,198 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.manifest.load_and_boot`
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted any recorder carrying a `record` attribute.
+- After: construction refuses, right after the store-declaration check and before any refusal of the composition, minting or registration, a recorder whose `record` cannot be passed `subject_withholding=` (`IncompatibleRefusalRecorder`). `build_governed_resolver` hands a supplied recorder to it.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: conformance was structural, the presence of `record` only; the signature was left to mypy.
+- After: every path that accepts a recorder also reads one thing of `record`'s signature at construction: that it can be passed `subject_withholding=`.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.recorded_boundary
+
+- Surface: ccf_runtime.authz.delivery_boundary.recorded_boundary
+- Public surface: true
+- Change type: behavior
+- Before: refused only an absent or non-conforming recorder (`UnrecordableDeliveryBoundaryError`).
+- After: also refuses, after that check, a recorder whose `record` cannot be passed `subject_withholding=` (`ccf.products.resolver.IncompatibleRefusalRecorder`), so `create_app`, the product router, `build_egress_server` (and `open_door`, which builds it) and `build_experience_server` refuse it where they are built.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: accepted any recorder and called no recorder check at construction.
+- After: refuses, first and before anything is composed, a recorder whose `record` cannot be passed `subject_withholding=` (`ccf.products.resolver.IncompatibleRefusalRecorder`).
+- Why: Dave's E2 (iii) (`D-IMPL-378`): every path that accepts a refusal recorder.
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.product.OpenedProduct.record_of
+
+- Surface: ccf.products.product.OpenedProduct.record_of
+- Public surface: true
+- Change type: behavior
+- Before: returned whatever the store held at the outcome's address, parsed as a record, without checking that those bytes hash to the address; bytes altered on the substrate came back as the decision's record.
+- After: re-hashes the stored bytes against the address the outcome names before parsing them, as the replay engine does (`D-IMPL-89`), and raises `ccf.replay.engine.ReplayDivergence` when they differ. Its docstring also states that it is an operator/auditor handle (Dave's E2 (i)).
+- Why: Dave's E1 (a) (`D-IMPL-378`): preserve record content-address integrity.
+- Migration: none for intact records. A caller that reads a record through `record_of` may now see `ReplayDivergence` for a record whose bytes were altered after filing.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: re-hashed the bytes of its authorizing read (through `resolve_artifact`) but served, for a byte read, the bytes of its second, erasure-consulted read unchecked; bytes that changed between the two reads were served under the old address.
+- After: the second read's bytes are held to the address too; a mismatch is the one evidence-absent refusal, recorded, exactly as bytes that do not hash to their address at the first read always were.
+- Why: Dave's E1 (a) (`D-IMPL-378`): preserve record content-address integrity on the read that crosses.
+- Migration: none.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted a class affirming `never` whatever its plan factory declared through `SubjectDisclosingPlanFactoryProtocol`.
+- After: construction refuses it with `NeverWithholdingProjectionCanWithhold` when the plan factory declares it withholds, immediately after reading `subject_disclosure()` (once) and before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`), so a `never` composite declaring late withholding is named by this check first. At serve, the `never` check now runs before Q8's `CompositeWithheldLate` check (CT-D (a)).
+- Why: as above; each order names the class's own contradiction before the composite rule it also breaks.
+- Migration: as above; a class at the default `may-withhold` is unaffected.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.NeverWithholdingContradicted
+
+- Surface: ccf.products.resolver.NeverWithholdingContradicted
+- Public surface: true
+- Change type: behavior
+- Before: the only check of a class affirming `never`, at serve, after Q8's `CompositeWithheldLate` check.
+- After: checked first among the serve-time withholding refusals, so a composite affirming `never` that withholds late raises it rather than `CompositeWithheldLate` (CT-D (a)); documented as the defense Dave retained for a plan factory that declares nothing and whose projection withholds anyway, and as still telling the withheld subject from a nonexistent one (measured by the closing test's E2 (ii) cells).
+- Why: SEC-020, E2 (ii): *"retain the runtime check as defense"*; CT-D (a): *"for diagnostic precedence; this does not resolve E2(ii)'s oracle."*
+- Migration: code catching `CompositeWithheldLate` for a composite whose class affirms `never` catches `NeverWithholdingContradicted` instead; both are `ProductNotResolvable`.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.CompositeWithheldLate
+
+- Surface: ccf.products.resolver.CompositeWithheldLate
+- Public surface: true
+- Change type: behavior
+- Before: raised for any composite whose projection withheld a subject its early policy did not, including one whose class affirms `never`.
+- After: not raised for a composite whose class affirms `never`; that composite raises `NeverWithholdingContradicted`, checked first. Still raised for a composite whose early policy does not cover a subject its projection withholds.
+- Why: SEC-020, CT-D (a) (Dave, 2026-10-08 12:29 MST): diagnostic precedence only.
+- Migration: as for `NeverWithholdingContradicted` above.
+
+*Recorded by `378-31-e2ii-never-class-withholding-capability.md`.*
+
+#### ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+
+- Surface: ccf.products.resolver.AcquisitionNeedsAQuestionFabric
+- Public surface: true
+- Change type: behavior
+- Before: raised at the first call for every acquisition composition over a fabric not booted for its question.
+- After: unchanged over a store with a path; over a store with no path its subclass `AcquisitionOverUnverifiableStore` is raised at construction instead.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none for a handler of this class; a test that constructed such a composition and expected the refusal at the call sees it at construction.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: an acquisition composition over a store with no path was constructed; a call with no acquisition phase over an existing unmarked store was answered.
+- After: construction raises `AcquisitionOverUnverifiableStore` for the first; the call raises `UnmarkedStoreNotPresumedFresh` for the second, at the claim point. A resolver constructed over an unmarked or a question's store and never called, as `RecordedEnvironment` builds it, is unaffected.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: compose a store with no path without an acquisition phase; recreate an unmarked store through a deployment door.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: opened over any substrate setting; a substrate the SDK could not verify fresh was refused at every question's boot.
+- After: refuses `AcquisitionOverUnverifiableStore` at open when the environment's `substrate.setting` is not a path-valued setting of the adapter `ccf_config.yaml` declares, read off its declared connection contract; nothing is minted, booted or connected to.
+- Why: SEC-020 P4 (a), made strict: the paved road always acquires, so it refuses before questions run.
+- Migration: name a path-valued setting of a file-backed adapter as the substrate.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: raised before anything was registered, when a path named by the store existed or none was named.
+- After: also raised after registration and before the boot, when another boot already holds a path's question marker, or when a store or another boot's deployment marker appeared at a path after the check; the markers this boot created are removed first.
+- Why: SEC-020 P4 (a), made strict: verifiable fresh creation.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: none.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` checked the store paths did not exist, then wrote the question marker with a truncating open before the boot; a boot not for a question wrote nothing beside the store.
+- After: `for_question=True` creates each question marker exclusively, file and directory synced, and then requires that no store and no deployment marker exists at any path. Any other boot that is about to create its store first creates `<resolved path>.ccf-deployment-store` beside it, exclusively; an existing store is never marked afterwards. Every boot reads the markers into `BootedFabric.store_creation`.
+- Why: SEC-020 P4 (a), made strict: verifiable fresh creation, and an existing store with no marker is not presumed fresh.
+- Migration: delete or copy a store together with its marker. A store created before this change, or below these doors, is booted as before and refused for governed calls; recreate it through a door.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020 P4 (a), made strict.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-34-sec-020-p4-strict-no-store-presumed-fresh.md`.*
 
 #### ccf.products.demonstration_clock.compose_serve_clock
 

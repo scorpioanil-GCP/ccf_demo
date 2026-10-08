@@ -246,6 +246,23 @@ class ProductEntitlementPolicy(CCFContract):
             policy registered before this field keeps its content address — and
             a deployment that never thought about disclosure gets the safe
             posture rather than the permissive one.
+        evidence_readable_classes: The product classes whose decision records
+            may be read back by their own principals at all (Dave's Q12,
+            2026-10-07: *"Default-deny owner read-back, with an explicit tenant
+            class allowlist."*; ``D-IMPL-378``; SDK-defined, CLAUDE.md §11) —
+            through every governed evidence read: the HTTP replay and artifact
+            reads and the MCP artifact server, all through
+            ``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``.
+            Empty — the default — lists none, so no record of any product
+            class crosses. A record's dimension 1 is the REAL read
+            (``D-IMPL-371``), so only a class whose declaration affirms
+            :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` may be
+            listed: the governed resolver refuses to boot for a listed class
+            that does not, and a record crosses only when it carries that
+            affirmation too, which keeps every existing record off the doors.
+            Decided per class, never per decision. Hash-transparent at the
+            empty set, so every policy registered before it keeps its content
+            address.
     """
 
     tenant_id: str
@@ -253,6 +270,9 @@ class ProductEntitlementPolicy(CCFContract):
     principals: Mapping[str, ProductEntitlementGrant] = Field(min_length=1)
     disclosure_level: DisclosureLevel = Field(
         default=DISCLOSURE_MINIMAL, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    evidence_readable_classes: frozenset[str] = Field(
+        default=frozenset(), json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
 
     @field_validator("policy_version")

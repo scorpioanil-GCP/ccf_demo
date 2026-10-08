@@ -178,6 +178,7 @@ from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
 from ccf.controlplane.audit import AuditLog
 from ccf.products.refusal import RefusalEnvelope
+from ccf.products.resolver import refuse_incompatible_refusal_recorder
 from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.authz.delivery_boundary import (
     SURFACE_MCP_RESOURCE,
@@ -439,7 +440,16 @@ def build_artifact_server(
         A configured ``FastMCP``. Deliberately *not* started, and no bind
         address is chosen here — hosting is the deployment's decision, and a
         library that picked an interface would be picking an exposure surface.
+
+    Raises:
+        ccf.products.resolver.IncompatibleRefusalRecorder: ``refusal_recorder``'s
+            ``record`` cannot be passed ``subject_withholding=``, refused before
+            anything else is built (Dave's E2 (iii), ``D-IMPL-378``).
     """
+    # Dave's E2 (iii) (`D-IMPL-378`): "Detect incompatible recorders at
+    # construction, rather than on the first refusal." First, before anything
+    # is composed.
+    refuse_incompatible_refusal_recorder(refusal_recorder, builder="build_artifact_server")
     # SEC-009 (`D-IMPL-374` (4), MCP ruling): the one composition helper.
     consulted = compose_erasure_consult(
         store,

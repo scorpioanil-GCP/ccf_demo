@@ -66,6 +66,7 @@ its own entitlement source.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -85,6 +86,7 @@ from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_an
 from ccf.controlplane.audit import AuditLog
 from ccf.contracts.base import CCFContract
 from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureLevel
 from ccf.products.provenance import EffectiveRequest, ProvenanceSource
 from ccf.products.refusal import (
@@ -98,7 +100,7 @@ from ccf.products.refusal import (
     SubjectUnavailableRefusal,
     envelope_for,
 )
-from ccf.products.resolver import RefusalRecorderProtocol
+from ccf.products.resolver import RefusalRecorderProtocol, refuse_incompatible_refusal_recorder
 from ccf.projection.plan import Perspective
 from ccf.replay.engine import (
     ReplayDivergence,
@@ -109,17 +111,20 @@ from ccf.replay.provenance import filed_by_record_writer
 from ccf.replay.record import (
     NO_ASSEMBLY_REFUSAL,
     NO_ROLE_RESOLVED,
+    ContextFabricSnapshot,
     DecisionReplayRecord,
     PolicyBinding,
     ResolutionNotApplicable,
 )
 from ccf_runtime.http_api.errors import (
     ERROR_EVIDENCE_ABSENT,
+    ERROR_EVIDENCE_CLASS_SEALED,
     ERROR_EVIDENCE_CLASS_UNRECOVERABLE,
     ERROR_EVIDENCE_DISCLOSURE_WITHHELD,
     ERROR_EVIDENCE_PRINCIPAL_MISMATCH,
 )
 from ccf_runtime.authz.product_entitlement import (
+    EvidenceReadabilitySourceProtocol,
     PerspectiveResolverProtocol,
     ProductEntitlementRefused,
     ProductEntitlementSourceProtocol,
@@ -308,6 +313,9 @@ def recorded_boundary(
 
     Raises:
         UnrecordableDeliveryBoundaryError: it is absent or does not conform.
+        ccf.products.resolver.IncompatibleRefusalRecorder: its ``record``
+            cannot be passed ``subject_withholding=`` — read off the signature,
+            never by calling it (Dave's E2 (iii), ``D-IMPL-378``).
     """
     if refusal_recorder is None:
         raise UnrecordableDeliveryBoundaryError(
@@ -330,6 +338,9 @@ def recorded_boundary(
             " `record` method — and it runs at construction rather than at the"
             " first denial, so a misconfigured door never answers at all"
         )
+    # Dave's E2 (iii) (`D-IMPL-378`): "Detect incompatible recorders at
+    # construction, rather than on the first refusal."
+    refuse_incompatible_refusal_recorder(refusal_recorder, builder=builder)
     return refusal_recorder
 
 
@@ -933,6 +944,23 @@ def _is_read_refusal(internal: RefusalEnvelope | None) -> bool:
     )
 
 
+def _read_nothing(record: DecisionReplayRecord) -> bool:
+    """Whether the record's dimension 1 is exactly the claim *nothing was read*.
+
+    Dave's Q12 (``D-IMPL-378``), hold 2b. Exact equality with
+    :meth:`~ccf.replay.record.ContextFabricSnapshot.unread` for the record's
+    own tenant and instant — the unread watermark, no touched entity or
+    relationship, no attestation — rather than the watermark alone, so a
+    dimension 1 that claims no read while naming something touched is not read
+    as having read nothing. Such a record names no subject the answer could
+    have hidden, so it needs only the tenant's listing to be read back.
+    """
+    snapshot = record.context_fabric_snapshot
+    return snapshot == ContextFabricSnapshot.unread(
+        tenant_id=snapshot.tenant_id, temporal_boundary=snapshot.temporal_boundary
+    )
+
+
 def _decided_identity(
     record: DecisionReplayRecord, internal: RefusalEnvelope | None
 ) -> tuple[str, str, str | None] | None:
@@ -1031,6 +1059,20 @@ def govern_dereference(
        subject-conflict check is hold 1. A record this boundary itself wrote
        carries no product determination and skips this hold; a record with no
        recoverable class is withheld.
+    2b. **Owner read-back, default-deny** (Dave's Q12, 2026-10-07;
+       ``D-IMPL-378``). The tenant's entitlement policy must list the record's
+       class in ``evidence_readable_classes`` — asked of the entitlement source
+       through
+       :class:`~ccf_runtime.authz.product_entitlement.EvidenceReadabilitySourceProtocol`,
+       a source that cannot say answering *no* — and a record that read the
+       fabric must carry its class's affirmation that its answers never
+       withhold their subject (``ContentGenerationPath.subject_withholding``),
+       which no record written before the affirmation existed carries. Decided
+       per class and per record generation, never per decision, so the record
+       behind a withheld answer and a nonexistent subject's are refused alike.
+       A read-refusal record carries no product determination and no read of
+       any subject; it skips this hold as it skips hold 2 (Dave's Q3 governs
+       it).
     3. **Disclosure, through the recorder.** The level in force for this
        principal under the capability's tenant — after hold 0, the tenant the
        record was decided under — read through the door's recorder, must be
@@ -1444,6 +1486,44 @@ def govern_dereference(
                 policy=refused.policy,
             )
 
+        # --- hold 2b: owner read-back, default-deny (Dave's Q12) -----------
+        # A record's dimension 1 is the REAL read (`D-IMPL-371`), so the record
+        # behind a withheld answer names what the answer hid: measured end to
+        # end, the only difference between it and a nonexistent subject's. The
+        # owner reads a record back only when the tenant lists its class AND the
+        # record carries the class's affirmation that its answers never withhold
+        # their subject — which the governed resolver enforces for every
+        # decision of the class, and which no record written before it existed
+        # carries (Q12: "apply the restriction to existing records"). A record
+        # that read nothing (an unread dimension 1) cannot name a subject and
+        # needs only the listing. Before the erasure consult, so a sealed
+        # record's erasure answers as any other sealed record does.
+        listed, posture = (
+            entitlement_source.evidence_readable(
+                tenant=decided_tenant, product_class=product_class
+            )
+            if isinstance(entitlement_source, EvidenceReadabilitySourceProtocol)
+            else (False, None)
+        )
+        affirmed = (
+            record.content_generation_path.subject_withholding
+            == SUBJECT_WITHHOLDING_NEVER
+            or _read_nothing(record)
+        )
+        if not (listed and affirmed):
+            return refuse(
+                cause="unauthorized",
+                error_code=ERROR_EVIDENCE_CLASS_SEALED,
+                detail=(
+                    "the tenant's entitlement policy does not list this"
+                    " record's product class for owner read-back"
+                    if not listed
+                    else "this record does not carry its class's affirmation"
+                    " that its answers never withhold their subject"
+                ),
+                policy=posture,
+            )
+
     # --- the erasure consult: after the holds, before disclosure -------------
     # SEC-009 (`D-IMPL-374` (4), ruling 1; design `D-IMPL-367` §5.3): only a
     # caller entitled to this record reaches here. At `minimal` an erased
@@ -1457,6 +1537,16 @@ def govern_dereference(
         consulted = tenant_view.get(content_address=content_address)
     except ErasedContentRefused as erased:
         return erased_reading(erased)
+    # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+    # integrity." The bytes that CROSS come from this second read, not from the
+    # authorizing read above, so they are held to the same arithmetic before
+    # they leave: the address is the sha256 of the stored canonical bytes
+    # (`D-IMPL-89`). Bytes that changed between the two reads answer as bytes
+    # that do not hash to their address always have — the ONE absence.
+    if hashlib.sha256(consulted).hexdigest() != content_address:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
 
     # --- hold 3: the level that disclosed the serve -------------------------
     # Read through the door's recorder (`D-IMPL-345` R-2), keyed on the

@@ -37,6 +37,7 @@ import pytest
 
 from ccf.products.contract import ProductLineage
 from ccf.products.request import ProductRequest
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -74,7 +75,16 @@ from tests.skills.authority import revoke_capability
 @pytest.fixture()
 def booted(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     """One deployment declaring TWO product classes: a parent and its child."""
-    yield from boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, whose projection never
+    # raises the withheld signal (`ProjectionOutput.withheld` stays False), so the class
+    # states it never withholds its subject — the parent, and the higher class `INT-01b`
+    # builds over it.
+    yield from boot_composite(
+        tmp_path,
+        subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+        higher_subject_withholding=SUBJECT_WITHHOLDING_NEVER,
+    )
 
 
 def _wire(booted: _Booted, *, grant: bool = True) -> tuple[object, object]:

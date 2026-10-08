@@ -701,6 +701,16 @@ def resolve_artifact(
     Record-shaped bytes filed any other way, a client-lane artifact included,
     are answered as a missing record is.
 
+    **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``, 2026-10-08:
+    *"trusted operator/auditor handles holding the underlying store may remain
+    unrestricted. Agent-accessible in-process interfaces must still enforce
+    Q12."*). Its caller hands it the store it reads, and can read the same
+    bytes directly, so it is not held to Q12's default-deny on owner read-back.
+    An agent reads records only through the governed evidence reads
+    (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+    which hold it (measured by
+    ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
+
     Args:
         store: Where the artifact lives (CLAUDE.md §7.4). To resolve a
             ``DecisionReplayRecord`` it must answer ``write_kinds`` and
@@ -785,6 +795,16 @@ def resolve_artifact_at_uri(
     string is where a moving target sneaks back in, so the refusal has to happen
     on the path a caller actually takes rather than only in a parser nobody is
     obliged to reach.
+
+    **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``, 2026-10-08:
+    *"trusted operator/auditor handles holding the underlying store may remain
+    unrestricted. Agent-accessible in-process interfaces must still enforce
+    Q12."*). Its caller hands it the store it reads, and can read the same
+    bytes directly, so it is not held to Q12's default-deny on owner read-back.
+    An agent reads records only through the governed evidence reads
+    (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+    which hold it (measured by
+    ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
 
     Raises:
         ccf.artifacts.protocol.MovingTargetRefused: the URI asks for
@@ -1055,6 +1075,16 @@ def replay(
     ``ReplayDivergence`` names the first rebuild's address. A record that
     carries the member replays exactly as before.
 
+    **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``, 2026-10-08:
+    *"trusted operator/auditor handles holding the underlying store may remain
+    unrestricted. Agent-accessible in-process interfaces must still enforce
+    Q12."*). Its caller hands it the store it reads, and can read the same
+    bytes directly, so it is not held to Q12's default-deny on owner read-back.
+    An agent reads records only through the governed evidence reads
+    (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+    which hold it (measured by
+    ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
+
     Args:
         record_address: Content address of the :class:`DecisionReplayRecord`.
             An address, not a name: names move, addresses do not.
@@ -1215,6 +1245,16 @@ def replay_refusal(
     address, and the environment exposes no gate or scorer — so what this
     path reproduces is the recorded verdict over a re-derived operator path
     (the `D-IMPL-344` R-2 boundary, ruled).
+
+    **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``, 2026-10-08:
+    *"trusted operator/auditor handles holding the underlying store may remain
+    unrestricted. Agent-accessible in-process interfaces must still enforce
+    Q12."*). Its caller hands it the store it reads, and can read the same
+    bytes directly, so it is not held to Q12's default-deny on owner read-back.
+    An agent reads records only through the governed evidence reads
+    (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+    which hold it (measured by
+    ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
 
     Args:
         record_address: Content address of the :class:`DecisionReplayRecord`.

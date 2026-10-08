@@ -38,6 +38,27 @@ stay green"* happens; a derived list means a field added next year joins the
 comparison without an edit here, and a derivation that silently returned nothing
 is refused rather than passed.
 
+The one edit E1 (a) authorized: ``replay_ref`` is compared by its record
+-------------------------------------------------------------------------
+Dave's batch ruling of 2026-10-08 12:29 MST (``D-IMPL-378``), item E1 (a),
+verbatim: *"Approve random per-answer issuance and the named conformance
+amendments. Preserve record content-address integrity. Random references must
+have indistinguishable distributions; equality is no longer the criterion."*
+Every product answer's Decision Replay record now carries a fresh per-answer
+issuance and is named by its own content address, so two transports answering
+one question hand out two DIFFERENT references, and string equality on
+``replay_ref`` can never hold. ``D-IMPL-148`` Addendum A stands — ``replay_ref``
+is not dropped from the comparison — and is read as the restatement E1 (a)
+approved: *parity compares every field, and compares* ``replay_ref`` *by
+"resolves to a record equal modulo issuance" rather than by string equality.*
+That is the whole of this edit: :class:`Provision` also reads, as the
+deployment's operator, the record a reference names in a root it provisioned,
+and :func:`assert_served_parity` compares that record, with its issuance set
+aside, in the ``replay_ref`` column. Every other field, every guard and every
+other leg is unchanged. ``test_the_suite_fires.py`` observes the changed column
+failing on a door that hands out another answer's reference and on a deployment
+whose answers are not issued apart.
+
 What "break the transport" means, and why the hook may not raise
 ----------------------------------------------------------------
 :attr:`AdapterSubject.break_transport` is handed a deployment root **it owns**
@@ -58,13 +79,22 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
+from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.client.client import ProductClient
 from ccf.client.codec import encode_outcome
 from ccf.client.errors import RefusedResultError, TransportError
 from ccf.client.result import GUARDED_FIELDS, PRE_ASSEMBLY_FIELDS, Result
 from ccf.client.wire import TransportAdapter, WireOutcome, WireRequest
+from ccf.contracts.canonical import canonical_bytes
+from ccf.replay.record import DecisionReplayRecord
+
+from tests.issuance import (
+    assert_issued,
+    assert_named_by_its_own_content,
+    modulo_issuance,
+)
 
 __all__ = [
     "REFUSAL_VIEW_KEYS",
@@ -89,15 +119,34 @@ __all__ = [
 #: root; the transport decides what to do with it.
 AdapterFactory = Callable[[Path], TransportAdapter]
 
-#: How the suite obtains a fresh, already-populated deployment root. Named per
-#: call so a subject and its broken twin never share a substrate — and so the
-#: legs stay honest about which root produced which answer.
-Provision = Callable[[str], Path]
+class Provision(Protocol):
+    """How the suite obtains a fresh, already-populated deployment root, and reads its records.
+
+    Called with a name, it hands out a root. Named per call so a subject and
+    its broken twin never share a substrate — and so the legs stay honest about
+    which root produced which answer.
+
+    :meth:`read_record` is the deployment OPERATOR's read (E1 (a),
+    ``D-IMPL-378``): the canonical bytes of the record a replay reference names,
+    read from the store of a root this provisioner handed out — never through a
+    transport, which is what is under test. Where a deployment files its
+    records is the deployment's to know, as where it is copied from is, so the
+    provisioner reads it and this module names no substrate. It raises when the
+    reference names nothing in that root.
+    """
+
+    def __call__(self, name: str) -> Path: ...
+
+    def read_record(self, root: Path, reference: str) -> bytes: ...
 
 #: The field on a served :class:`~ccf.client.result.Result` whose omission from
 #: a parity comparison is the single most likely way this gate goes quiet.
 #: Named so :func:`result_fields` can refuse a derivation that lost it.
 CONTENT_ADDRESS: Final[str] = "content_address"
+
+#: The field ``D-IMPL-148`` was raised about, compared by the record it resolves
+#: to rather than by its string (E1 (a); see the module docstring).
+REPLAY_REF: Final[str] = "replay_ref"
 
 #: The members of a refusal that must be identical across adapters (``D-15``
 #: row 2): the reason, what it names, its unflattened kind, and the request
@@ -241,7 +290,23 @@ def _ask_each(
     answering independently, and it is not open to the suite anyway: a second
     boot against one graph is a second writer.
     """
-    answers: dict[str, Result] = {}
+    return {
+        name: result
+        for name, (result, _root) in _ask_each_at(
+            subjects, provision=provision, question=question
+        ).items()
+    }
+
+
+def _ask_each_at(
+    subjects: Sequence[AdapterSubject], *, provision: Provision, question: Question
+) -> dict[str, tuple[Result, Path]]:
+    """:func:`_ask_each`, keeping the root each subject answered from.
+
+    So a leg can read, as the deployment's operator, the record a subject's
+    answer names in that subject's own root (E1 (a)).
+    """
+    answers: dict[str, tuple[Result, Path]] = {}
     for subject in subjects:
         if subject.name in answers:
             raise AssertionError(
@@ -249,8 +314,52 @@ def _ask_each(
                 " report that cannot tell them apart names the wrong transport"
                 " when it fails"
             )
-        answers[subject.name] = _ask(subject, provision(subject.name), question)
+        root = provision(subject.name)
+        answers[subject.name] = (_ask(subject, root, question), root)
     return answers
+
+
+def _replay_ref_column(
+    provision: Provision, root: Path, reference: str | None, *, subject: str
+) -> tuple[str, str, str] | None:
+    """What served parity compares for ``replay_ref``: its record, modulo the issuance.
+
+    E1 (a) (``D-IMPL-378``; ``D-IMPL-148`` Addendum A restated). ``None`` stays
+    ``None``: a deployment with no reference to give is a legitimate shape
+    (``D-IMPL-151`` ``B1``), so two subjects with none agree and a reference on
+    one side only is a difference in KIND, which fails. A reference is held,
+    per subject and therefore non-vacuously with one, to three things: it
+    resolves in the root this subject answered from; its name and version are
+    both the content address of the record it resolves to; and that record
+    carries a minted issuance. What is compared across subjects is then the
+    tenant and class it names and the record's canonical bytes with the
+    issuance set aside — every byte the string equality used to stand for but
+    the one each answer is issued apart.
+
+    Raises:
+        AssertionError: the reference resolves to nothing in that root, is not
+            named by its own content, or names a record with no issuance.
+    """
+    if reference is None:
+        return None
+    what = f"`{subject}`'s `{REPLAY_REF}` in the `served parity` leg"
+    try:
+        raw = provision.read_record(root, reference)
+    except Exception as exc:  # the store's own refusal, reported as this leg's
+        raise AssertionError(
+            f"{what} is {reference!r}, which names no record in the deployment"
+            f" that answered ({type(exc).__name__}: {exc}) — a reference a"
+            " transport hands out must resolve where the answer was decided"
+        ) from exc
+    record = DecisionReplayRecord.model_validate_json(raw)
+    assert_named_by_its_own_content(reference, record, what=what)
+    assert_issued(record, what=what)
+    named = parse_artifact_uri(reference)
+    return (
+        named.tenant_id,
+        named.artifact_class,
+        canonical_bytes(modulo_issuance(record)).decode("utf-8"),
+    )
 
 
 def _assert_views_agree(
@@ -347,15 +456,22 @@ def assert_served_parity(
     every declared field must be *readable* on it — which is the guard's
     converse and is not asserted anywhere else.
 
+    **``replay_ref`` is compared by the record it resolves to, modulo the
+    per-answer issuance** (E1 (a), ``D-IMPL-378``; the module docstring), not
+    by its string: each answer is issued apart, so two transports' references
+    always differ. :func:`_replay_ref_column` reads each subject's record from
+    the root it answered from and holds it to its own reference.
+
     Raises:
         AssertionError: a subject refused, a declared field was unreadable on a
-            served result, or two transports disagreed about any field.
+            served result, a reference did not resolve to an issued record named
+            by its own content, or two transports disagreed about any field.
     """
     _require_subjects(subjects, leg="served parity")
     fields = result_fields()
-    answers = _ask_each(subjects, provision=provision, question=question)
+    answers = _ask_each_at(subjects, provision=provision, question=question)
     views: dict[str, Mapping[str, Any]] = {}
-    for name, result in answers.items():
+    for name, (result, root) in answers.items():
         if result.refused:
             reason = result.refusal.reason if result.refusal is not None else "?"
             raise AssertionError(
@@ -364,7 +480,12 @@ def assert_served_parity(
                 " refusal here means the question or the deployment is wrong"
                 " and the comparison never happened"
             )
-        views[name] = _view_of(result, fields)
+        view = _view_of(result, fields)
+        if REPLAY_REF in view:
+            view[REPLAY_REF] = _replay_ref_column(
+                provision, root, view[REPLAY_REF], subject=name
+            )
+        views[name] = view
     _assert_views_agree(views, leg="served parity")
 
 

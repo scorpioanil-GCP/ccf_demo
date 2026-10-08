@@ -93,6 +93,10 @@ from tests.deployment.conftest import POLICY_BUNDLE_KEY, TENANT
 # well as the default on the class, and a hand-rolled copy that forgot the
 # first would fail deep inside the Authority layer for the wrong reason.
 from tests.composition import composition_replay_mint
+from tests.issuance import (
+    assert_named_by_its_own_content,
+    assert_one_determination_issued_twice,
+)
 from tests.products.test_resolver_seam import (  # noqa: F401
     ADMITTED_AT,
     ASKED_AT,
@@ -715,10 +719,15 @@ def test_two_identical_refusals_at_one_instant_are_one_decision(
     *"Same request + same governed state + same asked_at → same determination,
     authority resolution, disclosure decision, and replayable response."* The
     resolver reads no clock — ``recorded_at`` is the question's own
-    ``asked_at`` — and the store is content-addressed, so two identical
-    questions converge on **one** artifact rather than accumulating
-    near-duplicates. That convergence is the property, and it is what lets two
-    doors over one resolver report the same address.
+    ``asked_at`` — so two identical questions are one determination.
+
+    **Read modulo the per-answer issuance** (Dave's E1 (a), ``D-IMPL-378``,
+    2026-10-08 12:29 MST). Until Q11 the two answers converged on ONE artifact
+    and this test held their references equal. A refusal that answers a
+    question is now issued apart, so the two references differ, each names
+    exactly the record it resolves to, the two shells are byte-identical but
+    for that reference, and the two records are byte-identical but for the
+    issuance — the property, without the shared artifact.
     """
     resolver = _resolver(booted)
     first = _ask(resolver, _request(parameters={}))
@@ -726,11 +735,18 @@ def test_two_identical_refusals_at_one_instant_are_one_decision(
 
     assert isinstance(first, RefusalEnvelope)
     assert isinstance(second, RefusalEnvelope)
-    assert first.replay_reference == second.replay_reference
-    assert canonical_bytes(first) == canonical_bytes(second)
-    assert canonical_bytes(_record_at(booted, first.replay_reference)) == (
-        canonical_bytes(_record_at(booted, second.replay_reference))
+    assert first.replay_reference != NO_REPLAY_REFERENCE
+    assert first.replay_reference != second.replay_reference
+    assert canonical_bytes(
+        first.model_copy(update={"replay_reference": NO_REPLAY_REFERENCE})
+    ) == canonical_bytes(
+        second.model_copy(update={"replay_reference": NO_REPLAY_REFERENCE})
     )
+    record_a = _record_at(booted, first.replay_reference)
+    record_b = _record_at(booted, second.replay_reference)
+    assert_named_by_its_own_content(first.replay_reference, record_a, what="first refusal")
+    assert_named_by_its_own_content(second.replay_reference, record_b, what="second refusal")
+    assert_one_determination_issued_twice(record_a, record_b, what="identical refusals")
 
 
 # --- (g) the door-level shape ------------------------------------------------

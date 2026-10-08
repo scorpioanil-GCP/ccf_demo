@@ -63,7 +63,10 @@ well as at the builder); a class declaring ``requires`` with no child
 resolver; a ``scratch`` inside ``config_root``; an environment variable a
 source names that the process lacks (with the document's own remedy); a
 ``door:`` asserting a tenant other than the deployment's (R-6, refused by the
-loader).
+loader); a ``substrate:`` setting the declared adapter does not take as a
+path, so no question's store could be verified fresh
+(:class:`~ccf.products.resolver.AcquisitionOverUnverifiableStore`; SEC-020
+P4 (a), ``D-IMPL-378``).
 
 Single-writer, stated
 ---------------------
@@ -83,6 +86,7 @@ two open release findings `D-IMPL-341` (the entity-freshness expiry) and
 
 from __future__ import annotations
 
+import hashlib
 import os
 import uuid
 from collections.abc import Callable, Iterable, Mapping
@@ -143,6 +147,7 @@ from ccf.deployment.environment import (
 )
 from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.manifest import (
+    _path_valued_settings,
     keys_under_tenant,
     manifest_under_tenant,
     register_manifest_entries,
@@ -164,6 +169,7 @@ from ccf.products.contract import version_satisfies_floor
 from ccf.products.refusal import RefusalEnvelope, RequestIdentity, envelope_for
 from ccf.products.request import ProductRequest, ProductRequestViolation
 from ccf.products.resolver import (
+    AcquisitionOverUnverifiableStore,
     PopulationQuestion,
     ProductGateProtocol,
     ProductNotResolvable,
@@ -178,6 +184,7 @@ from ccf.products.resolver import (
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
+from ccf.replay.engine import ReplayDivergence
 from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
@@ -627,12 +634,31 @@ class OpenedProduct:
         record's content address on ``replay_ref``; a refusal carries the
         record's URI, which the store resolves. One store, so one read idiom.
 
-        The bytes there are returned as a record only where the store shows
-        the fabric's record writer filed them under the tenant they name
+        The bytes there are returned as a record only where they hash to the
+        address the outcome names — the replay engine's own arithmetic
+        (:func:`~ccf.replay.engine.resolve_artifact`, ``D-IMPL-89``), so bytes
+        altered under a reference are refused rather than handed back as the
+        decision's (Dave's E1 (a), ``D-IMPL-378``: *"Preserve record
+        content-address integrity"*) — and only where the store shows the
+        fabric's record writer filed them under the tenant they name
         (`D-IMPL-378`): an outcome can name any address, and a record-shaped
         artifact filed on a client lane is not a decision record.
 
+        **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``,
+        2026-10-08: *"trusted operator/auditor handles holding the underlying
+        store may remain unrestricted. Agent-accessible in-process interfaces
+        must still enforce Q12."*). Its caller holds this product's
+        ArtifactStore (``artifact_store``) and can read the same bytes
+        directly, so it is not held to Q12's default-deny on owner read-back.
+        An agent reads records only through the governed evidence reads
+        (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+        which hold it. Handing an opened product, or anything else holding the
+        store, to an agent hands the agent the store (measured by
+        ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
+
         Raises:
+            ccf.replay.engine.ReplayDivergence: the stored bytes do not hash to
+                the address the outcome names.
             ccf.replay.provenance.RecordNotFiledByRecordWriter: the store
                 shows no such filing — an
                 :class:`~ccf.artifacts.protocol.ArtifactNotFound`, as an
@@ -644,9 +670,18 @@ class OpenedProduct:
             address = outcome.replay_ref.content_address
         else:
             address = self.artifact_store.resolve_uri(uri=outcome.replay_reference)
-        record = DecisionReplayRecord.model_validate_json(
-            self.artifact_store.get(content_address=address)
-        )
+        payload = self.artifact_store.get(content_address=address)
+        # E1 (a) (`D-IMPL-378`): byte fidelity FIRST, as replay holds it — the
+        # address is the sha256 of the stored canonical bytes, so the raw
+        # payload is what is verified, before it is believed or parsed.
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != address:
+            raise ReplayDivergence(
+                f"the bytes at {address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the record this outcome names"
+                " (D-IMPL-89; D-IMPL-378 E1 (a))"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
         require_filed_by_record_writer(
             self.artifact_store, content_address=address, tenant_id=record.tenant_id
         )
@@ -1169,6 +1204,12 @@ def open_product(
         ValueError: any open-time refusal in the module docstring — each
             names the section or the key; a grant the Control Plane refused,
             with the refusal's own detail.
+        ccf.products.resolver.AcquisitionOverUnverifiableStore: the
+            environment's ``substrate.setting`` is not a path-valued setting
+            of the adapter ``ccf_config.yaml`` declares, so the store this road
+            mints per question could never be verified fresh (SEC-020 P4 (a),
+            ``D-IMPL-378``). Read off the adapter's declared connection
+            contract: nothing is minted, booted or connected to.
         FileNotFoundError: the environment document is absent.
         ccf.deployment.environment.EnvironmentMissing: a variable a source
             names is unset; the document's remedy is the message.
@@ -1194,6 +1235,20 @@ def open_product(
     config_path = root / environment.config
     config = load_artifact(config_path.read_text(encoding="utf-8"), DEPLOYMENT_CONFIG)
     assert isinstance(config, DeploymentConfig)  # DEPLOYMENT_CONFIG's contract
+    # SEC-020 P4 (a) made strict (`D-IMPL-378`; Dave, 2026-10-08 12:29 MST:
+    # *"Unsupported network compositions must refuse before questions run"*):
+    # this road acquires into a store it mints for every question, and a
+    # substrate setting the declared adapter does not take as a path names no
+    # store the SDK can verify fresh. Read off the adapter's declared contract,
+    # so nothing is minted, booted or connected to.
+    if environment.substrate.setting not in _path_valued_settings(config.backend):
+        raise AcquisitionOverUnverifiableStore(
+            "the paved road boots a fresh store for every question, at a path"
+            f" it mints into the substrate setting {environment.substrate.setting!r},"
+            f" and the {config.backend!r} adapter takes no path-valued setting by"
+            " that name, so no question's store could be verified fresh; every"
+            " question would be refused (SEC-020, P4)"
+        )
     # `D-IMPL-341` R-3 (first row), at the paved road's registration moment:
     # a class declaring `ttl_anchor: from_entity_freshness` over a λ_c table
     # with no `decay_basis: valid-from` row could never be honored by any

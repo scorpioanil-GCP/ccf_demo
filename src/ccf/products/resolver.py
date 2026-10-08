@@ -146,6 +146,7 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
+import inspect
 import threading
 import weakref
 from collections.abc import Callable, Iterable, Mapping
@@ -210,6 +211,7 @@ from ccf.products.contract import (
     ProductClassRegistrationError,
     ProductLineage,
     RegisteredProductClass,
+    SUBJECT_WITHHOLDING_NEVER,
     register_product_class,
 )
 from ccf.halflife.assessment import (
@@ -290,6 +292,7 @@ from ccf.replay.record import (
     PolicyBinding,
     ResolutionNotApplicable,
     build_replay_record,
+    new_issuance,
 )
 from ccf.replay.serve import (
     QueryPinWriter,
@@ -314,14 +317,20 @@ __all__ = [
     "DEBT_SCORER_INPUTS",
     "AcquiredFabricReused",
     "AcquisitionNeedsAQuestionFabric",
+    "AcquisitionOverUnverifiableStore",
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
+    "IncompatibleRefusalRecorder",
     "InstantAwareDebtScorerProtocol",
+    "NeverWithholdingContradicted",
+    "NeverWithholdingProjectionCanWithhold",
     "ProductGateProtocol",
     "ProductNotResolvable",
+    "WithholdingClassListedReadable",
     "ChildAwareDebtScorerProtocol",
     "CompositeNeedsAnEarlyPolicy",
+    "CompositeNeedsAWithholdingStance",
     "CompositePlanFactoryProtocol",
     "CompositeWithheldLate",
     "EarlyPolicyNeedsRequestAwareChildren",
@@ -330,6 +339,7 @@ __all__ = [
     "PopulationPhaseSharesAnOwner",
     "PopulationQuestion",
     "ProjectionPlanFactoryProtocol",
+    "QuestionStoreReopened",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
     "UndeclaredMechanismClass",
@@ -338,8 +348,10 @@ __all__ = [
     "ServedProductResolverProtocol",
     "SubjectDisclosingPlanFactoryProtocol",
     "UndisclosedSubjectAnswered",
+    "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
     "declared_refusal_recorder",
+    "refuse_incompatible_refusal_recorder",
 ]
 
 _Artifact = TypeVar("_Artifact", bound=CCFContract)
@@ -641,7 +653,37 @@ class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
     (:class:`~ccf.deployment.manifest.BootedFabric`). Checked there rather than
     at construction because a resolver built over a fabric it never acquires
     into — the one :class:`~ccf.replay.environment.RecordedEnvironment` builds to
-    rebuild a plan — is a supported composition.
+    rebuild a plan — is a supported composition. Over a store whose connection
+    names no path, which no boot can make a question fabric, the composition
+    is refused at construction instead
+    (:class:`AcquisitionOverUnverifiableStore`).
+    """
+
+
+class AcquisitionOverUnverifiableStore(AcquisitionNeedsAQuestionFabric):
+    """An acquisition phase composed over a store whose fresh creation the SDK cannot verify, refused before any question runs.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"Require verifiable fresh creation or refuse acquisition-backed serving.
+    Unsupported network compositions must refuse before questions run."*). A
+    question fabric is one the boot verified fresh: a store minted at a path
+    that did not exist, reserved exclusively by its marker
+    (:class:`~ccf.deployment.manifest.QuestionFabricNotFresh` otherwise). A
+    store whose adapter connection names no path — a network store's address,
+    an in-process store — offers nothing to verify or to mark
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation`
+    ``"unverifiable"``), so no fabric over it is ever a question fabric and an
+    acquisition composition over it could never answer. It is refused at the
+    earliest point where the composition and the store kind are both known:
+    when :class:`GovernedResolver` is constructed with an acquisition or a
+    population phase over such a fabric, and when the paved road is opened
+    over a substrate setting its adapter does not take as a path
+    (:func:`~ccf.products.product.open_product`). Measured before this: the
+    first was refused only at its first call, the second at every question's
+    boot. A subclass of :class:`AcquisitionNeedsAQuestionFabric`, whose
+    refusal it moves earlier. An adapter declaring its own freshness (P4 (b))
+    is not built; until then such a store serves only compositions with no
+    acquisition phase.
     """
 
 
@@ -673,6 +715,28 @@ class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
     :class:`SubjectDisclosingPlanFactoryProtocol`, that it withholds — must
     declare the early policy, and one that declares withholding with no policy
     is refused when the resolver is constructed.
+    """
+
+
+class CompositeNeedsAWithholdingStance(UnsupportedComposition):
+    """A composite that declares no withholding stance: no early policy, and no affirmation it never withholds.
+
+    ``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE (SDK-defined,
+    CLAUDE.md §11): Dave has not ruled it, and SEC-020 stays OPEN. Q8:
+    *"Require early withholding for affected composites. Make it an enforced
+    policy decision before subject-dependent fetches, child resolution or
+    scoring. It cannot depend on learning whether the subject exists."* A
+    composite asks its children about the subject before its plan runs, and
+    nothing at construction says whether its projection will withhold; a
+    refusal decided when the projection withholds (:class:`CompositeWithheldLate`)
+    is decided for the withheld subject only, and is itself an answer a
+    nonexistent subject's question does not get. So a composite — a class that
+    declares ``requires`` — states its stance when its resolver is constructed:
+    an early policy, through :class:`SubjectDisclosingPlanFactoryProtocol`, or
+    its class's affirmation ``subject_withholding: never`` (Dave's Q12), which
+    :meth:`GovernedResolver.__call__` enforces when the projection withholds
+    anyway. One that declares neither is refused here, before any question —
+    the same refusal whatever subject would have been asked.
     """
 
 
@@ -711,7 +775,10 @@ class CompositeWithheldLate(ProductNotResolvable):
     what the children filed when they were asked stays filed. The
     SDK cannot see at construction whether a projection will withhold; a
     composite that declares it does is held to the early policy then
-    (:class:`CompositeNeedsAnEarlyPolicy`).
+    (:class:`CompositeNeedsAnEarlyPolicy`). A composite whose class affirms
+    ``subject_withholding: never`` is refused as
+    :class:`NeverWithholdingContradicted` instead, which is checked first (Dave's
+    CT-D (a), 2026-10-08 12:29 MST: diagnostic precedence only).
     """
 
 
@@ -728,6 +795,65 @@ class AcquiredFabricReused(ProductNotResolvable):
     process; a fabric is fresh per question by its boot
     (:class:`AcquisitionNeedsAQuestionFabric`), so a second handle over the same
     store is not a question fabric to begin with.
+
+    **Every governed call over a question fabric claims it** (SEC-020 P4 (a),
+    ``D-IMPL-378``; a candidate Dave has not ruled), at the same point, with an
+    acquisition phase or without one: a later call that declares no
+    acquisition would otherwise answer from what the first question fetched. A
+    second handle over the same store is refused by
+    :class:`QuestionStoreReopened`.
+    """
+
+
+class QuestionStoreReopened(UnsupportedComposition):
+    """A governed call over a question's store booted again, refused before the graph is read.
+
+    SEC-020 P4 (a), ``D-IMPL-378`` (a candidate Dave has not ruled; Q9:
+    *"Enforce a fresh fabric per question whenever acquisition exists"*). The
+    store a question was answered from keeps what its acquisition fetched, and
+    the paved road leaves it on disk. A boot for one question leaves a durable
+    marker beside the store
+    (:attr:`~ccf.deployment.manifest.BootedFabric.question_store`), so a later
+    boot of it is a fabric to read, not to answer from: Decision Replay
+    rebuilds a resolver over it and never calls it. A governed call over it
+    that declares no acquisition phase — where Q9 alone never bound — is
+    refused here, at the point a question fabric is claimed: after the
+    question-level refusals (its address, its request, its temporal bound),
+    which read no graph, and before the graph is read. One that declares an
+    acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`. Either way the refusal is decided
+    by the marker and the boot, never by the subject the question names or by
+    what the store holds. The marker sits beside the store, not inside it: a
+    copy of the store taken without it, or a store booted for a question
+    before the marker existed, carries no marker at all, and is refused as
+    unmarked instead (:class:`UnmarkedStoreNotPresumedFresh`).
+    """
+
+
+class UnmarkedStoreNotPresumedFresh(UnsupportedComposition):
+    """A governed call over an existing store that carries no marker, refused before the graph is read.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"An unmarked existing store must not be presumed fresh. Require
+    verifiable fresh creation or refuse acquisition-backed serving."*). Every
+    store the deployment doors create at a path gets a marker beside it before
+    it exists — the question marker on a boot for one question, the deployment
+    marker on any other — so an existing store with neither
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation` ``"unmarked"``)
+    is one nothing shows was never a question's: a store booted for a question
+    before the markers existed, a copy of a used store taken without its
+    marker, a store created outside the doors. A later question answered from
+    it would answer from what an earlier question's acquisition fetched, so a
+    governed call over it is refused here, at the point a question fabric is
+    claimed: after the question-level refusals (its address, its request, its
+    temporal bound), which read no graph, and before the graph is read. A call
+    that declares an acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`, as before. Decision Replay
+    rebuilds a resolver over the store and never calls it, so it reads the
+    store as before. Decided by the markers and the boot, never by the subject
+    or by what the store holds. Remedy: boot a new store through a deployment
+    door, which creates and marks it; a deployment's own kept store, created
+    by a door, carries its marker and is not refused.
     """
 
 
@@ -741,9 +867,11 @@ _CLAIMED_QUESTION_FABRICS_LOCK = threading.Lock()
 def _claim_question_fabric(fabric: BootedFabric) -> None:
     """Claim ``fabric`` for the one question its acquisition phases may write for (Q9).
 
-    Raises :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not
-    booted for a question, and :class:`AcquiredFabricReused` when it was
-    already claimed. Reads nothing about the question.
+    Called by every governed call over a question fabric, and by every call
+    that declares an acquisition phase (SEC-020 P4 (a)). Raises
+    :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not booted for
+    a question, and :class:`AcquiredFabricReused` when it was already claimed.
+    Reads nothing about the question.
     """
     if not fabric.for_question:
         raise AcquisitionNeedsAQuestionFabric(
@@ -762,6 +890,150 @@ def _claim_question_fabric(fabric: BootedFabric) -> None:
                 " it was booted for (SEC-020, Q9)"
             )
         _CLAIMED_QUESTION_FABRICS.add(handle)
+class WithholdingClassListedReadable(ProductNotResolvable):
+    """A tenant lists for owner read-back a class that may withhold its subject.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``): *"Default-deny owner read-back,
+    with an explicit tenant class allowlist. Reject withholding classes—including
+    affected composites."* Raised by :class:`GovernedResolver` at construction
+    — the deployment's boot — when the tenant's
+    :class:`~ccf.products.entitlement.ProductEntitlementPolicy` lists its class
+    in ``evidence_readable_classes`` while the class declaration does not
+    affirm :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER`. A record's
+    dimension 1 is the real read, so a record of such a class can name a
+    subject its answer hid. Every class may withhold until it says otherwise,
+    composites included; a composite affirms ``"never"`` only if no answer of it
+    withholds its own subject, which the resolver then enforces. The governed
+    evidence read refuses such records whatever the policy says; this is the
+    deployment's configuration error, named where an operator sees it.
+    """
+
+
+class NeverWithholdingContradicted(ProductNotResolvable):
+    """A class affirmed that its answers never withhold their subject, and one did.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``). Raised by
+    :meth:`GovernedResolver.__call__` when the projection raises the withheld
+    signal (:class:`~ccf.projection.plan.ProjectionOutput`'s ``withheld``) for a
+    class whose declaration affirms
+    :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` — before anything is
+    rendered, recorded or served, and before Q8's :class:`CompositeWithheldLate`,
+    so a composite affirming ``never`` is named by this refusal (Dave's CT-D (a),
+    2026-10-08 12:29 MST, diagnostic precedence only). The affirmation is what lets the class's
+    records be read back by their owners; a withheld answer under it would
+    reopen the read-back of a subject the answer hid, so it is refused as the
+    broken deployment it is. A deployment whose projection may withhold leaves
+    its class at the default.
+
+    **The defense, not the control** (Dave, 2026-10-08 12:29 MST, E2 (ii):
+    *"retain the runtime check as defense"*). A plan factory that declares it
+    withholds is refused where the resolver is built
+    (:class:`NeverWithholdingProjectionCanWithhold`); this check is what remains
+    for a factory that declares nothing and whose projection withholds anyway.
+    Raised for the withheld subject only, it still tells that subject from one
+    nothing holds — measured, as an exception (an HTTP 500) against an answer,
+    by
+    ``tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable``
+    (configurations ``never_late`` and ``never_composite_late``). SEC-020 is OPEN.
+    """
+
+
+class NeverWithholdingProjectionCanWithhold(UnsupportedComposition):
+    """A class affirming its answers never withhold their subject, over a plan factory that declares it withholds.
+
+    Dave, 2026-10-08 12:29 MST (``D-IMPL-378``, E2 (ii); SDK-defined, CLAUDE.md
+    §11): *"Validate withholding capability against the class declaration at
+    construction; retain the runtime check as defense."* Raised by
+    :class:`GovernedResolver` at construction — on the paved road, which builds
+    a resolver for each question, before anything is read for it — the same
+    refusal whatever subject would have been asked — when the class declaration
+    affirms :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` and its plan
+    factory, through :class:`SubjectDisclosingPlanFactoryProtocol`, states a
+    capability to withhold that the SDK can read without running a question:
+
+    * **verified** — an early policy that does not disclose some subject to some
+      principal or role: the resolver itself withholds that subject (Q8), so
+      under the affirmation that subject's question could only end in a
+      refusal raised for it alone, which a nonexistent subject's does not get;
+    * **declared** — ``subject_disclosure()`` returning ``None``: the factory's
+      own statement that its projection withholds late, inside itself.
+
+    **What it cannot see.** Whether a projection withholds is otherwise
+    decided inside the deployment's ``invoke()``, which sets the withheld signal
+    on its own output; no operator and no declared plan step sets it. A plan
+    factory that declares nothing therefore constructs under ``never``, and a
+    projection of it that withholds anyway meets the serve-time defense
+    (:class:`NeverWithholdingContradicted`) — measured as still telling a
+    withheld subject from a nonexistent one. An early policy that withholds
+    nobody is no capability and constructs.
+    """
+
+
+def _refuse_a_never_class_whose_projection_can_withhold(
+    *, declaration: ProductClassDeclaration, disclosure: SubjectDisclosurePolicy | None
+) -> None:
+    """Refuse to construct a class affirming ``never`` whose plan factory declares it withholds (E2 (ii)).
+
+    Called only for a plan factory implementing
+    :class:`SubjectDisclosingPlanFactoryProtocol`, with what its
+    ``subject_disclosure()`` returned — read ONCE, by the caller. Reads the
+    declaration and the policy alone: no subject, no fabric, no clock.
+    """
+    if declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER:
+        return
+    if disclosure is None:
+        raise NeverWithholdingProjectionCanWithhold(
+            f"class {declaration.schema_name!r} affirms subject_withholding:"
+            f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory declares that its"
+            " projection withholds subjects late (subject_disclosure() returns None);"
+            " a withheld answer under the affirmation is refused for the withheld"
+            " subject only, which tells it from a subject nothing holds. Affirm"
+            " 'never' only over a projection that never withholds (Dave's E2 (ii),"
+            " D-IMPL-378)"
+        )
+    if any(disclosure.by_principal.values()) or any(disclosure.by_role.values()):
+        raise NeverWithholdingProjectionCanWithhold(
+            f"class {declaration.schema_name!r} affirms subject_withholding:"
+            f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory declares an early"
+            " policy that withholds subjects from some principal or role; the"
+            " resolver withholds them, so the affirmation would be contradicted for"
+            " those subjects only, which tells them from a subject nothing holds."
+            " Affirm 'never' only over a projection that never withholds (Dave's"
+            " E2 (ii), D-IMPL-378)"
+        )
+
+
+def _refuse_a_listed_class_that_may_withhold(
+    *, control_plane: ControlPlaneProtocol, tenant: str, declaration: ProductClassDeclaration
+) -> None:
+    """Refuse to boot when the tenant lists this class for read-back and it may withhold.
+
+    Dave's Q12 (``D-IMPL-378``). Reads the tenant's entitlement policy as it
+    stands at construction; with none registered there is nothing listed. A
+    policy registered later is held by the governed evidence read, which reads
+    every record's own affirmation, and by the next resolver this composition
+    builds — the paved road builds one per question.
+    """
+    if declaration.subject_withholding == SUBJECT_WITHHOLDING_NEVER:
+        return
+    key = product_entitlement_key(tenant_id=tenant)
+    try:
+        _version, resolved = control_plane.resolve_latest(key)
+    except LookupError:
+        return
+    if not isinstance(resolved, ProductEntitlementPolicy):
+        return
+    if declaration.schema_name in resolved.evidence_readable_classes:
+        raise WithholdingClassListedReadable(
+            f"tenant {tenant!r} lists class {declaration.schema_name!r} in"
+            " evidence_readable_classes, and its declaration does not affirm"
+            f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r}; a record's"
+            " dimension 1 is the real read, so the record behind an answer that"
+            " withheld its subject would be read back by its owner. Affirm"
+            " 'never' only for a class whose answers never withhold their"
+            " subject (the resolver enforces it), or remove the class from the"
+            " list (Dave's Q12, D-IMPL-378)"
+        )
 
 
 @runtime_checkable
@@ -1009,6 +1281,11 @@ class SubjectDisclosingPlanFactoryProtocol(Protocol):
     still keeps, the caller's question. The factory's projection must withhold
     exactly what the policy does not disclose
     (:class:`UndisclosedSubjectAnswered`).
+
+    A class affirming ``subject_withholding: never`` is not built over a factory
+    whose declaration withholds — ``None``, or a policy that does not disclose
+    some subject — (:class:`NeverWithholdingProjectionCanWithhold`, Dave's E2
+    (ii), ``D-IMPL-378``).
     """
 
     def subject_disclosure(self) -> SubjectDisclosurePolicy | None:
@@ -1423,7 +1700,12 @@ class RefusalRecorderProtocol(Protocol):
     ``@runtime_checkable`` so a delivery boundary can assert conformance at the
     point it is handed one rather than discovering a shape mismatch inside a
     determination it has already made. The check is structural and covers the
-    presence of ``record``, not its signature; the signature is mypy's job.
+    presence of ``record``, not its signature; the signature is mypy's job —
+    with one exception, read at construction: every path that accepts a
+    recorder refuses one whose ``record`` cannot be passed
+    ``subject_withholding=``, the keyword the governed resolver passes on every
+    refusal (Dave's E2 (iii), ``D-IMPL-378``;
+    :func:`refuse_incompatible_refusal_recorder`).
     """
 
     def record(
@@ -1441,6 +1723,7 @@ class RefusalRecorderProtocol(Protocol):
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
         refusal_seam: str = NO_REFUSAL_SEAM,
+        subject_withholding: str | None = None,
     ) -> RefusalEnvelope:
         """Append ``envelope``'s decision record, then return it with its address.
 
@@ -1505,6 +1788,12 @@ class RefusalRecorderProtocol(Protocol):
         an explicit resolution state: effective/partial resolution or explicit
         not-applicable marker. No intermediate layer may manufacture the
         marker from omission."*
+            subject_withholding: What the deciding class's declaration affirms
+                about withholding its subject (Dave's Q12; ``D-IMPL-378``),
+                recorded in dimension 5 so the governed evidence read can hold
+                owner read-back to it. ``None`` records the unstated sentinel,
+                which the read treats as a class that may withhold. The governed
+                resolver passes it on every refusal it records.
 
         Returns:
             The same envelope with its
@@ -1516,6 +1805,77 @@ class RefusalRecorderProtocol(Protocol):
                 uncaught. A failure to record is a failure to respond.
         """
         ...
+
+
+class IncompatibleRefusalRecorder(TypeError):
+    """A refusal recorder whose ``record`` cannot be passed ``subject_withholding=``, refused where it is built.
+
+    Dave's E2 (iii) (``D-IMPL-378``, 2026-10-08 12:29 MST), verbatim: *"Approve
+    the recorder keyword change. Detect incompatible recorders at construction,
+    rather than on the first refusal."* (SDK-defined, CLAUDE.md §11.)
+    :meth:`RefusalRecorderProtocol.record` takes ``subject_withholding=`` (Dave's
+    Q12), and :class:`GovernedResolver` passes it on every refusal it records. A
+    recorder written to the earlier signature — the keyword neither named nor
+    absorbed by ``**kwargs`` — used to build cleanly and raise ``TypeError`` at
+    the first refusal: a failure that waited for a question to be refused. It is
+    raised instead where a resolver or an entitling door is built
+    (:func:`refuse_incompatible_refusal_recorder`), before anything is minted,
+    registered or answered. A ``TypeError``: the recorder's ``record`` has the
+    wrong signature for the seam.
+    """
+
+
+def refuse_incompatible_refusal_recorder(recorder: object, *, builder: str) -> None:
+    """Refuse, where it is built, a recorder whose ``record`` cannot be passed ``subject_withholding=``.
+
+    Dave's E2 (iii) (``D-IMPL-378``; :class:`IncompatibleRefusalRecorder`).
+    Called by :class:`GovernedResolver` at construction and by every entitling
+    door's builder (``runtime/ccf_runtime/authz/delivery_boundary.py::recorded_boundary``
+    and ``runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server``).
+    Read off ``record``'s signature, never by calling it: a call would append a
+    record describing no decision. A ``record`` that names
+    ``subject_withholding`` as a parameter it can be passed by keyword, or that
+    takes ``**kwargs``, is compatible.
+
+    Args:
+        recorder: What the builder was handed.
+        builder: The builder's own name, so the message names where to fix it.
+
+    Raises:
+        IncompatibleRefusalRecorder: ``recorder`` has no callable ``record``,
+            its signature cannot be read, or it cannot be passed
+            ``subject_withholding=``.
+    """
+    record = getattr(recorder, "record", None)
+    where = f"{builder} was handed a refusal_recorder of type {type(recorder).__name__} whose `record`"
+    if not callable(record):
+        raise IncompatibleRefusalRecorder(
+            f"{where} is missing or not callable; it cannot be passed"
+            " subject_withholding=, which the governed resolver passes on every"
+            " refusal it records (Dave's E2 (iii), D-IMPL-378)"
+        )
+    try:
+        parameters = inspect.signature(record).parameters
+    except (TypeError, ValueError) as unreadable:
+        raise IncompatibleRefusalRecorder(
+            f"{where} has a signature that cannot be read, so it cannot be shown"
+            " to accept subject_withholding=, which the governed resolver passes"
+            " on every refusal it records (Dave's E2 (iii), D-IMPL-378)"
+        ) from unreadable
+    if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+        return
+    named = parameters.get("subject_withholding")
+    if named is None or named.kind not in (
+        inspect.Parameter.KEYWORD_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    ):
+        raise IncompatibleRefusalRecorder(
+            f"{where} cannot be passed subject_withholding=: the governed"
+            " resolver passes it on every refusal it records, so this recorder"
+            " would raise TypeError at the first one. Add `subject_withholding:"
+            " str | None = None` to `record` (RefusalRecorderProtocol), or take"
+            " **kwargs (Dave's E2 (iii), D-IMPL-378)"
+        )
 
 
 def _disclosure_reader(
@@ -1854,6 +2214,7 @@ class ReplayRefusalRecorder:
         resolution: EffectiveRequest | ResolutionNotApplicable,
         child_resolutions: tuple[ChildResolution, ...] = (),
         refusal_seam: str = NO_REFUSAL_SEAM,
+        subject_withholding: str | None = None,
     ) -> RefusalEnvelope:
         """Disclose, append the INTERNAL truth, then hand back the shell.
 
@@ -1944,6 +2305,17 @@ class ReplayRefusalRecorder:
             disclosure=canonical_bytes(decision).decode("utf-8"),
             resolution=resolution,
             request=request,
+            # Dave's Q11 (`D-IMPL-378`): a refusal that answers a product
+            # QUESTION is issued to its caller under a fresh identifier, so its
+            # record — and the `replay_reference` the shell carries — is unique
+            # per answer and reflects nothing the determination read. A
+            # determination with no question (an evidence read, a door-level
+            # entitlement denial, an erasure, an absence) read no subject; its
+            # record keeps the sentinel and is still named by its own content
+            # address, unique per content.
+            issuance=new_issuance() if request is not None else None,
+            # Dave's Q12 (`D-IMPL-378`): what the deciding class affirms.
+            subject_withholding=subject_withholding,
         )
         reference = record_refusal(
             record=record,
@@ -2569,10 +2941,27 @@ class GovernedResolver:
             self.artifact_store,
             (self.replay_record_class, self.query_pin_class, ADMITTED_CHILD_CONTRACT_CLASS),
         )
+        # Dave's E2 (iii) (`D-IMPL-378`): a recorder `_record_refusal` could not
+        # pass `subject_withholding=` is refused here, not at the first refusal.
+        refuse_incompatible_refusal_recorder(self.refusal_recorder, builder="GovernedResolver")
         # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two
         # declared acquisition phases is refused here, at construction.
         if self.population_acquisition is not None and self.acquisition is not None:
             _refuse_shared_owner(self.population_acquisition, self.acquisition)
+        # SEC-020 P4 (a) made strict (`D-IMPL-378`): an acquisition phase over a
+        # store with no path, which no boot can make a question fabric, is
+        # refused here, before any question runs.
+        if (
+            self.acquisition is not None or self.population_acquisition is not None
+        ) and self.fabric.store_creation == "unverifiable":
+            raise AcquisitionOverUnverifiableStore(
+                "this resolver declares an acquisition phase over a fabric whose"
+                " store the SDK cannot verify fresh — its adapter's connection"
+                " names no path, so no boot can make it a question fabric, and"
+                " every question would be refused; compose this store without an"
+                " acquisition phase, or acquire into a file-backed question"
+                " fabric (SEC-020, P4)"
+            )
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
         # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
@@ -2586,6 +2975,12 @@ class GovernedResolver:
                     " SubjectDisclosurePolicy or None (SEC-020, Q8); got"
                     f" {type(disclosure).__name__}"
                 )
+            # Dave's E2 (ii) (`D-IMPL-378`, 2026-10-08 12:29 MST): a class
+            # affirming `never` over a factory that declares it withholds is
+            # refused here, before Q8's composite rules name anything else.
+            _refuse_a_never_class_whose_projection_can_withhold(
+                declaration=declaration, disclosure=disclosure
+            )
             if declaration.requires and disclosure is None:
                 raise CompositeNeedsAnEarlyPolicy(
                     f"class {declaration.schema_name!r} composes children and its"
@@ -2606,6 +3001,29 @@ class GovernedResolver:
                     " the withheld one (SEC-020, Q8)"
                 )
         object.__setattr__(self, "_disclosure", disclosure)
+        # Dave's Q12 (`D-IMPL-378`): a tenant may list for owner read-back only a
+        # class that affirms its answers never withhold their subject.
+        _refuse_a_listed_class_that_may_withhold(
+            control_plane=self.control_plane, tenant=tenant, declaration=declaration
+        )
+        # `D-IMPL-378` P2 (c), a CANDIDATE (Dave has not ruled P2): a composite
+        # states its withholding stance here — an early policy, or its class's
+        # affirmation that it never withholds — or it is refused, before any
+        # question, so the refusal cannot depend on a subject.
+        if (
+            declaration.requires
+            and disclosure is None
+            and declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise CompositeNeedsAWithholdingStance(
+                f"class {declaration.schema_name!r} composes children and declares no"
+                " withholding stance: neither an early policy (its plan factory's"
+                " subject_disclosure(), SubjectDisclosingPlanFactoryProtocol) nor"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} on the class; a"
+                " composite asks its children before its plan runs, so a withhold"
+                " decided inside its projection would be decided too late and for the"
+                " withheld subject only (SEC-020; D-IMPL-378 P2 (c), a candidate)"
+            )
         minted = _ComposedAuthorities(
             replay=_mint_replay_at_composition(
                 self.control_plane, tenant=tenant, artifact_class=self.replay_record_class
@@ -3156,11 +3574,44 @@ class GovernedResolver:
         # how-to, section 4.12.) Read only when a seam is declared: with none,
         # nothing is acquired, and the state the plan reads below is this one.
         before_acquisition: GraphView | None = None
-        if self.acquisition is not None or self.population_acquisition is not None:
+        acquires = self.acquisition is not None or self.population_acquisition is not None
+        if acquires or self.fabric.for_question:
             # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
             # claimed for it — before anything is read or fetched, and decided
-            # by nothing about the subject.
+            # by nothing about the subject. P4 (a) (a candidate Dave has not
+            # ruled): a question fabric is claimed by every governed call over
+            # it, so a later call with no acquisition phase does not answer
+            # from what the first one fetched.
             _claim_question_fabric(self.fabric)
+        elif self.fabric.question_store:
+            # SEC-020 P4 (a): a question's store booted again, read with no
+            # acquisition phase — where Q9 alone never bound. Refused here,
+            # before the graph is read, by the boot's marker and never by the
+            # question; a call that acquires over it was refused just above
+            # (not booted for its question). Replay builds a resolver over it
+            # and never calls it.
+            raise QuestionStoreReopened(
+                "this fabric reads a store that was booted for one question,"
+                " booted again; it keeps what that question's acquisition"
+                " fetched, so it answers no later question (boot a new store"
+                " for each question; SEC-020, Q9)"
+            )
+        elif self.fabric.store_creation == "unmarked":
+            # SEC-020 P4 (a) made strict (Dave, 2026-10-08 12:29 MST: *"An
+            # unmarked existing store must not be presumed fresh"*): a store
+            # that existed at boot with no marker beside it may be a question's
+            # store from before the markers, or a copy taken without one.
+            # Refused here, before the graph is read, by the boot's reading of
+            # the markers and never by the question; replay builds a resolver
+            # over it and never calls it.
+            raise UnmarkedStoreNotPresumedFresh(
+                "this fabric reads a store that existed before its boot and"
+                " carries no marker a deployment door left when it created it;"
+                " nothing shows that no earlier question's acquisition wrote"
+                " into it, so it is not presumed fresh and answers no question"
+                " (boot a new store through a deployment door; SEC-020, P4)"
+            )
+        if acquires:
             # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no
             # subject — so what it acquires is what any identifier's question
             # acquires, and it is in the state read below.
@@ -3487,6 +3938,26 @@ class GovernedResolver:
             # from it.
             seeds=request_seeds(asked if undisclosed else request),
         )
+        # Dave's Q12 (`D-IMPL-378`): a class that affirmed its answers never
+        # withhold their subject may have its records read back by their
+        # owners; a withheld answer under that affirmation is a broken
+        # deployment, refused before anything is rendered, recorded or served.
+        # Checked FIRST, before Q8's composite refusal below: Dave's CT-D (a),
+        # 2026-10-08 12:29 MST, "for diagnostic precedence; this does not
+        # resolve E2(ii)'s oracle" — a composite affirming `never` that
+        # withholds late is named by its own contradiction. Both refuse before
+        # anything is recorded.
+        if (
+            execution.projection.withheld
+            and self._declaration().subject_withholding == SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise NeverWithholdingContradicted(
+                f"class {self._declaration().schema_name!r} affirms"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} and its"
+                " projection withheld the subject; a record of the class may be"
+                " read back by its owner, so a withheld answer under the"
+                " affirmation is refused (Dave's Q12, D-IMPL-378)"
+            )
         if execution.projection.withheld and not undisclosed and registered.requires:
             # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
             # declared early policy; its children were already asked about this
@@ -4209,6 +4680,13 @@ class GovernedResolver:
                 if self.packaging_trace is not None
                 else None
             ),
+            # Dave's Q11 (`D-IMPL-378`): the answer is issued under a fresh
+            # identifier, so its record is unique per answer and the
+            # `replay_ref` every door hands out reflects nothing it read.
+            issuance=new_issuance(),
+            # Dave's Q12: what the class affirms, which the governed evidence
+            # read requires before the owner reads this record back.
+            subject_withholding=self._declaration().subject_withholding,
         )
         return serve(
             product=gated,
@@ -4532,6 +5010,10 @@ class GovernedResolver:
             # `D-IMPL-347` A2: WHICH deployment seam held this refusal. The
             # sentinel for the resolver's own refusals, which is what they are.
             refusal_seam=refusal_seam,
+            # Dave's Q12 (`D-IMPL-378`): passed on every refusal, so a recorder
+            # that cannot take it fails on every refusal alike, never only on
+            # one about a withheld subject.
+            subject_withholding=self._declaration().subject_withholding,
         )
 
     def _demonstration_pins(self) -> tuple[PolicyBinding, ...]:
