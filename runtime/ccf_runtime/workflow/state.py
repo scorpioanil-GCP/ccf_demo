@@ -41,6 +41,7 @@ __all__ = [
     "WORKFLOW_STATUSES",
     "TraceEntry",
     "WorkflowStateRecord",
+    "suspension_left_by",
 ]
 
 #: The workflow-state record class on the Control Plane state seam
@@ -163,3 +164,38 @@ class WorkflowStateRecord(CCFContract):
                 " D-IMPL-18)"
             )
         return value
+
+
+def suspension_left_by(record: WorkflowStateRecord) -> WorkflowStateRecord | None:
+    """The suspension a ``running`` record's passage past a gate left, rebuilt exactly.
+
+    SDK-defined (``D-IMPL-378``; Dave's D2 ruling of 2026-10-07). A resumption
+    commits its passage past a gate as the record ``running`` at its decision,
+    carrying the suspension's trace plus one ``resume`` entry out of the gate
+    (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume``). So the
+    suspension it left is that record with the gate as its state, ``suspended``
+    as its status and the trace without its last entry, every other field
+    unchanged: the very record whose content hash the gate's closure
+    (``src/ccf/hitl/transport.py::HITLTransportProtocol.close_gate``) and every
+    verdict on that suspension name. A finisher, or the erasure door, finds an
+    interrupted passage's durable claim through it, without asking which engine
+    wrote the record.
+
+    Returns ``None`` when ``record`` is not ``running`` or its last trace entry
+    is not a ``resume`` into its current state: no passage past a gate left it.
+    """
+    if record.status != "running" or not record.trace:
+        return None
+    last = record.trace[-1]
+    if last.kind != "resume" or last.target != record.current_state:
+        return None
+    return WorkflowStateRecord(
+        tenant=record.tenant,
+        execution_id=record.execution_id,
+        current_state=last.source,
+        status="suspended",
+        trace=record.trace[:-1],
+        workflow_definition_uri=record.workflow_definition_uri,
+        workflow_definition_hash=record.workflow_definition_hash,
+        started_by=record.started_by,
+    )

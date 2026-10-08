@@ -105,7 +105,7 @@ from ccf.mcp.errors import McpServerUnreachable
 from ccf.peering.identity import IdentityError, IdentityProvider
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
-from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord
+from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord, suspension_left_by
 from ccf_runtime.workflow.engine import (
     WorkflowCompleted,
     WorkflowEngine,
@@ -316,7 +316,12 @@ class ErasureDoor:
         """Resume on a RECORDED approval and, on completion, write the erasure record.
 
         Returns the record, or the next suspension when the deployment's
-        workflow declares a further gate.
+        workflow declares a further gate. A retry of a completion whose
+        passage past the gate committed before its engine stopped — the run
+        ``running`` — is held to the suspension that passage left, and the
+        engine finishes the passage when no step can have run since its commit
+        (``D-IMPL-378``, Dave's D2 ruling); otherwise the engine refuses it,
+        ``workflow-refused``.
 
         Raises:
             ErasureWorkflowUngated: the workflow can complete without a gate.
@@ -365,6 +370,15 @@ class ErasureDoor:
             resumed = [t for t in state.trace if t.kind == "resume"]
             gate = resumed[-1].source if resumed else ""
             bound = True  # checked against the approval's address below
+        elif state.status == "running" and (left := suspension_left_by(state)) is not None:
+            # D-IMPL-378 (Dave's D2): the retry of a completion whose passage
+            # past the gate committed and whose engine stopped before the
+            # passage's next write. The approval is held to the suspension that
+            # passage LEFT, rebuilt exactly; the engine, resumed below, finishes
+            # the passage when no step can have run since its commit, and
+            # refuses it otherwise ("workflow-refused").
+            gate = left.current_state
+            bound = recorded_submission.principal.product_content_hash == content_hash(left)
         else:
             raise self._approval_not_recorded()
         # Fix round 4: an erasure requires a SIGNED approval (D-IMPL-363). The
@@ -520,7 +534,8 @@ class ErasureDoor:
         # dies anywhere after the append leaves the address WITHHELD, and a
         # retry of this method completes it (the entries are idempotent, the
         # record deterministic, and a terminal execution with this request's
-        # entries is accepted above). A record with no entry cannot exist.
+        # entries is accepted above — as is a running one whose passage the
+        # engine finishes, D-IMPL-378). A record with no entry cannot exist.
         # The approval FIRST (fix round 3): an entry must never name an
         # approval that is not on the substrate. Idempotent — content-addressed.
         self._store.put(
@@ -544,7 +559,7 @@ class ErasureDoor:
                     door_key_id=door_key_id,
                 ),
             )
-        if state.status == "suspended":
+        if state.status in ("suspended", "running"):
             outcome = await self._engine.resume(
                 authorized, workflow, execution_id=request.request_id, decision=route
             )
