@@ -295,6 +295,7 @@ __all__ = [
     "ContextProviderProtocol",
     "ExperienceProductNotServable",
     "ExperienceProductResolverProtocol",
+    "ExperienceReplayReadRefused",
     "ExposedAgent",
     "LineageProviderProtocol",
     "ReplayRecordReaderProtocol",
@@ -378,6 +379,25 @@ DEFAULT_INVOKE_AGENT_DESCRIPTION = (
 DEFAULT_PRODUCT_RESOURCE_DESCRIPTION = (
     "Serve a tenant's gate-admitted Context Product as canonical JSON."
 )
+
+
+class ExperienceReplayReadRefused(PermissionError):
+    """The Experience door does not serve Decision Replay records.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``): *"Default-deny owner read-back,
+    with an explicit tenant class allowlist ... apply the restriction to
+    existing records and every read/replay path."* Raised by
+    :data:`GET_REPLAY_RECORD_TOOL` on every call, for every caller, before the
+    deployment's :class:`ReplayRecordReaderProtocol` is called. The tool names
+    no address and hands out whatever record that callable returns, so it
+    cannot show that the fabric's record writer filed it (Dave's Q2), whose
+    record it is, or what its class affirms — the three things owner read-back
+    is decided on. An ungovernable read is refused rather than left open; a
+    caller reads its own records back through the governed evidence reads
+    (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``).
+    The refusal is the same for every caller and every record, so it carries
+    no information about any of them.
+    """
 
 
 class ExperienceProductNotServable(LookupError):
@@ -1829,7 +1849,9 @@ def build_experience_server(
                     GET_REPLAY_RECORD_TOOL, "replay_record_tenant"
                 )
             )
-        replay_seam = replay_record_reader
+        # Dave's Q12 (`D-IMPL-378`): the reader is still required where the
+        # tool is exposed (D-03, the construction posture is unchanged), and it
+        # is never called — the tool refuses every read before it.
         replay_tenant = replay_record_tenant
         replay_class = replay_record_product_class
 
@@ -1874,19 +1896,15 @@ def build_experience_server(
             # it was made — for `replay.read` under the declared tenant —
             # before this body ran (D-IMPL-353 §1.2).
             del authorized
-            try:
-                return replay_seam()
-            except ErasedContentRefused as erased:
-                # No product class is resolved on a replay read: the record
-                # identity names the evidence-read constant, never a class
-                # recovered from the record (the dereference rule, D-IMPL-345 R-4).
-                return erased_tool_answer(
-                    erased,
-                    tool=GET_REPLAY_RECORD_TOOL,
-                    tenant=replay_tenant,
-                    product_class=DEREFERENCE_PRODUCT_ID,
-                    parameters={},
-                    role=NO_ROLE_RESOLVED,
-                )
+            # Dave's Q12 (`D-IMPL-378`): owner read-back is default-deny on
+            # every read path, and this one cannot be governed — it names no
+            # address, so neither provenance (Dave's Q2), nor whose record it
+            # is, nor what its class affirms can be shown. Refused for every
+            # caller, before the deployment's seam is called.
+            raise ExperienceReplayReadRefused(
+                "this door does not serve Decision Replay records: read your own"
+                " records back through a governed evidence read (Dave's Q12,"
+                " D-IMPL-378)"
+            )
 
     return door.build()

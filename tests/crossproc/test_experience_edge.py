@@ -1413,11 +1413,12 @@ def test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap(
 ) -> None:
     """D-IMPL-129: a known gap, pinned open by an assertion rather than prose.
 
-    **This is not a property the SDK wants.** ``list_agents``,
-    ``invoke_agent`` and ``get_replay_record`` are served to a verified caller
-    the tenant's entitlement policy does not declare — the same credential the
-    two gated tools refuse three tests above. Each of the three asserts
-    verified identity and decides nothing.
+    **This is not a property the SDK wants.** ``list_agents`` and
+    ``invoke_agent`` are served to a verified caller the tenant's entitlement
+    policy does not declare — the same credential the two gated tools refuse
+    three tests above. Each asserts verified identity and decides nothing.
+    ``get_replay_record`` was the third until Dave's Q12 (``D-IMPL-378``):
+    it now refuses every caller, this one included, before its seam.
 
     Why they are not gated: the artifact they would be decided against is
     ``ProductEntitlementPolicy``, whose grants are ``permitted_schema_names``
@@ -1491,10 +1492,12 @@ def test_the_agent_and_replay_tools_are_authenticated_but_not_entitled_open_gap(
         {},
         token=UNENTITLED_TOKEN,
     )
-    assert not is_error, body
-    # And read back the five-dimension record of a decision, dimension 4
-    # included — the widest disclosure on this server.
-    assert json.loads(body)["perspective_conditioning"]
+    # Dave's Q12 (`D-IMPL-378`): the replay tool no longer reads back a
+    # record for anyone — it names no address, so it cannot be governed, and
+    # it refuses every call before the deployment's reader is called. Across
+    # the process boundary the refusal arrives as the tool's error.
+    assert is_error, body
+    assert "does not serve Decision Replay records" in body, body
 
 
 def test_a_refused_context_call_never_reaches_the_provider(

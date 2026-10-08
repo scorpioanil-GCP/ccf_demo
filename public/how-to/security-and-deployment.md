@@ -745,7 +745,7 @@ reaches a class off the roster is refused by name, after the tenant check and
 | MCP `get_context`, `get_lineage` | the declared `entitled_product_class` |
 | MCP `invoke_agent` | the agent's `product_classes`, from your agent directory |
 | MCP `list_agents` | lists only the agents `invoke_agent` would dispatch |
-| MCP `get_replay_record` | the declared `replay_record_product_class` |
+| MCP `get_replay_record` | the declared `replay_record_product_class`; the tool then refuses every call (section 4.12) |
 | MCP egress product resource, product tool, addressed resource | the class in the call |
 | HTTP `GET /product/{tenant}/{product_class}/{version}` | the class in the path |
 | HTTP `GET /replay/decisions`, `GET /replay/resolutions` | `create_app`'s declared `replay_record_product_class` |
@@ -993,8 +993,9 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   does, and a store that cannot say who filed an address is refused by name
   (`runtime/ccf_runtime/authz/delivery_boundary.py::UnattributableDeliveryBoundaryError`).
   Within a tenant nothing changes: the
-  owner reads its own record, and another principal's genuine record answers
-  `unauthorized` at `full`. So a tenant's blob, presence and names answers,
+  owner reads its own record where owner read-back is open for it (section
+  4.12), and another principal's genuine record answers `unauthorized` at
+  `full`. So a tenant's blob, presence and names answers,
   and its erasure door over the MCP-backed store, do not depend on whether
   any other tenant filed the same bytes, under any class. Two properties of
   the store keep that attribution sound. A name is filed only together with
@@ -1110,7 +1111,8 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 - **Above `minimal`, an erasure raised inside `invoke_agent` or `list_agents`
   is not rendered by disclosure level (N-3, D-IMPL-374).** The Experience door
   maps an `ErasedContentRefused` from its product resolver and from the
-  `get_context`, `get_lineage` and `get_replay_record` seams (FW-3). It maps
+  `get_context` and `get_lineage` seams (FW-3); `get_replay_record` refuses
+  every call before its seam (section 4.12). It maps
   one raised by the deployment's own agent invoker (`invoke_agent`) or agent
   directory (`list_agents`) at `minimal` only: a `minimal` caller of either
   tool gets the opaque `ccf-runtime-failure:<id>`, and the door records
@@ -1303,23 +1305,58 @@ acquisition phase is unaffected.
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
 
-- **The answer's replay reference.** Every answer names its decision record:
-  `ServedProduct.replay_ref`, the MCP egress door's `replay_ref`, the HTTP
-  product route's `X-CCF-Replay-Ref` header, and a refusal's
-  `replay_reference`. The record is filed under its graph snapshot id, a hash
-  of what the plan actually read together with the tenant and the question's
-  instant (`src/ccf/replay/serve.py::ReplayWriter`). When the plan's walk
-  reaches the subject's acquired records, as a class-seeded plan on the paved
-  road does, the withheld answer's reference carried a different record name
+- **The answer's replay reference (D-IMPL-378, Q11; a proposal on this
+  tree).** Every answer names its decision record: `ServedProduct.replay_ref`,
+  the MCP egress door's `replay_ref`, the HTTP product route's
+  `X-CCF-Replay-Ref` header, and a refusal's `replay_reference`. The record
+  was filed under its graph snapshot id, a hash of what the plan actually
+  read, and the withheld answer's reference carried a different record name
   from the one two nonexistent subjects' answers shared, on both anchors, with
-  no dereference at all. The vessels still matched, so this channel is the
-  reference, not the product.
-- **The record behind it.** Dimension 1 of a withheld decision's record lists
-  what the plan actually read, the acquired subject included, and an owner at
-  full disclosure can read its own record through the governed dereference
-  (D-IMPL-345). Each half was measured on its own; reading a withheld
-  decision's record end to end through the dereference was not run. Protect
-  access to records as you would the subject itself.
+  no dereference at all. Now each product answer's record carries a fresh
+  256-bit issuance identifier (`src/ccf/replay/record.py::new_issuance`) and is
+  filed under its own content address
+  (`src/ccf/replay/serve.py::ReplayWriter`), so equal references name
+  byte-identical records. Measured in process, at the HTTP product route and
+  at the MCP product door, served and refused, on both anchors: the same
+  question asked twice is handed two references, two answers whose records
+  differ never share a reference identifier, and neither a reference nor a
+  name the store holds for the record is dimension 1's snapshot id
+  (`tests/http_api/test_sec020_replay_reference_issuance.py`). The price: one
+  question asked twice in the same governed state at the same instant is now
+  two records with two references (it was one, `D-IMPL-253` amendment 3), so
+  a deployment that compared two answers' references for equality can no
+  longer do so.
+- **The record behind it (D-IMPL-378, Q12; a proposal on this tree).**
+  Dimension 1 of a withheld decision's record lists what the plan actually
+  read, the acquired subject included. Before this change, read end to end
+  through the governed dereference by their owner at full disclosure, the
+  records behind a withheld answer and a nonexistent subject's answer differed
+  at dimension 1 and nowhere else; the same test now finds both reads refused
+  alike (`tests/http_api/test_sec020_withheld_record_dereference.py`). Owner
+  read-back is now default-deny. The governed read hands a product
+  record to its owner only when the tenant's entitlement policy lists the
+  record's class in `evidence_readable_classes` and the record carries its
+  class's affirmation that its answers never withhold their subject
+  (`subject_withholding: never` on the class declaration, stamped on each
+  record), or the record read nothing. No record written before the
+  affirmation existed carries it, so existing records stay sealed. A tenant
+  that lists a class without the affirmation, composite or not, is refused
+  when the resolver is built
+  (`src/ccf/products/resolver.py::WithholdingClassListedReadable`); a class
+  that affirms it and then withholds a subject is refused before anything is
+  recorded (`src/ccf/products/resolver.py::NeverWithholdingContradicted`). The
+  MCP Experience door's `get_replay_record` names no address and refuses every
+  call (`runtime/ccf_runtime/mcp/experience.py::ExperienceReplayReadRefused`).
+  Measured at HTTP `/replay/decisions`, `/replay/resolutions` and
+  `/artifact`, at the MCP artifact server's blob, presence and names
+  resources, at the Experience door and through the `ccf` CLI
+  (`tests/http_api/test_sec020_q12_owner_read_back.py`). Read-refusal records
+  keep their owner read-back (section 4.10). Two limits remain. A class that
+  affirms `never` while its projection can withhold is a broken deployment:
+  its withheld question raises where a nonexistent subject's is served (the
+  same test module). And `OpenedProduct.record_of` and the replay engine read
+  the store their caller already holds, so they are not governed; they are the
+  operator's and the auditor's reads.
 - **Composite children whose arguments do not come from the request.** Under
   the early policy the SDK hands the child resolver the request with the
   stand-in in place of the subject, but the deployment's child-arguments
@@ -1356,10 +1393,10 @@ a nonexistent one. Each was measured on test fixtures.
   that it acquires nothing for an identifier the source does not hold is your
   statement, not a check the SDK makes.
 
-**Until SEC-020 closes,** do not rely on `withheld=True` to keep a subject's
-existence from a caller that can see an answer's replay reference, whenever the
-plan's walk reaches the subject's records. The in-process answer, the MCP
-egress door and the HTTP product route all return one.
+**Until SEC-020 closes,** do not rely on `withheld=True` alone to keep a
+subject's existence from a caller. The composite-child, reopened-store and
+population channels above still tell the two apart, and list a class for owner
+read-back only if its projection never withholds a subject.
 
 - **One more read per question.** With an acquisition seam declared, every
   governed call reads the tenant's graph once more, before the seam, whether

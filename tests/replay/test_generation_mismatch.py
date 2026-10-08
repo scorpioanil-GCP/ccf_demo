@@ -250,6 +250,14 @@ def test_the_pre_extension_record_lacks_exactly_the_fifteen_plus_one_transparent
         # before the member existed and on every record whose walk started at
         # its own subject — silence by declaration, so it joins this side.
         "content_generation_path.executed_seeds",
+        # Dave's Q11 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the answer's
+        # per-answer issuance. `NO_ISSUANCE` on every record written before it
+        # existed, so it joins this side and NOT `THE_FIFTEEN`.
+        "content_generation_path.issuance",
+        # Dave's Q12 (`D-IMPL-378`, lane 378-s020record PROPOSAL): the class's
+        # affirmation the record carries. `"unstated"` on every record written
+        # before it existed, so it joins this side and NOT `THE_FIFTEEN`.
+        "content_generation_path.subject_withholding",
     )
     assert not [name for name, key in absent if key is False]
 

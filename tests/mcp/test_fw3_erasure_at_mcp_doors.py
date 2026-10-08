@@ -232,10 +232,17 @@ def test_x1_get_replay_record_at_minimal_is_the_opaque_failure(tmp_path: pathlib
     assert served is None and raised is not None
     text = str(raised)
     _no_disclosure(text)
-    assert OPAQUE.match(text), text
+    # Dave's Q12 (`D-IMPL-378`): the replay read is refused for every caller
+    # before the deployment's seam is called, so the erasure branch this probe
+    # inverted is never reached and nothing is disclosed at any level.
+    assert "does not serve Decision Replay records" in text, text
 
 
-@pytest.mark.parametrize("tool", ["get_context", "get_lineage", "get_replay_record"])
+# `get_replay_record` left both parametrizations below under Dave's Q12
+# (`D-IMPL-378`): it refuses every read before its seam, at every level (held in
+# `test_x1_get_replay_record_at_minimal_is_the_opaque_failure` and
+# `tests/http_api/test_sec020_q12_owner_read_back.py`).
+@pytest.mark.parametrize("tool", ["get_context", "get_lineage"])
 def test_an_experience_seam_with_no_not_found_rendering_answers_minimal_opaquely(
     tool: str, tmp_path: pathlib.Path
 ) -> None:
@@ -248,7 +255,7 @@ def test_an_experience_seam_with_no_not_found_rendering_answers_minimal_opaquely
 
 
 @pytest.mark.parametrize("level", ["reasoned", "full"])
-@pytest.mark.parametrize("tool", ["get_context", "get_lineage", "get_replay_record"])
+@pytest.mark.parametrize("tool", ["get_context", "get_lineage"])
 def test_an_experience_seam_answers_the_erased_content_shell_above_minimal(
     tool: str, level: str, tmp_path: pathlib.Path
 ) -> None:

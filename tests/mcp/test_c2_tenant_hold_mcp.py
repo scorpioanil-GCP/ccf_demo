@@ -96,6 +96,10 @@ def _policy(tenant: str) -> ProductEntitlementPolicy:
                 disclosure_level=DISCLOSURE_FULL,
             )
         },
+        # Dave's Q12 (`D-IMPL-378`): owner read-back is default-deny behind an
+        # explicit tenant class allowlist; this suite is about the tenant hold,
+        # so its governed class is listed (and `_record` carries the affirmation).
+        evidence_readable_classes=frozenset({PRODUCT_CLASS}),
     )
 
 
@@ -161,7 +165,10 @@ def _record(*, tenant: str, principal: str, subject: str) -> DecisionReplayRecor
                 freshness="event-driven",
                 asked_at=AUDIT_INSTANT,
                 parameters={},
-            )
+            ),
+            # Dave's Q12 (`D-IMPL-378`): the deciding class's affirmation that
+            # its answers never withhold their subject, which read-back needs.
+            "subject_withholding": "never",
         }
     )
     return base.model_copy(

@@ -125,10 +125,12 @@ def _file(governed: Governed, record: DecisionReplayRecord) -> str:
 
 
 def _uri(record: DecisionReplayRecord, address: str) -> str:
+    # The record writer names a record by its own content address (Dave's Q11,
+    # `D-IMPL-378`), so the URI it is registered under is `{address}@{address}`.
     return artifact_uri(
         tenant_id=record.tenant_id,
         artifact_class=REPLAY_RECORD_CLASS,
-        name=record.context_fabric_snapshot.graph_snapshot_id,
+        name=address,
         artifact_version=address,
     )
 

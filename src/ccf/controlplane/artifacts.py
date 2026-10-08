@@ -111,6 +111,8 @@ from ccf.products.contract import (
     ProductAddress,
     ProductDiscovery,
     ServeObligations,
+    SUBJECT_WITHHOLDING_POSSIBLE,
+    SubjectWithholding,
     TTLAnchor,
 )
 from ccf.products.request import NO_REQUEST_CONTRACT
@@ -1536,6 +1538,21 @@ class ProductClassDeclaration(VersionedArtifact):
             no gate is every class already authored, so its content address —
             and therefore its pin — does not move.
 
+        subject_withholding: Whether the class's answers may withhold their
+            subject from the principal who asked (Dave's Q12, 2026-10-07;
+            ``D-IMPL-378``; SDK-defined, CLAUDE.md §11).
+            :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_POSSIBLE` — the
+            default — or
+            :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER`, the
+            affirmation that makes the class's decision records eligible to be
+            read back by their owners: a tenant may list only such a class in
+            its entitlement policy's ``evidence_readable_classes`` (the
+            governed resolver refuses to boot otherwise), every record of the
+            class carries the affirmation it was decided under, and the
+            governed resolver refuses a withheld answer from a class that made
+            it. Hash-transparent at the default, so every class declaration
+            authored before it keeps its content address and pin.
+
     **The eight governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
     artifact authored before they existed declared exactly what it declares
@@ -1591,6 +1608,10 @@ class ProductClassDeclaration(VersionedArtifact):
     #: declaration's content address moves.
     decision_instant_parameter: str | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    subject_withholding: SubjectWithholding = Field(
+        default=SUBJECT_WITHHOLDING_POSSIBLE,
+        json_schema_extra={HASH_TRANSPARENT_KEY: True},
     )
 
 

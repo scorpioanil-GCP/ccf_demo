@@ -105,6 +105,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ControlPlaneProductEntitlementSource",
+    "EvidenceReadabilitySourceProtocol",
     "PerspectiveResolverProtocol",
     "ProductEntitlementRefused",
     "ProductEntitlementSourceProtocol",
@@ -277,6 +278,27 @@ class ProductEntitlementSourceProtocol(Protocol):
                 :attr:`~ProductEntitlementRefused.policy` — the pin of the
                 policy that decided — when a policy was consulted.
         """
+        ...
+
+
+@runtime_checkable
+class EvidenceReadabilitySourceProtocol(Protocol):
+    """A source that can say whether a CLASS's decision records may reach their owners.
+
+    Dave's Q12 (2026-10-07; ``D-IMPL-378``), SDK-defined (CLAUDE.md §11): an
+    optional, structural capability of a
+    :class:`ProductEntitlementSourceProtocol`, asked by the governed evidence
+    read (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``)
+    after the grant is re-decided. A source that does not implement it is read
+    as answering *no* for every class — default-deny, so a deployment that never
+    considered owner read-back gets the posture that cannot reveal what a
+    projection withheld.
+    """
+
+    def evidence_readable(
+        self, *, tenant: str, product_class: str
+    ) -> tuple[bool, ProvenanceSource | None]:
+        """Whether the tenant lists ``product_class``, with the pin of the policy that said so."""
         ...
 
 
@@ -512,11 +534,57 @@ class ControlPlaneProductEntitlementSource:
                 another tenant's policy is the elevation the tenant-scoped key
                 exists to prevent (``T-24.6-29``).
         """
+        found = self._tenant_policy(tenant)
+        if found is None:
+            return DISCLOSURE_MINIMAL, None
+        resolved, source = found
+        grant = resolved.principals.get(principal_id)
+        if grant is not None and grant.disclosure_level is not None:
+            return grant.disclosure_level, source
+        return resolved.disclosure_level, source
+
+    def evidence_readable(
+        self, *, tenant: str, product_class: str
+    ) -> tuple[bool, ProvenanceSource | None]:
+        """:class:`EvidenceReadabilitySourceProtocol` over the tenant's own policy.
+
+        Dave's Q12 (2026-10-07; ``D-IMPL-378``). Whether the tenant's
+        :class:`~ccf.products.entitlement.ProductEntitlementPolicy` lists
+        ``product_class`` in
+        :attr:`~ccf.products.entitlement.ProductEntitlementPolicy.evidence_readable_classes`,
+        with the pin of the policy that answered. No policy registered answers
+        ``(False, None)`` — default-deny, stated as a claim. Resolved per call,
+        no cache, no TTL (D-07), held to the same two near-miss refusals as
+        :meth:`disclosure_level_for`.
+
+        Raises:
+            TypeError: as :meth:`disclosure_level_for`.
+        """
+        found = self._tenant_policy(tenant)
+        if found is None:
+            return False, None
+        resolved, source = found
+        return product_class in resolved.evidence_readable_classes, source
+
+    def _tenant_policy(
+        self, tenant: str
+    ) -> tuple[ProductEntitlementPolicy, ProvenanceSource] | None:
+        """The tenant's policy and its pin, or ``None`` when none is registered.
+
+        The one reading :meth:`disclosure_level_for` and
+        :meth:`evidence_readable` share (factored with behavior unchanged,
+        ``D-IMPL-378`` Q12), so the two cannot hold the artifact to different
+        near-miss checks.
+
+        Raises:
+            TypeError: the artifact under the tenant's key is not a
+                ``ProductEntitlementPolicy``, or declares a different tenant.
+        """
         key = product_entitlement_key(tenant_id=tenant)
         try:
             version, resolved = self._control_plane.resolve_latest(key)
         except ControlPlaneMissing:
-            return DISCLOSURE_MINIMAL, None
+            return None
         if not isinstance(resolved, ProductEntitlementPolicy):
             raise TypeError(
                 f"artifact under {key!r} is not a ProductEntitlementPolicy"
@@ -531,11 +599,7 @@ class ControlPlaneProductEntitlementSource:
                 " supplied independently, so the door compares them rather"
                 " than trusting the lookup"
             )
-        source = ProvenanceSource(kind="artifact", identity=key, version=version)
-        grant = resolved.principals.get(principal_id)
-        if grant is not None and grant.disclosure_level is not None:
-            return grant.disclosure_level, source
-        return resolved.disclosure_level, source
+        return resolved, ProvenanceSource(kind="artifact", identity=key, version=version)
 
 
 def verified_grant() -> TokenGrant:
