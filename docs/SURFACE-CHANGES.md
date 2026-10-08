@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2277 entries**, of which **2002** name a public Python surface.
+**2279 entries**, of which **2004** name a public Python surface.
 
 ## Added
 
@@ -29675,7 +29675,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-344 entries — 305 public Python surface, 39 not public Python API.
+346 entries — 307 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34934,6 +34934,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as for `open_door`.
 
 *Recorded by `378-25-first-question-refusal-replays-and-door-tenant.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `serve_stdio` resolved the environment document's `door.issuer_url` and `door.resource_server_url` names from the process environment and raised `EnvironmentMissing`, with the document's remedy, when either variable was unset. That happened before anything was served, so a client spawning the door saw only a closed connection.
+- After: `serve_stdio` reads neither name. It hands the egress builder the stdio transport's own values, `https://stdio.invalid` and `https://stdio.invalid/mcp`, both under the reserved `.invalid` domain that never resolves, and starts with both variables unset. `server` and `serve_loopback` are unchanged: their sources are byte-identical to the base. `server` still requires both addresses with no default, and the loopback transport still advertises its own bound address. With both variables unset, the stdio door still refuses a call naming another tenant (the tenancy guard) and a call for a class outside its scope mapping (the authorizer); the guard, the authorizer, the egress builder and the entitlement source are not edited. The class and module docstrings say so.
+- Why: Dave's ruling C2-A (b) (`D-IMPL-378`, recorded on `main` at `3d21afa7`). Red tests at `0c6909a3`: `tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_with_both_addresses_unset_starts_answers_and_still_refuses`, and `tests/products/test_paved_road.py::test_the_stdio_door_reads_neither_door_url_and_advertises_only_reserved_addresses`, the rewrite of the test that asserted the superseded refusal. Controls that hold before and after: the self-hosted HTTP mount, the token decision across two advertised address pairs, and the loopback door.
+- Migration: none required. A stdio deployment can stop exporting the two variables. Its environment document still names them, because `DoorEnvironment` still requires both names (see below).
+
+*Recorded by `378-27-stdio-door-supplies-its-own-addresses.md`.*
+
+#### ccf.deployment.environment.DoorEnvironment
+
+- Surface: ccf.deployment.environment.DoorEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: the docstring said both URL names "are consulted by every transport EXCEPT the loopback one".
+- After: documentation only. The docstring says neither SDK transport reads them. Loopback advertises its own address, stdio supplies reserved values nothing advertises, and a deployment mounting `ProductDoor.server` under its own host resolves them and passes the values. The model is unchanged: both names are still required, so every existing environment document still loads.
+- Why: the behavior change above made the old sentence false. Whether the two names should become optional, now that no SDK transport reads them, is a separate decision, raised in the lane's security review and not built here.
+- Migration: none.
+
+*Recorded by `378-27-stdio-door-supplies-its-own-addresses.md`.*
 
 ### Not public Python API
 
