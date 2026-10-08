@@ -241,8 +241,8 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 174 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 186 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/security-and-deployment.md` | 167 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 1649 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
-| `public/how-to/security-and-deployment.md` | 1650 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 1660 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 1661 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |

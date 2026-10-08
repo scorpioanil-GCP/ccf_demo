@@ -53,15 +53,21 @@ two transports distinguishable is the point of having both.
 Where the URLs come from (Dave, `D-IMPL-343` GO: *"Do not put URLs or tokens
 in configuration."*)
 --------------------------------------------------------------------------
-The OAuth issuer and resource-server addresses are deployment ENVIRONMENT,
-named in ``ccf_environment.yaml`` and read from the process environment by
-name. The loopback transport is the one exception, and it is not an
-exception to the rule: it binds its own port, so it KNOWS its own address
-and advertises exactly that. The credential is read by name too; when the
-variable is unset a development door mints one per boot and exposes it on
-the :class:`ProductDoor`, because a child process has no operator to export
-a secret for it, and a parent that wants to know the credential without a
-side channel sets the variable.
+The OAuth issuer and resource-server addresses are what an HTTP door
+advertises for OAuth discovery: the protected-resource metadata document and
+the ``resource_metadata`` hint on a 401. No token check and no authorization
+decision reads either one. They are deployment ENVIRONMENT, never
+configuration, and neither transport this module runs reads them from it
+(C2-A (b), ``D-IMPL-378``). The loopback transport binds its own port, so it
+KNOWS its own address and advertises exactly that. The stdio transport has
+no address and serves no HTTP, so nothing could advertise them there; it
+supplies its own reserved values and starts with both variables unset. A
+deployment that mounts :meth:`ProductDoor.server` under its own host passes
+both, and the method holds no default for either. The credential is read by
+name; when the variable is unset a development door mints one per boot and
+exposes it on the :class:`ProductDoor`, because a child process has no
+operator to export a secret for it, and a parent that wants to know the
+credential without a side channel sets the variable.
 """
 
 from __future__ import annotations
@@ -92,7 +98,7 @@ from ccf.authz.capability import (
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifacts import EgressDoorBinding, ProductClassDeclaration
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.deployment.environment import EnvironmentDocument, resolve_value
+from ccf.deployment.environment import EnvironmentDocument
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -115,6 +121,19 @@ from ccf_runtime.authz.protocol import (
 )
 from ccf_runtime.mcp.auth import SourceBackedTokenVerifier, StaticTokenSource
 from ccf_runtime.mcp.egress import build_egress_server
+
+#: The stdio transport's own two addresses (C2-A (b), ``D-IMPL-378``), the way
+#: :meth:`ProductDoor.serve_loopback` derives its own from the port it binds.
+#: Stdio has no network address and serves no HTTP: ``FastMCP`` builds no
+#: application, no metadata route and no ``WWW-Authenticate`` header on it, so
+#: nothing ever advertises these. They exist only because
+#: :func:`build_egress_server` takes auth settings together with the token
+#: verifier (``D-03``). Both sit under the reserved ``.invalid`` domain
+#: (RFC 2606; RFC 6761 section 6.4), which never resolves, and they reach no
+#: transport but stdio: :meth:`ProductDoor.server` still requires both of its
+#: own.
+_STDIO_ISSUER_URL = "https://stdio.invalid"
+_STDIO_RESOURCE_SERVER_URL = "https://stdio.invalid/mcp"
 
 __all__ = [
     "ProductDoor",
@@ -266,9 +285,15 @@ class ProductDoor:
         naming the ruling, rather than by an anonymous ``TypeError``; the
         refusal happens before the server is built or anything is set.
 
-        The issuer and resource-server addresses are read by the names the
-        environment document declares (inert on this transport, required by
-        the builder together with the verifier).
+        **This transport reads neither advertised address** (C2-A (b),
+        ``D-IMPL-378``). The issuer and resource-server addresses are OAuth
+        discovery metadata for an HTTP application, and stdio builds none;
+        no token check and no authorization decision reads them. So this
+        transport supplies its own reserved values, the way
+        :meth:`serve_loopback` derives its own, and never consults the
+        environment document's names: it starts with both variables unset.
+        Every refusal stays where it was: the tenancy guard, the authorizer
+        under the pinned scope mapping, the entitlement policy.
 
         Args:
             identity: The ambient identity the caller composes for this
@@ -285,11 +310,9 @@ class ProductDoor:
                 "single-principal by construction, and the door does not "
                 "fabricate an identity from its own fields."
             )
-        names = self.product.environment.door
-        assert names is not None  # checked by `open_door`
         server = self.server(
-            issuer_url=resolve_value(names.issuer_url, self._environ),
-            resource_server_url=resolve_value(names.resource_server_url, self._environ),
+            issuer_url=_STDIO_ISSUER_URL,
+            resource_server_url=_STDIO_RESOURCE_SERVER_URL,
         )
         auth_context_var.set(identity)
         server.run(transport="stdio")

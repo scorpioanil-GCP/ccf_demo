@@ -452,6 +452,17 @@ apart — different entitlements, different perspectives, an audit trail that
 distinguishes them — belongs on `serve_loopback` or on a transport you
 compose yourself.
 
+The two addresses an HTTP door advertises for OAuth discovery, the issuer and
+the resource server, are not needed on stdio (`D-IMPL-378`, ruling C2-A (b)).
+An HTTP door publishes them in its protected-resource metadata and in the hint
+it sends with a 401, and stdio builds no HTTP application, so the stdio
+transport supplies its own reserved `.invalid` values and the door starts with
+both environment variables unset. It still refuses a call naming another
+tenant and a call for a class outside its scope mapping. The loopback
+transport advertises its own bound address, and a deployment that mounts
+`ProductDoor.server` under its own host passes both addresses itself: the
+method has no default for either.
+
 ### 4.5 Declare the Claude adapter's child environment
 
 The Claude Agent SDK adapter's child environment is a deployment-declared

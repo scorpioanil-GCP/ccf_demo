@@ -29,12 +29,14 @@ from __future__ import annotations
 
 import pathlib
 from collections.abc import Iterator
+from urllib.parse import urlparse
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 import pytest
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
+from mcp.server.fastmcp import FastMCP
 
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
@@ -474,22 +476,48 @@ def test_open_door_refuses_a_product_with_no_door_section_or_no_door_names(tmp_p
         open_door(opened, environ={})
 
 
-def test_a_missing_door_url_is_refused_with_the_remedy_on_stdio_only(tree: tuple[pathlib.Path, pathlib.Path]) -> None:
+def test_the_stdio_door_reads_neither_door_url_and_advertises_only_reserved_addresses(
+    tree: tuple[pathlib.Path, pathlib.Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """C2-A (b) (``D-IMPL-378``; Dave, 2026-10-08): stdio no longer requires the two URLs.
+
+    Rewritten under the ruling, not deleted (``D-IMPL-235`` (4)). It asserted
+    the superseded behavior — ``serve_stdio`` refusing with ``EnvironmentMissing``
+    when the issuer variable was unset. Both are advertising for an HTTP app, and
+    stdio builds none, so the stdio transport now supplies its own values, as the
+    loopback transport derives its own. Those values must be under the reserved
+    ``.invalid`` domain, which can never resolve, so nothing they could name is
+    reachable (``SECURITY-REVIEW-C2A.md`` R2). ``FastMCP.run`` is stubbed: what is
+    observed is the server the door hands its transport, with both variables unset.
+    """
     root, scratch = tree
+    started: list[tuple[str, str, str]] = []
+
+    def _run(self: FastMCP, transport: str = "stdio", **_: object) -> None:
+        assert self.settings.auth is not None
+        started.append(
+            (transport, str(self.settings.auth.issuer_url), str(self.settings.auth.resource_server_url))
+        )
+
+    monkeypatch.setattr(FastMCP, "run", _run)
     with _open(root, scratch) as opened:
         door = open_door(opened, environ={})
         assert door.credential, "minted per boot when the variable is unset"
-        with pytest.raises(EnvironmentMissing, match="export the issuer"):
-            door.serve_stdio(
-                identity=AuthenticatedUser(
-                    ambient_stdio_identity(
-                        credential=door.credential,
-                        principal_id=door.principal_id,
-                        scope=door.scope,
-                        tenant=door.tenant_id,
-                    )
+        door.serve_stdio(
+            identity=AuthenticatedUser(
+                ambient_stdio_identity(
+                    credential=door.credential,
+                    principal_id=door.principal_id,
+                    scope=door.scope,
+                    tenant=door.tenant_id,
                 )
             )
+        )
+    assert [transport for transport, _, _ in started] == ["stdio"], started
+    (_, issuer, resource), = started
+    for advertised in (issuer, resource):
+        host = urlparse(advertised).hostname
+        assert host is not None and host.endswith(".invalid"), advertised
 
 
 def test_the_facade_holds_no_fabric_between_questions_and_boots_nothing_at_open(

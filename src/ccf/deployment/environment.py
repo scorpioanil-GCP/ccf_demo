@@ -177,12 +177,18 @@ class DoorEnvironment(CCFContract):
             development door reached by the process that spawned it has no
             operator to export a secret; a parent that wants to know the
             credential without a side channel SETS the variable.
-        issuer_url: The OAuth issuer the door's auth settings advertise.
-        resource_server_url: The resource-server address they advertise.
-            Both URL names are consulted by every transport EXCEPT the
-            loopback one, which binds its own port and therefore knows its
-            own address (see
-            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.serve_loopback`).
+        issuer_url: The OAuth issuer an HTTP mount of the door advertises.
+        resource_server_url: The resource-server address it advertises.
+            Neither SDK transport reads these two names (C2-A (b),
+            ``D-IMPL-378``): the loopback transport binds its own port and
+            advertises its own address (see
+            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.serve_loopback`),
+            and the stdio transport serves no HTTP, so it supplies reserved
+            values nothing advertises (see
+            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.serve_stdio`). A
+            deployment that mounts
+            :meth:`~ccf_runtime.mcp.product_door.ProductDoor.server` under its
+            own host resolves them and passes the values.
     """
 
     credential: EnvironmentValue
