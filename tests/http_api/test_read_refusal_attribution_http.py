@@ -29,7 +29,7 @@ from typing import Any
 from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.erasure import erasure_index_at
-from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL
+from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureDecision
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -55,12 +55,16 @@ from .test_evidence_dereference import (
     _get_artifact,
     _get_record,
     _get_uri,
+    same_shell,
 )
 
 #: The second tenant this door admits. The first is the fabric's own.
 FOREIGN = "refusal-other-tenant"
 #: ONE client id, a principal of BOTH tenants — the collision the ruling names.
 ALICE = "refusal-shared-client-id"
+#: A second principal of ``FOREIGN``, whose genuine record ``FOREIGN``'s ``ALICE``
+#: may not read (hold 1) — the subject of the disclosure oracle.
+BOB = "refusal-other-principal"
 ROLE = "refusal-role"
 OWN_TOKEN = "refusal-token-own"
 FOREIGN_TOKEN = "refusal-token-foreign"
@@ -163,8 +167,8 @@ def _answers(door: Governed, reference: str, *, token: str) -> dict[str, Any]:
     }
 
 
-def _served_record(door: Governed, *, tenant: str) -> str:
-    """A served record of ``tenant`` for ``ALICE``, filed by ``tenant``'s own record writer."""
+def _served_record(door: Governed, *, tenant: str, principal: str = ALICE) -> str:
+    """A served record of ``tenant`` for ``principal``, filed by ``tenant``'s own record writer."""
     from http_api.conftest import _replay_record
 
     base = _replay_record()
@@ -185,7 +189,7 @@ def _served_record(door: Governed, *, tenant: str) -> str:
         update={
             "tenant_id": tenant,
             "perspective_conditioning": base.perspective_conditioning.model_copy(
-                update={"principal_id": ALICE, "role": ROLE}
+                update={"principal_id": principal, "role": ROLE}
             ),
             "content_generation_path": served,
         }
@@ -270,4 +274,38 @@ def test_hold_three_reads_the_level_in_force_for_the_requesting_tenant_not_the_r
     crossed = _get_record(downgrade, _served_record(downgrade, tenant=FOREIGN), token=FOREIGN_TOKEN)
     assert crossed.status_code == 200, (
         "the recorder's tenant's level for a colliding principal id withheld the caller's own record"
+    )
+
+
+def _disclosure_decision(door: Governed, response: Any) -> tuple[str, str | None]:
+    """The level the recorder applied to a refusal, and the policy key that set it — from the RECORD."""
+    reference = response.json()["refusal"]["replay_reference"]
+    record = door.record_at(door.store.resolve_uri(uri=reference))
+    decision = DisclosureDecision.model_validate_json(record.content_generation_path.disclosure_decision)
+    return decision.level, decision.policy.identity if decision.policy is not None else None
+
+
+def test_a_refusal_of_another_tenants_principal_is_disclosed_at_its_own_level_not_the_recorders(
+    tmp_path: Path,
+) -> None:
+    """The level the door's recorder discloses a refusal shell at is read under
+    the refused caller's own tenant: ``FOREIGN``'s ``ALICE`` at ``minimal`` gets
+    one shell for a missing address and for another ``FOREIGN`` principal's
+    genuine record, whatever the recorder's tenant declares for its own
+    ``ALICE``; and, the other way round, its own ``full``."""
+    upgrade = _door(tmp_path / "upgrade", own_level=DISCLOSURE_FULL, foreign_level=DISCLOSURE_MINIMAL)
+    nowhere, others = "b" * 64, _served_record(upgrade, tenant=FOREIGN, principal=BOB)
+    missing = _get_record(upgrade, nowhere, token=FOREIGN_TOKEN)
+    poached = _get_record(upgrade, others, token=FOREIGN_TOKEN)
+    for response in (missing, poached):
+        assert _disclosure_decision(upgrade, response) == (
+            DISCLOSURE_MINIMAL,
+            product_entitlement_key(tenant_id=FOREIGN),
+        ), "a refusal of another tenant's principal was disclosed under the recorder's tenant's level"
+    assert same_shell(missing, nowhere, poached, others)
+
+    downgrade = _door(tmp_path / "downgrade", own_level=DISCLOSURE_MINIMAL, foreign_level=DISCLOSURE_FULL)
+    assert _disclosure_decision(downgrade, _get_record(downgrade, nowhere, token=FOREIGN_TOKEN)) == (
+        DISCLOSURE_FULL,
+        product_entitlement_key(tenant_id=FOREIGN),
     )

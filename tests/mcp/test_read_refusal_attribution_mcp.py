@@ -28,6 +28,7 @@ meaningful nowhere else (CINV-01 applied to test data).
 
 from __future__ import annotations
 
+import json
 import pathlib
 from typing import Any
 
@@ -40,7 +41,7 @@ from pydantic import AnyHttpUrl
 from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
-from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL
+from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL, DisclosureDecision
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
     ProductEntitlementGrant,
@@ -86,6 +87,9 @@ from tests.mcp.test_c2_tenant_hold_mcp import SURFACES, _assert_identical, _inte
 
 #: ONE client id, a principal of BOTH tenants — the collision the ruling names.
 ALICE = "refusal-shared-client-id"
+#: A second principal of ``FOREIGN``, whose genuine record ``FOREIGN``'s ``ALICE``
+#: may not read (hold 1) — the subject of the disclosure oracle.
+BOB = "refusal-other-principal"
 ROLE = "refusal-role"
 
 #: The verified callers: the same client id under each tenant.
@@ -222,6 +226,26 @@ def _record_address(shell: bytes | RefusalEnvelope) -> str:
 def _record_at(world: _World, address: str) -> tuple[DecisionReplayRecord, RefusalEnvelope]:
     record = DecisionReplayRecord.model_validate_json(world.store.get(content_address=address))
     return record, RefusalEnvelope.model_validate_json(record.content_generation_path.assembly_refusal)
+
+
+def _disclosure_decision(world: _World, shell: bytes) -> tuple[str, str | None]:
+    """The level the recorder applied to a shell, and the policy key that set it — from the RECORD."""
+    record, _ = _record_at(world, _record_address(shell))
+    decision = DisclosureDecision.model_validate_json(record.content_generation_path.disclosure_decision)
+    return decision.level, decision.policy.identity if decision.policy is not None else None
+
+
+def _without_the_ask(shell: bytes, ask: str) -> dict[str, Any]:
+    """A shell as a consumer compares it: its request held to the constant shape carrying its own ask, then dropped with its replay reference."""
+    body = json.loads(shell)
+    assert body.pop("request") == {
+        "product_id": DEREFERENCE_PRODUCT_ID,
+        "product_version": None,
+        "parameters": {"reference": ask},
+        "temporal_boundary": None,
+    }
+    body.pop("replay_reference")
+    return dict(body)
 
 
 def _record_as_written_before_the_binding(recorder: ReplayRefusalRecorder, *, principal: str, reference: str) -> RefusalEnvelope:
@@ -397,6 +421,34 @@ def test_hold_three_reads_the_level_in_force_for_the_requesting_tenant_not_the_r
     own = downgrade.served_record(tenant=FOREIGN, principal=ALICE)
     assert _read(downgrade, FOREIGN_ALICE, "blob", own) == downgrade.store.get(content_address=own), (
         "the recorder's tenant's level for a colliding principal id withheld the caller's own record"
+    )
+
+
+def test_a_refusal_of_another_tenants_principal_is_disclosed_at_its_own_level_not_the_recorders(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The third lookup on this path keyed by the principal id: the level the
+    door's recorder discloses a refusal SHELL at. ``FOREIGN``'s ``ALICE`` is at
+    ``minimal``; the recorder's tenant declares ``full`` for its own ``ALICE``.
+    Every refusal ``FOREIGN``'s ``ALICE`` receives is disclosed under ``FOREIGN``'s
+    policy at ``FOREIGN``'s level for ``ALICE`` — so a missing address and another
+    ``FOREIGN`` principal's genuine record are ONE shell to it, as its own posture
+    requires — and, the other way round, at its own ``full``."""
+    upgrade = _World(tmp_path / "upgrade", own_level=DISCLOSURE_FULL, foreign_level=DISCLOSURE_MINIMAL)
+    nowhere, others = "b" * 64, upgrade.served_record(tenant=FOREIGN, principal=BOB)
+    missing = _read(upgrade, FOREIGN_ALICE, "blob", nowhere)
+    poached = _read(upgrade, FOREIGN_ALICE, "blob", others)
+    for answer in (missing, poached):
+        assert _disclosure_decision(upgrade, answer) == (
+            DISCLOSURE_MINIMAL,
+            product_entitlement_key(tenant_id=FOREIGN),
+        ), "a refusal of another tenant's principal was disclosed under the recorder's tenant's level"
+    assert _without_the_ask(missing, nowhere) == _without_the_ask(poached, others)
+
+    downgrade = _World(tmp_path / "downgrade", own_level=DISCLOSURE_MINIMAL, foreign_level=DISCLOSURE_FULL)
+    assert _disclosure_decision(downgrade, _read(downgrade, FOREIGN_ALICE, "blob", nowhere)) == (
+        DISCLOSURE_FULL,
+        product_entitlement_key(tenant_id=FOREIGN),
     )
 
 
