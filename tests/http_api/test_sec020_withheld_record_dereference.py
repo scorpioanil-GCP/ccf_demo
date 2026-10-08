@@ -42,7 +42,6 @@ from typing import Any
 import httpx
 import pytest
 
-from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL
 from ccf.products.entitlement import (
     PRODUCT_ENTITLEMENT_POLICY,
@@ -310,27 +309,9 @@ def test_the_door_delivers_an_answered_subjects_record_and_the_comparison_sees_i
 
 
 # --- channel 2 at the HTTP door ----------------------------------------------------
-
-
-def _name(reference: str) -> str:
-    return parse_artifact_uri(reference).name
-
-
-@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
-def test_channel_2_the_reference_a_withheld_answer_hands_out_names_the_record_a_nonexistent_subject_gets(
-    tmp_path: pathlib.Path, anchor: str
-) -> None:
-    """Channel 2 across the HTTP door (``X-CCF-Replay-Ref`` / ``replay_reference``):
-    the record NAME in the reference must be the one the nonexistent world's
-    answer carries, with no dereference at all."""
-    withheld, nonexistent = _both(tmp_path, anchor=anchor, left_holds=True, right_holds=False)
-    case = f"{anchor}, withheld vs nonexistent"
-    _require_equal_answers(withheld, nonexistent, case=case)
-    assert _name(withheld.reference) == _name(nonexistent.reference), (
-        f"[{case}] channel 2: the withheld answer's reference names record"
-        f" {_name(withheld.reference)}; the nonexistent world's names"
-        f" {_name(nonexistent.reference)}"
-    )
+#
+# Held, under Dave's Q11 ruling, by
+# `tests/http_api/test_sec020_replay_reference_issuance.py` on every output.
 
 
 # --- channel 3: the record behind the reference -----------------------------------
