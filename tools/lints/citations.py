@@ -207,6 +207,24 @@ HISTORICAL_RECORDS: dict[str, str] = {
         " verification what the tree said that day. See MAINTAINED_RECORDS for"
         " the exception"
     ),
+    # D-IMPL-378 ruling C6 (c) (Dave): "exempt the review record and the
+    # handoff (46 citations) and convert the three documents security fixes
+    # still edit (316) once the lanes stop editing them". Measured on
+    # dl-378-integ @ 8cfe77b2, the two exemptions take 46 unanchored citations
+    # of Python targets out of the ratchet's population, and 122 citations out
+    # of this gate's reach, 41 of which it checked (40 of the hand-off's
+    # `::Symbol` citations among them).
+    "docs/V1.0.2-SPEC-REVIEWS.md": (
+        "the v1.0.2 spec's review record: the panel's and the internal"
+        " review's findings with their dispositions (2026-09-25, last edited"
+        " 2026-09-26); a dated record by D-IMPL-378 ruling C6 (c), so its"
+        " citations are snapshots of the tree it reviewed"
+    ),
+    "docs/superpowers/plans/2026-09-27-wave-2-HANDOFF.md": (
+        "the Wave 2 hand-off, written 2026-09-27 to survive a cleared context"
+        " and amended until 2026-10-01; a dated record by D-IMPL-378 ruling"
+        " C6 (c), so its citations are snapshots of the tree that wave worked on"
+    ),
 }
 
 #: Pulled back into the gate despite matching a HISTORICAL_RECORDS pattern.

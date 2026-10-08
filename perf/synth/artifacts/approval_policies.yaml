@@ -1,0 +1,30 @@
+# Performance-battery approval policies — the TYPED `ccf.approval-policy`
+# artifacts the perf workflow fixture's `gate_policies` ref resolves to
+# (SEC-006, D-IMPL-366 §4 (5); CLAUDE.md §8.2; SDK-defined). D-IMPL-378 ruling
+# C7 (b) migrates the perf battery to that typed contract.
+#
+# Added BESIDE `workflow.yaml`, never produced by rewriting it — the rule
+# `tests/fixtures/banking/approval_policies.yaml` follows for the historical
+# workflow fixtures (the D-IMPL-363 fixture rule). `workflow.yaml` is one of
+# the three gate-bearing workflow documents migrated together under
+# D-IMPL-357, and like the two banking ones it keeps its `gate_policies` ref
+# as text and its `referenced_artifacts.panel_review_policy` entry in the
+# PRE-CHANGE DeclaredArtifact shape — an `approver_role` and a `quorum` no
+# code ever read. The micro suite no longer registers that entry (the factory
+# refuses a DeclaredArtifact gate policy by ruling); it registers the policy
+# below under the SAME key, at the SAME declared semver, so the pinned
+# `…@1.0.0` ref resolves to the typed policy.
+#
+# `eligible_principals` is neutral perf vocabulary (D-09). The battery only
+# CONSTRUCTS the workflow (`perf/suites/micro/test_factory.py`; D-23 "task
+# factory construction") and never runs it, so no principal here ever
+# approves anything; the set is non-empty because an empty one is refused at
+# construction (D-IMPL-366 G7 (a)). No key material lives here (CINV-01).
+
+policies:
+  panel_reviewer:
+    key: perf-tenant/approval-policy/panel-reviewer
+    policy:
+      semver: "1.0.0"
+      eligible_principals:
+        - perf-reviewer-001
