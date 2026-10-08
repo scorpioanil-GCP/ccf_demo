@@ -1046,11 +1046,26 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   `RecordNotFiledByRecordWriter`, an `ArtifactNotFound`; a store that cannot
   say who filed an address is refused by name
   (`src/ccf/replay/provenance.py::UnattributableRecordStore`). Treat a record as
-  evidence only when a governed read returned it. An erasure door built over
-  the MCP-backed store reads each named address's bytes to verify its
-  subject, so it refuses a request naming such a filing
-  `subject-unverifiable`. A door over the store in process reads the bytes
-  directly and judges the subject.
+  evidence only when a governed read returned it. The erasure door applies
+  record retention, the `replay-input` refusal, only to a record the fabric's
+  record writer filed under the requesting tenant, decided by the same
+  provenance check (`src/ccf/replay/provenance.py::filed_by_record_writer`;
+  D-IMPL-378). A door over the store in process reads such a filing directly
+  and erases it like any client artifact, even with the subject in a
+  replay-input field; a record the writer filed, with the subject in the same
+  field, is still refused `replay-input`. A store that cannot say who filed an
+  address is refused `class-unverifiable` rather than judged on the bytes' own
+  word: one that declares no `WriteKinds`, for an address whose subject is in
+  a replay-input field, and an erasure-consulting composition over a store
+  that answers no `names_at`, for any address
+  (`tests/erasure/test_replay_input_retention_provenance.py`). An erasure door
+  built over the MCP-backed store reads each named address's bytes to verify
+  its subject, so it still refuses a request naming such a filing
+  `subject-unverifiable`: through that door, a principal can keep a client
+  file out of reach of erasure by shaping it as a record (measured, and kept
+  as a strict expected failure in the same module). A request naming client
+  bytes the record validator refuses is verified and admitted through it like
+  any other.
 - **A read-refusal record names who asked; one minted before its marker
   reads as missing for everyone, its owner included (forged-record re-review,
   D-IMPL-376; D-IMPL-378).** The governed read records each refusal through
@@ -1468,6 +1483,30 @@ the same id is refused "already exists".
   execution `suspended` with no step run. Presented again from any process,
   it re-takes the same closure and runs the step after the gate once
   (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
+- **A passage fenced by another writer is refused `execution-fenced`**
+  (`D-IMPL-378`). Every write that ends a passage is conditional on the
+  version the passage wrote
+  (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._fenced_write`). If
+  a writer outside the engine, or a store that does not keep its conditional
+  write, moves the execution's record while a passage runs, that write raises
+  `ExecutionFenced` and writes, audits and enqueues nothing. So does a
+  finisher that loses its write to another finisher or to the original
+  passage (the bullet above). `POST /workflow/invocations` and
+  `POST /workflow/resumptions` answer it 409 with `error_code`
+  `execution-fenced`, a finished start's fenced suspension included; before
+  this change it reached the caller as an opaque 500
+  (`tests/http_api/test_execution_fenced_door.py`). The erasure door, which
+  drives the same engine in process, refuses it as an `ErasureRefused` with
+  reason code `execution-fenced`, at a request's start and at a completion's
+  last passage; after the last passage no erasure record is filed, and the
+  address stays withheld (`index-unsupported`) under the index entries the
+  completion appended (`tests/erasure/test_erasure_door_execution_fenced.py`).
+  The other writer's record stands. Where the passage ran a step before the
+  fenced write, that step may already have had effects, and a resumption
+  presented again is refused as an interrupted passage without running it
+  again (measured): reconcile the execution outside the fabric. No MCP door
+  executes or resumes a workflow, and no HTTP or MCP door serves the erasure
+  door.
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the
