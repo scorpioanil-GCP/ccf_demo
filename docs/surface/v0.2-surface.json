@@ -13360,7 +13360,8 @@
       "TraceEntry",
       "WORKFLOW_STATE",
       "WORKFLOW_STATUSES",
-      "WorkflowStateRecord"
+      "WorkflowStateRecord",
+      "suspension_left_by"
     ],
     "exports": {
       "TRACE_ENTRY_KINDS": {
@@ -13397,6 +13398,10 @@
           "workflow_definition_hash": "<class 'str'>",
           "workflow_definition_uri": "<class 'str'>"
         }
+      },
+      "suspension_left_by": {
+        "kind": "function",
+        "shape": "(record: 'WorkflowStateRecord') -> 'WorkflowStateRecord | None'"
       }
     }
   }

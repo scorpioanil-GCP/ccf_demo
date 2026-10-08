@@ -113,6 +113,7 @@ from ccf_runtime.workflow.state import (
     WORKFLOW_STATE,
     TraceEntry,
     WorkflowStateRecord,
+    suspension_left_by,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -480,6 +481,14 @@ class WorkflowEngine:
             execution_id: Caller-supplied execution identity; state is keyed
                 ``(authorized.tenant, execution_id)`` (D-23; §1.3).
 
+        An execution id is started once (D-23): the start is recorded
+        ``running`` by a create-if-absent write before its first node runs, and
+        a second start is refused. The one exception is the starter's own retry
+        of a start whose first node is a ``hitl-gate`` and whose engine stopped
+        before suspending there: no step ran, so it is FINISHED — the
+        version-fenced suspension write and its one queue event — never started
+        again (``D-IMPL-378``, Dave's D2 ruling).
+
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
                 handle.
@@ -487,6 +496,8 @@ class WorkflowEngine:
                 not an ``Execute``, or minted for another definition key.
             WorkflowWiringError: a step ref resolves to nothing, or nominal
                 routing is ambiguous.
+            ExecutionFenced: a finished start lost its suspension write to
+                another writer.
         """
         self._require_handle(workflow)
         verify(authorized, kind=Execute, resource=workflow.definition_key)
@@ -515,6 +526,15 @@ class WorkflowEngine:
                 expected_version=0,
             )
         except StateConflict:
+            # D-IMPL-378, Dave's D2: the retry of a start whose commit landed
+            # and whose engine stopped before suspending on its first node — a
+            # gate, so no step ran — is FINISHED for its own starter, never
+            # started again. Anything else under this id is a second start.
+            finished = self._finish_start(
+                authorized, workflow, execution_id=execution_id, key=key
+            )
+            if finished is not None:
+                return finished
             return self._refuse(
                 authorized,
                 workflow,
@@ -590,19 +610,29 @@ class WorkflowEngine:
           over one durable store, exactly one commit lands; the other is
           refused before it runs anything.
 
-        **An interrupted passage is never retried** (Dave's ruling on
-        ``D-IMPL-378``). A passage whose commit never landed leaves the record
-        ``suspended`` with no step started, so presenting the resumption again
-        re-takes the same closure (it names the passage, not the engine) and
-        exactly one commit can land. A passage whose commit landed is
-        ``running`` until it suspends or completes; a resumption that finds it
-        ``running`` is refused, typed, because the step after the gate may
-        already have had effects no engine can see, and an operator reconciles
-        the execution outside the fabric.
+        **An interrupted passage is never re-run** (Dave's Q4 and D2 rulings
+        on ``D-IMPL-378``). A passage whose commit never landed leaves the
+        record ``suspended`` with no step started, so presenting the
+        resumption again re-takes the same closure (it names the passage, not
+        the engine) and exactly one commit can land. A passage whose commit
+        landed is ``running`` until it suspends or completes. When its state
+        is a ``hitl-gate`` or a terminal state, no step lies between that
+        commit and its next write, so a resumption that finds it FINISHES it —
+        the version-fenced suspension or completion write and, at a gate, its
+        one queue event, nothing else — provided its durable claim names it:
+        the gate's closure, found by the suspension the passage left
+        (:func:`~ccf_runtime.workflow.state.suspension_left_by`) and routing
+        its decided verdict to that state; for an execution's start, the
+        create-if-absent record. A finisher racing the original passage loses
+        or wins the fenced write; the loser raises :class:`ExecutionFenced`
+        and writes nothing. A ``running`` record at a step is refused, typed,
+        because the step may already have had effects no engine can see, and
+        an operator reconciles the execution outside the fabric.
 
         Measured by ``tests/workflow/test_approval_gate_limits.py``,
-        ``tests/http_api/test_approval_gate_limits_door.py`` and
-        ``tests/workflow/test_resume_single_flight.py``.
+        ``tests/http_api/test_approval_gate_limits_door.py``,
+        ``tests/workflow/test_resume_single_flight.py`` and
+        ``tests/workflow/test_finish_interrupted_passage.py``.
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
@@ -704,15 +734,57 @@ class WorkflowEngine:
                 ),
             )
         if record.status == "running":
-            # D-IMPL-378, Dave's Q4 ruling: an interrupted passage is never
-            # retried. A ``running`` record is a passage whose commit LANDED, so
-            # the step after its gate may have started, and what that step did
-            # is outside anything this engine can see: no retry of it can be
-            # shown not to repeat an effect. So it is refused, typed, whoever
+            # D-IMPL-378. A ``running`` record is a passage whose commit LANDED.
+            # Dave's Q4 ruling: an interrupted passage is never retried unless
+            # a durable claim identifies it and no effect can repeat. His D2
+            # ruling: a passage whose current state is a gate or a terminal
+            # state ran no step — what is left is this engine's own
+            # version-fenced write and, at a gate, its one queue event — so it
+            # is FINISHED, never re-run, under the claim that names it
+            # (:meth:`_remainder`). At a step, what the step did is outside
+            # anything this engine can see, so it is refused, typed, whoever
             # asks, until an operator reconciles the execution outside the
             # fabric. (A passage whose commit never landed is still
             # ``suspended`` and IS retried below: its step never started, its
             # gate's closure names it, and only one commit can land.)
+            remainder = self._remainder(
+                workflow, tenant=tenant, key=key, record=record
+            )
+            if remainder == "complete":
+                return self._complete(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    terminal_state=record.current_state,
+                    trace=record.trace,
+                    started_by=record.started_by,
+                    version=version,
+                )
+            if remainder == "suspend":
+                return self._suspend(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    gate=record.current_state,
+                    trace=record.trace,
+                    started_by=record.started_by,
+                    version=version,
+                )
+            if remainder == "unclaimed":
+                return self._refuse(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    reason=(
+                        f"execution {key!r} has a committed passage that has"
+                        f" not finished and ran no step since, at"
+                        f" {record.current_state!r}, but no durable claim on the"
+                        " HITL authority path names it. An interrupted passage"
+                        " is never retried without the claim that identifies"
+                        " it; an operator reconciles it outside the fabric"
+                        " (D-IMPL-378; SEC-001)"
+                    ),
+                )
             return self._refuse(
                 authorized,
                 workflow,
@@ -1550,11 +1622,14 @@ class WorkflowEngine:
         * **(2) A conflicted gate stays suspended for good** (``D-GATE-357``
           (2)). The fabric offers no primitive that reopens it; a human settles
           the disagreement outside the fabric.
-        * **(3) An interrupted passage stays ``running`` for good.** It is
-          never retried (Dave's ruling on ``D-IMPL-378``), and the fabric
-          offers no primitive that reconciles it; an operator reads the gate's
-          closure (:meth:`~ccf.hitl.transport.HITLTransportProtocol.closures`)
-          and the audit row, and reconciles outside the fabric.
+        * **(3) An interrupted passage at a step stays ``running`` for good.**
+          It is never retried (Dave's Q4 ruling on ``D-IMPL-378``), and the
+          fabric offers no primitive that reconciles it; an operator reads the
+          gate's closure
+          (:meth:`~ccf.hitl.transport.HITLTransportProtocol.closures`) and the
+          audit row, and reconciles outside the fabric. One at a gate or a
+          terminal state ran no step, and is finished under its durable claim
+          (Dave's D2 ruling; :meth:`resume`).
         * **(4) The guarantees are the store's and the transport's.** They
           hold over a :class:`~ccf.controlplane.state.ConditionalStateStore`
           and a transport whose ``close_gate`` and ``submit`` are atomic with
@@ -1894,6 +1969,115 @@ class WorkflowEngine:
             workflow_definition_uri=workflow.identity.definition_uri,
             workflow_definition_hash=workflow.identity.definition_hash,
             started_by=started_by,
+        )
+
+    def _remainder(
+        self,
+        workflow: Workflow,
+        *,
+        tenant: str,
+        key: str,
+        record: WorkflowStateRecord,
+    ) -> str:
+        """What is left of a ``running`` record's passage, and whether this engine may finish it.
+
+        ``D-IMPL-378``; Dave's D2 ruling of 2026-10-07 under his Q4 condition.
+        Returns:
+
+        * ``"step"`` — the record's state is a step, which may have run: never
+          retried (Q4 (b));
+        * ``"complete"`` or ``"suspend"`` — the state is a terminal state or a
+          ``hitl-gate``, so no step lies between the commit and the passage's
+          next write, and the passage's durable claim names it;
+        * ``"unclaimed"`` — no step can have run, but no durable claim names
+          the passage.
+
+        The durable claim never names an engine. For an execution's start —
+        an empty trace at the start node — it is the create-if-absent record
+        itself. For a passage past a gate it is that gate's closure on the
+        HITL authority path, found by the content hash of the suspension the
+        passage left (:func:`~ccf_runtime.workflow.state.suspension_left_by`),
+        and its decided verdict must route to the record's state.
+        """
+        at = record.current_state
+        if at in workflow.definition.effective_terminal_states:
+            remainder = "complete"
+        else:
+            step = next(
+                (s for s in workflow.task_definition.steps if s.name == at), None
+            )
+            if step is None or step.kind != "hitl-gate":
+                return "step"
+            remainder = "suspend"
+        if not record.trace:
+            if remainder == "suspend" and at == workflow.definition.start:
+                return remainder
+            return "unclaimed"
+        left = suspension_left_by(record)
+        if left is None:
+            return "unclaimed"
+        event_key = self._event_key(key, left.current_state)
+        suspension = content_hash(left)
+        claim = next(
+            (
+                closure
+                for closure in self._hitl_transport.closures(tenant=tenant)
+                if closure.event_key == event_key
+                and closure.product_content_hash == suspension
+            ),
+            None,
+        )
+        if claim is None:
+            return "unclaimed"
+        routes = workflow.definition.gate_routes.get(left.current_state, {})
+        if routes.get(claim.decided_action) != at:
+            return "unclaimed"
+        return remainder
+
+    def _finish_start(
+        self,
+        authorized: Authorized[Execute],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+        key: str,
+    ) -> WorkflowSuspended | None:
+        """Finish, for its own starter, a start that committed and never suspended on its first node.
+
+        ``D-IMPL-378``; Dave's D2 ruling. The start's durable claim is the
+        create-if-absent record: ``running`` at the start node with an empty
+        trace, under this definition, stamped with this starter. When the start
+        node is a ``hitl-gate`` no step ran, and what is left is the version-fenced
+        suspension write and its one queue event. ``None`` for anything else,
+        which the caller refuses as a second start.
+
+        Raises:
+            ExecutionFenced: another finisher, or the original start, wrote the
+                suspension first.
+        """
+        record, version = self._read_versioned(key)
+        if (
+            not isinstance(record, WorkflowStateRecord)
+            or record.status != "running"
+            or record.trace
+            or record.started_by != authorized.principal
+            or record.workflow_definition_uri != workflow.identity.definition_uri
+            or record.workflow_definition_hash
+            != workflow.identity.definition_hash
+            or self._remainder(
+                workflow, tenant=authorized.tenant, key=key, record=record
+            )
+            != "suspend"
+        ):
+            return None
+        return self._suspend(
+            authorized,
+            workflow,
+            execution_id=execution_id,
+            gate=record.current_state,
+            trace=record.trace,
+            started_by=record.started_by,
+            version=version,
         )
 
     def _read_versioned(self, key: str) -> tuple[object | None, int]:

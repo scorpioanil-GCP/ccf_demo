@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2241 entries**, of which **1966** name a public Python surface.
+**2244 entries**, of which **1969** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1259 entries — 1215 public Python surface, 44 not public Python API.
+1260 entries — 1216 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18656,6 +18656,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
 
+#### ccf_runtime.workflow.state.suspension_left_by
+
+- Surface: ccf_runtime.workflow.state.suspension_left_by
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `suspension_left_by(record) -> WorkflowStateRecord | None` rebuilds, exactly, the suspension a `running` record's passage past a gate left: the gate as its state, `suspended` as its status, the trace without its last `resume` entry, every other field unchanged. Its content hash is the one the gate's closure and every verdict on that suspension name. It returns `None` when the record is not `running`, or when its last trace entry is not a `resume` into its current state
+- Why: `D-IMPL-378`, Dave's D2 ruling. It is how a finisher, or the erasure door, finds the durable claim that identifies an interrupted passage, without asking which engine wrote the record
+- Migration: none
+
+*Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29327,7 +29339,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-337 entries — 298 public Python surface, 39 not public Python API.
+339 entries — 300 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34502,6 +34514,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as for `ERROR_EXECUTION_FENCED`. No MCP door executes or resumes a workflow, so no MCP rendering changes
 
 *Recorded by `378-13-record-retention-provenance-and-execution-fenced.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `resume` refused every `running` record: "An interrupted passage is never retried". `execute` refused every existing execution id as a second start
+- After: `resume` FINISHES a `running` record whose state is a `hitl-gate` or a terminal state. It makes the version-fenced suspension or completion write and, at a gate, its one queue event; it invokes no step callable and adds no attributed row. It finishes only when the passage's durable claim names it. For a passage past a gate, the claim is the gate's closure, found by the suspension the passage left, and its decided verdict must route to the record's state. For an execution's start, the claim is the create-if-absent record. When no step can have run but no claim names the passage, `resume` refuses: "no durable claim on the HITL authority path names it". A `running` record at a step is still refused as interrupted. `execute` finishes a start for its own starter when the start node is a `hitl-gate` and the record is still `running` there with an empty trace; any other existing id is still refused "already exists". A finisher that loses the fenced write to the original passage, or the original that loses it to a finisher, raises `ExecutionFenced` and writes nothing
+- Why: `D-IMPL-378`, Dave's D2 ruling under his Q4 condition. Red tests: `tests/workflow/test_finish_interrupted_passage.py::test_a_gate_routed_straight_to_a_terminal_is_finished_by_another_process_not_rerun`, `::test_an_execution_whose_first_node_is_a_gate_is_finished_not_restarted`, `::test_a_finisher_racing_the_live_original_passage_writes_once_and_the_loser_is_fenced`, `::test_a_passage_no_durable_claim_names_is_never_finished`
+- Migration: a caller that treated the never-retried refusal of a `running` record at a gate or a terminal state as final may now present the resumption again and receive the finished outcome. A `running` record at a step is unchanged
+
+*Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `complete` refused an execution in `running` with `approval-not-recorded`, a name for a cause that was not the cause, so a completion interrupted after its passage committed could never complete. `request` passed on the engine's "already exists" refusal of a start interrupted before it suspended, as `workflow-not-suspended`
+- After: `complete` holds the recorded approval to the suspension the running passage left, rebuilt by `suspension_left_by`, and resumes the engine, which finishes the passage when no step can have run (`erased` follows the gate directly) and otherwise refuses it, as `workflow-refused`. The record it files is the one the interrupted attempt's write-ahead entries name. `request` receives the finished suspension from the engine when the same requester retries
+- Why: `D-IMPL-378`, Dave's D2 ruling. Red tests: `tests/erasure/test_interrupted_erasure_passage.py::test_an_erasure_request_interrupted_at_its_first_suspension_write_is_finished_by_its_retry`, `::test_an_erasure_completion_interrupted_at_its_terminal_write_is_finished_by_its_retry`
+- Migration: none; SEC-009's door contract is otherwise unchanged
+
+*Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
 
 ### Not public Python API
 
