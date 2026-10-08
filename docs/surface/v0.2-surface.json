@@ -1864,6 +1864,7 @@
       "RegistrationMode",
       "ReplayBinding",
       "RequestBoundParameter",
+      "ReservedArtifactClassId",
       "SIGNAL_BATCH",
       "SeamRefusalBinding",
       "SecretReference",
@@ -2200,6 +2201,10 @@
           "parameter": "<class 'str'>",
           "source": "typing.Literal['effective_request']"
         }
+      },
+      "ReservedArtifactClassId": {
+        "kind": "class",
+        "shape": "(class_id: 'str') -> 'None'"
       },
       "SIGNAL_BATCH": {
         "kind": "constant",
@@ -2955,8 +2960,8 @@
         "kind": "contract",
         "shape": {
           "credential": "<class 'ccf.deployment.environment.EnvironmentValue'>",
-          "issuer_url": "<class 'ccf.deployment.environment.EnvironmentValue'>",
-          "resource_server_url": "<class 'ccf.deployment.environment.EnvironmentValue'>"
+          "issuer_url": "ccf.deployment.environment.EnvironmentValue | None",
+          "resource_server_url": "ccf.deployment.environment.EnvironmentValue | None"
         }
       },
       "ENVIRONMENT_DOCUMENT_NAME": {

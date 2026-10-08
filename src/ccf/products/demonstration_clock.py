@@ -11,9 +11,11 @@ module is where a composition turns it into the fabric's serve clock.
 C2-A"* (the `D-IMPL-378` dated amendment of that time). How "never usable in
 production" is enforced: the declaration is refused unless the fabric runs on the
 SDK's development substrates, and every record made under it pins it. The options
-it was chosen among are lane ``378d-democlock``'s ``PROPOSAL-C1.md`` §4. **Not
-ruled:** C1-late — a declaration registered after a resolver is built stays
-unread by that resolver (rule 2 below), as designed, until Dave rules.
+it was chosen among are lane ``378d-democlock``'s ``PROPOSAL-C1.md`` §4.
+**C1-late, RULED (a)** — Dave, 2026-10-08 12:29 MST: *"Running services retain
+their startup snapshot. Document that later registration takes effect only after
+rebuilding."* Rule 2 below is that snapshot, and says what rebuilding is on each
+surface.
 
 The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
 --------------------------------------------------------------------------------
@@ -22,9 +24,22 @@ The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
    a parameter, a decision-instant parameter, an MCP tool argument — reaches it:
    a serve instant taken from caller input would let any question move the
    fabric's clock (`D-GATE-358` (3)).
-2. **Pinned at composition.** :func:`compose_serve_clock` reads the declaration
-   when the resolver is built and never again, so a declaration registered into a
-   running fabric does not reach a built resolver.
+2. **Pinned at composition: the startup snapshot.** :func:`compose_serve_clock`
+   reads the declaration when the resolver is built and never again, so a
+   declaration registered into a running fabric does not reach a built resolver,
+   and a running service cannot be switched into demonstration mode. It takes
+   effect only in a resolver built after it is registered: a composition root's
+   next :func:`~ccf.products.resolver.build_governed_resolver` call over the same
+   Control Plane; for the in-process adapter, which boots each deployment once per
+   process from its ``ccf_config.yaml``, the deployment's next boot. The paved
+   road builds a resolver for every question but composes its own clock, so it
+   never honors a declaration: one registered after
+   :func:`~ccf.products.product.open_product` is refused by name at the next
+   question (:class:`DemonstrationServeInstantConflict`). Measured in
+   ``tests/client/test_demonstration_serve_instant.py``:
+   ``test_a_declaration_registered_after_composition_does_not_reach_the_resolver``,
+   ``test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it``
+   and ``test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_question``.
 3. **One authority.** A composition that supplies its own clock while the
    deployment declares an instant is refused by name
    (:class:`DemonstrationServeInstantConflict`) rather than letting either win.
@@ -192,6 +207,11 @@ def compose_serve_clock(
 
     Called once, by `ccf.products.resolver.build_governed_resolver`, after its
     artifact store is selected and before anything is built over it.
+
+    **Read once: the startup snapshot** (C1-late, ruled (a), Dave 2026-10-08).
+    The declaration read here is the one the resolver serves on for its whole
+    life. One registered later takes effect only when a resolver is built again
+    (the module docstring, rule 2, says what that is on each surface).
 
     Args:
         control_plane: The composition's Control Plane. Where it offers the

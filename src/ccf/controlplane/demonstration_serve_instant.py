@@ -28,7 +28,10 @@ the value. **It reads no clock and enforces nothing at serve time.** It never
 takes an instant from a request, a caller or the environment: the only way an
 instant reaches a fabric is this artifact, registered at composition from the
 deployment's own config (`demonstration_serve_instant:` in ``ccf_config.yaml``)
-or manifest.
+or manifest. It is read when a resolver is built, and a running service keeps
+that reading: a declaration registered later takes effect only after the service
+is rebuilt (C1-late, ruled (a), Dave 2026-10-08; rule 2 of
+`ccf.products.demonstration_clock`).
 
 It also holds the one boot-time check of WHERE a declaration was put
 (:func:`refuse_misplaced_demonstration_serve_instants`), because the composition

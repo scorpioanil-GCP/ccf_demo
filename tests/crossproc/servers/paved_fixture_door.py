@@ -27,6 +27,10 @@ nothing is printed, because stdout is the protocol channel. The parent spawns
 it the way an MCP client spawns any stdio server, and sets whatever
 environment it chooses — which is how a test leaves the door's two advertised
 addresses unset.
+
+**``--without-address-names``** writes the producer's environment document
+with its ``door:`` block naming the credential only (`D-IMPL-378` C2-A2 (a)):
+the two address names are optional, and no SDK transport reads them.
 """
 
 from __future__ import annotations
@@ -54,11 +58,17 @@ def main() -> None:
 
     from tests.products import paved_fixture as fixture  # noqa: PLC0415
 
+    arguments = sys.argv[1:]
+    unknown = sorted(set(arguments) - {"--stdio", "--without-address-names"})
+    if unknown:
+        raise SystemExit(f"unknown arguments: {unknown}")
     workspace = Path(tempfile.mkdtemp(prefix="paved-producer-"))
     root = fixture.write_tree(
         workspace / "deployment",
         config=fixture.producer_config(),
-        environment=fixture.producer_environment_text(),
+        environment=fixture.producer_environment_text(
+            addresses="--without-address-names" not in arguments
+        ),
     )
     environ = {**os.environ, fixture.CHILD_DSN_VAR: "postgresql://fixture"}
     # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
@@ -98,7 +108,7 @@ def main() -> None:
         clock=lambda: fixture.ADMITTED_AT,
     ) as opened:
         door = open_door(opened, environ=environ)
-        if sys.argv[1:] == ["--stdio"]:
+        if "--stdio" in arguments:
             from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser  # noqa: PLC0415
 
             from ccf_runtime.mcp.tenancy import ambient_stdio_identity  # noqa: PLC0415

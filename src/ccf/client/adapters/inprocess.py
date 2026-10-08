@@ -437,6 +437,11 @@ class InProcessAdapter:
         a demonstration serve instant is served at that instant, and a ``clock``
         supplied here beside such a declaration is refused by name at boot
         (:class:`~ccf.products.demonstration_clock.DemonstrationServeInstantConflict`).
+        The declaration is read at that one boot, from the deployment's
+        ``ccf_config.yaml``, and the booted deployment keeps it: one declared
+        later takes effect at the deployment's next boot, in a new process
+        (C1-late, ruled (a), Dave 2026-10-08: running services retain their
+        startup snapshot).
         """
         self._address = address
         self._clock = clock

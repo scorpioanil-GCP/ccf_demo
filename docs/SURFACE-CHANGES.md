@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2324 entries**, of which **2048** name a public Python surface.
+**2333 entries**, of which **2056** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1294 entries — 1249 public Python surface, 45 not public Python API.
+1296 entries — 1250 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19064,6 +19064,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
 
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: added
+- Before: absent. `declared_artifact_class` built an envelope class for an id in the SDK's reserved `ccf.` namespace
+- After: a `ValueError` raised by `declared_artifact_class` for an id starting `ccf.`, before any class exists. Its attribute `class_id` is the refused id, and its message names the id and cites `D-IMPL-84`
+- Why: `D-IMPL-378` K1 (b). A program could register a document of arbitrary content under an SDK class name, the squat `D-IMPL-84` refuses for a manifest, and the registry would bind the key to that name and pin it into Decision Replay dimension 2. Red tests: `tests/deployment/test_declaration_function_reserved_namespace.py::test_the_declaration_function_refuses_a_reserved_ccf_id_by_name`, `::test_the_programmatic_squat_registers_nothing`
+- Migration: none; additive
+
+*Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -19783,11 +19795,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
 
+#### tests/conformance/test_control_plane_class_identity.py
+
+- Surface: tests/conformance/test_control_plane_class_identity.py
+- Public surface: false
+- Change type: added
+- Before: absent. The SDK offered no conformance check for `ControlPlaneProtocol`
+- After: the conformance check for a Control Plane's class-identity obligation, run against the reference registry and a validating third-party implementation, and shown to fail a contract-only implementation by name, per method
+- Why: `D-IMPL-378` K2 (b): documentation alone is not enforcement evidence
+- Migration: none for a deployment on the SDK's registry; a deployment with its own Control Plane lists its factory and runs the module
+
+*Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-612 entries — 420 public Python surface, 192 not public Python API.
+613 entries — 421 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26899,6 +26923,18 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-22-demonstration-serve-instant.md`.*
 
+#### ccf.deployment.environment.DoorEnvironment
+
+- Surface: ccf.deployment.environment.DoorEnvironment
+- Public surface: true
+- Change type: reshaped
+- Before: three required members, `credential`, `issuer_url` and `resource_server_url`, each an `EnvironmentValue`
+- After: `credential` required; `issuer_url` and `resource_server_url` are `EnvironmentValue | None`, defaulting to `None` (hash-transparent, `D-IMPL-243`)
+- Why: `D-IMPL-378` C2-A2 (a): no SDK transport reads either name, and configuration nothing reads is not required. Red tests: `tests/deployment/test_door_environment_optional_addresses.py::test_an_environment_document_whose_door_names_only_the_credential_loads`, `tests/mcp/test_stdio_door_addresses.py::test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_still_refuses`, `::test_a_door_composes_over_a_door_block_naming_only_the_credential`
+- Migration: none; a document declaring both names loads unchanged. A deployment may drop the two names unless its own code reads them; code that read `door.issuer_url` or `door.resource_server_url` must now handle `None`
+
+*Recorded by `378-35-c2a2-the-door-address-names-are-optional.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -29915,7 +29951,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-371 entries — 332 public Python surface, 39 not public Python API.
+377 entries — 338 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35498,6 +35534,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.manifest.load_and_boot`
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring said it is called once, and the module docstring said C1-late was not ruled
+- After: same signature and behavior; documentation only. The docstring states that the declaration it reads is the one the resolver serves on for its whole life, and that a later declaration takes effect only when a resolver is built again
+- Why: `D-IMPL-378` C1-late (a): document that later registration takes effect only after rebuilding. Measured by `tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_does_not_reach_the_resolver` and `::test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it`
+- Migration: none
+
+*Recorded by `378-35-c1late-a-running-service-keeps-its-startup-snapshot.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The constructor's docstring said a declaration is honored and a clock beside it is refused, and did not say when the declaration is read
+- After: same signature and behavior; documentation only. The docstring states that the declaration is read at the deployment's one boot per process, from its `ccf_config.yaml`, and that one declared later takes effect at the deployment's next boot, in a new process
+- Why: `D-IMPL-378` C1-late (a)
+- Migration: none
+
+*Recorded by `378-35-c1late-a-running-service-keeps-its-startup-snapshot.md`.*
+
+#### ccf.controlplane.artifacts.declared_artifact_class
+
+- Surface: ccf.controlplane.artifacts.declared_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: same signature. It returned an envelope class for any id, including `ccf.workflow-definition` and every other `ccf.` id
+- After: same signature. An id starting `ccf.` raises `ReservedArtifactClassId`; every other id is unchanged
+- Why: `D-IMPL-378` K1 (b), extending `D-IMPL-84` from the manifest resolver to the public declaration function. Red tests as for `ReservedArtifactClassId`
+- Migration: a program that passed a `ccf.` id registers an SDK class with the SDK's own `ArtifactClass` constant (for example `ccf.workflow.definitions.WORKFLOW_DEFINITION`), or chooses an id in its own namespace
+
+*Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneProtocol
+
+- Surface: ccf.controlplane.registry.ControlPlaneProtocol
+- Public surface: true
+- Change type: behavior
+- Before: same members and signatures. `register_typed` said it validates against `artifact_class` without saying how, and `register_versioned` said nothing about validation, so an implementation that checked only the contract's type conformed on paper while filing a document stating one class under another
+- After: same members and signatures; documentation only. Both methods are obliged to call `artifact_class.validate(artifact)` before anything is stored or audited, so an artifact whose own `class_id` disagrees with the class it is registered as is refused as `ArtifactClassIdMismatch`. The text names the conformance check
+- Why: `D-IMPL-378` K2 (b). Red test: `tests/conformance/test_control_plane_class_identity.py::test_the_protocol_states_the_class_identity_obligation`; enforcement evidence: `::test_registration_refuses_a_document_stating_another_class` and `::test_the_check_fails_a_third_party_plane_that_does_not_validate_by_name`
+- Migration: a third-party Control Plane calls `artifact_class.validate(artifact)` in `register_typed` and `register_versioned` before storing or auditing, adds its factory to `PLANES` in `tests/conformance/test_control_plane_class_identity.py`, and runs that module
+
+*Recorded by `378-35-k2-control-planes-must-refuse-a-document-stating-another-class.md`.*
+
+#### ccf.replay.environment.RecordedEnvironment
+
+- Surface: ccf.replay.environment.RecordedEnvironment
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring did not say that a process which only opens a product must build this environment before it can replay
+- After: same signature and behavior; documentation only. The docstring names this class as the supported way to replay from a process that did not answer the question, states the `ReplayUnresolvable` an open-only process meets, and says how to build it
+- Why: `D-IMPL-378` R-A2 (a). Measured by `tests/replay/test_paved_replay_needs_its_environment.py::test_an_opened_product_replays_an_earlier_record_only_after_its_environment_is_built` and `tests/replay/test_fresh_process_replay.py::test_a_fresh_process_that_asked_nothing_replays_paved_road_records`
+- Migration: none
+
+*Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring said opening boots nothing
+- After: same signature and behavior; documentation only. The docstring adds that a process which only opens cannot replay an earlier record until it builds the replay environment, `RecordedEnvironment`
+- Why: `D-IMPL-378` R-A2 (a)
+- Migration: none
+
+*Recorded by `378-35-ra2-replay-from-an-opened-product-builds-its-environment-first.md`.*
 
 ### Not public Python API
 

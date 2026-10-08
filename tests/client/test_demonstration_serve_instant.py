@@ -285,6 +285,135 @@ def test_a_declaration_registered_after_composition_does_not_reach_the_resolver(
         booted.fabric.handle.close()
 
 
+def _ask_resolver(booted: Any, root: Path) -> Any:
+    """Ask a booted deployment's resolver the fixture's question as of :data:`SEEDED_AT`."""
+    document = load_binding_document(root)
+    wire = request_for(root, as_of=None)
+    return booted.resolver(
+        tenant=booted.fabric.tenant_id,
+        product_class=wire.product_id,
+        version=booted.schema_version,
+        perspective=document.perspective,
+        request=ProductRequest(
+            schema_name=wire.product_id,
+            schema_version=booted.schema_version,
+            subject=document.question.subject,
+            intent=document.question.intent,
+            freshness=document.question.freshness,
+            asked_at=SEEDED_AT,
+            parameters=dict(wire.parameters),
+        ),
+    )
+
+
+def test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it(
+    seeded: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """C1-late, ruled (a) — Dave, 2026-10-08 12:29 MST: *"Running services retain their startup snapshot.
+    Document that later registration takes effect only after rebuilding."*
+
+    One Control Plane under two compositions of the in-process adapter's own boot,
+    each on the SDK's default clock. The first is built before the declaration is
+    registered and keeps serving on that clock, pinning nothing; the second, built
+    after, serves at the declared instant and pins the declaration it read.
+    """
+    from ccf.client.adapters import inprocess
+    from ccf.controlplane.demonstration_serve_instant import (
+        DEMONSTRATION_SERVE_INSTANT,
+        DemonstrationServeInstant,
+        demonstration_serve_instant_key,
+    )
+    from ccf.controlplane.registry import ControlPlaneRegistry
+
+    shared = ControlPlaneRegistry()
+    monkeypatch.setattr(inprocess, "ControlPlaneRegistry", lambda: shared)
+    document = load_binding_document(seeded)
+    before = _boot(document)
+    try:
+        key = demonstration_serve_instant_key(tenant_id=before.fabric.tenant_id)
+        version = register_typed_at_composition(
+            shared, key, DemonstrationServeInstant(serve_instant=DECLARED), DEMONSTRATION_SERVE_INSTANT
+        )
+        retained = _ask_resolver(before, seeded)
+        uri = getattr(retained, "replay_reference", None) or retained.replay_ref.uri
+        record = record_at(seeded, str(uri))
+        assert record.content_generation_path.served_at != DECLARED, "a built resolver read a later declaration"
+        assert not demonstration_bindings(record, tenant=before.fabric.tenant_id)
+        assert before.declared_clock is None
+    finally:
+        before.fabric.handle.close()
+
+    after = _boot(document)
+    try:
+        assert after.declared_clock is not None, "a resolver built after the registration did not read it"
+        rebuilt = _ask_resolver(after, seeded)
+        uri = getattr(rebuilt, "replay_reference", None) or rebuilt.replay_ref.uri
+        record = record_at(seeded, str(uri))
+        assert record.content_generation_path.served_at == DECLARED
+        assert [(binding.key, binding.version) for binding in demonstration_bindings(
+            record, tenant=after.fabric.tenant_id
+        )] == [(key, version)]
+    finally:
+        after.fabric.handle.close()
+
+
+def test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_question(
+    tmp_path: Path,
+) -> None:
+    """C1-late on the paved road: it builds a resolver per question and composes its own clock.
+
+    So a declaration registered into the opened product's Control Plane after
+    open is neither retained-around nor honored: the next question is refused by
+    name, before anything is acquired, recorded or served.
+    """
+    from ccf.controlplane.demonstration_serve_instant import (
+        DEMONSTRATION_SERVE_INSTANT,
+        DemonstrationServeInstant,
+        demonstration_serve_instant_key,
+    )
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.products.demonstration_clock import DemonstrationServeInstantConflict
+    from ccf.products.product import open_product
+    from ccf.replay.serve import ServedProduct
+    from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust
+    from tests.products import paved_fixture as fixture
+
+    root = fixture.write_tree(
+        tmp_path / "deployment", config=fixture.producer_config(), environment=fixture.producer_environment_text()
+    )
+    control_plane = ControlPlaneRegistry()
+    declare_wide_temporal_boundary(control_plane, tenant_id=fixture.PRODUCER_TENANT)
+    acquire = fixture.Acquire()
+    with open_product(
+        erasure_trust=declared_erasure_trust(fixture.PRODUCER_TENANT),
+        config_root=root,
+        scratch=tmp_path / "scratch",
+        acquire=acquire,
+        project=fixture.plan_factory,
+        assess=fixture.assess,
+        environ={fixture.CHILD_DSN_VAR: "postgresql://fixture"},
+        control_plane=control_plane,
+        clock=lambda: fixture.ADMITTED_AT,
+    ) as opened:
+        question = opened.question(
+            subject="acct-1",
+            asked_at=fixture.ASKED_AT,
+            intent="fixture-intent",
+            freshness="fixture-freshness",
+            parameters={fixture.THRESHOLD_PARAMETER: 1000},
+        )
+        assert isinstance(opened.answer(question), ServedProduct), "the control question was not served"
+        key = demonstration_serve_instant_key(tenant_id=opened.tenant_id)
+        register_typed_at_composition(
+            control_plane, key, DemonstrationServeInstant(serve_instant=fixture.ADMITTED_AT), DEMONSTRATION_SERVE_INSTANT
+        )
+        acquired = len(acquire.contexts)
+        with pytest.raises(DemonstrationServeInstantConflict) as refused:
+            opened.answer(question)
+        assert refused.value.key == key
+        assert len(acquire.contexts) == acquired, "the refused question acquired"
+
+
 # ---------------------------------------------------------------------------
 # Audit by construction: every record under the declaration pins it.
 # ---------------------------------------------------------------------------

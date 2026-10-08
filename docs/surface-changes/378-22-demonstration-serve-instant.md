@@ -7,8 +7,9 @@ assertion."* **SDK-defined** (CLAUDE.md §11). **Ruled option (b)** (Dave, 2026-
 10:50 MST, *"Option b on C1 and C2-A"*) for how "never usable in production" is enforced: the
 declaration is refused outside the SDK's development substrates, and every record made under
 it pins it in Decision Replay dimension 2. C1-late — a declaration registered after a resolver
-is built stays unread by that resolver — is not ruled and keeps its designed behavior. The
-measurements are in
+is built stays unread by that resolver — was ruled (a) by Dave at 12:29 MST the same day:
+running services retain their startup snapshot, and a later registration takes effect only after
+rebuilding (fragment 378-35, C1-late). The measurements are in
 `tests/client/test_demonstration_serve_instant.py`.
 
 What changes for a deployment that declares nothing: nothing. Its config derives the same

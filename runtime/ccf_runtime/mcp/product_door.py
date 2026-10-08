@@ -506,9 +506,11 @@ def _boot_credential(
     names = product.environment.door
     if names is None:
         raise ValueError(
-            "the environment document names no 'door' block; the credential,"
-            " issuer and resource-server addresses are deployment environment"
-            " and are read by the names declared there (D-IMPL-343)"
+            "the environment document names no 'door' block; the door's"
+            " credential is deployment environment and is read by the name"
+            " that block declares (D-IMPL-343). The issuer and resource-server"
+            " names are optional there: no SDK transport reads them"
+            " (D-IMPL-378 C2-A2)"
         )
     resolved_environ = os.environ if environ is None else environ
     credential = resolved_environ.get(names.credential.from_env) or secrets.token_urlsafe(32)

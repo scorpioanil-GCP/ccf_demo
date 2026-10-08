@@ -53,7 +53,7 @@ from starlette.testclient import TestClient
 
 from ccf.client.codec import decode_outcome
 from ccf.contracts.canonical import canonical_bytes
-from ccf.deployment.environment import EnvironmentDocument
+from ccf.deployment.environment import DoorEnvironment, EnvironmentDocument, EnvironmentValue
 from ccf.products.door import PRODUCT_REQUEST_TOOL, ProducerAssertion, WireRequest
 from ccf_runtime.mcp.product_door import ProductDoor, open_door
 from tests.mcp.test_product_door_composition import _Product
@@ -111,10 +111,14 @@ def _stderr_tail(errlog: TextIO, *, lines: int = 12) -> str:
 
 
 async def _ask_over_stdio(
-    environment: dict[str, str], calls: list[dict[str, Any]], errlog: TextIO
+    environment: dict[str, str],
+    calls: list[dict[str, Any]],
+    errlog: TextIO,
+    *,
+    arguments: tuple[str, ...] = ("--stdio",),
 ) -> tuple[list[str], list[CallToolResult]]:
     """Spawn the stdio door the way an MCP client does, list it, and make ``calls``."""
-    parameters = StdioServerParameters(command=sys.executable, args=[str(DOOR), "--stdio"], env=environment)
+    parameters = StdioServerParameters(command=sys.executable, args=[str(DOOR), *arguments], env=environment)
     async with stdio_client(parameters, errlog=errlog) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -161,6 +165,65 @@ def test_a_stdio_door_with_both_addresses_unset_starts_answers_and_still_refuses
     assert outside_mapping.isError, _text(outside_mapping)
     assert "tenant-unauthorized" in _text(outside_mapping), _text(outside_mapping)
     assert "against the scope mapping in force" in _text(outside_mapping), _text(outside_mapping)
+
+
+# --- C2-A2 (a): the environment document need not name either address ------------------
+
+
+def test_a_stdio_door_whose_document_names_neither_address_starts_answers_and_still_refuses() -> None:
+    """C2-A2 (a), Dave 2026-10-08 12:29 MST: both names are optional, so a document may leave them out.
+
+    Spawned with ``--without-address-names``: the producer's ``door:`` block names
+    its credential only. Red before the change: the document did not load, so the
+    door never started.
+    """
+    environment = {name: value for name, value in os.environ.items() if name not in ADDRESS_VARIABLES}
+    calls = [
+        _arguments(),
+        _arguments(tenant="another-tenant"),
+        _arguments(product_class="fixture.outside-the-scope-mapping"),
+    ]
+    with tempfile.TemporaryFile(mode="w+") as errlog:
+        try:
+            tools, (served, other_tenant, outside_mapping) = asyncio.run(
+                _ask_over_stdio(environment, calls, errlog, arguments=("--stdio", "--without-address-names"))
+            )
+        except Exception as unreachable:
+            raise AssertionError(
+                "the stdio door did not start and answer from a document naming"
+                f" neither address: {type(unreachable).__name__}: {unreachable}\n"
+                f"--- the door's stderr ---\n{_stderr_tail(errlog)}"
+            ) from unreachable
+
+    assert tools == [PRODUCT_REQUEST_TOOL], tools
+    assert not served.isError, _text(served)
+    decoded = decode_outcome(_text(served).encode("utf-8"), sent=WIRE)
+    assert decoded.outcome.refusal is None, decoded.outcome.refusal
+    assert decoded.outcome.producer == ProducerAssertion(producer_id=PRODUCER_ID, tenant_id=PRODUCER_TENANT)
+    assert other_tenant.isError and "does not carry tenant 'another-tenant'" in _text(other_tenant), _text(
+        other_tenant
+    )
+    assert outside_mapping.isError and "tenant-unauthorized" in _text(outside_mapping), _text(outside_mapping)
+
+
+def test_a_door_composes_over_a_door_block_naming_only_the_credential(tmp_path: pathlib.Path) -> None:
+    """C2-A2 (a), in process: the door reads the credential and nothing else from the block.
+
+    And the self-hosted mount still refuses a missing address by name: a value
+    left out is never supplied for it.
+    """
+    product = _Product(tmp_path)
+    product.environment = EnvironmentDocument(
+        substrate=product.environment.substrate,
+        door=DoorEnvironment(credential=EnvironmentValue(from_env="DOOR_TOKEN", remedy="set it")),
+    )
+    door = open_door(product, environ={"DOOR_TOKEN": "credential-only-token"})
+    assert door.credential == "credential-only-token"
+    with pytest.raises(TypeError) as missing:
+        door.server()  # type: ignore[call-arg]
+    assert "issuer_url" in str(missing.value) and "resource_server_url" in str(missing.value), missing.value
+    with pytest.raises(ValidationError):
+        door.server(issuer_url=None, resource_server_url=None)  # type: ignore[arg-type]
 
 
 # --- controls: the two transports that DO advertise the addresses ----------------------
