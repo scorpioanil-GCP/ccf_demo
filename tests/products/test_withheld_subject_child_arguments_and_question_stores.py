@@ -34,7 +34,6 @@ fixture vocabulary (CINV-01, CLAUDE.md §11).
 
 from __future__ import annotations
 
-import dataclasses
 import pathlib
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
@@ -44,7 +43,7 @@ import pytest
 from ccf.contracts.canonical import content_hash
 from ccf.deployment import load_and_boot, load_config_and_boot
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import ProductNotResolvable, build_governed_resolver
+from ccf.products.resolver import GovernedResolver, ProductNotResolvable, build_governed_resolver
 from ccf.replay.engine import replay
 from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
@@ -90,7 +89,8 @@ def _ask_composite(
     """The design lane's probe, as a fixture: an early-withholding composite over a local child door.
 
     The child resolver is the SDK's ``GrantBoundChildResolver`` as
-    ``build_composite`` wires it, handed ``mapping`` and nothing that wraps it.
+    ``build_child_resolver`` wires it, handed ``mapping`` and nothing that wraps
+    it; the composite is built over it with its early policy declared.
     Returns the composite's outcome and the subjects its child door was asked.
     """
     parent = m._composite_boot(tmp_path / "parent", child_anchor=child_anchor)
@@ -98,13 +98,19 @@ def _ask_composite(
     child = m._Booted(fabric=child_own.fabric, control_plane=child_own.control_plane, store=parent.store, root=child_own.root)
     asked: list[str] = []
     try:
-        built, _granted = cf.build_composite(
+        children = cf.build_child_resolver(
             parent,
             child_door=m._child_door(child, asked=asked, observed=m.CHILD_OBSERVED[child_anchor]),
             child_arguments=mapping,
             child_questions=questions,
         )
-        composite = dataclasses.replace(built, plan_factory=m._early())
+        # P2 (c) (`D-IMPL-378`, Dave 2026-10-08 12:29 MST): a composite states its
+        # withholding stance where its resolver is built. This one's stance is its
+        # early policy, declared here rather than swapped in after a stance-less
+        # resolver was built (which P2 (c) refuses at construction).
+        arguments = cf._arguments(parent)
+        arguments.update(composite_children=children, plan_factory=m._early())
+        composite = GovernedResolver(**arguments)
         outcome = composite(
             tenant=m.TENANT, product_class=m.PRODUCT_CLASS, version=m.PRODUCT_VERSION, perspective=m.PERSPECTIVE,
             request=ProductRequest(
