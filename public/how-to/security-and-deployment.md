@@ -1016,17 +1016,33 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   tenant A erases an address that tenant B also filed, B's tenant-scoped reads
   still serve it and every tenantless read of it withholds it, with the
   reason redacted.
-- **The MCP client lane is not a governed read (forged-record review,
-  D-IMPL-376).** The artifact server serves a tenant's own client-lane filings
-  to every principal of that tenant as the exact stored bytes, whatever their
-  shape (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`).
-  Bytes a principal files on its tenant's client lane, shaped as another
-  principal's Decision Replay record, therefore cross the MCP blob and
-  presence resources to that tenant's principals — as a client-lane artifact,
-  and the answer does not say which lane served it. They never cross a
-  governed read: the HTTP evidence routes and the artifact server's governed
-  reads answer them as a missing address. Treat a record as evidence only
-  when a governed read returned it.
+- **Record-shaped bytes on the MCP client lane answer as a missing address
+  (forged-record review, D-IMPL-376; client-lane ruling, D-IMPL-378).** The
+  artifact server serves a tenant's own client-lane filings to every principal
+  of that tenant as the exact stored bytes
+  (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`), and
+  the answer does not say which lane served it. So it does not serve bytes
+  that validate as a Decision Replay record that way. "Validate" means
+  `DecisionReplayRecord.model_validate_json`, the parse the replay engine
+  (`src/ccf/replay/engine.py::resolve_artifact`) and every SDK reader of a
+  record make. The governed read decides those bytes, and on the blob and
+  presence resources it answers bytes a principal filed on its tenant's
+  client lane exactly as a missing address. Read through the MCP-backed store
+  (`src/ccf/artifacts/mcp_store.py::McpArtifactStore`) they are absent, so
+  the replay engine, `replay_refusal` and child admission do not take them as
+  a record when they read through it. Three things are not refused. The write
+  is not: the bytes are stored, and the names resource lists the tenant's own
+  filing under its stored class. Bytes the validator refuses, one key away
+  from a record included, are served as client artifacts. And the same
+  filing read in process is not: handed a store directly rather than through
+  the artifact server, `resolve_artifact`, `replay_refusal` and child
+  admission do not check who filed a record, so a record filed on a client
+  lane with an ordinary `ArtifactWrite` reads as one. Treat a record as
+  evidence only when a governed read returned it. An erasure door built over
+  the MCP-backed store reads each named address's bytes to verify its
+  subject, so it refuses a request naming such a filing
+  `subject-unverifiable`. A door over the store in process reads the bytes
+  directly and judges the subject.
 - **A read-refusal record is attributed to the door's tenant (forged-record
   re-review, D-IMPL-376).** The governed read records each refusal through the
   recorder of the door that refused it, and the record names the door's
