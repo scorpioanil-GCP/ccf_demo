@@ -1929,9 +1929,42 @@ class ProductRequestContract(VersionedArtifact):
                 a parameter the class does not honor, and a binding naming a
                 parameter or a token the class cannot honor, are refused by the
                 contract's own validators rather than here — each in one
-                message naming every offender.
+                message naming every offender. Raised first of all, before
+                anything is read, when ``artifact`` is not a declared artifact
+                at all: ``None`` — which a ``.get`` on
+                `BootedFabric.artifacts` by a bare key returns — or a raw
+                document mapping rather than the envelope (`D-IMPL-378`).
         """
-        declaration = artifact.declaration
+        # `D-IMPL-378` item 4: refuse what is not a declared artifact BEFORE
+        # reading it. The attribute is read with a default rather than
+        # dereferenced, so ``None`` — what ``.get`` on `BootedFabric.artifacts`
+        # returns for a bare key once the boot result holds that artifact under
+        # its tenant-placed key (`D-IMPL-354`) — and a raw document mapping are
+        # refused by this method, by name, in its own ``ValueError`` convention,
+        # instead of dying on an ``AttributeError`` the interpreter raised. The
+        # check reads the shape and imports no class: `DeclaredArtifact` cannot
+        # be imported here at runtime (see the ``TYPE_CHECKING`` block).
+        declaration = getattr(artifact, "declaration", None)
+        if not isinstance(declaration, Mapping):
+            presented = "None" if artifact is None else f"a {type(artifact).__name__}"
+            hint = (
+                " A None here is what `.get` returns for a key the mapping does"
+                " not hold, and `BootedFabric.artifacts` holds every artifact"
+                " under its manifest key as placed under the deployment's tenant"
+                " (`{tenant}/{key}`, D-IMPL-354), never under the bare key a"
+                " configuration authored: read it by `booted.keys.request_contract`"
+                " on the single-file door, or by"
+                " `ccf.controlplane.registry.namespaced_key(tenant=..., key=...)`"
+                if artifact is None
+                else ""
+            )
+            raise ValueError(
+                "ProductRequestContract.from_declared reads a request contract out"
+                " of the declared artifact a manifest load returns"
+                " (`ccf.controlplane.artifacts.DeclaredArtifact`) and was handed"
+                f" {presented}, which is not a declared artifact: it carries no"
+                " `declaration` mapping to read (D-IMPL-126)." + hint
+            )
         missing = tuple(
             key for key in _DECLARATION_KEYS if key not in declaration
         )
