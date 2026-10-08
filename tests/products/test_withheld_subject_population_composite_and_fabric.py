@@ -1188,16 +1188,19 @@ def test_q8_the_early_decision_is_the_same_for_a_subject_the_source_holds_and_on
 def test_q8_a_composite_whose_projection_withholds_late_is_refused(tmp_path: pathlib.Path) -> None:
     """A composite may withhold its subject only through the early policy; a late withhold is refused by name.
 
-    Raised before this decision is gated, recorded or served: a broken composition,
-    not a governed answer.
+    `D-IMPL-378` P2 (c) (Dave, 2026-10-08) moved this refusal from the question to
+    construction: a composite whose plan factory declares no early policy, under a
+    class that does not state ``subject_withholding: never``, is refused when its
+    resolver is constructed — before any question, so before any child is asked
+    about the subject, and the same whatever subject would have been asked. This
+    composite's projection does withhold late (``_late``), so its class cannot
+    truthfully state ``never``, and the refusal it meets is the construction one.
+    (Before P2 (c) it was constructed, asked the question, and refused by
+    ``CompositeWithheldLate`` once its projection had withheld.)
     """
-    ask, asked, close = _composite(tmp_path / "late", child_anchor=FROM_DECISION, project=_late(frozenset({COMPOSITE_WITHHELD})))
-    try:
-        with pytest.raises(ProductNotResolvable) as raised:
-            ask(COMPOSITE_WITHHELD)
-    finally:
-        close()
-    assert _named(raised.value, "CompositeWithheldLate"), repr(raised.value)
+    with pytest.raises(ProductNotResolvable) as raised:
+        _composite(tmp_path / "late", child_anchor=FROM_DECISION, project=_late(frozenset({COMPOSITE_WITHHELD})))
+    assert _named(raised.value, "CompositeNeedsAWithholdingStance"), repr(raised.value)
 
 
 def test_q8_a_composite_declaring_late_only_withholding_refuses_construction(tmp_path: pathlib.Path) -> None:
