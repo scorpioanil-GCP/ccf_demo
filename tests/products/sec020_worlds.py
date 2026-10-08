@@ -1930,10 +1930,10 @@ class RequestKeyedChildren:
         self._subject: str | None = None
         self.inner: Any = None
 
-    def child_arguments(self, requirement: Any, asked_at: datetime) -> Mapping[str, str]:
+    def child_arguments(self, requirement: Any, request: ProductRequest) -> Mapping[str, str]:
         subject = self._fixed or self._subject
         assert subject is not None, "a child was asked before the composite's request reached it"
-        return {"subject": subject, "asked_at": asked_at.isoformat(), "threshold": str(THRESHOLD_VALUE)}
+        return {"subject": subject, "asked_at": request.asked_at.isoformat(), "threshold": str(THRESHOLD_VALUE)}
 
     def resolve_for(self, *, requirements: Any, request: ProductRequest, asked_at: datetime,
                     admitted_at: datetime, composition_invocation: str, consumer_lineage: Any) -> Any:
