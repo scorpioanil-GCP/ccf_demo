@@ -284,3 +284,18 @@ def test_no_substrate_step_escapes_the_always_run_list() -> None:
         if any(marker in str(step.get("run", "")) for marker in ("leg-", "conformance", "-m postgres"))
     }
     assert substrate == set(ALWAYS_RUN_STEPS), sorted(substrate ^ set(ALWAYS_RUN_STEPS))
+
+
+#: D-IMPL-378 C10 (Dave, 2026-10-07 21:18 MST; confirmed 2026-10-08 04:07 MST):
+#: GitHub moves `ubuntu-latest` to Ubuntu 26 from 2026-10-19, so a moving label
+#: would change the release run's operating system without a commit. `perf.yml`
+#: already pinned this image.
+PINNED_RUNNER = "ubuntu-24.04"
+
+
+@pytest.mark.parametrize("name", COMMITTED)
+def test_every_job_runs_on_the_pinned_image(name: str) -> None:
+    doc = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8"))
+    runners = {job_id: job.get("runs-on") for job_id, job in doc["jobs"].items() if "uses" not in job}
+    assert runners, f"{name} declares no job that runs on a runner; the check would be vacuous"
+    assert all(runner == PINNED_RUNNER for runner in runners.values()), f"{name}: {runners}"

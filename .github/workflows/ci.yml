@@ -20,7 +20,7 @@ permissions:
 jobs:
   lint:
     name: lint (CINV-01..04, 06) + strict types
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # `fetch-depth: 0` for the same reason the test job deepens its clone:
       # `tools/lints/tests/test_base_roster.py` regenerates the CINV-06 base
@@ -96,7 +96,7 @@ jobs:
 
   test:
     name: tests (python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -342,7 +342,7 @@ jobs:
   # made non-blocking to hide a gap is worse than the gap.
   examples:
     name: examples suite (hw1-harness-clients, reference backends)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The surviving example spawns MCP stdio children (three harness clients
     # against one door) and must not be able to hang the runner (review
     # consensus concern 5).
@@ -390,7 +390,7 @@ jobs:
   # enforce.
   docs:
     name: docs gate (strict build + publish scan, D-IMPL-72)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
