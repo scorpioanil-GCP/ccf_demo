@@ -154,9 +154,26 @@ by distribution, never by equality (lane ``378e-s020``):
   over every cell of the comparison, pass a two-sample Kolmogorov-Smirnov test
   at the stated level, with the stated minimum sample per side.
 
+These adaptations decided nothing Dave had not ruled: E1 and E2 were OWED when
+they were made (``records/2026-10-08-d-impl-378-ci-lane/OWED-RULINGS.md``);
+Dave ruled them on 2026-10-08 at 12:29 MST.
+
 SEC-020 is OPEN: Dave approved E1 (a), E2 (i) and (iii), P2 (c), CT-A (a) and
 CT-C (a), and did not approve closure; CT-B is not approved, so the 22
 undeclared-population cells stay in the gate.
+
+E2 (ii): a class that affirms ``never`` and withholds anyway (Dave, 2026-10-08 12:29 MST)
+------------------------------------------------------------------------------------------
+Ruled a measured oracle, "REJECTED as disclosure-only": the withheld subject's
+question raising where a nonexistent subject's is answered tells the two apart.
+``test_a_withheld_subject_under_a_never_class_is_indistinguishable[<comparison>-<configuration>-<anchor>-<door>-<channel>]``
+judges it by this module's own rules, one ``configuration`` per way the class
+and its projection can meet (``sec020_worlds.NEVER_CONFIGURATIONS``), with an
+instrument per channel (``test_the_never_instrument_sees_a_difference``). Its
+cells stay in the gate, unmarked, until no configuration leaves the two
+distinguishable. The listed-class cell below holds only the record channel of
+that configuration (the runtime defense writes no record); it is not evidence
+of indistinguishability.
 
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
@@ -762,15 +779,21 @@ LISTED_SHAPES = w.LISTED_SHAPES
 #: ``378b-s020record`` PROPOSAL section 7, item 1). A class that does not affirm
 #: ``never``, listed: refused where its resolver is built, in the deployment that
 #: holds the subject and in the one that does not. The withheld subject under a
-#: class that affirms ``never``: refused before anything is recorded —
-#: ``NeverWithholdingContradicted`` on the paved road; for a composite, Q8's
-#: late-withhold refusal runs first on this tree (``CompositeWithheldLate``).
+#: class that affirms ``never``: refused before anything is recorded, as
+#: ``NeverWithholdingContradicted`` — for a composite too, named before Q8's
+#: ``CompositeWithheldLate`` (Dave's CT-D (a), 2026-10-08 12:29 MST: "for
+#: diagnostic precedence; this does not resolve E2(ii)'s oracle").
+#: That second expectation names the runtime DEFENSE Dave retained (E2 (ii),
+#: 2026-10-08 12:29 MST), held here for the record channel only: the raise
+#: itself, against the nonexistent subject's answer, is the oracle he ruled, and
+#: :func:`test_a_withheld_subject_under_a_never_class_is_indistinguishable`
+#: fails on it.
 LISTED_REFUSALS: dict[str, dict[str, str]] = {
     w.WITHHELD_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
     w.NONEXISTENT_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
     w.WITHHELD_READABLE: {
         w.SUBJECT_KEYED: "NeverWithholdingContradicted",
-        w.COMPOSITE_SUBJECT_CHILD: "CompositeWithheldLate",
+        w.COMPOSITE_SUBJECT_CHILD: "NeverWithholdingContradicted",
     },
 }
 
@@ -808,11 +831,17 @@ def test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record
       nonexistent subject under the same listing is answered, and its owner
       reads its record back — the listing is live.
 
-    The second arm leaves a response-level difference BY DESIGN: the withheld
-    subject's question raises where the nonexistent subject's is answered.
-    That is OWED ruling E2 (ii) (a class that declares it never withholds, and
-    withholds, fails loudly, as a disclosed deployment obligation); Dave has
-    not ruled it, and this cell passing does not rule it.
+    The second arm holds the RECORD CHANNEL only: the runtime defense refuses
+    the withheld question by name before anything is recorded, so no record of
+    it exists to read back. It is not evidence that the two subjects are
+    indistinguishable. The withheld subject's question raises where the
+    nonexistent subject's is answered, and Dave ruled that difference a
+    measured oracle (E2 (ii), 2026-10-08 12:29 MST, "REJECTED as
+    disclosure-only"; it was OWED when this cell was written).
+    :func:`test_a_withheld_subject_under_a_never_class_is_indistinguishable`
+    judges it, and fails while it stands, for the two configurations this
+    arm's deployments are built as (``never_late`` on the paved road,
+    ``never_composite_late`` for the composite).
     """
     if not w.evidence_allowlist_exists():
         pytest.skip(f"pending API: {w.EVIDENCE_ALLOWLIST_FIELD} (ProductEntitlementPolicy)")
@@ -1053,4 +1082,175 @@ def test_the_same_deployment_instrument_sees_a_difference(
         f"same-deployment instrument broken [{shape}, {anchor}, {door}, {channel}]: {left_side} and"
         f" {right_side} are indistinguishable on this channel, so a PASS of its same-deployment"
         f" comparison would prove nothing\n  {left_side}: {w.render(left)}\n  {right_side}: {w.render(right)}"
+    )
+
+
+# =============================================================================
+# E2 (ii): a class that affirms ``never`` whose projection withholds anyway
+# =============================================================================
+#
+# Dave, 2026-10-08 12:29 MST (``D-IMPL-378``), verbatim: "E2 (ii) REJECTED as
+# disclosure-only: The proposed hidden-subject exception versus
+# nonexistent-subject 200 is a measured oracle. Validate withholding capability
+# against the class declaration at construction; retain the runtime check as
+# defense. Keep the violation probe visible until the treatment satisfies the
+# closure criterion." The cells below are that probe, inside the closure gate:
+# never retired, never marked, red for every configuration whose two sides a
+# caller can still tell apart.
+
+
+@pytest.fixture(scope="module")
+def never_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.NeverRunCache]:
+    """One E2 (ii) run per (configuration, anchor, door) for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.NeverRunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+def _never_cells() -> list[Any]:
+    cells = []
+    for configuration, shape in w.NEVER_CONFIGURATIONS.items():
+        for comparison in w.COMPARISONS:
+            for anchor in w.ANCHORS:
+                for door in w.DOORS:
+                    for channel in w.channels_for(comparison=comparison, shape=shape, door=door):
+                        cells.append(
+                            pytest.param(
+                                comparison, configuration, anchor, door, channel,
+                                id=f"{comparison}-{configuration}-{anchor}-{door}-{channel}",
+                            )
+                        )
+    return cells
+
+
+def _both_raised(run: w.Run, *sides: str, either: bool = False, excused: tuple[str, ...] = ()) -> dict[str, dict[str, str]]:
+    """Positions where the named sides RAISED instead of answering — :func:`_vacuous` with no shape's excuse.
+
+    Nothing is excused here by the shape a configuration follows: a raise is
+    "not evidence" unless the side is named in ``excused`` and what it raised
+    is :data:`~tests.products.sec020_worlds.NEVER_CAPABILITY_REFUSAL` at its
+    one question (the instrument's refused side, CT-A (a)).
+    """
+    raised = {side: run.raised(side) for side in sides}
+    positions = set().union(*(set(r) for r in raised.values()))
+    found: dict[str, dict[str, str]] = {}
+    for position in sorted(positions):
+        hit = {
+            side: r[position]
+            for side, r in raised.items()
+            if position in r
+            and not (
+                side in excused
+                and position == w.ONLY
+                and r[position].startswith(f"{w.NEVER_CAPABILITY_REFUSAL}:")
+            )
+        }
+        if (either and hit) or (hit and all(position in r for r in raised.values())):
+            found[position] = hit
+    return found
+
+
+@pytest.mark.parametrize(("comparison", "configuration", "anchor", "door", "channel"), _never_cells())
+def test_a_withheld_subject_under_a_never_class_is_indistinguishable(
+    never_runs: w.NeverRunCache, comparison: str, configuration: str, anchor: str, door: str, channel: str
+) -> None:
+    """E2 (ii): under a class affirming ``never``, a withheld subject is indistinguishable from a nonexistent one.
+
+    The class affirms ``subject_withholding: never`` and its projection
+    withholds the subject anyway, in each way the two can meet
+    (``sec020_worlds.NEVER_CONFIGURATIONS``). Judged by this module's own rules:
+    the same pairs, noise floor and kind rule as
+    :func:`test_withheld_is_indistinguishable`, and two sides that both raised
+    are "not evidence". The one refusal this cell holds as the property is the
+    composition's own, raised where its resolver is built
+    (``sec020_worlds.NEVER_CAPABILITY_REFUSAL``) — and only when the withheld,
+    nonexistent and noise-floor sides ALL observe it, by name, and the same
+    configuration without its withholding capability answers rather than
+    raising (``sec020_worlds.NEVER_TWIN``): Dave's CT-A (a), "Construction refusal
+    counts, paired with a declared twin that successfully answers." A refusal
+    raised when the projection withholds — for the withheld subject only — is
+    the oracle Dave ruled, and this cell fails on it.
+    """
+    run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
+    withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
+    if w.never_refused_at_construction(run, (withheld_side, nonexistent_side, floor_side)):
+        # As P2 (c)'s twin is held (``test_an_undeclared_composite_is_refused_where_its_resolver_is_built``):
+        # the twin ANSWERS — served, or refused as data — and does not raise.
+        assert not run.raised(w.NEVER_TWIN), (
+            f"E2 (ii) [{comparison}, {configuration}, {anchor}, {door}]: control: the configuration without its"
+            f" withholding capability raised, so the refusal every side observed is not evidence that the"
+            f" capability is what it refuses: {run.raised(w.NEVER_TWIN)}"
+        )
+        return
+    vacuous = _both_raised(run, withheld_side, nonexistent_side)
+    assert not vacuous, (
+        f"E2 (ii) [{comparison}, {configuration}, {anchor}, {door}, {channel}]: not evidence — both sides"
+        f" RAISED instead of answering, and two equal exceptions are equal on every channel: {vacuous}"
+    )
+    differing, floor, withheld, nonexistent = _compare(run, comparison=comparison, channel=channel)
+    assert not differing, (
+        f"E2 (ii) [{comparison}, {configuration}, {anchor}, {door}, {channel}]: under a class affirming never,"
+        f" a withheld subject is distinguishable from a nonexistent one at {sorted(differing)}"
+        f" (noise floor, not counted: {sorted(floor)})\n"
+        f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
+    )
+
+
+def _never_instruments() -> list[Any]:
+    params = []
+    for configuration, shape in w.NEVER_CONFIGURATIONS.items():
+        for anchor in w.ANCHORS:
+            for door in w.DOORS:
+                channels: set[str] = set()
+                for comparison in w.COMPARISONS:
+                    channels |= set(w.channels_for(comparison=comparison, shape=shape, door=door))
+                for channel in sorted(channels):
+                    params.append(pytest.param(configuration, anchor, door, channel,
+                                               id=f"{configuration}-{anchor}-{door}-{channel}"))
+    return params
+
+
+@pytest.mark.parametrize(("configuration", "anchor", "door", "channel"), _never_instruments())
+def test_the_never_instrument_sees_a_difference(
+    never_runs: w.NeverRunCache, configuration: str, anchor: str, door: str, channel: str
+) -> None:
+    """The instrument of every E2 (ii) channel: a side that differs from the nonexistent one MUST be seen to differ.
+
+    As :func:`test_the_instrument_sees_a_difference`: the subject SERVED (the
+    configuration without its withholding capability,
+    ``sec020_worlds.NEVER_TWIN``) against the nonexistent side; for refusal
+    codes, the question its class refuses by contract; for references, Dave's
+    Q11 properties. Where the nonexistent side observed the construction
+    refusal by name, every channel is instrumented by the twin answering
+    against it — the structural pair of :func:`test_an_undeclared_composite_is_refused_where_its_resolver_is_built`.
+    """
+    run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
+    refused = w.never_refused_at_construction(run, (w.CF_NONEXISTENT,))
+    if channel == w.REFERENCE and not refused:
+        problems = w.reference_properties(run)
+        assert not problems, (
+            f"E2 (ii) reference instrument [{configuration}, {anchor}, {door}]: Dave's Q11 properties do not"
+            f" hold, so a PASS of the reference comparison would prove nothing: {problems}"
+        )
+        return
+    left_side = w.REFUSED_QUESTION if channel == w.REFUSAL and not refused else w.NEVER_TWIN
+    right_side = w.CF_NONEXISTENT
+    vacuous = _both_raised(run, left_side, right_side, either=True, excused=(right_side,))
+    assert not vacuous, (
+        f"E2 (ii) instrument not evidence [{configuration}, {anchor}, {door}, {channel}]: a side RAISED instead"
+        f" of answering, so a difference it shows is the exception's, not the channel's: {vacuous}"
+    )
+    left = run.channel(left_side, channel)
+    right = run.channel(right_side, channel)
+    floor = w.diff_paths(right, run.channel(w.CF_FLOOR, channel))
+    seen = w.diff_paths(left, right) - floor
+    assert seen, (
+        f"E2 (ii) instrument broken [{configuration}, {anchor}, {door}, {channel}]: {left_side} and"
+        f" {right_side} are indistinguishable on this channel, so a PASS of its comparison would prove"
+        f" nothing\n  {left_side}: {w.render(left)}\n  {right_side}: {w.render(right)}"
     )

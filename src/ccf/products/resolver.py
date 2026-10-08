@@ -324,6 +324,7 @@ __all__ = [
     "IncompatibleRefusalRecorder",
     "InstantAwareDebtScorerProtocol",
     "NeverWithholdingContradicted",
+    "NeverWithholdingProjectionCanWithhold",
     "ProductGateProtocol",
     "ProductNotResolvable",
     "WithholdingClassListedReadable",
@@ -774,7 +775,10 @@ class CompositeWithheldLate(ProductNotResolvable):
     what the children filed when they were asked stays filed. The
     SDK cannot see at construction whether a projection will withhold; a
     composite that declares it does is held to the early policy then
-    (:class:`CompositeNeedsAnEarlyPolicy`).
+    (:class:`CompositeNeedsAnEarlyPolicy`). A composite whose class affirms
+    ``subject_withholding: never`` is refused as
+    :class:`NeverWithholdingContradicted` instead, which is checked first (Dave's
+    CT-D (a), 2026-10-08 12:29 MST: diagnostic precedence only).
     """
 
 
@@ -913,12 +917,90 @@ class NeverWithholdingContradicted(ProductNotResolvable):
     signal (:class:`~ccf.projection.plan.ProjectionOutput`'s ``withheld``) for a
     class whose declaration affirms
     :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` — before anything is
-    rendered, recorded or served. The affirmation is what lets the class's
+    rendered, recorded or served, and before Q8's :class:`CompositeWithheldLate`,
+    so a composite affirming ``never`` is named by this refusal (Dave's CT-D (a),
+    2026-10-08 12:29 MST, diagnostic precedence only). The affirmation is what lets the class's
     records be read back by their owners; a withheld answer under it would
     reopen the read-back of a subject the answer hid, so it is refused as the
     broken deployment it is. A deployment whose projection may withhold leaves
     its class at the default.
+
+    **The defense, not the control** (Dave, 2026-10-08 12:29 MST, E2 (ii):
+    *"retain the runtime check as defense"*). A plan factory that declares it
+    withholds is refused where the resolver is built
+    (:class:`NeverWithholdingProjectionCanWithhold`); this check is what remains
+    for a factory that declares nothing and whose projection withholds anyway.
+    Raised for the withheld subject only, it still tells that subject from one
+    nothing holds — measured, as an exception (an HTTP 500) against an answer,
+    by
+    ``tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable``
+    (configurations ``never_late`` and ``never_composite_late``). SEC-020 is OPEN.
     """
+
+
+class NeverWithholdingProjectionCanWithhold(UnsupportedComposition):
+    """A class affirming its answers never withhold their subject, over a plan factory that declares it withholds.
+
+    Dave, 2026-10-08 12:29 MST (``D-IMPL-378``, E2 (ii); SDK-defined, CLAUDE.md
+    §11): *"Validate withholding capability against the class declaration at
+    construction; retain the runtime check as defense."* Raised by
+    :class:`GovernedResolver` at construction — on the paved road, which builds
+    a resolver for each question, before anything is read for it — the same
+    refusal whatever subject would have been asked — when the class declaration
+    affirms :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` and its plan
+    factory, through :class:`SubjectDisclosingPlanFactoryProtocol`, states a
+    capability to withhold that the SDK can read without running a question:
+
+    * **verified** — an early policy that does not disclose some subject to some
+      principal or role: the resolver itself withholds that subject (Q8), so
+      under the affirmation that subject's question could only end in a
+      refusal raised for it alone, which a nonexistent subject's does not get;
+    * **declared** — ``subject_disclosure()`` returning ``None``: the factory's
+      own statement that its projection withholds late, inside itself.
+
+    **What it cannot see.** Whether a projection withholds is otherwise
+    decided inside the deployment's ``invoke()``, which sets the withheld signal
+    on its own output; no operator and no declared plan step sets it. A plan
+    factory that declares nothing therefore constructs under ``never``, and a
+    projection of it that withholds anyway meets the serve-time defense
+    (:class:`NeverWithholdingContradicted`) — measured as still telling a
+    withheld subject from a nonexistent one. An early policy that withholds
+    nobody is no capability and constructs.
+    """
+
+
+def _refuse_a_never_class_whose_projection_can_withhold(
+    *, declaration: ProductClassDeclaration, disclosure: SubjectDisclosurePolicy | None
+) -> None:
+    """Refuse to construct a class affirming ``never`` whose plan factory declares it withholds (E2 (ii)).
+
+    Called only for a plan factory implementing
+    :class:`SubjectDisclosingPlanFactoryProtocol`, with what its
+    ``subject_disclosure()`` returned — read ONCE, by the caller. Reads the
+    declaration and the policy alone: no subject, no fabric, no clock.
+    """
+    if declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER:
+        return
+    if disclosure is None:
+        raise NeverWithholdingProjectionCanWithhold(
+            f"class {declaration.schema_name!r} affirms subject_withholding:"
+            f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory declares that its"
+            " projection withholds subjects late (subject_disclosure() returns None);"
+            " a withheld answer under the affirmation is refused for the withheld"
+            " subject only, which tells it from a subject nothing holds. Affirm"
+            " 'never' only over a projection that never withholds (Dave's E2 (ii),"
+            " D-IMPL-378)"
+        )
+    if any(disclosure.by_principal.values()) or any(disclosure.by_role.values()):
+        raise NeverWithholdingProjectionCanWithhold(
+            f"class {declaration.schema_name!r} affirms subject_withholding:"
+            f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory declares an early"
+            " policy that withholds subjects from some principal or role; the"
+            " resolver withholds them, so the affirmation would be contradicted for"
+            " those subjects only, which tells them from a subject nothing holds."
+            " Affirm 'never' only over a projection that never withholds (Dave's"
+            " E2 (ii), D-IMPL-378)"
+        )
 
 
 def _refuse_a_listed_class_that_may_withhold(
@@ -1199,6 +1281,11 @@ class SubjectDisclosingPlanFactoryProtocol(Protocol):
     still keeps, the caller's question. The factory's projection must withhold
     exactly what the policy does not disclose
     (:class:`UndisclosedSubjectAnswered`).
+
+    A class affirming ``subject_withholding: never`` is not built over a factory
+    whose declaration withholds — ``None``, or a policy that does not disclose
+    some subject — (:class:`NeverWithholdingProjectionCanWithhold`, Dave's E2
+    (ii), ``D-IMPL-378``).
     """
 
     def subject_disclosure(self) -> SubjectDisclosurePolicy | None:
@@ -2888,6 +2975,12 @@ class GovernedResolver:
                     " SubjectDisclosurePolicy or None (SEC-020, Q8); got"
                     f" {type(disclosure).__name__}"
                 )
+            # Dave's E2 (ii) (`D-IMPL-378`, 2026-10-08 12:29 MST): a class
+            # affirming `never` over a factory that declares it withholds is
+            # refused here, before Q8's composite rules name anything else.
+            _refuse_a_never_class_whose_projection_can_withhold(
+                declaration=declaration, disclosure=disclosure
+            )
             if declaration.requires and disclosure is None:
                 raise CompositeNeedsAnEarlyPolicy(
                     f"class {declaration.schema_name!r} composes children and its"
@@ -3845,6 +3938,26 @@ class GovernedResolver:
             # from it.
             seeds=request_seeds(asked if undisclosed else request),
         )
+        # Dave's Q12 (`D-IMPL-378`): a class that affirmed its answers never
+        # withhold their subject may have its records read back by their
+        # owners; a withheld answer under that affirmation is a broken
+        # deployment, refused before anything is rendered, recorded or served.
+        # Checked FIRST, before Q8's composite refusal below: Dave's CT-D (a),
+        # 2026-10-08 12:29 MST, "for diagnostic precedence; this does not
+        # resolve E2(ii)'s oracle" — a composite affirming `never` that
+        # withholds late is named by its own contradiction. Both refuse before
+        # anything is recorded.
+        if (
+            execution.projection.withheld
+            and self._declaration().subject_withholding == SUBJECT_WITHHOLDING_NEVER
+        ):
+            raise NeverWithholdingContradicted(
+                f"class {self._declaration().schema_name!r} affirms"
+                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} and its"
+                " projection withheld the subject; a record of the class may be"
+                " read back by its owner, so a withheld answer under the"
+                " affirmation is refused (Dave's Q12, D-IMPL-378)"
+            )
         if execution.projection.withheld and not undisclosed and registered.requires:
             # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
             # declared early policy; its children were already asked about this
@@ -3938,22 +4051,6 @@ class GovernedResolver:
         # built from it. Like the walk, this is exact only for an acquisition
         # keyed on the subject: under a population read a nonexistent subject's
         # question is scored against text the read wrote (measured; section 4.12).
-        #
-        # Dave's Q12 (`D-IMPL-378`): a class that affirmed its answers never
-        # withhold their subject may have its records read back by their
-        # owners; a withheld answer under that affirmation is a broken
-        # deployment, refused before anything is rendered, recorded or served.
-        if (
-            execution.projection.withheld
-            and self._declaration().subject_withholding == SUBJECT_WITHHOLDING_NEVER
-        ):
-            raise NeverWithholdingContradicted(
-                f"class {self._declaration().schema_name!r} affirms"
-                f" subject_withholding: {SUBJECT_WITHHOLDING_NEVER!r} and its"
-                " projection withheld the subject; a record of the class may be"
-                " read back by its owner, so a withheld answer under the"
-                " affirmation is refused (Dave's Q12, D-IMPL-378)"
-            )
         rendered = (
             (
                 engine

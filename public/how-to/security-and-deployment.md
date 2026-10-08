@@ -1384,11 +1384,19 @@ a nonexistent one. Each was measured on test fixtures.
   `/artifact`, at the MCP artifact server's blob, presence and names
   resources, at the Experience door and through the `ccf` CLI
   (`tests/http_api/test_sec020_q12_owner_read_back.py`). Read-refusal records
-  keep their owner read-back (section 4.10). A class that affirms `never`
-  while its projection can withhold is a broken deployment: its withheld
-  question raises where a nonexistent subject's is served (the same test
-  module). Dave rejected treating that as a disclosed obligation (E2 (ii)),
-  and it stays open.
+  keep their owner read-back (section 4.10). A class that affirms `never` over
+  a plan factory declaring that it withholds (an early policy that withholds
+  some subject, or `subject_disclosure()` returning `None`) is refused when its
+  resolver is built, the same for every subject
+  (`src/ccf/products/resolver.py::NeverWithholdingProjectionCanWithhold`;
+  `tests/products/test_sec020_never_capability.py`). The SDK cannot see a
+  withhold that the plan factory does not declare: a class that affirms `never`
+  while such a projection withholds is a broken deployment, and its withheld
+  question raises where a nonexistent subject's is served (an HTTP 500 against
+  a 200). Dave rejected treating that as a disclosed obligation (E2 (ii)); it is
+  measured, and kept failing in the closing test until a treatment removes it
+  (`tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable`).
+  Do not affirm `never` for a class whose projection can withhold.
   **Where default-deny applies, and where it does not (E2 (i)).** Every read
   an agent can reach holds it: the governed evidence reads above, and the
   Experience door, which refuses. In process, what an agent, a harness
@@ -1437,10 +1445,15 @@ a nonexistent one. Each was measured on test fixtures.
   A caller's declared parameters do reach your mapping, unchanged, so take
   every child's subject from the request's `subject`, never from a parameter.
   A composite that declares nothing is refused when its resolver is built
-  (P2 (c), above), and `CompositeWithheldLate` remains for a composite that
-  declares a stance and withholds a subject the stance does not cover
-  (measured for a class affirming `never` by
-  `tests/products/test_sec020_combined_proof.py::test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record`).
+  (P2 (c), above), and `CompositeWithheldLate` remains for a composite whose
+  early policy does not cover a subject its projection withholds
+  (`tests/products/test_sec020_never_capability.py::test_ct_d_control_composite_withheld_late_remains_for_a_composite_whose_early_policy_misses_the_subject`).
+  A composite whose class affirms `never` and withholds anyway is refused as
+  `NeverWithholdingContradicted`, which is checked first (`D-IMPL-378` CT-D
+  (a), diagnostic precedence only;
+  `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
+  its withheld question still raises where a nonexistent subject's is
+  answered, the limit the bullet on the record behind an answer names.
 - **A question's store, booted again.** The withheld subject's acquisition
   stays in the store its question wrote, and the paved road leaves that store
   on disk when it closes the fabric (the replay road reopens it). Booted again
