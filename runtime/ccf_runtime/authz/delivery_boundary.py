@@ -66,6 +66,7 @@ its own entitlement source.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -1530,6 +1531,16 @@ def govern_dereference(
         consulted = tenant_view.get(content_address=content_address)
     except ErasedContentRefused as erased:
         return erased_reading(erased)
+    # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+    # integrity." The bytes that CROSS come from this second read, not from the
+    # authorizing read above, so they are held to the same arithmetic before
+    # they leave: the address is the sha256 of the stored canonical bytes
+    # (`D-IMPL-89`). Bytes that changed between the two reads answer as bytes
+    # that do not hash to their address always have — the ONE absence.
+    if hashlib.sha256(consulted).hexdigest() != content_address:
+        return refuse(
+            cause="nonexistent", error_code=ERROR_EVIDENCE_ABSENT, detail=absent
+        )
 
     # --- hold 3: the level that disclosed the serve -------------------------
     # Read through the door's recorder (`D-IMPL-345` R-2), keyed on the

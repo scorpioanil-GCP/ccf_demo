@@ -83,6 +83,7 @@ two open release findings `D-IMPL-341` (the entity-freshness expiry) and
 
 from __future__ import annotations
 
+import hashlib
 import os
 import uuid
 from collections.abc import Callable, Iterable, Mapping
@@ -178,6 +179,7 @@ from ccf.products.resolver import (
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.expiry import refuse_undeclared_ttl_anchor
 from ccf.projection.plan import Perspective
+from ccf.replay.engine import ReplayDivergence
 from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord, PolicyBinding, ResolutionNotApplicable
 from ccf.replay.serve import ServedProduct
@@ -627,12 +629,19 @@ class OpenedProduct:
         record's content address on ``replay_ref``; a refusal carries the
         record's URI, which the store resolves. One store, so one read idiom.
 
-        The bytes there are returned as a record only where the store shows
-        the fabric's record writer filed them under the tenant they name
+        The bytes there are returned as a record only where they hash to the
+        address the outcome names — the replay engine's own arithmetic
+        (:func:`~ccf.replay.engine.resolve_artifact`, ``D-IMPL-89``), so bytes
+        altered under a reference are refused rather than handed back as the
+        decision's (Dave's E1 (a), ``D-IMPL-378``: *"Preserve record
+        content-address integrity"*) — and only where the store shows the
+        fabric's record writer filed them under the tenant they name
         (`D-IMPL-378`): an outcome can name any address, and a record-shaped
         artifact filed on a client lane is not a decision record.
 
         Raises:
+            ccf.replay.engine.ReplayDivergence: the stored bytes do not hash to
+                the address the outcome names.
             ccf.replay.provenance.RecordNotFiledByRecordWriter: the store
                 shows no such filing — an
                 :class:`~ccf.artifacts.protocol.ArtifactNotFound`, as an
@@ -644,9 +653,18 @@ class OpenedProduct:
             address = outcome.replay_ref.content_address
         else:
             address = self.artifact_store.resolve_uri(uri=outcome.replay_reference)
-        record = DecisionReplayRecord.model_validate_json(
-            self.artifact_store.get(content_address=address)
-        )
+        payload = self.artifact_store.get(content_address=address)
+        # E1 (a) (`D-IMPL-378`): byte fidelity FIRST, as replay holds it — the
+        # address is the sha256 of the stored canonical bytes, so the raw
+        # payload is what is verified, before it is believed or parsed.
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != address:
+            raise ReplayDivergence(
+                f"the bytes at {address!r} hash to {reproduced!r}; the store"
+                " returned bytes that are not the record this outcome names"
+                " (D-IMPL-89; D-IMPL-378 E1 (a))"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
         require_filed_by_record_writer(
             self.artifact_store, content_address=address, tenant_id=record.tenant_id
         )
