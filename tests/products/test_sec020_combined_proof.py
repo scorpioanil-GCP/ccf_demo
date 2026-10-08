@@ -68,9 +68,9 @@ cell (``AcquisitionNeedsAQuestionFabric``) and the second question of every
 ``reused_fabric`` cell (``AcquiredFabricReused``). Behind HTTP (a 500) and MCP
 (``ccf-runtime-failure:<id>``) the type is read off the resolver each door was
 handed (``sec020_worlds.door_resolver``), so a builder that broke cannot pass
-as refused. Where the owed ruling P2's option (c) is on the tree (a CANDIDATE,
-not ruled), the two late-composite shapes declare no withholding stance and
-every question of theirs is its construction refusal,
+as refused. Where P2's option (c) is on the tree (``D-IMPL-378``, ruled by Dave
+on 2026-10-08 at 12:29 MST), the two late-composite shapes declare no
+withholding stance and every question of theirs is its construction refusal,
 ``CompositeNeedsAWithholdingStance`` (``sec020_worlds.CONSTRUCTION_REFUSALS``),
 held the same way, with each instrument set against the same composite
 declaring a stance (``sec020_worlds.DECLARED_TWIN``).
@@ -697,7 +697,7 @@ UNDECLARED_COMPOSITE_SHAPES = tuple(shape for shape in w.CONSTRUCTION_REFUSALS i
 def test_an_undeclared_composite_is_refused_where_its_resolver_is_built(
     runs: w.RunCache, shape: str, anchor: str, door: str
 ) -> None:
-    """``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE; Dave has not ruled P2.
+    """``D-IMPL-378`` P2, option (c), which Dave ruled on 2026-10-08 at 12:29 MST.
 
     A composite whose stance is neither an early policy nor ``subject_withholding:
     never`` is refused where its resolver is built: every question of every
@@ -749,8 +749,9 @@ def test_a_public_reference_never_names_two_records(runs: w.RunCache, shape: str
     # off one door's shape of it), or a door that could not be reached, handed
     # out no reference at all; it is not a decision with a reference to compare.
     if w.refused_at_construction(shape):
-        # P2 (c), a candidate: no question of this shape is answered, so it hands
-        # out no reference to compare — provided each refusal is the named one.
+        # P2 (c) (`D-IMPL-378`, ruled 2026-10-08 12:29 MST): no question of this
+        # shape is answered, so it hands out no reference to compare — provided
+        # each refusal is the named one.
         refusals = {side: run.raised(side).get(w.ONLY, "") for side in answered}
         assert all(w.raising_is_the_property(shape, w.ONLY, message) for message in refusals.values()), (
             f"[{shape}, {anchor}, {door}] a question of an undeclared composite was not refused by P2 (c)'s"
