@@ -266,7 +266,11 @@ jobs:
       # cannot go green over a harness that did not run. Deliberately NOT
       # `continue-on-error`: per the I.1 D-07 precedent, a step made
       # non-blocking to hide a gap is worse than the gap.
+      # D-IMPL-378 C8 (Dave, 2026-10-07): this step and the three substrate legs
+      # below run even when an earlier step failed, as D-IMPL-372 did for the
+      # Postgres leg. Coverage stays gated: it only repeats the quick suite.
       - name: Harness adapter conformance (all three legs must run)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python ci-harness-conformance
 
       # The same twelve GraphStore conformance semantics the quick suite runs
@@ -295,6 +299,7 @@ jobs:
       # fallback, `allowed_entities` shapes included. `-rs` surfaces any
       # skip; CCF_REQUIRE_NEO4J above turns one into a failure.
       - name: Neo4j leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-neo4j
 
       # The substrate differential suite against a document store (plan
@@ -303,6 +308,7 @@ jobs:
       # shapes included. `-rs` surfaces any skip; CCF_REQUIRE_MONGO above
       # turns one into a failure.
       - name: MongoDB leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-mongo
 
       # The substrate differential suite against an RDF/JSON-LD engine (plan
@@ -315,6 +321,7 @@ jobs:
       # this substrate needs no extra (SUBQ-14 evidence, visible as an
       # absence).
       - name: Fluree leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-fluree
 
       # Coverage is informational only — D-17 sets no numeric gate.
