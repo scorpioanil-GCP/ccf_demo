@@ -3102,7 +3102,9 @@ class GovernedResolver:
         # the served path keeps `operators`, so a subject Π does not withhold is
         # still scored against the text its own acquisition wrote. With no seam,
         # `view` is the state before acquisition and `operators` is already
-        # built from it.
+        # built from it. Like the walk, this is exact only for an acquisition
+        # keyed on the subject: under a population read a nonexistent subject's
+        # question is scored against text the read wrote (measured; section 4.12).
         rendered = (
             (
                 engine

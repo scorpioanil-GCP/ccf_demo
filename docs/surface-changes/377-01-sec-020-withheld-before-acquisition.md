@@ -64,8 +64,9 @@ security how-to, section 4.12, states the same list for deployers.
   `debt.factors.freshness` and `debt.scorers`. With no similarity operator,
   with the attribute unchanged, or with the registry built from the view read
   before acquisition, they did not. `378-03` builds the re-execution's
-  registry from the read before acquisition, and the two products then
-  matched on both anchors.
+  registry from the read before acquisition, and for this shape the two
+  products then matched on both anchors; `378-03` also records the trade for
+  an acquisition not keyed on the subject.
 - **A fabric that outlives the question.** The withheld subject's acquisition
   stays in the fabric: after one question about a withheld subject the source
   holds, a later answer about an identifier that names nothing moved at

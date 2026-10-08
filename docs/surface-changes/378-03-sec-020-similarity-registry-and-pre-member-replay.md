@@ -16,14 +16,26 @@ corpus read out of the view its registry is built from, so a similarity
 operator scored the walk over the records before acquisition against the text
 acquisition had just written for the asked subject. Measured on `main` @
 `7bf069cc`, on a fabric that already held the withheld account, with an
-acquisition that changed its similarity text to the query: under
-`from_decision` the two products differed at `computed_empty`, `debt.debt`,
-`debt.factors.freshness` and `debt.scorers`; under `from_entity_freshness` the
-withheld subject was served and the nonexistent one refused
-`ttl-anchor-refusal`. With the change, both anchors match: every member of the
-served product, and the refusal shell except `replay_reference`. The exploit
-test is
+acquisition keyed on the subject that changed its similarity text to the
+query: under `from_decision` the two products differed at `computed_empty`,
+`debt.debt`, `debt.factors.freshness` and `debt.scorers`; under
+`from_entity_freshness` the withheld subject was served and the nonexistent
+one refused `ttl-anchor-refusal`. With the change, both anchors match: every
+member of the served product, and the refusal shell except
+`replay_reference`. The exploit test is
 `tests/products/test_withheld_similarity_registry.py::test_i2_a_withheld_subject_is_scored_against_the_corpus_read_before_acquisition`.
+
+**The trade, measured.** The registry now follows the rule the walk already
+follows, so it shares that rule's limit (close-out channel 1, "An acquisition
+not keyed on the subject"). On the same fabric with an acquisition that
+ingests the same refreshed claim whatever is asked, the two products differed
+before this change at `debt.debt` and `debt.factors.freshness` (and, under
+`from_entity_freshness`, at `expires_at` and `ttl_anchor_at`), both served.
+With it they differ under `from_decision` at `computed_empty`, `debt.debt`,
+`debt.factors.freshness` and `debt.scorers`, and under `from_entity_freshness`
+the withheld subject is refused `ttl-anchor-refusal` while the nonexistent one
+is served. Held as a strict expected failure:
+`tests/products/test_withheld_similarity_registry.py::test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity`.
 
 **Channel 7, records filed before dimension 5 carried the empty finding.**
 `ac4e4573` (merged to `main` in `8e8374c3`, 2026-09-05) put
@@ -49,7 +61,7 @@ it. The test is
 - Before: when Π raised the withheld signal, `__call__` re-executed the plan without the request seed over the as-of read taken immediately before the declared acquisition seam, using the operator registry built from the view read after acquisition. A similarity operator in that registry scored the walk against the text acquisition had just written for the asked subject.
 - After: when an acquisition seam ran, the re-execution runs on a `ProjectionEngine` over the same reader whose registry `build_operator_registry` builds from that read before acquisition, with the same operator parameters (the same effective request over the same pinned artifacts). Only the withheld branch builds it: the served path keeps the registry built from the view after acquisition, so a subject Π does not withhold is still matched against the text its own acquisition wrote (`tests/products/test_withheld_similarity_registry.py::test_i2_a_served_subject_is_still_scored_against_the_text_its_acquisition_wrote`). With no seam declared nothing changes.
 - Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`. The withheld rendering is the walk a subject that names nothing gets, and that subject's corpus is the text before acquisition.
-- Migration: none in code. With an acquisition seam declared, a withheld answer now also builds the operator registry a second time from the read before acquisition. On a test fabric of about 1,500 entities with a similarity operator in the plan, the withheld median was 1.06 to 1.08 times the nonexistent one over two runs of eight calls each, ranges overlapping (1.11 in one run before this change). If that read holds an entity whose declared corpus attribute is missing, the withheld call raises `SimilarityCorpusAttributeError`, as a nonexistent subject's call over that same state does.
+- Migration: none in code. If your `acquire` is not keyed on the subject and the plan carries a similarity operator, read "The trade, measured" above: that shape now differs at more members, and as refused against served under `from_entity_freshness`. With an acquisition seam declared, a withheld answer now also builds the operator registry a second time from the read before acquisition. On a test fabric of about 1,500 entities with a similarity operator in the plan, the withheld median was 1.06 to 1.08 times the nonexistent one over two runs of eight calls each, ranges overlapping (1.11 in one run before this change). If that read holds an entity whose declared corpus attribute is missing, the withheld call raises `SimilarityCorpusAttributeError`, as a nonexistent subject's call over that same state does.
 
 ## ccf.projection.engine.ProjectionEngine
 

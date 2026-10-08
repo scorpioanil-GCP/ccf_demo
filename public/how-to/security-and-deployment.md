@@ -1135,13 +1135,21 @@ The test is
 plan run for a withheld subject now scores with an operator registry built
 from that same read before acquisition, so a similarity operator matches the
 subject's text as it stood before acquisition. On a test fabric that already
-held the subject, an acquisition that changed its similarity text to the query
-used to make the two products differ at the empty finding and the debt. With
-the change they matched on both TTL anchors: every member of the served
-product, and the refusal shell except `replay_reference`. A subject the
-projection does not withhold is still matched against the text its own
-acquisition wrote. The test is
-`tests/products/test_withheld_similarity_registry.py`.
+held the subject, an acquisition keyed on the subject that changed its
+similarity text to the query used to make the two products differ at the empty
+finding and the debt. With the change they matched on both TTL anchors: every
+member of the served product, and the refusal shell except `replay_reference`.
+A subject the projection does not withhold is still matched against the text
+its own acquisition wrote. The test is
+`tests/products/test_withheld_similarity_registry.py`. This follows the rule
+the walk already follows, so it shares that rule's limit: with an acquisition
+not keyed on the subject (below), a nonexistent subject's question is matched
+against the text the acquisition wrote and the withheld rendering is not. On
+that test fabric with such an acquisition, the two products now differed at
+the empty finding and the debt under `from_decision`, and under
+`from_entity_freshness` the withheld subject was refused `ttl-anchor-refusal`
+while the nonexistent one was served. Before the change, the same shape
+differed at the debt and the expiry, with both served.
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.

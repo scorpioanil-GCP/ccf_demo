@@ -43,6 +43,13 @@ acquisition wrote: the same refresh makes the similarity operator select it,
 and the served product answers it. A registry built from the view before
 acquisition for the served path as well fails that control.
 
+The shape this rule cannot make exact
+------------------------------------
+The registry now follows the rule the walk already follows, so it shares that
+rule's limit: an acquisition NOT keyed on the subject (close-out channel 1).
+The last test holds that shape as a STRICT expected failure, with what it
+measured before and after this change.
+
 Every question here is asked on its own fabric, as the paved road boots one per
 question, so no question reads another's acquisition (a different channel,
 section 4.12, "A fabric that outlives the question"). Every domain value is
@@ -490,3 +497,65 @@ def test_i2_a_served_subject_is_still_scored_against_the_text_its_acquisition_wr
     )
     assert any(path.startswith("payload") for path in differing), sorted(differing)
     assert any(path.startswith("computed_empty") for path in differing), sorted(differing)
+
+
+# --- the shape this rule cannot make exact (SEC-020 OPEN, close-out channel 1) -------
+#
+# The registry now follows the rule the walk already follows: the withheld
+# rendering reads the fabric as it stood before acquisition. An acquisition NOT
+# keyed on the subject (a population read) ingests the same claim whatever is
+# asked, so a nonexistent subject's question is scored against the text it
+# wrote and the withheld rendering is not. Measured with this change: under
+# `from_decision` the two products differ at `computed_empty`, `debt.debt`,
+# `debt.factors.freshness` and `debt.scorers`; under `from_entity_freshness`
+# the withheld subject is refused `ttl-anchor-refusal` and the nonexistent one
+# is served. Before this change the same shape differed at the debt (and, under
+# `from_entity_freshness`, at `expires_at` and `ttl_anchor_at`), both served.
+# Held as a STRICT expected failure: the day a rendering is exact for this
+# shape it XPASSes, which strict mode reports as a failure, so the marker must
+# be removed and the closure claimed on evidence (security how-to, section 4.12).
+
+
+class _PopulationRefresh(_SubjectKeyedRefresh):
+    """A source NOT keyed on the subject: every question acquires the same refreshed claim."""
+
+    def __call__(self, *, request: ProductRequest, perspective: Any) -> None:
+        self._fabric.handle.worker.ingest(
+            _claim(WITHHELD_REF, self._text, envelope_id="claim-acquired", observed=REFRESHED)
+        )
+        self.returned[request.subject] = self.returned.get(request.subject, 0) + 1
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "SEC-020 OPEN, close-out channel 1 (an acquisition not keyed on the"
+        " subject), with the similarity operator: the withheld rendering is scored"
+        " against the corpus before acquisition and a nonexistent subject's"
+        " question against the text the population read wrote. When this passes,"
+        " remove the marker."
+    ),
+)
+@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
+def test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity(
+    tmp_path: pathlib.Path, anchor: str
+) -> None:
+    """Every precondition fails through ``pytest.fail``, so the expected failure is the comparison."""
+    outcomes: dict[str, Any] = {}
+    for name, subject in (("withheld", WITHHELD), ("nonexistent", MISSING)):
+        booted = _boot(tmp_path / name, with_similarity=True, anchor=anchor)
+        try:
+            acquisition = _PopulationRefresh(booted[0], text=QUERY)
+            outcomes[name] = _serve(
+                booted, subject, with_similarity=True,
+                acquisition=acquisition, withhold=frozenset({WITHHELD}),
+            )
+        finally:
+            booted[0].handle.close()
+        if acquisition.returned != {subject: 1}:
+            pytest.fail(f"case not constructed: the population read acquired {acquisition.returned}")
+    _assert_indistinguishable(
+        outcomes["withheld"], outcomes["nonexistent"],
+        case=f"{anchor}, similarity, population read",
+    )
