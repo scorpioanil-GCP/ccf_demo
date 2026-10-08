@@ -421,11 +421,15 @@ def _constraint(
 
 
 def _record_of(booted: _Booted, outcome: Any) -> DecisionReplayRecord:
-    """The record an outcome points at, resolved through the store.
+    """The record an outcome points at, read back through the store.
 
-    Resolution IS part of the assertion: the file store refuses bytes that do
-    not hash to the address asked for, so a record read back here is the record
-    that was written.
+    Reading it back verifies nothing: the file store hands back the bytes it
+    holds at an address without checking that they hash to it, and this helper
+    parses them as they come. A reader that must refuse bytes altered under a
+    reference re-hashes them itself, as ``OpenedProduct.record_of`` and the
+    replay engine's ``resolve_artifact`` do; both are measured, over a store
+    that handed back altered bytes, in
+    ``tests/replay/test_record_content_address_integrity.py``.
     """
     if isinstance(outcome, ServedProduct):
         address = outcome.replay_ref.content_address

@@ -2528,8 +2528,8 @@ REUSE_REFUSALS: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 
 
-#: ``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE (Dave has not ruled
-#: P2): a composite that declares no withholding stance (no early policy, no
+#: ``D-IMPL-378`` P2, option (c), ruled by Dave on 2026-10-08 at 12:29 MST: a
+#: composite that declares no withholding stance (no early policy, no
 #: ``subject_withholding: never``) is refused where its resolver is built,
 #: before any question, by this name. The late-composite shapes declare none, so
 #: under (c) every question of theirs is that refusal — the same whatever subject

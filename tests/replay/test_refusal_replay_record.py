@@ -117,9 +117,11 @@ from tests.products.test_resolver_seam import (  # noqa: F401
 def _record_at(booted: _Booted, uri: str) -> DecisionReplayRecord:
     """The record a shell's own reference resolves to.
 
-    Resolution IS the assertion: the store refuses to hand back bytes that do
-    not hash to the address asked for, so a returned record is also the claim
-    that nothing was tampered with between the append and this read.
+    A returned record is not a claim that nothing was tampered with between
+    the append and this read: the file store hands back the bytes it holds
+    without checking that they hash to the address, and this helper parses
+    them as they come. The readers that re-hash, and refuse altered bytes, are
+    measured in ``tests/replay/test_record_content_address_integrity.py``.
     """
     return DecisionReplayRecord.model_validate_json(
         booted.store.get(content_address=booted.store.resolve_uri(uri=uri))

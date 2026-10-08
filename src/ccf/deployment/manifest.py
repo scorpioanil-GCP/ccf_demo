@@ -224,7 +224,7 @@ class BootedFabric:
             question — by this boot (``for_question=True``) or by an earlier
             one, which left a durable marker beside every path naming the
             store (``<resolved path>.ccf-question-store``). SEC-020 P4 (a),
-            ``D-IMPL-378`` (a candidate Dave has not ruled): a governed call
+            ``D-IMPL-378`` (ruled by Dave, 2026-10-08 12:29 MST): a governed call
             over a question's store booted again — ``question_store`` without
             ``for_question`` — is refused before anything is read
             (``src/ccf/products/resolver.py::QuestionStoreReopened``), while

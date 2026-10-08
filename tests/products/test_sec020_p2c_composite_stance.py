@@ -1,9 +1,11 @@
-"""SEC-020, P2 (c) — a CANDIDATE: every composite declares its withholding stance at construction.
+"""SEC-020, P2 (c), ruled: every composite declares its withholding stance at construction.
 
-``D-IMPL-378`` owed ruling P2 (``records/2026-10-08-d-impl-378-ci-lane/OWED-RULINGS.md``
-on ``dl-378-record``): composites that decide to withhold late. Dave has NOT
-ruled it; option (c), which the coordinator recommends, is built here so its
-effect can be measured. SEC-020 is OPEN.
+``D-IMPL-378`` P2 (``records/2026-10-08-d-impl-378-ci-lane/OWED-RULINGS.md``
+on ``dl-378-record``): composites that decide to withhold late. Dave ruled
+option (c) on 2026-10-08 at 12:29 MST, verbatim: *"Construction-time
+declaration, with migration of the 154 tests and cp-14/cp-20. Choose
+declarations from their actual behavior, not merely to restore green."* It is
+built here. SEC-020 is OPEN.
 
 Dave, Q8 (2026-10-07): *"Require early withholding for affected composites.
 Make it an enforced policy decision before subject-dependent fetches, child
