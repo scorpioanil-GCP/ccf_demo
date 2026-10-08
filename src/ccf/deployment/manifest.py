@@ -69,7 +69,7 @@ from typing import Any, cast
 import dataclasses
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -208,6 +208,18 @@ class BootedFabric:
             ``False`` — the default, and every fabric a deployment boots for
             more than one question — is the positive "this fabric outlives its
             questions"; such a fabric is read, never acquired into.
+        question_store: Whether the store this fabric reads was booted for one
+            question — by this boot (``for_question=True``) or by an earlier
+            one, which left a durable marker beside every path naming the
+            store (``<resolved path>.ccf-question-store``). SEC-020 P4 (a),
+            ``D-IMPL-378`` (a candidate Dave has not ruled): a governed call
+            over a question's store booted again — ``question_store`` without
+            ``for_question`` — is refused before anything is read
+            (``src/ccf/products/resolver.py::QuestionStoreReopened``), while
+            Decision Replay, which rebuilds a resolver over the store without
+            calling it, reads it as before. Read from the marker, never from
+            the store's contents. A store whose settings name no path carries
+            no marker, and cannot be booted for a question.
     """
 
     handle: FabricHandle
@@ -217,6 +229,7 @@ class BootedFabric:
     survivor_cap: int | None
     keys: DeploymentKeys | None = None
     for_question: bool = False
+    question_store: bool = False
 
 
 class QuestionFabricNotFresh(ValueError):
@@ -233,15 +246,55 @@ class QuestionFabricNotFresh(ValueError):
     """
 
 
-def _refuse_unless_fresh(backend: str, connection: Mapping[str, object] | None) -> None:
-    """Raise :class:`QuestionFabricNotFresh` unless the adapter's connection names only paths that do not exist yet."""
+def _store_paths(backend: str, connection: Mapping[str, object] | None) -> list[Path]:
+    """Every path-valued setting of the adapter's own validated connection: the paths naming its store.
+
+    SEC-020 (Q9, ``D-IMPL-378``). The lock-directory setting is set aside, as
+    a read-only boot sets it aside: it names where writers take their lease,
+    not where the graph is.
+    """
     record = resolve(backend)
     config_model = record.registration.config_model
     validated = validate_connection(
         record.registration,
         _without_lock_directory_setting(config_model, connection or {}),
     )
-    paths = [value for value in vars(validated).values() if isinstance(value, Path)]
+    return [value for value in vars(validated).values() if isinstance(value, Path)]
+
+
+#: SEC-020 P4 (a) (``D-IMPL-378``; a candidate Dave has not ruled): what a boot
+#: for one question appends to the resolved spelling of each path naming its
+#: store, to name the durable marker it leaves there.
+_QUESTION_STORE_MARKER_SUFFIX = ".ccf-question-store"
+
+
+def _question_store_marker(path: Path) -> Path:
+    """The marker beside ``path``, keyed on its resolved spelling, so two spellings of one store share it."""
+    return Path(f"{path.resolve()}{_QUESTION_STORE_MARKER_SUFFIX}")
+
+
+def _mark_question_store(paths: Sequence[Path]) -> None:
+    """Leave the durable marker beside every path naming a question's store, before the store exists.
+
+    SEC-020 P4 (a). Written, flushed and synced BEFORE ``boot`` creates the
+    store, so no store booted for a question exists without it, even if this
+    process dies before the question is asked. What the filesystem raises
+    propagates: a store that cannot be marked is not booted for a question.
+    """
+    for path in paths:
+        with open(_question_store_marker(path), "w", encoding="utf-8") as marker:
+            marker.write("booted for one question; it serves no later one (SEC-020, D-IMPL-378)\n")
+            marker.flush()
+            os.fsync(marker.fileno())
+
+
+def _marked_for_a_question(paths: Sequence[Path]) -> bool:
+    """Whether a question boot left its marker beside any path naming this store (SEC-020 P4 (a))."""
+    return any(_question_store_marker(path).exists() for path in paths)
+
+
+def _refuse_unless_fresh(backend: str, paths: Sequence[Path]) -> None:
+    """Raise :class:`QuestionFabricNotFresh` unless the adapter's connection names only paths that do not exist yet."""
     if not paths:
         raise QuestionFabricNotFresh(
             f"a fabric booted for one question must be a fresh one, and the"
@@ -725,8 +778,9 @@ def _register_and_boot(
     # (§1.3) then holds for the manifest root as a real check.
     # SEC-020 (Q9, `D-IMPL-378`): a fabric booted for one question is verified
     # fresh before anything is registered or booted.
+    paths = _store_paths(manifest.backend, connection)
     if for_question:
-        _refuse_unless_fresh(manifest.backend, connection)
+        _refuse_unless_fresh(manifest.backend, paths)
     manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
     # SEC-023 (`D-IMPL-372`): before anything is registered or minted, a
     # deployment whose Policy operator admits on a source-asserted attribute
@@ -735,6 +789,13 @@ def _register_and_boot(
     # Phase two: register the ones the manifest marks `role: register`.
     pinned = register_manifest_entries(manifest, parsed, registry=registry, tenant=resolved_tenant)
     pins = ResolvedPins(entries=pinned)
+    # SEC-020 P4 (a) (`D-IMPL-378`; a candidate Dave has not ruled): the marker
+    # BEFORE the boot creates the store, so a question's store never exists
+    # without it; and every boot reads it, so a later boot of that store knows
+    # it is one (`BootedFabric.question_store`).
+    if for_question:
+        _mark_question_store(paths)
+    question_store = _marked_for_a_question(paths)
     handle = boot(
         backend=manifest.backend,
         connection=connection or {},
@@ -758,6 +819,7 @@ def _register_and_boot(
         survivor_cap=manifest.survivor_cap,
         keys=keys,
         for_question=for_question,
+        question_store=question_store,
     )
 
 

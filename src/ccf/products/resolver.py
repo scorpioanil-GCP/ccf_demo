@@ -329,6 +329,7 @@ __all__ = [
     "PopulationPhaseSharesAnOwner",
     "PopulationQuestion",
     "ProjectionPlanFactoryProtocol",
+    "QuestionStoreReopened",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
     "UndeclaredMechanismClass",
@@ -727,6 +728,37 @@ class AcquiredFabricReused(ProductNotResolvable):
     process; a fabric is fresh per question by its boot
     (:class:`AcquisitionNeedsAQuestionFabric`), so a second handle over the same
     store is not a question fabric to begin with.
+
+    **Every governed call over a question fabric claims it** (SEC-020 P4 (a),
+    ``D-IMPL-378``; a candidate Dave has not ruled), at the same point, with an
+    acquisition phase or without one: a later call that declares no
+    acquisition would otherwise answer from what the first question fetched. A
+    second handle over the same store is refused by
+    :class:`QuestionStoreReopened`.
+    """
+
+
+class QuestionStoreReopened(UnsupportedComposition):
+    """A governed call over a question's store booted again, refused before the graph is read.
+
+    SEC-020 P4 (a), ``D-IMPL-378`` (a candidate Dave has not ruled; Q9:
+    *"Enforce a fresh fabric per question whenever acquisition exists"*). The
+    store a question was answered from keeps what its acquisition fetched, and
+    the paved road leaves it on disk. A boot for one question leaves a durable
+    marker beside the store
+    (:attr:`~ccf.deployment.manifest.BootedFabric.question_store`), so a later
+    boot of it is a fabric to read, not to answer from: Decision Replay
+    rebuilds a resolver over it and never calls it. A governed call over it
+    that declares no acquisition phase — where Q9 alone never bound — is
+    refused here, at the point a question fabric is claimed: after the
+    question-level refusals (its address, its request, its temporal bound),
+    which read no graph, and before the graph is read. One that declares an
+    acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`. Either way the refusal is decided
+    by the marker and the boot, never by the subject the question names or by
+    what the store holds. The marker sits beside the store, not inside it: a
+    copy of the store taken without it, or a store booted for a question
+    before the marker existed, is not recognized.
     """
 
 
@@ -740,9 +772,11 @@ _CLAIMED_QUESTION_FABRICS_LOCK = threading.Lock()
 def _claim_question_fabric(fabric: BootedFabric) -> None:
     """Claim ``fabric`` for the one question its acquisition phases may write for (Q9).
 
-    Raises :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not
-    booted for a question, and :class:`AcquiredFabricReused` when it was
-    already claimed. Reads nothing about the question.
+    Called by every governed call over a question fabric, and by every call
+    that declares an acquisition phase (SEC-020 P4 (a)). Raises
+    :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not booted for
+    a question, and :class:`AcquiredFabricReused` when it was already claimed.
+    Reads nothing about the question.
     """
     if not fabric.for_question:
         raise AcquisitionNeedsAQuestionFabric(
@@ -3112,11 +3146,29 @@ class GovernedResolver:
         # how-to, section 4.12.) Read only when a seam is declared: with none,
         # nothing is acquired, and the state the plan reads below is this one.
         before_acquisition: GraphView | None = None
-        if self.acquisition is not None or self.population_acquisition is not None:
+        acquires = self.acquisition is not None or self.population_acquisition is not None
+        if acquires or self.fabric.for_question:
             # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
             # claimed for it — before anything is read or fetched, and decided
-            # by nothing about the subject.
+            # by nothing about the subject. P4 (a) (a candidate Dave has not
+            # ruled): a question fabric is claimed by every governed call over
+            # it, so a later call with no acquisition phase does not answer
+            # from what the first one fetched.
             _claim_question_fabric(self.fabric)
+        elif self.fabric.question_store:
+            # SEC-020 P4 (a): a question's store booted again, read with no
+            # acquisition phase — where Q9 alone never bound. Refused here,
+            # before the graph is read, by the boot's marker and never by the
+            # question; a call that acquires over it was refused just above
+            # (not booted for its question). Replay builds a resolver over it
+            # and never calls it.
+            raise QuestionStoreReopened(
+                "this fabric reads a store that was booted for one question,"
+                " booted again; it keeps what that question's acquisition"
+                " fetched, so it answers no later question (boot a new store"
+                " for each question; SEC-020, Q9)"
+            )
+        if acquires:
             # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no
             # subject — so what it acquires is what any identifier's question
             # acquires, and it is in the state read below.
