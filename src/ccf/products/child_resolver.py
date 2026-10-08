@@ -48,6 +48,7 @@ own authenticated, authorized access and is **not** reclassified as peering.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 
@@ -101,6 +102,7 @@ __all__ = [
     "ChildArguments",
     "ChildQuestion",
     "ChildQuestions",
+    "ChildRecordAltered",
     "ChildRecordMismatch",
     "GrantBoundChildResolver",
     "QuestionBoundChildResolver",
@@ -148,6 +150,27 @@ class ChildRecordMismatch(ValueError):
     predates this work; widening the door's except tuple would change a runtime
     door's posture for a pre-existing condition and belongs to whoever owns
     that door, not to `D-IMPL-336`.
+    """
+
+
+class ChildRecordAltered(ChildRecordMismatch):
+    """The bytes a child's replay reference names do not hash to its address (Dave's E1 (a), `D-IMPL-378`).
+
+    A record's address is the sha256 of its stored canonical bytes
+    (`D-IMPL-89`), so bytes that hash to anything else are not the record the
+    reference names: altered at rest, or the wrong artifact answered by the
+    substrate. Nothing is read out of them, and no child is admitted on them.
+
+    Dave's E1 (a), 2026-10-08: *"Preserve record content-address integrity."*
+    Raised before the bytes are parsed, so before the record's provenance or
+    its product is checked and before any touched entity reaches the
+    admission gate.
+
+    **A** :class:`ChildRecordMismatch`, **and so a** ``ValueError``,
+    deliberately. Evidence that is not the child's record is the same defect
+    class as a record about another product, raised rather than refused for
+    the same reason, and wrapped opaque at the MCP egress door like it
+    (`D-IMPL-253` Q20): the message names a reference and two addresses.
     """
 
 #: How a deployment turns one declared requirement into the typed arguments its
@@ -646,7 +669,14 @@ class GrantBoundChildResolver:
         statement that its execution record is not resolvable here, which the
         admission gate must not read as *"nothing was touched"*.
 
-        **Provenance first** (`D-IMPL-378`). The bytes the reference names are
+        **Byte fidelity first** (Dave's E1 (a), `D-IMPL-378`). The bytes the
+        reference resolves to are re-hashed against that address before they
+        are parsed, exactly as
+        :meth:`~ccf.products.product.OpenedProduct.record_of` and the replay
+        engine verify them (`D-IMPL-89`): bytes altered under the reference
+        are refused, and no entity read out of them reaches the gate.
+
+        **Then provenance** (`D-IMPL-378`). The bytes the reference names are
         a record only where the store shows the fabric's record writer filed
         them under the tenant they name
         (:func:`~ccf.replay.provenance.require_filed_by_record_writer`); a
@@ -660,6 +690,8 @@ class GrantBoundChildResolver:
         any dependency evidence is read out of the record.
 
         Raises:
+            ChildRecordAltered: the stored bytes do not hash to the address the
+                reference resolves to.
             ccf.replay.provenance.RecordNotFiledByRecordWriter: the store shows
                 no filing of the referenced bytes by the fabric's record writer
                 under the tenant they name — they are not the child's record.
@@ -674,9 +706,23 @@ class GrantBoundChildResolver:
         if replay_ref is None:
             return None
         record_address = self._store.resolve_uri(uri=replay_ref)
-        record = DecisionReplayRecord.model_validate_json(
-            self._store.get(content_address=record_address)
-        )
+        payload = self._store.get(content_address=record_address)
+        # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+        # integrity." Byte fidelity FIRST, as `OpenedProduct.record_of` and the
+        # replay engine hold it (`D-IMPL-89`): the address is the sha256 of the
+        # stored canonical bytes, so the raw payload is verified before it is
+        # parsed or believed. A store that hands back other bytes under the
+        # address (the file-backed store returns what is on disk) is caught
+        # here, before any entity is read out of them for the gate.
+        reproduced = hashlib.sha256(payload).hexdigest()
+        if reproduced != record_address:
+            raise ChildRecordAltered(
+                f"the child reported replay reference {replay_ref!r}, which"
+                f" resolves to {record_address!r}; the bytes stored there hash to"
+                f" {reproduced!r}, so they are not the child's record and its"
+                " eligibility is not read out of them (D-IMPL-89; D-IMPL-378 E1 (a))"
+            )
+        record = DecisionReplayRecord.model_validate_json(payload)
         # `D-IMPL-378` (Dave, item 3): the bytes the reference names are the
         # child's record only if the store shows the fabric's record writer
         # filed them under the tenant they name — a record-shaped artifact on
