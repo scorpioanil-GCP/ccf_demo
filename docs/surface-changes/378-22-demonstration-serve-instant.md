@@ -31,7 +31,7 @@ declaration).
 - Change type: added
 - Before: absent
 - After: the artifact class `ccf.demonstration-serve-instant`, typed-registerable (in `ccf.deployment.classes.SDK_ARTIFACT_CLASSES`), with no author lanes
-- Why: a declaration must be a pinned Control Plane artifact so the record it governs can name its exact version, and replay can resolve it
+- Why: a declaration must be a pinned Control Plane artifact so the record it governs can name its exact version, which replay's exact-version binding check can resolve
 - Migration: none
 
 ## ccf.controlplane.artifacts.DEMONSTRATION_SERVE_INSTANT
@@ -181,7 +181,7 @@ declaration).
 - Change type: behavior
 - Before: no record named the instant's source
 - After: same fields. A resolver whose serve clock is a `DeclaredServeClock` appends the declaration's exact `(key, version)` to dimension 2 of every record it writes, served and refused; on any other clock it appends nothing
-- Why: audit by construction — an examiner can tell a demonstration record from a real one from the record alone, and replay resolves the pin like any other binding
+- Why: audit by construction — an examiner can tell a demonstration record from a real one from the record alone, and the pin resolves at its recorded version through the Control Plane's exact-version read, the check replay makes for every binding (`tests/client/test_demonstration_serve_instant.py::test_the_records_pin_resolves_at_its_recorded_version`)
 - Migration: none
 
 ## ccf.client.adapters.inprocess.InProcessAdapter

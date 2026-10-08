@@ -417,3 +417,52 @@ def test_only_the_sdks_sqlite_and_in_memory_adapters_are_development_references(
     assert {"sqlite", "memory"} < built_in, built_in
     declaring = {name for name in built_in if resolve(name).registration.development_reference}
     assert declaring == {"sqlite", "memory"}, declaring
+
+
+def test_the_records_pin_resolves_at_its_recorded_version(seeded: Path) -> None:
+    """The pin names the exact declaration that set ``served_at``, resolvable as replay resolves it.
+
+    Replay checks every dimension-2 binding with the Control Plane's exact-version
+    read, ``control_plane.resolve(key, version)``
+    (`ccf.replay.engine._resolve_bindings`), and nothing special-cases this one.
+    So the claim is measured at that call: against the deployment's own Control
+    Plane the record's pin resolves to the declaration whose instant the record
+    carries as ``served_at``; against a Control Plane booted from the same config
+    WITHOUT the declaration it does not resolve, so a demonstration record cannot
+    be replayed as an ordinary one.
+
+    A full ``replay``/``replay_refusal`` of this fixture's records is not used
+    here: it stops earlier, at the request contract's pin, with no declaration in
+    force at all (measured; reported by lane ``378d-democlock`` as a finding
+    outside C1).
+    """
+    from ccf.client.adapters import inprocess
+    from ccf.controlplane.demonstration_serve_instant import DemonstrationServeInstant
+    from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneRegistry
+    from ccf.deployment.config import load_config_and_boot
+
+    undeclared_config = seeded.parent / "undeclared_ccf_config.yaml"
+    shutil.copy(seeded / "ccf_config.yaml", undeclared_config)
+    declare(seeded)
+    decoded = ask(InProcessAdapter(str(seeded)), seeded, as_of=SEEDED_AT)
+    assert decoded.outcome.refusal is None, decoded.outcome.refusal
+    record = record_at(seeded, str(decoded.outcome.replay_ref))
+    (pin,) = demonstration_bindings(record, tenant=tenant_of(seeded))
+
+    booted = inprocess._BOOT_CACHE[seeded.resolve()]
+    declared = booted.control_plane.resolve(pin.key, pin.version)
+    assert isinstance(declared, DemonstrationServeInstant)
+    assert declared.serve_instant == record.content_generation_path.served_at == DECLARED
+
+    without = ControlPlaneRegistry()
+    other = load_config_and_boot(
+        undeclared_config,
+        registry=without,
+        connection=load_binding_document(seeded).connection,
+        read_only=True,
+    )
+    try:
+        with pytest.raises(ControlPlaneMissing):
+            without.resolve(pin.key, pin.version)
+    finally:
+        other.handle.close()
