@@ -1384,21 +1384,30 @@ the same id is refused "already exists".
   execution `suspended` with no step run. Presented again from any process,
   it re-takes the same closure and runs the step after the gate once
   (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
-- **A passage fenced by another writer is refused 409 `execution-fenced`**
+- **A passage fenced by another writer is refused `execution-fenced`**
   (`D-IMPL-378`). Every write that ends a passage is conditional on the
   version the passage wrote
   (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._fenced_write`). If
   a writer outside the engine, or a store that does not keep its conditional
-  write, moves the execution's record while a step runs, that write raises
-  `ExecutionFenced` and writes, audits and enqueues nothing.
-  `POST /workflow/invocations` and `POST /workflow/resumptions` answer it 409
-  with `error_code` `execution-fenced`; before this change it reached the
-  caller as an opaque 500 (`tests/http_api/test_execution_fenced_door.py`).
-  The other writer's record stands, and the step that ran before the fenced
-  write may already have had effects. A resumption presented again is refused
-  as an interrupted passage, and the step does not run again (measured):
-  reconcile the execution outside the fabric. No MCP door executes or resumes
-  a workflow.
+  write, moves the execution's record while a passage runs, that write raises
+  `ExecutionFenced` and writes, audits and enqueues nothing. So does a
+  finisher that loses its write to another finisher or to the original
+  passage (the bullet above). `POST /workflow/invocations` and
+  `POST /workflow/resumptions` answer it 409 with `error_code`
+  `execution-fenced`, a finished start's fenced suspension included; before
+  this change it reached the caller as an opaque 500
+  (`tests/http_api/test_execution_fenced_door.py`). The erasure door, which
+  drives the same engine in process, refuses it as an `ErasureRefused` with
+  reason code `execution-fenced`, at a request's start and at a completion's
+  last passage; after the last passage no erasure record is filed, and the
+  address stays withheld (`index-unsupported`) under the index entries the
+  completion appended (`tests/erasure/test_erasure_door_execution_fenced.py`).
+  The other writer's record stands. Where the passage ran a step before the
+  fenced write, that step may already have had effects, and a resumption
+  presented again is refused as an interrupted passage without running it
+  again (measured): reconcile the execution outside the fabric. No MCP door
+  executes or resumes a workflow, and no HTTP or MCP door serves the erasure
+  door.
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the
