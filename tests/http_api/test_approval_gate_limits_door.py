@@ -21,7 +21,7 @@ httpx's ASGI transport exactly as the rest of this package drives it.
 * **(b) The outvoted rejection, at the action door.** Twice: once while the
   step after the gate is running (a deployment's step, holding on its own I/O,
   with no engine method touched), and once held inside the resumption's
-  terminal commit at the state-store seam, which is the shape the close-out
+  terminal commit at the storage layer, which is the shape the close-out
   words: the execution completes at the APPROVING terminal with both verdicts
   standing.
 * **(b') The verdict after the passage, at the doors.** Sequential: the
@@ -68,8 +68,9 @@ from tests.workflow.test_approval_gate_limits import (
     COVENANT_GATE,
     FIRST_GATE,
     START,
-    PausingCommitStore,
     SharedBackingStore,
+    StandInRecords,
+    terminal_write,
 )
 from tests.workflow.test_resume_single_flight import (
     DOWNSTREAM,
@@ -266,11 +267,11 @@ def rejection_outcome(response: httpx.Response) -> tuple[bool, str]:
 
 def two_doors(tmp_path: Path, bindings: eh._Bindings) -> tuple[Door, Door]:
     """Two governed applications over one durable state store and one transport."""
-    backing: dict[tuple[str, str], object] = {}
+    records = StandInRecords()
     fabric_a, key_a, version_a = fabric_at(tmp_path / "fabric-a", two_gate=True)
     fabric_b, key_b, version_b = fabric_at(tmp_path / "fabric-b", two_gate=True)
-    give_state_store(fabric_a, SharedBackingStore(backing))
-    give_state_store(fabric_b, SharedBackingStore(backing))
+    give_state_store(fabric_a, SharedBackingStore(records))
+    give_state_store(fabric_b, SharedBackingStore(records))
     fabric_b.hitl = fabric_a.hitl  # the one authority path both replicas reach
     door_a = open_door(fabric_a, key_a, version_a, tmp_path / "gate-a", bindings)
     door_b = open_door(fabric_b, key_b, version_b, tmp_path / "gate-b", bindings)
@@ -437,16 +438,16 @@ def test_a_rejection_posted_during_the_terminal_commit_is_not_outvoted_at_the_do
     """Limit (b), exactly as the close-out words it, at the doors. The covenant
     gate routes straight to its terminals. ``credit-officer-11`` approves; the
     resumption, posted on its own thread and event loop, decides and is held
-    inside its terminal commit at the state-store seam; ``credit-officer-7``
+    inside its terminal commit at the storage layer; ``credit-officer-7``
     posts a rejection at the action door from the main thread; the commit is
     released.
 
     Today both answer 200: the execution completes at the APPROVING terminal
     with both verdicts standing.
     """
-    store = PausingCommitStore()
+    records = StandInRecords()
     fabric, key, version = fabric_at(tmp_path / "fabric", two_gate=False)
-    give_state_store(fabric, store)
+    give_state_store(fabric, SharedBackingStore(records))
     door = open_door(fabric, key, version, tmp_path / "gate", eh._Bindings())
 
     async def start() -> tuple[str, str, str]:
@@ -468,13 +469,13 @@ def test_a_rejection_posted_during_the_terminal_commit_is_not_outvoted_at_the_do
             return await act(c, event_key=event_key, bound=bound, action="reject", headers=OFFICER_2)
 
     tenant, event_key, bound = asyncio.run(start())
-    store.arm()
+    records.arm_write(terminal_write)
     held = Worker(lambda: asyncio.run(resume_once())).start()
     try:
-        assert store.held.wait(HOLD_SECONDS), "the resumption never reached its commit"
+        assert records.held.wait(HOLD_SECONDS), "the resumption never reached its commit"
         rejected = asyncio.run(reject(event_key, bound))
     finally:
-        store.release.set()
+        records.release.set()
     resumed = held.join()
 
     standing, described = rejection_outcome(rejected)

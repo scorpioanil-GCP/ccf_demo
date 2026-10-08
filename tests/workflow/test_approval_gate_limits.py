@@ -23,8 +23,9 @@ here.
 * **(b) The outvoted rejection.** A rejection recorded through the transport
   while a resumption is inside its read-decide-commit window is never seen:
   the execution completes at the approving terminal with both verdicts
-  standing. Held inside the commit at the state-store seam (a durable store's
-  write is exactly where real time passes), not by wrapping an engine method.
+  standing. Held inside the commit at the storage layer of the stand-in
+  durable store (a database write is exactly where real time passes), not by
+  wrapping an engine method.
 * **(b') The verdict after the passage.** No race: on the submit-only door
   path nothing retires the gate's pending event when the gate is passed, so a
   verdict recorded after the execution completed is recorded as a verdict on
@@ -40,7 +41,11 @@ so no refusal mechanism exists to name. Each test asserts the hole's own end
 state, the measures the close-out recorded, and each is protected from an
 accidental green in three ways. (1) The overlap is constructed, not hoped for:
 the second actor runs to completion while the first is held inside its window
-at a seam, so a serialized run cannot occur. (2) A positive control shows the
+at a seam, so a serialized run cannot occur. Every hold and every injected
+failure sits at the STORAGE LAYER (:class:`StandInRecords`, the stand-in
+database's records) or in a deployment binding, never on a store method's
+name, so a fix that reads or writes through another method of the store is
+still held and still judged. (2) A positive control shows the
 same actor admitted when there is no overlap, so a refusal cannot come from a
 broken composition. (3) A refusal of the second human's verdict by an identity,
 eligibility or attestation guard is re-raised as an error, never counted as a
@@ -58,7 +63,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -98,8 +103,6 @@ from tests.workflow.test_resume_single_flight import (
     NEXT_GATE,
     STARTER,
     BlockingOnceBindings,
-    FailingOnceStateStore,
-    PausingStateStore,
     Worker,
     approved_suspension,
     engine_over,
@@ -135,76 +138,109 @@ IDENTITY_REFUSALS: tuple[type[BaseException], ...] = (
 # --- substrates -----------------------------------------------------------------
 
 
-class SharedBackingStore(InMemoryStateStore):
-    """ONE PROCESS'S state-store object over a durable store several share.
+class StandInRecords(dict[tuple[str, str], object]):
+    """The records of a stand-in durable store, able to hold or fail ONE access.
 
-    The durable store, a database every replica connects to, is stood in for
-    by one dict that every such object reads and writes. Each process holds
-    its own client object, so the objects differ in identity while the records
-    they return are the same records. That is the condition the single-flight
-    claim cannot see, because it is keyed by the store object's identity
-    (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume``). Only
-    where the records live changes: every proof the reference store runs on a
-    write still runs, because :meth:`put` is the reference store's own.
-    """
+    A durable store's latency, and its failures, live in its storage, not in
+    the names of its client's methods. So the holds and the injected failure
+    sit here, under every read and write a reference-store client makes,
+    whichever store method makes it:
 
-    def __init__(self, backing: dict[tuple[str, str], object]) -> None:
-        super().__init__()
-        self._records = backing
-
-
-class PausingSharedStore(PausingStateStore):
-    """:class:`SharedBackingStore`, holding one armed workflow-state read open."""
-
-    def __init__(self, backing: dict[tuple[str, str], object]) -> None:
-        super().__init__()
-        self._records = backing
-
-
-class PausingCommitStore(InMemoryStateStore):
-    """The reference state store, holding ONE armed terminal commit open.
-
-    Once armed, the first write of a workflow-state record whose status is
-    ``terminal`` blocks its thread BEFORE writing, until :attr:`release` is
-    set. The resumption holding it has already read the record, judged the
-    authority and the conflict population, and decided; only its commit is
-    left. A durable store's write is exactly where such a window takes real
-    time. Every other write is the reference store's own.
+    * :meth:`arm_read` holds the next read of one key, AFTER reading (a
+      thread preempted between its read and its commit);
+    * :meth:`arm_write` holds the next write whose value satisfies a
+      predicate, BEFORE writing (a commit in flight);
+    * :meth:`arm_failure` makes the next such write raise once, writing
+      nothing (a store that refuses a commit).
     """
 
     def __init__(self) -> None:
         super().__init__()
         self._arm_lock = threading.Lock()
-        self._armed = False
+        self._read_key: tuple[str, str] | None = None
+        self._hold_write: Callable[[tuple[str, str], object], bool] | None = None
+        self._fail_write: Callable[[tuple[str, str], object], bool] | None = None
         self.held = threading.Event()
         self.release = threading.Event()
 
-    def arm(self) -> None:
+    def arm_read(self, record_class: str, key: str) -> None:
         with self._arm_lock:
-            self._armed = True
+            self._read_key = (record_class, key)
 
-    def put(
-        self,
-        authorized: Any,
-        record_class: str,
-        record: object,
-        *,
-        record_id: str,
-        token: Any,
-    ) -> None:
+    def arm_write(self, predicate: Callable[[tuple[str, str], object], bool]) -> None:
         with self._arm_lock:
-            hold = (
-                self._armed
-                and record_class == WORKFLOW_STATE
-                and getattr(record, "status", None) == "terminal"
-            )
+            self._hold_write = predicate
+
+    def arm_failure(self, predicate: Callable[[tuple[str, str], object], bool]) -> None:
+        with self._arm_lock:
+            self._fail_write = predicate
+
+    def _hold(self) -> None:
+        self.held.set()
+        if not self.release.wait(HOLD_SECONDS):
+            raise RuntimeError("the held store access was never released")
+
+    def _read_armed(self, key: object) -> bool:
+        with self._arm_lock:
+            armed = key == self._read_key
+            if armed:
+                self._read_key = None
+        return armed
+
+    def get(self, key: tuple[str, str], default: object = None) -> object:
+        value = super().get(key, default)
+        if self._read_armed(key):
+            self._hold()
+        return value
+
+    def __getitem__(self, key: tuple[str, str]) -> object:
+        value = super().__getitem__(key)
+        if self._read_armed(key):
+            self._hold()
+        return value
+
+    def __setitem__(self, key: tuple[str, str], value: object) -> None:
+        with self._arm_lock:
+            fail = self._fail_write is not None and self._fail_write(key, value)
+            if fail:
+                self._fail_write = None
+            hold = not fail and self._hold_write is not None and self._hold_write(key, value)
             if hold:
-                self._armed = False
+                self._hold_write = None
+        if fail:
+            raise RuntimeError("state store unavailable")
         if hold:
-            self.held.set()
-            if not self.release.wait(HOLD_SECONDS):
-                raise RuntimeError("the held terminal commit was never released")
-        super().put(authorized, record_class, record, record_id=record_id, token=token)
+            self._hold()
+        super().__setitem__(key, value)
+
+
+def workflow_write(key: tuple[str, str], value: object) -> bool:
+    """Any write of a workflow-state record."""
+    return key[0] == WORKFLOW_STATE
+
+
+def terminal_write(key: tuple[str, str], value: object) -> bool:
+    """A write of a workflow-state record whose status is ``terminal``."""
+    return key[0] == WORKFLOW_STATE and getattr(value, "status", None) == "terminal"
+
+
+class SharedBackingStore(InMemoryStateStore):
+    """ONE PROCESS'S state-store object over a durable store several share.
+
+    The durable store, a database every replica connects to, is stood in for
+    by one :class:`StandInRecords` that every such object reads and writes.
+    Each process holds its own client object, so the objects differ in
+    identity while the records they return are the same records. That is the
+    condition the single-flight claim cannot see, because it is keyed by the
+    store object's identity
+    (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume``). Only
+    where the records live changes: every proof the reference store runs on
+    a write still runs, because every method is the reference store's own.
+    """
+
+    def __init__(self, records: StandInRecords) -> None:
+        super().__init__()
+        self._records = records
 
 
 class AwaitingStartBindings(eh._Bindings):
@@ -235,7 +271,7 @@ def two_processes(
     tmp_path: Path,
     bindings: eh._Bindings,
     transport: InMemoryHitlTransport,
-) -> tuple[Process, Process, PausingSharedStore]:
+) -> tuple[Process, Process, StandInRecords]:
     """Two processes over one durable state store and one authority path.
 
     Each process registers the same two-gate release workflow in its own
@@ -243,11 +279,9 @@ def two_processes(
     the same definition identity. One node-binding double serves both: the
     step after the gate acts on one external system, whichever process runs it.
     """
-    backing: dict[tuple[str, str], object] = {}
-    store_a = PausingSharedStore(backing)
-    store_b = SharedBackingStore(backing)
+    records = StandInRecords()
     processes = []
-    for name, store in (("a", store_a), ("b", store_b)):
+    for name, store in (("a", SharedBackingStore(records)), ("b", SharedBackingStore(records))):
         registry = plane(store)
         workflow = s6._two_gate(registry, eligible=frozenset({STARTER, APPROVER}))
         engine = engine_over(registry, tmp_path / f"process-{name}", bindings, transport)
@@ -256,7 +290,7 @@ def two_processes(
     assert a.workflow.identity.definition_uri == b.workflow.identity.definition_uri
     assert a.workflow.identity.definition_hash == b.workflow.identity.definition_hash
     assert a.registry.state_store is not b.registry.state_store
-    return a, b, store_a
+    return a, b, records
 
 
 def start_and_approve_once(a: Process, transport: InMemoryHitlTransport) -> str:
@@ -373,8 +407,8 @@ def state_of(registry: ControlPlaneRegistry, key: str) -> WorkflowStateRecord:
 def test_two_state_store_objects_over_one_durable_store_spend_one_approval_once(
     tmp_path: Path,
 ) -> None:
-    """Limit (a). Process A's resumption is held inside its own state read on
-    another thread; process B's resumption of the same execution runs to its
+    """Limit (a). Process A's resumption is held right after its own state read
+    (at the storage layer) on another thread; process B's resumption of the same execution runs to its
     end meanwhile; then A is released.
 
     A and B take two DIFFERENT claims, because their state-store objects
@@ -388,15 +422,15 @@ def test_two_state_store_objects_over_one_durable_store_spend_one_approval_once(
     """
     bindings = eh._Bindings()
     transport = InMemoryHitlTransport()
-    a, b, store_a = two_processes(tmp_path, bindings, transport)
+    a, b, records = two_processes(tmp_path, bindings, transport)
     key = start_and_approve_once(a, transport)
-    store_a.arm(key)
+    records.arm_read(WORKFLOW_STATE, key)
     held = Worker(lambda: asyncio.run(resume(a.engine, a.workflow))).start()
     try:
-        assert store_a.held.wait(HOLD_SECONDS), "process A's resume never reached its read"
+        assert records.held.wait(HOLD_SECONDS), "process A's resume never reached its read"
         second = asyncio.run(resume(b.engine, b.workflow))
     finally:
-        store_a.release.set()
+        records.release.set()
     first = held.join()
 
     tenant = a.workflow.definition.tenant
@@ -452,7 +486,7 @@ def test_a_rejection_recorded_during_the_resumptions_commit_is_not_outvoted(
 ) -> None:
     """Limit (b), as the close-out words it. ``officer-1`` approves; the
     resumption reads, judges one verdict, decides, and is held inside its
-    terminal commit at the state-store seam; ``officer-2``, also eligible,
+    terminal commit at the storage layer; ``officer-2``, also eligible,
     records a rejection of the SAME suspension; the commit is released.
 
     Today the execution completes at the APPROVING terminal while the
@@ -461,20 +495,20 @@ def test_a_rejection_recorded_during_the_resumptions_commit_is_not_outvoted(
     conflict (``tests/workflow/test_engine.py::test_a_later_rejection_is_not_discarded_when_an_approval_came_first``),
     so only its timing decides which outcome a bank gets.
     """
-    store = PausingCommitStore()
+    records = StandInRecords()
     registry, engine, transport, workflow, event_key, bound = suspended_covenant(
-        store, tmp_path
+        SharedBackingStore(records), tmp_path
     )
     tenant = workflow.definition.tenant
-    store.arm()
+    records.arm_write(terminal_write)
     held = Worker(lambda: resume_covenant(engine, workflow)).start()
     try:
-        assert store.held.wait(HOLD_SECONDS), "the resumption never reached its commit"
+        assert records.held.wait(HOLD_SECONDS), "the resumption never reached its commit"
         rejection, refusal = reject_as_officer_2(
             transport, tenant=tenant, event_key=event_key, bound=bound
         )
     finally:
-        store.release.set()
+        records.release.set()
     outcome = held.join()
 
     if refusal is not None:
@@ -618,22 +652,22 @@ def test_a_resumption_that_never_commits_leaves_no_attributed_passage_row(
 ) -> None:
     """Limit (d). The resumption passes every check and appends its attributed
     ``workflow_resumed`` row, then never commits: its state write fails, or it
-    is cancelled while the step after the gate runs. The record still says
-    suspended at the gate, and today the audit log still says the approver's
-    verdict carried the execution past it, the shape SEC-001 named (*"asserts a
+    is cancelled while the step after the gate runs (the write fails at the
+    storage layer, or the step is a deployment binding cancelled in flight).
+    The record still says suspended at the gate, and today the audit log still
+    says the approver's verdict carried the execution past it, the shape SEC-001 named (*"asserts a
     resolution that never happened"*). A retry then adds a second attributed
     row for the one approval
     (``tests/workflow/test_resume_single_flight.py::test_a_resume_that_raises_gives_the_claim_back``
     measures the retry's re-run)."""
-    store = FailingOnceStateStore() if failure == "commit-fails" else None
-    registry = plane(store)
+    records = StandInRecords()
+    registry = plane(SharedBackingStore(records))
     bindings: eh._Bindings = eh._Bindings() if failure == "commit-fails" else BlockingOnceBindings()
     engine, transport, workflow = approved_suspension(registry, tmp_path, bindings)
     key = f"{workflow.definition.tenant}/{EXECUTION}"
 
     if failure == "commit-fails":
-        assert isinstance(store, FailingOnceStateStore)
-        store.fail_next_write = True
+        records.arm_failure(workflow_write)
         with pytest.raises(RuntimeError, match="state store unavailable"):
             asyncio.run(resume(engine, workflow))
     else:
@@ -653,12 +687,14 @@ def test_a_resumption_that_never_commits_leaves_no_attributed_passage_row(
         asyncio.run(cancel_inside_the_step())
 
     record = state_of(registry, key)
-    assert (record.status, record.current_state) == ("suspended", FIRST_GATE), (
-        "the control is broken: the passage committed"
-    )
     attributed = attributed_resumptions((registry,), key)
-    assert attributed == [], (
+    # Neutral about WHEN a design commits the passage: a passage that never
+    # left the gate may carry no attributed row, and one that did carries
+    # exactly the one row of the one approval.
+    committed = (record.status, record.current_state) != ("suspended", FIRST_GATE)
+    expected = [APPROVER] if committed else []
+    assert attributed == expected, (
         f"LIMIT (d), {failure}: the audit log carries attributed workflow_resumed"
-        f" rows {attributed} for a passage that never committed; the record is"
-        f" still {record.status}@{record.current_state}"
+        f" rows {attributed} while the record is {record.status}@{record.current_state}:"
+        f" the passage {'committed' if committed else 'never committed'}"
     )
