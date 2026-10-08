@@ -1030,14 +1030,22 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   client lane exactly as a missing address. Read through the MCP-backed store
   (`src/ccf/artifacts/mcp_store.py::McpArtifactStore`) they are absent, so
   the replay engine, `replay_refusal` and child admission do not take them as
-  a record when they read through it. Three things are not refused. The write
+  a record when they read through it. Two things are not refused. The write
   is not: the bytes are stored, and the names resource lists the tenant's own
   filing under its stored class. Bytes the validator refuses, one key away
-  from a record included, are served as client artifacts. And the same
-  filing read in process is not: handed a store directly rather than through
-  the artifact server, `resolve_artifact`, `replay_refusal` and child
-  admission do not check who filed a record, so a record filed on a client
-  lane with an ordinary `ArtifactWrite` reads as one. Treat a record as
+  from a record included, are served as client artifacts. Read in process —
+  a store handed to the SDK directly — the same filing is refused too
+  (D-IMPL-378): `resolve_artifact`, `resolve_artifact_at_uri`, `replay`,
+  `replay_refusal`, child admission and `OpenedProduct.record_of` accept a
+  record only where the store's naming shows the fabric's record writer
+  filed it, under a class its `WriteKinds` declares under `ReplayMint`, under
+  the tenant the record names
+  (`src/ccf/replay/provenance.py::require_filed_by_record_writer`); the
+  replay engine answers anything else as a missing record,
+  `ReplayUnresolvable`; child admission and `record_of` raise
+  `RecordNotFiledByRecordWriter`, an `ArtifactNotFound`; a store that cannot
+  say who filed an address is refused by name
+  (`src/ccf/replay/provenance.py::UnattributableRecordStore`). Treat a record as
   evidence only when a governed read returned it. An erasure door built over
   the MCP-backed store reads each named address's bytes to verify its
   subject, so it refuses a request naming such a filing

@@ -81,7 +81,7 @@ from ccf.artifacts.protocol import (
     held_content_address,
     parse_artifact_uri,
 )
-from ccf.authz.capability import ArtifactRead, Authorized, ReplayMint, ReplayRead, verify_any
+from ccf.authz.capability import ArtifactRead, Authorized, ReplayRead, verify_any
 from ccf.controlplane.audit import AuditLog
 from ccf.contracts.base import CCFContract
 from ccf.erasure.store import ErasedContentRefused, ErasureConsultingStore
@@ -105,6 +105,7 @@ from ccf.replay.engine import (
     ReplayUnresolvable,
     resolve_artifact,
 )
+from ccf.replay.provenance import filed_by_record_writer
 from ccf.replay.record import (
     NO_ASSEMBLY_REFUSAL,
     NO_ROLE_RESOLVED,
@@ -1346,10 +1347,10 @@ def govern_dereference(
     # WriteKinds declares under ReplayMint — a kind no door can mint, held only
     # by the fabric's record writers. Anything else answers exactly as a
     # missing address does.
-    filed_by_the_record_writer = any(
-        named.tenant_id == deciding_tenant
-        and ReplayMint in write_kinds.for_class(named.artifact_class)
-        for named in store.names_at(content_address=content_address)
+    # The ONE check, stated in src (`D-IMPL-378`): the replay engine, child
+    # admission and `record_of` call the same predicate.
+    filed_by_the_record_writer = filed_by_record_writer(
+        store, content_address=content_address, tenant_id=deciding_tenant
     )
     if not filed_by_the_record_writer:
         return refuse(
