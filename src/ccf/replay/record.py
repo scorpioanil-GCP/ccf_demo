@@ -1474,7 +1474,9 @@ class ContentGenerationPath(CCFContract):
     # address. It is the governed resolver's finding, which for a withheld
     # subject is the unseeded re-execution's (`D-IMPL-371`), never replay's.
     # Hash-transparent at `None`, so every record written before this member
-    # existed keeps its bytes and address.
+    # existed keeps its bytes and address; such a record now replays under
+    # `src/ccf/replay/engine.py::replay`'s compatibility rule (`D-IMPL-378`),
+    # which the record's own product address arbitrates.
     computed_empty: ComputedEmptyFinding | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
