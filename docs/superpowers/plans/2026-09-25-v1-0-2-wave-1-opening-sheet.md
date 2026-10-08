@@ -29,9 +29,9 @@
 
 | In wave 1 | Out of wave 1 (where it lives) |
 |---|---|
-| `gate_routes` on `WorkflowDefinition` + local validators; factory coverage check; engine route compare **after** the declared-target check; conflicting-verdict refusal in `_gate_authority`; the three fixtures migrated to `2.0.0`; `docs/schemas/ccf.workflow-definition.json` regenerated | Removing `decision` from `resume` (A3(b), §7.4); the escalation sibling (`runtime/ccf_runtime/workflow/engine.py:1083-1087`, §7.4); a workflow-definition hash on the replay record (§7.4) |
+| `gate_routes` on `WorkflowDefinition` + local validators; factory coverage check; engine route compare **after** the declared-target check; conflicting-verdict refusal in `_gate_authority`; the three fixtures migrated to `2.0.0`; `docs/schemas/ccf.workflow-definition.json` regenerated | Removing `decision` from `resume` (A3(b), §7.4); the escalation sibling (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._escalation_pending`, §7.4); a workflow-definition hash on the replay record (§7.4) |
 | `IdentityRefused` at the single mint site; positional-string coercion; the `None`-attribute omission (after measurement); mechanism conversion on the canonical path (the `D-IMPL-347` B2 amendment); the `*_ref: True` rule note | L2 partial admission (one transaction per claim, §7.4); durable L2 refusal recording on the CDC/federated doors (§7.4); plugin strategies (declined) |
-| `SUBJECT_FLOOR_V1` + `refuse_floor` judged in `__call__`; `ArgumentDomain.pattern`; `ProductRequestContract.subject_domain`; `_refuse_subject` inside `refuse_request`; schema render + disclosure; the `src/ccf/products/request.py:281-285` docstring; the read-only probe; the SDK door page's stdio disclosure | The stdio composition control (1.0.3, §7.3); `TemporalBoundRefusal` and every clock item (wave 2) |
+| `SUBJECT_FLOOR_V1` + `refuse_floor` judged in `__call__`; `ArgumentDomain.pattern`; `ProductRequestContract.subject_domain`; `_refuse_subject` inside `refuse_request`; schema render + disclosure; the `src/ccf/products/request.py::ProductRequest` docstring; the read-only probe; the SDK door page's stdio disclosure | The stdio composition control (1.0.3, §7.3); `TemporalBoundRefusal` and every clock item (wave 2) |
 | `setuptools_scm` single-sourcing; `tools/check_version_stamp.py`; a tag-triggered CI job; `SDK_DISTRIBUTION` untouched unless the PyPI rename lands (§3.4 item 3) | The tag text and the qualification recipe (release mechanics, §8) |
 | `SEC353-G-09` ledger row; `D-IMPL-357` (wave record) and `D-IMPL-361` (adapters HIGH, the release condition, the 1.0.3 sheet) entries; surface fragment `357-01`; `make schemas`, `make surface`; the two published-page edits | Anything under `examples/`, `archive/`, waves 2–4 |
 
@@ -41,14 +41,14 @@
 
 | Surface | Change | Bookkeeping it forces |
 |---|---|---|
-| `src/ccf/workflow/definitions.py` | `gate_routes: Mapping[str, Mapping[str, str]]`, default `{}`, `{HASH_TRANSPARENT_KEY: False}`; one new model validator | `docs/schemas/ccf.workflow-definition.json` (`make schemas`); `tests/cli/test_schema_export.py:124/:130` red until then; the hash-transparency ticked table; fragment `357-01` |
+| `src/ccf/workflow/definitions.py` | `gate_routes: Mapping[str, Mapping[str, str]]`, default `{}`, `{HASH_TRANSPARENT_KEY: False}`; one new model validator | `docs/schemas/ccf.workflow-definition.json` (`make schemas`); `tests/cli/test_schema_export.py::test_the_committed_schemas_match_what_the_classes_emit`, `tests/cli/test_schema_export.py::test_each_committed_schema_is_its_class_byte_for_byte` red until then; the hash-transparency ticked table; fragment `357-01` |
 | `src/ccf/workflow/factory.py` | routed `hitl-gate` steps must carry a complete map | none |
 | `runtime/ccf_runtime/workflow/engine.py` | `_gate_authority` returns every qualifying submission; `resume` refuses on >1 distinct verdict and on `decision != route`; the D-IMPL-350 residual paragraph rewritten | `docs/surface/v0.2-surface.json` unchanged (private names) |
 | `tests/fixtures/banking/workflows/covenant_review_workflow.yaml`, `payment_release_workflow.yaml`, `perf/synth/artifacts/workflow.yaml` | `gate_routes` + `schema_version: "2.0.0"` | every test that builds them goes green again |
 | `src/ccf/assembly/worker.py` | `IdentityRefused` (public, in `__all__`), `_identity_text`, the attribute omission; rule docstring | fragment `357-01`; `make surface` |
 | `src/ccf/products/resolver.py` | `SDK_SEAM_REFUSALS` and the mechanism branch in `_declared_seam_refusal`; `refuse_floor` judged after `refuse_intent` | fragment; `make surface` |
 | `src/ccf/products/request.py` | `SUBJECT_FLOOR_V1`, `SUBJECT_FLOOR_VERSION`, `refuse_floor`, `_refuse_subject`; `ArgumentDomain.pattern`; `ProductRequestContract.subject_domain`; reason `malformed-value` appended last; docstring at `:281-285` | roster pin rewritten to 10; `docs/schemas/ccf.product-request-contract.json` (`make schemas`); ticked table; `make surface` |
-| `src/ccf/products/request_schema.py` | `pattern` derived and refused-if-planted | `tests/products/test_request_schema_render.py:291` tuple |
+| `src/ccf/products/request_schema.py` | `pattern` derived and refused-if-planted | `tests/products/test_request_schema_render.py::test_the_control_plants_nothing_when_not_asked` tuple |
 | `pyproject.toml`, `.github/workflows/release-stamp.yml`, `tools/check_version_stamp.py`, `tests/test_version_stamp.py` | `dynamic = ["version"]` + `setuptools_scm`; the gate; a tag-triggered job | the venv is reinstalled (`pip install -e .`) so metadata carries the derived version |
 | `docs/D-IMPL-353-EXAMPLES-GAP-LEDGER.md` | row `SEC353-G-09` | none |
 | `docs/DECISIONS.md` | `D-IMPL-357`, `D-IMPL-361` | next free id `D-IMPL-362` stays reserved for the release record per the spec's §10 |
@@ -65,7 +65,7 @@ Lanes A (verdict→target), B (identity), C (subject shape) and D (version stamp
 ### Task A1: `gate_routes` on `WorkflowDefinition`, validated locally
 
 **Files:**
-- Modify: `src/ccf/workflow/definitions.py:126-135` (the field block) and `:255-290` (add a validator after `_bindings_key_declared_nonterminal_nodes`)
+- Modify: `src/ccf/workflow/definitions.py::WorkflowDefinition` (the field block) and `:255-290` (add a validator after `_bindings_key_declared_nonterminal_nodes`)
 - Test: `tests/workflow/test_definitions.py`
 
 **Interfaces:**
@@ -213,12 +213,12 @@ git commit -m "feat(357-A1): gate_routes on WorkflowDefinition — verdict→tar
 ### Task A2: The factory refuses a routed gate without a complete map; the three fixtures migrate
 
 **Files:**
-- Modify: `src/ccf/workflow/factory.py:348-359` (inside the `gate_policies` loop's neighbourhood)
+- Modify: `src/ccf/workflow/factory.py::WorkflowFactory.construct` (inside the `gate_policies` loop's neighbourhood)
 - Modify: `tests/fixtures/banking/workflows/covenant_review_workflow.yaml`, `tests/fixtures/banking/workflows/payment_release_workflow.yaml`, `perf/synth/artifacts/workflow.yaml`
 - Test: `tests/workflow/test_factory.py`
 
 **Interfaces:**
-- Consumes: `WorkflowDefinition.gate_routes` (A1); `step_kinds` and `routable` computed at `src/ccf/workflow/factory.py:325-345`.
+- Consumes: `WorkflowDefinition.gate_routes` (A1); `step_kinds` and `routable` computed at `src/ccf/workflow/factory.py::WorkflowFactory.construct`.
 - Produces: `WorkflowConstructionError` for a routed `hitl-gate` step whose `gate_routes` entry does not cover every member of `GATE_ACTIONS`.
 
 - [ ] **Step 1: Write the failing test**
@@ -242,7 +242,7 @@ def test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction(
         {**document, "gate_routes": {"credit-officer-approval": {"approve": "approved"}}}
     )
     with pytest.raises(WorkflowConstructionError, match="does not route verdict"):
-        _construct(registry, definition)   # tests/workflow/test_factory.py:138 — registers, then constructs
+        _construct(registry, definition)   # tests/workflow/test_factory.py::_construct — registers, then constructs
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -316,8 +316,8 @@ git commit -m "feat(357-A2): the factory refuses a routed gate without a complet
 ### Task A3: The engine holds the caller's `decision` to the artifact's route for the recorded verdict
 
 **Files:**
-- Modify: `runtime/ccf_runtime/workflow/engine.py:540-556` (after the declared-target check) and the `_gate_authority` docstring paragraph "Known residual (D-IMPL-350)" (`:1004-1013`)
-- Test: `tests/workflow/test_engine.py:856-895` (rewrite), `tests/workflow/test_engine_stateful.py:169-195` (rewrite)
+- Modify: `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume` (after the declared-target check) and the `_gate_authority` docstring paragraph "Known residual (D-IMPL-350)" (`:1004-1013`)
+- Test: `test_a_rejection_authorizes_resumption_but_does_not_bind_the_target` in `tests/workflow/test_engine.py` (replaced in cfd632c7 by `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`) (rewrite), `tests/workflow/test_engine_stateful.py::WorkflowEngineMachine.resume_suspended` (rewrite)
 
 **Interfaces:**
 - Consumes: `authority.action` (a `GATE_ACTIONS` member), `workflow.definition.gate_routes`, `self._refuse(authorized, workflow, *, execution_id, reason)`.
@@ -429,7 +429,7 @@ git commit -m "fix(357-A3): resume holds the caller's decision to the artifact's
 ### Task A4: Conflicting verdicts on one suspension refuse
 
 **Files:**
-- Modify: `runtime/ccf_runtime/workflow/engine.py:931-1054` (`_gate_authority` returns every qualifying submission; `resume` refuses on more than one distinct verdict)
+- Modify: `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority` (`_gate_authority` returns every qualifying submission; `resume` refuses on more than one distinct verdict)
 - Test: `tests/workflow/test_engine.py` (in-process, through the submit-only path) and `tests/http_api/test_routes.py` (through `POST /hitl/actions` twice)
 
 **Interfaces:**
@@ -570,11 +570,11 @@ git commit -m "docs(357-A5): the decision agrees with the declared route; the ar
 ### Task B1: An identity component is admissible or refused, by name, at the single mint site
 
 **Files:**
-- Modify: `src/ccf/assembly/worker.py:59-70` (`__all__`), `:340-372` (`SpecDrivenEntityResolution.resolve`), a new `IdentityRefused` class and `_identity_text` helper beside the strategy
+- Modify: `src/ccf/assembly/worker.py::__all__` (`__all__`), `:340-372` (`SpecDrivenEntityResolution.resolve`), a new `IdentityRefused` class and `_identity_text` helper beside the strategy
 - Test: `tests/assembly/test_worker.py`
 
 **Interfaces:**
-- Consumes: `envelope(payload=…)` helper (`tests/assembly/test_worker.py:41`); `spec_fabric` fixture and `_positional_spec`/`_OWNS` (`:877-896` neighbourhood); `content_hash`.
+- Consumes: `envelope(payload=…)` helper (`tests/assembly/test_worker.py::envelope`); `spec_fabric` fixture and `_positional_spec`/`_OWNS` (`:877-896` neighbourhood); `content_hash`.
 - Produces: `class IdentityRefused(ValueError)` with attributes `envelope_id`, `entity_class`, `key`, `field`, `reason` (`reason ∈ {"null", "empty", "bool", "float", "non-scalar"}`); `_identity_text(value) -> tuple[str | None, str]` (the positional-string text, or `None` with the refusal reason).
 
 - [ ] **Step 1: Write the failing tests**
@@ -646,7 +646,7 @@ def test_two_null_identity_envelopes_mint_nothing_and_no_edge(
     assert len(view.entities) == 0
     assert len(view.relationships) == 0
 ```
-(Add `from ccf.contracts.canonical import content_hash` to the module; `LEI`, `PARENT_LEI`, `_positional_spec(*, remap, rules)` and `_OWNS` exist at `tests/assembly/test_worker.py:317-318`, `:765`, `:794`.)
+(Add `from ccf.contracts.canonical import content_hash` to the module; `LEI`, `PARENT_LEI`, `_positional_spec(*, remap, rules)` and `_OWNS` exist at `tests/assembly/test_worker.py::LEI`, `tests/assembly/test_worker.py::PARENT_LEI`, `:765`, `:794`.)
 
 - [ ] **Step 2: Run them to verify they fail**
 
@@ -737,7 +737,7 @@ git commit -m "fix(357-B1): an inadmissible identity value is refused by name at
 
 **Files:**
 - Create: `tools/measure_null_attributes.py` (read-only)
-- Modify: `src/ccf/assembly/worker.py:369` (the attribute comprehension)
+- Modify: `src/ccf/assembly/worker.py::SpecDrivenEntityResolution.resolve` (the attribute comprehension)
 - Test: `tests/assembly/test_worker.py`
 
 - [ ] **Step 1: Measure** — the script walks `tests/fixtures/**/*.jsonl`, `tests/signal_layer/fixtures/*.json` and every `examples/**/deployment.py`/`acquisition.py` for `or ""` sites, and prints: fixture rows with a `null` under a declared `attribute_keys` name (by loading each `EntityResolutionSpec` found in `tests/fixtures/**/*.yaml`), plus the 95 `or ""` sites. Attach the printed table to the `D-IMPL-357` entry (B4). Expected from the recon: 0 fixture nulls on attribute keys; 95 sites in 32 files across 21 trees.
@@ -769,7 +769,7 @@ def test_a_null_attribute_is_absent_not_the_string_none() -> None:
 ### Task B3: The canonical path converts the SDK's own seam class by mechanism (the `D-IMPL-347` B2 amendment)
 
 **Files:**
-- Modify: `src/ccf/products/resolver.py:3197-3216` (`_declared_seam_refusal`) and a module constant beside it
+- Modify: `src/ccf/products/resolver.py::GovernedResolver._declared_seam_refusal` (`_declared_seam_refusal`) and a module constant beside it
 - Test: `tests/products/test_d_impl_347_seam_refusals.py` (reuse `_write_tree`, `_open`, `_question`, `_config`, imported there from `tests.products.test_paved_road`, and the module's own `_seam_of`; the record is read as `opened.record_of(outcome)` at `:58`/`:219`)
 
 **Interfaces:**
@@ -839,8 +839,8 @@ and in `_declared_seam_refusal`, before the declared loop: `if (mechanism := SDK
 ### Task C1: The mechanism floor — `SUBJECT_FLOOR_V1` and `refuse_floor`
 
 **Files:**
-- Modify: `src/ccf/products/request.py:232-242` (append the reason), `:1847` neighbourhood (the constants), a new `refuse_floor` beside `refuse_intent` (`:2009`)
-- Test: `tests/products/test_request_contract.py:1011-1016` (roster pin rewrite) and new tests
+- Modify: `src/ccf/products/request.py::ProductRequestViolationReason` (append the reason), `:1847` neighbourhood (the constants), a new `refuse_floor` beside `refuse_intent` (`:2009`)
+- Test: `test_the_reason_vocabulary_has_nine_members_tier_proportion_domain_then_membership` in `tests/products/test_request_contract.py` (replaced in 51d57c00 by `tests/products/test_request_contract.py::test_the_reason_vocabulary_has_ten_members_and_malformed_value_is_last`) (roster pin rewrite) and new tests
 
 **Interfaces:**
 - Consumes: `ProductRequestViolation` (`src/ccf/products/request.py::ProductRequestViolation`), `ProductRequestContract.arguments.properties` (`SkillArgumentProperty.type`).
@@ -892,7 +892,7 @@ def test_a_declared_string_parameter_is_held_to_the_floor_too() -> None:
     )
     assert violation is not None and violation.key == "lei" and violation.reason == "malformed-value"
 ```
-(`_request(**overrides)` and `_contract(**overrides)` are the module's builders at `tests/products/test_request_contract.py:156` and `:145`; the `arguments` override takes the same shape the module's `argument_domains` tests pass.)
+(`_request(**overrides)` and `_contract(**overrides)` are the module's builders at `tests/products/test_request_contract.py::_request` and `:145`; the `arguments` override takes the same shape the module's `argument_domains` tests pass.)
 
 - [ ] **Step 2: Run to verify they fail** — Expected: `ImportError: cannot import name 'refuse_floor'`; the roster pin fails at `len(members) == 10`.
 - [ ] **Step 3: Implement**
@@ -966,7 +966,7 @@ Correct the class docstring at `:281-285`: *"…validates its **shape**: the mec
 ### Task C2: The floor is judged in `GovernedResolver.__call__` before the overridable seam
 
 **Files:**
-- Modify: `src/ccf/products/resolver.py:2203-2235` (after the `refuse_intent` branch, before `self.constraint_resolver.resolve(...)`)
+- Modify: `src/ccf/products/resolver.py::GovernedResolver.__call__` (after the `refuse_intent` branch, before `self.constraint_resolver.resolve(...)`)
 - Test: `tests/products/test_resolver_seam.py` (the module's `_resolver(...)` / `_ask(...)` helpers and a stub constraint resolver)
 
 - [ ] **Step 1: Write the failing tests**
@@ -1016,13 +1016,13 @@ def test_a_malformed_subject_is_refused_before_the_acquisition_seam_and_before_t
                 resolution=ResolutionNotApplicable(reason="refused-before-resolution"),
             )
 ```
-- [ ] **Step 4: Run** — `PYTHONPATH=src:runtime .venv/bin/python -m pytest tests/products/test_resolver_seam.py tests/products/test_delivery_determinism.py tests/http_api/test_product_refusal_statuses.py tests/mcp/test_egress_refusal_channels.py -q -p no:randomly` → PASS; the disclosure controls at `tests/products/test_disclosure.py:724-727`/`:798-801` stay green (`detail` withheld at minimal; `malformed-value` is a `ProductRequestViolation`, an existing kind).
+- [ ] **Step 4: Run** — `PYTHONPATH=src:runtime .venv/bin/python -m pytest tests/products/test_resolver_seam.py tests/products/test_delivery_determinism.py tests/http_api/test_product_refusal_statuses.py tests/mcp/test_egress_refusal_channels.py -q -p no:randomly` → PASS; the disclosure controls at `tests/products/test_disclosure.py::test_the_allowed_set_crosses_only_where_detail_crosses`/`:798-801` stay green (`detail` withheld at minimal; `malformed-value` is a `ProductRequestViolation`, an existing kind).
 - [ ] **Step 5: Commit** — `git commit -m "fix(357-C2): the floor is judged in GovernedResolver.__call__ before the overridable seam"`.
 
 ### Task C3: `ArgumentDomain.pattern` (a third exclusive shape) and `ProductRequestContract.subject_domain`
 
 **Files:**
-- Modify: `src/ccf/products/request.py:435-491` (`ArgumentDomain`), the `ProductRequestContract` field block (`:793-807` neighbourhood), `refuse_request` (`:1920`, a `_refuse_subject` step after `_refuse_address`), `src/ccf/products/request_schema.py:88-112`
+- Modify: `src/ccf/products/request.py::ArgumentDomain` (`ArgumentDomain`), the `ProductRequestContract` field block (`:793-807` neighbourhood), `refuse_request` (`:1920`, a `_refuse_subject` step after `_refuse_address`), `src/ccf/products/request_schema.py::_refuse_a_second_declaration`, `src/ccf/products/request_schema.py::_derived_keys`
 - Test: `tests/products/test_request_contract.py`, `tests/products/test_request_schema_render.py:291`
 
 **Interfaces:**
@@ -1058,13 +1058,13 @@ def test_a_subject_domain_cannot_be_numeric() -> None:
 
 
 def test_the_render_advertises_pattern_and_refuses_a_planted_one() -> None:
-    from ccf.products.request_schema import render_request_input_schema   # src/ccf/products/request_schema.py:55
+    from ccf.products.request_schema import render_request_input_schema   # src/ccf/products/request_schema.py::render_request_input_schema
     contract = _contract(argument_domains={"lei": ArgumentDomain(pattern=r"[0-9A-Z]{20}")},
                          arguments={"properties": {"lei": {"type": "string"}}})
     rendered = render_request_input_schema(contract)
     assert rendered["properties"]["lei"]["pattern"] == r"[0-9A-Z]{20}"
 ```
-and extend the planted-key tuple at `tests/products/test_request_schema_render.py:291` with `"pattern"`.
+and extend the planted-key tuple at `tests/products/test_request_schema_render.py::test_the_control_plants_nothing_when_not_asked` with `"pattern"`.
 - [ ] **Step 2: Run to verify they fail** — Expected: `ValidationError: Extra inputs are not permitted` for `pattern` / `subject_domain`.
 - [ ] **Step 3: Implement**
 
@@ -1168,7 +1168,7 @@ def _derived_keys(domain: ArgumentDomain) -> dict[str, Any]:
 - Test: `tests/test_version_stamp.py`
 
 **Interfaces:**
-- Consumes: `src/ccf/graph/registry.py:474-484` `_sdk_version()` → `importlib.metadata.version(SDK_DISTRIBUTION)`; `SDK_DISTRIBUTION = "ccf"` (`:188`).
+- Consumes: `src/ccf/graph/registry.py::_sdk_version` `_sdk_version()` → `importlib.metadata.version(SDK_DISTRIBUTION)`; `SDK_DISTRIBUTION = "ccf"` (`:188`).
 - Produces: `importlib.metadata.version("ccf")` derived from git (`1.0.2` at the `v1.0.2` tag; `1.0.1.devN+g…` on a branch past `v1.0.1`); `tools/check_version_stamp.py` exits non-zero when `HEAD` is an exact `v*` tag and the installed metadata differs from it.
 
 - [ ] **Step 1: Write the failing test**
@@ -1320,7 +1320,7 @@ Note for the entry: the derived stamp now differs per commit on a branch, so any
 |---|---|---|
 | `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch` (`:865-941`; pre-A3 name `test_a_rejection_authorizes_resumption_but_does_not_bind_the_target`, then at `:856-895`) | `WorkflowCompleted` after a recorded `reject` + `decision="approved"`; `actor == "officer-2"` | `test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch` (A3 step 1): `WorkflowResumeRefused`, audit `resolved=False, actor=None`, then the declared route completes |
 | `tests/workflow/test_engine_stateful.py::TestWorkflowEngineStateful.resume_suspended` (`:169-195`) | draws `decision ∈ {approved, rejected}` after an always-approve resolve | draws the **verdict**, resolves the gate with it, derives `decision` from `gate_routes` (A3 step 1) |
-| Every test constructing the three fixtures (`tests/workflow/*`, `tests/http_api/conftest.py` → `tests/http_api/test_routes.py:573/606/631`, `tests/cli/test_cli.py::test_workflow_invoke_status_resume`, `tests/conformance/test_orchestration.py`, `perf/suites/micro/test_factory.py`) | green on `1.0.0` documents with no `gate_routes` | red at the factory between A2 step 3 and step 4; green again once the YAML migrates (fixed by data, not by test edits) |
+| Every test constructing the three fixtures (`tests/workflow/*`, `tests/http_api/conftest.py` → `tests/http_api/test_routes.py::test_workflow_resume_of_a_gate_without_a_human_action_is_refused`, `tests/http_api/test_routes.py::test_workflow_resume_refusal_does_not_enumerate_the_declared_targets`, `tests/http_api/test_routes.py::test_workflow_resume_with_an_undeclared_decision_is_refused`, `tests/cli/test_cli.py::test_workflow_invoke_status_resume`, `tests/conformance/test_orchestration.py`, `perf/suites/micro/test_factory.py`) | green on `1.0.0` documents with no `gate_routes` | red at the factory between A2 step 3 and step 4; green again once the YAML migrates (fixed by data, not by test edits) |
 | `tests/http_api/test_routes.py::test_workflow_resume_with_an_undeclared_decision_is_refused` (`:631`, asserts "declared transition" at `:650`) | ordering-sensitive | stays green because the route compare is placed **after** the declared-target check |
 | `tests/cli/test_schema_export.py::test_the_committed_schemas_match_what_the_classes_emit` (`:124`) and `::test_each_committed_schema_is_its_class_byte_for_byte` (`:130`) | committed schemas | red until `make schemas` after A1 and C3 |
 | `tests/contracts/test_hash_transparency.py::test_the_marked_fields_in_the_tree_are_exactly_the_ticked_table` | the ticked roster of marked fields | red until `gate_routes` (`False`), `pattern` (`True`), `subject_domain` (`True`) are ticked |
@@ -1338,7 +1338,7 @@ Note for the entry: the derived stamp now differs per commit on a branch, so any
 | S1 | delete the route compare in `resume` | `test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch` | A3 |
 | S2 | delete the `len({…action…}) > 1` refusal | `test_two_officers_conflicting_verdicts_…` and the HTTP twin | A4 |
 | S3 | move the route compare **ahead** of the declared-target check | `tests/http_api/test_routes.py::test_workflow_resume_with_an_undeclared_decision_is_refused` (`:650`) | ordering |
-| S4 | put the expected target into the A3 refusal reason | `test_a_refused_gate_resume_does_not_enumerate_the_declared_targets` and `tests/http_api/test_routes.py:606` | remedy 3 |
+| S4 | put the expected target into the A3 refusal reason | `test_a_refused_gate_resume_does_not_enumerate_the_declared_targets` and `tests/http_api/test_routes.py::test_workflow_resume_refusal_does_not_enumerate_the_declared_targets` | remedy 3 |
 | S5 | delete the factory coverage check | `test_a_routed_gate_without_a_complete_route_map_is_refused_at_construction` | A2 |
 | S6 | in `_routes_map_verdicts_onto_declared_targets`, drop the target-membership check | `test_a_route_to_a_target_not_declared_from_that_gate_is_refused` | A1 |
 | S7 | restore bare `str()` at the mint site | `test_an_inadmissible_identity_value_is_refused_by_name[…]` and `test_two_null_identity_envelopes_mint_nothing_and_no_edge` (both assertions) | B1 |
@@ -1364,10 +1364,10 @@ Every severing is recorded as observed RED then restored byte-for-byte to the fr
 
 ## Part VII — Panel brief (codex + cursor + gemini, after sabotage, before Dave)
 
-- **Payload, on stdin, one bundle ≤ 190 KB:** the `D-IMPL-357` entry draft; the full diff against the wave base; numbered (`cat -n`) excerpts of `src/ccf/workflow/definitions.py` (whole), `src/ccf/workflow/factory.py:300-385`, `runtime/ccf_runtime/workflow/engine.py:495-575` and `:925-1060`, `src/ccf/assembly/worker.py:300-400` and `:540-600`, `src/ccf/products/resolver.py:2190-2300` and `:3190-3270`, `src/ccf/products/request.py:225-250`, `:430-520`, `:1840-1860`, `:1915-2080`, `src/ccf/products/request_schema.py:80-115`, `src/ccf/controlplane/artifacts.py:1300-1345` and `:1550-1565`, `src/ccf/deployment/binder.py:318-338`, `pyproject.toml:1-12`, `tools/check_version_stamp.py`; the three migrated fixtures; every new or rewritten test; Part V's results.
+- **Payload, on stdin, one bundle ≤ 190 KB:** the `D-IMPL-357` entry draft; the full diff against the wave base; numbered (`cat -n`) excerpts of `src/ccf/workflow/definitions.py` (whole), `src/ccf/workflow/factory.py::WorkflowFactory`, `runtime/ccf_runtime/workflow/engine.py:495-575` and `:925-1060`, `src/ccf/assembly/worker.py:300-400` and `:540-600`, `src/ccf/products/resolver.py:2190-2300` and `:3190-3270`, `src/ccf/products/request.py:225-250`, `:430-520`, `:1840-1860`, `:1915-2080`, `src/ccf/products/request_schema.py:80-115`, `src/ccf/controlplane/artifacts.py:1300-1345` and `:1550-1565`, `src/ccf/deployment/binder.py:318-338`, `pyproject.toml:1-12`, `tools/check_version_stamp.py`; the three migrated fixtures; every new or rewritten test; Part V's results.
 - **Told:** the SDK is destined for a **bank**; the executing model is excluded; every citation must resolve and every quotation must exist; findings carry `path:line` + quoted line + a concrete failure; BLOCKING only for a factual error, an undeclared ruling contradiction, a violated invariant or a plan-diverging ambiguity.
 - **Known and not to be re-derived:** A1–A5, B1–B5, C1–C6+C1a are locked (`D-IMPL-356`); the escalation sibling, `decision`'s removal, L2 partial admission, durable L2 refusal recording and the workflow-definition hash are named rows; `SEC353-G-09` is ledgered; wave 2's clock is out of scope.
-- **The questions, in priority order:** (1) Can a recorded `reject` still reach a non-reject target through any door — HTTP `POST /workflow/resumptions`, the CLI verb, the four orchestration drivers, the harness tool schema? (2) Can a caller make the identity refusal inapplicable — a `str` subclass, a `Decimal` that is not finite, a value that reaches `ingest_admitted` (`src/ccf/assembly/worker.py::ingest_admitted`) by another path, an `EntityResolutionStrategy` plugin? (3) Does any served path reach the acquisition seam with a subject or string parameter outside the floor — the in-process door (`src/ccf/products/door.py`), the MCP resource path, a composite child question (`src/ccf/products/child_resolver.py:771`), the `dispatch.py` peer forwarding? (4) Does the floor's placement change what any existing refusal test observes (the refusal order at `src/ccf/products/resolver.py:2203-2235`)? (5) Does `SDK_SEAM_REFUSALS` open any conversion for a deployment-raised type, and can the binder be made to widen it? (6) Does the version stamp read anything but installed metadata, and does the derived dev stamp break a record-shape pin? (7) What is adjacent: the same defect class next to each fix.
+- **The questions, in priority order:** (1) Can a recorded `reject` still reach a non-reject target through any door — HTTP `POST /workflow/resumptions`, the CLI verb, the four orchestration drivers, the harness tool schema? (2) Can a caller make the identity refusal inapplicable — a `str` subclass, a `Decimal` that is not finite, a value that reaches `ingest_admitted` (`src/ccf/assembly/worker.py::ingest_admitted`) by another path, an `EntityResolutionStrategy` plugin? (3) Does any served path reach the acquisition seam with a subject or string parameter outside the floor — the in-process door (`src/ccf/products/door.py`), the MCP resource path, a composite child question (`src/ccf/products/child_resolver.py::QuestionBoundChildResolver.resolve_for`), the `dispatch.py` peer forwarding? (4) Does the floor's placement change what any existing refusal test observes (the refusal order at `src/ccf/products/resolver.py::GovernedResolver.__call__`)? (5) Does `SDK_SEAM_REFUSALS` open any conversion for a deployment-raised type, and can the binder be made to widen it? (6) Does the version stamp read anything but installed metadata, and does the derived dev stamp break a record-shape pin? (7) What is adjacent: the same defect class next to each fix.
 - **Dispositions** in `docs/V1.0.2-CLOSE-REVIEWS.md` (wave 1 section): every finding and every retraction verified against the tree; rejections recorded as rejections.
 
 ## Part VIII — Exit criteria for wave 1 (spec §9 items 1–4, made concrete)
