@@ -2319,6 +2319,10 @@ def instrument_pair(channel: str, run: Run) -> tuple[str, str]:
         return REFUSED_QUESTION, CF_NONEXISTENT
     if channel == RECORD and SERVED_READABLE in run.sides:
         return SERVED_READABLE, NONEXISTENT_READABLE
+    if DECLARED_TWIN in run.sides:
+        # P2 (c): no side of an undeclared composite answers; the refusal every
+        # side observes is set against the same composite declaring a stance.
+        return DECLARED_TWIN, CF_NONEXISTENT
     return INSTRUMENT_PAIRS[channel]
 
 
@@ -2403,6 +2407,36 @@ REUSE_REFUSALS: dict[str, tuple[str, tuple[str, ...]]] = {
 }
 
 
+#: ``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE (Dave has not ruled
+#: P2): a composite that declares no withholding stance (no early policy, no
+#: ``subject_withholding: never``) is refused where its resolver is built,
+#: before any question, by this name. The late-composite shapes declare none, so
+#: under (c) every question of theirs is that refusal — the same whatever subject
+#: is asked — and, as Q9's reuse refusals are for the reused shapes, the refusal
+#: IS the property their cells hold. Read only where the refusal exists.
+CONSTRUCTION_REFUSALS: dict[str, str] = {
+    COMPOSITE_SUBJECT_CHILD: "CompositeNeedsAWithholdingStance",
+    COMPOSITE_FIXED_CHILD: "CompositeNeedsAWithholdingStance",
+}
+
+#: The instrument side of a shape refused at construction: the same composite
+#: with an early policy declared that withholds nothing — a stance, so it is
+#: built, and its question is answered — asked what the nonexistent side asks.
+DECLARED_TWIN = "declared-twin"
+
+
+def stance_refusal_exists() -> bool:
+    """Whether P2 (c)'s construction refusal exists under its name."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return hasattr(resolver, "CompositeNeedsAWithholdingStance")
+
+
+def refused_at_construction(shape: str) -> bool:
+    """Whether every question of ``shape`` is P2 (c)'s construction refusal on this tree."""
+    return shape in CONSTRUCTION_REFUSALS and stance_refusal_exists()
+
+
 def raising_is_the_property(shape: str, position: str, raised: str) -> bool:
     """Whether a side raising ``raised`` at ``position`` is what the cell is meant to show.
 
@@ -2416,7 +2450,11 @@ def raising_is_the_property(shape: str, position: str, raised: str) -> bool:
     that sees it is not green. A raise inside a record read (key
     ``<position>/record:<read>``) is never the property.
     """
-    if shape not in REUSE_REFUSALS or "/" in position:
+    if "/" in position:
+        return False
+    if refused_at_construction(shape):
+        return position == ONLY and raised.startswith(f"{CONSTRUCTION_REFUSALS[shape]}:")
+    if shape not in REUSE_REFUSALS:
         return False
     refusal, positions = REUSE_REFUSALS[shape]
     return position in positions and raised.startswith(f"{refusal}:")
@@ -2760,6 +2798,10 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
             shape, door, deployment("refusing", holds=False, active=True), SUBJECT,
             parameters=violating_parameters(),
         )
+        if refused_at_construction(shape):
+            twin = build(base / "declared-twin", anchor=anchor, holds=False, active=False, early=True)
+            opened.append(twin)
+            sides[DECLARED_TWIN] = observe_side(shape, door, twin, SUBJECT, reads=True)
         if door in (HTTP, MCP) and evidence_allowlist_exists():
             # Dave's Q12 as built: the record instrument's worlds list the class
             # AND the class affirms ``never``, policy off — served and nonexistent

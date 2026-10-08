@@ -68,7 +68,12 @@ cell (``AcquisitionNeedsAQuestionFabric``) and the second question of every
 ``reused_fabric`` cell (``AcquiredFabricReused``). Behind HTTP (a 500) and MCP
 (``ccf-runtime-failure:<id>``) the type is read off the resolver each door was
 handed (``sec020_worlds.door_resolver``), so a builder that broke cannot pass
-as refused.
+as refused. Where the owed ruling P2's option (c) is on the tree (a CANDIDATE,
+not ruled), the two late-composite shapes declare no withholding stance and
+every question of theirs is its construction refusal,
+``CompositeNeedsAWithholdingStance`` (``sec020_worlds.CONSTRUCTION_REFUSALS``),
+held the same way, with each instrument set against the same composite
+declaring a stance (``sec020_worlds.DECLARED_TWIN``).
 
 Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
 -----------------------------------------------------------------------------------------
@@ -380,11 +385,12 @@ def test_the_instrument_sees_a_difference(
     """
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
-    if channel == w.REFERENCE and shape != w.REUSED_STORE:
+    if channel == w.REFERENCE and shape != w.REUSED_STORE and w.DECLARED_TWIN not in run.sides:
         # Q11: a reference is unique per answer, so no difference survives the
         # noise floor by design; the reference channel is instrumented by
         # Q11's properties instead (``reused_store``: Q9 refuses every
-        # question of the two copies, so it keeps the structural pair below).
+        # question of the two copies, and an undeclared composite under
+        # P2 (c) every question, so those keep the structural pair below).
         problems = w.reference_properties(run)
         assert not problems, (
             f"reference instrument [{shape}, {anchor}, {door}, names_only={names_only}]: Dave's Q11"
@@ -456,6 +462,43 @@ def test_a_fabric_reused_across_questions_is_refused(runs: w.RunCache, shape: st
         )
 
 
+#: The shapes P2 (c) refuses at construction on this tree (empty where the refusal does not exist).
+UNDECLARED_COMPOSITE_SHAPES = tuple(shape for shape in w.CONSTRUCTION_REFUSALS if w.refused_at_construction(shape))
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+@pytest.mark.parametrize("shape", UNDECLARED_COMPOSITE_SHAPES)
+def test_an_undeclared_composite_is_refused_where_its_resolver_is_built(
+    runs: w.RunCache, shape: str, anchor: str, door: str
+) -> None:
+    """``D-IMPL-378`` owed ruling P2, option (c) — a CANDIDATE; Dave has not ruled P2.
+
+    A composite whose stance is neither an early policy nor ``subject_withholding:
+    never`` is refused where its resolver is built: every question of every
+    deployment of this shape — whether its source holds the subject or not,
+    whatever is asked — observes that ONE refusal, by name, at every door (read
+    by type behind HTTP and MCP off the resolver each door was handed). This is
+    the property the shape's matrix cells are held on, exactly as Q9's reuse
+    refusals are for the reused shapes. The control: the same composite with an
+    early policy declared is built and its question answered, so the refusal is
+    the missing stance's, not a broken builder's.
+    """
+    run = runs.get(shape=shape, anchor=anchor, door=door)
+    refusal = w.CONSTRUCTION_REFUSALS[shape]
+    wrong = {
+        side: run.raised(side).get(w.ONLY, "") or w.render(run.channel(side, w.RESPONSE))
+        for side in (w.CF_WITHHELD, w.CF_NONEXISTENT, w.CF_FLOOR, w.SERVED, w.REFUSED_QUESTION,
+                     w.SAME_NONEXISTENT, w.SAME_FLOOR)
+        if not run.raised(side).get(w.ONLY, "").startswith(f"{refusal}:")
+    }
+    assert not wrong, f"[{shape}, {anchor}, {door}] not refused by {refusal}: {wrong}"
+    assert not run.raised(w.DECLARED_TWIN), (
+        f"[{shape}, {anchor}, {door}] control: the same composite declaring an early policy raised, so the"
+        f" refusal above is not evidence that the stance is what it refuses: {run.raised(w.DECLARED_TWIN)}"
+    )
+
+
 #: The shapes whose withholding deployment is asked three different questions.
 UNIQUENESS_SHAPES = tuple(shape for shape in ALL_SHAPES if w.SAME_DEPLOYMENT in w.comparisons_for(shape))
 
@@ -480,6 +523,15 @@ def test_a_public_reference_never_names_two_records(runs: w.RunCache, shape: str
     # A question that raised (at any door: read off the side's own raise, not
     # off one door's shape of it), or a door that could not be reached, handed
     # out no reference at all; it is not a decision with a reference to compare.
+    if w.refused_at_construction(shape):
+        # P2 (c), a candidate: no question of this shape is answered, so it hands
+        # out no reference to compare — provided each refusal is the named one.
+        refusals = {side: run.raised(side).get(w.ONLY, "") for side in answered}
+        assert all(w.raising_is_the_property(shape, w.ONLY, message) for message in refusals.values()), (
+            f"[{shape}, {anchor}, {door}] a question of an undeclared composite was not refused by P2 (c)'s"
+            f" construction refusal: {refusals}"
+        )
+        return
     references = {
         side: w.render(value, limit=10_000)
         for side, value in answered.items()
