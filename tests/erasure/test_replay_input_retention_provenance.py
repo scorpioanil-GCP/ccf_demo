@@ -56,6 +56,7 @@ from ccf.authz.capability import ArtifactErase, Execute, ReplayMint, Resume
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.erasure import compose_erasure_consult
+from ccf.mcp.errors import McpServerUnreachable
 from ccf.replay.provenance import UnattributableRecordStore, filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord
 from ccf_runtime.erasure import ErasureRefused
@@ -304,6 +305,38 @@ def test_an_erasure_consulting_store_over_a_substrate_with_no_naming_refuses_cla
     refused = _refused(h.door(plane, store=composed), plane, h.request(plane))
     assert refused.reason_code == "class-unverifiable"
     assert isinstance(refused.__cause__, AttributeError), refused.__cause__
+
+
+class _NamingFailsAfterTheClassCheck:
+    """A store whose naming answers the door's class check and then fails —
+    the read the provenance question makes — as an MCP names read can."""
+
+    def __init__(self, inner: FileArtifactStore) -> None:
+        self._inner = inner
+        self.reads = 0
+
+    def __getattr__(self, attribute: str) -> Any:
+        return getattr(self._inner, attribute)
+
+    def names_at(self, *, content_address: str) -> Any:
+        self.reads += 1
+        if self.reads > 1:
+            raise McpServerUnreachable("the names resource did not answer")
+        return self._inner.names_at(content_address=content_address)
+
+
+def test_a_naming_read_that_fails_when_provenance_is_asked_refuses_class_unverifiable(tmp_path: Path) -> None:
+    """Added after the fix, for the branch beside the unattributable store: the
+    provenance question reads the store's naming again, and when that read fails
+    the door refuses by name, ``class-unverifiable``, with the failure as the
+    cause, rather than let it escape or judge the bytes as a client artifact."""
+    plane = h.compose(tmp_path)
+    ref = h.client_put(plane.store, name="pre-validator", document=RESEMBLANCE)
+    store = _NamingFailsAfterTheClassCheck(plane.store)
+    refused = _refused(h.door(plane, store=store), plane, _readdress(h.request(plane), ref.content_address))
+    assert store.reads == 2, "the class check's naming read, then the provenance check's"
+    assert refused.reason_code == "class-unverifiable"
+    assert isinstance(refused.__cause__, McpServerUnreachable), refused.__cause__
 
 
 # --- over the MCP-backed store --------------------------------------------------------

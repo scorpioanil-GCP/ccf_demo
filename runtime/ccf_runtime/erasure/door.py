@@ -829,13 +829,14 @@ class ErasureDoor:
         document carries the subject in a replay-input field.
 
         Raises:
-            ErasureRefused: ``class-unverifiable`` — the store cannot say who
-                filed an address (it declares no ``WriteKinds``, or its
-                substrate answers no naming;
-                :class:`~ccf.replay.provenance.UnattributableRecordStore` is the
-                cause), or its naming read failed. The door cannot tell a record
-                from a client artifact, so it refuses rather than judge the
-                bytes on their own word.
+            ErasureRefused: ``class-unverifiable`` — the store declares no
+                ``WriteKinds``, so it cannot say who filed an address
+                (:class:`~ccf.replay.provenance.UnattributableRecordStore` is
+                the cause), or the naming read this question makes failed. The
+                door cannot tell a record from a client artifact, so it refuses
+                rather than judge the bytes on their own word. (A store whose
+                naming cannot be read at all was already refused by the class
+                check, before this is asked.)
         """
         try:
             return filed_by_record_writer(self._store, content_address=address, tenant_id=tenant)
