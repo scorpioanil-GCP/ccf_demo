@@ -334,8 +334,8 @@ holds both to `[project] name`.
 
 Eleven decisions have to be made explicitly; §4.8 records two limitations the
 SDK discloses rather than fixes, §4.12 an open row (SEC-020) a deployment must
-plan around, and §4.13 how far the SDK serializes the resumption of a suspended
-run, and what a deployment must serialize beyond that. Each decision is a construction-time argument
+plan around, and §4.13 how the SDK keeps one approval to one passage and what it
+asks of a deployment's own state store and HITL transport. Each decision is a construction-time argument
 or a declared artifact rather than a setting buried in configuration; where the
 SDK behaves a particular way when nothing is declared, its section says so. The
 first two concern the HTTP surface, whose endpoint-by-endpoint contract is on
@@ -1252,79 +1252,137 @@ egress door and the HTTP product route all return one.
   before the registry change it was 1.11 in one run. Larger fabrics and
   heavier plans are unmeasured.
 
-### 4.13 Resume a suspended run from one process, and serialize resumes beyond it (D-IMPL-377)
+### 4.13 One approval, one passage: resume over a shared store and a shared transport (D-IMPL-377, D-IMPL-378)
 
-A resumption takes a single-flight claim on its execution before it reads
-the execution's state record, and gives the claim back on every exit:
-completion, refusal, exception and cancellation
-(`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). The claim
-is keyed by the Control Plane state store the record lives in and by the
-execution's state key, and every engine in the process over that store
-shares it. While one resumption of an execution is in flight in the
-process, a second is refused rather than queued. The refusal is a
-`WorkflowResumeRefused` audited `resolved=False`, and
-`POST /workflow/resumptions` answers it with the same 409 it gives the
-sequential refusal. Before the claim existed, two resumptions of one
-approved suspension both passed the gate. On one human approval, the step
-after the gate ran twice, two `workflow_resumed` rows named the one
-approver, and the next gate held two pending events, one of them bound to a
-state record that had already been overwritten.
+One human approval carries an execution past its gate once
+(`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). Three
+mechanisms stand between an approval and a second passage, and each was
+measured going red when it was removed:
 
+- **In one process, the single-flight claim** (`D-IMPL-377`). A resumption
+  takes a claim on its execution before it reads the execution's state record,
+  and gives it back on every exit: completion, refusal, exception and
+  cancellation. The claim is keyed by the Control Plane state store the record
+  lives in and by the execution's state key, and every engine in the process
+  over that store shares it. While one resumption of an execution is in flight
+  in the process, a second is refused rather than queued: a
+  `WorkflowResumeRefused` audited `resolved=False`, which
+  `POST /workflow/resumptions` answers with the same 409 it gives the
+  sequential refusal.
+- **The gate's closure on the HITL transport** (`D-IMPL-378`). After every
+  check has passed and before it writes anything, the resumption asks the
+  transport to close the gate on exactly the verdicts it judged
+  (`src/ccf/hitl/transport.py::HITLTransportProtocol.close_gate`). A verdict
+  recorded after the resumption read the verdicts makes the closure fail, and
+  the resumption is refused; presented again, it judges the verdicts that now
+  stand, and a rejection among them refuses it for the conflict. A verdict on a
+  gate that is already closed is refused at both doors with `hitl-gate-closed`
+  (HTTP 409) and nothing is recorded, and the HITL queue no longer lists the
+  closed gate's event.
+- **The conditional passage commit** (`D-IMPL-378`). The execution leaving its
+  gate, and the attributed `workflow_resumed` row that names the approver, are
+  one write, conditional on the version of the record the resumption read
+  (`src/ccf/controlplane/state.py::ConditionalStateStore`), committed before
+  the step after the gate runs. Of two resumptions in two processes, or through
+  two state-store objects over one durable store, exactly one commit lands; the
+  other is refused before it runs anything.
+
+Before these mechanisms, the following were measured on 2026-10-07:
+
+- Two resumptions of one approval, through two state-store objects over one
+  durable store, both passed the gate and ran the step after it twice.
+- A rejection recorded while a resumption was deciding was outvoted: the
+  execution completed at the approving terminal with both verdicts on record.
+- A passed gate's event stayed in the queue, so a later rejection was recorded
+  as a verdict on an open gate.
+- An execution id could be started twice.
+- A resumption that failed or was cancelled left an attributed
+  `workflow_resumed` row for a passage that never committed.
+
+Each is now a test that fails when its mechanism is removed
+(`tests/workflow/test_approval_gate_limits.py`,
+`tests/http_api/test_approval_gate_limits_door.py`,
+`tests/mcp/test_hitl_gate_closed_mcp.py`). An execution id is now started
+once, with a create-if-absent write before its first step; a second start of
+the same id is refused "already exists".
+
+- **Resume one execution from several processes only over a `shared` state
+  store and a `shared` HITL transport.** The engine refuses, at construction
+  and by name, three things: a state store that is not a
+  `ConditionalStateStore` declaring scope `process` or `shared`; a transport
+  that does not offer the whole `HITLTransportProtocol` with such a scope; and
+  a `shared` store paired with a transport that is not `shared`
+  (`tests/workflow/test_engine_refuses_unsupported_seams.py`). The shipped
+  `InMemoryStateStore` and `InMemoryHitlTransport` are `process`. A deployment
+  that supplies its own store or transport implements the conditional write
+  or the gate's closure atomically with its other writes, keeps closures as
+  durable as submissions, and runs
+  `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
+  The engine can refuse an implementation that lacks the members; it cannot
+  see whether one keeps the atomicity it declares.
+- **A passage interrupted after its commit is never retried** (`D-IMPL-378`).
+  Suppose a resumption is cancelled, or its process dies, after its passage
+  committed. The execution stays `running` at the step after the gate, and
+  `GET /workflow/execution` answers `status: "running"`. Every later
+  resumption, in any process, is refused with "An interrupted passage is
+  never retried", because that step may already have had effects the engine
+  cannot see. The SDK offers no primitive that reconciles such an execution:
+  an operator reads the gate's closure
+  (`src/ccf/hitl/transport.py::HITLTransportProtocol.closures`) and the
+  attributed `workflow_resumed` row, settles what the step did, and acts
+  outside the fabric. A resumption whose commit never landed (the write
+  itself failed) left the execution `suspended` with no step run. Presented
+  again from any process, it re-takes the same closure and runs the step after
+  the gate once. Both halves were measured across two processes:
+  `tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`
+  and `::test_an_interrupted_passage_is_never_retried_by_any_process`.
+- **A conflicted gate stays suspended for good. This remains open**
+  (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
+  refuse every resumption, and the SDK offers no primitive that reopens the
+  gate (code reading). Three kinds of principal can hold a gate this way:
+  - any eligible approver, on a transport bound to a Control Plane;
+  - on a transport constructed without a Control Plane, which judges no
+    eligibility, any holder of `HitlSubmit` for the event
+    (`tests/workflow/test_conflict_population_eligibility.py::test_an_ineligible_principals_opposite_verdict_still_holds_the_gate`);
+  - on any transport, a principal whose verdict is recorded after the gate
+    primitive claimed the gate's event and before the gate closed. No event
+    is left to judge it against, so it is recorded unjudged, and it still
+    counts as a disagreement (`D-IMPL-366` H2;
+    `tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict`).
+
+  Reconcile such an execution outside the fabric, and grant `HitlSubmit` for
+  an approval gate's events only to its approvers.
+- **Review the gates passed before the upgrade.** An execution that left a
+  gate before this change still has that gate's event in the queue, because
+  no closure exists for it, so a verdict presented on it is still recorded as
+  a verdict on an open gate (code reading). Find the executions that left a
+  gate before the upgrade and whose suspension holds both an approve and a
+  reject verdict, and route them to human review. For a gate passed after the
+  upgrade, the late verdict is refused instead.
 - **Present a refused resumption again only after the other one has
-  returned.** The 409 means another resumption of the same execution is in
-  flight in this process. A repeat presented after that one has returned is
-  judged on the execution as it then stands: if the other passed the gate,
-  at the gate the execution now waits on.
-- **Serialize resumptions per execution in front of the door when more
-  than one process can resume.** The claim lives in one process's memory.
-  It does not cover several processes, or several state-store objects that
-  front one durable store, because the state-store Protocol has no
-  compare-and-set (`src/ccf/controlplane/state.py::ControlPlaneStateStore`).
-  The shipped `InMemoryStateStore` is per process, so the shipped
-  composition never shares an execution between processes. A deployment
-  that supplies a shared store must route every resumption of one
-  execution through one process, or take its own per-execution lock before
-  the door.
-- **Keep the steps after a gate idempotent.** A resumption that fails or is
-  cancelled after its step has started gives the claim back, so a retry is
-  admitted and runs that step again.
-- **A verdict recorded while a resumption is in flight is still not seen.
-  This remains open.** A rejection recorded between a resumption's conflict
-  check and its commit is outvoted: the execution completes at the
-  approving terminal with both verdicts on record
-  (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`,
-  residual 2(b)). The claim cannot reach this, because verdicts are recorded
-  through the HITL transport
-  (`src/ccf/hitl/transport.py::HITLTransportProtocol`), which the claim
-  never touches. Covering it means the submission path taking the same
-  per-execution claim, which changes the transport's contract for every
-  transport a deployment supplies. Until then, reconcile: find every
-  execution that has left a gate whose suspension holds both an approve and
-  a reject verdict, and route it to human review.
+  returned.** An in-flight 409 means another resumption of the same execution
+  is in flight in this process. A repeat presented after that one has returned
+  is judged on the execution as it then stands. If the other passed the gate,
+  the repeat is judged at the gate the execution now waits on. A resumption
+  refused because a verdict arrived while it was deciding may be presented
+  again at once.
 - **A step that never returns keeps the claim for the life of the
   process.** The SDK has no timeout and no operator override for the claim.
   The claim is given back only when the resumption itself exits, and
   cancelling the resumption counts as an exit (code reading of
   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`). While a
   step after a gate hangs, every later resumption of that execution in the
-  process is refused as in flight. Measured: refused at once and again two
-  seconds later, then admitted once the hung resumption was cancelled. If
-  you cannot cancel it, restart the process. What the restarted process
-  finds depends on where the execution's state lives. The shipped
-  composition keeps its state store, HITL transport and audit log in
-  memory, so a restart loses the execution. Measured: the restarted
-  process holds no state record and no recorded approval for it, a
-  resumption is refused "no execution exists", and the trace artifact its
-  suspension wrote to the artifact store survives. Starting it
-  again under the same execution id runs it from its first step to its
-  first gate, where it waits for a new approval (measured). The audit rows
-  the killed process wrote are gone with its memory (code reading). A
-  durable state store and HITL transport instead keep the execution
-  suspended at the gate the hung resumption was carrying it past, because
-  that resumption committed nothing. The next resumption passes on the same
-  recorded approval and runs the step after the gate again. This was
-  measured with the reference store and transport, persisted to disk after
-  every write, standing in for durable ones.
+  process is refused as in flight. Cancelling the hung resumption, or
+  restarting the process, makes it an interrupted passage. With a durable
+  state store, the execution stays `running`, and every later resumption is
+  refused as above rather than running the step again. With the shipped
+  composition, which keeps its state store, HITL transport and audit log in
+  memory, a restart loses the execution.
+  Measured before `D-IMPL-378`: the restarted process held no state record
+  and no recorded approval for it, and a resumption was refused "no execution
+  exists". Starting it again under the same execution id ran it from its first
+  step to its first gate, where it waited for a new approval. The audit rows
+  the killed process wrote are gone with its memory (code reading).
 - **The in-flight refusal tells a `Resume` holder that a resumption is
   running.** The claim is taken after the `Resume` capability is verified
   and before the gate's authority is checked (code reading of
