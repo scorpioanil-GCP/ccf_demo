@@ -199,6 +199,32 @@ def test_the_http_mount_requires_both_addresses_and_advertises_exactly_what_it_i
         ), refused.headers
 
 
+def test_the_token_decision_does_not_depend_on_either_address(tmp_path: pathlib.Path) -> None:
+    """Two HTTP mounts of one door, advertising different addresses, decide every token alike.
+
+    The measurement behind "no token check reads either address": no
+    credential, a wrong credential and the door's own credential, each sent to
+    both mounts. A 401 is the bearer middleware's refusal; anything else means
+    the token was accepted and the request went on to the protocol layer.
+    """
+    door = open_door(_Product(tmp_path), environ={"DOOR_TOKEN": "token-control-credential"})
+    presented = (
+        {},
+        {"Authorization": "Bearer not-the-door-credential"},
+        {"Authorization": f"Bearer {door.credential}", "Accept": "application/json, text/event-stream"},
+    )
+    refused_by_mount = []
+    for issuer, resource in (
+        ("https://issuer.one.invalid/", "https://door.one.invalid/mcp"),
+        ("https://issuer.two.invalid/", "https://door.two.invalid/mcp"),
+    ):
+        with TestClient(door.server(issuer_url=issuer, resource_server_url=resource).streamable_http_app()) as client:
+            refused_by_mount.append(
+                tuple(client.post("/mcp", json={}, headers=headers).status_code == 401 for headers in presented)
+            )
+    assert refused_by_mount == [(True, True, False), (True, True, False)], refused_by_mount
+
+
 def test_the_loopback_door_advertises_its_own_address_and_refuses_without_a_token() -> None:
     """The loopback transport derives its addresses from the port it binds, as before."""
     with _producer() as url, httpx.Client(trust_env=False, timeout=10) as client:
