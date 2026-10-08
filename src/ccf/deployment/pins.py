@@ -81,7 +81,11 @@ class ArtifactPin(CCFContract):
     """One artifact in force: the key it is registered under and its version.
 
     Attributes:
-        key: The Control Plane key, taken verbatim from the manifest entry.
+        key: The Control Plane key the entry was registered under. For a pin a
+            loader produced, that is the manifest entry's key as placed under
+            the deployment's tenant (`D-IMPL-354`): ``{tenant}/policy`` for an
+            authored ``policy``, and a key already under the tenant unchanged.
+            :meth:`ResolvedPins.version_for` looks pins up by this string.
         version: The content version :meth:`register_typed
             <ccf.controlplane.registry.ControlPlaneRegistry.register_typed>`
             returned. A content hash (D-IMPL-26), so pin identity *is* content

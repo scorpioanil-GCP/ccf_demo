@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2191 entries**, of which **1916** name a public Python surface.
+**2200 entries**, of which **1925** name a public Python surface.
 
 ## Added
 
@@ -15807,7 +15807,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Before: absent — the config loader derived bare section keys (`product_class`, `policy`, `half_life`, `policy_constraints.<label>`) and the binding document named them the same way; under the `{tenant}/{class}[/{name}]` grammar the registry enforces (§1.3) a bare key belongs to nobody and, once every registration required a capability, could not be registered at all
 - After: `namespaced_key(*, tenant, key)` — the one derivation that CONFINES a deployment's key to its resolved tenant: a key already under `{tenant}/` is returned unchanged; every other key, bare or prefixed, is placed under it (`{tenant}/{key}`). Applied through `src/ccf/deployment/manifest.py::manifest_under_tenant` (manifest entries, the two boot keys, the parsed-artifact mapping, the resolver's `DeploymentKeys`) by the loader (`src/ccf/deployment/manifest.py::_register_and_boot`) and by the consumer chain `open_product` derives (`src/ccf/products/product.py::_derive_consumer_chain`), and in `src/ccf/client/adapters/inprocess.py::_boot` for the binding document's keys. Confinement rather than refusal because a section label may legitimately contain `/` (a policy constraint named by a path), so a leading segment is not evidence of an author's tenant claim; a deployment composed through the loader can never register outside its own tenant, and the audit log shows the confined key
 - Why: `D-IMPL-354`: the loader is SDK mechanism, not an example; the grammar is the security invariant, so the loader adapts to it rather than the registry admitting tenant-less keys (which would let two tenants collide on one bare name). Direct callers of `register_manifest_entries` place their keys with `manifest_under_tenant` first; the register loop and the door handles keep the registry's own tenant-segment check
-- Migration: none for a deployment that names bare keys — they are placed under its tenant; a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+- Migration: ~~none for a deployment that names bare keys — they are placed under its tenant;~~ a deployment that authored keys under another prefix finds them under `{tenant}/{prefix}/…`, never under the other prefix
+  - **Correction 2026-10-07 (`D-IMPL-378`):** the struck clause is false. It is
+    struck rather than deleted so this dated record still shows what it said.
+    Placement also re-keys what a boot hands back: `BootedFabric.artifacts` and
+    `BootedFabric.pins` are keyed by the key as placed under the tenant, so a
+    deployment that reads them back by the bare key it authored gets `KeyError`
+    from `booted.artifacts[...]`, `None` from `booted.artifacts.get(...)`, and
+    `UnpinnedArtifactError` from `booted.pins.version_for(...)` (estate family R,
+    `docs/D-IMPL-377-CLOSE-OUT.md` §6a). Migration: read them by the placed key,
+    `booted.keys.<section>` on the single-file door or
+    `namespaced_key(tenant=booted.tenant_id, key=<authored key>)` on either
+    door; see fragment `378-07`
 
 *Recorded by `353-09-the-join.md`.*
 
@@ -25254,6 +25265,10 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - After: an optional reserved section `temporal_boundary: Mapping[str, Any] | None = None`, marked `HASH_TRANSPARENT_KEY: True`. Transparent at its `None` sentinel, so **a config that omits the section keeps its pre-change content identity byte-for-byte** — measured on the existing reserved sections, which still derive exactly as before. Absence means *undeclared*; it does not mean unbounded and it synthesizes no policy. The body is the step-3 contract verbatim: no `semver` is injected, no tenant or key or registration metadata is accepted inside it, and the SDK supplies no duration default
 - Why: `D-IMPL-358` step 5 section A. Ruling 11 admits no exception, so the declaration needs a home in the document an operator actually edits
 - Migration: none required of an existing config — the field is optional and transparent at absence. A deployment that wants a bound adds the section; once enforcement lands (the remainder of step 5), a config-driven deployment without one will refuse
+  - **Correction 2026-10-07 (`D-IMPL-378`):** enforcement landed at `3976cbc1`
+    and no fragment recorded it. It applies to every deployment that serves
+    through `GovernedResolver`, not only a config-driven one, and a tenant with
+    no declared boundary serves nothing; the migration is fragment `378-07`
 
 *Recorded by `358-05-trusted-time.md`.*
 
@@ -29144,7 +29159,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-301 entries — 262 public Python surface, 39 not public Python API.
+310 entries — 271 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -33887,6 +33902,114 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a deployment-supplied artifact substrate behind a governed door answers `names_at` and declares `WriteKinds`, as the shipped `FileArtifactStore` and `McpArtifactStore` do. A record filed under a tenant other than the one it was decided under — a delivery-boundary denial addressed to another tenant at a door whose recorder is a different tenant's — no longer reads for anyone.
 
 *Recorded by `377-07-forged-record-provenance.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: until `3976cbc1` a governed serve applied no temporal bound, so a question asked as of any instant, however far before or after the serve instant, was assembled
+- After: same signature. Every serve resolves the tenant's `TemporalBoundaryPolicy` at `{tenant}/ccf.temporal-boundary-policy` (`ccf.controlplane.temporal_boundary.resolve_temporal_boundary`) and judges the question's `asked_at`, and separately the decision instant the class derives, against the trusted serve instant before anything is acquired (`ccf.products.refusal.refuse_temporal_bound`). Undeclared: a `temporal-bound-refusal` with reason `temporal-boundary-undeclared`, recorded in Decision Replay with the key that was required and no policy binding; at `minimal` the caller sees *"this tenant does not answer for the instant this question names"*, and the HTTP status is 400. Declared: an instant outside the window is refused `asked-at-outside-temporal-bound` or `decision-instant-outside-temporal-bound`, and the policy's exact version is pinned on the record of the served decision or of the refusal its window caused. The paved road also holds each acquired envelope to the same window (`358-08`)
+- Why: `D-IMPL-358` step 5 with ruling 11. The SDK holds no duration (`D-IMPL-38`), so absence refuses rather than defaulting. This is the migration note step 5 left unwritten (the `D-IMPL-377` close-out, §7e item 1 and restriction 21; estate families A and A')
+- Migration: **required.** A deployment upgraded from before `3976cbc1` boots normally and then serves no governed question until it declares a temporal boundary for each tenant it serves. Every tag so far, `v0.1.0`, `v1.0.0` and `v1.0.1`, predates `3976cbc1` (measured with `git merge-base --is-ancestor`), so this applies to an upgrade from any tagged release. Declare it as a `temporal_boundary:` section in `ccf_config.yaml` holding `max_past_seconds` and `permitted_clock_skew_seconds` (the config needs a top-level `tenant_id`), or as a manifest entry with `key: ccf.temporal-boundary-policy`, `class_id: ccf.temporal-boundary-policy`, `role: register` and `registration: typed`, as `examples/s1-01-hello-context-product/artifacts/manifest.yaml` does. A composition root serving several tenants registers one policy per tenant at `temporal_boundary_policy_key(tenant_id=...)`. Both values are policy decisions: `0` is the strictest bound, no value means unbounded, and a negative value is refused. Section 4.14 of the security how-to describes the refusal and how to choose the values
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+
+- Surface: ccf.controlplane.temporal_boundary.TemporalBoundaryPolicy
+- Public surface: true
+- Change type: behavior
+- Before: the class docstring said "the comparison itself is **not implemented at this step**", and the module docstring said "It does *not* enforce anything", with the resolver work still to come. Both were written at step 3 and have been stale since `3976cbc1`
+- After: documentation only; no code path changed. The class docstring names `ccf.products.refusal.refuse_temporal_bound` as the comparison, live on every governed serve. The module docstring adds that enforcement has landed in the callers (`GovernedResolver`, `IngressTemporalBound`) and that an undeclared tenant is refused, while the module itself still reads no clock
+- Why: the temporal-boundary item (the `D-IMPL-377` close-out, §7e item 1). The SDK's own reference text told a reader the boundary was not enforced
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+
+- Surface: ccf.controlplane.temporal_boundary.PinnedTemporalBoundary
+- Public surface: true
+- Change type: behavior
+- Before: the `binding` property's docstring said *"Nothing appends this yet"*
+- After: documentation only. The resolver carries exactly this binding on the record of a served decision and on the record of a refusal the declared window caused, and carries none when the policy is undeclared
+- Why: as for `TemporalBoundaryPolicy`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: the docstring said `artifacts` is *"keyed by manifest key"* and showed `{key: booted.artifacts[key] for key in (...)}` *"naming its own manifest keys"*; `pins` said nothing about its keys. Both have been wrong for a bare authored key since `D-IMPL-354` placed every key under the tenant (`353-09`)
+- After: documentation only. `pins` and `artifacts` are documented as keyed by the manifest key as placed under the deployment's tenant: `{tenant}/policy` for an authored `policy`, and a key already under the tenant unchanged. The docstring names the lookups that work (`booted.keys.<section>`, or `namespaced_key(tenant=booted.tenant_id, key=...)`) and what a bare key gets (`KeyError`, `None` from `.get`, `UnpinnedArtifactError`). `keys` is documented as placed too
+- Why: the `D-IMPL-377` close-out, §7e item 2 (estate family R): example code followed the docstring and read its artifacts and pins by bare keys
+- Migration: none; read the boot result by the placed key, as the corrected `353-09` entry for `namespaced_key` now says
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: the docstring's day-1 paragraph told the adopter to read `booted.artifacts[<signal-batch-key>]` and to name its own manifest keys against `booted.artifacts`, without saying those keys come back placed under the tenant
+- After: documentation only. The paragraph says every key there is placed under the tenant and points to `BootedFabric.artifacts`
+- Why: as for `BootedFabric`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.operators.build_operator_registry
+
+- Surface: ccf.deployment.operators.build_operator_registry
+- Public surface: true
+- Change type: behavior
+- Before: the `parameters` docstring showed `{key: booted.artifacts[key] for key in (...)}` as *"naming its own manifest keys"*
+- After: documentation only. It says the manifest keys are named as placed under the tenant, which is how `BootedFabric.artifacts` holds them
+- Why: as for `BootedFabric`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.pins.ArtifactPin
+
+- Surface: ccf.deployment.pins.ArtifactPin
+- Public surface: true
+- Change type: behavior
+- Before: `key` was documented as *"taken verbatim from the manifest entry"*, which reads as the key the author wrote and is wrong for a bare one
+- After: documentation only. `key` is the key the entry was registered under; for a pin a loader produced, the manifest key as placed under the tenant
+- Why: as for `BootedFabric`
+- Migration: none
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.deployment.pins.ResolvedPins
+
+- Surface: ccf.deployment.pins.ResolvedPins
+- Public surface: true
+- Change type: behavior
+- Before: `version_for("policy")`, against a pin recorded under `{tenant}/policy`, raised `UnpinnedArtifactError` saying *"the manifest either does not name it or names it with role 'load'"*. Both causes are false in that case (measured on a `load_config_and_boot` fabric)
+- After: same signature, same exception type, and the same exact lookup; nothing is re-derived or chosen. When the missed key is the bare form of a recorded key (the text after its tenant segment), the message names the recorded key and the cause: a loader records each pin under its manifest key as placed under the deployment's tenant (`manifest_under_tenant`, `D-IMPL-354`). It also names the remedy (`BootedFabric.keys`, `namespaced_key`). Every other miss keeps the `D-IMPL-80` message. `ResolvedPins` still has exactly one public method, and `UnpinnedArtifactError`'s docstring names the third situation
+- Why: the `D-IMPL-377` close-out, §7e item 3. Red: `tests/deployment/test_pins_tenant_key_diagnosis.py::test_a_bare_key_names_the_placed_key_its_pin_is_recorded_under`, `::test_a_bare_key_holding_a_separator_is_diagnosed_the_same_way` and `::test_a_booted_fabrics_pins_name_the_placed_key_for_a_bare_lookup`. One severing, the diagnosis branch disabled, reddens all three
+- Migration: none. The exception type is unchanged; a caller that matched the old message text on a bare-key miss reads the new one
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
+
+#### ccf.products.request.ProductRequestContract
+
+- Surface: ccf.products.request.ProductRequestContract
+- Public surface: true
+- Change type: behavior
+- Before: `from_declared(None)` raised `AttributeError: 'NoneType' object has no attribute 'declaration'`, and a raw mapping raised the same for `dict`: the interpreter's error, not a refusal. `None` is what `booted.artifacts.get("request_contract")` returns, since the boot result holds that artifact under `{tenant}/request_contract`
+- After: same signature. An argument carrying no `declaration` mapping is refused first, in the method's existing convention: a `ValueError` naming the guard (*"… was handed None, which is not a declared artifact …"*). For `None` the message names the placed keys of `BootedFabric.artifacts` and the remedy. A `DeclaredArtifact` reads exactly as before
+- Why: the `D-IMPL-377` close-out, §7e item 4. Red: `tests/products/test_from_declared_refuses_a_non_artifact.py::test_none_is_refused_by_name_rather_than_raising_attribute_error` and `::test_a_raw_mapping_is_refused_by_the_same_guard`. One severing, the original dereference restored with the refusal disabled, reddens both
+- Migration: a caller that caught `AttributeError` here catches `ValueError`, which the method's `Raises` section already named for every malformed declaration
+
+*Recorded by `378-07-temporal-boundary-migration-and-placed-keys.md`.*
 
 ### Not public Python API
 

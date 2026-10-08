@@ -138,9 +138,24 @@ class BootedFabric:
         handle: The booted fabric, exactly as :func:`ccf.boot.boot` returns it —
             reader, worker, Control Plane, and **no writer**.
         pins: The record of what was put in force: ``role: register`` entries
-            only.
+            only, each recorded under its manifest key **as placed under the
+            deployment's tenant** (`manifest_under_tenant`, `D-IMPL-354`): an
+            authored ``policy`` is pinned as ``{tenant}/policy``, and a key
+            already under the tenant is unchanged. Look a pin up by that placed
+            key — ``booted.pins.version_for(booted.keys.policy_bundle)`` on the
+            single-file door, or ``version_for(namespaced_key(tenant=booted.tenant_id,
+            key=...))`` with `ccf.controlplane.registry.namespaced_key` — never by
+            the bare authored key, which misses with an
+            :class:`~ccf.deployment.pins.UnpinnedArtifactError` naming the placed
+            key.
         tenant_id: The resolved tenant, from the manifest or from the caller.
-        artifacts: Every parsed artifact, keyed by manifest key, **both roles**.
+        artifacts: Every parsed artifact, **both roles**, keyed by its manifest
+            key **as placed under the deployment's tenant** — the same strings
+            ``pins`` uses (`D-IMPL-354`). An authored ``product_class`` is read
+            back as ``booted.artifacts[booted.keys.product_class]`` or
+            ``booted.artifacts[namespaced_key(tenant=booted.tenant_id,
+            key="product_class")]``; ``booted.artifacts["product_class"]``
+            raises ``KeyError``, and ``.get("product_class")`` returns ``None``.
 
             This is D-IMPL-80's return path. The ruling requires ``role: load``
             entries to come back to the caller rather than being registered;
@@ -152,8 +167,9 @@ class BootedFabric:
             examples, is a new duplication class of exactly the sort this phase
             exists to remove. With it the adopter writes
             ``{key: booted.artifacts[key] for key in (...)}``, naming its own
-            manifest keys: explicit deployment configuration rather than type
-            introspection.
+            manifest keys as placed under its tenant (``booted.keys``, or
+            `namespaced_key` over the authored ones): explicit deployment
+            configuration rather than type introspection.
 
             **What this does not weaken.** ``role`` governs registration and
             pinning, never visibility. A ``role: load`` artifact appearing here
@@ -174,7 +190,10 @@ class BootedFabric:
             (`D-IMPL-343`; :class:`~ccf.deployment.keys.DeploymentKeys`) —
             what lets a deployment READ ``keys.request_contract`` rather than
             restate ``"request_contract"`` one file over from the document
-            that named it. ``None`` on the manifest form, where every key was
+            that named it. Placed under the tenant like everything else here,
+            so each is exactly the string ``artifacts`` is keyed by — and, for a
+            ``role: register`` entry, ``pins`` too. ``None`` on the manifest
+            form, where every key was
             authored by hand and there is no section vocabulary to derive from;
             the multi-file door is unchanged by this field.
     """
@@ -902,7 +921,8 @@ def load_and_boot(
 
     The day-1 shape of what follows this call, so the spine is written down
     where the call is: the adopter ingests from
-    ``booted.artifacts[<signal-batch-key>].envelopes`` through
+    ``booted.artifacts[<signal-batch-key>].envelopes`` — every key here as
+    placed under the tenant, see :attr:`BootedFabric.artifacts` — through
     ``booted.handle.worker``, builds a view from ``booted.handle.reader``,
     assembles the ``parameters`` mapping for the operator-registry builder by
     naming its own manifest keys against ``booted.artifacts``, and mints the

@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **332** across **110** files
+- Coupling rows: **334** across **110** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **177** across **65** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
@@ -17,7 +17,7 @@ Rows by owning plan:
 | Owning plan | Rows |
 | --- | --- |
 | 16-02 | 10 |
-| 17-08 | 111 |
+| 17-08 | 113 |
 | 23-04 | 192 |
 | 23-10 | 19 |
 
@@ -36,7 +36,7 @@ Rows by coupling shape:
 | `markdown-link` | 8 |
 | `module-constant` | 1 |
 | `path-construction` | 12 |
-| `prose` | 104 |
+| `prose` | 106 |
 | `snippet-include` | 56 |
 | `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
@@ -228,6 +228,8 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 174 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 186 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/security-and-deployment.md` | 167 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `public/how-to/security-and-deployment.md` | 1367 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 1368 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |
@@ -257,7 +259,7 @@ Rows by coupling shape:
 | `src/ccf/products/bind.py` | 74 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/request.py` | 2985 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/request.py` | 3018 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/resolver.py` | 1871 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/resolver.py` | 4620 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
@@ -863,7 +865,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `docs/PHASE_I5_GATE.md` | 1 | append-only per-phase gate records |
 | `docs/ROADMAP.md` | 5 | append-only phase record |
 | `docs/SURFACE-AUDIT.md` | 43 | append-only audit record |
-| `docs/SURFACE-CHANGES.md` | 428 | append-only surface-change index |
+| `docs/SURFACE-CHANGES.md` | 429 | append-only surface-change index |
 | `docs/surface-changes/15-10-manifest.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-11-operator-builder.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/15-12-schema-export.md` | 2 | append-only per-plan surface-change records |
@@ -896,6 +898,7 @@ Append-only records and documents no plan in this phase may edit. They name reti
 | `docs/surface-changes/16-30-config-boot-equivalence.md` | 2 | append-only per-plan surface-change records |
 | `docs/surface-changes/17-06-inprocess-adapter.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/24.10-04-the-governed-spine-is-the-canonical-author-path.md` | 4 | append-only per-plan surface-change records |
+| `docs/surface-changes/378-07-temporal-boundary-migration-and-placed-keys.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface-changes/README.md` | 1 | append-only per-plan surface-change records |
 | `docs/surface/examples/ERGO-03-FROZEN.md` | 27 | the frozen ERGO-03 record (D-15) |
 | `docs/surface/examples/after/examples__00-quickstart__run.json` | 1 | frozen ERGO-03 measurement (D-15) |
