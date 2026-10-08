@@ -1080,14 +1080,21 @@ def _composite(
         child.fabric.handle.close()
 
     try:
-        built, granted = cf.build_composite(
+        granted = cf.build_child_resolver(
             parent,
             child_door=_child_door(child, asked=asked, observed=CHILD_OBSERVED[child_anchor]),
             child_arguments=mapping.arguments,
         )
         mapping.inner = granted
         composite_children: Any = mapping if children == "request-aware" else _LegacyChildren(granted)
-        composite = dataclasses.replace(built, composite_children=composite_children, plan_factory=project)
+        # The composite is constructed ONCE, with the plan factory under test.
+        # `cf.build_composite` would first construct a resolver of its own over
+        # the fixture's default plan factory, which states no withholding stance;
+        # `D-IMPL-378` P2 (c) refuses that one before the construction this
+        # module measures.
+        arguments = _arguments(parent)
+        arguments.update(composite_children=composite_children, plan_factory=project)
+        composite = GovernedResolver(**arguments)
     except BaseException:
         close()
         raise
