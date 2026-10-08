@@ -416,7 +416,9 @@ def test_every_example_roots_artifact_directory_is_non_vacuous() -> None:
 #: `hitl-policy.yaml` under SEC-005 (D-IMPL-363) and `scope-mapping.yaml` under
 #: D-IMPL-353. D-IMPL-351 makes `archive/` a dated reference surface with no
 #: fixes, so each is a STRICT expected failure: the gate keeps running both, the
-#: day one passes CI goes red, and `raises=AssertionError` reports any other error.
+#: day one passes CI goes red, and `raises=AssertionError` reports an error of
+#: any other class. A new header problem in these two directories is also an
+#: AssertionError and would be absorbed: `raises=` checks the class only.
 _ARCHIVED_REASON = (
     "D-IMPL-351: archived tree; its hitl-policy.yaml omits the signature bounds SEC-005"
     " (D-IMPL-363) requires and its scope-mapping.yaml lacks scopes.hitl.resource_patterns"

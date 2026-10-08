@@ -53,7 +53,9 @@ pytestmark = pytest.mark.postgres
 #: bare key 'request_contract', which the placed-key Control Plane no longer
 #: serves (SEC353-G-07), so each test below raises KeyError before it asserts.
 #: Quarantined under D-IMPL-261: strict, so the day one passes CI goes red, and
-#: raises=KeyError, so a different failure is reported rather than absorbed.
+#: raises=KeyError, so a failure of any other exception class is reported
+#: rather than absorbed. A different KeyError would still be absorbed: raises=
+#: checks the class only.
 _FROZEN_FAMILY_REASON = (
     "SEC353-G-07: s1-00 reads the bare key 'request_contract' (KeyError); kept out of"
     " the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4"

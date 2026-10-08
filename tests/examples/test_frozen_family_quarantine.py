@@ -4,8 +4,10 @@ Dave's D-IMPL-355 (Option A) keeps s1-00, cp-00 and cp-01 out of the repair.
 Their deployments read bare Control Plane keys that the placed-key Control
 Plane no longer serves (SEC353-G-07). D-IMPL-261's route is a STRICT expected
 failure: the tests keep running in the Postgres leg, and the day one passes CI
-goes red. Each mark names the exception measured on hosted run 37732648612, so
-a different failure is reported rather than absorbed. The modules are read
+goes red. Each mark names the exception class measured on hosted run
+37732648612, so a failure of any other class is reported rather than absorbed;
+a different failure of the same class still is not, because ``raises=`` checks
+the class only. The modules are read
 statically, because they run only in the Postgres leg and this check must run
 in the quick suite.
 """
@@ -78,3 +80,39 @@ def test_each_frozen_family_red_is_a_strict_expected_failure_naming_its_exceptio
     assert isinstance(strict, ast.Constant) and strict.value is True, f"{module}::{name} is not strict"
     assert "raises" in keywords, f"{module}::{name} names no exception, so it would absorb any failure"
     assert ast.unparse(keywords["raises"]).rsplit(".", 1)[-1] == expected
+
+
+#: A quarantine in these modules that cites the frozen-family cause joins the
+#: roster by an edit here; outside it, nothing checks its `raises=` (final
+#: review of D-IMPL-378 C4).
+_QUARANTINE_MARKERS = ("SEC353-G-07", "D-IMPL-378 C4")
+
+
+def _module_strings(tree: ast.Module) -> dict[str, str]:
+    """Module-level names bound to a string constant: a mark's reason may be one."""
+    strings: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    strings[target.id] = node.value.value
+    return strings
+
+
+@pytest.mark.parametrize("module", sorted(QUARANTINED), ids=lambda module: module.rsplit("/", 1)[-1])
+def test_no_other_frozen_family_quarantine_escapes_the_roster(module: str) -> None:
+    """The roster is two-directional: every mark citing the frozen-family cause is on it."""
+    tree = ast.parse((REPO_ROOT / module).read_text(encoding="utf-8"))
+    strings = _module_strings(tree)
+    cited = set()
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        keywords = _xfail_keywords(node)
+        if keywords is None or "reason" not in keywords:
+            continue
+        reason = keywords["reason"]
+        text = reason.value if isinstance(reason, ast.Constant) else strings.get(ast.unparse(reason), "")
+        if any(marker in str(text) for marker in _QUARANTINE_MARKERS):
+            cited.add(node.name)
+    assert cited == set(QUARANTINED[module]), sorted(cited ^ set(QUARANTINED[module]))
