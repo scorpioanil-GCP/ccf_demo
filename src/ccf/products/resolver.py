@@ -2676,7 +2676,11 @@ class GovernedResolver:
            a parameter the caller omitted reaches the closed-world comparison
            as the value the class declared, rather than as an omission. A
            question this class does not answer still costs nothing and still
-           comes back with a reason rather than an approximation.
+           comes back with a reason rather than an approximation. The request
+           surface is **registered first**, at the version the resolution pins
+           (``CP17-F-09``), so every record that pins it resolves against this
+           Control Plane at replay — a refusal asked first of a fresh Control
+           Plane included.
         3. **The graph is read at the boundary the question named.** The
            instant is ``request.asked_at`` — supplied by a caller at serve time
            and by replay at replay time, through this same code path, which is
@@ -2688,8 +2692,9 @@ class GovernedResolver:
            untrue of the composite branch before the hoist made it material.
         4. **The operator registry is built from whatever the deployment
            declared**, then Π runs at L5.
-        5. **The class registers**, minting the pins Gate 3 and the request
-           surface are re-resolvable against.
+        5. **The class registers**, minting the pin Gate 3 resolves against;
+           the request surface registered at step 2 is registered again here
+           with identical content, which is idempotent.
         6. **The candidate claims its lineage from the declaration, never from
            the execution.** A claim copied out of the execution record is not a
            claim, it is a transcript — and Gate 2 then has two independently
@@ -2896,6 +2901,21 @@ class GovernedResolver:
                 served_at=served_at,
             )
 
+        # `CP17-F-09` / `ATM-F-11` (`D-IMPL-378`, lane 378d-replayfix): THE
+        # REQUEST SURFACE IS REGISTERED HERE, before the resolution that first
+        # pins it. Every refusal from this line on — a resolution-stage
+        # refusal, the naive-instant and temporal-bound refusals, a refusal held
+        # at either acquisition seam — records the resolution on dimension 2,
+        # and with it this contract at `content_hash(declared)` (`D-IMPL-310`:
+        # the pin belongs there). `_register` below registers the same content,
+        # but only the served path reaches it, so a refusal asked first of a
+        # fresh Control Plane left a record whose pin nothing had registered,
+        # and `replay_refusal` refused it as a configuration that was gone.
+        # Registration is content-addressed and idempotent: the version minted
+        # is the version the record pins, so no record's bytes or address
+        # change, and the audit log carries the attempt.
+        self.control_plane.register(self._authorities.request_contract, declared)
+
         outcome = self.constraint_resolver.resolve(
             # `D-IMPL-358` step 5 ruling B: effectivity at the TRUSTED serve
             # instant — the one this invocation read once at entry. The graph is
@@ -2912,8 +2932,9 @@ class GovernedResolver:
                 # The version the registry assigns this content, minted the way
                 # `ControlPlaneRegistry.register` mints it — a content address
                 # (`D-IMPL-26`). So the pin this resolution records and the pin
-                # `_register` mints below are the same pin by construction,
-                # rather than two reads that could disagree.
+                # registered just above (and again by `_register` on the served
+                # path) are the same pin by construction, rather than two reads
+                # that could disagree.
                 version=content_hash(declared),
             ),
             perspective=perspective,
@@ -4783,6 +4804,10 @@ class GovernedResolver:
         ``MAX_TTL`` value, because registering it is what mints the pin Gate 3
         resolves; and the request contract, so its pin is re-resolvable years
         later against the surface a question was actually validated against.
+        The request contract is registered FIRST in :meth:`__call__`, before
+        the resolution that pins it (``CP17-F-09``): a refusal never reaches
+        this method and its record pins the same version, so registering it
+        again here is idempotent.
 
         Every remaining governance field is forwarded off the declaration
         rather than left to :func:`~ccf.products.contract.register_product_class`'s

@@ -173,10 +173,17 @@ class BootedFabric:
 
             **What this does not weaken.** ``role`` governs registration and
             pinning, never visibility. A ``role: load`` artifact appearing here
-            is still absent from ``pins``, still absent from the Control Plane
-            registry, and still absent from replay dimension 2. ``artifacts`` is
-            a parse result handed back to the caller; ``pins`` is the record of
-            what was put in force.
+            is still absent from ``pins``, and the boot registers it nowhere and
+            pins it nowhere. ``artifacts`` is a parse result handed back to the
+            caller; ``pins`` is the record of what was put in force. One
+            mechanism other than the boot does register and pin from a
+            ``role: load`` entry: a governed resolver built over this fabric
+            registers the TYPED request contract it derives from the
+            deployment's request-contract entry, whatever that entry's role,
+            under the same key at the typed contract's own content address, and
+            every decision that resolved a request against it pins it there on
+            replay dimension 2 (`D-IMPL-310`;
+            ``src/ccf/products/resolver.py::GovernedResolver``).
         survivor_cap: The manifest's D-10 cap value, verbatim (15.2-08). The
             governed route from Control Plane configuration to the engine:
             the adopter passes this to
