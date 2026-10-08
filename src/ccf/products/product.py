@@ -639,6 +639,18 @@ class OpenedProduct:
         (`D-IMPL-378`): an outcome can name any address, and a record-shaped
         artifact filed on a client lane is not a decision record.
 
+        **An operator/auditor handle** (Dave's E2 (i), ``D-IMPL-378``,
+        2026-10-08: *"trusted operator/auditor handles holding the underlying
+        store may remain unrestricted. Agent-accessible in-process interfaces
+        must still enforce Q12."*). Its caller holds this product's
+        ArtifactStore (``artifact_store``) and can read the same bytes
+        directly, so it is not held to Q12's default-deny on owner read-back.
+        An agent reads records only through the governed evidence reads
+        (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``),
+        which hold it. Handing an opened product, or anything else holding the
+        store, to an agent hands the agent the store (measured by
+        ``tests/http_api/test_sec020_e2i_operator_boundary.py``).
+
         Raises:
             ccf.replay.engine.ReplayDivergence: the stored bytes do not hash to
                 the address the outcome names.
