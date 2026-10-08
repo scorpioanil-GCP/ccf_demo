@@ -120,6 +120,14 @@ APPROVING_TERMINAL = "approved"
 OFFICER_1 = "officer-1"
 OFFICER_2 = "officer-2"
 COVENANT_EXECUTION = "exec-b"
+#: How many reads of the recorded verdicts the engine at 7bf069cc makes in one
+#: resumption before it decides: the authority read
+#: (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority``),
+#: then the conflict read
+#: (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._recorded_gate_verdicts``).
+#: The test below holds the LAST of them. A fix that reads differently
+#: changes this number and nothing else.
+VERDICT_READS_BEFORE_THE_DECISION = 2
 
 #: Refusals that come from WHO is acting, not from WHEN. A second human's
 #: verdict refused by one of these means the test's control is broken, so the
@@ -241,6 +249,42 @@ class SharedBackingStore(InMemoryStateStore):
     def __init__(self, records: StandInRecords) -> None:
         super().__init__()
         self._records = records
+
+
+class ReadHoldingTransport(InMemoryHitlTransport):
+    """The reference transport, holding ONE armed read of the recorded verdicts.
+
+    ``arm(after_reads=n)`` holds the n-th :meth:`submissions` read from then
+    on, AFTER reading, until :attr:`release` is set: the shape of an engine
+    preempted between reading the verdicts and acting on what it read. Every
+    other call is the reference transport's own. The hold sits on the
+    authority path's read, a seam any design must pass through; only the
+    count of reads before the decision is particular to an engine.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._arm_lock = threading.Lock()
+        self._countdown = 0
+        self.held = threading.Event()
+        self.release = threading.Event()
+
+    def arm(self, *, after_reads: int) -> None:
+        with self._arm_lock:
+            self._countdown = after_reads
+
+    def submissions(self, *, tenant: str) -> tuple[HitlActionSubmission, ...]:
+        recorded = super().submissions(tenant=tenant)
+        with self._arm_lock:
+            hold = False
+            if self._countdown > 0:
+                self._countdown -= 1
+                hold = self._countdown == 0
+        if hold:
+            self.held.set()
+            if not self.release.wait(HOLD_SECONDS):
+                raise RuntimeError("the held verdict read was never released")
+        return recorded
 
 
 class AwaitingStartBindings(eh._Bindings):
@@ -528,6 +572,106 @@ def test_a_rejection_recorded_during_the_resumptions_commit_is_not_outvoted(
         f" final state: {state_of(registry, f'{tenant}/{COVENANT_EXECUTION}').status}"
         f"@{state_of(registry, f'{tenant}/{COVENANT_EXECUTION}').current_state}"
     )
+
+
+def test_a_rejection_recorded_right_after_the_resumptions_verdict_read_is_not_outvoted(
+    tmp_path: Path,
+) -> None:
+    """Limit (b), in the exact shape measured 15 of 15 on 2026-10-07 ("the
+    resume is held immediately AFTER its conflict read",
+    ``R/lanes/racefix/b-after-fix-e1f7b1d8.txt``), held here at the authority
+    path's own read instead of by wrapping an engine helper.
+
+    ``officer-1`` approves through the submit-only door shape; the
+    resumption reads the recorded verdicts and is held right after its last
+    read before deciding; ``officer-2`` records a rejection of the SAME
+    suspension; the read is released. Today the resumption decides on the
+    population it read, completes at the APPROVING terminal, and both verdicts
+    stand.
+    """
+    registry = plane()
+    transport = ReadHoldingTransport()
+    engine, transport_used, _ = eh._engine(registry, tmp_path, transport=transport)
+    assert transport_used is transport
+    workflow = eh._covenant(registry)
+    suspended = asyncio.run(
+        engine.execute(eh.execute_as(workflow), workflow, execution_id=COVENANT_EXECUTION)
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    tenant = workflow.definition.tenant
+    event_key = suspended.event_key
+    bound = next(
+        e.product_content_hash for e in transport.pending(tenant=tenant) if e.event_key == event_key
+    )
+    eh._submit_only(
+        transport, tenant=tenant, event_key=event_key, product_content_hash=bound,
+        action="approve", subject_id=OFFICER_1,
+    )
+    transport.arm(after_reads=VERDICT_READS_BEFORE_THE_DECISION)
+    held = Worker(lambda: resume_covenant(engine, workflow)).start()
+    try:
+        assert transport.held.wait(HOLD_SECONDS), "the resumption never read the verdicts"
+        rejection, refusal = reject_as_officer_2(
+            transport, tenant=tenant, event_key=event_key, bound=bound
+        )
+    finally:
+        transport.release.set()
+    outcome = held.join()
+
+    if refusal is not None:
+        return  # the rejection was refused by a non-identity mechanism: closed
+    assert rejection is not None
+    passed = (
+        isinstance(outcome, WorkflowCompleted)
+        and outcome.terminal_state == APPROVING_TERMINAL
+    )
+    standing = rejection.event_state_at_submit != "missing"
+    assert not (passed and standing), (
+        "LIMIT (b): officer-2's rejection was recorded on an OPEN gate"
+        f" (event_state_at_submit={rejection.event_state_at_submit!r}) right after"
+        " the resumption read the verdicts, and the execution completed at"
+        f" {APPROVING_TERMINAL!r}: the rejection was outvoted. Verdicts on the"
+        f" suspension: {suspension_verdicts(transport, tenant=tenant, event_key=event_key, bound=bound)}"
+    )
+
+
+def test_a_rejection_recorded_after_the_first_verdict_read_is_seen(tmp_path: Path) -> None:
+    """Positive control for the test above, green today and under any fix:
+    held after the FIRST read of the verdicts instead of the last, the same
+    rejection is seen before the decision and the resumption is refused, so
+    the gate stays suspended. The red above is therefore decided by where the
+    window falls, not by the composition."""
+    registry = plane()
+    transport = ReadHoldingTransport()
+    engine, _, _ = eh._engine(registry, tmp_path, transport=transport)
+    workflow = eh._covenant(registry)
+    suspended = asyncio.run(
+        engine.execute(eh.execute_as(workflow), workflow, execution_id=COVENANT_EXECUTION)
+    )
+    assert isinstance(suspended, WorkflowSuspended)
+    tenant = workflow.definition.tenant
+    event_key = suspended.event_key
+    bound = next(
+        e.product_content_hash for e in transport.pending(tenant=tenant) if e.event_key == event_key
+    )
+    eh._submit_only(
+        transport, tenant=tenant, event_key=event_key, product_content_hash=bound,
+        action="approve", subject_id=OFFICER_1,
+    )
+    transport.arm(after_reads=1)
+    held = Worker(lambda: resume_covenant(engine, workflow)).start()
+    try:
+        assert transport.held.wait(HOLD_SECONDS), "the resumption never read the verdicts"
+        rejection, refusal = reject_as_officer_2(
+            transport, tenant=tenant, event_key=event_key, bound=bound
+        )
+    finally:
+        transport.release.set()
+    outcome = held.join()
+    assert refusal is None and rejection is not None, (rejection, refusal)
+    assert isinstance(outcome, WorkflowResumeRefused), outcome
+    record = state_of(registry, f"{tenant}/{COVENANT_EXECUTION}")
+    assert (record.status, record.current_state) == ("suspended", COVENANT_GATE)
 
 
 # --- (b') the verdict after the passage -----------------------------------------
