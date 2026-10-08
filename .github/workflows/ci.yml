@@ -20,7 +20,7 @@ permissions:
 jobs:
   lint:
     name: lint (CINV-01..04, 06) + strict types
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # `fetch-depth: 0` for the same reason the test job deepens its clone:
       # `tools/lints/tests/test_base_roster.py` regenerates the CINV-06 base
@@ -96,7 +96,7 @@ jobs:
 
   test:
     name: tests (python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -266,7 +266,11 @@ jobs:
       # cannot go green over a harness that did not run. Deliberately NOT
       # `continue-on-error`: per the I.1 D-07 precedent, a step made
       # non-blocking to hide a gap is worse than the gap.
+      # D-IMPL-378 C8 (Dave, 2026-10-07): this step and the three substrate legs
+      # below run even when an earlier step failed, as D-IMPL-372 did for the
+      # Postgres leg. Coverage stays gated: it only repeats the quick suite.
       - name: Harness adapter conformance (all three legs must run)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python ci-harness-conformance
 
       # The same twelve GraphStore conformance semantics the quick suite runs
@@ -295,6 +299,7 @@ jobs:
       # fallback, `allowed_entities` shapes included. `-rs` surfaces any
       # skip; CCF_REQUIRE_NEO4J above turns one into a failure.
       - name: Neo4j leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-neo4j
 
       # The substrate differential suite against a document store (plan
@@ -303,6 +308,7 @@ jobs:
       # shapes included. `-rs` surfaces any skip; CCF_REQUIRE_MONGO above
       # turns one into a failure.
       - name: MongoDB leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-mongo
 
       # The substrate differential suite against an RDF/JSON-LD engine (plan
@@ -315,6 +321,7 @@ jobs:
       # this substrate needs no extra (SUBQ-14 evidence, visible as an
       # absence).
       - name: Fluree leg (service container)
+        if: ${{ !cancelled() }}
         run: make PYTHON=python leg-fluree
 
       # Coverage is informational only — D-17 sets no numeric gate.
@@ -335,7 +342,7 @@ jobs:
   # made non-blocking to hide a gap is worse than the gap.
   examples:
     name: examples suite (hw1-harness-clients, reference backends)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The surviving example spawns MCP stdio children (three harness clients
     # against one door) and must not be able to hang the runner (review
     # consensus concern 5).
@@ -383,7 +390,7 @@ jobs:
   # enforce.
   docs:
     name: docs gate (strict build + publish scan, D-IMPL-72)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:

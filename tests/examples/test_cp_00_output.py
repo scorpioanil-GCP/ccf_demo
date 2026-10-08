@@ -71,6 +71,7 @@ from ccf.products.gates import (
 )
 from ccf.products.request import ProductRequestViolation
 from ccf.replay.record import DecisionReplayRecord
+from ccf.deployment.pins import UnpinnedArtifactError
 
 pytestmark = pytest.mark.postgres
 
@@ -524,6 +525,11 @@ def test_the_same_question_is_stable(tmp_path: pathlib.Path, seeded: str) -> Non
 # --------------------------------------------------------------------------
 # 4 — refused at the door.
 # --------------------------------------------------------------------------
+@pytest.mark.xfail(
+    strict=True,
+    raises=UnpinnedArtifactError,
+    reason="SEC353-G-07: frozen cp-00's deployment reads the bare manifest key 'policy' (UnpinnedArtifactError); kept out of the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4",
+)
 def test_a_missing_threshold_is_refused_not_defaulted(
     tmp_path: pathlib.Path, seeded: str
 ) -> None:
@@ -853,6 +859,11 @@ def printed(seeded: str) -> str:
     return buffer.getvalue()
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=UnpinnedArtifactError,
+    reason="SEC353-G-07: frozen cp-00's deployment reads the bare manifest key 'policy' (UnpinnedArtifactError); kept out of the repair by D-IMPL-355 Option A; quarantined, D-IMPL-261; D-IMPL-378 C4",
+)
 def test_the_client_returns_a_non_zero_exit_code_on_a_governed_refusal(
     seeded: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:

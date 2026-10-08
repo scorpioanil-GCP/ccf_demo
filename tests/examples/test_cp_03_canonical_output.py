@@ -39,6 +39,8 @@ from typing import Any
 import pytest
 import yaml
 
+from tests.examples.specimen_base import branch_point
+
 pytestmark = [pytest.mark.postgres]
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -624,9 +626,7 @@ def test_the_specimen_is_untouched_and_no_identity_is_reused(served: Any) -> Non
 
     Declared product gate `OFC-G15` (`CP-SPEC-003C` §G.1).
     """
-    base = subprocess.run(
-        ["git", "merge-base", "HEAD", "main"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    ).stdout.strip()
+    base = branch_point(REPO_ROOT)
     changed = subprocess.run(
         ["git", "diff", "--name-only", base, "--", str(SPECIMEN.relative_to(REPO_ROOT))],
         cwd=REPO_ROOT, capture_output=True, text=True, check=True,

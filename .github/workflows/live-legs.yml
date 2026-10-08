@@ -72,7 +72,7 @@ jobs:
   #      assumed away.
   fluree-drift:
     name: fluree upstream-drift detector (floating 4.1 — D-09)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Generous vs. the leg's real cost (37 tests, seconds): the budget is for
     # the image pull on a cold runner, not for the tests.
     timeout-minutes: 20
