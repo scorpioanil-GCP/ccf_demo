@@ -2872,3 +2872,168 @@ def render(value: Any, *, limit: int = 700) -> str:
     """A short rendering for a failure message."""
     text = json.dumps(value, default=str, sort_keys=True)
     return text if len(text) <= limit else text[:limit] + "…"
+
+
+# =============================================================================
+# E2 (ii): a class that affirms ``never`` whose projection withholds anyway
+# =============================================================================
+#
+# Dave, 2026-10-08 12:29 MST (``D-IMPL-378``), on the owed ruling E2 (ii),
+# verbatim: "E2 (ii) REJECTED as disclosure-only: The proposed hidden-subject
+# exception versus nonexistent-subject 200 is a measured oracle. Validate
+# withholding capability against the class declaration at construction; retain
+# the runtime check as defense. Keep the violation probe visible until the
+# treatment satisfies the closure criterion." And CT-D (a): "for diagnostic
+# precedence; this does not resolve E2(ii)'s oracle." Kept as a comment, not a
+# string literal, for D1A_RULING's reason.
+#
+# One configuration per way a class affirming ``subject_withholding: never``
+# can meet a projection that withholds. Every deployment of a configuration
+# LISTS its class for owner read-back (Q12) — the reason a class affirms
+# ``never`` — so the record channel is observed as well; an unlisted ``never``
+# class shows a subset of these observables (its records are sealed alike).
+
+#: The plan factory declares nothing; its projection withholds late, by content.
+NEVER_LATE = "never_late"
+#: The plan factory declares an early policy that does not disclose the subject (Q8).
+NEVER_EARLY = "never_early"
+#: The plan factory declares that its projection withholds late (``subject_disclosure()`` returns ``None``).
+NEVER_DECLARED_LATE = "never_declared_late"
+#: A composite: the plan factory declares nothing; its projection withholds late.
+NEVER_COMPOSITE_LATE = "never_composite_late"
+#: A composite: the plan factory declares an early policy that does not disclose the subject.
+NEVER_COMPOSITE_EARLY = "never_composite_early"
+
+#: Each configuration and the matrix shape whose doors, channels and observations it follows.
+NEVER_CONFIGURATIONS: dict[str, str] = {
+    NEVER_LATE: SUBJECT_KEYED,
+    NEVER_EARLY: EARLY_SUBJECT_KEYED,
+    NEVER_DECLARED_LATE: SUBJECT_KEYED,
+    NEVER_COMPOSITE_LATE: COMPOSITE_SUBJECT_CHILD,
+    NEVER_COMPOSITE_EARLY: EARLY_COMPOSITE_SUBJECT_CHILD,
+}
+
+#: The refusal, by name, of a class affirming ``never`` whose projection the SDK
+#: knows can withhold, raised where its resolver is built (E2 (ii)). Read by
+#: NAME so this module imports on a tree without it. Where every side of a
+#: comparison observes exactly this refusal, the cell holds it as the property
+#: under test, paired with :data:`NEVER_TWIN` answering — Dave's CT-A (a),
+#: 2026-10-08 12:29 MST: "Construction refusal counts, paired with a declared
+#: twin that successfully answers."
+NEVER_CAPABILITY_REFUSAL = "NeverWithholdingProjectionCanWithhold"
+
+#: The configuration with its withholding capability removed — the policy off,
+#: and nothing declared but an early policy that withholds nobody — in a
+#: deployment whose source holds the subject: it must SERVE the subject. The
+#: twin a construction refusal is paired with, and every channel's instrument.
+NEVER_TWIN = "never-twin"
+
+
+class LateDeclaringPlanFactory(PolicyPlanFactory):
+    """A plan factory DECLARING that its projection withholds late (``SubjectDisclosingPlanFactoryProtocol``).
+
+    ``subject_disclosure()`` returns ``None``: the statement that the
+    projection withholds only inside itself, after its plan has run. Its
+    projection is :class:`PolicyProjection`, which withholds by content.
+    """
+
+    def subject_disclosure(self) -> Any:
+        return None
+
+
+def build_never(
+    base: pathlib.Path, *, configuration: str, anchor: str, holds: bool, capable: bool
+) -> Deployment:
+    """One deployment of ``configuration``: its class affirms ``never`` and its tenant lists the class.
+
+    ``capable`` builds the configuration as named (the policy on); otherwise
+    its :data:`NEVER_TWIN`: the policy off, with nothing declared, or, for the
+    early configurations, an early policy that withholds nobody.
+    """
+    shape = NEVER_CONFIGURATIONS[configuration]
+    if shape in COMPOSITE_SHAPES:
+        return BUILDERS[shape](base, anchor=anchor, holds=holds, active=capable, readable=True, never=True)
+    from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
+
+    kind: type[PolicyPlanFactory] = PolicyPlanFactory
+    if configuration == NEVER_EARLY:
+        kind = EarlyWithholdingPlanFactory
+    elif configuration == NEVER_DECLARED_LATE and capable:
+        kind = LateDeclaringPlanFactory
+    holdings = {SUBJECT: subject_holding()} if holds else {}
+    return open_paved(
+        base, anchor=anchor, acquire=SubjectKeyedSource(holdings),
+        project=kind(plan_id=PRODUCT_CLASS, asker=ASKER, active=capable),
+        evidence_readable=True, never=True,
+    )
+
+
+def never_run(base: pathlib.Path, *, configuration: str, anchor: str, door: str) -> Run:
+    """Every side one (configuration, anchor, door) of E2 (ii) needs, asked once, then closed.
+
+    The sides keep :data:`PAIRS`' names, so the closing test compares them with
+    its own rules: the withheld subject (a deployment holding it, the policy
+    on), the same question to a deployment that does not hold it and to a
+    second copy (the noise floor), the withholding deployment asked about two
+    identifiers nothing holds, :data:`NEVER_TWIN`, and the question its class
+    refuses by contract (the refusal channel's instrument). A deployment the
+    SDK refuses while it is being built is an observation, as in :func:`run_sides`.
+    """
+    shape = NEVER_CONFIGURATIONS[configuration]
+    sides: dict[str, Observation] = {}
+    opened: list[Deployment] = []
+
+    def deployment(name: str, *, holds: bool, capable: bool) -> Deployment | Exception:
+        try:
+            built = build_never(base / name, configuration=configuration, anchor=anchor, holds=holds, capable=capable)
+        except Exception as refused:  # noqa: BLE001 — a refused composition is an observation
+            return refused
+        opened.append(built)
+        return built
+
+    def side(
+        built: Deployment | Exception, subject: str, *, reads: bool = True,
+        parameters: Mapping[str, Any] | None = None,
+    ) -> Observation:
+        if isinstance(built, Exception):
+            return refused_at_build(shape, built, subject)
+        return observe_side(shape, door, built, subject, reads=reads, parameters=parameters)
+
+    try:
+        withholding = deployment("withholding", holds=True, capable=True)
+        sides[CF_WITHHELD] = side(withholding, SUBJECT)
+        sides[SAME_NONEXISTENT] = side(withholding, NEVER, reads=False)
+        sides[SAME_FLOOR] = side(withholding, NEVER_2, reads=False)
+        sides[CF_NONEXISTENT] = side(deployment("not-holding", holds=False, capable=True), SUBJECT)
+        sides[CF_FLOOR] = side(deployment("not-holding-again", holds=False, capable=True), SUBJECT)
+        sides[NEVER_TWIN] = side(deployment("twin", holds=True, capable=False), SUBJECT)
+        # The refusal channel's instrument, as in :func:`run_sides`: the question
+        # carrying a parameter its class does not declare, refused by contract.
+        sides[REFUSED_QUESTION] = side(
+            deployment("refusing", holds=False, capable=True), SUBJECT, parameters=violating_parameters()
+        )
+    finally:
+        for built in opened:
+            built.close()
+    return Run(shape=shape, anchor=anchor, door=door, sides=sides, notes={"configuration": configuration})
+
+
+def never_refused_at_construction(run: Run, sides: tuple[str, ...]) -> bool:
+    """Whether every one of ``sides`` observed exactly :data:`NEVER_CAPABILITY_REFUSAL`, and nothing else."""
+    return all(run.raised(side).get(ONLY, "").startswith(f"{NEVER_CAPABILITY_REFUSAL}:") for side in sides)
+
+
+class NeverRunCache:
+    """One E2 (ii) run per (configuration, anchor, door) for the whole session."""
+
+    def __init__(self, factory: Callable[[str], pathlib.Path]) -> None:
+        self._factory = factory
+        self._runs: dict[tuple[str, str, str], Run] = {}
+
+    def get(self, *, configuration: str, anchor: str, door: str) -> Run:
+        key = (configuration, anchor, door)
+        if key not in self._runs:
+            self._runs[key] = never_run(
+                self._factory("-".join(key)), configuration=configuration, anchor=anchor, door=door
+            )
+        return self._runs[key]
