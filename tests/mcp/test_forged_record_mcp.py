@@ -15,14 +15,18 @@ filed by the fabric's own record writer — under a class the store's
 claims; anything else answers EXACTLY like a missing address; a store that
 cannot answer that question refuses rather than serves.
 
-**One case this fix does not reach, recorded as a strict expected failure.**
-Bytes a principal of tenant A files on A's OWN client lane are served to A's
-principals by the split's client lane (C8; ``D-IMPL-353`` §2 P5: the §7.4
-transport round-trips every artifact class), which never calls the governed
-dereference — so a same-tenant forgery crosses the MCP blob and presence
-resources as A's own client-lane artifact, not as governed evidence. The
-governed read refuses it (``tests/http_api/test_forged_record_http.py``); the
-client lane is a design question, not a defect of the governed read.
+**A same-tenant forgery answers as a missing address too** (the client-lane
+ruling, ``D-IMPL-378``). Bytes a principal of tenant A files on A's OWN client
+lane are served to A's principals by the split's client lane (C8;
+``D-IMPL-353`` §2 P5: the §7.4 transport round-trips every artifact class) —
+except bytes that validate as a ``DecisionReplayRecord``, the validator every
+SDK record reader applies. Dave's ruling: such bytes stay ordinary client
+artifacts only if their untrusted origin is explicit and consumers cannot
+accept them as governed evidence, otherwise that path is refused until
+provenance is enforced. Neither held, so the split decides them through the
+governed dereference, whose provenance check answers them exactly as a missing
+address. What a consumer of the MCP-backed store does with them is
+``tests/mcp/test_clientlane_record_shaped.py``.
 
 Tenant, principal, class, scope and token names are test deployment
 vocabulary, meaningful nowhere else (CINV-01 applied to test data).
@@ -92,18 +96,16 @@ def test_a_record_forged_on_another_tenants_client_lane_answers_as_a_missing_add
     assert _read(world, "blob", _file(world, genuine)) == canonical_bytes(genuine)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "the MCP artifact server's client lane serves a tenant's OWN client-lane filings to that"
-        " tenant's principals without the governed dereference (C8; D-IMPL-353 §2 P5), so a"
-        " same-tenant forgery crosses blob/meta as a client-lane artifact; the ruled fix is"
-        " confined to govern_dereference — a design question for the coordinator"
-    ),
-)
 def test_a_record_forged_on_the_tenants_own_client_lane_answers_as_a_missing_address_does(
     tmp_path: pathlib.Path,
 ) -> None:
+    """A principal of the reader's own tenant files, on that tenant's client lane,
+    the canonical bytes of a record claiming the reader. Blob and presence answer
+    what they answered while the address was empty, and the determination recorded
+    behind each is the governed dereference's ``nonexistent`` /
+    ``evidence-absent``. Controls: an ordinary artifact on the same client lane
+    still crosses as its exact bytes, and a record the fabric's own writer filed
+    still reads for its owner."""
     world = _world(tmp_path)
     forged = _record(tenant=TENANT, principal=PRINCIPAL, subject="same-tenant-forgery")
     address = content_hash(forged)
@@ -112,7 +114,15 @@ def test_a_record_forged_on_the_tenants_own_client_lane_answers_as_a_missing_add
     assert _forge_on(world, forged, forger_tenant=TENANT) == address
     after = _answers(world, address)
 
+    assert after["blob"] != canonical_bytes(forged), "a same-tenant forgery crossed the client lane"
     _assert_identical(before, after)
+    for surface in SURFACES:
+        assert _internal_cause(world, after[surface]) == ("nonexistent", ERROR_EVIDENCE_ABSENT), surface
+    plain = {"note": "an ordinary client-lane artifact"}
+    filed = world.store.put(capability(ArtifactWrite, tenant=TENANT, resource=f"{CLIENT_CLASS}/plain"), plain)
+    assert _read(world, "blob", str(filed.content_address)) == canonical_bytes(plain)
+    genuine = _record(tenant=TENANT, principal=PRINCIPAL, subject="genuine")
+    assert _read(world, "blob", _file(world, genuine)) == canonical_bytes(genuine)
 
 
 class _WithoutNaming:
