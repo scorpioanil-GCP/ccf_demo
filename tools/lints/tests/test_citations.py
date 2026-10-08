@@ -351,6 +351,47 @@ def test_the_decision_log_is_exempt_and_deferred_items_is_not() -> None:
     assert exemption_reason("src/ccf/deployment/binder.py") is None
 
 
+#: The two dated records ``D-IMPL-378`` ruling C6 (c) exempts: 41 and 5 of the
+#: 362 unique sites the citation ratchet listed on ``dl-378-integ`` @
+#: ``8cfe77b2``.
+C6_DATED_RECORDS: tuple[str, ...] = (
+    "docs/V1.0.2-SPEC-REVIEWS.md",
+    "docs/superpowers/plans/2026-09-27-wave-2-HANDOFF.md",
+)
+
+#: The three documents the same ruling CONVERTS rather than exempts (the other
+#: 316 sites), once the security lanes stop editing them.
+C6_LIVING_DOCUMENTS: tuple[str, ...] = (
+    "docs/superpowers/specs/2026-09-25-v1-0-2-security-remediation-design.md",
+    "docs/superpowers/plans/2026-09-25-v1-0-2-wave-1-opening-sheet.md",
+    "docs/superpowers/plans/2026-09-27-v1-0-2-wave-2-opening-sheet.md",
+)
+
+
+def test_d_impl_378_c6_exempts_the_two_dated_records_and_not_the_living_three() -> None:
+    """``D-IMPL-378`` ruling C6 (c), as configuration, checked from both sides.
+
+    Dave: *"exempt the review record and the handoff (46 citations) and convert
+    the three documents security fixes still edit (316) once the lanes stop
+    editing them."* Each record is exempt by the entry that names the ruling,
+    not by some broader pattern that happens to match it; each living document
+    stays gated, because an exemption of one would empty part of the ratchet's
+    population without a ruling.
+    """
+    for record in C6_DATED_RECORDS:
+        reason = exemption_reason(record)
+        assert reason is not None, (
+            f"{record} is gated; D-IMPL-378 ruling C6 (c) exempts it as a dated record"
+        )
+        assert "D-IMPL-378" in reason and "C6" in reason, (
+            f"{record} is exempt by a reason that does not name D-IMPL-378 C6: {reason!r}"
+        )
+    for living in C6_LIVING_DOCUMENTS:
+        assert exemption_reason(living) is None, (
+            f"{living} is exempt; D-IMPL-378 ruling C6 (c) converts it instead"
+        )
+
+
 def test_an_exempt_file_is_not_scanned_at_all(tmp_path: pathlib.Path) -> None:
     _write(tmp_path, "src/pkg/mod.py", _CITED_AFTER)
     _write(tmp_path, "docs/DECISIONS.md", _CITER)
