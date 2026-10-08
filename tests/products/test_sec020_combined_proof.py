@@ -89,6 +89,34 @@ Dave's two-deployment test as written. The same-deployment comparison of the
 population-reading shapes has its own instrument
 (``test_the_same_deployment_instrument_sees_a_difference``).
 
+Dave's Q11 and Q12, as lane ``378b-s020record`` built them (adapted by lane ``378d-s020trial``)
+-------------------------------------------------------------------------------------------------
+Its PROPOSAL, section 7, names three things this proof needs once Q11 and Q12
+are on the tree; this module and its worlds now do exactly those three:
+
+1. The record channel's instrument is built in deployments whose tenant LISTS
+   the class and whose class AFFIRMS ``subject_withholding: never``, policy
+   off — served and nonexistent sides only, floored by a second nonexistent
+   copy — because default-deny refuses every read of an unlisted class alike.
+   The listed-class cell expects the two named refusals: a class that does not
+   affirm ``never``, listed, is refused where its resolver is built
+   (``WithholdingClassListedReadable``), and the withheld subject under a class
+   that affirms it is refused before anything is recorded.
+2. Each answer's reference is unique (a fresh issuance in every record), so a
+   difference-based reference instrument cannot see past its own noise floor
+   by design. It is replaced by Q11's property checks
+   (``sec020_worlds.reference_properties``): the same question is handed
+   different references; equal references never name different records; name
+   = version = the record's content address.
+3. The caller-visible reference has no new name: it IS the ``replay_ref`` /
+   ``replay_reference`` each door hands out, and its read route is the governed
+   evidence reads; the pending marker is replaced by a test that the record
+   cells present that very reference to those routes and that they resolve it
+   to its own record.
+
+These adaptations decide nothing Dave has not ruled: E1 and E2 are OWED
+(``records/2026-10-08-d-impl-378-ci-lane/OWED-RULINGS.md``). SEC-020 is OPEN.
+
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
 
@@ -254,7 +282,12 @@ def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], se
     withheld = run.channel(withheld_side, channel, comparison=comparison)
     nonexistent = run.channel(nonexistent_side, channel, comparison=comparison)
     floor = w.diff_paths(nonexistent, run.channel(floor_side, channel, comparison=comparison))
-    return w.diff_paths(withheld, nonexistent) - floor, floor, withheld, nonexistent
+    differing = w.diff_paths(withheld, nonexistent)
+    # The floor excuses a difference in VALUE, never in KIND (``sec020_worlds.kind_diff_paths``):
+    # under Q11 two nonexistent copies differ at every reference path, which must not
+    # excuse a withheld side handed no reference where the nonexistent side was handed one.
+    counted = (differing - floor) | (differing & floor & w.kind_diff_paths(withheld, nonexistent))
+    return counted, floor, withheld, nonexistent
 
 
 def _vacuous(run: w.Run, *sides: str, either: bool = False) -> dict[str, dict[str, str]]:
@@ -347,6 +380,17 @@ def test_the_instrument_sees_a_difference(
     """
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
+    if channel == w.REFERENCE and shape != w.REUSED_STORE:
+        # Q11: a reference is unique per answer, so no difference survives the
+        # noise floor by design; the reference channel is instrumented by
+        # Q11's properties instead (``reused_store``: Q9 refuses every
+        # question of the two copies, so it keeps the structural pair below).
+        problems = w.reference_properties(run)
+        assert not problems, (
+            f"reference instrument [{shape}, {anchor}, {door}, names_only={names_only}]: Dave's Q11"
+            f" properties do not hold, so a PASS of the reference comparison would prove nothing: {problems}"
+        )
+        return
     left_side, right_side = w.instrument_pair(channel, run)
     vacuous = _vacuous(run, left_side, right_side, either=True)
     assert not vacuous, (
@@ -355,7 +399,7 @@ def test_the_instrument_sees_a_difference(
     )
     left = run.channel(left_side, channel, names_only=names_only)
     right = run.channel(right_side, channel, names_only=names_only)
-    floor = w.diff_paths(right, run.channel(w.CF_FLOOR, channel, names_only=names_only))
+    floor = w.diff_paths(right, run.channel(w.instrument_floor(channel, run), channel, names_only=names_only))
     seen = w.diff_paths(left, right) - floor
     assert seen, (
         f"instrument broken [{shape}, {anchor}, {door}, {channel}, names_only={names_only}]:"
@@ -452,7 +496,32 @@ def test_a_public_reference_never_names_two_records(runs: w.RunCache, shape: str
 
 
 #: The shapes the record channel is held on when a withholding class is listed.
-LISTED_SHAPES = (w.SUBJECT_KEYED, w.COMPOSITE_SUBJECT_CHILD)
+LISTED_SHAPES = w.LISTED_SHAPES
+
+#: What each listed side must have raised, by type (Dave's Q12 as built, lane
+#: ``378b-s020record`` PROPOSAL section 7, item 1). A class that does not affirm
+#: ``never``, listed: refused where its resolver is built, in the deployment that
+#: holds the subject and in the one that does not. The withheld subject under a
+#: class that affirms ``never``: refused before anything is recorded —
+#: ``NeverWithholdingContradicted`` on the paved road; for a composite, Q8's
+#: late-withhold refusal runs first on this tree (``CompositeWithheldLate``).
+LISTED_REFUSALS: dict[str, dict[str, str]] = {
+    w.WITHHELD_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
+    w.NONEXISTENT_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
+    w.WITHHELD_READABLE: {
+        w.SUBJECT_KEYED: "NeverWithholdingContradicted",
+        w.COMPOSITE_SUBJECT_CHILD: "CompositeWithheldLate",
+    },
+}
+
+
+def _owner_read_answered(run: w.Run, side: str, position: str = w.ONLY) -> bool:
+    """Whether the owner's read of ``side``'s record by its reference was ANSWERED with the record."""
+    reads = run.sides[side].read_check.get(position, {}).get("reads", {})
+    if run.door == w.HTTP:
+        return reads.get("owner:replay.resolutions", {}).get("status") == 200
+    blob = reads.get("owner:blob", {})
+    return any("blob_sha256" in part for part in blob.get("contents", []) if isinstance(part, dict))
 
 
 @pytest.mark.parametrize("door", (w.HTTP, w.MCP))
@@ -464,36 +533,113 @@ def test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record
     """Dave, Q12: *"Default-deny owner read-back, with an explicit tenant class allowlist. Reject withholding classes."*
 
     PENDING until the allowlist exists under its documented name. Both
-    deployments LIST the class whose Π withholds the subject; what the owner,
-    and another principal, read back must still be indistinguishable — the
-    listing rejected, or the reads refused alike.
+    configurations Q12 leaves a deployment, as built (lane ``378b-s020record``
+    PROPOSAL section 7, item 1):
+
+    * **A class that does not affirm ``never``, LISTED** — refused where its
+      resolver is built, by name (:data:`LISTED_REFUSALS`), in the deployment
+      that holds the subject AND in the one that does not: the listing is
+      rejected alike, so nothing is answered, recorded or read back on either
+      side. Equal by that NAMED refusal, which is the property here — as Q9's
+      refusals are for the reused shapes — and never by an arbitrary exception.
+    * **A class that affirms ``never``, LISTED, whose policy withholds the
+      subject** — the withheld question is refused by name before anything is
+      recorded, so no record of it exists to read back. The control: the
+      nonexistent subject under the same listing is answered, and its owner
+      reads its record back — the listing is live.
+
+    The second arm leaves a response-level difference BY DESIGN: the withheld
+    subject's question raises where the nonexistent subject's is answered.
+    That is OWED ruling E2 (ii) (a class that declares it never withholds, and
+    withholds, fails loudly, as a disclosed deployment obligation); Dave has
+    not ruled it, and this cell passing does not rule it.
     """
     if not w.evidence_allowlist_exists():
         pytest.skip(f"pending API: {w.EVIDENCE_ALLOWLIST_FIELD} (ProductEntitlementPolicy)")
     run = runs.get(shape=shape, anchor=anchor, door=door)
-    withheld = run.channel(w.WITHHELD_READABLE, w.RECORD)
-    nonexistent = run.channel(w.NONEXISTENT_READABLE, w.RECORD)
-    differing = w.diff_paths(withheld, nonexistent)
-    assert not differing, (
-        f"[{shape}, {anchor}, {door}] with the withholding class listed evidence-readable, the record"
-        f" read back differs at {sorted(differing)}\n  withheld: {w.render(withheld)}\n"
-        f"  nonexistent: {w.render(nonexistent)}"
+    wrong: dict[str, Any] = {}
+    for side, by_shape in LISTED_REFUSALS.items():
+        expected = by_shape[shape]
+        raised = run.raised(side).get(w.ONLY, "")
+        if not raised.startswith(f"{expected}:"):
+            wrong[side] = f"expected {expected}, observed: " + (raised or w.render(run.channel(side, w.RESPONSE)))
+        record = run.channel(side, w.RECORD)
+        if record != {"reference": None}:
+            wrong[f"{side}:record"] = w.render(record)
+    assert not wrong, (
+        f"[{shape}, {anchor}, {door}] a listed class's record channel was not closed by the named refusal: {wrong}"
+    )
+    assert not run.raised(w.NONEXISTENT_READABLE) and _owner_read_answered(run, w.NONEXISTENT_READABLE), (
+        f"[{shape}, {anchor}, {door}] control: the nonexistent subject under the listed class that affirms"
+        " never was not answered and read back by its owner, so the refusals above are not evidence that"
+        f" the listing is what they close: {w.render(run.channel(w.NONEXISTENT_READABLE, w.RECORD))}"
     )
 
 
-def test_pending_api_caller_visible_reference() -> None:
+#: Every shape whose readable serving deployment answers (Q9 refuses every question of ``reused_store``).
+CALLER_REFERENCE_SHAPES = tuple(shape for shape in ALL_SHAPES if shape != w.REUSED_STORE)
+
+
+@pytest.mark.parametrize("door", (w.HTTP, w.MCP))
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+@pytest.mark.parametrize("shape", CALLER_REFERENCE_SHAPES)
+def test_the_caller_visible_reference_resolves_through_the_governed_reads(
+    runs: w.RunCache, shape: str, anchor: str, door: str
+) -> None:
     """Dave, Q11: *"Use a caller-visible reference separate from the internal evidence address."*
 
-    No cell above needs this reference's name: every reference cell compares
-    whatever reference each door hands out, so it measures the new reference
-    unchanged when it lands. This marker exists because the reference's public
-    name and its read route are not documented on ``e9e5e2cd`` (lane
-    ``378-s020record`` PROPOSAL, option 2-B, names none): the gate cannot be
-    read as complete until the coordinator confirms the record cells present
-    the reference the doors actually hand out to the route that resolves it,
-    and replaces this marker with that route's cells.
+    The marker this replaces waited for the reference's public name and read
+    route. As built (lane ``378b-s020record`` PROPOSAL sections 7, item 3, and
+    8) there is no new name: the caller-visible reference IS the ``replay_ref``
+    / ``replay_reference`` each door hands out — a URI whose name and version
+    are the record's content address, which reflects nothing the answer read —
+    and its read route is the governed evidence reads. Held here, on the
+    deployment whose tenant lists the class and whose class affirms ``never``
+    (so its owner may read the record): the record cells were presented with
+    exactly the reference the door handed out; the owner's read BY THAT URI
+    (HTTP ``/replay/resolutions``; MCP: the URI's resolution, then the blob at
+    the address it answers) answered; and the bytes it returned hash to the
+    URI's version, which is its name.
     """
-    pytest.skip("pending API: caller-visible replay reference and its read route (Q11; no public name documented)")
+    if not w.evidence_allowlist_exists():
+        pytest.skip(f"pending API: {w.EVIDENCE_ALLOWLIST_FIELD} (ProductEntitlementPolicy)")
+    _require(shape)
+    run = runs.get(shape=shape, anchor=anchor, door=door)
+    position = "first" if shape in w.REUSED_SHAPES else w.ONLY
+    raised = run.raised(w.SERVED_READABLE).get(position)
+    assert not raised, f"[{shape}, {anchor}, {door}] not evidence: the readable serving question raised: {raised}"
+    check = run.sides[w.SERVED_READABLE].read_check.get(position, {})
+    handed_out = check.get("handed_out")
+    assert isinstance(handed_out, str) and handed_out.startswith("ccf-artifact://"), (
+        f"[{shape}, {anchor}, {door}] the door handed out no reference: {w.render(check)}"
+    )
+    assert check.get("presented") == handed_out, (
+        f"[{shape}, {anchor}, {door}] the record cells read {check.get('presented')!r}, not the reference"
+        f" the door handed out, {handed_out!r}"
+    )
+    parsed = w.parse_artifact_uri(handed_out)
+    assert parsed.name == parsed.artifact_version, f"[{shape}, {anchor}, {door}] name is not version: {handed_out}"
+    reads = check.get("reads", {})
+    if door == w.HTTP:
+        by_uri = reads.get("owner:replay.resolutions", {})
+        assert by_uri.get("status") == 200, f"[{shape}, {anchor}, {door}] the owner's read by URI: {by_uri}"
+        assert by_uri.get("sha256") == parsed.artifact_version, (
+            f"[{shape}, {anchor}, {door}] the owner's read by URI returned bytes that hash to"
+            f" {by_uri.get('sha256')}, not the reference's version {parsed.artifact_version}"
+        )
+        return
+    resolution = reads.get("owner:resolution", {})
+    answered = [part.get("text") for part in resolution.get("contents", []) if isinstance(part, dict)]
+    assert any(
+        isinstance(text, dict) and text.get("found") is True and text.get("content_address") == parsed.artifact_version
+        for text in answered
+    ), f"[{shape}, {anchor}, {door}] the owner's resolution of the URI: {w.render(resolution)}"
+    blob = reads.get("owner:blob", {})
+    digests = [part.get("blob_sha256") for part in blob.get("contents", []) if isinstance(part, dict)]
+    assert parsed.artifact_version in digests, (
+        f"[{shape}, {anchor}, {door}] the owner's blob read at the resolved address returned bytes hashing to"
+        f" {digests}, not the reference's version {parsed.artifact_version}"
+    )
 
 
 def test_d1a_retires_exactly_the_population_reading_counterfactual_cells() -> None:
@@ -563,7 +709,16 @@ def test_the_same_deployment_instrument_sees_a_difference(
     """
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
-    left_side, right_side = w.SAME_INSTRUMENT_PAIRS[channel]
+    if channel == w.REFERENCE:
+        # Q11, as in the standing instrument: the reference channel is
+        # instrumented by Q11's properties, never by a difference.
+        problems = w.reference_properties(run)
+        assert not problems, (
+            f"same-deployment reference instrument [{shape}, {anchor}, {door}]: Dave's Q11 properties do"
+            f" not hold: {problems}"
+        )
+        return
+    left_side, right_side, floor_a, floor_b = w.same_instrument_sides(channel, run)
     vacuous = _vacuous(run, left_side, right_side, either=True)
     assert not vacuous, (
         f"same-deployment instrument not evidence [{shape}, {anchor}, {door}, {channel}]: a side"
@@ -573,8 +728,8 @@ def test_the_same_deployment_instrument_sees_a_difference(
     left = run.channel(left_side, channel, comparison=same)
     right = run.channel(right_side, channel, comparison=same)
     floor = w.diff_paths(
-        run.channel(w.SAME_NONEXISTENT, channel, comparison=same),
-        run.channel(w.SAME_FLOOR, channel, comparison=same),
+        run.channel(floor_a, channel, comparison=same),
+        run.channel(floor_b, channel, comparison=same),
     )
     seen = w.diff_paths(left, right) - floor
     assert seen, (

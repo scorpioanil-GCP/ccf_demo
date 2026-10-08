@@ -461,7 +461,41 @@ def build_composite(
     child_door: Any | None = None,
     child_questions: ChildQuestions | None = None,
 ) -> tuple[GovernedResolver, GrantBoundChildResolver]:
-    """The composite, wired. **Only ``binding`` changes between the two proofs.**
+    """The composite, wired: :func:`build_child_resolver`, then the resolver over it.
+
+    Arguments as :func:`build_child_resolver`'s.
+    """
+    children = build_child_resolver(
+        booted,
+        grant=grant,
+        binding=binding,
+        mcp_skills=mcp_skills,
+        resource=resource,
+        child_arguments=child_arguments,
+        child_door=child_door,
+        child_questions=child_questions,
+    )
+    arguments = _arguments(booted)
+    arguments.update(composite_children=children)
+    return GovernedResolver(**arguments), children
+
+
+def build_child_resolver(
+    booted: _Booted,
+    *,
+    grant: bool = True,
+    binding: str = "local_callable",
+    mcp_skills: McpSkillRegistry | None = None,
+    resource: str | None = None,
+    child_arguments: ChildArguments | None = None,
+    child_door: Any | None = None,
+    child_questions: ChildQuestions | None = None,
+) -> GrantBoundChildResolver:
+    """The composite's child resolver, wired. **Only ``binding`` changes between the two proofs.**
+
+    No resolver is constructed here, so a test that composes its own resolver
+    over these children (``tests/products/sec020_worlds.py``) meets only the
+    construction it asked for.
 
     Args:
         booted: The consuming deployment.
@@ -505,7 +539,6 @@ def build_composite(
         assert isinstance(outcome, str), outcome
     callables = CallableRegistry()
     callables.register(CHILD_CALLABLE, child_door or _child_door(booted))
-    arguments = _arguments(booted)
     children = GrantBoundChildResolver(
         ledger=ledger,
         agent_definition_hash=agent_hash,
@@ -529,8 +562,7 @@ def build_composite(
         mcp_skills=mcp_skills,
         child_questions=child_questions or asks_its_own_subject,
     )
-    arguments.update(composite_children=children)
-    return GovernedResolver(**arguments), children
+    return children
 
 
 def ask_composite(resolver: GovernedResolver) -> Any:

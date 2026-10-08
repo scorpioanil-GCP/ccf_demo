@@ -51,6 +51,7 @@ import asyncio
 import base64
 import copy
 import functools
+import hashlib
 import json
 import pathlib
 from collections.abc import Callable, Mapping
@@ -60,6 +61,7 @@ from typing import Any
 
 import httpx
 
+from ccf.artifacts.protocol import parse_artifact_uri
 from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.graph.protocols import GraphView
 from ccf.products.disclosure import DISCLOSURE_FULL, DISCLOSURE_MINIMAL
@@ -115,6 +117,18 @@ OPEN_BOOK = "open-book"
 INTENT = "fixture-intent"
 FRESHNESS = "fixture-freshness"
 THRESHOLD_VALUE = 1000
+
+
+def never_withholds() -> str:
+    """The class affirmation Dave's Q12 reads (``ccf.products.contract.SUBJECT_WITHHOLDING_NEVER``).
+
+    Read where it is used, so this module still imports on a tree without Q12;
+    it is only reached when the owner-read allowlist exists
+    (:func:`evidence_allowlist_exists`).
+    """
+    from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER  # noqa: PLC0415
+
+    return SUBJECT_WITHHOLDING_NEVER
 
 
 def entity_uri(account_ref: str) -> str:
@@ -366,6 +380,16 @@ class Observation:
     channels: dict[str, Any] = field(default_factory=dict)
     raw: Any = None
     raised: dict[str, str] = field(default_factory=dict)
+    #: Per reference this question was handed, what the deployment's own store
+    #: says it names: the URI's name and version, the address the store resolves
+    #: it to, and the SHA-256 of the bytes stored there (Dave's Q11 properties,
+    #: :func:`reference_properties`). An entry ``{"error": ...}`` is a reference
+    #: that does not resolve.
+    reference_facts: dict[str, dict[str, str]] = field(default_factory=dict)
+    #: Per question position, what the record reads were presented with and what
+    #: the owner's reads by that reference answered
+    #: (:func:`test_sec020_combined_proof.test_the_caller_visible_reference_resolves_through_the_governed_reads`).
+    read_check: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 def diff_paths(left: Any, right: Any, prefix: str = "") -> set[str]:
@@ -387,6 +411,46 @@ def diff_paths(left: Any, right: Any, prefix: str = "") -> set[str]:
             found |= diff_paths(a, b, f"{prefix}[{index}]")
         return found
     return set() if left == right else {prefix or "<root>"}
+
+
+def _kind(value: Any) -> str:
+    """What a leaf IS, as against what it says: absent, a reference, other text, a number, a container."""
+    if value is None:
+        return "none"
+    if isinstance(value, str):
+        return "reference" if value.startswith("ccf-artifact://") else "text"
+    if isinstance(value, Mapping):
+        return "mapping"
+    if isinstance(value, list | tuple):
+        return "sequence"
+    return type(value).__name__
+
+
+def kind_diff_paths(left: Any, right: Any, prefix: str = "") -> set[str]:
+    """Every dotted path where both sides hold a leaf and the two leaves differ in KIND (:func:`_kind`).
+
+    The noise floor excuses a difference in VALUE where two copies of the
+    nonexistent side also differ in value; it never excuses a difference in
+    kind. Under Dave's Q11 every reference is unique per answer, so two
+    nonexistent copies differ at every reference path, and a value-only floor
+    would also excuse one side being handed NO reference where the other was
+    handed one. Missing keys and list lengths stay the floor's to judge
+    (:func:`diff_paths` reports them); only leaves present on both sides are
+    compared here.
+    """
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        found: set[str] = set()
+        for key in set(left) & set(right):
+            found |= kind_diff_paths(left[key], right[key], f"{prefix}.{key}" if prefix else str(key))
+        return found
+    if isinstance(left, list | tuple) and isinstance(right, list | tuple):
+        if len(left) != len(right):
+            return set()
+        found = set()
+        for index, (a, b) in enumerate(zip(left, right, strict=True)):
+            found |= kind_diff_paths(a, b, f"{prefix}[{index}]")
+        return found
+    return set() if _kind(left) == _kind(right) else {prefix or "<root>"}
 
 
 def jsonable(value: Any) -> Any:
@@ -613,7 +677,7 @@ class ReferenceAssess:
         )
 
 
-def paved_document(anchor: str) -> dict[str, Any]:
+def paved_document(anchor: str, *, never: bool = False) -> dict[str, Any]:
     """The paved fixture's config under ``anchor``, with the ``book`` attribute admitted.
 
     The λ_c row decays from ``valid-from`` under both anchors, as the low road's
@@ -630,6 +694,9 @@ def paved_document(anchor: str) -> dict[str, Any]:
         row["decay_basis"] = "valid-from"
     for rule in document["resolution"]["entity_rules"]:
         rule["attribute_keys"] = [*rule["attribute_keys"], BOOK_ATTRIBUTE]
+    if never:
+        # Dave's Q12: the class affirms its answers never withhold their subject.
+        document["product_class"]["subject_withholding"] = never_withholds()
     return document
 
 
@@ -641,6 +708,7 @@ def open_paved(
     project: Any,
     document: dict[str, Any] | None = None,
     evidence_readable: bool = False,
+    never: bool = False,
     **overrides: Any,
 ) -> Deployment:
     """Open the paved fixture product under ``base``: one store, one recorder, one Control Plane."""
@@ -650,7 +718,7 @@ def open_paved(
     from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER  # noqa: PLC0415
 
     base.mkdir(parents=True, exist_ok=True)
-    root = _write_tree(base, config=document if document is not None else paved_document(anchor))
+    root = _write_tree(base, config=document if document is not None else paved_document(anchor, never=never))
     registry = granted_control_plane(root)
     register_entitlement(
         registry, tenant=TENANT, product_class=PRODUCT_CLASS, role=ROLE, evidence_readable=evidence_readable
@@ -1117,7 +1185,9 @@ def _normalize_presented(value: Any, presented: tuple[str, ...]) -> Any:
     return value
 
 
-def http_record_reads(deployment: Deployment, reference: str | None, *, app: Any) -> dict[str, Any]:
+def http_record_reads(
+    deployment: Deployment, reference: str | None, *, app: Any, raw: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Every governed HTTP read of the record behind ``reference``, as the owner and as another principal.
 
     The three routes ``D-IMPL-345`` governs: ``/replay/resolutions`` by URI,
@@ -1138,6 +1208,11 @@ def http_record_reads(deployment: Deployment, reference: str | None, *, app: Any
         ):
             response = http_call(app, "GET", url, token=token, params=params)
             reads[f"{who}:{route}"] = _normalize_presented(_http_shape(response), presented)
+            if raw is not None:
+                raw[f"{who}:{route}"] = {
+                    "status": response.status_code,
+                    "sha256": hashlib.sha256(response.content).hexdigest(),
+                }
     return reads
 
 
@@ -1167,6 +1242,7 @@ def low_road_documents(
     similarity_query: str | None = None,
     composite: bool = False,
     child_anchor: str = FROM_DECISION,
+    never: bool = False,
 ) -> pathlib.Path:
     """Write the ``tests/deployment`` fixture deployment under ``root``; return the manifest.
 
@@ -1202,6 +1278,9 @@ def low_road_documents(
         document = copy.deepcopy(document)
         if key == PRODUCT_CLASS_KEY:
             document = {**document, "required_operator_keys": required, "ttl_anchor": anchor}
+            if never:
+                # Dave's Q12: the class affirms its answers never withhold their subject.
+                document["subject_withholding"] = never_withholds()
             if composite:
                 from tests.products.composite_fixture import _parent_requires  # noqa: PLC0415
 
@@ -1588,7 +1667,14 @@ POPULATION_READING_SHAPES = (NO_ACQUISITION, POPULATION, EARLY_POPULATION, POPUL
 
 
 def build_subject_keyed(
-    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False, early: bool = False
+    base: pathlib.Path,
+    *,
+    anchor: str,
+    holds: bool,
+    active: bool,
+    readable: bool = False,
+    early: bool = False,
+    never: bool = False,
 ) -> Deployment:
     """The paved road: one fabric per question, ``acquire`` keyed on the subject."""
     from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
@@ -1598,6 +1684,7 @@ def build_subject_keyed(
         base, anchor=anchor, acquire=SubjectKeyedSource(holdings),
         project=plan_factory(early=early, plan_id=PRODUCT_CLASS, asker=ASKER, active=active),
         evidence_readable=readable,
+        never=never,
     )
 
 
@@ -1610,6 +1697,7 @@ def build_population(
     readable: bool = False,
     early: bool = False,
     declared: bool = False,
+    never: bool = False,
 ) -> Deployment:
     """The paved road with an acquisition that reads the whole population, whatever is asked.
 
@@ -1626,10 +1714,11 @@ def build_population(
     if declared:
         return open_paved(
             base, anchor=anchor, acquire=SubjectKeyedSource({}), project=project,
-            evidence_readable=readable, population=PopulationHalf(holdings),
+            evidence_readable=readable, population=PopulationHalf(holdings), never=never,
         )
     return open_paved(
         base, anchor=anchor, acquire=PopulationSource(holdings), project=project, evidence_readable=readable,
+        never=never,
     )
 
 
@@ -1640,13 +1729,15 @@ def _required_policy_traversal() -> list[str]:
 
 
 def build_no_acquisition(
-    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False, never: bool = False
 ) -> Deployment:
     """The low road with no acquisition seam: the fabric holds the source before any question."""
     from tests.deployment.conftest import POLICY_PARAMS_KEY, TENANT, TRAVERSAL_KEY  # noqa: PLC0415
     from tests.products.test_resolver_seam import PERSPECTIVE, PRODUCT_CLASS  # noqa: PLC0415
 
-    manifest = low_road_documents(base / "deployment", anchor=anchor, required=_required_policy_traversal())
+    manifest = low_road_documents(
+        base / "deployment", anchor=anchor, required=_required_policy_traversal(), never=never
+    )
     site = low_road_site(base, manifest, evidence_readable=readable)
     held = (sibling_holding(), *((subject_holding(),) if holds else ()))
     envelopes = tuple(envelope_for(h, tenant=TENANT, ingested_at=LOW_ROAD_INGESTED_AT) for h in held)
@@ -1674,7 +1765,7 @@ SIMILARITY_SIBLING = "gamma"
 
 
 def build_similarity(
-    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False, never: bool = False
 ) -> Deployment:
     """A similarity operator over an entity the subject-keyed acquisition REFRESHES (channel 5).
 
@@ -1689,6 +1780,7 @@ def build_similarity(
         base / "deployment", anchor=anchor,
         required=[*_required_policy_traversal(), SimilaritySelect.key],
         similarity_query=SIMILARITY_QUERY,
+        never=never,
     )
     site = low_road_site(base, manifest, evidence_readable=readable)
     before = Holding(account_ref=SUBJECT_REF, book=RESTRICTED_BOOK, label=SIMILARITY_BEFORE,
@@ -1715,7 +1807,7 @@ def build_similarity(
 
 
 def build_reused_fabric(
-    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False, never: bool = False
 ) -> Deployment:
     """ONE fabric handle, booted for a question, with a subject-keyed seam, asked every question (M-6).
 
@@ -1733,7 +1825,9 @@ def build_reused_fabric(
     from tests.deployment.conftest import POLICY_PARAMS_KEY, TENANT, TRAVERSAL_KEY  # noqa: PLC0415
     from tests.products.test_resolver_seam import ASKED_AT, PERSPECTIVE, PRODUCT_CLASS  # noqa: PLC0415
 
-    manifest = low_road_documents(base / "deployment", anchor=anchor, required=_required_policy_traversal())
+    manifest = low_road_documents(
+        base / "deployment", anchor=anchor, required=_required_policy_traversal(), never=never
+    )
     site = low_road_site(base, manifest, evidence_readable=readable)
     worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sec020-long-lived-fabric")
     factory = PolicyPlanFactory(plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=active)
@@ -1778,7 +1872,7 @@ def build_reused_fabric(
 
 
 def build_reused_store(
-    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False, never: bool = False
 ) -> Deployment:
     """ONE persisted graph store, reopened by an ordinary boot for every question (M-6, the production shape).
 
@@ -1795,7 +1889,9 @@ def build_reused_store(
     from tests.deployment.conftest import POLICY_PARAMS_KEY, TENANT, TRAVERSAL_KEY  # noqa: PLC0415
     from tests.products.test_resolver_seam import ASKED_AT, PERSPECTIVE, PRODUCT_CLASS  # noqa: PLC0415
 
-    manifest = low_road_documents(base / "deployment", anchor=anchor, required=_required_policy_traversal())
+    manifest = low_road_documents(
+        base / "deployment", anchor=anchor, required=_required_policy_traversal(), never=never
+    )
     site = low_road_site(base, manifest, evidence_readable=readable)
     database = site.root / "persisted-graph.sqlite3"
     seeded = load_and_boot(manifest, registry=site.control_plane, connection={"database_path": str(database)})
@@ -1867,6 +1963,7 @@ def build_composite(
     fixed_child: bool,
     readable: bool = False,
     early: bool = False,
+    never: bool = False,
 ) -> Deployment:
     """A composite whose child is asked about its own subject, or about a fixed one (channel 4).
 
@@ -1885,7 +1982,7 @@ def build_composite(
 
     manifest = low_road_documents(
         base / "deployment", anchor=anchor, required=_required_policy_traversal(),
-        composite=True, child_anchor=anchor,
+        composite=True, child_anchor=anchor, never=never,
     )
     site = low_road_site(base, manifest, extra_classes=(CHILD_QUESTION_CLASS,), evidence_readable=readable)
     parent_holdings = {SUBJECT: subject_holding()} if holds else {}
@@ -1921,7 +2018,7 @@ def build_composite(
     children = RequestKeyedChildren(fixed=FIXED if fixed_child else None)
     bootstrap = site.boot(())
     try:
-        _resolver, children.inner = cf.build_composite(
+        children.inner = cf.build_child_resolver(
             _Booted(fabric=bootstrap, control_plane=site.control_plane, store=site.store, root=site.root),
             child_door=child_door,
             child_arguments=children.child_arguments,
@@ -2003,7 +2100,9 @@ def mcp_artifact_server(deployment: Deployment) -> Any:
     )
 
 
-def mcp_record_reads(deployment: Deployment, reference: str | None) -> dict[str, Any]:
+def mcp_record_reads(
+    deployment: Deployment, reference: str | None, *, raw: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Every MCP read of the record behind ``reference``, as the owner and another principal.
 
     The artifact server's blob (the record's bytes), presence answer, the names
@@ -2043,10 +2142,21 @@ def mcp_record_reads(deployment: Deployment, reference: str | None) -> dict[str,
                     if isinstance(contents, TextResourceContents):
                         parts.append({"text": _maybe_json(contents.text)})
                     elif isinstance(contents, BlobResourceContents):
-                        parts.append({"blob": _maybe_json(base64.b64decode(contents.blob).decode("utf-8", "replace"))})
+                        decoded = base64.b64decode(contents.blob)
+                        parts.append({
+                            "blob": _maybe_json(decoded.decode("utf-8", "replace")),
+                            "blob_sha256": hashlib.sha256(decoded).hexdigest(),
+                        })
                 return {"contents": parts}
 
             read = mcp_drive(mcp_artifact_server(deployment), operation, token=token)
+            if raw is not None:
+                raw[f"{who}:{name}"] = jsonable(read)
+            if isinstance(read, dict):
+                for part in read.get("contents", []):
+                    # The digest is the read's own measurement, not something it
+                    # served: it stays in ``raw`` and out of the compared channel.
+                    part.pop("blob_sha256", None)
             reads[f"{who}:{name}"] = _normalize_presented(jsonable(read), presented)
         reads[f"{who}:experience.get_replay_record"] = _normalize_presented(
             jsonable(experience_replay_read(deployment, address, token=token)), presented
@@ -2162,6 +2272,23 @@ REFUSED_QUESTION = "refused-question"
 SERVED_READABLE = "served-readable"
 WITHHELD_READABLE = "withheld-readable"
 NONEXISTENT_READABLE = "nonexistent-readable"
+#: Dave's Q12, as built (lane ``378b-s020record`` PROPOSAL section 7, item 1):
+#: the record-instrument worlds LIST the class and the class AFFIRMS
+#: ``subject_withholding: never``, with the policy OFF — served and nonexistent
+#: sides only, plus a second, independent nonexistent copy as their noise
+#: floor (the unlisted floor's reads are refused, so it cannot be the floor of
+#: a readable pair). The withheld side under ``never`` (WITHHELD_READABLE) is
+#: the listed-class cell's, and it is refused by design.
+NONEXISTENT_READABLE_FLOOR = "nonexistent-readable-again"
+#: For the population-reading shapes (D1 = (a)): the readable serving
+#: deployment asked about identifiers nothing holds — the same-deployment record
+#: instrument's other side and its noise floor.
+SERVED_READABLE_NEVER_HELD = "served-readable-never-held"
+SERVED_READABLE_NEVER_HELD_2 = "served-readable-never-held-again"
+#: The listed-class cell's other configuration: a class that does NOT affirm
+#: ``never``, listed — refused where the resolver is built, in both deployments.
+WITHHELD_LISTED_MAY = "withheld-listed-may-withhold"
+NONEXISTENT_LISTED_MAY = "nonexistent-listed-may-withhold"
 #: The same-deployment instruments (population-reading shapes): the deployment
 #: that SERVES the subject (policy off) asked about an identifier nothing holds,
 #: and the same question carrying a parameter its class does not declare.
@@ -2193,6 +2320,31 @@ def instrument_pair(channel: str, run: Run) -> tuple[str, str]:
     if channel == RECORD and SERVED_READABLE in run.sides:
         return SERVED_READABLE, NONEXISTENT_READABLE
     return INSTRUMENT_PAIRS[channel]
+
+
+def instrument_floor(channel: str, run: Run) -> str:
+    """The noise-floor side for :func:`instrument_pair`'s right-hand side.
+
+    The readable record pair (Q12) is floored by its own second nonexistent
+    copy; every other pair by the counterfactual floor.
+    """
+    if channel == RECORD and SERVED_READABLE in run.sides and run.shape != REUSED_STORE:
+        return NONEXISTENT_READABLE_FLOOR
+    return CF_FLOOR
+
+
+def same_instrument_sides(channel: str, run: Run) -> tuple[str, str, str, str]:
+    """``(left, right, floor_a, floor_b)`` of the same-deployment instrument for ``channel``.
+
+    The record channel is instrumented in the readable serving deployment
+    (Q12: default-deny refuses every read of the unlisted one alike): the
+    subject served against an identifier nothing holds, floored by two such
+    identifiers. Every other channel as before.
+    """
+    if channel == RECORD and SERVED_READABLE_NEVER_HELD in run.sides:
+        return SERVED_READABLE, SERVED_READABLE_NEVER_HELD, SERVED_READABLE_NEVER_HELD, SERVED_READABLE_NEVER_HELD_2
+    left, right = SAME_INSTRUMENT_PAIRS[channel]
+    return left, right, SAME_NONEXISTENT, SAME_FLOOR
 
 
 #: The same-deployment instrument for each channel (population-reading shapes,
@@ -2303,6 +2455,9 @@ def _merge(observations: list[Observation]) -> Observation:
     for position, observation in zip(("first", "second"), observations, strict=True):
         for key, message in observation.raised.items():
             merged.raised[position + key[len(ONLY):]] = message
+        merged.reference_facts.update(observation.reference_facts)
+        for key, check in observation.read_check.items():
+            merged.read_check[position + key[len(ONLY):]] = check
     return merged
 
 
@@ -2341,19 +2496,134 @@ def observe_side(
             observation.channels[COMPOSITE] = {
                 "child_rows": composite_rows(deployment, reference),
             }
+        observation.reference_facts = _reference_facts(deployment, observation)
         if reads and door == HTTP:
-            observation.channels[RECORD] = http_record_reads(deployment, reference, app=app)
+            raw_reads: dict[str, Any] = {}
+            observation.channels[RECORD] = http_record_reads(deployment, reference, app=app, raw=raw_reads)
+            observation.read_check[ONLY] = {"handed_out": reference, "presented": reference, "reads": raw_reads}
             for read, answered in observation.channels[RECORD].items():
                 status = answered.get("status") if isinstance(answered, dict) else None
                 if isinstance(status, int) and status >= 500:
                     observation.raised[f"{ONLY}/record:{read}"] = f"HTTP {status}: {str(answered.get('body'))[:300]}"
         if reads and door == MCP:
-            observation.channels[RECORD] = mcp_record_reads(deployment, reference)
+            raw_reads = {}
+            observation.channels[RECORD] = mcp_record_reads(deployment, reference, raw=raw_reads)
+            observation.read_check[ONLY] = {"handed_out": reference, "presented": reference, "reads": raw_reads}
             for read, answered in observation.channels[RECORD].items():
                 if _mcp_read_failed(answered):
                     observation.raised[f"{ONLY}/record:{read}"] = f"MCP read failed: {render(answered, limit=300)}"
         observed.append(observation)
     return _merge(observed)
+
+
+def references_in(value: Any) -> set[str]:
+    """Every replay reference (a ``ccf-artifact://`` URI) anywhere in a channel value."""
+    if isinstance(value, str):
+        return {value} if value.startswith("ccf-artifact://") else set()
+    found: set[str] = set()
+    if isinstance(value, Mapping):
+        for item in value.values():
+            found |= references_in(item)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            found |= references_in(item)
+    return found
+
+
+def _reference_facts(deployment: Deployment, observation: Observation) -> dict[str, dict[str, str]]:
+    """What the deployment's own store says each reference this question was handed names."""
+    facts: dict[str, dict[str, str]] = {}
+    for reference in sorted(references_in(jsonable(observation.channels.get(REFERENCE)))):
+        try:
+            parsed = parse_artifact_uri(reference)
+            address = deployment.store.resolve_uri(uri=reference)
+            stored = deployment.store.get(content_address=address)
+        except Exception as unresolved:  # noqa: BLE001 — a reference that does not resolve is a finding
+            facts[reference] = {"error": f"{type(unresolved).__name__}: {unresolved}"}
+            continue
+        facts[reference] = {
+            "name": parsed.name,
+            "version": parsed.artifact_version,
+            "resolved": address,
+            "sha256": hashlib.sha256(stored).hexdigest(),
+        }
+    return facts
+
+
+def _references_by_position(run: Run, side: str) -> dict[str, set[str]]:
+    value = jsonable(run.sides[side].channels.get(REFERENCE))
+    if run.shape in REUSED_SHAPES:
+        positions = value if isinstance(value, dict) else {}
+        return {position: references_in(positions.get(position)) for position in ("first", "second")}
+    return {ONLY: references_in(value)}
+
+
+def reference_properties(run: Run) -> list[str]:
+    """Dave's Q11 properties of the references this run handed out; every violation, named.
+
+    Dave, Q11: *"Equal public references must not identify different immutable
+    record contents."* The lane ``378b-s020record`` design (PROPOSAL section 7,
+    item 2) makes each reference unique per answer, so a difference-based
+    instrument cannot see past the noise floor on this channel by design; these
+    checks replace it.
+
+    1. **Issued per answer.** Two copies of one deployment asked the same
+       question at the same instant (:data:`CF_NONEXISTENT`, :data:`CF_FLOOR`)
+       are handed different references at every position both answered.
+    2. **One reference, one record.** Every reference any side was handed names
+       one record: equal references never name different bytes.
+    3. **Name = version = the record's content address**: the URI's two
+       identifying segments, the address the store resolves it to, and the
+       SHA-256 of the bytes stored there are one identity.
+
+    Not evidence, as everywhere in this proof: a position where either copy
+    raised (other than a refusal that is the property, :func:`raising_is_the_property`)
+    is reported, and a run in which property 1 was measured at no position fails.
+    """
+    problems: list[str] = []
+    left = _references_by_position(run, CF_NONEXISTENT)
+    right = _references_by_position(run, CF_FLOOR)
+    measured = 0
+    for position in sorted(left):
+        raised = {side: run.raised(side).get(position) for side in (CF_NONEXISTENT, CF_FLOOR)}
+        if any(raised.values()):
+            if all(message and raising_is_the_property(run.shape, position, message) for message in raised.values()):
+                continue
+            problems.append(f"property 1 not evidence at {position}: a copy raised: {raised}")
+            continue
+        if not left[position] or not right[position]:
+            problems.append(
+                f"property 1 not measurable at {position}: an answer carried no reference"
+                f" ({sorted(left[position])} / {sorted(right[position])})"
+            )
+            continue
+        measured += 1
+        shared = left[position] & right[position]
+        if shared:
+            problems.append(
+                f"property 1 at {position}: the same question, asked of two copies of one deployment at one"
+                f" instant, was handed the same reference twice: {sorted(shared)}"
+            )
+    if not measured:
+        problems.append("property 1 was measured at no position")
+    digests: dict[str, set[str]] = {}
+    for side, observation in sorted(run.sides.items()):
+        for reference, facts in sorted(observation.reference_facts.items()):
+            if "error" in facts:
+                problems.append(f"{side}: {reference} does not resolve in its own deployment's store: {facts['error']}")
+                continue
+            digests.setdefault(reference, set()).add(facts["sha256"])
+            if not facts["name"] == facts["version"] == facts["resolved"] == facts["sha256"]:
+                problems.append(
+                    f"property 3, {side}: name {facts['name']}, version {facts['version']}, resolved"
+                    f" {facts['resolved']}, SHA-256 of the stored record {facts['sha256']} are not one identity"
+                )
+    for reference, found in sorted(digests.items()):
+        if len(found) > 1:
+            problems.append(f"property 2: {reference} names {len(found)} different records")
+    if not digests:
+        problems.append("no side was handed a reference that resolves")
+    return problems
 
 
 def _mcp_read_failed(answered: Any) -> bool:
@@ -2448,6 +2718,24 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
         opened.append(built)
         return built
 
+    def listed(name: str, *, holds: bool, active: bool, never: bool) -> Deployment | Exception:
+        """A deployment whose tenant LISTS the class for owner read-back (Q12).
+
+        A composition the SDK refuses while it is being built is an observation,
+        not a broken run: it is returned, and every question to it observes it.
+        """
+        try:
+            built = build(base / name, anchor=anchor, holds=holds, active=active, readable=True, never=never)
+        except Exception as refused:  # noqa: BLE001 — a refused composition is an observation
+            return refused
+        opened.append(built)
+        return built
+
+    def listed_side(built: Deployment | Exception, subject: str) -> Observation:
+        if isinstance(built, Exception):
+            return refused_at_build(shape, built, subject)
+        return observe_side(shape, door, built, subject, reads=True)
+
     try:
         withholding = deployment("withholding", holds=True, active=True)
         sides[CF_WITHHELD] = observe_side(shape, door, withholding, SUBJECT, reads=True)
@@ -2473,18 +2761,55 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
             parameters=violating_parameters(),
         )
         if door in (HTTP, MCP) and evidence_allowlist_exists():
-            for side, name, holds, active in (
-                (SERVED_READABLE, "serving-readable", True, False),
-                (WITHHELD_READABLE, "withholding-readable", True, True),
-                (NONEXISTENT_READABLE, "not-holding-readable", False, True),
+            # Dave's Q12 as built: the record instrument's worlds list the class
+            # AND the class affirms ``never``, policy off — served and nonexistent
+            # sides only, with their own nonexistent floor.
+            serving_readable = listed("serving-readable", holds=True, active=False, never=True)
+            sides[SERVED_READABLE] = listed_side(serving_readable, SUBJECT)
+            for side, name in (
+                (NONEXISTENT_READABLE, "not-holding-readable"),
+                (NONEXISTENT_READABLE_FLOOR, "not-holding-readable-again"),
             ):
-                built = build(base / name, anchor=anchor, holds=holds, active=active, readable=True)
-                opened.append(built)
-                sides[side] = observe_side(shape, door, built, SUBJECT, reads=True)
+                sides[side] = listed_side(listed(name, holds=False, active=False, never=True), SUBJECT)
+            if shape in POPULATION_READING_SHAPES:
+                sides[SERVED_READABLE_NEVER_HELD] = listed_side(serving_readable, NEVER)
+                sides[SERVED_READABLE_NEVER_HELD_2] = listed_side(serving_readable, NEVER_2)
+            if shape in LISTED_SHAPES:
+                # The listed-class cell: the withheld subject under ``never`` (refused
+                # by design), and a class that does not affirm it, listed, in both
+                # deployments (refused where the resolver is built).
+                sides[WITHHELD_READABLE] = listed_side(
+                    listed("withholding-readable", holds=True, active=True, never=True), SUBJECT
+                )
+                sides[WITHHELD_LISTED_MAY] = listed_side(
+                    listed("withholding-listed", holds=True, active=True, never=False), SUBJECT
+                )
+                sides[NONEXISTENT_LISTED_MAY] = listed_side(
+                    listed("not-holding-listed", holds=False, active=True, never=False), SUBJECT
+                )
     finally:
         for built in opened:
             built.close()
     return Run(shape=shape, anchor=anchor, door=door, sides=sides)
+
+
+def refused_at_build(shape: str, refused: Exception, subject: str) -> Observation:
+    """What every question to a deployment the SDK refused to build observes: that refusal, by type."""
+    shape_of = {"outcome": "raised", "type": type(refused).__name__, "message": str(refused)}
+    per_question = [
+        Observation(
+            channels={RESPONSE: shape_of, REFUSAL: shape_of, REFERENCE: shape_of, RECORD: {"reference": None}},
+            raw=refused,
+            raised={ONLY: f"{type(refused).__name__}: {refused}"},
+        )
+        for _asked in _questions(shape, subject)
+    ]
+    return _merge(per_question)
+
+
+#: The shapes the listed-class cell is held on (Dave's Q12: *"Reject withholding
+#: classes—including affected composites"*): the paved road and a composite.
+LISTED_SHAPES = (SUBJECT_KEYED, COMPOSITE_SUBJECT_CHILD)
 
 
 class RunCache:
