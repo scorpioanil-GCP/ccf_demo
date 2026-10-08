@@ -31,7 +31,10 @@ vessel path for path (``_assert_indistinguishable``), with the four members the
 review named also compared by name. The mechanism is asserted by name before
 any of that: the withheld product's empty finding names the similarity
 operator, because the text it was scored against is the text before
-acquisition, which does not match the query.
+acquisition, which does not match the query. Under ``from_entity_freshness``
+both questions are refused ``ttl-anchor-refusal`` (an empty view has no
+evidence instant), the refusal kind is the mechanism, and the refusal shells
+are compared.
 
 The control the fix must not reach into
 ---------------------------------------
@@ -51,6 +54,8 @@ from __future__ import annotations
 import pathlib
 from typing import Any
 
+import pytest
+
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import load_and_boot
 from ccf.halflife.assessment import NO_SOURCE_REFRESH_RECENCY
@@ -59,6 +64,7 @@ from ccf.products.composite import ADMITTED_CHILD_CONTRACT_CLASS
 from ccf.products.constraints import ReferencePolicyConstraintResolver
 from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
 from ccf.products.entitlement import product_entitlement_key
+from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
 from ccf.products.resolver import GovernedResolver, ReplayRefusalRecorder
 from ccf.replay.serve import ServedProduct
@@ -97,6 +103,8 @@ from tests.products.test_resolver_seam import (
 )
 from tests.products.test_withheld_is_indistinguishable_from_absent import (
     BLANK_REF,
+    FROM_DECISION,
+    FROM_ENTITY_FRESHNESS,
     MISSING,
     OTHER_REF,
     REQUIRED_OPERATORS,
@@ -151,11 +159,12 @@ def _claim(account_ref: str, text: str, *, envelope_id: str, observed: str) -> S
     )
 
 
-def _boot(root: pathlib.Path, *, with_similarity: bool) -> Any:
+def _boot(root: pathlib.Path, *, with_similarity: bool, anchor: str) -> Any:
     """The SEC-020 fixture fabric, holding the withheld account and two siblings.
 
     With ``with_similarity`` the class requires the similarity operator, whose
-    query is :data:`QUERY` over the account class's ``label``. Single-writer
+    query is :data:`QUERY` over the account class's ``label``; ``anchor`` is
+    the class's TTL anchor (the λ_c row is ``valid-from``, so both resolve). Single-writer
     ingestion (``fabric.handle.worker.ingest``) is the only way anything
     reaches the graph. Test-side document variants only (CINV-01).
     """
@@ -166,7 +175,7 @@ def _boot(root: pathlib.Path, *, with_similarity: bool) -> Any:
             document = {
                 **document,
                 "required_operator_keys": required,
-                "ttl_anchor": "from_decision",
+                "ttl_anchor": anchor,
             }
         if key == HALF_LIFE_KEY:
             document = _table_document()
@@ -306,10 +315,16 @@ def _serve(
 
 
 def _ask_one(
-    root: pathlib.Path, subject: str, *, with_similarity: bool, text: str, withhold: frozenset[str]
+    root: pathlib.Path,
+    subject: str,
+    *,
+    with_similarity: bool,
+    text: str,
+    withhold: frozenset[str],
+    anchor: str = FROM_DECISION,
 ) -> tuple[Any, dict[str, int]]:
     """Boot a fabric for ONE question, ask it, and close the fabric."""
-    booted = _boot(root, with_similarity=with_similarity)
+    booted = _boot(root, with_similarity=with_similarity, anchor=anchor)
     try:
         acquisition = _SubjectKeyedRefresh(booted[0], text=text)
         outcome = _serve(
@@ -321,15 +336,17 @@ def _ask_one(
         booted[0].handle.close()
 
 
-def _ask_both(tmp_path: pathlib.Path, *, with_similarity: bool, text: str) -> tuple[Any, Any]:
+def _ask_both(
+    tmp_path: pathlib.Path, *, with_similarity: bool, text: str, anchor: str = FROM_DECISION
+) -> tuple[Any, Any]:
     """The withheld subject and a subject that names nothing, each on its own fabric."""
     withheld, returned_w = _ask_one(
         tmp_path / "withheld", WITHHELD, with_similarity=with_similarity,
-        text=text, withhold=frozenset({WITHHELD}),
+        text=text, withhold=frozenset({WITHHELD}), anchor=anchor,
     )
     nonexistent, returned_n = _ask_one(
         tmp_path / "nonexistent", MISSING, with_similarity=with_similarity,
-        text=text, withhold=frozenset({WITHHELD}),
+        text=text, withhold=frozenset({WITHHELD}), anchor=anchor,
     )
     assert {**returned_w, **returned_n} == {WITHHELD: 1, MISSING: 0}, (
         "case not constructed: the source must return the withheld subject's"
@@ -348,26 +365,49 @@ def _member(vessel: dict[str, Any], dotted: str) -> Any:
 # --- the hole, as worded -----------------------------------------------------------
 
 
+@pytest.mark.parametrize("anchor", [FROM_DECISION, FROM_ENTITY_FRESHNESS])
 def test_i2_a_withheld_subject_is_scored_against_the_corpus_read_before_acquisition(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, anchor: str
 ) -> None:
     """The withheld account's acquisition refreshed its corpus text to the query.
 
     The subject that names nothing is scored against the text before
-    acquisition, matches nothing, and is served with an empty finding naming
-    the similarity operator. The withheld subject must be rendered the same
-    way: its re-execution walks the records before acquisition and must be
-    scored against the text before acquisition too.
+    acquisition and matches nothing: under ``from_decision`` it is served with
+    an empty finding naming the similarity operator, and under
+    ``from_entity_freshness`` it is refused ``ttl-anchor-refusal``, because an
+    empty view carries no evidence instant (``D-IMPL-341`` R-3). The withheld
+    subject must be rendered the same way: its re-execution walks the records
+    before acquisition and must be scored against the text before acquisition
+    too. The reviewer's probe measured the ``from_decision`` shape; the second
+    anchor is this module's addition.
     """
-    withheld, nonexistent = _ask_both(tmp_path, with_similarity=True, text=QUERY)
+    withheld, nonexistent = _ask_both(tmp_path, with_similarity=True, text=QUERY, anchor=anchor)
+    case = f"{anchor}, similarity, corpus refreshed to the query"
+    if anchor == FROM_ENTITY_FRESHNESS:
+        assert isinstance(nonexistent, RefusalEnvelope) and nonexistent.kind == "ttl-anchor-refusal", (
+            f"[{case}] case not constructed: the absent subject's similarity"
+            " operator matches nothing, so its empty view has no evidence instant"
+            f" to anchor on: {nonexistent!r}"
+        )
+        # THE MECHANISM, BY NAME: scored against the corpus text before
+        # acquisition, the withheld rendering's similarity operator matches
+        # nothing either, so it has no evidence instant and is refused the same way.
+        assert isinstance(withheld, RefusalEnvelope) and withheld.kind == "ttl-anchor-refusal", (
+            f"[{case}] channel 5 (I-2): the withheld rendering's similarity"
+            " operator selected the withheld account, so it was scored against the"
+            f" text the acquisition wrote, and its outcome is {withheld!r}"
+        )
+        _assert_indistinguishable(withheld, nonexistent, case=case)
+        return
+
     assert isinstance(nonexistent, ServedProduct), nonexistent
     absent_finding = nonexistent.product.computed_empty
     assert absent_finding is not None and SIMILARITY_OPERATOR in absent_finding.operators_returned_empty, (
-        "case not constructed: the absent subject's corpus holds no text matching"
-        f" the query, so its similarity operator must return empty: {absent_finding}"
+        f"[{case}] case not constructed: the absent subject's corpus holds no text"
+        f" matching the query, so its similarity operator must return empty: {absent_finding}"
     )
     assert isinstance(withheld, ServedProduct), (
-        f"the withheld subject was refused where the absent one was served: {withheld!r}"
+        f"[{case}] the withheld subject was refused where the absent one was served: {withheld!r}"
     )
     vessel_w = withheld.product.model_dump(mode="json")
     vessel_n = nonexistent.product.model_dump(mode="json")
@@ -377,16 +417,16 @@ def test_i2_a_withheld_subject_is_scored_against_the_corpus_read_before_acquisit
     # scored against the corpus text before acquisition, which matches nothing.
     withheld_finding = withheld.product.computed_empty
     assert withheld_finding is not None and SIMILARITY_OPERATOR in withheld_finding.operators_returned_empty, (
-        "channel 5 (I-2): the withheld rendering's similarity operator selected"
-        " the withheld account, so it was scored against the text the acquisition"
-        f" wrote; finding {withheld_finding}; the products differ at {differing}"
+        f"[{case}] channel 5 (I-2): the withheld rendering's similarity operator"
+        " selected the withheld account, so it was scored against the text the"
+        f" acquisition wrote; finding {withheld_finding}; the products differ at {differing}"
     )
     for member in REVIEWED_MEMBERS:
         assert _member(vessel_w, member) == _member(vessel_n, member), (
-            f"channel 5 (I-2): the products differ at {member!r}; all differing"
-            f" paths {differing}"
+            f"[{case}] channel 5 (I-2): the products differ at {member!r}; all"
+            f" differing paths {differing}"
         )
-    _assert_indistinguishable(withheld, nonexistent, case="similarity, corpus refreshed to the query")
+    _assert_indistinguishable(withheld, nonexistent, case=case)
 
 
 # --- the probe's two controls --------------------------------------------------------
