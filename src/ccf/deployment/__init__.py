@@ -134,6 +134,7 @@ from ccf.deployment.config import (
 )
 from ccf.deployment.manifest import (
     BootedFabric,
+    QuestionFabricNotFresh,
     load_and_boot,
     register_manifest_entries,
 )
@@ -156,6 +157,7 @@ __all__ = [
     "DerivedDeployment",
     "EnvironmentDocument",
     "ManifestEntry",
+    "QuestionFabricNotFresh",
     "ResolvedPins",
     "SeamRefusalWidening",
     "SimilarityCorpusAttributeError",

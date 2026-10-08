@@ -2644,6 +2644,7 @@
       "DerivedDeployment",
       "EnvironmentDocument",
       "ManifestEntry",
+      "QuestionFabricNotFresh",
       "ResolvedPins",
       "SDK_ARTIFACT_CLASSES",
       "SDK_ARTIFACT_ROLES",
@@ -2675,7 +2676,7 @@
       },
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None) -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False) -> None"
       },
       "DeploymentManifest": {
         "kind": "contract",
@@ -2713,6 +2714,10 @@
           "registration": "typing.Literal['typed', 'versioned']",
           "role": "typing.Literal['register', 'load']"
         }
+      },
+      "QuestionFabricNotFresh": {
+        "kind": "class",
+        "shape": "type"
       },
       "ResolvedPins": {
         "kind": "contract",
@@ -2754,11 +2759,11 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False, for_question: 'bool' = False) -> 'BootedFabric'"
       },
       "load_config_and_boot": {
         "kind": "function",
-        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
+        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False, for_question: 'bool' = False) -> 'BootedFabric'"
       },
       "load_environment_document": {
         "kind": "function",
@@ -2859,7 +2864,7 @@
       },
       "load_config_and_boot": {
         "kind": "function",
-        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
+        "shape": "(config_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False, for_question: 'bool' = False) -> 'BootedFabric'"
       }
     }
   },
@@ -2952,6 +2957,7 @@
   "ccf.deployment.manifest": {
     "__all__": [
       "BootedFabric",
+      "QuestionFabricNotFresh",
       "UngovernedClassificationAttribute",
       "keys_under_tenant",
       "load_and_boot",
@@ -2961,7 +2967,11 @@
     "exports": {
       "BootedFabric": {
         "kind": "class",
-        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None) -> None"
+        "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False) -> None"
+      },
+      "QuestionFabricNotFresh": {
+        "kind": "class",
+        "shape": "type"
       },
       "UngovernedClassificationAttribute": {
         "kind": "class",
@@ -2973,7 +2983,7 @@
       },
       "load_and_boot": {
         "kind": "function",
-        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False) -> 'BootedFabric'"
+        "shape": "(manifest_path: 'str | Path', *, registry: 'ControlPlaneProtocol', connection: 'Mapping[str, object] | None' = None, tenant_id: 'str | None' = None, read_only: 'bool' = False, for_question: 'bool' = False) -> 'BootedFabric'"
       },
       "manifest_under_tenant": {
         "kind": "function",
@@ -8074,6 +8084,8 @@
       "ConsumerContext",
       "GrantNotInForce",
       "OpenedProduct",
+      "PopulationAcquireProtocol",
+      "PopulationAcquisitionContext",
       "open_product"
     ],
     "exports": {
@@ -8107,11 +8119,19 @@
       },
       "OpenedProduct": {
         "kind": "class",
-        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None) -> 'None'"
+        "shape": "(*, config_root: 'Path', config_path: 'Path', scratch: 'Path', config: 'DeploymentConfig', environment: 'EnvironmentDocument', keys: 'DeploymentKeys', tenant_id: 'str', declaration: 'ProductClassDeclaration', replay: 'ReplayBinding', ttl: 'TtlBinding', door: 'EgressDoorBinding | None', default_perspective: 'PerspectiveArtifact', sources: 'Mapping[str, Mapping[str, str]]', control_plane: 'ControlPlaneRegistry', artifact_store: 'ArtifactStoreProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', refusal_recorder: 'ReplayRefusalRecorder', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None', clock: 'Callable[[], datetime]', constraint_resolver: 'PolicyConstraintResolver | None', capabilities: 'tuple[TechnicalCapability, ...] | None', children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', packaging_trace: 'PackagingTraceProtocol | None' = None, mcp_skills: 'McpSkillRegistry | None' = None, bridge: 'SyncMcpBridge | None' = None, agent: 'AgentDefinition | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'None'"
+      },
+      "PopulationAcquireProtocol": {
+        "kind": "class",
+        "shape": "(context: 'PopulationAcquisitionContext') -> 'Iterable[SignalEnvelope]'"
+      },
+      "PopulationAcquisitionContext": {
+        "kind": "class",
+        "shape": "(question: 'PopulationQuestion', perspective: 'Perspective', tenant_id: 'str', sources: 'Mapping[str, Mapping[str, str]]', instant: 'datetime') -> None"
       },
       "open_product": {
         "kind": "function",
-        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None) -> 'OpenedProduct'"
+        "shape": "(*, config_root: 'Path | str', scratch: 'Path | str', acquire: 'AcquireProtocol', project: 'ProjectionPlanFactoryProtocol', assess: 'AssessProtocol', gate: 'ProductGateProtocol | None' = None, questions: 'ChildQuestions | None' = None, clock: 'Callable[[], datetime]' = <function _utc_now>, environ: 'Mapping[str, str] | None' = None, control_plane: 'ControlPlaneRegistry', erasure_trust: 'ErasureTrust', artifact_store: 'ArtifactStoreProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, approval_sink: 'ApprovalSink | None' = None, children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, build_children: 'ChildResolverFactory | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, erasure_index: 'ErasureIndexProtocol | None' = None, population: 'PopulationAcquireProtocol | None' = None) -> 'OpenedProduct'"
       }
     }
   },
@@ -8484,14 +8504,22 @@
   },
   "ccf.products.resolver": {
     "__all__": [
+      "AcquiredFabricReused",
+      "AcquisitionNeedsAQuestionFabric",
       "AcquisitionSeamProtocol",
       "AssemblyDebtScorerProtocol",
       "ChildAwareDebtScorerProtocol",
+      "CompositeNeedsAnEarlyPolicy",
       "CompositePlanFactoryProtocol",
+      "CompositeWithheldLate",
       "DEBT_SCORER_INPUTS",
+      "EarlyPolicyNeedsRequestAwareChildren",
       "GovernedResolver",
       "InstantAwareDebtScorerProtocol",
       "PackagingTraceProtocol",
+      "PopulationAcquisitionSeamProtocol",
+      "PopulationPhaseSharesAnOwner",
+      "PopulationQuestion",
       "ProductGateProtocol",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
@@ -8499,11 +8527,22 @@
       "ReplayRefusalRecorder",
       "ResolverOutcome",
       "ServedProductResolverProtocol",
+      "SubjectDisclosingPlanFactoryProtocol",
       "UndeclaredMechanismClass",
+      "UndisclosedSubjectAnswered",
+      "UnsupportedComposition",
       "build_governed_resolver",
       "declared_refusal_recorder"
     ],
     "exports": {
+      "AcquiredFabricReused": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "AcquisitionNeedsAQuestionFabric": {
+        "kind": "class",
+        "shape": "type"
+      },
       "AcquisitionSeamProtocol": {
         "kind": "class",
         "shape": "(*, request: 'ProductRequest', perspective: 'Perspective') -> 'None'"
@@ -8516,17 +8555,29 @@
         "kind": "class",
         "shape": "(*args, **kwargs)"
       },
+      "CompositeNeedsAnEarlyPolicy": {
+        "kind": "class",
+        "shape": "type"
+      },
       "CompositePlanFactoryProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "CompositeWithheldLate": {
+        "kind": "class",
+        "shape": "type"
       },
       "DEBT_SCORER_INPUTS": {
         "kind": "constant",
         "shape": "tuple"
       },
+      "EarlyPolicyNeedsRequestAwareChildren": {
+        "kind": "class",
+        "shape": "type"
+      },
       "GovernedResolver": {
         "kind": "class",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', debt_profile_key: 'str | None', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', packaging_trace: 'PackagingTraceProtocol | None', composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', admission_clock: 'Callable[[], datetime]', decision_instant_parameter: 'str | None', source_refresh_recency: 'SourceRefreshRecency', acquisition: 'AcquisitionSeamProtocol | None', half_life_key: 'str | None') -> None"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', debt_profile_key: 'str | None', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', packaging_trace: 'PackagingTraceProtocol | None', composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', admission_clock: 'Callable[[], datetime]', decision_instant_parameter: 'str | None', source_refresh_recency: 'SourceRefreshRecency', acquisition: 'AcquisitionSeamProtocol | None', population_acquisition: 'PopulationAcquisitionSeamProtocol | None', half_life_key: 'str | None') -> None"
       },
       "InstantAwareDebtScorerProtocol": {
         "kind": "class",
@@ -8535,6 +8586,25 @@
       "PackagingTraceProtocol": {
         "kind": "class",
         "shape": "(*, product: 'ContextProductContract') -> 'PackagingTrace'"
+      },
+      "PopulationAcquisitionSeamProtocol": {
+        "kind": "class",
+        "shape": "(*, question: 'PopulationQuestion', perspective: 'Perspective') -> 'None'"
+      },
+      "PopulationPhaseSharesAnOwner": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "PopulationQuestion": {
+        "kind": "contract",
+        "shape": {
+          "asked_at": "<class 'datetime.datetime'>",
+          "freshness": "<class 'str'>",
+          "intent": "<class 'str'>",
+          "parameters": "collections.abc.Mapping[str, typing.Any]",
+          "schema_name": "<class 'str'>",
+          "schema_version": "<class 'str'>"
+        }
       },
       "ProductGateProtocol": {
         "kind": "class",
@@ -8564,17 +8634,44 @@
         "kind": "class",
         "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ResolverOutcome'"
       },
+      "SubjectDisclosingPlanFactoryProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
+      },
       "UndeclaredMechanismClass": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UndisclosedSubjectAnswered": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UnsupportedComposition": {
         "kind": "class",
         "shape": "type"
       },
       "build_governed_resolver": {
         "kind": "function",
-        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', max_ttl_seconds: 'int | None' = None, product_ttl_seconds: 'int | None' = None, decision_instant_parameter: 'str | None' = None, source_refresh_recency: 'SourceRefreshRecency' = None, composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, admission_clock: 'Callable[[], datetime]' = <function _utc_now>, artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, evidence_clock_key: 'str | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None, acquisition: 'AcquisitionSeamProtocol | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None) -> 'GovernedResolver'"
+        "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', plan_factory: 'ProjectionPlanFactoryProtocol', erasure_index: 'ErasureIndexProtocol', erasure_trust: 'ErasureTrust', max_ttl_seconds: 'int | None' = None, product_ttl_seconds: 'int | None' = None, decision_instant_parameter: 'str | None' = None, source_refresh_recency: 'SourceRefreshRecency' = None, composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None' = None, admission_clock: 'Callable[[], datetime]' = <function _utc_now>, artifact_store: 'ArtifactStoreProtocol | None' = None, replay_record_class: 'str | None' = None, query_pin_class: 'str | None' = None, artifact_store_root: 'Path | None' = None, half_life_key: 'str | None' = None, debt_profile_key: 'str | None' = None, declared_completeness: 'Decimal | None' = None, evidence_clock_key: 'str | None' = None, declared_semantic_consistency: 'Decimal | None' = None, debt_scorer: 'AssemblyDebtScorerProtocol | None' = None, product_gate: 'ProductGateProtocol | None' = None, constraint_resolver: 'PolicyConstraintResolver | None' = None, capabilities: 'tuple[TechnicalCapability, ...] | None' = None, refusal_recorder: 'RefusalRecorderProtocol | None' = None, acquisition: 'AcquisitionSeamProtocol | None' = None, packaging_trace: 'PackagingTraceProtocol | None' = None, population_acquisition: 'PopulationAcquisitionSeamProtocol | None' = None) -> 'GovernedResolver'"
       },
       "declared_refusal_recorder": {
         "kind": "function",
         "shape": "(*, control_plane: 'ControlPlaneProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding') -> 'ReplayRefusalRecorder'"
+      }
+    }
+  },
+  "ccf.products.subject_disclosure": {
+    "__all__": [
+      "SubjectDisclosurePolicy"
+    ],
+    "exports": {
+      "SubjectDisclosurePolicy": {
+        "kind": "contract",
+        "shape": {
+          "by_principal": "collections.abc.Mapping[str, frozenset[str]]",
+          "by_role": "collections.abc.Mapping[str, frozenset[str]]",
+          "undisclosed_subject": "<class 'str'>"
+        }
       }
     }
   },
@@ -8672,6 +8769,7 @@
           "plan_id": "<class 'str'>",
           "projection": "<class 'ccf.projection.plan.ProjectionOutput'>",
           "provenance": "ccf.operators.base.OperatorProvenance | None",
+          "seeds": "frozenset[str] | None",
           "source_attestation": "ccf.graph.protocols.SourceAttestation | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
           "store_snapshot_pin": "<class 'ccf.graph.protocols.StoreSnapshotPin'>",
@@ -9074,6 +9172,7 @@
           "debt": "ccf.halflife.assessment.DebtAssessment | None",
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "disclosure_decision": "<class 'str'>",
+          "executed_seeds": "tuple[str, ...] | None",
           "graph_query_sequence": "tuple[str, ...]",
           "obligation_in_force": "<class 'str'>",
           "operator_plan": "tuple[str, ...]",
@@ -13355,7 +13454,8 @@
       "TraceEntry",
       "WORKFLOW_STATE",
       "WORKFLOW_STATUSES",
-      "WorkflowStateRecord"
+      "WorkflowStateRecord",
+      "suspension_left_by"
     ],
     "exports": {
       "TRACE_ENTRY_KINDS": {
@@ -13392,6 +13492,10 @@
           "workflow_definition_hash": "<class 'str'>",
           "workflow_definition_uri": "<class 'str'>"
         }
+      },
+      "suspension_left_by": {
+        "kind": "function",
+        "shape": "(record: 'WorkflowStateRecord') -> 'WorkflowStateRecord | None'"
       }
     }
   }

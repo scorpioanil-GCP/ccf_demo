@@ -1195,13 +1195,95 @@ A subject the projection does not withhold is still matched against the text
 its own acquisition wrote. The test is
 `tests/products/test_withheld_similarity_registry.py`. This follows the rule
 the walk already follows, so it shares that rule's limit: with an acquisition
-not keyed on the subject (below), a nonexistent subject's question is matched
-against the text the acquisition wrote and the withheld rendering is not. On
-that test fabric with such an acquisition, the two products now differed at
-the empty finding and the debt under `from_decision`, and under
-`from_entity_freshness` the withheld subject was refused `ttl-anchor-refusal`
-while the nonexistent one was served. Before the change, the same shape
-differed at the debt and the expiry, with both served.
+not keyed on the subject left inside your `acquire` (below), a nonexistent
+subject's question is matched against the text the acquisition wrote and the
+withheld rendering is not. On that test fabric with such an acquisition, the
+two products differed at the empty finding and the debt under `from_decision`,
+and under `from_entity_freshness` the withheld subject was refused
+`ttl-anchor-refusal` while the nonexistent one was served. Before the change,
+the same shape differed at the debt and the expiry, with both served. With the
+same read declared as the population phase, or with the withhold decided early
+(both below), the two products matched on both anchors:
+`tests/products/test_withheld_similarity_registry.py::test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity`.
+
+**Population reads, composites and question fabrics (D-IMPL-378, Q7 to
+Q10).** The governed call now enforces four of Dave's rulings
+(`src/ccf/products/resolver.py::GovernedResolver`). Each was measured on test
+fixtures, in
+`tests/products/test_withheld_subject_population_composite_and_fabric.py`
+unless another test is named.
+
+- **One question per fabric that acquires (Q9).** When an acquisition phase is
+  declared, the fabric must be booted for its question:
+  `load_and_boot(..., for_question=True)` or
+  `load_config_and_boot(..., for_question=True)`, onto a store path that does
+  not exist yet. A path that exists is refused at boot
+  (`QuestionFabricNotFresh`), and so is a store whose settings name no path: a
+  network graph store, and also the in-memory development store, although each
+  boot of that one is new. Such a store cannot carry an acquisition phase.
+  Just before its first acquisition phase the call refuses a fabric not booted
+  this way (`AcquisitionNeedsAQuestionFabric`) and claims the fabric for its
+  question.
+  A second question on that fabric, after the first or at the same time, is
+  refused (`AcquiredFabricReused`) before anything is read or fetched for it.
+  The paved road already booted a new fabric for each question; it now
+  declares it.
+- **A population read as its own phase (Q7).** A read that fetches the same
+  content whatever is asked is declared as the population phase:
+  `open_product(..., population=...)` on the paved road, or
+  `GovernedResolver(population_acquisition=...)` by hand. It runs once per
+  question, first, and is handed no subject: a `PopulationAcquisitionContext`
+  on the paved road and a `PopulationQuestion` by hand. A walk of every object
+  reachable from what it is handed found no trace of the asked identifier.
+  Then the fabric is read (the state a withheld subject is rendered from), and
+  then your ordinary `acquire` runs once, with the asked subject. Two phases on
+  one object, or one phase holding the other in a closure, are refused at
+  construction (`PopulationPhaseSharesAnOwner`). The check compares those
+  objects only: state two separate objects share through a third, such as a
+  common dictionary, is not seen, so keep the population phase free of
+  anything the other phase writes. Declared this way, a population source and
+  a hybrid source each matched a nonexistent subject's answer on both anchors.
+  A declared parameter that itself names an entity still reaches the
+  population phase.
+- **An early decision, before anything is fetched (Q8).** A plan factory may
+  declare a `SubjectDisclosurePolicy` through `subject_disclosure()`: the
+  subjects each principal or role is not told about, and an identifier that
+  names nothing, to ask in their place. The decision reads only the asked
+  identifier, the principal's identity and role, and that declaration, and it
+  was the same for a subject the source holds and one it does not. For a
+  subject not disclosed, your ordinary `acquire`, the composite's children and
+  the walk are asked about that stand-in instead (the population phase is
+  never handed a subject), and the product is computed once, along the path a
+  nonexistent subject's question takes. Your projection must withhold the same
+  subjects; if it answers one, the call raises `UndisclosedSubjectAnswered`
+  before the decision is recorded or served. A class that composes children
+  withholds only this way. Construction refuses a composite whose plan
+  factory's `subject_disclosure()` returns no policy
+  (`CompositeNeedsAnEarlyPolicy`), and an early policy over a child resolver
+  that is never handed the request (`EarlyPolicyNeedsRequestAwareChildren`).
+  With the early policy, a withheld composite matched a nonexistent subject's
+  on both child anchors.
+- **Each phase once, and one computation (Q10).** Each declared phase runs
+  once per question. Under the early decision the stand-in replaces the
+  subject; the subject is never fetched as well. The product is computed once
+  on that path, counted at the projection, including when the fabric already
+  held the withheld subject, and the decision replays to its own address. The
+  record keeps the caller's question and names the stand-in the walk started
+  from (`ContentGenerationPath.executed_seeds`, absent from every other
+  record), so anyone who can read the record can tell the subject was not
+  disclosed (see "The record behind it" below). A withhold decided inside the
+  projection of a class with no children still re-runs the plan as described
+  above (`D-IMPL-371`, `D-IMPL-376`).
+
+**Migrating a composition you build by hand (Q9).** If you construct
+`GovernedResolver` yourself with an acquisition phase, boot a new fabric for
+every question with `for_question=True` onto a store path that does not exist
+yet, ask it one question, and close it, as the paved road does. A composition
+that asks one long-lived fabric several questions now raises
+`AcquisitionNeedsAQuestionFabric` at its first question. State
+`population_acquisition=None` where you construct `GovernedResolver` directly;
+`build_governed_resolver` and the paved road default it. A composition with no
+acquisition phase is unaffected.
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
@@ -1223,26 +1305,41 @@ a nonexistent one. Each was measured on test fixtures.
   (D-IMPL-345). Each half was measured on its own; reading a withheld
   decision's record end to end through the dereference was not run. Protect
   access to records as you would the subject itself.
-- **Composite children.** A class that declares `requires` resolves its
-  children for the asked subject before its plan runs and composes them
-  afterward: the composed factors replace the debt, and the composed expiry
-  and lineage stand in the product
-  (`src/ccf/products/resolver.py::GovernedResolver`). None of that is
-  re-rendered for a withheld subject. With a required child asked about the
-  composite's own subject from a source keyed on it, the two products differed
-  at `debt.debt` and `debt.factors.freshness`; with the child asked about a
-  fixed subject, they did not.
-- **A fabric that outlives the question.** The withheld subject's acquisition
-  stays in the fabric, and later questions read it. After one question about a
-  withheld subject the source holds, a later answer about an identifier that
-  names nothing moved at `debt.debt` and `debt.factors.freshness`; when the
-  source held nothing, it did not. The paved road boots a fabric for each
-  question; a deployment composed by hand over a long-lived fabric does not.
-- **An acquisition not keyed on the subject.** If your `acquire` reads the same
-  content whatever is asked (a population read), a nonexistent subject's
-  question walks that content and the withheld rendering does not. The two
-  differ at the empty finding under `from_decision`, and as `ttl-refusal`
-  against `ttl-anchor-refusal` under `from_entity_freshness`.
+- **Composite children whose arguments do not come from the request.** Under
+  the early policy the SDK hands the child resolver the request with the
+  stand-in in place of the subject, but the deployment's child-arguments
+  mapping is handed only the requirement and the instant
+  (`src/ccf/products/child_resolver.py::ChildArguments`). A mapping that
+  reads the subject from state the deployment captured itself still asks the
+  child about the withheld subject: the composite was then refused
+  `composite-child-refusal` (the child answered a question other than the one
+  the composite asked) where a nonexistent subject's composite was served.
+  Derive child arguments from the request your child resolver's `resolve_for`
+  is handed. A composite that declares nothing and withholds inside its
+  projection raises `CompositeWithheldLate` at call time, for that subject
+  only and after its children were asked: an error the caller can see, where
+  before the two products differed at `debt.debt` and
+  `debt.factors.freshness`.
+- **A question's store, booted again.** The withheld subject's acquisition
+  stays in the store its question wrote, and the paved road leaves that store
+  on disk when it closes the fabric (the replay road reopens it). Booted again
+  without `for_question` and asked through a resolver with no acquisition
+  phase, a later answer about an identifier that names nothing moved at
+  `debt.debt` and `debt.factors.freshness`, and under `from_entity_freshness`
+  also at `expires_at` and `ttl_anchor_at`, after a question about a withheld
+  subject the source holds; after a question that acquired nothing, it did
+  not. Ask new questions only of fabrics booted for them, and protect a
+  question's store as you would its decision record. The claim that refuses a
+  second question is held per fabric handle, in one process.
+- **A population read left inside your `acquire`.** Declared as the
+  population phase, or under an early policy, such a read matched (above).
+  Left inside your ordinary `acquire`, with the withhold decided inside the
+  projection, a nonexistent subject's question walks that content and the
+  withheld rendering does not. The two differ at the empty finding under
+  `from_decision`, and as `ttl-refusal` against `ttl-anchor-refusal` under
+  `from_entity_freshness`. The SDK cannot see which shape your `acquire` has:
+  that it acquires nothing for an identifier the source does not hold is your
+  statement, not a check the SDK makes.
 
 **Until SEC-020 closes,** do not rely on `withheld=True` to keep a subject's
 existence from a caller that can see an answer's replay reference, whenever the
@@ -1256,10 +1353,12 @@ egress door and the HTTP product route all return one.
   of the same call with no seam, over two runs of six calls. That is one
   fixture's figure, not a sizing guide.
 - **The withheld branch's own time, measured at one scale only.** A withheld
-  answer runs the plan a second time and, with an acquisition seam declared,
-  builds the operator registry a second time. On a test fabric of about 1,500
-  entities, withheld and nonexistent answers had medians within 2 percent of
-  each other and overlapping ranges over eight calls each. With a similarity
+  answer decided inside the projection runs the plan a second time and, with
+  an acquisition seam declared, builds the operator registry a second time
+  (under an early policy the plan runs once; its time was not measured). On a
+  test fabric of about 1,500 entities, withheld and nonexistent answers had
+  medians within 2 percent of each other and overlapping ranges over eight
+  calls each. With a similarity
   operator in the plan, the withheld median was 1.06 to 1.08 times the
   nonexistent one over two runs of eight calls each, with overlapping ranges;
   before the registry change it was 1.11 in one run. Larger fabrics and
@@ -1333,34 +1432,42 @@ the same id is refused "already exists".
   `tests/conformance/test_gate_closure_and_conditional_write.py` against it.
   The engine can refuse an implementation that lacks the members; it cannot
   see whether one keeps the atomicity it declares.
-- **A passage interrupted after its commit is never retried** (`D-IMPL-378`).
+- **A passage interrupted after its commit is never re-run** (`D-IMPL-378`).
   Suppose a resumption is cancelled, or its process dies, after its passage
-  committed. The execution stays `running` at the step after the gate, and
-  `GET /workflow/execution` answers `status: "running"`. Every later
-  resumption, in any process, is refused with "An interrupted passage is
-  never retried", because that step may already have had effects the engine
-  cannot see. The SDK offers no primitive that reconciles such an execution:
-  an operator reads the gate's closure
-  (`src/ccf/hitl/transport.py::HITLTransportProtocol.closures`) and the
-  attributed `workflow_resumed` row, settles what the step did, and acts
-  outside the fabric. A resumption whose commit never landed (the write
-  itself failed) left the execution `suspended` with no step run. Presented
-  again from any process, it re-takes the same closure and runs the step after
-  the gate once. Both halves were measured across two processes:
-  `tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`
-  and `::test_an_interrupted_passage_is_never_retried_by_any_process`.
+  committed. The execution stays `running`, and `GET /workflow/execution`
+  answers `status: "running"`. What happens next depends on where it stopped.
+  - **At a step.** Every later resumption, in any process, is refused with
+    "An interrupted passage is never retried", because that step may already
+    have had effects the engine cannot see. The SDK offers no primitive that
+    reconciles such an execution: an operator reads the gate's closure
+    (`src/ccf/hitl/transport.py::HITLTransportProtocol.closures`) and the
+    attributed `workflow_resumed` row, settles what the step did, and acts
+    outside the fabric
+    (`tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process`).
+  - **At a gate or a terminal state** (Dave's D2 ruling). This happens when a
+    gate's route leads straight to a terminal state, or when an execution's
+    first node is a gate, which the engine records as `running` before it
+    suspends. No step runs in that window, so a later resumption from any
+    process FINISHES the passage. It makes the version-fenced suspension or
+    completion write and, at a gate, the one queue event. It invokes no step
+    callable and writes no second attributed row. It finishes only when the
+    passage's durable claim names it. For a passage past a gate, the claim is
+    that gate's closure for the suspension the passage left, and its decided
+    verdict must route to that state. For a start, the claim is the
+    create-if-absent record, and the starter's own retried start finishes it
+    too. A passage no claim names is refused: "no durable claim on the HITL
+    authority path names it". If the original passage is still live, one
+    fenced write lands and the other raises `ExecutionFenced` in the engine
+    (`tests/workflow/test_finish_interrupted_passage.py`). The erasure door's
+    retries reach this path. An erasure request or completion interrupted in
+    that window completes on retry, and the record it files is the one its
+    write-ahead entries name
+    (`tests/erasure/test_interrupted_erasure_passage.py`).
 
-  The rule applies even where no step runs between the commit and the
-  execution's next write: a gate whose route leads straight to a terminal
-  state, or an execution whose first node is a gate, which the engine records
-  as `running` before it suspends. A store failure inside that window leaves
-  the execution `running` as well. The erasure door is such a caller. An
-  erasure request interrupted there is refused on retry with
-  `workflow-not-suspended`. An erasure completion interrupted there is refused
-  on retry with `approval-not-recorded`, which misnames the cause; its address
-  stays withheld (`index-unsupported`) and no erasure record is filed. Before
-  `D-IMPL-378` both retries recovered, the completion with a second attributed
-  `workflow_resumed` row (measured).
+  A resumption whose commit never landed (the write itself failed) left the
+  execution `suspended` with no step run. Presented again from any process,
+  it re-takes the same closure and runs the step after the gate once
+  (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
 - **A conflicted gate stays suspended for good. This remains open**
   (`D-GATE-357` (2)). Two recorded verdicts that disagree on one suspension
   refuse every resumption, and the SDK offers no primitive that reopens the

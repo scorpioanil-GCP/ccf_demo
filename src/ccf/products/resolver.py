@@ -146,13 +146,15 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
+import threading
+import weakref
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final, Protocol, TypeVar, runtime_checkable
+from typing import Any, Final, Protocol, TypeVar, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
@@ -275,6 +277,7 @@ from ccf.products.request import (
     refuse_undeclared_class_default,
     request_seeds,
 )
+from ccf.products.subject_disclosure import SubjectDisclosurePolicy
 from ccf.projection.engine import ExecutionResult, ProjectionEngine
 from ccf.projection.plan import Perspective, ProjectionPlan
 from ccf.controlplane.artifacts import SeamRefusalBinding
@@ -308,6 +311,8 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "AcquiredFabricReused",
+    "AcquisitionNeedsAQuestionFabric",
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
@@ -315,14 +320,23 @@ __all__ = [
     "ProductGateProtocol",
     "ProductNotResolvable",
     "ChildAwareDebtScorerProtocol",
+    "CompositeNeedsAnEarlyPolicy",
     "CompositePlanFactoryProtocol",
+    "CompositeWithheldLate",
+    "EarlyPolicyNeedsRequestAwareChildren",
     "PackagingTraceProtocol",
+    "PopulationAcquisitionSeamProtocol",
+    "PopulationPhaseSharesAnOwner",
+    "PopulationQuestion",
     "ProjectionPlanFactoryProtocol",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
     "UndeclaredMechanismClass",
+    "UnsupportedComposition",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
+    "SubjectDisclosingPlanFactoryProtocol",
+    "UndisclosedSubjectAnswered",
     "build_governed_resolver",
     "declared_refusal_recorder",
 ]
@@ -601,6 +615,154 @@ class ProductNotResolvable(LookupError):
     """
 
 
+class UnsupportedComposition(ProductNotResolvable):
+    """A composition SEC-020's rulings do not support, refused by name before it can answer.
+
+    ``D-IMPL-378`` (Dave, 2026-10-07 19:31 MST, Q7–Q9; SDK-defined, CLAUDE.md
+    §11). SEC-020 stays OPEN. Each subclass names one combination; every one is
+    decided by the composition, never by the subject a question names, so the
+    refusal is not itself an existence signal. A ``ProductNotResolvable``, so a
+    door's opaque-failure wrap applies: it is a broken composition, not a
+    governed "no".
+    """
+
+
+class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
+    """An acquisition phase was about to run over a fabric not booted for its question.
+
+    Q9: *"Enforce a fresh fabric per question whenever acquisition exists."* A
+    fabric that outlives its question answers the next one over what this one
+    acquired (review finding M-6: asking about a withheld subject and then
+    about an identifier that names nothing measured whether the source holds
+    the first). Raised by :meth:`GovernedResolver.__call__` immediately before
+    the first acquisition phase, before anything is read or fetched for the
+    question, unless the fabric was booted with ``for_question=True``
+    (:class:`~ccf.deployment.manifest.BootedFabric`). Checked there rather than
+    at construction because a resolver built over a fabric it never acquires
+    into — the one :class:`~ccf.replay.environment.RecordedEnvironment` builds to
+    rebuild a plan — is a supported composition.
+    """
+
+
+class PopulationPhaseSharesAnOwner(UnsupportedComposition):
+    """The population phase and the subject-keyed phase share an owner.
+
+    Q7: *"Subject-independent acquisition must not receive the requested
+    subject indirectly through context or closures. Unsupported combinations
+    must refuse construction."* Two bound methods of one object, one callable
+    declared as both phases, or a population phase whose closure holds the
+    subject-keyed phase (or its object): state on that one owner carries a
+    subject the subject-keyed phase was handed into a later question's
+    population phase. Refused when the resolver is constructed (and, on the
+    paved road, when the product is opened). The check reads identities — the
+    callables, their bound objects and one level of their closure cells — and
+    cannot see state two separate objects share through a third; that is the
+    deployment's statement to keep, and the security how-to, section 4.12,
+    says so.
+    """
+
+
+class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
+    """A composite whose projection declares it withholds, without an early policy.
+
+    Q8: *"Require early withholding for affected composites."* A composite asks
+    its children about the subject before its plan runs, so a withhold decided
+    inside the projection reaches them too late; an affected composite — one
+    whose plan factory declares, through
+    :class:`SubjectDisclosingPlanFactoryProtocol`, that it withholds — must
+    declare the early policy, and one that declares withholding with no policy
+    is refused when the resolver is constructed.
+    """
+
+
+class EarlyPolicyNeedsRequestAwareChildren(UnsupportedComposition):
+    """Early withholding over a composite whose children are never handed the request.
+
+    Q8. The early decision replaces the subject in every child question; a
+    child resolver offering only the request-less legacy call cannot receive
+    the replacement, so the composition is refused when the resolver is
+    constructed rather than answered with children asked about the real
+    subject.
+    """
+
+
+class UndisclosedSubjectAnswered(ProductNotResolvable):
+    """The declared policy did not disclose the subject, and the projection answered it anyway.
+
+    Q8. Every subject-dependent step was asked about the declared stand-in; the
+    projection, built from the caller's question, must withhold the subject,
+    or it would serve the subject's own answer over a fabric built for nobody.
+    Raised after the plan runs and BEFORE this decision is gated, recorded or
+    served (a composite's children, asked about the stand-in, may already have
+    filed their own): a broken composition, not a governed "no".
+    """
+
+
+class CompositeWithheldLate(ProductNotResolvable):
+    """A composite's projection withheld a subject its early policy did not withhold.
+
+    Q8: *"Make it an enforced policy decision before subject-dependent
+    fetches, child resolution or scoring."* By the time a composite's
+    projection raises the withheld signal, its children were already asked
+    about the subject; so a composite withholds only through the declared
+    early policy, and a projection that withholds anything else is refused here
+    — after the plan runs, BEFORE this decision is gated, recorded or served;
+    what the children filed when they were asked stays filed. The
+    SDK cannot see at construction whether a projection will withhold; a
+    composite that declares it does is held to the early policy then
+    (:class:`CompositeNeedsAnEarlyPolicy`).
+    """
+
+
+class AcquiredFabricReused(ProductNotResolvable):
+    """A fabric an acquisition phase was claimed for was asked another question.
+
+    Q9, *"including concurrent use"*. The claim is taken under a lock
+    immediately before the first acquisition phase, so of two questions on one
+    fabric — one after the other or at the same time — exactly one acquires and
+    the other is refused here, before anything is read or fetched for it. The
+    claim reads nothing about the subject: any second question is refused the
+    same way. A question refused before acquisition (its address, its request,
+    its temporal bound) never claims the fabric. Held per fabric handle in this
+    process; a fabric is fresh per question by its boot
+    (:class:`AcquisitionNeedsAQuestionFabric`), so a second handle over the same
+    store is not a question fabric to begin with.
+    """
+
+
+#: SEC-020 Q9: every question fabric an acquisition phase has been claimed for
+#: in this process. Weak, so a closed and released fabric leaves nothing
+#: behind; guarded, so two threads cannot both claim one handle.
+_CLAIMED_QUESTION_FABRICS: weakref.WeakSet[object] = weakref.WeakSet()
+_CLAIMED_QUESTION_FABRICS_LOCK = threading.Lock()
+
+
+def _claim_question_fabric(fabric: BootedFabric) -> None:
+    """Claim ``fabric`` for the one question its acquisition phases may write for (Q9).
+
+    Raises :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not
+    booted for a question, and :class:`AcquiredFabricReused` when it was
+    already claimed. Reads nothing about the question.
+    """
+    if not fabric.for_question:
+        raise AcquisitionNeedsAQuestionFabric(
+            "an acquisition phase writes what one question's sources returned"
+            " into the fabric the question is answered from, so the fabric must"
+            " be booted for that question (load_and_boot or load_config_and_boot"
+            " with for_question=True; the paved road does) — this one was not"
+            " (SEC-020, Q9)"
+        )
+    handle = fabric.handle
+    with _CLAIMED_QUESTION_FABRICS_LOCK:
+        if handle in _CLAIMED_QUESTION_FABRICS:
+            raise AcquiredFabricReused(
+                "this question fabric was already claimed by a question whose"
+                " acquisition writes into it; a fabric answers the one question"
+                " it was booted for (SEC-020, Q9)"
+            )
+        _CLAIMED_QUESTION_FABRICS.add(handle)
+
+
 @runtime_checkable
 class PackagingTraceProtocol(Protocol):
     """How a Mode 2 deployment reports what its packaging stage actually did.
@@ -641,6 +803,42 @@ class PackagingTraceProtocol(Protocol):
             :data:`~ccf.replay.record.NO_PACKAGING_TRACE` rather than raising.
         """
         ...
+
+
+def _owners(phase: object) -> set[int]:
+    """The identities a phase's state lives on: the callable, and the object it is bound to."""
+    owners = {id(phase)}
+    bound = getattr(phase, "__self__", None)
+    if bound is not None:
+        owners.add(id(bound))
+    return owners
+
+
+def _captured(phase: object) -> set[int]:
+    """The identities one level of the phase's closure cells hold, with their bound objects."""
+    function = getattr(phase, "__func__", phase)
+    captured: set[int] = set()
+    for cell in getattr(function, "__closure__", None) or ():
+        try:
+            held = cell.cell_contents
+        except ValueError:
+            continue
+        captured |= _owners(held)
+    return captured
+
+
+def _refuse_shared_owner(population: object, subject_keyed: object) -> None:
+    """Raise :class:`PopulationPhaseSharesAnOwner` when the two phases share an owner (Q7)."""
+    shared = (_owners(population) & (_owners(subject_keyed) | _captured(subject_keyed))) or (
+        _owners(subject_keyed) & (_owners(population) | _captured(population))
+    )
+    if shared:
+        raise PopulationPhaseSharesAnOwner(
+            "the population phase and the subject-keyed phase share an owner, so"
+            " state the subject-keyed phase was handed — the asked subject — can"
+            " reach a later question's population phase; declare them on separate"
+            " objects (SEC-020, Q7)"
+        )
 
 
 @runtime_checkable
@@ -782,6 +980,38 @@ class ProjectionPlanFactoryProtocol(Protocol):
             request: The question, carrying the parameters the interpretation
                 applies and the instant it is asked as of.
         """
+        ...
+
+
+@runtime_checkable
+class SubjectDisclosingPlanFactoryProtocol(Protocol):
+    """A plan factory declaring that its projection withholds subjects, and how early.
+
+    SEC-020, ``D-IMPL-378`` (Q8; SDK-defined, CLAUDE.md §11). An **optional
+    companion** to :class:`ProjectionPlanFactoryProtocol`, on the
+    :class:`CompositePlanFactoryProtocol` precedent: declared structurally,
+    never inferred. :meth:`subject_disclosure` returns the declared
+    :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` — read
+    ONCE, when the resolver is constructed, so it is a declaration rather than
+    a per-question computation — or ``None``, the statement that this
+    projection withholds only inside itself, after its plan has run (a late
+    withhold), which a composite may not do
+    (:class:`CompositeNeedsAnEarlyPolicy`).
+
+    Under a policy, :meth:`GovernedResolver.__call__` decides before anything
+    in the question is fetched, any child is asked or anything is scored —
+    from the asked identifier, the resolved perspective and the declaration
+    alone — and, for a subject the policy does not disclose, asks the
+    acquisition phases and the child questions about the declared undisclosed
+    subject IN PLACE OF it, seeds the plan's walk with it, and computes the
+    product ONCE along that path; the plan is still built from, and the record
+    still keeps, the caller's question. The factory's projection must withhold
+    exactly what the policy does not disclose
+    (:class:`UndisclosedSubjectAnswered`).
+    """
+
+    def subject_disclosure(self) -> SubjectDisclosurePolicy | None:
+        """The declared early policy, or ``None`` for a projection that withholds only late."""
         ...
 
 
@@ -1022,7 +1252,12 @@ class AcquisitionSeamProtocol(Protocol):
     :meth:`GovernedResolver.__call__` exactly once per question, **after** the
     effective request has been resolved — defaults applied, the constraints
     in force folded, the technical capabilities held, the intent judged — and
-    **before** the graph is read at the question's boundary. It receives the
+    **before** the graph is read at the question's boundary. A declared
+    :class:`PopulationAcquisitionSeamProtocol` is the second declared phase,
+    also invoked exactly once per question, immediately BEFORE this one and
+    without the subject (SEC-020, ``D-IMPL-378`` Q7 and Q10: *"Two declared
+    acquisition phases are permitted, each once."*): the effective request is
+    still derived once, and each phase consumes that one outcome. It receives the
     EFFECTIVE request, so what a deployment reads its sources at is the value
     governance resolved, never a second derivation of it: the seven copies of
     ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
@@ -1046,6 +1281,66 @@ class AcquisitionSeamProtocol(Protocol):
 
     def __call__(self, *, request: ProductRequest, perspective: Perspective) -> None:
         """Acquire and ingest whatever answering ``request`` needs; return nothing."""
+        ...
+
+
+class PopulationQuestion(CCFContract):
+    """What the population phase is asked: the effective request WITHOUT its subject.
+
+    SEC-020, ``D-IMPL-378`` (Dave, 2026-10-07, Q7: *"Approve an explicit
+    population-fetch mode. Subject-independent acquisition must not receive
+    the requested subject indirectly through context or closures."*;
+    SDK-defined, CLAUDE.md §11). A source whose answer does not depend on who
+    is asked about acquires, for an identifier that names nothing, exactly what
+    it acquires for any other subject, and a withheld subject is rendered over
+    the fabric after it. This type has no ``subject`` member, so nothing the
+    population phase is handed carries the asked identifier — by construction,
+    not by trust. It keeps the subject out, not every identifier: a declared
+    parameter that itself names an entity is still a parameter, and reaches the
+    population phase.
+    """
+
+    schema_name: str
+    schema_version: str
+    intent: str
+    freshness: str
+    asked_at: datetime
+    parameters: Mapping[str, Any]
+
+    @classmethod
+    def of(cls, request: ProductRequest) -> PopulationQuestion:
+        """The subject-free half of ``request``: every member but the subject and its overrides."""
+        return cls(
+            schema_name=request.schema_name,
+            schema_version=request.schema_version,
+            intent=request.intent,
+            freshness=request.freshness,
+            asked_at=request.asked_at,
+            parameters=dict(request.parameters),
+        )
+
+
+@runtime_checkable
+class PopulationAcquisitionSeamProtocol(Protocol):
+    """The population phase: the declared, subject-independent half of a question's acquisition.
+
+    SEC-020, ``D-IMPL-378`` (Q7, Q10: *"Two declared acquisition phases are
+    permitted, each once."*; SDK-defined, CLAUDE.md §11). Declared on its own
+    (:attr:`GovernedResolver.population_acquisition`), never as a method of the
+    subject-keyed seam — a shared owner is refused at construction
+    (:class:`PopulationPhaseSharesAnOwner`). :meth:`GovernedResolver.__call__`
+    invokes it exactly once per question, FIRST — after the fabric is claimed
+    for the question and before anything in the question is fetched for the
+    subject — with a :class:`PopulationQuestion`; it then reads the fabric, the
+    state a subject Π withholds is rendered over, and invokes the subject-keyed
+    seam, also once. The subject-keyed phase's obligation stays a trusted
+    statement: it acquires nothing for an identifier its source does not hold.
+    A population read left inside the subject-keyed phase is not helped by this
+    mode (the security how-to, section 4.12).
+    """
+
+    def __call__(self, *, question: PopulationQuestion, perspective: Perspective) -> None:
+        """Acquire and ingest the part of the answer that does not depend on the subject."""
         ...
 
 
@@ -2145,6 +2440,10 @@ class GovernedResolver:
     #: `init=False`: not a parameter of any signature, so nothing can omit it
     #: or pass a substitute; set exactly once below.
     _authorities: _ComposedAuthorities = field(init=False, repr=False, compare=False)
+    #: SEC-020 Q8 (`D-IMPL-378`): the early policy the plan factory declared,
+    #: read once at construction (:meth:`__post_init__`); ``None`` when it
+    #: declared none. `init=False`, set exactly once below.
+    _disclosure: SubjectDisclosurePolicy | None = field(init=False, repr=False, compare=False)
     #: §7.10.4's Mode 2 footprint — how this deployment reports what its
     #: packaging stage did. ``None`` for every Mode 1 deployment, which is
     #: every one shipped before `dr-02`, and the no-packaging sentinel is then
@@ -2233,6 +2532,13 @@ class GovernedResolver:
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
     acquisition: AcquisitionSeamProtocol | None
+    #: SEC-020 Q7 (`D-IMPL-378`): the declared population phase — the
+    #: subject-independent half of the question's acquisition, invoked once per
+    #: question before the subject-keyed ``acquisition`` and handed no subject
+    #: (:class:`PopulationAcquisitionSeamProtocol`). ``None`` is admissible and
+    #: POSITIVE — this deployment declares no population phase — but never a
+    #: default, on ``acquisition``'s own terms.
+    population_acquisition: PopulationAcquisitionSeamProtocol | None
     # `D-IMPL-341`: the manifest key of this deployment's λ_c table, when it
     # has one. Read at the mint to derive an evidence-anchored expiry from the
     # same observations the freshness factor scores, and pinned on the record
@@ -2259,8 +2565,43 @@ class GovernedResolver:
             self.artifact_store,
             (self.replay_record_class, self.query_pin_class, ADMITTED_CHILD_CONTRACT_CLASS),
         )
+        # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two
+        # declared acquisition phases is refused here, at construction.
+        if self.population_acquisition is not None and self.acquisition is not None:
+            _refuse_shared_owner(self.population_acquisition, self.acquisition)
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
+        # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
+        # composite combinations it cannot support, refused here.
+        disclosure: SubjectDisclosurePolicy | None = None
+        if isinstance(self.plan_factory, SubjectDisclosingPlanFactoryProtocol):
+            disclosure = self.plan_factory.subject_disclosure()
+            if disclosure is not None and not isinstance(disclosure, SubjectDisclosurePolicy):
+                raise TypeError(
+                    "a plan factory's subject_disclosure() returns a"
+                    " SubjectDisclosurePolicy or None (SEC-020, Q8); got"
+                    f" {type(disclosure).__name__}"
+                )
+            if declaration.requires and disclosure is None:
+                raise CompositeNeedsAnEarlyPolicy(
+                    f"class {declaration.schema_name!r} composes children and its"
+                    " plan factory declares it withholds subjects with no early"
+                    " policy; a composite asks its children before its plan runs,"
+                    " so it withholds only through a declared early policy"
+                    " (SEC-020, Q8)"
+                )
+            if (
+                declaration.requires
+                and disclosure is not None
+                and not isinstance(self.composite_children, RequestAwareChildResolverProtocol)
+            ):
+                raise EarlyPolicyNeedsRequestAwareChildren(
+                    f"class {declaration.schema_name!r} withholds early, and its"
+                    " child resolver is never handed the request, so its children"
+                    " could not be asked about the undisclosed subject in place of"
+                    " the withheld one (SEC-020, Q8)"
+                )
+        object.__setattr__(self, "_disclosure", disclosure)
         minted = _ComposedAuthorities(
             replay=_mint_replay_at_composition(
                 self.control_plane, tenant=tenant, artifact_class=self.replay_record_class
@@ -2731,6 +3072,26 @@ class GovernedResolver:
                 resolution=effective,
             )
 
+        # SEC-020 Q8 / Q10 (`D-IMPL-378`): THE EARLY DECISION. Taken here —
+        # after every refusal that precedes acquisition, before anything in
+        # the question is fetched, any child is asked or anything is scored —
+        # from the asked identifier, the resolved perspective and the policy
+        # the plan factory declared at construction, and from nothing else: no
+        # fabric, no source, no store, so it is the same for a subject the
+        # source holds and one it does not. A subject the policy does not
+        # disclose is replaced, for every subject-dependent step below, by the
+        # declared undisclosed subject (`asked`); the plan is still built from,
+        # and the record still keeps, the caller's question.
+        disclosure = self._disclosure
+        undisclosed = disclosure is not None and not disclosure.discloses(
+            subject=request.subject, perspective=perspective
+        )
+        asked = (
+            effective_request.model_copy(update={"subject": disclosure.undisclosed_subject})
+            if undisclosed and disclosure is not None
+            else effective_request
+        )
+
         # `D-IMPL-343` R-4: THE DECLARED ACQUISITION SEAM, HERE AND ONLY HERE.
         # The question is resolved (above) and the graph is not yet read
         # (below), so what the deployment reads its sources at is the value
@@ -2751,12 +3112,30 @@ class GovernedResolver:
         # how-to, section 4.12.) Read only when a seam is declared: with none,
         # nothing is acquired, and the state the plan reads below is this one.
         before_acquisition: GraphView | None = None
-        if self.acquisition is not None:
+        if self.acquisition is not None or self.population_acquisition is not None:
+            # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
+            # claimed for it — before anything is read or fetched, and decided
+            # by nothing about the subject.
+            _claim_question_fabric(self.fabric)
+            # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no
+            # subject — so what it acquires is what any identifier's question
+            # acquires, and it is in the state read below.
+            if self.population_acquisition is not None:
+                population_phase = self.population_acquisition
+                population = PopulationQuestion.of(effective_request)
+                refused = self._invoke_acquisition(
+                    lambda: population_phase(question=population, perspective=perspective),
+                    request=request, identity=identity, perspective=perspective,
+                    effective=effective, served_at=served_at,
+                )
+                if refused is not None:
+                    return refused
             before_acquisition = self.fabric.handle.reader.as_of(
                 tenant_id=self.fabric.tenant_id, at=request.asked_at
             )
+        if self.acquisition is not None:
             try:
-                self.acquisition(request=effective_request, perspective=perspective)
+                self.acquisition(request=asked, perspective=perspective)
             except GovernedRefusalRaised as raised:
                 # `D-IMPL-304`: a governed determination the seam HELD and could
                 # not return — recorded through this composition's ONE minting
@@ -2884,7 +3263,10 @@ class GovernedResolver:
                             # `D-IMPL-336` Amendment 5: peering admission extends the
                             # consumer's lineage by set-union.
                             consumer_lineage=own_lineage,
-                            request=effective_request,
+                            # SEC-020 Q8: the request the subject-dependent
+                            # steps are asked about — an undisclosed subject's
+                            # children are asked about the declared stand-in.
+                            request=asked,
                         )
                     else:
                         outcomes = self.composite_children(
@@ -3051,8 +3433,37 @@ class GovernedResolver:
             # construction: it is a SECOND derivation, and a second derivation
             # is precisely the drift that would replay a different question
             # under this decision's identifier.
-            seeds=request_seeds(request),
+            #
+            # SEC-020 Q10 (`D-IMPL-378`): under the early decision the walk is
+            # seeded with the declared undisclosed subject, IN PLACE OF the
+            # caller's — exactly the walk a question about an identifier that
+            # names nothing takes — and this is the ONE computation of the
+            # product; the seed is recorded beside the caller's question
+            # (`ContentGenerationPath.executed_seeds`) and replay re-executes
+            # from it.
+            seeds=request_seeds(asked if undisclosed else request),
         )
+        if execution.projection.withheld and not undisclosed and registered.requires:
+            # SEC-020 Q8 (`D-IMPL-378`): a composite withholds only through the
+            # declared early policy; its children were already asked about this
+            # subject, so a withhold decided inside the projection is refused,
+            # before this decision is gated, recorded or served.
+            raise CompositeWithheldLate(
+                f"class {registered.schema_name!r} composes children and its"
+                " projection withheld a subject its early policy did not; a"
+                " composite asks its children before its plan runs, so it"
+                " withholds only through a declared early policy (SEC-020, Q8)"
+            )
+        if undisclosed and not execution.projection.withheld:
+            # SEC-020 Q8: the policy did not disclose the subject and the
+            # projection answered it. Serving that payload would hand over the
+            # subject's own answer; refusing it as data would be a governed
+            # "no" nobody declared.
+            raise UndisclosedSubjectAnswered(
+                "the declared early policy does not disclose this subject to this"
+                " principal, and the projection answered without raising the"
+                " withheld signal (SEC-020, Q8)"
+            )
 
         # --- SEC-020: A WITHHELD SUBJECT'S EVIDENCE, FROM AN UNSEEDED RE-RUN ----
         # `D-IMPL-370` Q12 (a), constant-fill, as finally ruled at `D-IMPL-371`
@@ -3146,7 +3557,12 @@ class GovernedResolver:
                 temporal_boundary=request.asked_at,
                 before_acquisition=before_acquisition,
             )
-            if execution.projection.withheld
+            # SEC-020 Q10 (`D-IMPL-378`): ONLY a late withhold (inside the
+            # projection) on a non-composite product is re-executed — the
+            # re-execution `D-IMPL-371`/`376` authorized, not widened. Under the
+            # early decision the one computation above already took the path a
+            # nonexistent subject's question takes.
+            if execution.projection.withheld and not undisclosed
             else execution
         )
 
@@ -3807,6 +4223,43 @@ class GovernedResolver:
                 )
 
     # --- the one minting seam ----------------------------------------------
+
+    def _invoke_acquisition(
+        self,
+        invoke: Callable[[], None],
+        *,
+        request: ProductRequest,
+        identity: RequestIdentity,
+        perspective: Perspective,
+        effective: EffectiveRequest,
+        served_at: datetime,
+    ) -> RefusalEnvelope | None:
+        """Run the population phase; a held refusal comes back as data (SEC-020 Q7).
+
+        The conversion the subject-keyed phase gets inline in :meth:`__call__`:
+        `D-IMPL-304`'s held determination is recorded through this
+        composition's ONE minting seam and returned as data, `D-IMPL-347` B2's
+        declared types convert, and any other exception re-raises unchanged.
+        Recorded at the one ``acquisition`` seam: the two phases are two
+        declared halves of one seam.
+        """
+        try:
+            invoke()
+        except GovernedRefusalRaised as raised:
+            return self._refuse_raised_at_seam(
+                raised, seam="acquisition", request=request, identity=identity,
+                perspective=perspective, effective=effective, served_at=served_at,
+            )
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            binding = self._declared_seam_refusal(error)
+            if binding is None:
+                raise
+            return self._refuse_declared_at_seam(
+                error, binding, seam="acquisition", request=request,
+                identity=identity, perspective=perspective, effective=effective,
+                served_at=served_at,
+            )
+        return None
 
     def _declared_seam_refusal(
         self,
@@ -4644,6 +5097,9 @@ def build_governed_resolver(
     acquisition: AcquisitionSeamProtocol | None = None,
     #: §7.10.4's Mode 2 footprint. ``None`` for every Mode 1 deployment.
     packaging_trace: PackagingTraceProtocol | None = None,
+    #: SEC-020 Q7 (`D-IMPL-378`): the declared population phase, ``None`` for
+    #: every deployment that declares none.
+    population_acquisition: PopulationAcquisitionSeamProtocol | None = None,
 ) -> GovernedResolver:
     """Build a :class:`GovernedResolver`, selecting the SDK's reference scorer.
 
@@ -5279,6 +5735,7 @@ def build_governed_resolver(
             composite_children=composite_children,
             admission_clock=admission_clock,
             acquisition=acquisition,
+            population_acquisition=population_acquisition,
             packaging_trace=packaging_trace,
             half_life_key=resolver_table_key,
         )
@@ -5336,6 +5793,7 @@ def build_governed_resolver(
         composite_children=composite_children,
         admission_clock=admission_clock,
         acquisition=acquisition,
+        population_acquisition=population_acquisition,
         packaging_trace=packaging_trace,
         half_life_key=resolver_table_key,
     )

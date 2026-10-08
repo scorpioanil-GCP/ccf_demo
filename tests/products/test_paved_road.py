@@ -280,9 +280,12 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
     with _open(root, scratch) as opened:
         paved = opened.answer(_question(opened))
         assert isinstance(paved, ServedProduct)
+        # SEC-020 Q9 (`D-IMPL-378`): a hand-composed fabric an acquisition seam
+        # writes into is booted for its one question, as the paved road boots its own.
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
             connection={"database_path": str(scratch / "low-road.sqlite3")},
+            for_question=True,
         )
         # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
         # refuses every question, so a fixture that means to serve declares one.
@@ -299,9 +302,12 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
         assert isinstance(low, ServedProduct)
         assert content_hash(low.product) == content_hash(paved.product)
         # Sabotage: one keyword changed, the address moves — the mapping is load-bearing.
+        # SEC-020 Q9 (`D-IMPL-378`): a hand-composed fabric an acquisition seam
+        # writes into is booted for its one question, as the paved road boots its own.
         fabric = load_config_and_boot(
             opened.config_path, registry=opened.control_plane,
             connection={"database_path": str(scratch / "low-road-2.sqlite3")},
+            for_question=True,
         )
         # `D-IMPL-358` step 5 ruling 11: a deployment declaring no temporal boundary
         # refuses every question, so a fixture that means to serve declares one.

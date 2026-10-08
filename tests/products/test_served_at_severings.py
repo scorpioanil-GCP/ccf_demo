@@ -633,6 +633,7 @@ def test_severing_Bind_a_fabricated_version_on_the_undeclared_path(
     # is registered, and the fixture's own plane declares a wide one.
     arguments.update(
         acquisition=seam,
+        population_acquisition=None,
         admission_clock=lambda: ADMITTED_AT,
         control_plane=ControlPlaneRegistry(),
     )

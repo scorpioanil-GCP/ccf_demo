@@ -36,7 +36,7 @@ limit's end state and then the refusing mechanism by name.
   straight to a terminal state; an execution whose first node is a gate), so the
   erasure door's retries of a request or a completion interrupted there are refused
   (`workflow-not-suspended`; `approval-not-recorded`, which misnames the cause), where
-  before this change both recovered.
+  before this change both recovered. `378-14` (Dave's D2 ruling) finishes those runs.
 - **The transport's stamp race is unchanged** (residual (1) of
   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`).
 - **A gate passed before this change keeps its pending event.** Only a closure

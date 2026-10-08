@@ -313,6 +313,7 @@ def _serve(booted: Any, subject: str) -> Any:
     resolver = GovernedResolver(
         composite_children=None,
         acquisition=None,
+        population_acquisition=None,
         # `PKG-F-08`: stated, never defaulted.
         packaging_trace=None,
         half_life_key=None,
