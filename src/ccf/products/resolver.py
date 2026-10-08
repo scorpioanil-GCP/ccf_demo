@@ -313,6 +313,7 @@ __all__ = [
     "DEBT_SCORER_INPUTS",
     "AcquiredFabricReused",
     "AcquisitionNeedsAQuestionFabric",
+    "AcquisitionOverUnverifiableStore",
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
@@ -642,7 +643,37 @@ class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
     (:class:`~ccf.deployment.manifest.BootedFabric`). Checked there rather than
     at construction because a resolver built over a fabric it never acquires
     into — the one :class:`~ccf.replay.environment.RecordedEnvironment` builds to
-    rebuild a plan — is a supported composition.
+    rebuild a plan — is a supported composition. Over a store whose connection
+    names no path, which no boot can make a question fabric, the composition
+    is refused at construction instead
+    (:class:`AcquisitionOverUnverifiableStore`).
+    """
+
+
+class AcquisitionOverUnverifiableStore(AcquisitionNeedsAQuestionFabric):
+    """An acquisition phase composed over a store whose fresh creation the SDK cannot verify, refused before any question runs.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"Require verifiable fresh creation or refuse acquisition-backed serving.
+    Unsupported network compositions must refuse before questions run."*). A
+    question fabric is one the boot verified fresh: a store minted at a path
+    that did not exist, reserved exclusively by its marker
+    (:class:`~ccf.deployment.manifest.QuestionFabricNotFresh` otherwise). A
+    store whose adapter connection names no path — a network store's address,
+    an in-process store — offers nothing to verify or to mark
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation`
+    ``"unverifiable"``), so no fabric over it is ever a question fabric and an
+    acquisition composition over it could never answer. It is refused at the
+    earliest point where the composition and the store kind are both known:
+    when :class:`GovernedResolver` is constructed with an acquisition or a
+    population phase over such a fabric, and when the paved road is opened
+    over a substrate setting its adapter does not take as a path
+    (:func:`~ccf.products.product.open_product`). Measured before this: the
+    first was refused only at its first call, the second at every question's
+    boot. A subclass of :class:`AcquisitionNeedsAQuestionFabric`, whose
+    refusal it moves earlier. An adapter declaring its own freshness (P4 (b))
+    is not built; until then such a store serves only compositions with no
+    acquisition phase.
     """
 
 
@@ -2632,6 +2663,20 @@ class GovernedResolver:
         # declared acquisition phases is refused here, at construction.
         if self.population_acquisition is not None and self.acquisition is not None:
             _refuse_shared_owner(self.population_acquisition, self.acquisition)
+        # SEC-020 P4 (a) made strict (`D-IMPL-378`): an acquisition phase over a
+        # store with no path, which no boot can make a question fabric, is
+        # refused here, before any question runs.
+        if (
+            self.acquisition is not None or self.population_acquisition is not None
+        ) and self.fabric.store_creation == "unverifiable":
+            raise AcquisitionOverUnverifiableStore(
+                "this resolver declares an acquisition phase over a fabric whose"
+                " store the SDK cannot verify fresh — its adapter's connection"
+                " names no path, so no boot can make it a question fabric, and"
+                " every question would be refused; compose this store without an"
+                " acquisition phase, or acquire into a file-backed question"
+                " fabric (SEC-020, P4)"
+            )
         tenant = self.fabric.tenant_id
         declaration = self._declaration()
         # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
