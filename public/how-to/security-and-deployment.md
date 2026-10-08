@@ -1024,8 +1024,18 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   presence resources to that tenant's principals — as a client-lane artifact,
   and the answer does not say which lane served it. They never cross a
   governed read: the HTTP evidence routes and the artifact server's governed
-  reads answer them as a missing address. Treat a record as evidence only
-  when a governed read returned it.
+  reads answer them as a missing address. Nor are they taken as a record in
+  process (D-IMPL-378): handed a store directly, `resolve_artifact`,
+  `resolve_artifact_at_uri`, `replay`, `replay_refusal`, child admission and
+  `OpenedProduct.record_of` accept a record only where the store's naming
+  shows the fabric's record writer filed it, under a class its `WriteKinds`
+  declares under `ReplayMint`, under the tenant the record names
+  (`src/ccf/replay/provenance.py::require_filed_by_record_writer`). The replay
+  engine answers anything else as a missing record, `ReplayUnresolvable`;
+  child admission and `record_of` raise `RecordNotFiledByRecordWriter`, an
+  `ArtifactNotFound`; a store that cannot say who filed an address is refused
+  by name (`src/ccf/replay/provenance.py::UnattributableRecordStore`).
+  Treat a record as evidence only when a governed read returned it.
 - **A read-refusal record is attributed to the door's tenant (forged-record
   re-review, D-IMPL-376).** The governed read records each refusal through the
   recorder of the door that refused it, and the record names the door's
