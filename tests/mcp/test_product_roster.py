@@ -320,9 +320,11 @@ def test_a_principal_without_a_roster_still_reaches_tenant_wide(
     _, raised = _call(world, None, INVOKE_AGENT_TOOL, _invoke_args(AGENT_OFF))
     assert raised is None, repr(raised)
     assert world.invoked == [AGENT_OFF]
+    # Dave's Q12 (`D-IMPL-378`): the replay read is refused for every caller,
+    # rostered or not, before the deployment's seam is called.
     _, raised = _call(world, None, GET_REPLAY_RECORD_TOOL, {})
-    assert raised is None, repr(raised)
-    assert world.replay_reads == ["read"]
+    assert raised is not None and "does not serve Decision Replay records" in str(raised), repr(raised)
+    assert world.replay_reads == []
 
 
 # --- the mechanism's edges (written with the fix) ---------------------------
@@ -510,18 +512,20 @@ def test_a_rostered_invoke_with_no_directory_is_refused(
 
 
 def test_the_replay_record_follows_its_declared_class(tmp_path: pathlib.Path) -> None:
-    """Declared and on the roster: served. Declared and off it: refused by name."""
+    """Declared and off the roster: refused by name, before the body. Declared and
+    on it: the roster admits the caller, and the body refuses every replay read
+    (Dave's Q12, `D-IMPL-378`) before the deployment's seam is called."""
     from ccf_runtime.mcp.experience import GET_REPLAY_RECORD_TOOL
 
     world = _World(tmp_path, replay_record_product_class=ON_ROSTER)
     _, raised = _call(world, frozenset({ON_ROSTER}), GET_REPLAY_RECORD_TOOL, {})
-    assert raised is None, repr(raised)
-    assert world.replay_reads == ["read"]
+    assert raised is not None and "does not serve Decision Replay records" in str(raised), repr(raised)
+    assert world.replay_reads == []
     _, raised = _call(world, frozenset({OFF_ROSTER}), GET_REPLAY_RECORD_TOOL, {})
     refusal = _underlying(raised)  # type: ignore[arg-type]
     assert type(refusal).__name__ == "ProductOutsideRosterRefused"
     assert ON_ROSTER in str(refusal) and "outside the roster" in str(refusal)
-    assert world.replay_reads == ["read"]
+    assert world.replay_reads == []
 
 
 def test_a_replay_class_for_an_unexposed_tool_is_refused(tmp_path: pathlib.Path) -> None:

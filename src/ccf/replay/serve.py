@@ -202,7 +202,7 @@ class ReplayWriter:
     and no second source for either. Each record is filed as a
     :class:`~ccf.artifacts.protocol.DerivedWrite` — the decision that minted the
     capability could not name a record that did not yet exist, so this writer
-    names it (by its snapshot id) and the store verifies the capability against
+    names it (by its content address) and the store verifies the capability against
     the kinds the deployment declared for the class. A store whose declaration
     does not name the class under ``ReplayMint`` refuses at the first write:
     wrong kind, loudly, at boot's first serve.
@@ -242,9 +242,20 @@ class ReplayWriter:
     ) -> DeliveryCapability:
         """Append ``record``; return the capability its success grants.
 
-        The record is named by its own snapshot id and addressed by its content
-        hash, so two appends of the same decision converge on one artifact
-        rather than accumulating near-duplicates.
+        The record is addressed by its content hash and NAMED by it too (Dave's
+        Q11, 2026-10-07; ``D-IMPL-378``): *"Equal public references must not
+        identify different immutable record contents."* The reference a caller
+        is handed — ``ccf-artifact://{tenant}/{class}/{name}@{version}`` — then
+        names exactly one immutable content in both its segments. The name used
+        to be dimension 1's ``graph_snapshot_id``, which hashes only what the
+        decision read, so different records shared a name and a withheld
+        subject's answer was named by a read it must not show. A governed
+        answer's record carries a per-answer
+        :attr:`~ccf.replay.record.ContentGenerationPath.issuance`, so its
+        address is unique per answer and computable by nobody who does not hold
+        the record. Two appends of byte-identical content still converge on one
+        artifact. Records filed before this rule keep the names they were filed
+        under; replay resolves by content address and never reads a name.
 
         Raises:
             ReplayTenantMismatch: the record's ``tenant_id`` is not the
@@ -265,7 +276,9 @@ class ReplayWriter:
             self._authorized,
             DerivedWrite(
                 artifact_class=self._authorized.resource,
-                name=record.context_fabric_snapshot.graph_snapshot_id,
+                # Q11 (`D-IMPL-378`): the record's own content address — the
+                # store's identity of these bytes — so one name, one content.
+                name=content_hash(record),
                 artifact=record,
             ),
         )
