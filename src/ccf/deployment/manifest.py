@@ -280,7 +280,8 @@ class QuestionFabricNotFresh(ValueError):
     question at a path another boot holds is raised here, and so is a store,
     or another boot's deployment marker, that appeared at a path after the
     check. The SDK then creates nothing at the store's path itself — the
-    adapter does, at the boot.
+    adapter does, at the boot — so a store another actor writes at the path
+    after this last check is opened as the one this boot created.
     """
 
 
