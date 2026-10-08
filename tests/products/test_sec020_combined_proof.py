@@ -94,6 +94,19 @@ Dave's two-deployment test as written. The same-deployment comparison of the
 population-reading shapes has its own instrument
 (``test_the_same_deployment_instrument_sees_a_difference``).
 
+**A separately reported limitation, not a removal** (Dave's E3, 2026-10-08
+12:29 MST, ``D-IMPL-378``: *"yes to the previously ruled same-deployment
+comparison for population sources. Retain the retired two-deployment cells as a
+separately reported limitation."*). The 88 retired cells still EXECUTE, every
+run of this module, through the same comparison and the same "not evidence"
+rule as the gate's cells, in
+:func:`test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated`,
+which prints how many are distinguishable in its own block of the run's output
+(``SEC-020 D1 (a) LIMITATION``) and records it in the JUnit record
+(``d1a_limitation``). Their outcome is reported and never asserted: they do not
+count toward the gate's pass, and that test fails only if a retired cell could
+not be measured at all.
+
 Dave's Q11 and Q12, as lane ``378b-s020record`` built them (adapted by lane ``378d-s020trial``)
 -------------------------------------------------------------------------------------------------
 Its PROPOSAL, section 7, names three things this proof needs once Q11 and Q12
@@ -928,6 +941,63 @@ def test_d1a_retires_exactly_the_population_reading_counterfactual_cells() -> No
             assert w.comparisons_for(shape) == w.COMPARISONS, (
                 f"{shape} is not population-reading and must keep the two-deployment test"
             )
+
+
+def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
+    runs: w.RunCache, record_testsuite_property: Callable[[str, object], None], capsys: Any
+) -> None:
+    """Dave's E3: the 88 retired two-deployment cells, executed and reported as a limitation, never gated.
+
+    Dave, 2026-10-08 12:29 MST (``D-IMPL-378``), E3, verbatim: *"yes to the
+    previously ruled same-deployment comparison for population sources.
+    Retain the retired two-deployment cells as a separately reported
+    limitation."* Every cell in :data:`RETIRED_D1A` is run through exactly what
+    a gate cell runs — :func:`_vacuous` and then :func:`_compare` — and its
+    outcome is classified: ``distinguishable`` (the cell would fail in the
+    gate), ``indistinguishable``, or ``not evidence`` (both sides raised).
+
+    **What this asserts, and what it does not.** It asserts that every retired
+    cell was MEASURED, and nothing about the outcome: the cells are a reported
+    limitation, so how many are distinguishable never moves the gate. The
+    measurement is printed to the run's own output, in its own block headed
+    ``SEC-020 D1 (a) LIMITATION`` (written past the output capture, so it shows
+    in every run), and recorded in the JUnit record as ``d1a_limitation``. A
+    cell that cannot be measured — its run fails to build, a channel is missing
+    — fails this test, because an unmeasured limitation is not reported.
+    """
+    outcomes: dict[str, dict[str, Any]] = {}
+    for cell in RETIRED_D1A:
+        comparison, shape, anchor, door, channel = cell.split("-")
+        run = runs.get(shape=shape, anchor=anchor, door=door)
+        withheld_side, nonexistent_side, _ = w.PAIRS[comparison]
+        vacuous = _vacuous(run, withheld_side, nonexistent_side)
+        if vacuous:
+            outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        differing, floor, _, _ = _compare(run, comparison=comparison, channel=channel)
+        outcomes[cell] = (
+            {"outcome": "distinguishable", "at": sorted(differing)}
+            if differing
+            else {"outcome": "indistinguishable"}
+        )
+    assert sorted(outcomes) == sorted(RETIRED_D1A), "a retired cell was not measured"
+    counts: dict[str, int] = {}
+    for found in outcomes.values():
+        counts[found["outcome"]] = counts.get(found["outcome"], 0) + 1
+    record_testsuite_property("d1a_limitation", json.dumps(
+        {"cells": len(outcomes), "counts": counts, "outcomes": outcomes}, sort_keys=True
+    ))
+    lines = [
+        "",
+        "=" * 30 + " SEC-020 D1 (a) LIMITATION (reported, NOT in the gate) " + "=" * 30,
+        f"the {len(outcomes)} two-deployment cells D1 (a) retired, measured on this run:"
+        f" {json.dumps(counts, sort_keys=True)}",
+        *(f"  {cell}: {found['outcome']}" + (f" at {found['at']}" if "at" in found else "")
+          for cell, found in sorted(outcomes.items())),
+        "=" * 115,
+    ]
+    with capsys.disabled():
+        print("\n".join(lines))
 
 
 def _same_instruments() -> list[Any]:
