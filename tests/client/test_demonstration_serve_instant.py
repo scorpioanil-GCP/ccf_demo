@@ -431,10 +431,9 @@ def test_the_records_pin_resolves_at_its_recorded_version(seeded: Path) -> None:
     WITHOUT the declaration it does not resolve, so a demonstration record cannot
     be replayed as an ordinary one.
 
-    A full ``replay``/``replay_refusal`` of this fixture's records is not used
-    here: it stops earlier, at the request contract's pin, with no declaration in
-    force at all (measured; reported by lane ``378d-democlock`` as a finding
-    outside C1).
+    The full reconstruction — every binding resolved at its pinned version,
+    then the record's own claims held — is measured end to end by
+    :func:`test_a_demonstration_refusal_record_replays_end_to_end` below.
     """
     from ccf.client.adapters import inprocess
     from ccf.controlplane.demonstration_serve_instant import DemonstrationServeInstant
@@ -466,3 +465,74 @@ def test_the_records_pin_resolves_at_its_recorded_version(seeded: Path) -> None:
             without.resolve(pin.key, pin.version)
     finally:
         other.handle.close()
+
+
+def test_a_demonstration_refusal_record_replays_end_to_end(seeded: Path) -> None:
+    """A refusal written under the declaration reconstructs — and needs the declaration to.
+
+    `ccf.replay.engine.replay_refusal` runs `replay`'s prologue (the record at its
+    exact address, every dimension-2 binding at its pinned version) and, for a
+    refusal decided before projection, consults no environment. Against the
+    deployment's own Control Plane the record reconstructs. Against that SAME
+    Control Plane with only the declaration's key hidden it is refused, on that
+    key — so the pin is resolved, not skipped, and nothing else differs between
+    the two runs.
+
+    Possible since the request contract is registered before the resolution that
+    pins it (lane ``378d-replayfix``, CP17-F-09): before that, this fixture's
+    refusal records stopped at the request contract's pin with no declaration in
+    force at all. A Control Plane booted afresh, which has answered nothing,
+    still stops there today (ruling R-A (b) addresses it), which is why the
+    control hides one key rather than booting a second registry.
+    """
+    from ccf.client.adapters import inprocess
+    from ccf.controlplane.registry import ControlPlaneMissing
+    from ccf.replay.engine import RefusalReplayOutcome, ReplayUnresolvable, replay_refusal
+
+    declare(seeded)
+    request = request_for(seeded, as_of=SEEDED_AT)
+    unanswerable = WireRequest(
+        product_id=request.product_id, parameters={}, temporal_boundary=SEEDED_AT
+    )
+    decoded = decode_outcome(InProcessAdapter(str(seeded)).ask(unanswerable), sent=unanswerable)
+    assert decoded.outcome.refusal is not None
+    record = record_at(seeded, str(decoded.outcome.replay_ref))
+    (pin,) = demonstration_bindings(record, tenant=tenant_of(seeded))
+    store = store_of(seeded)
+    address = store.resolve_uri(uri=str(decoded.outcome.replay_ref))
+    booted = inprocess._BOOT_CACHE[seeded.resolve()]
+
+    reconstructed = replay_refusal(
+        record_address=address,
+        store=store,
+        reader=booted.fabric.handle.reader,
+        control_plane=booted.control_plane,
+        environment=None,  # type: ignore[arg-type]  # not consulted before projection
+    )
+    assert isinstance(reconstructed, RefusalReplayOutcome)
+    assert reconstructed.record_content_address == address
+
+    class _WithoutTheDeclaration:
+        """The deployment's own Control Plane with exactly one key hidden."""
+
+        def __init__(self, inner: Any, hidden: str) -> None:
+            self._inner = inner
+            self._hidden = hidden
+
+        def resolve(self, key: str, version: str) -> object:
+            if key == self._hidden:
+                raise ControlPlaneMissing(f"hidden by the control: {key!r}")
+            return self._inner.resolve(key, version)
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self._inner, name)
+
+    with pytest.raises(ReplayUnresolvable) as refused:
+        replay_refusal(
+            record_address=address,
+            store=store,
+            reader=booted.fabric.handle.reader,
+            control_plane=_WithoutTheDeclaration(booted.control_plane, pin.key),  # type: ignore[arg-type]
+            environment=None,  # type: ignore[arg-type]
+        )
+    assert f"{tenant_of(seeded)}/{CLASS_ID}" in str(refused.value), str(refused.value)

@@ -181,7 +181,7 @@ declaration).
 - Change type: behavior
 - Before: no record named the instant's source
 - After: same fields. A resolver whose serve clock is a `DeclaredServeClock` appends the declaration's exact `(key, version)` to dimension 2 of every record it writes, served and refused; on any other clock it appends nothing
-- Why: audit by construction — an examiner can tell a demonstration record from a real one from the record alone, and the pin resolves at its recorded version through the Control Plane's exact-version read, the check replay makes for every binding (`tests/client/test_demonstration_serve_instant.py::test_the_records_pin_resolves_at_its_recorded_version`)
+- Why: audit by construction — an examiner can tell a demonstration record from a real one from the record alone, and the pin resolves at its recorded version through the Control Plane's exact-version read, the check replay makes for every binding (`tests/client/test_demonstration_serve_instant.py::test_the_records_pin_resolves_at_its_recorded_version`); a refusal record written under the declaration replays end to end against the deployment's Control Plane and is refused on the declaration's key against one without it (`tests/client/test_demonstration_serve_instant.py::test_a_demonstration_refusal_record_replays_end_to_end`)
 - Migration: none
 
 ## ccf.client.adapters.inprocess.InProcessAdapter
