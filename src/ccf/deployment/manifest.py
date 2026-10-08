@@ -122,7 +122,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "QuestionFabricNotFresh", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -196,6 +196,18 @@ class BootedFabric:
             form, where every key was
             authored by hand and there is no section vocabulary to derive from;
             the multi-file door is unchanged by this field.
+        for_question: Whether this fabric was booted for ONE question, onto a
+            substrate the boot verified did not exist before it
+            (:class:`QuestionFabricNotFresh` otherwise). SEC-020, ``D-IMPL-378``
+            (Dave, 2026-10-07, Q9: *"Enforce a fresh fabric per question
+            whenever acquisition exists, including concurrent use"*): a
+            governed call refuses to run an acquisition phase over a fabric
+            that is not one
+            (``src/ccf/products/resolver.py::AcquisitionNeedsAQuestionFabric``),
+            and claims the one that is for the one question it may answer.
+            ``False`` — the default, and every fabric a deployment boots for
+            more than one question — is the positive "this fabric outlives its
+            questions"; such a fabric is read, never acquired into.
     """
 
     handle: FabricHandle
@@ -204,6 +216,39 @@ class BootedFabric:
     artifacts: Mapping[str, CCFContract]
     survivor_cap: int | None
     keys: DeploymentKeys | None = None
+    for_question: bool = False
+
+
+class QuestionFabricNotFresh(ValueError):
+    """A fabric booted for one question would not be a fresh one.
+
+    SEC-020, ``D-IMPL-378`` (Q9). A question fabric holds nothing another
+    question wrote: the boot verifies the substrate does not exist yet, which
+    it can do for the development SQLite substrate (a file path that names no
+    file, as the paved road mints one per question) and for no other — a
+    network store cannot be shown to be fresh by its connection settings, so it
+    is refused rather than assumed. Raised before anything is registered or
+    booted.
+    """
+
+
+def _refuse_unless_fresh(backend: str, connection: Mapping[str, object] | None) -> None:
+    """Raise :class:`QuestionFabricNotFresh` unless ``connection`` names a SQLite file that does not exist yet."""
+    from ccf.graph.backends.sqlite_write import ADAPTER_NAME as SQLITE  # noqa: PLC0415 — the one adapter it can verify
+
+    path = (connection or {}).get("database_path")
+    if backend != SQLITE or not isinstance(path, (str, Path)):
+        raise QuestionFabricNotFresh(
+            f"a fabric booted for one question must be a fresh one, and only a"
+            f" {SQLITE!r} file that does not exist yet can be verified fresh;"
+            f" this boot names the {backend!r} adapter (SEC-020, Q9)"
+        )
+    if Path(path).exists():
+        raise QuestionFabricNotFresh(
+            "a fabric booted for one question must be a fresh one, and the"
+            " store this boot names already exists — another question may have"
+            " written into it (SEC-020, Q9)"
+        )
 
 
 def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
@@ -642,6 +687,7 @@ def _register_and_boot(
     resolved_tenant: str,
     keys: DeploymentKeys | None = None,
     read_only: bool = False,
+    for_question: bool = False,
 ) -> BootedFabric:
     """Register the ``role: register`` entries and boot — the spine both doors share.
 
@@ -672,6 +718,10 @@ def _register_and_boot(
     # registered or composed; a key an author placed under another tenant is
     # refused here, before minting. The registry's tenant-segment check
     # (§1.3) then holds for the manifest root as a real check.
+    # SEC-020 (Q9, `D-IMPL-378`): a fabric booted for one question is verified
+    # fresh before anything is registered or booted.
+    if for_question:
+        _refuse_unless_fresh(manifest.backend, connection)
     manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
     # SEC-023 (`D-IMPL-372`): before anything is registered or minted, a
     # deployment whose Policy operator admits on a source-asserted attribute
@@ -702,6 +752,7 @@ def _register_and_boot(
         artifacts=parsed,
         survivor_cap=manifest.survivor_cap,
         keys=keys,
+        for_question=for_question,
     )
 
 
@@ -872,6 +923,7 @@ def load_and_boot(
     connection: Mapping[str, object] | None = None,
     tenant_id: str | None = None,
     read_only: bool = False,
+    for_question: bool = False,
 ) -> BootedFabric:
     """Load a manifest, validate and register what it names, and boot the fabric.
 
@@ -995,6 +1047,13 @@ def load_and_boot(
             writer. The preflight and the boot both set the connection's
             writer-lease setting aside, so it is neither validated nor used
             (N-2). ``False`` (the default) is the writer boot, unchanged.
+        for_question: ``True`` boots the fabric for ONE question (SEC-020,
+            ``D-IMPL-378`` Q9): the substrate is verified fresh first
+            (:class:`QuestionFabricNotFresh` otherwise) and the returned
+            :class:`BootedFabric` says so, which is what lets a governed call
+            run an acquisition phase over it — once. ``False`` (the default)
+            boots a fabric that may answer many questions and is never
+            acquired into.
 
     Raises:
         ccf.graph.registry.UnknownBackend: the manifest names an adapter no
@@ -1074,4 +1133,5 @@ def load_and_boot(
         secrets=secrets,
         resolved_tenant=resolved_tenant,
         read_only=read_only,
+        for_question=for_question,
     )

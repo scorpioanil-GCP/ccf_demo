@@ -146,6 +146,8 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
+import threading
+import weakref
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -308,6 +310,8 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "AcquiredFabricReused",
+    "AcquisitionNeedsAQuestionFabric",
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
@@ -321,6 +325,7 @@ __all__ = [
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
     "UndeclaredMechanismClass",
+    "UnsupportedComposition",
     "ResolverOutcome",
     "ServedProductResolverProtocol",
     "build_governed_resolver",
@@ -599,6 +604,84 @@ class ProductNotResolvable(LookupError):
     *broken deployment* and comes back as an exception. Reporting the two the
     same way would let a mis-wiring read to a caller as a governed "no".
     """
+
+
+class UnsupportedComposition(ProductNotResolvable):
+    """A composition SEC-020's rulings do not support, refused by name before it can answer.
+
+    ``D-IMPL-378`` (Dave, 2026-10-07 19:31 MST, Q7–Q9; SDK-defined, CLAUDE.md
+    §11). SEC-020 stays OPEN. Each subclass names one combination; every one is
+    decided by the composition, never by the subject a question names, so the
+    refusal is not itself an existence signal. A ``ProductNotResolvable``, so a
+    door's opaque-failure wrap applies: it is a broken composition, not a
+    governed "no".
+    """
+
+
+class AcquisitionNeedsAQuestionFabric(UnsupportedComposition):
+    """An acquisition phase was about to run over a fabric not booted for its question.
+
+    Q9: *"Enforce a fresh fabric per question whenever acquisition exists."* A
+    fabric that outlives its question answers the next one over what this one
+    acquired (review finding M-6: asking about a withheld subject and then
+    about an identifier that names nothing measured whether the source holds
+    the first). Raised by :meth:`GovernedResolver.__call__` immediately before
+    the first acquisition phase, before anything is read or fetched for the
+    question, unless the fabric was booted with ``for_question=True``
+    (:class:`~ccf.deployment.manifest.BootedFabric`). Checked there rather than
+    at construction because a resolver built over a fabric it never acquires
+    into — the one :class:`~ccf.replay.environment.RecordedEnvironment` builds to
+    rebuild a plan — is a supported composition.
+    """
+
+
+class AcquiredFabricReused(ProductNotResolvable):
+    """A fabric an acquisition phase was claimed for was asked another question.
+
+    Q9, *"including concurrent use"*. The claim is taken under a lock
+    immediately before the first acquisition phase, so of two questions on one
+    fabric — one after the other or at the same time — exactly one acquires and
+    the other is refused here, before anything is read or fetched for it. The
+    claim reads nothing about the subject: any second question is refused the
+    same way. A question refused before acquisition (its address, its request,
+    its temporal bound) never claims the fabric. Held per fabric handle in this
+    process; a fabric is fresh per question by its boot
+    (:class:`AcquisitionNeedsAQuestionFabric`), so a second handle over the same
+    store is not a question fabric to begin with.
+    """
+
+
+#: SEC-020 Q9: every question fabric an acquisition phase has been claimed for
+#: in this process. Weak, so a closed and released fabric leaves nothing
+#: behind; guarded, so two threads cannot both claim one handle.
+_CLAIMED_QUESTION_FABRICS: weakref.WeakSet[object] = weakref.WeakSet()
+_CLAIMED_QUESTION_FABRICS_LOCK = threading.Lock()
+
+
+def _claim_question_fabric(fabric: BootedFabric) -> None:
+    """Claim ``fabric`` for the one question its acquisition phases may write for (Q9).
+
+    Raises :class:`AcquisitionNeedsAQuestionFabric` when the fabric was not
+    booted for a question, and :class:`AcquiredFabricReused` when it was
+    already claimed. Reads nothing about the question.
+    """
+    if not fabric.for_question:
+        raise AcquisitionNeedsAQuestionFabric(
+            "an acquisition phase writes what one question's sources returned"
+            " into the fabric the question is answered from, so the fabric must"
+            " be booted for that question (load_and_boot or load_config_and_boot"
+            " with for_question=True; the paved road does) — this one was not"
+            " (SEC-020, Q9)"
+        )
+    handle = fabric.handle
+    with _CLAIMED_QUESTION_FABRICS_LOCK:
+        if handle in _CLAIMED_QUESTION_FABRICS:
+            raise AcquiredFabricReused(
+                "this question fabric was already claimed by a question whose"
+                " acquisition writes into it; a fabric answers the one question"
+                " it was booted for (SEC-020, Q9)"
+            )
+        _CLAIMED_QUESTION_FABRICS.add(handle)
 
 
 @runtime_checkable
@@ -2752,6 +2835,10 @@ class GovernedResolver:
         # nothing is acquired, and the state the plan reads below is this one.
         before_acquisition: GraphView | None = None
         if self.acquisition is not None:
+            # SEC-020 Q9 (`D-IMPL-378`): a fabric booted for this question, and
+            # claimed for it — before anything is read or fetched, and decided
+            # by nothing about the subject.
+            _claim_question_fabric(self.fabric)
             before_acquisition = self.fabric.handle.reader.as_of(
                 tenant_id=self.fabric.tenant_id, at=request.asked_at
             )

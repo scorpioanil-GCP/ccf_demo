@@ -827,6 +827,10 @@ class OpenedProduct:
         document's; the uuid is what makes "per question" true rather than
         nominal (`CP03C-F-02`: a door answering several questions under one
         root booted the SAME file every time). Nothing here names a backend.
+
+        Booted ``for_question`` (SEC-020, ``D-IMPL-378`` Q9): the boot verifies
+        the minted substrate does not exist yet, and the governed call that
+        acquires into this fabric claims it for the one question it answers.
         """
         substrate = self.environment.substrate
         minted = self.scratch / f"{substrate.prefix}_{uuid.uuid4().hex}{substrate.suffix}"
@@ -834,6 +838,7 @@ class OpenedProduct:
             self.config_path,
             registry=self.control_plane,
             connection={substrate.setting: str(minted)},
+            for_question=True,
         )
 
     def _acquisition_seam(self, fabric: BootedFabric) -> Callable[..., None]:
