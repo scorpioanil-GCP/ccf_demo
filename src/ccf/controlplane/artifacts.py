@@ -82,6 +82,12 @@ from ccf.controlplane.artifact_base import (
 # (step 3); only the constant is re-exposed, and that module imports
 # `artifact_base` rather than this one, so the direction stays acyclic.
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
+# `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): `ccf.demonstration-serve-instant`
+# is manifest-addressable for `TEMPORAL_BOUNDARY_POLICY`'s reason, and its
+# constant is re-exposed here on the same terms; the contract stays in
+# `ccf.controlplane.demonstration_serve_instant`, which imports `artifact_base`
+# rather than this module, so the direction stays acyclic.
+from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.halflife.assessment import (
     NO_OBLIGATION_IN_FORCE,
     NO_SIGNAL_OBLIGATIONS,
@@ -145,6 +151,7 @@ __all__ = [
     "RESOLUTION_SPEC",
     "SIGNAL_BATCH",
     "TEMPORAL_BOUNDARY_POLICY",
+    "DEMONSTRATION_SERVE_INSTANT",
     "ArtifactClass",
     "ArtifactLoadError",
     "ArtifactRole",
@@ -2302,6 +2309,17 @@ class DeploymentConfig(VersionedArtifact):
     # name rather than ignored or honored — tenant isolation is not an authoring
     # choice.
     temporal_boundary: Mapping[str, Any] | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): the single-file declaration of
+    # a DEMONSTRATION serve instant — `ccf.demonstration-serve-instant`, derived
+    # like `temporal_boundary:` (body verbatim, key per tenant, bookkeeping keys
+    # refused). Optional, and hash-transparent at `None`, so every config that
+    # does not declare one keeps its content identity; ABSENCE MEANS THE REAL
+    # CLOCK. Declared, it is honored only where
+    # `ccf.products.demonstration_clock.compose_serve_clock` admits it — on the
+    # SDK's development substrates — and pinned on every record made under it.
+    demonstration_serve_instant: Mapping[str, Any] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
     door: Mapping[str, Any] | None = Field(

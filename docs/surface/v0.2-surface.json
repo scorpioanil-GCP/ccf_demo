@@ -1821,6 +1821,7 @@
       "ConstraintApplicability",
       "ConstraintOperator",
       "DEBT_PROFILE",
+      "DEMONSTRATION_SERVE_INSTANT",
       "DEPLOYMENT_CONFIG",
       "DEPLOYMENT_MANIFEST",
       "DebtProfile",
@@ -1908,6 +1909,10 @@
         "kind": "constant",
         "shape": "ArtifactClass"
       },
+      "DEMONSTRATION_SERVE_INSTANT": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
       "DEPLOYMENT_CONFIG": {
         "kind": "constant",
         "shape": "ArtifactClass"
@@ -1946,6 +1951,7 @@
           "backend_secrets": "tuple[ccf.controlplane.artifacts.SecretReference, ...]",
           "debt_profile": "collections.abc.Mapping[str, typing.Any] | None",
           "default_perspective": "collections.abc.Mapping[str, typing.Any] | None",
+          "demonstration_serve_instant": "collections.abc.Mapping[str, typing.Any] | None",
           "door": "collections.abc.Mapping[str, typing.Any] | None",
           "half_life": "collections.abc.Mapping[str, typing.Any] | None",
           "operators": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
@@ -2386,6 +2392,44 @@
       "WorkflowVerdictIntegrityFailure": {
         "kind": "function",
         "shape": "typing.Literal['route_disagreement', 'conflicting_verdicts']"
+      }
+    }
+  },
+  "ccf.controlplane.demonstration_serve_instant": {
+    "__all__": [
+      "DEMONSTRATION_SERVE_INSTANT",
+      "DemonstrationServeInstant",
+      "DemonstrationServeInstantMisdeclared",
+      "PinnedDemonstrationServeInstant",
+      "demonstration_serve_instant_key",
+      "resolve_demonstration_serve_instant"
+    ],
+    "exports": {
+      "DEMONSTRATION_SERVE_INSTANT": {
+        "kind": "constant",
+        "shape": "ArtifactClass"
+      },
+      "DemonstrationServeInstant": {
+        "kind": "contract",
+        "shape": {
+          "serve_instant": "<class 'datetime.datetime'>"
+        }
+      },
+      "DemonstrationServeInstantMisdeclared": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "PinnedDemonstrationServeInstant": {
+        "kind": "class",
+        "shape": "(key: 'str', version: 'str', declaration: 'DemonstrationServeInstant') -> None"
+      },
+      "demonstration_serve_instant_key": {
+        "kind": "function",
+        "shape": "(*, tenant_id: 'str') -> 'str'"
+      },
+      "resolve_demonstration_serve_instant": {
+        "kind": "function",
+        "shape": "(*, registry: 'ControlPlaneProtocol', tenant_id: 'str') -> 'PinnedDemonstrationServeInstant | None'"
       }
     }
   },
@@ -4509,7 +4553,7 @@
       },
       "BackendRegistration": {
         "kind": "class",
-        "shape": "(name: 'str', config_model: 'type[CCFContract]', secret_fields: 'frozenset[str]', open_store: 'Callable[[CCFContract, Mapping[str, SecretStr]], BackendStore]', make_writer: 'Callable[[BackendStore, BootToken], BaseGraphWriter]') -> None"
+        "shape": "(name: 'str', config_model: 'type[CCFContract]', secret_fields: 'frozenset[str]', open_store: 'Callable[[CCFContract, Mapping[str, SecretStr]], BackendStore]', make_writer: 'Callable[[BackendStore, BootToken], BaseGraphWriter]', development_reference: 'bool' = False) -> None"
       },
       "BackendStore": {
         "kind": "class",
@@ -7587,6 +7631,32 @@
       "emptiness_of": {
         "kind": "function",
         "shape": "(evidence: 'ExecutionEvidence') -> \"Literal['attested', 'unattested']\""
+      }
+    }
+  },
+  "ccf.products.demonstration_clock": {
+    "__all__": [
+      "DeclaredServeClock",
+      "DemonstrationServeInstantConflict",
+      "DemonstrationServeInstantRefused",
+      "compose_serve_clock"
+    ],
+    "exports": {
+      "DeclaredServeClock": {
+        "kind": "class",
+        "shape": "(pinned: 'PinnedDemonstrationServeInstant') -> None"
+      },
+      "DemonstrationServeInstantConflict": {
+        "kind": "class",
+        "shape": "(message: 'str', *, key: 'str') -> 'None'"
+      },
+      "DemonstrationServeInstantRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, reason: 'RefusalReason', key: 'str') -> 'None'"
+      },
+      "compose_serve_clock": {
+        "kind": "function",
+        "shape": "(*, control_plane: 'ControlPlaneProtocol', fabric: 'BootedFabric', artifact_store: 'ArtifactStoreProtocol', admission_clock: 'Callable[[], datetime]', sdk_clock: 'Callable[[], datetime]') -> 'Callable[[], datetime]'"
       }
     }
   },

@@ -344,6 +344,15 @@ class BackendRegistration:
             token. The registry never calls this — the composition root does,
             and a test asserts it is the only caller under ``src/`` and
             ``runtime/``.
+        development_reference: Whether this adapter is one of the SDK's
+            DEVELOPMENT reference substrates (`D-IMPL-378` C1; SDK-defined,
+            CLAUDE.md §11). A composition admits a declared demonstration serve
+            instant only over an adapter that declares this
+            (`ccf.products.demonstration_clock.compose_serve_clock`). It is a
+            fact the adapter states about itself, so core names no adapter to
+            ask it (``D-IMPL-93`` property (2)). Defaults to ``False``: an
+            adapter that says nothing — every third-party adapter written before
+            this field — is never a development reference.
     """
 
     name: str
@@ -351,6 +360,7 @@ class BackendRegistration:
     secret_fields: frozenset[str]
     open_store: Callable[[CCFContract, Mapping[str, SecretStr]], BackendStore]
     make_writer: Callable[[BackendStore, BootToken], BaseGraphWriter]
+    development_reference: bool = False
 
 
 @dataclass(frozen=True)

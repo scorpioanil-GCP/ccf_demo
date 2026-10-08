@@ -401,3 +401,19 @@ def test_the_erasure_consult_keeps_the_composition_clock(seeded: Path) -> None:
         assert erasure_clock() != DECLARED
     finally:
         booted.fabric.handle.close()
+
+
+def test_only_the_sdks_sqlite_and_in_memory_adapters_are_development_references() -> None:
+    """Exactly two built-in adapters declare ``development_reference``.
+
+    The guard asks the booted adapter's own registration, so this holds the
+    declarations: the SQLite and in-memory reference adapters say yes, and every
+    networked adapter the SDK ships says no. An adapter that newly claims the
+    flag — or a development reference that loses it — is red here.
+    """
+    from ccf.graph.registry import _builtin_names, resolve
+
+    built_in = set(_builtin_names())
+    assert {"sqlite", "memory"} < built_in, built_in
+    declaring = {name for name in built_in if resolve(name).registration.development_reference}
+    assert declaring == {"sqlite", "memory"}, declaring

@@ -108,6 +108,7 @@ from ccf.controlplane.artifacts import (
     RegistrationMode,
     declared_artifact_class,
 )
+from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
 from ccf.skills.grants import SKILL_GRANT
@@ -204,6 +205,13 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # TYPED, not versioned: the contract carries no author lanes. It is
     # deliberately absent from `SDK_VERSIONED_ARTIFACT_CLASSES`.
     TEMPORAL_BOUNDARY_POLICY.class_id: TEMPORAL_BOUNDARY_POLICY,
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11). Manifest-addressable so the
+    # `demonstration_serve_instant:` section can be derived and registered, and a
+    # manifest deployment can register the same class at the same derived key.
+    # TYPED, with no author lanes, like the temporal boundary above. Registering
+    # it does not by itself move any clock: the composition admits it only on the
+    # SDK's development substrates (`ccf.products.demonstration_clock`).
+    DEMONSTRATION_SERVE_INSTANT.class_id: DEMONSTRATION_SERVE_INSTANT,
 }
 
 #: Every SDK-owned artifact class whose contract declares an ``artifact_version``
