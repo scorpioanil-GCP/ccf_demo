@@ -1713,6 +1713,37 @@ neither and recommends neither. The numbers above only show the shape.
   governed them
   (`tests/products/test_resolver_seam.py::test_E6_the_resolved_temporal_policy_pins_its_exact_step3_binding`).
 
+**A demonstration over a frozen dataset can declare its serve instant instead**
+(`D-IMPL-378` C1; SDK-defined). A `demonstration_serve_instant:` section in
+`ccf_config.yaml` makes the resolver serve at the declared instant rather than
+today's, so a demonstration's pinned question does not expire. It is refused
+outside the SDK's development substrates, and every record made under it, served
+or refused, pins it in Decision Replay dimension 2
+(`tests/client/test_demonstration_serve_instant.py::test_a_declaration_over_a_non_development_graph_substrate_is_refused`,
+`::test_a_declaration_over_a_non_file_artifact_store_is_refused`,
+`::test_a_served_record_pins_the_declaration`,
+`::test_a_refusal_record_pins_the_declaration`). **A running service keeps the
+instant it was built with** (ruling C1-late (a), Dave: *"Running services retain
+their startup snapshot. Document that later registration takes effect only after
+rebuilding."*):
+
+- The declaration is read once, when the resolver is built. One registered
+  later does not reach that resolver, so a running service cannot be switched
+  into demonstration mode
+  (`tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_does_not_reach_the_resolver`).
+- It takes effect only in a resolver built after it is registered: a
+  composition root's next `build_governed_resolver` call over the same Control
+  Plane
+  (`tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it`).
+  The in-process adapter boots each deployment once per process from its
+  `ccf_config.yaml` (`src/ccf/client/adapters/inprocess.py::InProcessAdapter._ensure_booted`),
+  so there a declaration takes effect when the process next starts.
+- The paved road never honors a declaration. It builds a resolver for every
+  question but composes its own clock, so a declaration registered after
+  `open_product` makes the next question raise
+  `DemonstrationServeInstantConflict`, by name, before anything is acquired
+  (`tests/client/test_demonstration_serve_instant.py::test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_question`).
+
 ## Validation-error text and caller values (SEC-024, choice C)
 
 Every SDK contract derives from `CCFContract`, which sets pydantic's `hide_input_in_errors`. A rejected value

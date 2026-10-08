@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2329 entries**, of which **2052** name a public Python surface.
+**2331 entries**, of which **2054** name a public Python surface.
 
 ## Added
 
@@ -29951,7 +29951,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-373 entries — 334 public Python surface, 39 not public Python API.
+375 entries — 336 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35534,6 +35534,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.manifest.load_and_boot`
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The docstring said it is called once, and the module docstring said C1-late was not ruled
+- After: same signature and behavior; documentation only. The docstring states that the declaration it reads is the one the resolver serves on for its whole life, and that a later declaration takes effect only when a resolver is built again
+- Why: `D-IMPL-378` C1-late (a): document that later registration takes effect only after rebuilding. Measured by `tests/client/test_demonstration_serve_instant.py::test_a_declaration_registered_after_composition_does_not_reach_the_resolver` and `::test_a_declaration_registered_after_composition_takes_effect_only_in_a_resolver_built_after_it`
+- Migration: none
+
+*Recorded by `378-35-c1late-a-running-service-keeps-its-startup-snapshot.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: same signature and behavior. The constructor's docstring said a declaration is honored and a clock beside it is refused, and did not say when the declaration is read
+- After: same signature and behavior; documentation only. The docstring states that the declaration is read at the deployment's one boot per process, from its `ccf_config.yaml`, and that one declared later takes effect at the deployment's next boot, in a new process
+- Why: `D-IMPL-378` C1-late (a)
+- Migration: none
+
+*Recorded by `378-35-c1late-a-running-service-keeps-its-startup-snapshot.md`.*
 
 #### ccf.controlplane.artifacts.declared_artifact_class
 
