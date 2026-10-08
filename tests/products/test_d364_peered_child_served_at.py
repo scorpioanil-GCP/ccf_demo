@@ -241,7 +241,7 @@ class _OnePeerTransport:
         yield self._inbound
 
 
-def _child_arguments(requirement: ChildRequirement, asked_at: datetime) -> dict[str, str]:
+def _child_arguments(requirement: ChildRequirement, request: ProductRequest) -> dict[str, str]:
     """What the deployment states each of its children is asked.
 
     One mapping for both legs: the peered entry declares the same argument
@@ -251,7 +251,7 @@ def _child_arguments(requirement: ChildRequirement, asked_at: datetime) -> dict[
     """
     return {
         "subject": "acct-1",
-        "asked_at": asked_at.isoformat(),
+        "asked_at": request.asked_at.isoformat(),
         "threshold": "1000",
     }
 

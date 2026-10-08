@@ -21,7 +21,7 @@ import inspect
 import pathlib
 import re
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -274,7 +274,7 @@ def test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_ident
     refusal reason survive on the row (`D-IMPL-336` Amendment 2).
     """
 
-    def a_day_late(requirement: Any, asked_at: datetime) -> dict[str, str]:
+    def a_day_late(requirement: Any, request: Any) -> dict[str, str]:
         return {
             "subject": "acct-1",
             # `D-IMPL-358` step 5 section H: the offset is ONE MINUTE, not one day.
@@ -282,7 +282,7 @@ def test_a_COMPOSITION_refusal_after_acquisition_keeps_the_childs_reported_ident
             # while Gate 3 measured its ceiling from the child's own (future) decision.
             # Measured from the moment of SERVICE, a day-out expiry exceeds MAX_TTL and
             # the child refuses `ttl-bounds` before this test's subject is reached.
-            "asked_at": (asked_at + timedelta(minutes=1)).isoformat(),
+            "asked_at": (request.asked_at + timedelta(minutes=1)).isoformat(),
             "threshold": "1000",
         }
 

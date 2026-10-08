@@ -518,9 +518,9 @@ def build_composite(
         # domain value and cannot know (`D-IMPL-38`).
         child_arguments=child_arguments
         or (
-            lambda requirement, asked_at: {
+            lambda requirement, request: {
                 "subject": "acct-1",
-                "asked_at": asked_at.isoformat(),
+                "asked_at": request.asked_at.isoformat(),
                 "threshold": "1000",
             }
         ),
@@ -743,9 +743,9 @@ def build_higher_composite(
             consumer_scope="consumer://higher-composite",
             registry=registry,
         ),
-        child_arguments=lambda requirement, asked_at: {
+        child_arguments=lambda requirement, request: {
             "subject": "acct-1",
-            "asked_at": asked_at.isoformat(),
+            "asked_at": request.asked_at.isoformat(),
             "threshold": "1000",
         },
         callable_registry=callables,

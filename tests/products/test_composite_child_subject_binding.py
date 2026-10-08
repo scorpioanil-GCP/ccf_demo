@@ -79,8 +79,8 @@ def _deployment(tmp_path: pathlib.Path) -> Iterator[_Booted]:
 def _answering(subject: str) -> Any:
     """What the deployment's skill is handed: a child asked about ``subject``."""
 
-    def arguments(requirement: Any, asked_at: datetime) -> Mapping[str, str]:
-        return {"subject": subject, "asked_at": asked_at.isoformat(), "threshold": "1000"}
+    def arguments(requirement: Any, request: ProductRequest) -> Mapping[str, str]:
+        return {"subject": subject, "asked_at": request.asked_at.isoformat(), "threshold": "1000"}
 
     return arguments
 
@@ -141,7 +141,7 @@ class _OneResourceClient:
     """An MCP client whose one resource is the child door's answer for ``subject``."""
 
     def __init__(self, booted: _Booted, subject: str) -> None:
-        self._answer = _child_door(booted)(_answering(subject)(None, _asked_at()))["outcome"]
+        self._answer = _child_door(booted)(_answering(subject)(None, _composite_request()))["outcome"]
         self.reads: list[str] = []
 
     def read_text(self, uri: str) -> str:
@@ -153,6 +153,17 @@ def _asked_at() -> datetime:
     from tests.products.composite_fixture import ASKED_AT
 
     return ASKED_AT
+
+
+def _composite_request() -> ProductRequest:
+    """The composite's question, as a child-arguments mapping is handed it (SEC-020 P3 (a))."""
+    from tests.products.composite_fixture import PRODUCT_CLASS, PRODUCT_VERSION, THRESHOLD_PARAMETER
+
+    return ProductRequest(
+        schema_name=PRODUCT_CLASS, schema_version=PRODUCT_VERSION, subject=ASKED,
+        intent="fixture-intent", freshness="fixture-freshness", asked_at=_asked_at(),
+        parameters={THRESHOLD_PARAMETER: 1000},
+    )
 
 
 def _mcp_composite(booted: _Booted, subject: str) -> tuple[Any, _OneResourceClient]:
