@@ -1202,9 +1202,17 @@ def govern_dereference(
             resource=ResourceRequestIdentity(
                 surface=surface,
                 address=address,
-                # The door's own tenant: an address ask carries none, and an
-                # absent target has none to carry. Normalized below `full`.
-                tenant_id=refusal_recorder.tenant_id,
+                # The tenant the refused capability was verified for — bound
+                # here to the principal dimension 4 records, so the pair names
+                # who asked (Dave, 2026-10-07; `D-IMPL-378`). It was the door
+                # RECORDER's tenant, and a door serving several tenants through
+                # one recorder then attributed another tenant's refused read to
+                # its own: a colliding principal id of the recorder's tenant
+                # passed holds 0 and 1 on that record and read the address the
+                # other tenant asked for. Decided under this tenant and filed
+                # under the recorder's, such a record is served to nobody by
+                # the provenance check below. Normalized below `full`.
+                tenant_id=authorized.tenant,
                 determined_at=determined_at,
             ),
             policy_bindings=(policy,) if policy is not None else (),
