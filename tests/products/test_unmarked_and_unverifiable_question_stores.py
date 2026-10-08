@@ -394,3 +394,117 @@ def test_p4_strict_control_an_acquisition_composition_over_a_file_store_is_still
     assert m._named(refused.value, "AcquisitionNeedsAQuestionFabric"), repr(refused.value)
     assert not m._named(refused.value, "AcquisitionOverUnverifiableStore"), repr(refused.value)
     assert seam.asked == [], f"the seam must not run: {seam.asked}"
+
+
+# --- 3. verifiable fresh creation: the path is the SDK's, exclusively ------------
+
+
+def _documents(tmp_path: pathlib.Path) -> tuple[pathlib.Path, Any]:
+    """The fixture deployment's manifest and a registry it has registered into, with no store of its own in use."""
+    template = m._boot(tmp_path, "documents", anchor=m.FROM_DECISION, envelopes=(), for_question=False)
+    template[0].handle.close()
+    return tmp_path / "documents" / "manifest.yaml", template[1]
+
+
+def _entities_in(store: pathlib.Path) -> int:
+    """How many entity rows the store holds, read straight from the file (test-side; the fixture store is a file)."""
+    import sqlite3  # noqa: PLC0415
+    from contextlib import closing  # noqa: PLC0415
+
+    with closing(sqlite3.connect(store)) as connection:
+        return int(connection.execute("SELECT COUNT(*) FROM entities").fetchone()[0])
+
+
+def test_p4_strict_a_second_question_boot_of_a_reserved_path_is_refused_by_name(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two boots for a question at one path: the one that did not create the store is refused by name.
+
+    The second boot runs while the first is inside its boot, after the first
+    passed its freshness check and before its store exists — the window a
+    check-then-create leaves. Measured on ``f2ce304c``: the second also
+    passed the check, overwrote the marker, created the store and wrote into
+    it, and the first then booted over that store for its own question.
+    Fresh creation is verifiable only if the path is reserved exclusively.
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    manifest, registry = _documents(tmp_path)
+    store = tmp_path / "question" / _STORE
+    store.parent.mkdir()
+    real_boot = manifest_module.boot
+    second: dict[str, Any] = {}
+
+    def boot_with_a_second_question_inside(**kwargs: Any) -> Any:
+        if not second:
+            second["outcome"] = None
+            try:
+                fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, for_question=True)
+            except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
+                second["outcome"] = raised
+            else:
+                for envelope in m._base_accounts():
+                    fabric.handle.worker.ingest(envelope)
+                fabric.handle.close()
+                second["outcome"] = fabric
+        return real_boot(**kwargs)
+
+    monkeypatch.setattr(manifest_module, "boot", boot_with_a_second_question_inside)
+    first = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, for_question=True)
+    try:
+        held = _entities_in(store)
+    finally:
+        first.handle.close()
+    assert "outcome" in second, "the second boot never ran; the case was not constructed"
+    assert m._named(second["outcome"], "QuestionFabricNotFresh"), (
+        f"a second boot for a question at a path another boot had claimed was not refused by name:"
+        f" {type(second['outcome']).__name__}; the first question's fabric then read a store holding {held} entities"
+    )
+    assert held == 0, f"the first question's fabric must be the fresh store it created; it holds {held} entities"
+
+
+def test_p4_strict_a_store_created_after_the_freshness_check_refuses_the_question_boot(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A store that appears at the path after the freshness check: the boot for a question is refused by name.
+
+    Between the check (before anything is registered) and the boot, the
+    deployment's own plain boot creates the store at the same path and fills
+    it. Measured on ``f2ce304c``: the question boot proceeded over it, booted
+    "for one question" onto a store that already held another boot's writes.
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    manifest, registry = _documents(tmp_path)
+    store = tmp_path / "question" / _STORE
+    store.parent.mkdir()
+    real_register = manifest_module.register_manifest_entries
+    planted: list[str] = []
+
+    def register_then_plant(*args: Any, **kwargs: Any) -> Any:
+        pinned = real_register(*args, **kwargs)
+        if not planted:
+            planted.append("planting")
+            fabric = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)})
+            for envelope in m._base_accounts():
+                fabric.handle.worker.ingest(envelope)
+            fabric.handle.close()
+            planted.append("planted")
+        return pinned
+
+    monkeypatch.setattr(manifest_module, "register_manifest_entries", register_then_plant)
+    held = None
+    try:
+        question: Any = load_and_boot(manifest, registry=registry, connection={"database_path": str(store)}, for_question=True)
+    except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
+        question = raised
+    else:
+        try:
+            held = _entities_in(store)
+        finally:
+            question.handle.close()
+    assert planted == ["planting", "planted"], f"the store was not planted; the case was not constructed: {planted}"
+    assert m._named(question, "QuestionFabricNotFresh"), (
+        f"a boot for a question over a store created after its freshness check was not refused by name:"
+        f" {type(question).__name__}, over a store holding {held} entities"
+    )
