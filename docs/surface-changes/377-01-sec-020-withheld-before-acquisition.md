@@ -22,10 +22,11 @@ fabric once, as an as-of read at the question's boundary, immediately before
 the seam runs. When Π raises the withheld signal, the plan is re-executed
 without the request seed over THAT state, answered by the reference semantics
 (`ccf.graph.fallback.answer`). The walk reads none of the records this
-request's acquisition ingested, and no record is masked. The operator registry
-is not rebuilt: the re-execution reuses the one built from the view read after
-acquisition (see the similarity channel below). Replay dimension 1 keeps the
-real read.
+request's acquisition ingested, and no record is masked. As integrated here,
+the operator registry was not rebuilt: the re-execution reused the one built
+from the view read after acquisition (see the similarity channel below).
+`378-03` builds it from the same read before acquisition. Replay dimension 1
+keeps the real read.
 
 **What this makes equal, as measured.** On the paved road's test fixture, a
 withheld subject's served product, every member of it, and its refusal shell,
@@ -62,7 +63,9 @@ security how-to, section 4.12, states the same list for deployers.
   attribute made the products differ at `computed_empty`, `debt.debt`,
   `debt.factors.freshness` and `debt.scorers`. With no similarity operator,
   with the attribute unchanged, or with the registry built from the view read
-  before acquisition, they did not.
+  before acquisition, they did not. `378-03` builds the re-execution's
+  registry from the read before acquisition, and the two products then
+  matched on both anchors.
 - **A fabric that outlives the question.** The withheld subject's acquisition
   stays in the fabric: after one question about a withheld subject the source
   holds, a later answer about an identifier that names nothing moved at

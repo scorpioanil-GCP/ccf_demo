@@ -1123,14 +1123,25 @@ before the call's declared acquisition seam ran
 **What that makes equal, as measured.** On the paved road's test fixture, a
 withheld subject's served product, every member of it, and its refusal shell,
 every member except `replay_reference`, matched a nonexistent subject's on both
-TTL anchors. That is a measurement, not a proof. The fixture meets four
+TTL anchors. That is a measurement, not a proof. The fixture meets three
 conditions, and the list below includes a measured break of each: your
 `acquire` is keyed on the subject, so an identifier it does not hold acquires
 nothing; the fabric is booted for the question, as the paved road boots one
-per question; the product class composes no child about the subject; and no
-similarity operator in the plan scores an entity the acquisition refreshed.
+per question; and the product class composes no child about the subject.
 The test is
 `tests/products/test_withheld_is_indistinguishable_from_absent.py::test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject`.
+
+**Similarity over an entity the acquisition refreshed (D-IMPL-378).** The
+plan run for a withheld subject now scores with an operator registry built
+from that same read before acquisition, so a similarity operator matches the
+subject's text as it stood before acquisition. On a test fabric that already
+held the subject, an acquisition that changed its similarity text to the query
+used to make the two products differ at the empty finding and the debt. With
+the change they matched on both TTL anchors: every member of the served
+product, and the refusal shell except `replay_reference`. A subject the
+projection does not withhold is still matched against the text its own
+acquisition wrote. The test is
+`tests/products/test_withheld_similarity_registry.py`.
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
@@ -1161,14 +1172,6 @@ a nonexistent one. Each was measured on test fixtures.
   composite's own subject from a source keyed on it, the two products differed
   at `debt.debt` and `debt.factors.freshness`; with the child asked about a
   fixed subject, they did not.
-- **Similarity over an entity the acquisition refreshed.** The re-run reuses
-  the operator registry built from the view read after acquisition, so the
-  similarity operator scores the subject against the text acquisition just
-  wrote. On a fabric that already held the subject, an acquisition that
-  changed its similarity attribute made the two products differ at the empty
-  finding and the debt. Without the similarity operator, with the attribute
-  unchanged, or with the registry built from the view read before
-  acquisition, they did not.
 - **A fabric that outlives the question.** The withheld subject's acquisition
   stays in the fabric, and later questions read it. After one question about a
   withheld subject the source holds, a later answer about an identifier that
@@ -1193,9 +1196,13 @@ egress door and the HTTP product route all return one.
   of the same call with no seam, over two runs of six calls. That is one
   fixture's figure, not a sizing guide.
 - **The withheld branch's own time, measured at one scale only.** A withheld
-  answer runs the plan a second time. On a test fabric of about 1,500
+  answer runs the plan a second time and, with an acquisition seam declared,
+  builds the operator registry a second time. On a test fabric of about 1,500
   entities, withheld and nonexistent answers had medians within 2 percent of
-  each other and overlapping ranges over eight calls each. Larger fabrics and
+  each other and overlapping ranges over eight calls each. With a similarity
+  operator in the plan, the withheld median was 1.06 to 1.08 times the
+  nonexistent one over two runs of eight calls each, with overlapping ranges;
+  before the registry change it was 1.11 in one run. Larger fabrics and
   heavier plans are unmeasured.
 
 ### 4.13 Resume a suspended run from one process, and serialize resumes beyond it (D-IMPL-377)
