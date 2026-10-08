@@ -79,7 +79,9 @@ from ccf.authz.capability import (
     Authorized,
     HitlQueueRead,
     HitlSubmit,
+    Resume,
     verify,
+    verify_any,
 )
 
 __ccf_mode__ = "algorithmic"
@@ -92,10 +94,14 @@ __all__ = [
     "HITLTransportProtocol",
     "ApproverNotEligible",
     "EventStateAtSubmit",
+    "GateAlreadyClosed",
+    "GateClosure",
+    "GateVerdictsChanged",
     "HitlActionReceipt",
     "HitlActionRequest",
     "HitlActionSubmission",
     "HitlEventRevalidationRefused",
+    "HitlGateClosed",
     "HitlPolicy",
     "InMemoryHitlTransport",
     "PendingHitlEvent",
@@ -256,6 +262,71 @@ class ApproverNotEligible(PermissionError):
     A sibling of :class:`PrincipalMismatchRefused`, not of the attestation
     family: eligibility is a policy judgment about a principal the fabric has
     already identified.
+    """
+
+
+class GateClosure(CCFContract):
+    """The authority path's record that one suspension's gate was decided.
+
+    SDK-defined (``D-IMPL-378``; Dave's ruling of 2026-10-07 approved the
+    atomic gate close). Written by :meth:`HITLTransportProtocol.close_gate` in
+    the one atomic step that judged the suspension's recorded verdicts and
+    retired its event, so after it no verdict can join that suspension's
+    population: a later one is refused by name (:class:`HitlGateClosed`).
+
+    It is also the durable claim a retried passage presents. ``passage`` names
+    what was decided — the suspension, the authority submission and the
+    verdict, never who decided it — so a retry of a passage whose commit never
+    landed re-takes this closure instead of a second one, and the workflow
+    engine's conditional passage commit lets exactly one attempt land.
+
+    Attributes:
+        tenant: The capability's tenant.
+        event_key: The gate event's key.
+        product_content_hash: The suspension the decision is about.
+        passage: The deciding passage's identity — the idempotency key a
+            retry of the SAME passage presents again.
+        decided_action: The verdict the passage routes on.
+        decided_by: The authority submission's approver.
+        observed_submissions: How many submissions recorded on this
+            suspension the decision judged.
+        authorizing_decision_id: The ``Resume`` capability's decision id.
+    """
+
+    tenant: str
+    event_key: str
+    product_content_hash: str
+    passage: str
+    decided_action: str
+    decided_by: str
+    observed_submissions: int
+    authorizing_decision_id: str
+
+
+class GateAlreadyClosed(PermissionError):
+    """Another passage already decided this suspension's gate (``D-IMPL-378``).
+
+    Raised by :meth:`HITLTransportProtocol.close_gate`; nothing changed.
+    """
+
+
+class GateVerdictsChanged(PermissionError):
+    """A verdict was recorded on this suspension after the caller read the verdicts (``D-IMPL-378``).
+
+    Raised by :meth:`HITLTransportProtocol.close_gate`. Nothing changed: the
+    gate is still open, and a resumption presented again judges the verdicts
+    that now stand.
+    """
+
+
+class HitlGateClosed(PermissionError):
+    """The suspension this verdict names was already decided (``D-IMPL-378``).
+
+    Raised by :meth:`HITLTransportProtocol.submit` in the step that would have
+    recorded it, before any nonce is consumed or claim popped: nothing is
+    recorded, so a verdict either joined the population the decision judged
+    or is refused by name — never both. The HTTP and MCP action doors answer
+    it with the ``hitl-gate-closed`` code (HTTP 409).
     """
 
 
@@ -905,8 +976,11 @@ class HITLTransportProtocol(Protocol):
     atomic operation of the implementation, because a caller-side
     drain-and-requeue over ``dequeue``/``enqueue`` exposes concurrent
     readers to a partially drained queue and lets two racing resolves
-    double-submit. This docstring is the contract's sole documentation
-    surface (Phase-9 CONTEXT D-05/D-08).
+    double-submit. ``close_gate`` and ``submit`` are atomic with respect to
+    each other (``D-IMPL-378``): a verdict on a suspension is either inside the
+    population that suspension's closure judged, or refused by name. This
+    docstring is the contract's sole documentation surface (Phase-9 CONTEXT
+    D-05/D-08).
     """
 
     def enqueue(self, *, event: PendingHitlEvent) -> None:
@@ -1004,6 +1078,68 @@ class HITLTransportProtocol(Protocol):
         """The tenant's recorded actions, oldest first."""
         ...
 
+    @property
+    def scope(self) -> str:
+        """``"process"`` (no other process reaches the queues) or ``"shared"`` (``D-IMPL-378``).
+
+        A durable transport several processes reach declares ``"shared"``;
+        the workflow engine refuses at construction a ``"shared"`` Control
+        Plane state store paired with a transport that does not.
+        """
+        ...
+
+    def close_gate(
+        self,
+        authorized: Authorized[Resume],
+        *,
+        event_key: str,
+        product_content_hash: str,
+        passage: str,
+        decided_action: str,
+        decided_by: str,
+        observed_submissions: int,
+    ) -> GateClosure:
+        """Decide one suspension's gate once, over the verdicts the caller judged.
+
+        SDK-defined (``D-IMPL-378``; Dave's ruling of 2026-10-07). ``authorized``
+        is the ``Resume`` capability of the resumption deciding the gate,
+        verified for its kind; the tenant is its tenant. ONE atomic step of the
+        implementation, under the same lock or transaction as :meth:`submit`
+        and :meth:`remove`:
+
+        * a closure of ``(tenant, event_key, product_content_hash)`` already
+          recorded is returned when its ``passage`` is this one (a retry of the
+          same passage), and refused when it is another's;
+        * otherwise, when the number of submissions recorded on that
+          suspension (of any action) is not ``observed_submissions``, the call
+          is refused and nothing changes — submissions are append-only, so an
+          equal count is an equal population;
+        * otherwise the closure is recorded, every event under ``event_key``
+          for that suspension is removed from ``pending``, and a claim on one
+          is discarded.
+
+        After it, :meth:`submit` refuses a verdict on that suspension with
+        :class:`HitlGateClosed`, and the queue no longer offers its event. A
+        conforming implementation keeps closures exactly as durable as its
+        submissions: a closure is the durable claim a retried passage presents
+        (:class:`GateClosure`). The behavior under concurrent callers is pinned
+        by ``tests/conformance/test_gate_closure_and_conditional_write.py``.
+
+        Raises:
+            GateAlreadyClosed: another passage decided this suspension.
+            GateVerdictsChanged: a submission was recorded on it since the
+                caller's read; nothing changed.
+        """
+        ...
+
+    def closures(self, *, tenant: str) -> tuple[GateClosure, ...]:
+        """The tenant's gate closures, oldest first (``D-IMPL-378``).
+
+        What an operator reads to reconcile an execution whose passage was
+        interrupted after its commit: the workflow engine never retries one.
+        """
+        ...
+
 
 class InMemoryHitlTransport:
     """In-process reference implementation of :class:`HITLTransportProtocol`.
@@ -1072,9 +1208,16 @@ class InMemoryHitlTransport:
         #: record of which primitive is resolving what (SEC-001 Tier 0).
         #: Guarded by the same lock as the queues.
         self._claims: dict[tuple[str, str], PendingHitlEvent] = {}
+        #: Decided suspensions, keyed ``(tenant, event_key,
+        #: product_content_hash)`` (``D-IMPL-378``). Guarded by the same lock as
+        #: the queues, so a closure and a submission are ordered.
+        self._closures: dict[tuple[str, str, str], GateClosure] = {}
         self._control_plane = control_plane
         self._hitl_policy_key = hitl_policy_key
         self._identity_provider = identity_provider
+
+    #: No other process reaches these queues (``D-IMPL-378``).
+    scope = "process"
 
     @property
     def hitl_policy_key(self) -> str | None:
@@ -1333,6 +1476,18 @@ class InMemoryHitlTransport:
             # (D-IMPL-366 amendment: refused submissions introduce no state
             # mutations; the attestation's nonce is single-use on SUCCESS only).
             again, state_again = self._snapshot_locked(tenant, submission.event_key)
+            if (
+                tenant,
+                submission.event_key,
+                submission.principal.product_content_hash,
+            ) in self._closures:
+                # D-IMPL-378: the suspension this verdict names was decided;
+                # refused before anything is consumed or recorded.
+                raise HitlGateClosed(
+                    f"the gate under {submission.event_key!r} was already"
+                    " decided for the suspension this verdict names; the"
+                    " verdict is refused and nothing was recorded"
+                )
             if state_again != state or again != event:
                 raise HitlEventRevalidationRefused(
                     f"the HITL event under {submission.event_key!r} changed"
@@ -1379,3 +1534,79 @@ class InMemoryHitlTransport:
         """The tenant's recorded actions, oldest first."""
         with self._lock:
             return tuple(self._submissions.get(tenant, ()))
+
+    def close_gate(
+        self,
+        authorized: Authorized[Resume],
+        *,
+        event_key: str,
+        product_content_hash: str,
+        passage: str,
+        decided_action: str,
+        decided_by: str,
+        observed_submissions: int,
+    ) -> GateClosure:
+        """See :meth:`HITLTransportProtocol.close_gate` (``D-IMPL-378``).
+
+        One acquisition of the transport's lock covers the closure lookup, the
+        count, the record and the retirement — the lock :meth:`submit` records
+        under — so a submission is either counted or refused, never both.
+        """
+        verify_any(
+            authorized,
+            kinds=(Resume,),
+            resource=getattr(authorized, "resource", ""),
+        )
+        tenant = authorized.tenant
+        triple = (tenant, event_key, product_content_hash)
+        with self._lock:
+            existing = self._closures.get(triple)
+            if existing is not None:
+                if existing.passage == passage:
+                    return existing
+                raise GateAlreadyClosed(
+                    f"the gate under {event_key!r} was already decided for this"
+                    " suspension by another passage"
+                )
+            recorded = sum(
+                1
+                for item in self._submissions.get(tenant, ())
+                if item.event_key == event_key
+                and item.principal.product_content_hash == product_content_hash
+            )
+            if recorded != observed_submissions:
+                raise GateVerdictsChanged(
+                    f"{recorded} submissions are recorded on this suspension of"
+                    f" {event_key!r}, not the {observed_submissions} the decision"
+                    " judged; nothing was decided"
+                )
+            closure = GateClosure(
+                tenant=tenant,
+                event_key=event_key,
+                product_content_hash=product_content_hash,
+                passage=passage,
+                decided_action=decided_action,
+                decided_by=decided_by,
+                observed_submissions=observed_submissions,
+                authorizing_decision_id=authorized.decision_id,
+            )
+            self._closures[triple] = closure
+            queue = self._pending.get(tenant)
+            if queue:
+                self._pending[tenant] = deque(
+                    event
+                    for event in queue
+                    if not (
+                        event.event_key == event_key
+                        and event.product_content_hash == product_content_hash
+                    )
+                )
+            claimed = self._claims.get((tenant, event_key))
+            if claimed is not None and claimed.product_content_hash == product_content_hash:
+                del self._claims[(tenant, event_key)]
+            return closure
+
+    def closures(self, *, tenant: str) -> tuple[GateClosure, ...]:
+        """The tenant's gate closures, oldest first (``D-IMPL-378``)."""
+        with self._lock:
+            return tuple(c for c in self._closures.values() if c.tenant == tenant)

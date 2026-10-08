@@ -989,10 +989,16 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:   contradictions"*): a governed "no" is a determination the fabric reached,
 #:   while two contradicting authoritative inputs are a state in which it
 #:   cannot determine what is true.
+#: * ``StateConflict`` — raised by a Control Plane state store's conditional
+#:   write when the record moved after its writer read it (``D-IMPL-378``). The
+#:   workflow engine turns it into its own typed resumption refusal, so no
+#:   consumer receives it as a determination: it is the store reporting a
+#:   concurrent writer, a state in which the write cannot proceed, never a
+#:   governed "no" about a product.
 #:
-#: The last two joined in ``24.6-L-07`` for the reason ``DefaultConflict``
-#: joined the allowlist above: the structural walk widened to the ``…Conflict``
-#: name family so that
+#: ``WebhookEndpointConflict`` and ``FragmentFamilyConflict`` joined in
+#: ``24.6-L-07`` for the reason ``DefaultConflict`` joined the allowlist above:
+#: the structural walk widened to the ``…Conflict`` name family so that
 #: :class:`~ccf.products.constraints.PolicyResolutionConflict` could not enter
 #: the vocabulary by exemption, and widening a walk means placing everything it
 #: then finds. Both are pre-existing ``ValueError`` subclasses and neither
@@ -1014,6 +1020,7 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
         "WebhookEndpointConflict",
         "FragmentFamilyConflict",
         "ConstraintEffectivityConflict",
+        "StateConflict",
     }
 )
 
