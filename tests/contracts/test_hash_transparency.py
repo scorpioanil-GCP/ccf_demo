@@ -460,6 +460,12 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.deployment.environment.EnvironmentDocument.sources",
         "ccf.deployment.environment.EnvironmentDocument.door",
         "ccf.deployment.environment.EnvironmentDocument.remote",
+        # `D-IMPL-378` C2-A2 (a): the door block's two address names became
+        # optional, defaulting to `None`. Marked on the precedent of the four
+        # defaults above: the environment document is never content-hashed
+        # into anything, and the mark says so structurally.
+        "ccf.deployment.environment.DoorEnvironment.issuer_url",
+        "ccf.deployment.environment.DoorEnvironment.resource_server_url",
         "ccf.operators.params.TraversalNeighborhoodParameters.admitted_entity_classes",
         "ccf.controlplane.artifacts.TraversalNeighborhoodParametersArtifact.admitted_entity_classes",
         "ccf.operators.params.TraversalDescendantsParameters.admitted_entity_classes",
