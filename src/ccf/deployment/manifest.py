@@ -223,27 +223,32 @@ class QuestionFabricNotFresh(ValueError):
     """A fabric booted for one question would not be a fresh one.
 
     SEC-020, ``D-IMPL-378`` (Q9). A question fabric holds nothing another
-    question wrote: the boot verifies the substrate does not exist yet, which
-    it can do for the development SQLite substrate (a file path that names no
-    file, as the paved road mints one per question) and for no other — a
-    network store cannot be shown to be fresh by its connection settings, so it
-    is refused rather than assumed. Raised before anything is registered or
-    booted.
+    question wrote: the boot verifies it from the adapter's own validated
+    connection settings — every path-valued setting must name a path that does
+    not exist yet, and there must be one. A file-backed development substrate,
+    minted at a new path per question as the paved road mints it, passes; a
+    substrate whose settings name no path (a network store's address and
+    credentials) cannot be shown fresh by them and is refused rather than
+    assumed. Raised before anything is registered or booted.
     """
 
 
 def _refuse_unless_fresh(backend: str, connection: Mapping[str, object] | None) -> None:
-    """Raise :class:`QuestionFabricNotFresh` unless ``connection`` names a SQLite file that does not exist yet."""
-    from ccf.graph.backends.sqlite_write import ADAPTER_NAME as SQLITE  # noqa: PLC0415 — the one adapter it can verify
-
-    path = (connection or {}).get("database_path")
-    if backend != SQLITE or not isinstance(path, (str, Path)):
+    """Raise :class:`QuestionFabricNotFresh` unless the adapter's connection names only paths that do not exist yet."""
+    record = resolve(backend)
+    config_model = record.registration.config_model
+    validated = validate_connection(
+        record.registration,
+        _without_lock_directory_setting(config_model, connection or {}),
+    )
+    paths = [value for value in vars(validated).values() if isinstance(value, Path)]
+    if not paths:
         raise QuestionFabricNotFresh(
-            f"a fabric booted for one question must be a fresh one, and only a"
-            f" {SQLITE!r} file that does not exist yet can be verified fresh;"
-            f" this boot names the {backend!r} adapter (SEC-020, Q9)"
+            f"a fabric booted for one question must be a fresh one, and the"
+            f" {backend!r} adapter's connection names no path whose absence"
+            " could show it fresh (SEC-020, Q9)"
         )
-    if Path(path).exists():
+    if any(path.exists() for path in paths):
         raise QuestionFabricNotFresh(
             "a fabric booted for one question must be a fresh one, and the"
             " store this boot names already exists — another question may have"
