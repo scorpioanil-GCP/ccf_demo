@@ -51,7 +51,7 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.signal.envelope import SignalEnvelope
 from ccf.controlplane.artifacts import HalfLifeTable
 from ccf.products.product import AcquisitionContext
-from ccf.products.contract import ContextProductContract, ProductLineage
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract, ProductLineage
 from ccf.products.expiry import (
     TTLAnchorResolution,
     TTLAnchorUndeclared,
@@ -287,7 +287,9 @@ def test_c8_an_evidence_anchored_composite_floors_on_its_anchor_and_its_children
     # was reached. Fourteen ends at +9min: clear of the serving instant, and still
     # BEFORE the child's ten-minute window, which is the premise below.
     parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
-    config = fixture.consumer_config()
+    # `D-IMPL-378` P2 (c): opened with `project=fixture.plan_factory`, whose projection
+    # never raises the withheld signal, so the composite's class states it never withholds.
+    config = fixture.consumer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     row = dict(config["half_life"][ENTITY_CLASS]); row["decay_basis"] = "valid-from"
     config["half_life"] = {ENTITY_CLASS: row}
@@ -413,7 +415,7 @@ def test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant(
     # was reached. Fourteen ends at +9min: clear of the serving instant, and still
     # BEFORE the child's ten-minute window, which is the premise below.
     parent_observed, parent_window = ASKED_AT - timedelta(minutes=5), timedelta(minutes=14)
-    config = fixture.consumer_config()
+    config = fixture.consumer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)  # as above (P2 (c))
     config["product_class"]["ttl_anchor"] = "from_entity_freshness"
     config["product_class"]["constituent_validity_floors"] = {
         "min_validity_seconds_by_signal": {fixture.CHILD_CLASS: floor_seconds}

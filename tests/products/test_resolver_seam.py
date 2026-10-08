@@ -74,7 +74,7 @@ from ccf.graph.protocols import GraphQuery, GraphReader, GraphView
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
 from ccf.halflife.debt import DebtAssessment, DebtFactors, DebtSignal, context_debt
 from ccf.products.constraints import ReferencePolicyConstraintResolver
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, ContextProductContract
 from ccf.products.debt_scorer import ExecutionEvidence
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.gates import DEBT_TOLERANCE_PARAMETER, GATE_TTL_BOUNDS
@@ -2353,6 +2353,11 @@ def booted_composite(tmp_path: pathlib.Path) -> Iterator[_Booted]:
         next(doc for key, *_rest, doc in ARTIFACT_SET if key == PRODUCT_CLASS_KEY)
     )
     product_class["requires"] = _COMPOSITE_REQUIRES
+    # `D-IMPL-378` P2 (c): every composite built over this fixture — here and in
+    # `tests/products/test_served_at_severings.py` — is wired with `_plan_factory`,
+    # whose projection (`_ThresholdProjection`) never raises the withheld signal,
+    # so the class states it never withholds its subject.
+    product_class["subject_withholding"] = SUBJECT_WITHHOLDING_NEVER
     yield from _boot(tmp_path, product_class=product_class)
 
 

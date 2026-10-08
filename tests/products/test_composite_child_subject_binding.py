@@ -43,6 +43,7 @@ from typing import Any
 import pytest
 
 from ccf.products.composite import ChildAdmissionRefusal, CompositeAdmissionGate
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.request import ProductRequest
 from ccf.replay.record import DecisionReplayRecord
 from ccf.replay.serve import ServedProduct
@@ -68,7 +69,11 @@ MCP_URI = "ccf://fixture/child-product"
 @contextlib.contextmanager
 def _deployment(tmp_path: pathlib.Path) -> Iterator[_Booted]:
     tmp_path.mkdir(parents=True, exist_ok=True)
-    generator = boot_composite(tmp_path)
+    # `D-IMPL-378` P2 (c): every composite built over this deployment is wired with
+    # `tests/products/test_resolver_seam.py::_plan_factory`, whose projection never
+    # raises the withheld signal (`ProjectionOutput.withheld` stays False), so the class
+    # states it never withholds its subject.
+    generator = boot_composite(tmp_path, subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     booted = next(generator)
     try:
         yield booted
