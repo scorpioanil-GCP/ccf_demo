@@ -94,6 +94,10 @@ from ccf.controlplane.artifacts import (
     PolicyFilterParametersArtifact,
     load_artifact,
 )
+from ccf.controlplane.demonstration_serve_instant import (
+    DEMONSTRATION_SERVE_INSTANT,
+    refuse_misplaced_demonstration_serve_instants,
+)
 from ccf.controlplane.registry import (
     namespaced_key,
     ControlPlaneProtocol,
@@ -928,7 +932,28 @@ def register_manifest_entries(
 
     Returns:
         One pin per registered entry, in manifest order.
+
+    Raises:
+        ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced:
+            the manifest declares a demonstration serve instant the composition
+            would never read — at a key other than the tenant's derived one —
+            refused before anything is registered (`D-IMPL-378` C1).
     """
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11), BEFORE the loop: a
+    # demonstration serve instant is read from ONE key per tenant, so one
+    # declared anywhere else would boot and silently do nothing. Over every
+    # entry of the class, whatever `only` names — this is the one loop both boot
+    # doors and the paved road run, and a composition root may call it directly.
+    # Two entries at one key never get here: `manifest_under_tenant` refuses them
+    # for every class (`ManifestKeysPlaceToOneKey`).
+    refuse_misplaced_demonstration_serve_instants(
+        keys=[
+            entry.key
+            for entry in manifest.artifacts
+            if entry.class_id == DEMONSTRATION_SERVE_INSTANT.class_id
+        ],
+        tenant_id=tenant,
+    )
     pinned: list[ArtifactPin] = []
     for entry in manifest.artifacts:
         if only is not None and entry.key not in only:

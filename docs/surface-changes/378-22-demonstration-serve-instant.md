@@ -234,6 +234,46 @@ declaration).
 - Why: as for `SDK_ARTIFACT_ROLES`
 - Migration: none
 
+## ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced
+- Public surface: true
+- Change type: added
+- Before: absent — five declarations of the class booted cleanly and were never honored (lane `378d-democlock` residual (e) and its sweep): one at another key, one written under another tenant (key placement confines it to `{tenant}/other-tenant/…` rather than refusing), two entries one of them misplaced, two entries placing to one key (the first instant silently replaced), and a second version registered before composition (the latest silently winning)
+- After: a `ValueError` carrying `reason`, `keys` and the `expected` derived key: `misplaced-key` at boot, before anything is registered, naming each declaration not at the derived key (P1, P2, and the misplaced one of P3a); `several-declarations` at composition, when the Control Plane holds several versions (P8). P3b — two entries placing to one key — is refused for every class by `ccf.deployment.manifest.manifest_under_tenant` (`ManifestKeysPlaceToOneKey`, lane `378d-placement`), so this class carries no rule of its own for it
+- Why: a declaration the composition never reads is a control that silently does nothing; the deployment serves on its real clock, or on another declaration, while its documents say otherwise. Measured by `tests/deployment/test_demonstration_serve_instant_placement.py`
+- Migration: a manifest declares at most one `ccf.demonstration-serve-instant`, at `key: ccf.demonstration-serve-instant`; a composition root registers at most one version per tenant
+
+## ccf.controlplane.demonstration_serve_instant.refuse_misplaced_demonstration_serve_instants
+
+- Surface: ccf.controlplane.demonstration_serve_instant.refuse_misplaced_demonstration_serve_instants
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a pure check over the keys of every manifest entry of the class as the register loop receives them: every one must be `{tenant}/ccf.demonstration-serve-instant`, and each that is not raises `DemonstrationServeInstantMisplaced` (`misplaced-key`). It has no branch for two declarations at one key: the manifest contract refuses a key declared twice, and `manifest_under_tenant` refuses two keys placing to one, so that case cannot arrive — measured, including the route of a composition root calling the loop directly, where the two entries arrive as different keys and one is refused as misplaced
+- Why: as for `DemonstrationServeInstantMisplaced`
+- Migration: none
+
+## ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: behavior
+- Before: registered every `role: register` entry with no check of where a demonstration serve instant was declared
+- After: same signature. Before anything is registered it runs `refuse_misplaced_demonstration_serve_instants` over every entry of the class, whatever `only` names. This is the one loop both boot doors (`load_and_boot`, `load_config_and_boot`) and the paved road (`open_product`) run, and a composition root may call it directly (cp-20's deployment does). The config door cannot misplace a declaration in the first place: its section derives the key and refuses a stated one, and every other section's derivation injects `semver`, which the contract refuses at parse
+- Why: as for `DemonstrationServeInstantMisplaced`
+- Migration: none for a deployment that declares the class once, at the derived key
+
+## ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: with several versions of the tenant's declaration on the Control Plane, composed on the latest
+- After: refuses with `DemonstrationServeInstantMisplaced` (`several-declarations`), naming the versions, where the Control Plane offers the unaudited `versions` read
+- Why: the latest silently winning makes every other declaration do nothing
+- Migration: none
+
 ## ccf.demonstration-serve-instant
 
 - Surface: ccf.demonstration-serve-instant

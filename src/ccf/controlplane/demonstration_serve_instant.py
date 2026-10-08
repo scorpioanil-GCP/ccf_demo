@@ -25,10 +25,20 @@ What this module is, and is not
 It is the Control Plane half only, on the precedent of
 `ccf.controlplane.temporal_boundary`: the typed contract, its artifact class,
 the per-tenant key, and a resolution that keeps the registered version beside
-the value. **It reads no clock and enforces nothing.** It never takes an instant
-from a request, a caller or the environment: the only way an instant reaches a
-fabric is this artifact, registered at composition from the deployment's own
-config (`demonstration_serve_instant:` in ``ccf_config.yaml``).
+the value. **It reads no clock and enforces nothing at serve time.** It never
+takes an instant from a request, a caller or the environment: the only way an
+instant reaches a fabric is this artifact, registered at composition from the
+deployment's own config (`demonstration_serve_instant:` in ``ccf_config.yaml``)
+or manifest.
+
+It also holds the one boot-time check of WHERE a declaration was put
+(:func:`refuse_misplaced_demonstration_serve_instants`), because the composition
+reads exactly one key per tenant and a declaration anywhere else would boot and
+silently do nothing (lane ``378d-democlock`` residual (e)). The check is pure;
+`ccf.deployment.manifest.register_manifest_entries` calls it before anything is
+registered. Two declarations at ONE key never reach it: the manifest contract
+refuses a key declared twice, and `ccf.deployment.manifest.manifest_under_tenant`
+refuses two keys that place to one for every class (``ManifestKeysPlaceToOneKey``).
 
 Absence is the ordinary case and it means the real clock. Nothing here invents an
 instant for a tenant that declared none (`D-IMPL-38`).
@@ -39,9 +49,10 @@ from __future__ import annotations
 #: CINV-03: nothing here calls a model and nothing here reads a clock.
 __ccf_mode__ = "algorithmic"
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, Literal
 
 from pydantic import field_validator
 
@@ -56,8 +67,10 @@ __all__ = [
     "DEMONSTRATION_SERVE_INSTANT",
     "DemonstrationServeInstant",
     "DemonstrationServeInstantMisdeclared",
+    "DemonstrationServeInstantMisplaced",
     "PinnedDemonstrationServeInstant",
     "demonstration_serve_instant_key",
+    "refuse_misplaced_demonstration_serve_instants",
     "resolve_demonstration_serve_instant",
 ]
 
@@ -119,6 +132,83 @@ class DemonstrationServeInstantMisdeclared(TypeError):
     the real clock, and reporting a wrong artifact as absent would silently
     serve on the real clock a deployment that believed it had declared one.
     """
+
+
+#: Why a declaration was refused as one the composition would never read.
+MisplacedReason = Literal["misplaced-key", "several-declarations"]
+
+
+class DemonstrationServeInstantMisplaced(ValueError):
+    """A declaration the composition would silently never read, refused by name.
+
+    The composition reads ONE key per tenant,
+    :func:`demonstration_serve_instant_key`, and reads it once. A declaration at
+    any other key — including one written under another tenant, which key
+    placement confines rather than refuses — would boot and do nothing, and so
+    would every version but the latest of several on the Control Plane: the
+    deployment would serve on its real clock, or on another declaration, with
+    nothing saying so (lane ``378d-democlock`` residual (e)).
+
+    Attributes:
+        reason: ``misplaced-key`` — raised at boot, before anything is
+            registered, for declarations not at the derived key; or
+            ``several-declarations`` — raised at composition, when the Control
+            Plane holds several versions at the derived key.
+        keys: For ``misplaced-key``, each misplaced declaration's key as the
+            register loop received it; for ``several-declarations``, the derived
+            key once per version.
+        expected: The key the composition reads for this tenant.
+    """
+
+    def __init__(
+        self, message: str, *, reason: MisplacedReason, keys: tuple[str, ...], expected: str
+    ) -> None:
+        super().__init__(message)
+        self.reason: MisplacedReason = reason
+        self.keys = keys
+        self.expected = expected
+
+
+def refuse_misplaced_demonstration_serve_instants(
+    *, keys: Sequence[str], tenant_id: str
+) -> None:
+    """Refuse every declaration that is not at the derived key, the one place the composition reads.
+
+    ``keys`` are the keys of every manifest entry of this class as the register
+    loop receives them: placed under the tenant by
+    `ccf.deployment.manifest.manifest_under_tenant` on every boot door and the
+    paved road, so a key an author wrote under another tenant arrives confined
+    beneath this one; or unplaced, when a composition root calls the loop
+    directly. Either way, a key other than :func:`demonstration_serve_instant_key`
+    is refused. Pure: no registry, no clock.
+
+    **No branch for several declarations at one key, deliberately.** That case
+    cannot arrive here: the manifest contract refuses a key declared twice, and
+    `manifest_under_tenant` refuses two keys that place to one for every class
+    (``ManifestKeysPlaceToOneKey``); on the direct route, two such entries arrive
+    as two different keys and one of them is refused here as misplaced. With
+    every declaration required at the one derived key, at most one passes.
+
+    Raises:
+        DemonstrationServeInstantMisplaced: ``misplaced-key``, naming every
+            declaration not at the derived key.
+    """
+    expected = demonstration_serve_instant_key(tenant_id=tenant_id)
+    misplaced = tuple(key for key in keys if key != expected)
+    if misplaced:
+        raise DemonstrationServeInstantMisplaced(
+            f"this deployment declares a demonstration serve instant at"
+            f" {', '.join(repr(key) for key in misplaced)}, and the composition"
+            f" reads only {expected!r} — so the declaration would boot and never be"
+            " honored, and the deployment would serve on its real clock or on"
+            " another declaration. Declare it once, at the derived key (in a"
+            " manifest, `key: ccf.demonstration-serve-instant`; the"
+            " `demonstration_serve_instant:` config section always derives it)"
+            " (D-IMPL-378 C1)",
+            reason="misplaced-key",
+            keys=misplaced,
+            expected=expected,
+        )
 
 
 @dataclass(frozen=True)

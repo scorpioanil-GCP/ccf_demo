@@ -40,6 +40,13 @@ The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
 6. **Audit by construction.** :class:`DeclaredServeClock` carries the
    declaration's exact pin, and the resolver appends it to dimension 2 of every
    record it writes while serving on this clock — served and refused alike.
+7. **Never silently ignored.** A tenant whose Control Plane holds several
+   versions of its declaration is refused at composition
+   (`ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced`)
+   rather than served on whichever was registered last; a declaration at the
+   wrong key is refused at boot by the same class before anything is registered,
+   and two manifest entries at one key are refused for every class by
+   `ccf.deployment.manifest.manifest_under_tenant` (``ManifestKeysPlaceToOneKey``).
 
 This module is algorithmic (CINV-03): no model, no clock read of its own.
 """
@@ -53,6 +60,7 @@ from typing import TYPE_CHECKING, Literal
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.controlplane.demonstration_serve_instant import (
+    DemonstrationServeInstantMisplaced,
     PinnedDemonstrationServeInstant,
     demonstration_serve_instant_key,
     resolve_demonstration_serve_instant,
@@ -197,14 +205,31 @@ def compose_serve_clock(
             an identity test rather than a guess.
 
     Raises:
+        ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced:
+            the Control Plane holds several versions of the tenant's
+            declaration, so whichever was registered last would silently win.
         DemonstrationServeInstantConflict: the caller composed its own clock and
             the deployment declares an instant.
         DemonstrationServeInstantRefused: the declaration sits on a substrate
             that is not a development reference.
     """
     key = demonstration_serve_instant_key(tenant_id=fabric.tenant_id)
-    if isinstance(control_plane, PinnedPolicySource) and not control_plane.versions(key):
-        return admission_clock
+    if isinstance(control_plane, PinnedPolicySource):
+        versions = control_plane.versions(key)
+        if not versions:
+            return admission_clock
+        # Several declarations: the latest would win and every other would
+        # silently do nothing, so composition refuses rather than choosing.
+        if len(versions) > 1:
+            raise DemonstrationServeInstantMisplaced(
+                f"{key!r} holds {len(versions)} versions of this tenant's"
+                f" demonstration serve instant ({', '.join(versions)}); a tenant"
+                " serves at one, and composing on the latest would silently"
+                " ignore the rest. Register exactly one (D-IMPL-378 C1)",
+                reason="several-declarations",
+                keys=tuple(key for _ in versions),
+                expected=key,
+            )
     pinned = resolve_demonstration_serve_instant(
         registry=control_plane, tenant_id=fabric.tenant_id
     )

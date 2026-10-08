@@ -2400,8 +2400,10 @@
       "DEMONSTRATION_SERVE_INSTANT",
       "DemonstrationServeInstant",
       "DemonstrationServeInstantMisdeclared",
+      "DemonstrationServeInstantMisplaced",
       "PinnedDemonstrationServeInstant",
       "demonstration_serve_instant_key",
+      "refuse_misplaced_demonstration_serve_instants",
       "resolve_demonstration_serve_instant"
     ],
     "exports": {
@@ -2419,6 +2421,10 @@
         "kind": "class",
         "shape": "type"
       },
+      "DemonstrationServeInstantMisplaced": {
+        "kind": "class",
+        "shape": "(message: 'str', *, reason: 'MisplacedReason', keys: 'tuple[str, ...]', expected: 'str') -> 'None'"
+      },
       "PinnedDemonstrationServeInstant": {
         "kind": "class",
         "shape": "(key: 'str', version: 'str', declaration: 'DemonstrationServeInstant') -> None"
@@ -2426,6 +2432,10 @@
       "demonstration_serve_instant_key": {
         "kind": "function",
         "shape": "(*, tenant_id: 'str') -> 'str'"
+      },
+      "refuse_misplaced_demonstration_serve_instants": {
+        "kind": "function",
+        "shape": "(*, keys: 'Sequence[str]', tenant_id: 'str') -> 'None'"
       },
       "resolve_demonstration_serve_instant": {
         "kind": "function",
