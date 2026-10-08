@@ -104,7 +104,9 @@ def _refused(boot: Callable[[ControlPlaneRegistry], BootedFabric]) -> tuple[Base
     return raised.value, registry
 
 
-def _assert_named(refusal: BaseException, *, authored: tuple[str, str], placed: str) -> None:
+def _assert_named(
+    refusal: BaseException, *, authored: tuple[str, str], placed: str, tenant: str = TENANT
+) -> None:
     """The guard's own refusal, by name: both authored keys, in manifest order, and the placed key."""
     assert type(refusal).__name__ == REFUSAL, f"{type(refusal).__name__}: {refusal}"
     # Every other boot refusal in this module is a ValueError; a caller that
@@ -112,7 +114,7 @@ def _assert_named(refusal: BaseException, *, authored: tuple[str, str], placed: 
     assert isinstance(refusal, ValueError), type(refusal).__mro__
     assert getattr(refusal, "authored_keys", None) == authored, refusal
     assert getattr(refusal, "placed_key", None) == placed, refusal
-    assert getattr(refusal, "tenant", None) == TENANT, refusal
+    assert getattr(refusal, "tenant", None) == tenant, refusal
     for key in (*authored, placed):
         assert repr(key) in str(refusal), f"the refusal does not name {key!r}: {refusal}"
 
@@ -344,3 +346,31 @@ def test_placement_itself_refuses_two_entries_placing_to_one_key_whatever_parsed
         manifest_under_tenant(manifest, {}, None, tenant=TENANT)
 
     _assert_named(raised.value, authored=(HALF_LIFE_KEY, BARE_HALF_LIFE_KEY), placed=HALF_LIFE_KEY)
+
+
+# ---------------------------------------------------------------------------
+# The paved road: `open_product` boots each question through `load_config_and_boot`.
+# ---------------------------------------------------------------------------
+
+
+def test_the_paved_road_refuses_a_config_whose_sections_place_to_one_key(tmp_path: pathlib.Path) -> None:
+    """``debt_profile:`` keyed onto the ``half_life:`` section's placed key: refused at the first question's boot.
+
+    Before the guard the same question met the late ``TypeError`` instead (a
+    ``DebtProfile`` registered under the half-life class), after the boot had
+    registered the entries ahead of it. The paved road boots nothing at open, so
+    the boot refusal arrives from ``answer``, as every boot refusal there does.
+    """
+    from tests.deployment.test_replay_binding import TENANT as PAVED_TENANT
+    from tests.products import test_paved_road as paved
+
+    placed = f"{PAVED_TENANT}/half_life"
+    config = paved._config()
+    config["debt_profile"] = {"key": placed, **config["debt_profile"]}
+    root = paved._write_tree(tmp_path, config=config)
+
+    with paved._open(root, tmp_path / "scratch") as opened:
+        with pytest.raises((ValueError, TypeError)) as raised:
+            opened.answer(paved._question(opened))
+
+    _assert_named(raised.value, authored=("half_life", placed), placed=placed, tenant=PAVED_TENANT)
