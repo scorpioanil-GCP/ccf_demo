@@ -1177,6 +1177,11 @@ def load_and_boot(
         ccf.controlplane.artifacts.ArtifactLoadError: the manifest or any
             artifact document is not valid YAML, or does not satisfy its
             declared class contract.
+        ccf.controlplane.artifacts.ArtifactClassIdMismatch: an entry's
+            document states a ``class_id`` other than the class the entry
+            names, whatever the entry's role. A ``ValueError``, raised while
+            every document is parsed, before anything is minted or registered
+            (``D-IMPL-378``).
         OSError: the manifest or a named artifact document cannot be read.
     """
     manifest_file = Path(manifest_path)

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2284 entries**, of which **2009** name a public Python surface.
+**2295 entries**, of which **2020** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1278 entries — 1234 public Python surface, 44 not public Python API.
+1280 entries — 1236 public Python surface, 44 not public Python API.
 
 ### Public Python surface
 
@@ -18884,6 +18884,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
 
+#### ccf.controlplane.artifact_base.ArtifactClassIdMismatch
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClassIdMismatch
+- Public surface: true
+- Change type: added
+- Before: absent. A document stating one class was parsed, registered, audited and pinned as another with no error
+- After: a refusal that is both a `TypeError` and a `ValueError`, raised by `ArtifactClass.validate` when the artifact's contract declares a top-level `class_id` and the artifact states a class other than the `ArtifactClass`'s own. Its attributes are `presented_class_id` (the class it was parsed or registered as) and `document_class_id` (the class it states), and its message names both
+- Why: `D-IMPL-378`, lane 378d-classid. A Control Plane document filed as a class it says it is not splits one fact across the audit plane, the pin and the artifact. Red tests: `tests/controlplane/test_artifact_class_identity.py::test_a_document_stating_another_class_is_refused_at_parse`, `::test_register_typed_refuses_an_artifact_stating_another_class_and_registers_nothing`, `::test_register_versioned_refuses_an_artifact_stating_another_class_and_registers_nothing`
+- Migration: none; additive
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClassIdMismatch
+
+- Surface: ccf.controlplane.artifacts.ArtifactClassIdMismatch
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the same class as `ccf.controlplane.artifact_base.ArtifactClassIdMismatch`, re-exported beside `ArtifactClass` and `ArtifactLoadError`
+- Why: `D-IMPL-378`, lane 378d-classid; the refusal is raised through `parse_artifact` and `load_artifact`, so it is named where they are
+- Migration: none; additive
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -29699,7 +29723,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-349 entries — 310 public Python surface, 39 not public Python API.
+358 entries — 319 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35018,6 +35042,114 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.config.load_config_and_boot`
 
 *Recorded by `378-26-manifest-keys-placing-to-one-key.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: same constructor. `validate` checked only that the artifact is an instance of the contract
+- After: same constructor. `validate` also raises `ArtifactClassIdMismatch` when the artifact's contract declares a top-level `class_id` and the artifact states a class other than this one. The predicate is read from the artifact, so it holds however the `ArtifactClass` was built
+- Why: `D-IMPL-378`, lane 378d-classid. Red tests: `tests/controlplane/test_artifact_class_identity.py::test_register_typed_refuses_an_artifact_stating_another_class_and_registers_nothing`, `::test_register_versioned_refuses_an_artifact_stating_another_class_and_registers_nothing`
+- Migration: a caller that validated an open-envelope artifact against a class it does not state now meets the refusal. Present it as the class it states, or correct its `class_id`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`
+- After: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.parse_artifact
+
+- Surface: ccf.controlplane.artifacts.parse_artifact
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A document stating a `class_id` other than the class it was parsed as was returned
+- After: same signature. The validated document is held to the class by `ArtifactClass.validate`, so that document raises `ArtifactClassIdMismatch` (a `ValueError`) instead of being returned
+- Why: `D-IMPL-378`, lane 378d-classid. Red test: `tests/controlplane/test_artifact_class_identity.py::test_a_document_stating_another_class_is_refused_at_parse`
+- Migration: correct the document's `class_id`, or parse it as the class it states
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.load_artifact
+
+- Surface: ccf.controlplane.artifacts.load_artifact
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifacts.parse_artifact`, from YAML text
+- After: as `ccf.controlplane.artifacts.parse_artifact`, which it calls
+- Why: `D-IMPL-378`, lane 378d-classid. Red test: `tests/controlplane/test_artifact_class_identity.py::test_a_document_stating_another_class_is_refused_at_parse`
+- Migration: as `ccf.controlplane.artifacts.parse_artifact`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.DeclaredArtifact
+
+- Surface: ccf.controlplane.artifacts.DeclaredArtifact
+- Public surface: true
+- Change type: behavior
+- Before: same fields. Its `class_id` was carried and never compared with the class it was parsed or registered as
+- After: same fields. Its `class_id` is held to the class it is presented as by `ArtifactClass.validate`
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: none for a document stating its own class
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.artifacts.declared_artifact_class
+
+- Surface: ccf.controlplane.artifacts.declared_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: same signature. The class it returned admitted an envelope stating any `class_id`
+- After: same signature. The class it returns admits an envelope stating its own `class_id` only
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: none for a document stating its own class
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: same signatures. `register_typed` and `register_versioned` registered an artifact stating a `class_id` other than `artifact_class`'s, bound the key to `artifact_class` and audited it
+- After: same signatures. Both raise `ArtifactClassIdMismatch` (a `TypeError`) from `artifact_class.validate`, before anything is stored or audited
+- Why: `D-IMPL-378`, lane 378d-classid. Red tests: `tests/controlplane/test_artifact_class_identity.py::test_register_typed_refuses_an_artifact_stating_another_class_and_registers_nothing`, `::test_register_versioned_refuses_an_artifact_stating_another_class_and_registers_nothing`
+- Migration: register an artifact under the class it states
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: same signature. An entry whose document stated a `class_id` other than the entry's class booted: the document was registered and pinned as the entry's class (`role: register`) or handed back under it (`role: load`)
+- After: same signature. It raises `ArtifactClassIdMismatch` (a `ValueError`) while every document is parsed, before anything is minted or registered, whatever the entry's role
+- Why: `D-IMPL-378`, lane 378d-classid. Red tests: `tests/deployment/test_document_class_identity.py::test_a_register_entry_whose_document_states_another_class_is_refused_at_boot`, `::test_a_load_entry_whose_document_states_another_class_is_refused_at_boot`
+- Migration: a manifest whose entry names a class its document does not state boots no longer. Make the entry's `class_id` and the document's `class_id` the same class
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.deployment.load_and_boot
+
+- Surface: ccf.deployment.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.load_and_boot`
+- After: as `ccf.deployment.manifest.load_and_boot`, which this name re-exports
+- Why: `D-IMPL-378`, lane 378d-classid
+- Migration: as `ccf.deployment.manifest.load_and_boot`
+
+*Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
 
 ### Not public Python API
 

@@ -32,7 +32,12 @@ Three things live here, and they are the three the cycle turned on:
 * :class:`ArtifactClass` — the identity-plus-contract pair a registration is
   checked against.
 
-:mod:`ccf.controlplane.artifacts` re-exports all three, so every import path
+One thing joined them for the same reason: :class:`ArtifactClassIdMismatch`,
+the refusal :meth:`ArtifactClass.validate` raises, lives beside the method that
+raises it because ``registry`` reaches it through ``ArtifactClass`` and must not
+import ``artifacts`` (``D-IMPL-378``).
+
+:mod:`ccf.controlplane.artifacts` re-exports all four, so every import path
 that worked before this module existed still resolves.
 
 Algorithmic module (CINV-03).
@@ -51,9 +56,17 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ArtifactClass",
+    "ArtifactClassIdMismatch",
     "VersionedArtifact",
     "validate_semver",
 ]
+
+#: The contract field in which a document STATES the artifact class it is
+#: (``D-IMPL-378``). Of the contracts the SDK's artifact classes validate, only
+#: the open envelope, :class:`~ccf.controlplane.artifacts.DeclaredArtifact`,
+#: declares it at top level; an adopter's own artifact contract that declares it
+#: states its class the same way and is held to it the same way.
+_STATED_CLASS_FIELD = "class_id"
 
 #: Semantic Versioning ``MAJOR.MINOR.PATCH`` with optional pre-release/build.
 #: The *grammar* is mechanism (whitepaper §6.3 requires semver on contracts);
@@ -104,6 +117,49 @@ class VersionedArtifact(CCFContract):
         return validate_semver(value)
 
 
+class ArtifactClassIdMismatch(TypeError, ValueError):
+    """A document states one artifact class and is presented as another (``D-IMPL-378``).
+
+    SDK-defined (CLAUDE.md §6.4 and §10). A document whose contract declares a
+    top-level ``class_id`` — the open envelope
+    :class:`~ccf.controlplane.artifacts.DeclaredArtifact`, which every adopter
+    class id resolves to — states the class it is. The :class:`ArtifactClass`
+    it is parsed or registered as is the class it is *presented* as: the class a
+    manifest entry names, or the class a caller registers it under. Two
+    statements of one fact. Admitted while they disagree, the registry would
+    bind the key to the presented class, the audit plane would record it and
+    the boot would pin it into Decision Replay dimension 2, while the artifact
+    resolved back says it is another class. Refused instead, by name, in
+    :meth:`ArtifactClass.validate`, which
+    :func:`~ccf.controlplane.artifacts.parse_artifact`,
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_typed` and
+    :meth:`~ccf.controlplane.registry.ControlPlaneRegistry.register_versioned`
+    all call before anything is registered.
+
+    A ``TypeError`` because ``register_typed`` and ``register_versioned``
+    document one for an artifact that does not satisfy its class, and a
+    ``ValueError`` because a parse door's caller catches one for a document that
+    does not; a caller of either keeps catching this one.
+
+    Attributes:
+        presented_class_id: The class the document was parsed or registered as.
+        document_class_id: The class the document itself states.
+    """
+
+    def __init__(self, *, presented_class_id: str, document_class_id: object) -> None:
+        self.presented_class_id, self.document_class_id = presented_class_id, document_class_id
+        super().__init__(
+            f"ArtifactClassIdMismatch: the document states class_id"
+            f" {document_class_id!r} and is presented as artifact class"
+            f" {presented_class_id!r}. A document names the class it is, and one"
+            " filed as another would be bound, audited and pinned into Decision"
+            f" Replay dimension 2 as {presented_class_id!r} while the artifact"
+            f" resolved back says {document_class_id!r}, so nothing is parsed or"
+            " registered. Correct the document's class_id, or present it as the"
+            " class it states (D-IMPL-378)"
+        )
+
+
 @dataclass(frozen=True)
 class ArtifactClass:
     """The identity and contract of one Control Plane artifact class.
@@ -125,14 +181,31 @@ class ArtifactClass:
     def validate(self, artifact: object) -> CCFContract:
         """Return ``artifact`` if it satisfies this class, else raise.
 
+        Satisfying the class is two things. The artifact is an instance of the
+        class contract; and where that contract declares a top-level
+        ``class_id``, the class the artifact states is this one
+        (``D-IMPL-378``). The second is read from the artifact, never supplied
+        by the caller, so no way of building this :class:`ArtifactClass` — the
+        manifest's resolver, :func:`~ccf.controlplane.artifacts.declared_artifact_class`
+        or a direct construction — reaches a document that says it is
+        something else.
+
         Raises:
             TypeError: the artifact is not an instance of the class contract.
                 A near-miss mapping with the right keys is still a rejection —
                 structural luck is not a contract.
+            ArtifactClassIdMismatch: the artifact states a ``class_id`` other
+                than this class's own.
         """
         if not isinstance(artifact, self.contract):
             raise TypeError(
                 f"artifact for class {self.class_id!r} must be a"
                 f" {self.contract.__name__}, got {type(artifact).__name__}"
             )
+        if _STATED_CLASS_FIELD in type(artifact).model_fields:
+            stated = getattr(artifact, _STATED_CLASS_FIELD)
+            if stated != self.class_id:
+                raise ArtifactClassIdMismatch(
+                    presented_class_id=self.class_id, document_class_id=stated
+                )
         return artifact

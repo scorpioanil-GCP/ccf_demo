@@ -49,6 +49,9 @@ rather than here because this module names
 ``ccf.controlplane.registry``, which needs ``ArtifactClass`` — leaving it here
 would close ``artifacts -> worker -> registry -> artifacts`` at import time. See
 that module's docstring for the constraint that keeps the cycle broken.
+:class:`ArtifactClassIdMismatch`, the refusal ``ArtifactClass.validate`` raises
+for a document stating another class, is defined there and re-exported here for
+the same reason (``D-IMPL-378``).
 
 Algorithmic module (CINV-03).
 """
@@ -71,6 +74,7 @@ from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.graph.protocols import LineageMode, PolicyBindingMode
 from ccf.controlplane.artifact_base import (
     ArtifactClass,
+    ArtifactClassIdMismatch,
     VersionedArtifact,
     validate_semver,
 )
@@ -146,6 +150,7 @@ __all__ = [
     "SIGNAL_BATCH",
     "TEMPORAL_BOUNDARY_POLICY",
     "ArtifactClass",
+    "ArtifactClassIdMismatch",
     "ArtifactLoadError",
     "ArtifactRole",
     "ConstraintApplicability",
@@ -218,6 +223,13 @@ class DeclaredArtifact(VersionedArtifact):
     it can. The envelope's reason is unchanged for everything else: the SDK does
     not get to invent a policy-bundle schema on a user's behalf.
 
+    One envelope serves every adopter class, so the class a document is
+    parsed or registered as is never the envelope's to know: ``class_id`` is the
+    document's own statement of it, and
+    :meth:`ArtifactClass.validate` holds it to the class the document is
+    presented as, refusing a disagreement as :class:`ArtifactClassIdMismatch`
+    before anything is registered (``D-IMPL-378``).
+
     Attributes:
         class_id: Which declared class this is an instance of.
         declaration: The deployment's own content.
@@ -228,7 +240,11 @@ class DeclaredArtifact(VersionedArtifact):
 
 
 def declared_artifact_class(class_id: str) -> ArtifactClass:
-    """Return an :class:`ArtifactClass` for a user-declared artifact class."""
+    """Return an :class:`ArtifactClass` for a user-declared artifact class.
+
+    A :class:`DeclaredArtifact` it validates must state ``class_id`` as its own
+    (``D-IMPL-378``; :class:`ArtifactClassIdMismatch`).
+    """
     return ArtifactClass(class_id=class_id, contract=DeclaredArtifact)
 
 
@@ -2778,18 +2794,27 @@ def _reject_naive_timestamps(value: object, path: str) -> None:
 def parse_artifact(document: object, artifact_class: ArtifactClass) -> CCFContract:
     """Validate an already-parsed document as an instance of ``artifact_class``.
 
+    The validated document is then held to ``artifact_class`` by
+    :meth:`ArtifactClass.validate` — the check every registration path runs —
+    so a document that states a ``class_id`` other than the class it is parsed
+    as is refused here, at the parse every boot door runs before it registers
+    anything (``D-IMPL-378``).
+
     Raises:
         ArtifactLoadError: the document contains a float or a zone-less
             timestamp, or does not satisfy the class contract.
+        ArtifactClassIdMismatch: the document states a ``class_id`` other than
+            ``artifact_class``'s own.
     """
     _reject_floats(document, "")
     _reject_naive_timestamps(document, "")
     try:
-        return artifact_class.contract.model_validate(document)
+        parsed = artifact_class.contract.model_validate(document)
     except ValueError as error:
         raise ArtifactLoadError(
             f"document is not a valid {artifact_class.class_id}: {error}"
         ) from error
+    return artifact_class.validate(parsed)
 
 
 def load_artifact(text: str, artifact_class: ArtifactClass) -> CCFContract:
@@ -2805,6 +2830,8 @@ def load_artifact(text: str, artifact_class: ArtifactClass) -> CCFContract:
     Raises:
         ArtifactLoadError: the text is not YAML, holds a float or a zone-less
             timestamp, or does not satisfy the class contract.
+        ArtifactClassIdMismatch: the document states a ``class_id`` other than
+            ``artifact_class``'s own (``D-IMPL-378``).
     """
     try:
         document = yaml.load(text, Loader=_ArtifactLoader)
