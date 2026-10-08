@@ -338,6 +338,7 @@ __all__ = [
     "ServedProductResolverProtocol",
     "SubjectDisclosingPlanFactoryProtocol",
     "UndisclosedSubjectAnswered",
+    "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
     "declared_refusal_recorder",
 ]
@@ -758,7 +759,35 @@ class QuestionStoreReopened(UnsupportedComposition):
     by the marker and the boot, never by the subject the question names or by
     what the store holds. The marker sits beside the store, not inside it: a
     copy of the store taken without it, or a store booted for a question
-    before the marker existed, is not recognized.
+    before the marker existed, carries no marker at all, and is refused as
+    unmarked instead (:class:`UnmarkedStoreNotPresumedFresh`).
+    """
+
+
+class UnmarkedStoreNotPresumedFresh(UnsupportedComposition):
+    """A governed call over an existing store that carries no marker, refused before the graph is read.
+
+    SEC-020 P4 (a) made strict, ``D-IMPL-378`` (Dave, 2026-10-08 12:29 MST:
+    *"An unmarked existing store must not be presumed fresh. Require
+    verifiable fresh creation or refuse acquisition-backed serving."*). Every
+    store the deployment doors create at a path gets a marker beside it before
+    it exists — the question marker on a boot for one question, the deployment
+    marker on any other — so an existing store with neither
+    (:attr:`~ccf.deployment.manifest.BootedFabric.store_creation` ``"unmarked"``)
+    is one nothing shows was never a question's: a store booted for a question
+    before the markers existed, a copy of a used store taken without its
+    marker, a store created outside the doors. A later question answered from
+    it would answer from what an earlier question's acquisition fetched, so a
+    governed call over it is refused here, at the point a question fabric is
+    claimed: after the question-level refusals (its address, its request, its
+    temporal bound), which read no graph, and before the graph is read. A call
+    that declares an acquisition phase is refused at the same point by
+    :class:`AcquisitionNeedsAQuestionFabric`, as before. Decision Replay
+    rebuilds a resolver over the store and never calls it, so it reads the
+    store as before. Decided by the markers and the boot, never by the subject
+    or by what the store holds. Remedy: boot a new store through a deployment
+    door, which creates and marks it; a deployment's own kept store, created
+    by a door, carries its marker and is not refused.
     """
 
 
@@ -3167,6 +3196,21 @@ class GovernedResolver:
                 " booted again; it keeps what that question's acquisition"
                 " fetched, so it answers no later question (boot a new store"
                 " for each question; SEC-020, Q9)"
+            )
+        elif self.fabric.store_creation == "unmarked":
+            # SEC-020 P4 (a) made strict (Dave, 2026-10-08 12:29 MST: *"An
+            # unmarked existing store must not be presumed fresh"*): a store
+            # that existed at boot with no marker beside it may be a question's
+            # store from before the markers, or a copy taken without one.
+            # Refused here, before the graph is read, by the boot's reading of
+            # the markers and never by the question; replay builds a resolver
+            # over it and never calls it.
+            raise UnmarkedStoreNotPresumedFresh(
+                "this fabric reads a store that existed before its boot and"
+                " carries no marker a deployment door left when it created it;"
+                " nothing shows that no earlier question's acquisition wrote"
+                " into it, so it is not presumed fresh and answers no question"
+                " (boot a new store through a deployment door; SEC-020, P4)"
             )
         if acquires:
             # SEC-020 Q7 / Q10: THE POPULATION PHASE FIRST, once, handed no
