@@ -1254,9 +1254,13 @@ unless another test is named.
   once per question. Under the early decision the stand-in replaces the
   subject; the subject is never fetched as well. The product is computed once
   on that path, counted at the projection, including when the fabric already
-  held the withheld subject, and the decision replays to its own address. A
-  withhold decided inside the projection of a class with no children still
-  re-runs the plan as described above (`D-IMPL-371`, `D-IMPL-376`).
+  held the withheld subject, and the decision replays to its own address. The
+  record keeps the caller's question and names the stand-in the walk started
+  from (`ContentGenerationPath.executed_seeds`, absent from every other
+  record), so anyone who can read the record can tell the subject was not
+  disclosed (see "The record behind it" below). A withhold decided inside the
+  projection of a class with no children still re-runs the plan as described
+  above (`D-IMPL-371`, `D-IMPL-376`).
 
 **Migrating a composition you build by hand (Q9).** If you construct
 `GovernedResolver` yourself with an acquisition phase, boot a new fabric for
