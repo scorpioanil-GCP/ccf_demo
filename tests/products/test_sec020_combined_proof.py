@@ -50,8 +50,8 @@ Cells that need a public knob that does not exist yet are SKIPPED with the
 reason ``pending API: <name>``; they run unchanged once the knob exists under
 its documented name. Never xfail, never pass.
 
-Dave's ruling D1 = (a) (2026-10-07 21:15 MST; ``sec020_worlds.D1A_RULING``)
----------------------------------------------------------------------------
+Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
+-----------------------------------------------------------------------------------------
 For a product that reads the whole population — the fabric loaded before the
 question and walked by class (``no_acquisition``), the source that returns
 everyone (``population``, ``early_population``, ``population_declared``) — the
@@ -106,7 +106,8 @@ def runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.RunCache]:
 ALL_SHAPES = (*w.SHAPES, *w.PENDING_SHAPES)
 
 #: The two-deployment (``cf``) cells RETIRED from the closure gate by Dave's
-#: D1 = (a) and ``D-IMPL-371`` (the ruling text: ``sec020_worlds.D1A_RULING``).
+#: D1 = (a) and ``D-IMPL-371`` (``sec020_worlds.D1A_RULING``; the ruling's text
+#: is quoted verbatim in the comment above that constant).
 #: For each, the same-deployment cell of the same shape, anchor, door and
 #: channel governs instead. Listed explicitly so that what left the gate is
 #: readable here, and pinned against the matrix's own channel rule by

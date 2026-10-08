@@ -1478,15 +1478,19 @@ COMPOSITE_SHAPES = (
 #: The composites whose child is asked about a FIXED subject.
 FIXED_CHILD_SHAPES = (COMPOSITE_FIXED_CHILD, EARLY_COMPOSITE_FIXED_CHILD)
 
-#: Dave's ruling D1 = (a), 2026-10-07 21:15 MST, on the question as put to him
-#: (relayed by the coordinator, verbatim, the elisions the coordinator's own):
-D1A_RULING = (
-    "D1 = (a) (Dave, 2026-10-07 21:15 MST). The question: \"Products that read the whole"
-    " population. Your two-deployment test ... cannot pass when a product reads everyone's"
-    " data, such as a pre-loaded fabric or a fetch-everyone source ... (a) For those"
-    " products only, use your D-IMPL-371 comparison: the withheld subject against an id"
-    " nothing holds, in the same deployment.\""
-)
+# Dave's ruling D1 = (a), 2026-10-07 21:15 MST, on the question as put to him
+# (relayed by the coordinator, verbatim, the elisions the coordinator's own). It
+# is kept as a comment, not a string literal: prose addressed to a reader is
+# what the No-Hardcoding lint (CINV-01a) refuses in code, tests included.
+#
+#   "Products that read the whole population. Your two-deployment test ...
+#   cannot pass when a product reads everyone's data, such as a pre-loaded
+#   fabric or a fetch-everyone source ... (a) For those products only, use your
+#   D-IMPL-371 comparison: the withheld subject against an id nothing holds, in
+#   the same deployment."
+#
+#: The citation every retired cell and the governing comparison carry.
+D1A_RULING = "Dave D1 = (a), 2026-10-07 21:15 MST; D-IMPL-371"
 
 #: The population-reading shapes D1 = (a) governs: the fabric loaded before the
 #: question and walked by class, and the source that returns everyone — with or
