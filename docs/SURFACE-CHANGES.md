@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2286 entries**, of which **2011** name a public Python surface.
+**2313 entries**, of which **2037** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1278 entries — 1234 public Python surface, 44 not public Python API.
+1292 entries — 1247 public Python surface, 45 not public Python API.
 
 ### Public Python surface
 
@@ -18860,6 +18860,162 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
 
+#### ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstant
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstant
+- Public surface: true
+- Change type: added
+- Before: absent — a deployment pinned to a past instant had no governed way to say which instant it serves at; `examples/s1-01-hello-context-product/spine.py` composed one in example code through `admission_clock`
+- After: a typed Control Plane contract with one member, `serve_instant`, a zone-bearing instant (a zone-less one is refused, `D-IMPL-38`)
+- Why: since `D-IMPL-358` a governed serve is judged at `served_at`; a demonstration whose question is pinned to a past date is refused as expired by today's clock, correctly, unless the deployment declares the instant it serves at
+- Migration: none; a deployment that wants a demonstration instant declares it (see `DeploymentConfig`)
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DEMONSTRATION_SERVE_INSTANT
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DEMONSTRATION_SERVE_INSTANT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the artifact class `ccf.demonstration-serve-instant`, typed-registerable (in `ccf.deployment.classes.SDK_ARTIFACT_CLASSES`), with no author lanes
+- Why: a declaration must be a pinned Control Plane artifact so the record it governs can name its exact version, which replay's exact-version binding check can resolve
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.DEMONSTRATION_SERVE_INSTANT
+
+- Surface: ccf.controlplane.artifacts.DEMONSTRATION_SERVE_INSTANT
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the same class constant re-exposed from the module that exposes the SDK's artifact-class catalog, on `TEMPORAL_BOUNDARY_POLICY`'s precedent
+- Why: `tests/deployment/test_class_lookup.py` holds every typed-registerable class to the object this module exposes
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.demonstration_serve_instant_key
+
+- Surface: ccf.controlplane.demonstration_serve_instant.demonstration_serve_instant_key
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `{tenant}/ccf.demonstration-serve-instant`, derived per tenant and never from a section name
+- Why: two tenants cannot share one declaration, and the registry's tenant check reads the segment before the first `/` (`D-IMPL-353` §1.3)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.PinnedDemonstrationServeInstant
+
+- Surface: ccf.controlplane.demonstration_serve_instant.PinnedDemonstrationServeInstant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a resolved declaration with its key and exact registered version; `binding` is the `PolicyBinding` every record made under it carries
+- Why: the version a record pins is the one resolved, never one rebuilt later (`PinnedTemporalBoundary`'s rule)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisdeclared
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisdeclared
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when something other than a `DemonstrationServeInstant` is registered at the key
+- Why: a wrong artifact is a configuration error, not an absent declaration; reading it as absent would serve on the real clock a deployment that believed it had declared one
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.resolve_demonstration_serve_instant
+
+- Surface: ccf.controlplane.demonstration_serve_instant.resolve_demonstration_serve_instant
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: resolves one tenant's declaration with its version, or `None` when the tenant declares none; reads no clock and enforces nothing
+- Why: the Control Plane half of the mechanism, kept apart from the composition that honors it
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the one composition step that turns a declaration into the resolver's serve clock, called once by `ccf.products.resolver.build_governed_resolver`. With no declaration it returns the clock the caller composed. With one, it refuses a caller-composed clock (`DemonstrationServeInstantConflict`), refuses a graph adapter whose registration does not declare `development_reference` or an artifact store that is not the SDK's `FileArtifactStore` (`DemonstrationServeInstantRefused`), and otherwise returns a `DeclaredServeClock`. A Control Plane offering the unaudited pinned-read surface is probed with `versions` first, so a deployment that declares nothing gains no audit event
+- Why: C1's "never usable in production", ruled option (b): a fixed serve clock keeps expired answers servable and judges policy effectivity and composite admission at a stale instant, so it is refused on any substrate a production deployment runs on
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.DeclaredServeClock
+
+- Surface: ccf.products.demonstration_clock.DeclaredServeClock
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a callable returning the declared instant, carrying the declaration's exact pin as `binding`
+- Why: audit by construction — whatever reads `served_at` from it can also say which declaration set it
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantConflict
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantConflict
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: raised when a composition supplies its own clock (`admission_clock`, or an adapter's `clock`) while the deployment declares an instant
+- Why: one serve instant has one authority; a silent winner would be two authorities that can drift apart
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: the option (b) production guard, raised at composition with `reason` `graph-substrate-not-development` or `artifact-store-not-development` and the declaration's `key`
+- Why: C1 requires the declaration be never usable in production
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced
+
+- Surface: ccf.controlplane.demonstration_serve_instant.DemonstrationServeInstantMisplaced
+- Public surface: true
+- Change type: added
+- Before: absent — five declarations of the class booted cleanly and were never honored (lane `378d-democlock` residual (e) and its sweep): one at another key, one written under another tenant (key placement confines it to `{tenant}/other-tenant/…` rather than refusing), two entries one of them misplaced, two entries placing to one key (the first instant silently replaced), and a second version registered before composition (the latest silently winning)
+- After: a `ValueError` carrying `reason`, `keys` and the `expected` derived key: `misplaced-key` at boot, before anything is registered, naming each declaration not at the derived key (P1, P2, and the misplaced one of P3a); `several-declarations` at composition, when the Control Plane holds several versions (P8). P3b — two entries placing to one key — is refused for every class by `ccf.deployment.manifest.manifest_under_tenant` (`ManifestKeysPlaceToOneKey`, lane `378d-placement`), so this class carries no rule of its own for it
+- Why: a declaration the composition never reads is a control that silently does nothing; the deployment serves on its real clock, or on another declaration, while its documents say otherwise. Measured by `tests/deployment/test_demonstration_serve_instant_placement.py`
+- Migration: a manifest declares at most one `ccf.demonstration-serve-instant`, at `key: ccf.demonstration-serve-instant`; a composition root registers at most one version per tenant
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.demonstration_serve_instant.refuse_misplaced_demonstration_serve_instants
+
+- Surface: ccf.controlplane.demonstration_serve_instant.refuse_misplaced_demonstration_serve_instants
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: a pure check over the keys of every manifest entry of the class as the register loop receives them: every one must be `{tenant}/ccf.demonstration-serve-instant`, and each that is not raises `DemonstrationServeInstantMisplaced` (`misplaced-key`). It has no branch for two declarations at one key: the manifest contract refuses a key declared twice, and `manifest_under_tenant` refuses two keys placing to one, so that case cannot arrive — measured, including the route of a composition root calling the loop directly, where the two entries arrive as different keys and one is refused as misplaced
+- Why: as for `DemonstrationServeInstantMisplaced`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
 #### ccf.deployment.manifest.ManifestKeysPlaceToOneKey
 
 - Surface: ccf.deployment.manifest.ManifestKeysPlaceToOneKey
@@ -19591,11 +19747,23 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `358-03-temporal-boundary-policy.md`.*
 
+#### ccf.demonstration-serve-instant
+
+- Surface: ccf.demonstration-serve-instant
+- Public surface: false
+- Change type: added
+- Before: absent
+- After: a new artifact document format, `serve_instant` only, with its committed JSON Schema at `docs/schemas/ccf.demonstration-serve-instant.json`; the `ccf.deployment-config` schema gains the optional section
+- Why: as for `DemonstrationServeInstant`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
 ## Reshaped
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-610 entries — 418 public Python surface, 192 not public Python API.
+612 entries — 420 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -26683,6 +26851,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-11-sec-020-population-early-withholding-question-fabrics.md`.*
 
+#### ccf.graph.registry.BackendRegistration
+
+- Surface: ccf.graph.registry.BackendRegistration
+- Public surface: true
+- Change type: reshaped
+- Before: five fields — `name`, `config_model`, `secret_fields`, `open_store`, `make_writer`
+- After: a sixth, `development_reference: bool = False`. The SDK's SQLite and in-memory adapters set it; every other adapter, including any third-party adapter written before this field, defaults to `False`
+- Why: the option (b) production guard needs to know whether the booted graph adapter is a development reference, and core may neither import nor name an adapter (`D-IMPL-93` properties (1) and (2), lints `cinv02-backend-import` and `cinv04-substrate-name`). The adapter states the fact about itself and `compose_serve_clock` asks it through `ccf.graph.registry.resolve`. Measured first the other way: a name list in core was refused by `cinv04-substrate-name`, and the existing `secret_fields` cannot stand in for the flag because the Postgres, MongoDB and Neo4j adapters also declare none
+- Migration: none; a third-party adapter that is a development reference may set `development_reference=True`, and one that says nothing keeps every declared demonstration serve instant refused over it
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `demonstration_serve_instant` section; the key was refused as unrecognised
+- After: an optional `demonstration_serve_instant:` section, hash-transparent at `None`, derived like `temporal_boundary:` — body verbatim, no `semver` injected, the bookkeeping keys refused by name, a top-level `tenant_id` required, key `{tenant}/ccf.demonstration-serve-instant`
+- Why: the single-file authoring surface for the declaration, so a config-driven deployment can state it where its other declarations are
+- Migration: none; absence means the real clock
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -29699,7 +29891,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-351 entries — 312 public Python surface, 39 not public Python API.
+362 entries — 323 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -34910,6 +35102,138 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none; SEC-009's door contract is otherwise unchanged
 
 *Recorded by `378-14-an-interrupted-run-that-ran-no-step-is-finished.md`.*
+
+#### ccf.products.refusal.NON_VALUE_VIOLATIONS
+
+- Surface: ccf.products.refusal.NON_VALUE_VIOLATIONS
+- Public surface: true
+- Change type: behavior
+- Before: eight exception names the closed refusal vocabulary places outside the envelope
+- After: nine; `DemonstrationServeInstantConflict` joins, with its reason stated beside the constant
+- Why: the structural walk over the `…Conflict` name family found the new class (`tests/products/test_refusal_envelope.py::test_the_refusal_vocabulary_is_closed_by_set_equality`). It is a composition-time configuration contradiction, refused before any question exists, so it is an exception and never a governed shell (`D-IMPL-253` Q15)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.config.derive_deployment
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: behavior
+- Before: one bare typed section, `temporal_boundary:`
+- After: also derives `demonstration_serve_instant:`, appended after the temporal boundary so a config without it derives byte-for-byte what it did; a zone-less instant is refused at derivation
+- Why: as for `DeploymentConfig`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.resolver.build_governed_resolver
+
+- Surface: ccf.products.resolver.build_governed_resolver
+- Public surface: true
+- Change type: behavior
+- Before: the resolver served on `admission_clock` as passed
+- After: same signature. When the tenant declares a demonstration serve instant, the resolver serves at it (`served_at`, Gate 3's comparand, the temporal window's evaluation instant, constraint effectivity and composite admission), resolved once at construction so a later registration does not reach a built resolver. Refused by name beside a supplied `admission_clock`, and outside the development substrates. The erasure consult keeps `admission_clock`, so no audit stamp carries a declared instant; Context Debt keeps the decision instant (`D-IMPL-358` ruling 6)
+- Why: C1; one composition function every composition root already calls, so the in-process adapter and a door's product honor the declaration with no transport code
+- Migration: none for a deployment that declares nothing. A deployment that declares an instant must not also pass `admission_clock`
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: no record named the instant's source
+- After: same fields. A resolver whose serve clock is a `DeclaredServeClock` appends the declaration's exact `(key, version)` to dimension 2 of every record it writes, served and refused; on any other clock it appends nothing
+- Why: audit by construction — an examiner can tell a demonstration record from a real one from the record alone, and the pin resolves at its recorded version through the Control Plane's exact-version read, the check replay makes for every binding (`tests/client/test_demonstration_serve_instant.py::test_the_records_pin_resolves_at_its_recorded_version`); a refusal record written under the declaration replays end to end against the deployment's Control Plane and is refused on the declaration's key against one without it (`tests/client/test_demonstration_serve_instant.py::test_a_demonstration_refusal_record_replays_end_to_end`)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.client.adapters.inprocess.InProcessAdapter
+
+- Surface: ccf.client.adapters.inprocess.InProcessAdapter
+- Public surface: true
+- Change type: behavior
+- Before: `as_of=None` resolved to the adapter's clock
+- After: when the deployment declares a demonstration serve instant, `as_of=None` resolves to it (one composition, one now), and a `clock` passed to the adapter beside the declaration is refused at boot with `DemonstrationServeInstantConflict`
+- Why: C1, "honored by both transports"
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.client.adapters.mcp_stdio.McpStdioAdapter
+
+- Surface: ccf.client.adapters.mcp_stdio.McpStdioAdapter
+- Public surface: true
+- Change type: behavior
+- Before: `as_of=None` resolved to the adapter's clock
+- After: the client reads the declaration from the deployment's `ccf_config.yaml` (which it already reads for the tenant and lane) and resolves `as_of=None` to it; a `clock` passed beside it is refused with `DemonstrationServeInstantConflict` before anything is spawned. The server child serves at the same declaration through `build_governed_resolver`
+- Why: without it, `as_of=None` would ask at today's date and be served at the declared instant, and the two transports would disagree (`D-IMPL-150`)
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.classes.SDK_ARTIFACT_ROLES
+
+- Surface: ccf.deployment.classes.SDK_ARTIFACT_ROLES
+- Public surface: true
+- Change type: behavior
+- Before: one class with a role the SDK fixes, `ccf.signal-batch` (`load`)
+- After: two; `ccf.demonstration-serve-instant` is fixed to `register`
+- Why: a manifest entry declaring the class `role: load` was parsed and never registered, so the composition found no declaration and the fabric served on its real clock while the manifest said it declared an instant, with nothing saying so (lane `378d-democlock` finding (d)). `D-IMPL-134` reads the role of a `ccf.*` class as the SDK's to know, and here there is one correct value. Measured by `tests/deployment/test_demonstration_serve_instant_role.py`
+- Migration: a manifest that declares `ccf.demonstration-serve-instant` must declare `role: register`; `role: load` is now refused at boot. The `demonstration_serve_instant:` config section always derived `register` and is unaffected
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.classes.refuse_role_the_sdk_fixes
+
+- Surface: ccf.deployment.classes.refuse_role_the_sdk_fixes
+- Public surface: true
+- Change type: behavior
+- Before: refused only `ccf.signal-batch` declared `register`, and its message gave the signal-batch rationale for any class
+- After: also refuses `ccf.demonstration-serve-instant` declared `load`, by name, in the preflight both boot doors run before anything is read or registered and in the single-file derivation. The message states each fixed class's own reason; for `ccf.signal-batch` it is byte-identical to before
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none beyond `SDK_ARTIFACT_ROLES`'s
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.controlplane.artifacts.ManifestEntry
+
+- Surface: ccf.controlplane.artifacts.ManifestEntry
+- Public surface: true
+- Change type: behavior
+- Before: the `role` docstring said the SDK knows the answer for one class
+- After: documentation only; it names both classes whose role the SDK fixes. The committed `docs/schemas/ccf.deployment-manifest.json` carries the same description, regenerated
+- Why: as for `SDK_ARTIFACT_ROLES`
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.deployment.manifest.register_manifest_entries
+
+- Surface: ccf.deployment.manifest.register_manifest_entries
+- Public surface: true
+- Change type: behavior
+- Before: registered every `role: register` entry with no check of where a demonstration serve instant was declared
+- After: same signature. Before anything is registered it runs `refuse_misplaced_demonstration_serve_instants` over every entry of the class, whatever `only` names. This is the one loop both boot doors (`load_and_boot`, `load_config_and_boot`) and the paved road (`open_product`) run, and a composition root may call it directly (cp-20's deployment does). The config door cannot misplace a declaration in the first place: its section derives the key and refuses a stated one, and every other section's derivation injects `semver`, which the contract refuses at parse
+- Why: as for `DemonstrationServeInstantMisplaced`
+- Migration: none for a deployment that declares the class once, at the derived key
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: with several versions of the tenant's declaration on the Control Plane, composed on the latest
+- After: refuses with `DemonstrationServeInstantMisplaced` (`several-declarations`), naming the versions, where the Control Plane offers the unaudited `versions` read
+- Why: the latest silently winning makes every other declaration do nothing
+- Migration: none
+
+*Recorded by `378-22-demonstration-serve-instant.md`.*
 
 #### ccf.products.resolver.GovernedResolver
 

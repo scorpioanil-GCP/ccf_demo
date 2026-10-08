@@ -160,6 +160,7 @@ from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
 from ccf.erasure.index import ErasureIndexProtocol
 from ccf.erasure.approval import PinnedPolicySource
+from ccf.products.demonstration_clock import DeclaredServeClock, compose_serve_clock
 from ccf.erasure.store import ErasureCompositionRefused, compose_erasure_consult
 from ccf.erasure.trust import ErasureTrust
 from ccf.contracts.base import CCFContract
@@ -4165,6 +4166,11 @@ class GovernedResolver:
                 # is how a reconstructed version gets in, which is the step-3
                 # defect this pin exists to make load-bearing.
                 *temporal_pins,
+                # `D-IMPL-378` C1: the declared demonstration serve instant this
+                # decision was served at, by its exact version — empty on every
+                # serve on a real clock, so those records are byte-identical to
+                # the ones written before the declaration existed.
+                *self._demonstration_pins(),
             ),
             assembly_mode=registered.assembly_mode,
             # WHEN THE DECISION WAS TAKEN, not when the graph was read
@@ -4514,7 +4520,9 @@ class GovernedResolver:
             served_at=served_at,
             request=request,
             execution=execution,
-            policy_bindings=policy_bindings,
+            # `D-IMPL-378` C1: a refusal determined on a DECLARED demonstration
+            # instant pins that declaration, exactly as a served decision does.
+            policy_bindings=(*policy_bindings, *self._demonstration_pins()),
             assembler_id=self._assembler_id(),
             assembler_version=self._assembler_version(),
             resolution=resolution,
@@ -4525,6 +4533,21 @@ class GovernedResolver:
             # sentinel for the resolver's own refusals, which is what they are.
             refusal_seam=refusal_seam,
         )
+
+    def _demonstration_pins(self) -> tuple[PolicyBinding, ...]:
+        """The declared demonstration serve instant's pin, or nothing (`D-IMPL-378` C1).
+
+        **SDK-defined** (CLAUDE.md §11). Audit by construction: a resolver whose
+        serve clock is a :class:`~ccf.products.demonstration_clock.DeclaredServeClock`
+        — composed only by
+        :func:`~ccf.products.demonstration_clock.compose_serve_clock` from the
+        tenant's Control Plane declaration — writes that declaration's exact
+        ``(key, version)`` into dimension 2 of every record, served or refused,
+        so an examiner can tell a demonstration record from a real one without
+        reading code. A resolver on any other clock pins nothing here.
+        """
+        clock = self.admission_clock
+        return (clock.binding,) if isinstance(clock, DeclaredServeClock) else ()
 
     def _applied_bindings(
         self, effective: EffectiveRequest
@@ -5122,6 +5145,10 @@ def build_governed_resolver(
     #: Defaults to the process's UTC clock, which is the right value for a
     #: deployment; tests inject a fixed instant so the evidence-age and skew
     #: boundaries can be asserted exactly rather than approached.
+    #: `D-IMPL-378` C1: a tenant that DECLARES a demonstration serve instant is
+    #: served at that instant instead, and only while this argument is left at
+    #: its default — a clock supplied beside a declaration is refused by name
+    #: (`ccf.products.demonstration_clock.compose_serve_clock`).
     admission_clock: Callable[[], datetime] = _utc_now,
     artifact_store: ArtifactStoreProtocol | None = None,
     replay_record_class: str | None = None,
@@ -5628,6 +5655,26 @@ def build_governed_resolver(
             " audit_events), so the erasure consult cannot verify an approval"
             " through it (SEC-009; D-IMPL-374 (4), fix round 4, ruling 5)"
         )
+    # `D-IMPL-378` C1 (SDK-defined, CLAUDE.md §11): THE SERVE CLOCK, composed ONCE.
+    # A tenant that declares a demonstration serve instant is served at that
+    # instant — resolved here, from the Control Plane, at composition, and never
+    # again, so nothing a question carries and nothing registered later moves it.
+    # A clock this call was handed beside a declaration is refused by name, and
+    # outside the SDK's development substrates the declaration itself is refused
+    # (option (b), ruled by Dave 2026-10-08 10:50 MST). Checked against
+    # `store` as SELECTED, before the erasure consult wraps it.
+    #
+    # CONFINED: only the resolver's serve clock (`served_at`) is replaced. The
+    # erasure consult below keeps `admission_clock`, the clock this call was
+    # composed with, so an audit stamp on the Control Plane log never carries a
+    # declared instant.
+    serve_clock = compose_serve_clock(
+        control_plane=control_plane,
+        fabric=fabric,
+        artifact_store=store,
+        admission_clock=admission_clock,
+        sdk_clock=_utc_now,
+    )
     store = compose_erasure_consult(
         store,
         index=erasure_index,
@@ -5781,7 +5828,7 @@ def build_governed_resolver(
             decision_instant_parameter=decision_instant_parameter,
             source_refresh_recency=source_refresh_recency,
             composite_children=composite_children,
-            admission_clock=admission_clock,
+            admission_clock=serve_clock,
             acquisition=acquisition,
             population_acquisition=population_acquisition,
             packaging_trace=packaging_trace,
@@ -5839,7 +5886,7 @@ def build_governed_resolver(
         decision_instant_parameter=decision_instant_parameter,
         source_refresh_recency=source_refresh_recency,
         composite_children=composite_children,
-        admission_clock=admission_clock,
+        admission_clock=serve_clock,
         acquisition=acquisition,
         population_acquisition=population_acquisition,
         packaging_trace=packaging_trace,

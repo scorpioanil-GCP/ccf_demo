@@ -995,6 +995,13 @@ NON_PRODUCT_REFUSALS: Final[frozenset[str]] = frozenset(
 #:   consumer receives it as a determination: it is the store reporting a
 #:   concurrent writer, a state in which the write cannot proceed, never a
 #:   governed "no" about a product.
+#: * ``DemonstrationServeInstantConflict`` — raised at COMPOSITION when a
+#:   composition supplies its own clock while the tenant declares a
+#:   demonstration serve instant (`D-IMPL-378` C1;
+#:   `ccf.products.demonstration_clock.compose_serve_clock`). Two authorities
+#:   for one instant is a configuration contradiction on ``D-IMPL-253`` Q15's
+#:   terms, refused before any question exists, so no consumer can receive it
+#:   as a determination.
 #:
 #: ``WebhookEndpointConflict`` and ``FragmentFamilyConflict`` joined in
 #: ``24.6-L-07`` for the reason ``DefaultConflict`` joined the allowlist above:
@@ -1021,6 +1028,7 @@ NON_VALUE_VIOLATIONS: Final[frozenset[str]] = frozenset(
         "FragmentFamilyConflict",
         "ConstraintEffectivityConflict",
         "StateConflict",
+        "DemonstrationServeInstantConflict",
     }
 )
 

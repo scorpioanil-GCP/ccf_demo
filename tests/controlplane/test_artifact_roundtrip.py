@@ -60,6 +60,7 @@ from ccf.controlplane.artifacts import (
     load_artifact,
     parse_artifact,
 )
+from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 from ccf.deployment.classes import SDK_ARTIFACT_CLASSES
 from ccf.deployment.operators import build_operator_registry
@@ -496,6 +497,21 @@ CASES: tuple[_Case, ...] = (
         # The rest are the four bookkeeping keys the derivation owns and refuses
         # by name inside the section, plus the tenant it takes from the config.
         unknown_keys=("semver", "key", "class_id", "role", "registration", "tenant_id"),
+    ),
+    _Case(
+        artifact_class=DEMONSTRATION_SERVE_INSTANT,
+        # A demonstration deployment's declared serve instant (`D-IMPL-378` C1).
+        # One member, zone-bearing and required: absence of the whole artifact
+        # means the real clock, so the artifact has nothing to default.
+        document={"serve_instant": "2026-03-02T12:05:00+00:00"},
+        # The same closed world as the temporal boundary's: no `semver` (the
+        # bare typed derivation injects none), the four bookkeeping keys, the
+        # tenant, and the two spellings a caller-facing instant arrives under —
+        # `asked_at` and `served_at` are never a declaration's members.
+        unknown_keys=(
+            "semver", "key", "class_id", "role", "registration", "tenant_id",
+            "asked_at", "served_at",
+        ),
     ),
 )
 

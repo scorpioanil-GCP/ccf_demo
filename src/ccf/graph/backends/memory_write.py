@@ -371,4 +371,7 @@ REGISTRATION = BackendRegistration(
     secret_fields=frozenset(),
     open_store=_open_store,
     make_writer=_make_writer,
+    # `D-IMPL-378` C1: one of the SDK's development reference substrates, so a
+    # declared demonstration serve instant may compose over it.
+    development_reference=True,
 )

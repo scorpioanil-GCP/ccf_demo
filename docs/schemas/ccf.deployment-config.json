@@ -77,6 +77,20 @@
       "default": null,
       "title": "Default Perspective"
     },
+    "demonstration_serve_instant": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "ccf_hash_transparent": true,
+      "default": null,
+      "title": "Demonstration Serve Instant"
+    },
     "door": {
       "anyOf": [
         {
