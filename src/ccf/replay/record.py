@@ -160,6 +160,7 @@ __all__ = [
     "NO_REFUSAL_SEAM",
     "NO_HITL_ACTIONS",
     "NO_ISSUANCE",
+    "UNSTATED_SUBJECT_WITHHOLDING",
     "NO_WORKFLOW_TRACE",
     "ChildResolution",
     "ContentGenerationPath",
@@ -404,6 +405,15 @@ NO_PRODUCT_ADDRESS = "no-product-address"
 #: record built by a writer that issues none; the member is hash-transparent at
 #: it, so no such record's bytes or address move.
 NO_ISSUANCE = "no-issuance"
+
+#: The positive claim *this record does not say whether its class's answers may
+#: withhold their subject* (Dave's Q12, 2026-10-07; ``D-IMPL-378``;
+#: SDK-defined, CLAUDE.md §11). Every record written before
+#: :attr:`ContentGenerationPath.subject_withholding` existed reads as this, and
+#: so does a record its writer did not mark; the governed evidence read treats
+#: it as a class that may withhold, so such a record is never read back by its
+#: owner. Hash-transparent: no such record's bytes or address move.
+UNSTATED_SUBJECT_WITHHOLDING = "unstated"
 
 
 def new_issuance() -> str:
@@ -1547,6 +1557,18 @@ class ContentGenerationPath(CCFContract):
     issuance: str = Field(
         default=NO_ISSUANCE, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )
+    # Dave's Q12 (2026-10-07; `D-IMPL-378`) — WHAT THE DECIDING CLASS AFFIRMED
+    # about withholding its subject, recorded from its declaration
+    # (`ProductClassDeclaration.subject_withholding`) by the determination that
+    # wrote the record. The governed evidence read hands a record that read the
+    # fabric back to its owner only when this says `"never"` and the tenant
+    # lists the class; anything else — `"may-withhold"`, or the sentinel every
+    # older record carries — stays off every evidence door, which is how the
+    # restriction reaches existing records. Transparent at the sentinel.
+    subject_withholding: str = Field(
+        default=UNSTATED_SUBJECT_WITHHOLDING,
+        json_schema_extra={HASH_TRANSPARENT_KEY: True},
+    )
 
     @field_validator("issuance")
     @classmethod
@@ -1799,6 +1821,7 @@ def build_replay_record(
     request: ProductRequest | None = None,
     child_resolutions: tuple[ChildResolution, ...] = (),
     issuance: str | None = None,
+    subject_withholding: str | None = None,
 ) -> DecisionReplayRecord:
     """Assemble the record from what the execution and the product already know.
 
@@ -2025,6 +2048,11 @@ def build_replay_record(
     and the reference refusal recorder — recorded verbatim in dimension 5 and
     never minted here, so a record built for comparison keeps
     :data:`NO_ISSUANCE` and its address.
+
+    ``subject_withholding`` is what the deciding class's declaration affirms
+    about withholding its subject (Dave's Q12; ``D-IMPL-378``), passed by the
+    determination that knows the class and recorded verbatim in dimension 5;
+    ``None`` records :data:`UNSTATED_SUBJECT_WITHHOLDING`.
     """
     # 24.7-04: the resolution-state guard, FIRST — before any outcome is
     # judged — because a missing resolution state is not a malformed outcome,
@@ -2233,6 +2261,13 @@ def build_replay_record(
             # so a record built for comparison or by a writer that issues none
             # keeps the sentinel and its address.
             issuance=issuance if issuance is not None else NO_ISSUANCE,
+            # Dave's Q12 (`D-IMPL-378`): passed by the determination that knows
+            # the deciding class; a writer that does not say leaves the sentinel.
+            subject_withholding=(
+                subject_withholding
+                if subject_withholding is not None
+                else UNSTATED_SUBJECT_WITHHOLDING
+            ),
             workflow_step_sequence=workflow_step_sequence
             if workflow_step_sequence is not None
             else NO_WORKFLOW_TRACE,

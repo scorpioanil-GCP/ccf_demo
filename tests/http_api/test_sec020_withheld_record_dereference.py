@@ -100,8 +100,14 @@ class _Door:
     app: Any
 
 
-def _entitle_owner(opened: OpenedProduct) -> None:
-    """Grant :data:`OWNER` the class at the fixture role, disclosing at ``full``."""
+def _entitle_owner(opened: OpenedProduct, *, readable: bool = False) -> None:
+    """Grant :data:`OWNER` the class at the fixture role, disclosing at ``full``.
+
+    ``readable`` lists the class in the policy's ``evidence_readable_classes``
+    (Dave's Q12: owner read-back is default-deny behind an explicit tenant
+    class allowlist). Only the instruments, whose job is to show the door
+    delivering a record, list it; the channel tests take the default.
+    """
     register_typed_at_composition(
         opened.control_plane,
         product_entitlement_key(tenant_id=opened.tenant_id),
@@ -116,6 +122,9 @@ def _entitle_owner(opened: OpenedProduct) -> None:
                 )
             },
             disclosure_level=DISCLOSURE_MINIMAL,
+            evidence_readable_classes=(
+                frozenset({opened.declaration.schema_name}) if readable else frozenset()
+            ),
         ),
         PRODUCT_ENTITLEMENT_POLICY,
     )
@@ -137,17 +146,25 @@ def _door(
     anchor: str,
     holds_subject: bool,
     project: Any = _paved_withholding_project,
+    readable: bool = False,
 ) -> Iterator[_Door]:
     """A paved deployment of the class-seeded fixture, behind ``create_app``.
 
     ``holds_subject`` is the only thing two worlds of one test differ by.
+    ``readable`` (Dave's Q12) affirms in the class declaration that its answers
+    never withhold their subject AND lists the class for owner read-back — the
+    two conditions under which a record crosses; it requires a ``project`` that
+    never withholds, which the governed resolver enforces.
     """
     base = tmp_path / name
     base.mkdir()
-    root = _write_tree(base, config=_paved_config(anchor=anchor, seeding=CLASS_SEEDED))
+    config = _paved_config(anchor=anchor, seeding=CLASS_SEEDED)
+    if readable:
+        config["product_class"]["subject_withholding"] = "never"
+    root = _write_tree(base, config=config)
     acquire = _AcquireForSubject() if holds_subject else _AcquireNothing()
     with _open(root, base / "scratch", acquire=acquire, project=project) as opened:
-        _entitle_owner(opened)
+        _entitle_owner(opened, readable=readable)
         app = create_app(
             ApiDependencies(
                 control_plane=opened.control_plane,
@@ -256,11 +273,21 @@ def _observe(door: _Door, subject: str) -> _Observed:
 
 
 def _both(
-    tmp_path: pathlib.Path, *, anchor: str, left_holds: bool, right_holds: bool
+    tmp_path: pathlib.Path,
+    *,
+    anchor: str,
+    left_holds: bool,
+    right_holds: bool,
+    project: Any = _paved_withholding_project,
+    readable: bool = False,
 ) -> tuple[_Observed, _Observed]:
-    with _door(tmp_path, "left", anchor=anchor, holds_subject=left_holds) as left:
+    with _door(
+        tmp_path, "left", anchor=anchor, holds_subject=left_holds, project=project, readable=readable
+    ) as left:
         observed_left = _observe(left, PAVED_WITHHELD)
-    with _door(tmp_path, "right", anchor=anchor, holds_subject=right_holds) as right:
+    with _door(
+        tmp_path, "right", anchor=anchor, holds_subject=right_holds, project=project, readable=readable
+    ) as right:
         observed_right = _observe(right, PAVED_WITHHELD)
     return observed_left, observed_right
 
@@ -290,8 +317,15 @@ def test_two_nonexistent_worlds_are_observationally_identical_through_the_door(
 ) -> None:
     """The comparison has no noise: two separately built worlds that both hold
     nothing yield the same answer and the same dereference, but for the
-    per-answer issuance (Dave's Q11): each answer's reference is its own."""
-    left, right = _both(tmp_path, anchor=anchor, left_holds=False, right_holds=False)
+    per-answer issuance (Dave's Q11): each answer's reference is its own.
+
+    Read-back open (Dave's Q12: the class affirms it never withholds and is
+    listed), over a projection that never withholds, so the door delivers the
+    record this control compares."""
+    left, right = _both(
+        tmp_path, anchor=anchor, left_holds=False, right_holds=False,
+        project=_plan_factory, readable=True,
+    )
     _require_equal_answers(left, right, case=f"{anchor}, nonexistent vs nonexistent")
     assert left.reference != right.reference, "issued per answer (Q11)"
     assert left.read.status_code == right.read.status_code == int(httpx.codes.OK), left.read.text[:300]
@@ -308,7 +342,8 @@ def test_the_door_delivers_an_answered_subjects_record_and_the_comparison_sees_i
     names the subject when the projection answers it: what channel 3 measures
     is visible through this door."""
     with _door(
-        tmp_path, "answered", anchor=FROM_DECISION, holds_subject=True, project=_plan_factory
+        tmp_path, "answered", anchor=FROM_DECISION, holds_subject=True, project=_plan_factory,
+        readable=True,
     ) as door:
         observed = _observe(door, PAVED_WITHHELD)
     assert observed.answer.status_code == int(httpx.codes.OK), observed.answer.text[:300]

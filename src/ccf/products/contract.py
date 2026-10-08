@@ -272,6 +272,9 @@ __all__ = [
     "ServeObligations",
     "requirements_declaration_is_coherent",
     "RefusalCause",
+    "SUBJECT_WITHHOLDING_NEVER",
+    "SUBJECT_WITHHOLDING_POSSIBLE",
+    "SubjectWithholding",
     "TTLAnchor",
     "register_product_class",
     "version_satisfies_floor",
@@ -286,6 +289,24 @@ TTLAnchor = Literal["from_decision", "from_entity_freshness"]
 #: D-IMPL-30). I.1 is Mode 1 throughout — no LLM participates anywhere in the
 #: fabric core.
 AssemblyMode = Literal["algorithmic", "llm_packaged", "swarm_assembled"]
+
+#: Whether a product class's answers may withhold their subject from the
+#: principal who asked (Dave's Q12, 2026-10-07; ``D-IMPL-378``; SDK-defined,
+#: CLAUDE.md §11). ``"may-withhold"`` — the default every class carries until it
+#: says otherwise — and ``"never"``, the affirmation a class makes so that its
+#: decision records may be read back by their owners. A record's dimension 1 is
+#: the real read (``D-IMPL-371``), so a record of a class that may withhold can
+#: name a subject its answer hid; only a class affirming ``"never"`` can be
+#: listed in a tenant's
+#: :attr:`~ccf.products.entitlement.ProductEntitlementPolicy.evidence_readable_classes`,
+#: and the governed resolver refuses a withheld answer from such a class.
+SubjectWithholding = Literal["may-withhold", "never"]
+
+#: The default posture: answers of the class may withhold their subject.
+SUBJECT_WITHHOLDING_POSSIBLE: SubjectWithholding = "may-withhold"
+
+#: The affirmation: answers of the class never withhold their subject.
+SUBJECT_WITHHOLDING_NEVER: SubjectWithholding = "never"
 
 #: What the fabric determined when a subject is not served, as
 #: :class:`~ccf.products.refusal.SubjectUnavailableRefusal` carries it.

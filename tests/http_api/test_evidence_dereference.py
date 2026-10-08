@@ -189,6 +189,11 @@ def _policy(
             ),
         },
         disclosure_level=DISCLOSURE_MINIMAL,
+        # Dave's Q12 (`D-IMPL-378`): owner read-back is default-deny behind an
+        # explicit tenant class allowlist. This suite's controls are about the
+        # four D-IMPL-345 holds, so its governed class is listed (and its
+        # records carry the class's affirmation, `_served_record`).
+        evidence_readable_classes=frozenset({product_class}),
     )
 
 
@@ -300,7 +305,11 @@ def _served_record(
                 freshness="event-driven",
                 asked_at=AUDIT_INSTANT,
                 parameters={},
-            )
+            ),
+            # Dave's Q12 (`D-IMPL-378`): the deciding class affirmed its answers
+            # never withhold their subject, as a record that may be read back
+            # must say; this suite's controls are about the D-IMPL-345 holds.
+            "subject_withholding": "never",
         }
     )
     record = base.model_copy(

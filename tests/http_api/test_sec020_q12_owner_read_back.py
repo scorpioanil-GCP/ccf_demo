@@ -106,10 +106,22 @@ def test_q12_the_owner_cannot_read_back_a_product_record_of_a_class_the_tenant_h
 
 
 def test_q12_the_owner_cannot_read_back_a_product_record_through_the_mcp_artifact_blob(
-    tmp_path: pathlib.Path,
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """MCP artifact server: the owner at ``full`` reads its own record's bytes by
-    content address through the blob resource. Default-deny refuses."""
+    content address through the blob resource. Default-deny refuses: the
+    tenant grants the class at ``full`` and lists nothing for read-back."""
+    import tests.mcp.test_c2_tenant_hold_mcp as c2  # noqa: PLC0415
+
+    granted = c2._policy
+
+    def unlisted(tenant: str) -> Any:
+        policy = granted(tenant)
+        return type(policy).model_validate(
+            {**policy.model_dump(), "evidence_readable_classes": frozenset()}
+        )
+
+    monkeypatch.setattr(c2, "_policy", unlisted)
     world = _world(tmp_path)
     address = _file(world, _record(tenant=MCP_TENANT, principal=MCP_PRINCIPAL, subject="subject-q12"))
     answer = _read(world, "blob", address)
@@ -230,3 +242,210 @@ def test_q12_guard_the_owner_still_reads_back_its_own_read_refusal_record(tmp_pa
         assert back.status_code == int(httpx.codes.OK), back.text[:300]
         record = DecisionReplayRecord.model_validate_json(back.content)
         assert record.perspective_conditioning.principal_id == "sec020-owner"
+
+
+# --- the mechanism (written with the fix) -------------------------------------------
+
+
+def _paved_open(tmp_path: pathlib.Path, name: str, *, never: bool, project: Any) -> Any:
+    """The class-seeded paved road, the source holding the withheld subject."""
+    from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
+    from tests.products.test_withheld_is_indistinguishable_from_absent import (  # noqa: PLC0415
+        CLASS_SEEDED,
+        _AcquireForSubject,
+        _paved_config,
+    )
+
+    base = tmp_path / name
+    base.mkdir()
+    config = _paved_config(anchor=FROM_DECISION, seeding=CLASS_SEEDED)
+    if never:
+        config["product_class"]["subject_withholding"] = "never"
+    root = _write_tree(base, config=config)
+    return _open(root, base / "scratch", acquire=_AcquireForSubject(), project=project)
+
+
+def _question(opened: Any, subject: str) -> Any:
+    from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER  # noqa: PLC0415
+    from tests.products.test_paved_road import ASKED_AT  # noqa: PLC0415
+
+    return opened.question(
+        subject=subject, asked_at=ASKED_AT, intent="fixture-intent",
+        freshness="fixture-freshness", parameters={THRESHOLD_PARAMETER: 1000},
+    )
+
+
+def test_q12_a_tenant_listing_a_class_that_may_withhold_is_refused_where_the_resolver_boots(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Dave: "Reject withholding classes." A class that does not affirm ``never``
+    — every class, until it says otherwise — listed for read-back is refused with
+    the typed error where the resolver is built, before any question is answered."""
+    from ccf.products.resolver import WithholdingClassListedReadable  # noqa: PLC0415
+    from tests.http_api.test_sec020_withheld_record_dereference import _entitle_owner  # noqa: PLC0415
+    from tests.products.test_withheld_is_indistinguishable_from_absent import (  # noqa: PLC0415
+        PAVED_ABSENT,
+        _paved_withholding_project,
+    )
+
+    with _paved_open(tmp_path, "listed-may-withhold", never=False, project=_paved_withholding_project) as opened:
+        _entitle_owner(opened, readable=True)
+        with pytest.raises(WithholdingClassListedReadable, match="evidence_readable_classes"):
+            opened.answer(_question(opened, PAVED_ABSENT))
+
+
+@pytest.mark.parametrize("composite", [False, True], ids=["plain-class", "composite-class"])
+def test_q12_the_boot_check_rejects_every_listed_class_that_may_withhold_composites_included(
+    composite: bool,
+) -> None:
+    """Dave: "including affected composites." The check is per class declaration,
+    so a composite (a class declaring ``requires``) listed without the
+    affirmation is refused exactly as any class is, and either kind affirming
+    ``never`` passes."""
+    from ccf.controlplane.artifacts import ProductClassDeclaration  # noqa: PLC0415
+    from ccf.controlplane.registry import ControlPlaneRegistry  # noqa: PLC0415
+    from ccf.products.contract import ChildRequirement  # noqa: PLC0415
+    from ccf.products.entitlement import (  # noqa: PLC0415
+        PRODUCT_ENTITLEMENT_POLICY,
+        ProductEntitlementGrant,
+        ProductEntitlementPolicy,
+        product_entitlement_key,
+    )
+    from ccf.products.resolver import (  # noqa: PLC0415
+        WithholdingClassListedReadable,
+        _refuse_a_listed_class_that_may_withhold,
+    )
+    from http_api.composition_authority import register_typed_at_composition  # noqa: PLC0415
+
+    tenant, product_class = "q12-tenant", "fixture.q12-class"
+    registry = ControlPlaneRegistry()
+    register_typed_at_composition(
+        registry,
+        product_entitlement_key(tenant_id=tenant),
+        ProductEntitlementPolicy(
+            tenant_id=tenant,
+            policy_version="1.0.0",
+            principals={
+                "q12-owner": ProductEntitlementGrant(
+                    permitted_schema_names=frozenset({product_class}),
+                    permitted_roles=frozenset({"q12-role"}),
+                )
+            },
+            evidence_readable_classes=frozenset({product_class}),
+        ),
+        PRODUCT_ENTITLEMENT_POLICY,
+    )
+    declaration = ProductClassDeclaration(
+        semver="1.0.0",
+        schema_name=product_class,
+        schema_version="1.0.0",
+        ttl_anchor="from_decision",
+        assembly_mode="algorithmic",
+        max_ttl_key=f"{tenant}/max-ttl",
+        required_operator_keys=("policy.principal-subgraph",),
+        requires=(
+            (ChildRequirement(product_class="fixture.q12-child", required=True, compatible_from="1.0.0"),)
+            if composite
+            else ()
+        ),
+    )
+    with pytest.raises(WithholdingClassListedReadable):
+        _refuse_a_listed_class_that_may_withhold(control_plane=registry, tenant=tenant, declaration=declaration)
+    affirmed = declaration.model_copy(update={"subject_withholding": "never"})
+    _refuse_a_listed_class_that_may_withhold(control_plane=registry, tenant=tenant, declaration=affirmed)
+
+
+def test_q12_a_class_that_affirms_never_cannot_withhold_its_subject(tmp_path: pathlib.Path) -> None:
+    """The affirmation is enforced: a projection that withholds the subject under a
+    class affirming ``never`` is refused as a broken deployment before anything is
+    recorded or served; the same class answers a subject it does not withhold."""
+    from ccf.products.resolver import NeverWithholdingContradicted  # noqa: PLC0415
+    from ccf.replay.serve import ServedProduct  # noqa: PLC0415
+    from tests.products.test_withheld_is_indistinguishable_from_absent import (  # noqa: PLC0415
+        PAVED_ABSENT,
+        _paved_withholding_project,
+    )
+
+    with _paved_open(tmp_path, "never-withholds", never=True, project=_paved_withholding_project) as opened:
+        with pytest.raises(NeverWithholdingContradicted, match="subject_withholding"):
+            opened.answer(_question(opened, PAVED_WITHHELD))
+        served = opened.answer(_question(opened, PAVED_ABSENT))
+        assert isinstance(served, ServedProduct), served
+        assert opened.record_of(served).content_generation_path.subject_withholding == "never"
+
+
+def test_q12_an_existing_record_without_its_classs_affirmation_stays_sealed_when_the_class_is_listed(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Dave: "apply the restriction to existing records." The tenant lists the class
+    and the owner is at ``full``; a record carrying no affirmation — every record
+    written before the affirmation existed — is refused, and the same record
+    carrying the class's affirmation reads back."""
+    world = _world(tmp_path)  # the tenant-hold world: the class granted and listed
+    existing = _record(tenant=MCP_TENANT, principal=MCP_PRINCIPAL, subject="subject-existing")
+    path = existing.content_generation_path
+    unmarked = existing.model_copy(
+        update={"content_generation_path": path.model_copy(update={"subject_withholding": "unstated"})}
+    )
+    affirmed_address = _file(world, existing)
+    unmarked_address = _file(world, unmarked)
+    assert _read(world, "blob", affirmed_address) == world.store.get(content_address=affirmed_address), (
+        "the control: a listed class's record carrying the affirmation reads back"
+    )
+    answer = _read(world, "blob", unmarked_address)
+    assert answer != world.store.get(content_address=unmarked_address), (
+        "a record without its class's affirmation was read back by its owner"
+    )
+    shell = RefusalEnvelope.model_validate_json(answer)
+    from ccf_runtime.http_api.errors import ERROR_EVIDENCE_CLASS_SEALED  # noqa: PLC0415
+
+    assert _internal_error_code(world.recorded, shell.replay_reference) == ERROR_EVIDENCE_CLASS_SEALED
+
+
+@pytest.mark.parametrize("touched", [False, True], ids=["read-nothing", "claims-no-read-names-a-touched-entity"])
+def test_q12_a_record_that_read_nothing_needs_only_the_listing(tmp_path: pathlib.Path, touched: bool) -> None:
+    """Hold 2b's other arm. A record whose dimension 1 is exactly the claim *nothing
+    was read* — a refusal made before any read — names no subject an answer could
+    have hidden, so with its class listed it reads back without the affirmation.
+    A dimension 1 that claims no read while naming a touched entity is not read
+    as having read nothing: it stays sealed."""
+    from ccf.replay.record import NO_FABRIC_READ, ContextFabricSnapshot  # noqa: PLC0415
+    from ccf_runtime.http_api.errors import ERROR_EVIDENCE_CLASS_SEALED  # noqa: PLC0415
+
+    world = _world(tmp_path)  # the class granted at `full` and listed
+    base = _record(tenant=MCP_TENANT, principal=MCP_PRINCIPAL, subject="subject-unread")
+    dimension_1 = base.context_fabric_snapshot
+    snapshot = (
+        ContextFabricSnapshot.build(
+            tenant_id=dimension_1.tenant_id,
+            temporal_boundary=dimension_1.temporal_boundary,
+            store_watermark=NO_FABRIC_READ,
+            touched_entities=("entity-touched",),
+            touched_relationships=(),
+        )
+        if touched
+        else ContextFabricSnapshot.unread(
+            tenant_id=dimension_1.tenant_id, temporal_boundary=dimension_1.temporal_boundary
+        )
+    )
+    record = base.model_copy(
+        update={
+            "context_fabric_snapshot": snapshot,
+            "content_generation_path": base.content_generation_path.model_copy(
+                update={"subject_withholding": "unstated"}
+            ),
+        }
+    )
+    address = _file(world, record)
+    answer = _read(world, "blob", address)
+    if not touched:
+        assert answer == world.store.get(content_address=address), (
+            "a listed class's record that read nothing was not read back by its owner"
+        )
+        return
+    assert answer != world.store.get(content_address=address), (
+        "a record claiming no read while naming a touched entity was read back"
+        " without its class's affirmation"
+    )
+    shell = RefusalEnvelope.model_validate_json(answer)
+    assert _internal_error_code(world.recorded, shell.replay_reference) == ERROR_EVIDENCE_CLASS_SEALED

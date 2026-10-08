@@ -353,6 +353,18 @@ _MARKED_IN_THE_TREE = frozenset(
         # existed and on every record no determination issued, so no stored
         # record's address moves; a real issuance is a real claim and renders.
         "ccf.replay.record.ContentGenerationPath.issuance",
+        # Dave's Q12 (`D-IMPL-378`, lane 378-s020record PROPOSAL) — THREE marks,
+        # ticked deliberately. A product class's affirmation that it never
+        # withholds its subject (`"may-withhold"` on every declaration written
+        # before it existed), the tenant's list of classes whose records an
+        # owner may read back (empty on every policy written before it existed:
+        # default-deny), and the affirmation the record carries
+        # (`"unstated"` on every record written before it existed, which the
+        # governed read refuses). No stored declaration, policy or record moves
+        # its address; a real value is a real claim and renders.
+        "ccf.controlplane.artifacts.ProductClassDeclaration.subject_withholding",
+        "ccf.products.entitlement.ProductEntitlementPolicy.evidence_readable_classes",
+        "ccf.replay.record.ContentGenerationPath.subject_withholding",
         # `D-IMPL-353` — seven marks, ticked deliberately. The authorization
         # capability's evidence on the objects that predate it: the audit id
         # of the decision an `AuthzDecision` was minted from, the resource
