@@ -538,8 +538,9 @@ def build_artifact_server(
             # record are not served as a client artifact (the client-lane
             # ruling, D-IMPL-378): the answer would not say which lane served
             # them, and every SDK reader of a record would take them as one.
-            # The governed dereference decides them; its provenance check
-            # answers them exactly as a missing address.
+            # The governed dereference decides them and answers them exactly
+            # as a missing address: its provenance check, or for a record
+            # claiming another tenant its tenant hold (hold 0), refuses them.
             return governed_read()
         audit_log.append(
             action="authz_decision",

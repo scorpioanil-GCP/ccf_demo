@@ -19,9 +19,9 @@ evidence; otherwise that path is refused until provenance is enforced. Neither
 held, so the split decides client-lane bytes that validate as a
 :class:`~ccf.replay.record.DecisionReplayRecord` (``model_validate_json``, the
 validator :func:`~ccf.replay.engine.resolve_artifact` and every SDK record
-reader apply) through the governed dereference. Its provenance check answers
-them exactly as a missing address. Every other client-lane artifact is served as
-before.
+reader apply) through the governed dereference, which answers them exactly as
+a missing address (its provenance check; for a record claiming another tenant,
+its tenant hold). Every other client-lane artifact is served as before.
 
 Each test drives a consumer through the shipped
 :class:`~ccf.artifacts.mcp_store.McpArtifactStore`, connected in-process to the

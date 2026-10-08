@@ -24,8 +24,9 @@ SDK record reader applies. Dave's ruling: such bytes stay ordinary client
 artifacts only if their untrusted origin is explicit and consumers cannot
 accept them as governed evidence, otherwise that path is refused until
 provenance is enforced. Neither held, so the split decides them through the
-governed dereference, whose provenance check answers them exactly as a missing
-address. What a consumer of the MCP-backed store does with them is
+governed dereference, which answers them exactly as a missing address (its
+provenance check; for a record claiming another tenant, its tenant hold). What
+a consumer of the MCP-backed store does with them is
 ``tests/mcp/test_clientlane_record_shaped.py``.
 
 Tenant, principal, class, scope and token names are test deployment
