@@ -1289,11 +1289,11 @@ unless another test is named.
   factory's `subject_disclosure()` returns no policy
   (`CompositeNeedsAnEarlyPolicy`), and an early policy over a child resolver
   that is never handed the request (`EarlyPolicyNeedsRequestAwareChildren`).
-  On this tree it also refuses a composite that declares no stance at all,
-  neither an early policy nor `subject_withholding: never` on its class
+  It also refuses a composite that declares no stance at all, neither an
+  early policy nor `subject_withholding: never` on its class
   (`CompositeNeedsAWithholdingStance`, measured by
-  `tests/products/test_sec020_p2c_composite_stance.py`). That refusal is a
-  candidate for the owed ruling P2, option (c), and is not ruled.
+  `tests/products/test_sec020_p2c_composite_stance.py`): Dave's ruling P2 (c),
+  2026-10-08.
   With the early policy, a withheld composite matched a nonexistent subject's
   on both child anchors.
 - **Each phase once, and one computation (Q10).** Each declared phase runs
@@ -1321,8 +1321,8 @@ acquisition phase is unaffected.
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
 
-- **The answer's replay reference (D-IMPL-378, Q11; a proposal on this
-  tree).** Every answer names its decision record: `ServedProduct.replay_ref`,
+- **The answer's replay reference (D-IMPL-378, Q11; Dave approved it as E1 (a)
+  on 2026-10-08).** Every answer names its decision record: `ServedProduct.replay_ref`,
   the MCP egress door's `replay_ref`, the HTTP product route's
   `X-CCF-Replay-Ref` header, and a refusal's `replay_reference`. The record
   was filed under its graph snapshot id, a hash of what the plan actually
@@ -1341,8 +1341,25 @@ a nonexistent one. Each was measured on test fixtures.
   question asked twice in the same governed state at the same instant is now
   two records with two references (it was one, `D-IMPL-253` amendment 3), so
   a deployment that compared two answers' references for equality can no
-  longer do so.
-- **The record behind it (D-IMPL-378, Q12; a proposal on this tree).**
+  longer do so. E1 (a) restates the three rulings that promised one record,
+  `D-IMPL-253` amendment 3, `D-IMPL-358` ruling 1 and `D-IMPL-148` Addendum A,
+  modulo the per-answer issuance: two answers to one question are one
+  determination whose records differ only in their issuance
+  (`tests/products/test_delivery_determinism.py`), and the client
+  conformance suite compares `replay_ref` by the record it resolves to rather
+  than by its string (`tests/client/conformance/suite.py::assert_served_parity`).
+  SEC-020's closing test judges references by distribution, not equality: the
+  two sides' references have one form, and their references and issuances
+  pass a two-sample test pooled over every cell of a comparison
+  (`tests/products/test_sec020_combined_proof.py::test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`,
+  which states the test's power). A reference names a record by the hash of
+  its stored bytes, so its integrity is arithmetic, and every SDK reader of a
+  record by its reference now re-hashes what it hands back:
+  `OpenedProduct.record_of` and the governed evidence read refuse bytes
+  altered under a reference, as replay already did
+  (`tests/replay/test_record_content_address_integrity.py`).
+- **The record behind it (D-IMPL-378, Q12; Dave ruled its three details on
+  2026-10-08 as E2: (i) and (iii) approved, (ii) rejected).**
   Dimension 1 of a withheld decision's record lists what the plan actually
   read, the acquired subject included. Before this change, read end to end
   through the governed dereference by their owner at full disclosure, the
@@ -1367,30 +1384,62 @@ a nonexistent one. Each was measured on test fixtures.
   `/artifact`, at the MCP artifact server's blob, presence and names
   resources, at the Experience door and through the `ccf` CLI
   (`tests/http_api/test_sec020_q12_owner_read_back.py`). Read-refusal records
-  keep their owner read-back (section 4.10). Two limits remain. A class that
-  affirms `never` while its projection can withhold is a broken deployment:
-  its withheld question raises where a nonexistent subject's is served (the
-  same test module). And `OpenedProduct.record_of` and the replay engine read
-  the store their caller already holds, so they are not governed; they are the
-  operator's and the auditor's reads.
-- **Composite children whose arguments do not come from the request.** Under
-  the early policy the SDK hands the child resolver the request with the
-  stand-in in place of the subject, but the deployment's child-arguments
-  mapping is handed only the requirement and the instant
-  (`src/ccf/products/child_resolver.py::ChildArguments`). A mapping that
-  reads the subject from state the deployment captured itself still asks the
-  child about the withheld subject: the composite was then refused
+  keep their owner read-back (section 4.10). A class that affirms `never`
+  while its projection can withhold is a broken deployment: its withheld
+  question raises where a nonexistent subject's is served (the same test
+  module). Dave rejected treating that as a disclosed obligation (E2 (ii)),
+  and it stays open.
+  **Where default-deny applies, and where it does not (E2 (i)).** Every read
+  an agent can reach holds it: the governed evidence reads above, and the
+  Experience door, which refuses. In process, what an agent, a harness
+  adapter or a product client is handed (`ProductClient`, its `Result`, the
+  in-process adapter) carries a record's reference and never the record. The
+  reads that do not hold it are the operator's and the auditor's:
+  `OpenedProduct.record_of` and the replay engine (`replay`,
+  `replay_refusal`, `resolve_artifact`, `resolve_artifact_at_uri`). Each is
+  handed, or carries, your ArtifactStore, and its caller can read the same
+  bytes straight from the store, so Dave ruled them unrestricted. Never hand
+  an opened product, or anything else holding the store, to an agent: that
+  hands the agent the store. Measured on one withheld answer by
+  `tests/http_api/test_sec020_e2i_operator_boundary.py`: the owner's governed
+  read is refused `evidence-class-sealed`, and the operator's handles return
+  the record.
+  **A refusal recorder must take `subject_withholding=` (E2 (iii)).** The
+  resolver passes it on every refusal it records. A recorder written to the
+  earlier signature, without the keyword or `**kwargs`, is refused where the
+  resolver or an entitling door is built (`IncompatibleRefusalRecorder`),
+  instead of raising `TypeError` at its first refusal
+  (`tests/products/test_sec020_e2iii_recorder_at_construction.py`).
+- **Composite children whose arguments come from captured state (P3 (a), which
+  Dave approved on 2026-10-08 "as the API improvement, but not as enforcement
+  proof").** The deployment's child-arguments mapping is handed the request
+  its composite asks the children about, the same request the child questions
+  are minted from (`src/ccf/products/child_resolver.py::ChildArguments`); under
+  the early policy it names the stand-in in place of the subject. A mapping
+  that took the child's subject from that request asked its child about the
+  stand-in, and the composite was answered as a nonexistent subject's
+  composite was, on both child anchors
+  (`tests/products/test_withheld_subject_child_arguments_and_question_stores.py`).
+  **Trusted deployment code is an explicit assumption.** The SDK cannot see
+  where a mapping's values come from. A mapping that ignores what it is
+  handed and uses a subject it captured itself still asks the child about the
+  withheld subject: under `from_decision` the composite was then refused
   `composite-child-refusal` (the child answered a question other than the one
-  the composite asked) where a nonexistent subject's composite was served.
-  Derive child arguments from the request your child resolver's `resolve_for`
-  is handed. Without the P2 (c) candidate above, a composite that declares
-  nothing and withholds inside its projection raises `CompositeWithheldLate`
-  at call time, for that subject only and after its children were asked: an
-  error the caller can see, where before the two products differed at
-  `debt.debt` and `debt.factors.freshness`. With it, such a composite is
-  refused when its resolver is built, and `CompositeWithheldLate` remains for
-  a composite that declares a stance and withholds a subject the stance does
-  not cover (measured for a class affirming `never` by
+  the composite asked) where a nonexistent subject's composite was served,
+  and under `from_entity_freshness` both were refused alike. That
+  counterexample is kept as a measured limitation:
+  `tests/products/test_sec020_p3_captured_subject_counterexample.py`. A
+  mapping is your code, bound where your child resolver is built: no request,
+  parameter, door payload, harness or agent input, or document supplies or
+  selects one (measured: a mapping-shaped parameter is refused
+  `undeclared-parameter` before any child is asked,
+  `tests/products/test_sec020_p3_captured_subject_counterexample.py::test_p3_condition_iii_no_caller_input_supplies_or_selects_the_child_arguments_mapping`).
+  A caller's declared parameters do reach your mapping, unchanged, so take
+  every child's subject from the request's `subject`, never from a parameter.
+  A composite that declares nothing is refused when its resolver is built
+  (P2 (c), above), and `CompositeWithheldLate` remains for a composite that
+  declares a stance and withholds a subject the stance does not cover
+  (measured for a class affirming `never` by
   `tests/products/test_sec020_combined_proof.py::test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record`).
 - **A question's store, booted again.** The withheld subject's acquisition
   stays in the store its question wrote, and the paved road leaves that store

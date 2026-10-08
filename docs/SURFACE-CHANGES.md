@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2354 entries**, of which **2078** name a public Python surface.
+**2362 entries**, of which **2086** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1307 entries — 1262 public Python surface, 45 not public Python API.
+1309 entries — 1264 public Python surface, 45 not public Python API.
 
 ### Public Python surface
 
@@ -19220,6 +19220,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
 
+#### ccf.products.resolver.IncompatibleRefusalRecorder
+
+- Surface: ccf.products.resolver.IncompatibleRefusalRecorder
+- Public surface: true
+- Change type: added
+- Before: absent; a recorder whose `record` could not be passed `subject_withholding=` built cleanly and raised `TypeError` at the first refusal the governed resolver recorded.
+- After: a `TypeError` raised where a resolver or an entitling door is built, naming the builder and the recorder's type, before anything is minted, registered or answered.
+- Why: Dave's E2 (iii) (`D-IMPL-378`): detect incompatible recorders at construction, rather than on the first refusal.
+- Migration: give your recorder's `record` the keyword `subject_withholding: str | None = None` (`RefusalRecorderProtocol`), or let it take `**kwargs`. The SDK's `ReplayRefusalRecorder` already does.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.refuse_incompatible_refusal_recorder
+
+- Surface: ccf.products.resolver.refuse_incompatible_refusal_recorder
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `refuse_incompatible_refusal_recorder(recorder, *, builder)` reads `record`'s signature, never calling it, and raises `IncompatibleRefusalRecorder` when `record` is missing, its signature cannot be read, or it can be passed `subject_withholding=` neither by name nor through `**kwargs`. Called by `GovernedResolver` and by every entitling door's builder.
+- Why: Dave's E2 (iii) (`D-IMPL-378`); one check, stated once, for every path that accepts a recorder.
+- Migration: none for a deployment; a door or a composition root that accepts a recorder of its own may call it at construction.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30155,7 +30179,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-381 entries — 342 public Python surface, 39 not public Python API.
+387 entries — 348 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -35858,6 +35882,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as `ccf.deployment.manifest.load_and_boot`
 
 *Recorded by `378-28-a-document-stating-another-class-is-refused.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction accepted any recorder carrying a `record` attribute.
+- After: construction refuses, right after the store-declaration check and before any refusal of the composition, minting or registration, a recorder whose `record` cannot be passed `subject_withholding=` (`IncompatibleRefusalRecorder`). `build_governed_resolver` hands a supplied recorder to it.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.resolver.RefusalRecorderProtocol
+
+- Surface: ccf.products.resolver.RefusalRecorderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: conformance was structural, the presence of `record` only; the signature was left to mypy.
+- After: every path that accepts a recorder also reads one thing of `record`'s signature at construction: that it can be passed `subject_withholding=`.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.recorded_boundary
+
+- Surface: ccf_runtime.authz.delivery_boundary.recorded_boundary
+- Public surface: true
+- Change type: behavior
+- Before: refused only an absent or non-conforming recorder (`UnrecordableDeliveryBoundaryError`).
+- After: also refuses, after that check, a recorder whose `record` cannot be passed `subject_withholding=` (`ccf.products.resolver.IncompatibleRefusalRecorder`), so `create_app`, the product router, `build_egress_server` (and `open_door`, which builds it) and `build_experience_server` refuse it where they are built.
+- Why: Dave's E2 (iii) (`D-IMPL-378`).
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: accepted any recorder and called no recorder check at construction.
+- After: refuses, first and before anything is composed, a recorder whose `record` cannot be passed `subject_withholding=` (`ccf.products.resolver.IncompatibleRefusalRecorder`).
+- Why: Dave's E2 (iii) (`D-IMPL-378`): every path that accepts a refusal recorder.
+- Migration: as for `IncompatibleRefusalRecorder`.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf.products.product.OpenedProduct.record_of
+
+- Surface: ccf.products.product.OpenedProduct.record_of
+- Public surface: true
+- Change type: behavior
+- Before: returned whatever the store held at the outcome's address, parsed as a record, without checking that those bytes hash to the address; bytes altered on the substrate came back as the decision's record.
+- After: re-hashes the stored bytes against the address the outcome names before parsing them, as the replay engine does (`D-IMPL-89`), and raises `ccf.replay.engine.ReplayDivergence` when they differ. Its docstring also states that it is an operator/auditor handle (Dave's E2 (i)).
+- Why: Dave's E1 (a) (`D-IMPL-378`): preserve record content-address integrity.
+- Migration: none for intact records. A caller that reads a record through `record_of` may now see `ReplayDivergence` for a record whose bytes were altered after filing.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
+
+#### ccf_runtime.authz.delivery_boundary.govern_dereference
+
+- Surface: ccf_runtime.authz.delivery_boundary.govern_dereference
+- Public surface: true
+- Change type: behavior
+- Before: re-hashed the bytes of its authorizing read (through `resolve_artifact`) but served, for a byte read, the bytes of its second, erasure-consulted read unchecked; bytes that changed between the two reads were served under the old address.
+- After: the second read's bytes are held to the address too; a mismatch is the one evidence-absent refusal, recorded, exactly as bytes that do not hash to their address at the first read always were.
+- Why: Dave's E1 (a) (`D-IMPL-378`): preserve record content-address integrity on the read that crosses.
+- Migration: none.
+
+*Recorded by `378-30-sec-020-e1-e2-p3-record-integrity-recorder-check-and-boundaries.md`.*
 
 ### Not public Python API
 

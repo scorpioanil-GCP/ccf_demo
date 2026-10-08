@@ -8633,6 +8633,7 @@
       "DEBT_SCORER_INPUTS",
       "EarlyPolicyNeedsRequestAwareChildren",
       "GovernedResolver",
+      "IncompatibleRefusalRecorder",
       "InstantAwareDebtScorerProtocol",
       "NeverWithholdingContradicted",
       "PackagingTraceProtocol",
@@ -8653,7 +8654,8 @@
       "UnsupportedComposition",
       "WithholdingClassListedReadable",
       "build_governed_resolver",
-      "declared_refusal_recorder"
+      "declared_refusal_recorder",
+      "refuse_incompatible_refusal_recorder"
     ],
     "exports": {
       "AcquiredFabricReused": {
@@ -8703,6 +8705,10 @@
       "GovernedResolver": {
         "kind": "class",
         "shape": "(*, fabric: 'BootedFabric', control_plane: 'ControlPlaneProtocol', product_class_key: 'str', request_contract_key: 'str', operator_parameter_keys: 'tuple[str, ...]', policy_bundle_key: 'str', debt_profile_key: 'str | None', plan_factory: 'ProjectionPlanFactoryProtocol', debt_scorer: 'AssemblyDebtScorerProtocol', product_gate: 'ProductGateProtocol | None', constraint_resolver: 'PolicyConstraintResolver', capabilities: 'tuple[TechnicalCapability, ...]', refusal_recorder: 'RefusalRecorderProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', query_pin_class: 'str', max_ttl_seconds: 'int', product_ttl_seconds: 'int', packaging_trace: 'PackagingTraceProtocol | None', composite_children: 'CompositeChildResolverProtocol | RequestAwareChildResolverProtocol | None', admission_clock: 'Callable[[], datetime]', decision_instant_parameter: 'str | None', source_refresh_recency: 'SourceRefreshRecency', acquisition: 'AcquisitionSeamProtocol | None', population_acquisition: 'PopulationAcquisitionSeamProtocol | None', half_life_key: 'str | None') -> None"
+      },
+      "IncompatibleRefusalRecorder": {
+        "kind": "class",
+        "shape": "type"
       },
       "InstantAwareDebtScorerProtocol": {
         "kind": "class",
@@ -8794,6 +8800,10 @@
       "declared_refusal_recorder": {
         "kind": "function",
         "shape": "(*, control_plane: 'ControlPlaneProtocol', artifact_store: 'ArtifactStoreProtocol', replay_record_class: 'str', tenant_id: 'str', assembly_mode: 'AssemblyMode', policy_bundle_pin: 'PolicyBinding') -> 'ReplayRefusalRecorder'"
+      },
+      "refuse_incompatible_refusal_recorder": {
+        "kind": "function",
+        "shape": "(recorder: 'object', *, builder: 'str') -> 'None'"
       }
     }
   },
