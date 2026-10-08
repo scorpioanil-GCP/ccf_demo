@@ -154,16 +154,29 @@ class ChildRecordMismatch(ValueError):
 #: producing skill takes. Deployment configuration, not SDK knowledge: what a
 #: child needs to be asked is the deployment's to state (`D-IMPL-38`).
 #:
-#: **Handed the request the composite asks its children about** (SEC-020 P3
-#: (a), ``D-IMPL-378``; a candidate Dave has not ruled). That is the EFFECTIVE
-#: request ``resolve_for`` is handed, the one :data:`ChildQuestions` mints each
-#: child's question from, and its ``asked_at`` is the composite's. Under an
-#: early :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` it
-#: names the declared undisclosed subject in place of a subject the policy does
-#: not disclose, so a mapping that reads the subject off it asks the child
-#: exactly what a nonexistent subject's composite asks. A mapping that reads
-#: the subject from state the deployment captured itself still asks about the
-#: caller's subject, and the gate then refuses that child ``question-mismatch``.
+#: **Handed the request the composite asks its children about** (Dave's P3
+#: (a), ``D-IMPL-378``, 2026-10-08: *"as the API improvement, but not as
+#: enforcement proof"*). That is the EFFECTIVE request ``resolve_for`` is
+#: handed, the one :data:`ChildQuestions` mints each child's question from, and
+#: its ``asked_at`` is the composite's. Under an early
+#: :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy` it names the
+#: declared undisclosed subject in place of a subject the policy does not
+#: disclose, so a mapping that reads the subject off it asks the child exactly
+#: what a nonexistent subject's composite asks.
+#:
+#: **Trusted deployment code — an explicit assumption** (Dave: *"Trusted
+#: deployment code is an explicit assumption; caller-controlled mappings cannot
+#: use this exception."*). The SDK cannot see where a mapping's values come
+#: from, so P3 (a) makes the safe path easy and enforces nothing: a mapping
+#: that ignores what it is handed and uses a subject it captured itself still
+#: asks the child about the withheld subject (measured:
+#: ``tests/products/test_sec020_p3_captured_subject_counterexample.py``). A
+#: mapping is the deployment's code, bound where its child resolver is built;
+#: no request, parameter, door payload, harness or agent input, or document
+#: supplies or selects one (lane ``378e-s020``'s scan and probe). A caller's
+#: DECLARED parameters do reach it, unchanged, as data, so take a child's
+#: subject from the request's ``subject`` and never from a parameter: a subject
+#: read from a parameter is the caller's, and the assumption does not cover it.
 ChildArguments = Callable[[ChildRequirement, ProductRequest], Mapping[str, str]]
 
 
@@ -210,6 +223,11 @@ class GrantBoundChildResolver:
         gate: The composite admission gate, which performs the fit checks.
         child_arguments: Turns a requirement and the request the composite asks
             its children about into the skill's arguments (:data:`ChildArguments`).
+            Trusted deployment code, an explicit assumption (Dave's P3 (a),
+            ``D-IMPL-378``): the SDK hands it the request with any withheld
+            subject replaced, and cannot make it use that request — a mapping
+            that reads a subject it captured itself, or a caller's parameter,
+            asks the child about whatever it read.
         callable_registry: For ``local_callable`` entries.
         mcp_skills: For ``mcp`` entries. ``None`` means this deployment binds
             none, and an MCP-bound grant then fails loudly rather than being
@@ -853,7 +871,10 @@ class QuestionBoundChildResolver:
             once (§1.3).
         child_arguments: Optional. The mapping for non-``mcp_product``
             entries granted to the same agent, handed the same effective
-            request ``child_questions`` is (:data:`ChildArguments`).
+            request ``child_questions`` is (:data:`ChildArguments`). Like
+            ``child_questions``, trusted deployment code, an explicit
+            assumption (Dave's P3 (a), ``D-IMPL-378``): the SDK cannot make
+            either use the request it is handed rather than state it captured.
         (every other argument): exactly as :class:`GrantBoundChildResolver`.
     """
 
