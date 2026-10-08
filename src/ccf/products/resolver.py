@@ -3058,11 +3058,11 @@ class GovernedResolver:
         # the two answers apart by, each measured (section 4.12): a composite's
         # children are resolved for the ASKED subject above, and the
         # composition below replaces the debt and supplies the expiry and the
-        # lineage, none of it re-rendered (review finding I-1); the re-run
-        # reuses `operators`, built from the view read AFTER acquisition, so a
-        # similarity operator scores against text the acquisition just wrote
-        # (review finding I-2); and the answer's replay reference is named by
-        # dimension 1, which keeps the real read (review finding C-1). The
+        # lineage, none of it re-rendered (review finding I-1); and the
+        # answer's replay reference is named by dimension 1, which keeps the
+        # real read (review finding C-1). (Review finding I-2, a similarity
+        # operator scoring the re-run against text acquisition wrote, is the
+        # registry note below.) The
         # withheld subject's own records stay in the re-run's view if and only
         # if a class seed reaches them, exactly as for the nonexistent
         # identifier. Measured history: an EMPTY view (round 1) created a
@@ -3087,8 +3087,36 @@ class GovernedResolver:
         # plane (whitepaper §7.8.2) and keeps what was actually read, so a
         # re-execution pins the same reads; the recorded debt and finding are
         # `rendered`'s, carried in dimension 5, which is what replay rehydrates.
+        #
+        # AND ITS OPERATORS ARE BUILT FROM THE SAME READ IT WALKS (SEC-020
+        # channel 5, review finding I-2; `D-IMPL-378`). `operators` was built
+        # from `view`, read AFTER acquisition, and an index-backed operator
+        # holds a corpus read out of the view its registry was built from: a
+        # similarity operator in it scored the unseeded walk over the records
+        # before acquisition against the text acquisition had just written for
+        # the asked subject (measured: `computed_empty`, `debt.debt`,
+        # `debt.factors.freshness` and `debt.scorers` moved). So when a seam ran,
+        # the re-execution's registry is built from `before_acquisition`, with
+        # the same parameters (the same effective request over the same pinned
+        # artifacts), on an engine over the same reader. Only on this branch:
+        # the served path keeps `operators`, so a subject Π does not withhold is
+        # still scored against the text its own acquisition wrote. With no seam,
+        # `view` is the state before acquisition and `operators` is already
+        # built from it.
         rendered = (
-            engine.execute_without_request_seed(
+            (
+                engine
+                if before_acquisition is None
+                else ProjectionEngine(
+                    reader=self.fabric.handle.reader,
+                    registry=build_operator_registry(
+                        parameters=self.operator_parameters(effective_request),
+                        view=before_acquisition,
+                        pins=self.fabric.pins,
+                        policy_bundle_key=self.policy_bundle_key,
+                    ),
+                )
+            ).execute_without_request_seed(
                 executed=execution,
                 plan=plan,
                 perspective=perspective,

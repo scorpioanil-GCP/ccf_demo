@@ -553,16 +553,20 @@ class ProjectionEngine:
 
         Every other input is the shadowed execution's: the same plan, boundary
         and perspective, on a fresh engine sharing this one's registry and
-        survivor cap (so this engine's telemetry is not replaced). The governed
-        resolver built that registry from the view read AFTER this request's
-        acquisition, so an index-backed operator in it — the similarity
-        operator's corpus — holds text the acquisition wrote although the walk
-        does not read the acquired records: measured to tell a withheld subject
-        from a nonexistent one when the acquisition refreshed an entity the
-        fabric already held (review finding I-2; section 4.12). Content the
-        real execution acquired at decision time is RE-FED rather than
-        re-acquired (the replay posture, INV-CH7-31). The result carries the
-        real execution's attestation and pin.
+        survivor cap (so this engine's telemetry is not replaced). An
+        index-backed operator in that registry, the similarity operator's
+        corpus, holds text read out of the view the registry was built from.
+        So a caller passing ``before_acquisition`` calls this on an engine
+        whose registry was built from that same read; on a registry built from
+        a later view, the walk over the records before acquisition is scored
+        against text the acquisition wrote, which was measured to tell a
+        withheld subject from a nonexistent one when the acquisition refreshed
+        an entity the fabric already held (review finding I-2; section 4.12).
+        The governed resolver builds that registry from ``before_acquisition``
+        for this call (``D-IMPL-378``). Content the real execution acquired at
+        decision time is RE-FED rather than re-acquired (the replay posture,
+        INV-CH7-31). The result carries the real execution's attestation and
+        pin.
 
         Args:
             executed: The real execution of the same plan, already run.
