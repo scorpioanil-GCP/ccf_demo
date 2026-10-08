@@ -450,6 +450,11 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.controlplane.artifacts.DeploymentConfig.door",
         "ccf.controlplane.artifacts.DeploymentConfig.agent",
         "ccf.controlplane.artifacts.DeploymentConfig.skills",
+        # `D-IMPL-378` C1: the optional `demonstration_serve_instant:` section,
+        # `None` on every config authored before it existed, so no committed
+        # config's content address or pin moves (the `temporal_boundary`
+        # precedent above).
+        "ccf.controlplane.artifacts.DeploymentConfig.demonstration_serve_instant",
         "ccf.controlplane.artifacts.ProductClassDeclaration.decision_instant_parameter",
         "ccf.deployment.environment.EnvironmentDocument.config",
         "ccf.deployment.environment.EnvironmentDocument.sources",
