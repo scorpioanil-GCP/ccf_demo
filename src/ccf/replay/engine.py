@@ -66,7 +66,12 @@ The pipeline, in order, with each step's failure mode named:
 5. **Check the snapshot id** derived from the re-execution against the recorded
    one. Both are content-derived, so agreement is a statement about state.
 6. **Re-hydrate the product** and check its content address against the
-   recorded one. This is the claim in one line: *the same bytes*.
+   recorded one. This is the claim in one line: *the same bytes*. One
+   compatibility rule applies here (``D-IMPL-378``): a record filed before
+   dimension 5 carried the product's empty finding is rebuilt once more with
+   the finding the record writer of that era derived from the execution,
+   applied to the re-execution, and accepted only if the product then hashes
+   to the recorded address. Nothing else is ever added.
 
 **Divergence is raised, not returned.** The gates (L6) return refusals as data
 because a caller there holds a candidate it might legitimately discard. A
@@ -107,7 +112,8 @@ from ccf.controlplane.artifacts import PolicyConstraint
 from ccf.controlplane.registry import ControlPlaneMissing, ControlPlaneProtocol
 from ccf.graph.protocols import GraphReader
 from ccf.products.composite import ChildContractView
-from ccf.products.contract import ContextProductContract
+from ccf.products.contract import ComputedEmptyFinding, ContextProductContract
+from ccf.products.debt_scorer import ExecutionEvidence, emptiness_of
 from ccf.products.request import (
     ProductRequestContract,
     ProductRequestViolation,
@@ -992,6 +998,17 @@ def replay(
 ) -> ReplayOutcome | ErasedReplayOutcome:
     """Reproduce the decision recorded at ``record_address``, exactly.
 
+    **A record filed before dimension 5 carried the empty finding**
+    (``D-IMPL-378``; SEC-020 close-out channel 7, review finding M-5). When the
+    product rebuilt from the record does not reproduce the recorded address,
+    the record carries no ``computed_empty`` and the rebuilt product carries
+    none, the product is rebuilt once more with the finding the record writer
+    of that era attached, ``ComputedEmptyFinding.of`` over the execution, here
+    applied to the re-execution already held to the record. It is accepted
+    only if it then hashes to the recorded address; otherwise the
+    ``ReplayDivergence`` names the first rebuild's address. A record that
+    carries the member replays exactly as before.
+
     Args:
         record_address: Content address of the :class:`DecisionReplayRecord`.
             An address, not a name: names move, addresses do not.
@@ -1087,10 +1104,19 @@ def replay(
     )
     reproduced_address = content_hash(product)
     if reproduced_address != path.product_content_address:
-        raise ReplayDivergence(
-            f"the rehydrated product hashes to {reproduced_address!r}; the "
-            f"record names {path.product_content_address!r}"
+        # `D-IMPL-378`: a record filed before dimension 5 carried the empty
+        # finding. Only that finding is ever added, and only when the product
+        # then hashes to the address this record names.
+        filed_before = _with_the_finding_filed_before_dimension_5(
+            record=record, product=product, execution=execution
         )
+        if filed_before is None:
+            raise ReplayDivergence(
+                f"the rehydrated product hashes to {reproduced_address!r}; the "
+                f"record names {path.product_content_address!r}"
+            )
+        product = filed_before
+        reproduced_address = content_hash(product)
 
     return ReplayOutcome(
         record=record,
@@ -1432,6 +1458,61 @@ def _hold_ttl_anchor(
             f" the record names {recorded.isoformat()} (D-IMPL-341 R-5)"
         )
     return TTL_ANCHOR_HELD_EVIDENCE
+
+
+def _with_the_finding_filed_before_dimension_5(
+    *,
+    record: DecisionReplayRecord,
+    product: ContextProductContract,
+    execution: ExecutionResult,
+) -> ContextProductContract | None:
+    """The rehydrated product with the empty finding a pre-member record implies, or ``None``.
+
+    ``D-IMPL-378`` (SEC-020 close-out channel 7, review finding M-5;
+    SDK-defined, CLAUDE.md §11). A compatibility rule for records only: it
+    changes nothing any writer files.
+
+    From ``ac4e4573`` (merged to ``main`` in ``8e8374c3``) a product carries
+    :attr:`~ccf.products.contract.ContextProductContract.computed_empty`, inside
+    its content address, whenever an operator ran and returned nothing. Until
+    ``7bf069cc`` the record writer did not copy that finding into dimension 5
+    (``ContentGenerationPath.computed_empty`` arrived there, hash-transparent at
+    ``None``), so such a record carries no finding to rehydrate and replayed to
+    ``ReplayDivergence``, under the code that filed it as under this one. The
+    writer of that era derived the finding from the execution it recorded:
+    ``ComputedEmptyFinding.of(execution, emptiness=emptiness_of(ExecutionEvidence.of(execution)))``.
+    Replay has just re-executed that path and held it to the record (step
+    sequence, query pins, graph substate, store pin), so this applies the same
+    function to the re-execution.
+
+    It acts only when the record carries no finding and the rehydrated product
+    carries none, and it returns a product only when that product hashes to
+    the address the record names. The address therefore stays the arbiter: a
+    record whose product the re-execution does not reproduce still diverges,
+    and a record that carries the member is replayed exactly as before, because
+    this is reached only after the product rebuilt from it failed to reproduce
+    its address. A record whose dimension 5 carries no finding cannot say
+    whether it predates the member or served a product with none (the member is
+    hash-transparent at ``None``), which is why the address decides rather
+    than the record.
+    """
+    path = record.content_generation_path
+    if path.computed_empty is not None or product.computed_empty is not None:
+        return None
+    finding = ComputedEmptyFinding.of(
+        execution, emptiness=emptiness_of(ExecutionEvidence.of(execution))
+    )
+    if finding is None:
+        return None
+    candidate = type(product).model_validate(
+        {
+            **{name: getattr(product, name) for name in type(product).model_fields},
+            "computed_empty": finding,
+        }
+    )
+    if content_hash(candidate) != path.product_content_address:
+        return None
+    return candidate
 
 
 def retained_child_question(

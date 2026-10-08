@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2205 entries**, of which **1930** name a public Python surface.
+**2209 entries**, of which **1934** name a public Python surface.
 
 ## Added
 
@@ -25411,8 +25411,8 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Change type: reshaped
 - Before: dimension 5 did not carry the served product's empty finding. `RecordedEnvironment.rehydrate_product` therefore rebuilt every product served WITH a finding without one, and replay failed with `ReplayDivergence` on its content address. That covered a computed-empty answer, a nonexistent subject on an empty per-request fabric, and every withheld subject.
 - After: adds `computed_empty: ComputedEmptyFinding | None = None`, hash-transparent at `None`, so every record written before it existed keeps its bytes and address. `build_replay_record` copies the product's finding, as it copies `ttl_anchor_at`. `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product` copies it back.
-- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`, and its replay still fails with `ReplayDivergence`: measured with a computed-empty product's record filed without the member, as a writer before this change filed it.
-- Migration: none is possible for a record written before this change: records are immutable, it carries no finding to copy, and its replay still diverges. A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
+- Why: SEC-020, corrective round. A withheld decision must replay to its own address. The same change closes that divergence for an empty-finding product whose record is written after it. A record written before it carries no `computed_empty`. Its replay failed with `ReplayDivergence` until `378-03`, and now reaches its own address under the compatibility rule in `ccf.replay.engine.replay`: measured on the record bytes the writer at `d9305603` filed for a computed-empty product, which diverge without `378-03` and replay to their recorded product address with it.
+- Migration: none. A record written before this change is immutable and carries no finding to copy; `ccf.replay.engine.replay` rebuilds its product once more with the finding the writer of its era attached, and accepts it only when the product then hashes to the recorded address (`378-03`). A hand-written `ReplayEnvironment` that rebuilds products should copy `path.computed_empty`.
 
 *Recorded by `370-20-sec-020-projection-withheld-signal.md`.*
 
@@ -29159,7 +29159,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-315 entries — 276 public Python surface, 39 not public Python API.
+319 entries — 280 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -33962,6 +33962,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a client that files a copy of a Decision Replay record on a client lane and reads it back through the MCP artifact server now gets the missing-address answer. Read a record through a governed read instead. A copy kept as an ordinary client artifact must be in a form the record validator refuses. Each read of such bytes records a `nonexistent` refusal through the door's recorder, as a read of a missing address does. An erasure door built over the MCP-backed store reads each named address's bytes to verify its subject, so it now refuses a request naming such a filing `subject-unverifiable`; before this change it read the bytes and judged them. A door over the store in process reads the bytes directly and judges the subject. The SDK readers that read a store in process, without the artifact server in between, are not changed here: `resolve_artifact`, `replay_refusal` and child admission still accept a record-shaped client-lane filing as a record, because none of them checks who filed it.
 
 *Recorded by `378-02-record-shaped-bytes-on-the-mcp-client-lane.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: when Π raised the withheld signal, `__call__` re-executed the plan without the request seed over the as-of read taken immediately before the declared acquisition seam, using the operator registry built from the view read after acquisition. A similarity operator in that registry scored the walk against the text acquisition had just written for the asked subject.
+- After: when an acquisition seam ran, the re-execution runs on a `ProjectionEngine` over the same reader whose registry `build_operator_registry` builds from that read before acquisition, with the same operator parameters (the same effective request over the same pinned artifacts). Only the withheld branch builds it: the served path keeps the registry built from the view after acquisition, so a subject Π does not withhold is still matched against the text its own acquisition wrote (`tests/products/test_withheld_similarity_registry.py::test_i2_a_served_subject_is_still_scored_against_the_text_its_acquisition_wrote`). With no seam declared nothing changes.
+- Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`. The withheld rendering is the walk a subject that names nothing gets, and that subject's corpus is the text before acquisition.
+- Migration: none in code. If your `acquire` is not keyed on the subject and the plan carries a similarity operator, read "The trade, measured" above: that shape now differs at more members, and as refused against served under `from_entity_freshness`. With an acquisition seam declared, a withheld answer now also builds the operator registry a second time from the read before acquisition. On a test fabric of about 1,500 entities with a similarity operator in the plan, the withheld median was 1.06 to 1.08 times the nonexistent one over two runs of eight calls each, ranges overlapping (1.11 in one run before this change). If that read holds an entity whose declared corpus attribute is missing, the withheld call raises `SimilarityCorpusAttributeError`, as a nonexistent subject's call over that same state does.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.projection.engine.ProjectionEngine
+
+- Surface: ccf.projection.engine.ProjectionEngine
+- Public surface: true
+- Change type: behavior
+- Before: the docstring of `execute_without_request_seed` said the governed resolver built the engine's registry from the view read after acquisition.
+- After: no code change. The docstring states the caller's obligation: a caller passing `before_acquisition` calls the method on an engine whose registry was built from that same read, and on a registry built from a later view an index-backed operator scores the walk against text the acquisition wrote. `GovernedResolver` now meets it.
+- Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`.
+- Migration: a deployment that calls `execute_without_request_seed(..., before_acquisition=...)` itself should build the engine's registry with `build_operator_registry(view=<that same read>, ...)`, as `GovernedResolver` does.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.projection.plan.ProjectionOutput
+
+- Surface: ccf.projection.plan.ProjectionOutput
+- Public surface: true
+- Change type: behavior
+- Before: the docstring listed similarity over an entity the acquisition refreshed among the channels that still tell a withheld subject from a nonexistent one.
+- After: no code change. The docstring says the re-run scores with a registry built from the read before acquisition and that the two products were measured equal on a test fixture whose acquisition changed the subject's similarity text; the rest of its list is unchanged.
+- Why: SEC-020 close-out channel 5, review finding I-2; `D-IMPL-378`.
+- Migration: none.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
+
+#### ccf.replay.engine.replay
+
+- Surface: ccf.replay.engine.replay
+- Public surface: true
+- Change type: behavior
+- Before: a record whose dimension 5 carried no `computed_empty`, for a product that carried one, was rebuilt without the finding and raised `ReplayDivergence` on its content address.
+- After: when the product rebuilt from the record does not reproduce the recorded address, the record carries no `computed_empty` and the rebuilt product carries none, the product is rebuilt once more with the finding the writer of the record's era attached, `ComputedEmptyFinding.of(execution, emptiness=emptiness_of(ExecutionEvidence.of(execution)))`, applied to the re-execution replay has already held to the record (step sequence, query pins, graph substate, store pin). It is accepted only if it then hashes to the address the record names; otherwise `ReplayDivergence` is raised as before, naming the first rebuild's address. A record carrying the member reaches this rule only if its own rebuild already failed. No writer, record, byte or address changes, and `replay_refusal`, which rebuilds no product, is untouched.
+- Why: SEC-020 close-out channel 7, review finding M-5; `D-IMPL-378`. A record that predates the member replays under the semantics it was written under. The member is hash-transparent at `None`, so a record cannot say whether it predates the member or served a product with no finding, and the record's own product address decides. Controls: `tests/replay/test_record_filed_before_dimension_5_finding.py::test_m5_control_the_record_the_current_writer_files_replays_with_its_finding_copied` and `tests/replay/test_record_filed_before_dimension_5_finding.py::test_m5_control_the_record_s_own_product_address_still_arbitrates`.
+- Migration: none. A record filed before the change replays through any `ReplayEnvironment` that copies `path.computed_empty`, which is `None` on such a record, including `src/ccf/replay/environment.py::RecordedEnvironment`.
+
+*Recorded by `378-03-sec-020-similarity-registry-and-pre-member-replay.md`.*
 
 #### ccf.products.resolver.GovernedResolver
 
