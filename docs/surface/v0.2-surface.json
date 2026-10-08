@@ -2146,6 +2146,7 @@
           "seam_refusals": "tuple[ccf.controlplane.artifacts.SeamRefusalBinding, ...]",
           "semver": "<class 'str'>",
           "serve_obligations": "<class 'ccf.products.contract.ServeObligations'>",
+          "subject_withholding": "typing.Literal['may-withhold', 'never']",
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
         }
       },
@@ -7291,7 +7292,10 @@
       "ProductLineage",
       "RefusalCause",
       "RegisteredProductClass",
+      "SUBJECT_WITHHOLDING_NEVER",
+      "SUBJECT_WITHHOLDING_POSSIBLE",
       "ServeObligations",
+      "SubjectWithholding",
       "TTLAnchor",
       "UNMEASURED_FRESHNESS_SLA",
       "register_product_class",
@@ -7455,12 +7459,24 @@
           "ttl_anchor": "typing.Literal['from_decision', 'from_entity_freshness']"
         }
       },
+      "SUBJECT_WITHHOLDING_NEVER": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SUBJECT_WITHHOLDING_POSSIBLE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "ServeObligations": {
         "kind": "contract",
         "shape": {
           "default_debt_tolerance": "decimal.Decimal | None",
           "lineage_inputs_at": "frozenset[str]"
         }
+      },
+      "SubjectWithholding": {
+        "kind": "function",
+        "shape": "typing.Literal['may-withhold', 'never']"
       },
       "TTLAnchor": {
         "kind": "function",
@@ -7715,6 +7731,7 @@
         "kind": "contract",
         "shape": {
           "disclosure_level": "typing.Literal['minimal', 'reasoned', 'full']",
+          "evidence_readable_classes": "frozenset[str]",
           "policy_version": "<class 'str'>",
           "principals": "collections.abc.Mapping[str, ccf.products.entitlement.ProductEntitlementGrant]",
           "tenant_id": "<class 'str'>"
@@ -8452,6 +8469,7 @@
       "DEBT_SCORER_INPUTS",
       "GovernedResolver",
       "InstantAwareDebtScorerProtocol",
+      "NeverWithholdingContradicted",
       "PackagingTraceProtocol",
       "ProductGateProtocol",
       "ProductNotResolvable",
@@ -8461,6 +8479,7 @@
       "ResolverOutcome",
       "ServedProductResolverProtocol",
       "UndeclaredMechanismClass",
+      "WithholdingClassListedReadable",
       "build_governed_resolver",
       "declared_refusal_recorder"
     ],
@@ -8492,6 +8511,10 @@
       "InstantAwareDebtScorerProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "NeverWithholdingContradicted": {
+        "kind": "class",
+        "shape": "type"
       },
       "PackagingTraceProtocol": {
         "kind": "class",
@@ -8526,6 +8549,10 @@
         "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ResolverOutcome'"
       },
       "UndeclaredMechanismClass": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "WithholdingClassListedReadable": {
         "kind": "class",
         "shape": "type"
       },
@@ -8959,6 +8986,7 @@
       "NO_HARNESS",
       "NO_HARNESS_TRACE",
       "NO_HITL_ACTIONS",
+      "NO_ISSUANCE",
       "NO_PACKAGING",
       "NO_PACKAGING_TRACE",
       "NO_PRODUCT_ADDRESS",
@@ -8973,8 +9001,10 @@
       "REFUSAL_SEAMS",
       "ResolutionNotApplicable",
       "ResolutionNotApplicableReason",
+      "UNSTATED_SUBJECT_WITHHOLDING",
       "build_replay_record",
-      "mint_assembly_refusal"
+      "mint_assembly_refusal",
+      "new_issuance"
     ],
     "exports": {
       "CHILD_ADMITTED": {
@@ -9036,6 +9066,7 @@
           "debt_evidence": "tuple[ccf.halflife.assessment.DebtEvidencePointer, ...]",
           "disclosure_decision": "<class 'str'>",
           "graph_query_sequence": "tuple[str, ...]",
+          "issuance": "<class 'str'>",
           "obligation_in_force": "<class 'str'>",
           "operator_plan": "tuple[str, ...]",
           "plan_id": "<class 'str'>",
@@ -9045,6 +9076,7 @@
           "served_at": "datetime.datetime | None",
           "source_refresh_recency": "ccf.halflife.assessment.SourceRefreshWindow | None",
           "steps": "tuple[ccf.projection.engine.ExecutionStep, ...]",
+          "subject_withholding": "<class 'str'>",
           "ttl_anchor_at": "datetime.datetime | None",
           "workflow_step_sequence": "<class 'str'>"
         }
@@ -9146,6 +9178,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "NO_ISSUANCE": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "NO_PACKAGING": {
         "kind": "constant",
         "shape": "str"
@@ -9231,13 +9267,21 @@
         "kind": "function",
         "shape": "typing.Literal['no-resolution-step', 'refused-before-resolution']"
       },
+      "UNSTATED_SUBJECT_WITHHOLDING": {
+        "kind": "constant",
+        "shape": "str"
+      },
       "build_replay_record": {
         "kind": "function",
-        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, packaging_trace: 'PackagingTrace | None' = None, served_at: 'datetime | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = ()) -> 'DecisionReplayRecord'"
+        "shape": "(*, execution: 'ExecutionResult | None', product: 'ContextProductContract | None', perspective: 'Perspective', policy_bindings: 'tuple[PolicyBinding, ...]', assembly_mode: 'AssemblyMode', recorded_at: 'datetime', resolution: \"'EffectiveRequest | ResolutionNotApplicable'\", refusal: \"'RefusalEnvelope | None'\" = None, tenant_id: 'str | None' = None, assembler_id: 'str | None' = None, assembler_version: 'str | None' = None, disclosure: 'str | None' = None, agent_conditioning: 'PerspectiveConditioning | None' = None, harness_trace: 'HarnessTrace | None' = None, packaging_trace: 'PackagingTrace | None' = None, served_at: 'datetime | None' = None, hitl_actions: 'str | None' = None, workflow_step_sequence: 'str | None' = None, assembly_refusal: 'str | None' = None, refusal_seam: 'str' = 'not-seam-held', adapter: 'AdapterPin | None' = None, request: 'ProductRequest | None' = None, child_resolutions: 'tuple[ChildResolution, ...]' = (), issuance: 'str | None' = None, subject_withholding: 'str | None' = None) -> 'DecisionReplayRecord'"
       },
       "mint_assembly_refusal": {
         "kind": "function",
         "shape": "(outcome: \"'AssemblyOutcome | ProductRequestViolation | RefusalEnvelope | CCFContract'\", *, claimed: 'str | None' = None) -> 'str'"
+      },
+      "new_issuance": {
+        "kind": "function",
+        "shape": "() -> 'str'"
       }
     }
   },
@@ -11074,6 +11118,7 @@
   "ccf_runtime.authz.product_entitlement": {
     "__all__": [
       "ControlPlaneProductEntitlementSource",
+      "EvidenceReadabilitySourceProtocol",
       "PerspectiveResolverProtocol",
       "ProductEntitlementRefused",
       "ProductEntitlementSourceProtocol",
@@ -11086,6 +11131,10 @@
       "ControlPlaneProductEntitlementSource": {
         "kind": "class",
         "shape": "(*, control_plane: 'ControlPlaneRegistry', clock: 'Callable[[], datetime]') -> 'None'"
+      },
+      "EvidenceReadabilitySourceProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "PerspectiveResolverProtocol": {
         "kind": "class",
@@ -11810,6 +11859,7 @@
       "ERROR_APPROVER_NOT_ELIGIBLE",
       "ERROR_DECISION_UNMINTABLE",
       "ERROR_EVIDENCE_ABSENT",
+      "ERROR_EVIDENCE_CLASS_SEALED",
       "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
       "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
       "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
@@ -11850,6 +11900,10 @@
         "shape": "str"
       },
       "ERROR_EVIDENCE_ABSENT": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_EVIDENCE_CLASS_SEALED": {
         "kind": "constant",
         "shape": "str"
       },
@@ -12611,6 +12665,7 @@
       "EXPERIENCE_TOOLS",
       "ExperienceProductNotServable",
       "ExperienceProductResolverProtocol",
+      "ExperienceReplayReadRefused",
       "ExposedAgent",
       "GET_CONTEXT_TOOL",
       "GET_LINEAGE_TOOL",
@@ -12694,6 +12749,10 @@
       "ExperienceProductResolverProtocol": {
         "kind": "class",
         "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ServedProduct | RefusalEnvelope'"
+      },
+      "ExperienceReplayReadRefused": {
+        "kind": "class",
+        "shape": "type"
       },
       "ExposedAgent": {
         "kind": "contract",
