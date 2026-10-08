@@ -146,6 +146,7 @@ between a candidate and its content address.
 
 from __future__ import annotations
 
+import inspect
 import threading
 import weakref
 from collections.abc import Callable, Iterable, Mapping
@@ -319,6 +320,7 @@ __all__ = [
     "AcquisitionSeamProtocol",
     "AssemblyDebtScorerProtocol",
     "GovernedResolver",
+    "IncompatibleRefusalRecorder",
     "InstantAwareDebtScorerProtocol",
     "NeverWithholdingContradicted",
     "ProductGateProtocol",
@@ -346,6 +348,7 @@ __all__ = [
     "UndisclosedSubjectAnswered",
     "build_governed_resolver",
     "declared_refusal_recorder",
+    "refuse_incompatible_refusal_recorder",
 ]
 
 _Artifact = TypeVar("_Artifact", bound=CCFContract)
@@ -1550,7 +1553,12 @@ class RefusalRecorderProtocol(Protocol):
     ``@runtime_checkable`` so a delivery boundary can assert conformance at the
     point it is handed one rather than discovering a shape mismatch inside a
     determination it has already made. The check is structural and covers the
-    presence of ``record``, not its signature; the signature is mypy's job.
+    presence of ``record``, not its signature; the signature is mypy's job —
+    with one exception, read at construction: every path that accepts a
+    recorder refuses one whose ``record`` cannot be passed
+    ``subject_withholding=``, the keyword the governed resolver passes on every
+    refusal (Dave's E2 (iii), ``D-IMPL-378``;
+    :func:`refuse_incompatible_refusal_recorder`).
     """
 
     def record(
@@ -1650,6 +1658,77 @@ class RefusalRecorderProtocol(Protocol):
                 uncaught. A failure to record is a failure to respond.
         """
         ...
+
+
+class IncompatibleRefusalRecorder(TypeError):
+    """A refusal recorder whose ``record`` cannot be passed ``subject_withholding=``, refused where it is built.
+
+    Dave's E2 (iii) (``D-IMPL-378``, 2026-10-08 12:29 MST), verbatim: *"Approve
+    the recorder keyword change. Detect incompatible recorders at construction,
+    rather than on the first refusal."* (SDK-defined, CLAUDE.md §11.)
+    :meth:`RefusalRecorderProtocol.record` takes ``subject_withholding=`` (Dave's
+    Q12), and :class:`GovernedResolver` passes it on every refusal it records. A
+    recorder written to the earlier signature — the keyword neither named nor
+    absorbed by ``**kwargs`` — used to build cleanly and raise ``TypeError`` at
+    the first refusal: a failure that waited for a question to be refused. It is
+    raised instead where a resolver or an entitling door is built
+    (:func:`refuse_incompatible_refusal_recorder`), before anything is minted,
+    registered or answered. A ``TypeError``: the recorder's ``record`` has the
+    wrong signature for the seam.
+    """
+
+
+def refuse_incompatible_refusal_recorder(recorder: object, *, builder: str) -> None:
+    """Refuse, where it is built, a recorder whose ``record`` cannot be passed ``subject_withholding=``.
+
+    Dave's E2 (iii) (``D-IMPL-378``; :class:`IncompatibleRefusalRecorder`).
+    Called by :class:`GovernedResolver` at construction and by every entitling
+    door's builder (``runtime/ccf_runtime/authz/delivery_boundary.py::recorded_boundary``
+    and ``runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server``).
+    Read off ``record``'s signature, never by calling it: a call would append a
+    record describing no decision. A ``record`` that names
+    ``subject_withholding`` as a parameter it can be passed by keyword, or that
+    takes ``**kwargs``, is compatible.
+
+    Args:
+        recorder: What the builder was handed.
+        builder: The builder's own name, so the message names where to fix it.
+
+    Raises:
+        IncompatibleRefusalRecorder: ``recorder`` has no callable ``record``,
+            its signature cannot be read, or it cannot be passed
+            ``subject_withholding=``.
+    """
+    record = getattr(recorder, "record", None)
+    where = f"{builder} was handed a refusal_recorder of type {type(recorder).__name__} whose `record`"
+    if not callable(record):
+        raise IncompatibleRefusalRecorder(
+            f"{where} is missing or not callable; it cannot be passed"
+            " subject_withholding=, which the governed resolver passes on every"
+            " refusal it records (Dave's E2 (iii), D-IMPL-378)"
+        )
+    try:
+        parameters = inspect.signature(record).parameters
+    except (TypeError, ValueError) as unreadable:
+        raise IncompatibleRefusalRecorder(
+            f"{where} has a signature that cannot be read, so it cannot be shown"
+            " to accept subject_withholding=, which the governed resolver passes"
+            " on every refusal it records (Dave's E2 (iii), D-IMPL-378)"
+        ) from unreadable
+    if any(parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()):
+        return
+    named = parameters.get("subject_withholding")
+    if named is None or named.kind not in (
+        inspect.Parameter.KEYWORD_ONLY,
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+    ):
+        raise IncompatibleRefusalRecorder(
+            f"{where} cannot be passed subject_withholding=: the governed"
+            " resolver passes it on every refusal it records, so this recorder"
+            " would raise TypeError at the first one. Add `subject_withholding:"
+            " str | None = None` to `record` (RefusalRecorderProtocol), or take"
+            " **kwargs (Dave's E2 (iii), D-IMPL-378)"
+        )
 
 
 def _disclosure_reader(
@@ -2715,6 +2794,9 @@ class GovernedResolver:
             self.artifact_store,
             (self.replay_record_class, self.query_pin_class, ADMITTED_CHILD_CONTRACT_CLASS),
         )
+        # Dave's E2 (iii) (`D-IMPL-378`): a recorder `_record_refusal` could not
+        # pass `subject_withholding=` is refused here, not at the first refusal.
+        refuse_incompatible_refusal_recorder(self.refusal_recorder, builder="GovernedResolver")
         # SEC-020 Q7 (`D-IMPL-378`): an unsupported combination of the two
         # declared acquisition phases is refused here, at construction.
         if self.population_acquisition is not None and self.acquisition is not None:

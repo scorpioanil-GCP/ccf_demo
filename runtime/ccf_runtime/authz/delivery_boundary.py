@@ -100,7 +100,7 @@ from ccf.products.refusal import (
     SubjectUnavailableRefusal,
     envelope_for,
 )
-from ccf.products.resolver import RefusalRecorderProtocol
+from ccf.products.resolver import RefusalRecorderProtocol, refuse_incompatible_refusal_recorder
 from ccf.projection.plan import Perspective
 from ccf.replay.engine import (
     ReplayDivergence,
@@ -313,6 +313,9 @@ def recorded_boundary(
 
     Raises:
         UnrecordableDeliveryBoundaryError: it is absent or does not conform.
+        ccf.products.resolver.IncompatibleRefusalRecorder: its ``record``
+            cannot be passed ``subject_withholding=`` — read off the signature,
+            never by calling it (Dave's E2 (iii), ``D-IMPL-378``).
     """
     if refusal_recorder is None:
         raise UnrecordableDeliveryBoundaryError(
@@ -335,6 +338,9 @@ def recorded_boundary(
             " `record` method — and it runs at construction rather than at the"
             " first denial, so a misconfigured door never answers at all"
         )
+    # Dave's E2 (iii) (`D-IMPL-378`): "Detect incompatible recorders at
+    # construction, rather than on the first refusal."
+    refuse_incompatible_refusal_recorder(refusal_recorder, builder=builder)
     return refusal_recorder
 
 
