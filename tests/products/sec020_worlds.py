@@ -50,6 +50,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import copy
+import functools
 import json
 import pathlib
 from collections.abc import Callable, Mapping
@@ -224,11 +225,13 @@ class PolicyPlanFactory:
         )
 
 
-# --- early withholding (PENDING API) -------------------------------------------
+# --- early withholding (Dave, Q8) ------------------------------------------------
 
-#: Early withholding's documented public name (Dave, Q8; lane ``378-s020design``
-#: PROPOSAL, Part 2, channel 4): an optional companion Protocol on the plan
-#: factory, ``discloses(*, request, perspective)`` and ``undisclosed_subject()``.
+#: Early withholding's public name (``D-IMPL-378`` Q8, integrated at
+#: ``b2393d2d``): the plan factory's optional companion Protocol
+#: ``ccf.products.resolver.SubjectDisclosingPlanFactoryProtocol``, whose
+#: ``subject_disclosure()`` returns a declared
+#: ``ccf.products.subject_disclosure.SubjectDisclosurePolicy``.
 EARLY_WITHHOLDING_PROTOCOL = "SubjectDisclosingPlanFactoryProtocol"
 
 
@@ -274,17 +277,23 @@ class EarlyPolicyProjection(PolicyProjection):
 
 
 class EarlyWithholdingPlanFactory(PolicyPlanFactory):
-    """A plan factory that decides disclosure BEFORE any fetch (the documented companion Protocol).
+    """A plan factory that declares its withholding EARLY, as data (``SubjectDisclosingPlanFactoryProtocol``).
 
-    The asker is not told about :data:`SUBJECT`; everything else is disclosed.
-    The decision reads the request and the perspective only.
+    The declared :class:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy`:
+    the asker is not told about :data:`SUBJECT`, and every subject-dependent
+    step is asked about :data:`STAND_IN` in its place. The policy-off
+    deployment (the instrument) declares a policy that withholds nothing. The
+    projection withholds exactly what the policy does not disclose.
     """
 
-    def discloses(self, *, request: ProductRequest, perspective: Perspective) -> bool:
-        return not (self.active and perspective.principal_id == self.asker and request.subject == SUBJECT)
+    def subject_disclosure(self) -> Any:
+        from ccf.products.subject_disclosure import SubjectDisclosurePolicy  # noqa: PLC0415
 
-    def undisclosed_subject(self) -> str:
-        return STAND_IN
+        return SubjectDisclosurePolicy(
+            undisclosed_subject=STAND_IN,
+            by_principal={self.asker: frozenset({SUBJECT})} if self.active else {},
+            by_role={},
+        )
 
     def __call__(self, *, required: tuple[str, ...], request: ProductRequest) -> PolicyProjection:
         return EarlyPolicyProjection(
@@ -336,6 +345,10 @@ COMPOSITE = "composite"
 RECORD = "record"
 CHANNELS = (RESPONSE, REFUSAL, REFERENCE, COMPOSITE, RECORD)
 
+#: The position of a side's one question (the reused shapes ask two: ``first``, ``second``).
+#: A raise inside a record read is keyed ``<position>/record:<read>``.
+ONLY = "only"
+
 
 @dataclass
 class Observation:
@@ -343,11 +356,16 @@ class Observation:
 
     ``channels`` maps a channel name to a JSON-shaped value; a channel this
     door cannot carry is absent rather than empty. ``raw`` keeps the outcome
-    for the failure message and for reading references back.
+    for the failure message and for reading references back. ``raised`` names,
+    per question position, an exception the question ended in instead of an
+    answer (in process: the exception; HTTP: a 5xx; MCP: an error result that
+    is no door outcome) — so a comparison can tell "both sides answered alike"
+    from "both sides broke alike".
     """
 
     channels: dict[str, Any] = field(default_factory=dict)
     raw: Any = None
+    raised: dict[str, str] = field(default_factory=dict)
 
 
 def diff_paths(left: Any, right: Any, prefix: str = "") -> set[str]:
@@ -417,6 +435,38 @@ class Deployment:
     ask: Callable[[str, Mapping[str, Any] | None], Any]
     close: Callable[[], None]
     notes: dict[str, Any] = field(default_factory=dict)
+
+
+#: Where :func:`door_resolver` files what a deployment's resolver raised behind a door.
+DOOR_RAISED = "door_raised"
+
+
+def door_resolver(deployment: Deployment) -> Callable[..., Any]:
+    """``deployment.resolve`` as a door is handed it, noting every exception it raises.
+
+    A door turns a resolver's exception into its own opaque failure (a 500 at
+    HTTP, ``ccf-runtime-failure:<id>`` at MCP), which names no type; the proof
+    needs the type to tell the one refusal a cell may be green on (Q9's) from
+    any other break. Behavior is unchanged: the exception is re-raised as is,
+    and the signature is the wrapped one (``functools.wraps``).
+    """
+    raised: list[str] = deployment.notes.setdefault(DOOR_RAISED, [])
+
+    @functools.wraps(deployment.resolve)
+    def resolve(*args: Any, **kwargs: Any) -> Any:
+        try:
+            return deployment.resolve(*args, **kwargs)
+        except Exception as exc:
+            raised.append(f"{type(exc).__name__}: {exc}")
+            raise
+
+    return resolve
+
+
+def _raised_behind_the_door(deployment: Deployment, since: int, fallback: str) -> str:
+    """What the resolver raised during one door call (``since``: the note count before it)."""
+    noted = deployment.notes.get(DOOR_RAISED, [])[since:]
+    return " | ".join(noted) if noted else fallback
 
 
 #: The owner-read allowlist's documented public name (Dave, Q12; lane
@@ -710,7 +760,11 @@ def observe_in_process(
         outcome = deployment.ask(subject, parameters)
     except Exception as raised:  # noqa: BLE001 — an exception is an observation too
         shape = {"outcome": "raised", "type": type(raised).__name__, "message": str(raised)}
-        return Observation(channels={RESPONSE: shape, REFUSAL: shape, REFERENCE: shape}, raw=raised)
+        return Observation(
+            channels={RESPONSE: shape, REFUSAL: shape, REFERENCE: shape},
+            raw=raised,
+            raised={ONLY: f"{type(raised).__name__}: {raised}"},
+        )
     if isinstance(outcome, ServedProduct):
         reference = outcome.replay_ref.uri
         served = outcome.model_dump(mode="json")
@@ -778,7 +832,7 @@ def http_app(deployment: Deployment) -> Any:
             artifact_store=deployment.store,
             erasure_index=deployment.erasure_index,
             erasure_trust=deployment.erasure_trust,
-            product_resolver=deployment.resolve,
+            product_resolver=door_resolver(deployment),
         ),
         auth=BearerTokenAuth(token_source=_token_source(deployment)),
         authorizer=wide_authorizer(tenant=deployment.tenant, key=f"{deployment.tenant}/sec020-proof-scope-mapping"),
@@ -795,8 +849,11 @@ def http_call(app: Any, method: str, url: str, *, token: str, **kwargs: Any) -> 
     """One in-process ASGI request, never hosted."""
 
     async def go() -> httpx.Response:
+        # An exception the app does not handle becomes the 500 a caller would
+        # receive, rather than an exception raised into this test.
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://fabric.invalid"
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://fabric.invalid",
         ) as client:
             return await client.request(method, url, headers={"Authorization": f"Bearer {token}"}, **kwargs)
 
@@ -833,6 +890,7 @@ def observe_http(
 ) -> Observation:
     """Ask ``subject`` through the HTTP product route, as the asker."""
     app = app if app is not None else http_app(deployment)
+    since = len(deployment.notes.get(DOOR_RAISED, []))
     response = http_call(
         app,
         "GET",
@@ -875,6 +933,11 @@ def observe_http(
             REFERENCE: {"x-ccf-replay-ref": header_ref, "refusal.replay_reference": body_ref},
         },
         raw={"response": response, "reference": reference, "app": app},
+        raised=(
+            {ONLY: _raised_behind_the_door(deployment, since, f"HTTP {response.status_code}: {response.text[:300]}")}
+            if response.status_code >= 500
+            else {}
+        ),
     )
 
 
@@ -896,7 +959,7 @@ def mcp_product_server(deployment: Deployment) -> Any:
     role = deployment.role
     return build_egress_server(
         server_name=f"{deployment.tenant}-sec020-proof",
-        resolver=deployment.resolve,
+        resolver=door_resolver(deployment),
         token_verifier=SourceBackedTokenVerifier(
             source=StaticTokenSource(
                 grants={
@@ -983,10 +1046,15 @@ def observe_mcp(
             "text": " | ".join(c.text for c in result.content if isinstance(c, TextContent)),
         }
 
+    since = len(deployment.notes.get(DOOR_RAISED, []))
     called = mcp_drive(mcp_product_server(deployment), operation)
     if "unreachable" in called:
         shape = {"outcome": "unreachable", "detail": called["unreachable"]}
-        return Observation(channels={RESPONSE: shape, REFUSAL: shape, REFERENCE: shape}, raw=called)
+        return Observation(
+            channels={RESPONSE: shape, REFUSAL: shape, REFERENCE: shape},
+            raw=called,
+            raised={ONLY: f"MCP unreachable: {called['unreachable'][:300]}"},
+        )
     try:
         outcome: Any = json.loads(called["text"])
     except ValueError:
@@ -1017,6 +1085,11 @@ def observe_mcp(
             REFERENCE: {"door_outcome.replay_ref": reference, "refusal.replay_reference": envelope_reference},
         },
         raw={"called": called, "reference": reference},
+        raised=(
+            {ONLY: _raised_behind_the_door(deployment, since, f"MCP error: {str(outcome)[:300]}")}
+            if called["is_error"] and not isinstance(outcome, dict)
+            else {}
+        ),
     )
 
 
@@ -1208,7 +1281,13 @@ class LowRoadSite:
     counter: int = 0
 
     def boot(self, envelopes: tuple[SignalEnvelope, ...]) -> Any:
-        """A fresh fabric from the deployment's documents, holding ``envelopes``."""
+        """A fresh fabric for ONE question, from the deployment's documents, holding ``envelopes``.
+
+        Booted ``for_question=True`` onto a path that does not exist yet (SEC-020
+        Q9): the fabric an acquisition phase may write into for its one
+        question. What it holds before the question (``envelopes``) is the
+        source as it stood before anything was asked.
+        """
         from ccf.deployment import load_and_boot  # noqa: PLC0415
 
         self.counter += 1
@@ -1216,6 +1295,7 @@ class LowRoadSite:
             self.manifest,
             registry=self.control_plane,
             connection={"database_path": str(self.root / f"graph-{self.counter}.sqlite3")},
+            for_question=True,
         )
         for envelope in envelopes:
             fabric.handle.worker.ingest(envelope)
@@ -1300,6 +1380,9 @@ def low_road_resolver(
     return GovernedResolver(
         composite_children=composite_children,
         acquisition=acquisition,
+        # SEC-020 Q7: stated, never defaulted — no shape on this road declares
+        # a separate population phase.
+        population_acquisition=None,
         packaging_trace=None,
         half_life_key=HALF_LIFE_KEY,
         admission_clock=lambda: SERVED_AT,
@@ -1455,8 +1538,9 @@ SHAPES = (
 #: The two shapes whose point is the SEQUENCE: a question about the subject, then one about an unheld identifier.
 REUSED_SHAPES = (REUSED_FABRIC, REUSED_STORE)
 
-#: Shapes that need a public knob that does not exist yet on ``e9e5e2cd``; each
-#: maps to the documented name its cells skip under until it exists.
+#: Shapes that need a public knob absent from ``e9e5e2cd`` and present from
+#: ``b2393d2d`` (D-IMPL-378, Q7–Q8); each maps to the documented name its cells
+#: skip under (``pending API: <name>``) on any tree where it is absent.
 EARLY_SUBJECT_KEYED = "early_subject_keyed"
 EARLY_POPULATION = "early_population"
 EARLY_COMPOSITE_SUBJECT_CHILD = "early_composite_subject_child"
@@ -1633,14 +1717,16 @@ def build_similarity(
 def build_reused_fabric(
     base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False
 ) -> Deployment:
-    """ONE long-lived fabric handle with a subject-keyed acquisition seam, answering every question (M-6).
+    """ONE fabric handle, booted for a question, with a subject-keyed seam, asked every question (M-6).
 
     Expected: refused (Dave, Q9: *"Enforce a fresh fabric per question whenever
-    acquisition exists, including concurrent use"*). The paved road never builds
-    this; a hand-composed low-road deployment can. The handle lives on one
-    worker thread, as a long-lived deployment's would, so every door reaches it
-    the same way (the SQLite reference backend binds a connection to the thread
-    that opened it).
+    acquisition exists, including concurrent use"*). The handle is booted
+    ``for_question=True``, so its FIRST question is answered; the second, on
+    the fabric the first one's acquisition wrote into, must be refused. The
+    paved road never builds this; a hand-composed low-road deployment can. The
+    handle lives on one worker thread, as a long-lived deployment's would, so
+    every door reaches it the same way (the SQLite reference backend binds a
+    connection to the thread that opened it).
     """
     from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
 
@@ -1694,13 +1780,15 @@ def build_reused_fabric(
 def build_reused_store(
     base: pathlib.Path, *, anchor: str, holds: bool, active: bool, readable: bool = False
 ) -> Deployment:
-    """ONE persisted graph store, reopened by a fresh handle for every question (M-6, the production shape).
+    """ONE persisted graph store, reopened by an ordinary boot for every question (M-6, the production shape).
 
     Expected: refused, as for :func:`build_reused_fabric` (Dave, Q9). A
     deployment whose graph store outlives the process — several workers over
     one Postgres schema, say — boots a new handle per question over the same
-    store; a guard that holds a handle in memory does not see the second one.
-    Here the SQLite reference backend stands in for the persisted store.
+    store, with an ordinary boot (a question fabric is fresh by construction,
+    and this store is not). Every question that would acquire into it must be
+    refused, the first included. Here the SQLite reference backend stands in
+    for the persisted store.
     """
     from ccf.deployment import load_and_boot  # noqa: PLC0415
 
@@ -2092,6 +2180,16 @@ def instrument_pair(channel: str, run: Run) -> tuple[str, str]:
     Where the owner-read allowlist exists, the record channel is instrumented
     on deployments that LIST the class, so default-deny cannot blind it.
     """
+    if run.shape == REUSED_STORE:
+        # Q9 refuses every question to a store reopened by an ordinary boot, the
+        # served subject's included, so no side of this shape SERVES and the
+        # served-against-nonexistent pair is equal by the ruling. What the cells
+        # must be able to see here is a question the composition answers
+        # differently from the refused one: a question the request contract
+        # refuses never reaches the claim (``AcquisitionNeedsAQuestionFabric``
+        # is raised immediately before the first acquisition phase), so it is
+        # set against the nonexistent side's refused composition on every channel.
+        return REFUSED_QUESTION, CF_NONEXISTENT
     if channel == RECORD and SERVED_READABLE in run.sides:
         return SERVED_READABLE, NONEXISTENT_READABLE
     return INSTRUMENT_PAIRS[channel]
@@ -2144,6 +2242,34 @@ def channels_for(*, comparison: str, shape: str, door: str) -> tuple[str, ...]:
     return tuple(channels)
 
 
+#: The one refusal each reused shape's cells may be green on, and at which positions (Dave, Q9).
+REUSE_REFUSALS: dict[str, tuple[str, tuple[str, ...]]] = {
+    # One handle booted for a question: the first question claims it, the second is refused.
+    REUSED_FABRIC: ("AcquiredFabricReused", ("second",)),
+    # A persisted store reopened by an ordinary boot: never a question fabric, every question refused.
+    REUSED_STORE: ("AcquisitionNeedsAQuestionFabric", ("first", "second")),
+}
+
+
+def raising_is_the_property(shape: str, position: str, raised: str) -> bool:
+    """Whether a side raising ``raised`` at ``position`` is what the cell is meant to show.
+
+    Only where a refusal of the composition IS the property under test (Dave,
+    Q9), and only THAT refusal, named by type: the second question to one
+    question fabric (``AcquiredFabricReused``), and every question to a
+    persisted store an acquisition phase would write into
+    (``AcquisitionNeedsAQuestionFabric``). Anything else — another position,
+    another exception (a broken builder raising ``TypeError`` would otherwise
+    pass as "refused") — proves nothing about indistinguishability, and a cell
+    that sees it is not green. A raise inside a record read (key
+    ``<position>/record:<read>``) is never the property.
+    """
+    if shape not in REUSE_REFUSALS or "/" in position:
+        return False
+    refusal, positions = REUSE_REFUSALS[shape]
+    return position in positions and raised.startswith(f"{refusal}:")
+
+
 def comparisons_for(shape: str) -> tuple[str, ...]:
     """The comparisons that GOVERN a shape in the closure gate.
 
@@ -2174,6 +2300,9 @@ def _merge(observations: list[Observation]) -> Observation:
         present = [o.channels.get(channel) for o in observations]
         if any(value is not None for value in present):
             merged.channels[channel] = dict(zip(("first", "second"), present, strict=True))
+    for position, observation in zip(("first", "second"), observations, strict=True):
+        for key, message in observation.raised.items():
+            merged.raised[position + key[len(ONLY):]] = message
     return merged
 
 
@@ -2214,10 +2343,36 @@ def observe_side(
             }
         if reads and door == HTTP:
             observation.channels[RECORD] = http_record_reads(deployment, reference, app=app)
+            for read, answered in observation.channels[RECORD].items():
+                status = answered.get("status") if isinstance(answered, dict) else None
+                if isinstance(status, int) and status >= 500:
+                    observation.raised[f"{ONLY}/record:{read}"] = f"HTTP {status}: {str(answered.get('body'))[:300]}"
         if reads and door == MCP:
             observation.channels[RECORD] = mcp_record_reads(deployment, reference)
+            for read, answered in observation.channels[RECORD].items():
+                if _mcp_read_failed(answered):
+                    observation.raised[f"{ONLY}/record:{read}"] = f"MCP read failed: {render(answered, limit=300)}"
         observed.append(observation)
     return _merge(observed)
+
+
+def _mcp_read_failed(answered: Any) -> bool:
+    """Whether one MCP record read ended in a failure rather than an answer.
+
+    A governed answer on these reads — the record, or a refusal of it — comes
+    back as resource contents or as a tool result; a protocol error, an
+    unreachable server, or the opaque ``ccf-runtime-failure:<id>`` is a
+    failure, and two equal failures are not evidence (none is observed on
+    ``b2393d2d``; the check keeps a future one from passing as an answer).
+    """
+    if not isinstance(answered, dict):
+        return False
+    if "error" in answered or "unreachable" in answered:
+        return True
+    texts = answered.get("text") if answered.get("is_error") else None
+    return isinstance(texts, list) and any(
+        isinstance(text, str) and text.startswith("ccf-runtime-failure") for text in texts
+    )
 
 
 def _subject_neutral(value: Any) -> Any:
@@ -2267,6 +2422,10 @@ class Run:
     door: str
     sides: dict[str, Observation]
     notes: dict[str, Any] = field(default_factory=dict)
+
+    def raised(self, side: str) -> dict[str, str]:
+        """Per question position, the exception ``side``'s question ended in, if any."""
+        return dict(self.sides[side].raised)
 
     def channel(self, side: str, channel: str, *, comparison: str = COUNTERFACTUAL, names_only: bool = False) -> Any:
         """``side``'s ``channel`` as ``comparison`` compares it."""

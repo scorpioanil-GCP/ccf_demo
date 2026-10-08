@@ -25,9 +25,15 @@ How to read one test id
   acquisition refreshed), ``composite_subject_child`` /
   ``composite_fixed_child`` (a composite whose child is asked about the
   composite's own subject, or about a fixed one), ``reused_fabric`` (one fabric
-  answering a question about the subject and then one about an unheld
-  identifier) and ``reused_store`` (one persisted store, a fresh handle per
-  question): both expected refused, Dave's Q9.
+  booted for a question, asked about the subject and then about an unheld
+  identifier: the second question expected refused, ``AcquiredFabricReused``)
+  and ``reused_store`` (one persisted store reopened by an ordinary boot for
+  every question: every question expected refused,
+  ``AcquisitionNeedsAQuestionFabric``) — Dave's Q9; ``early_*`` (the same
+  shapes, the plan factory declaring the early-withholding policy,
+  ``SubjectDisclosingPlanFactoryProtocol`` — Dave's Q8) and
+  ``population_declared`` (the population fetched by the explicit population
+  phase, ``open_product(population=...)`` — Dave's Q7).
 * ``anchor`` — the class's TTL anchor, ``from_decision`` or
   ``from_entity_freshness``.
 * ``door`` — ``in_process``, ``http`` (the shipped API), ``mcp`` (the shipped
@@ -49,6 +55,20 @@ nonexistent one, or the comparison could not see what it claims to compare.
 Cells that need a public knob that does not exist yet are SKIPPED with the
 reason ``pending API: <name>``; they run unchanged once the knob exists under
 its documented name. Never xfail, never pass.
+
+Never green on two equal exceptions
+-----------------------------------
+Two sides that both RAISED instead of answering are equal on every channel,
+and that equality says nothing about indistinguishability. A cell whose two
+sides both raised fails as "not evidence", and an instrument with a side that
+raised fails likewise — except where the refusal of the composition IS the
+property under test, and only that refusal, named by type
+(``sec020_worlds.REUSE_REFUSALS``): every question of every ``reused_store``
+cell (``AcquisitionNeedsAQuestionFabric``) and the second question of every
+``reused_fabric`` cell (``AcquiredFabricReused``). Behind HTTP (a 500) and MCP
+(``ccf-runtime-failure:<id>``) the type is read off the resolver each door was
+handed (``sec020_worlds.door_resolver``), so a builder that broke cannot pass
+as refused.
 
 Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
 -----------------------------------------------------------------------------------------
@@ -237,6 +257,32 @@ def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], se
     return w.diff_paths(withheld, nonexistent) - floor, floor, withheld, nonexistent
 
 
+def _vacuous(run: w.Run, *sides: str, either: bool = False) -> dict[str, dict[str, str]]:
+    """Positions where the named sides RAISED instead of answering, where raising is not the property.
+
+    Two sides that both raised the same exception look alike on every channel —
+    and that equality says nothing about whether a withheld subject is
+    distinguishable from a nonexistent one. A cell is never green on it, except
+    where the refusal of the composition is itself the property under test
+    (:func:`~tests.products.sec020_worlds.raising_is_the_property`: the second
+    question to a reused question fabric; every question to a reused store).
+    ``either``: count a position where ANY named side raised (an instrument is
+    not evidence when one of its sides broke), not only where all did.
+    """
+    raised = {side: run.raised(side) for side in sides}
+    positions = set().union(*(set(r) for r in raised.values()))
+    found: dict[str, dict[str, str]] = {}
+    for position in sorted(positions):
+        hit = {
+            side: r[position]
+            for side, r in raised.items()
+            if position in r and not w.raising_is_the_property(run.shape, position, r[position])
+        }
+        if (either and hit) or (hit and all(position in r for r in raised.values())):
+            found[position] = hit
+    return found
+
+
 @pytest.mark.parametrize(("comparison", "shape", "anchor", "door", "channel"), _cells())
 def test_withheld_is_indistinguishable(
     runs: w.RunCache, comparison: str, shape: str, anchor: str, door: str, channel: str
@@ -244,6 +290,12 @@ def test_withheld_is_indistinguishable(
     """What the caller observes for the WITHHELD subject equals what it observes for the NONEXISTENT one."""
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
+    withheld_side, nonexistent_side, _ = w.PAIRS[comparison]
+    vacuous = _vacuous(run, withheld_side, nonexistent_side)
+    assert not vacuous, (
+        f"SEC-020 [{comparison}, {shape}, {anchor}, {door}, {channel}]: not evidence — both sides"
+        f" RAISED instead of answering, and two equal exceptions are equal on every channel: {vacuous}"
+    )
     differing, floor, withheld, nonexistent = _compare(run, comparison=comparison, channel=channel)
     assert not differing, (
         f"SEC-020 [{comparison}, {shape}, {anchor}, {door}, {channel}]: a withheld subject is"
@@ -296,6 +348,11 @@ def test_the_instrument_sees_a_difference(
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
     left_side, right_side = w.instrument_pair(channel, run)
+    vacuous = _vacuous(run, left_side, right_side, either=True)
+    assert not vacuous, (
+        f"instrument not evidence [{shape}, {anchor}, {door}, {channel}]: a side RAISED instead of"
+        f" answering, so a difference it shows is the exception's, not the channel's: {vacuous}"
+    )
     left = run.channel(left_side, channel, names_only=names_only)
     right = run.channel(right_side, channel, names_only=names_only)
     floor = w.diff_paths(right, run.channel(w.CF_FLOOR, channel, names_only=names_only))
@@ -324,21 +381,35 @@ def _served(run: w.Run, side: str, position: str) -> bool:
 def test_a_fabric_reused_across_questions_is_refused(runs: w.RunCache, shape: str, anchor: str, door: str) -> None:
     """Dave, Q9: *"Enforce a fresh fabric per question whenever acquisition exists, including concurrent use."*
 
-    One fabric with an acquisition seam (``reused_fabric``: one handle; or
-    ``reused_store``: one persisted store, a fresh handle per question) is asked
-    about the subject and then about an identifier it never held. The second
-    question must not be SERVED from a graph the first one wrote into — refused
-    by name, or the composition refused outright — in the deployment whose
-    source holds the subject and in the one whose source does not.
+    One fabric with an acquisition seam is asked about the subject and then
+    about an identifier it never held, in every deployment that asks (source
+    holding the subject or not; policy on or off). ``reused_fabric`` (one handle
+    booted for a question): the second question is refused by name,
+    ``AcquiredFabricReused``. ``reused_store`` (one persisted store, an ordinary
+    boot per question): never a question fabric, so EVERY question is refused,
+    ``AcquisitionNeedsAQuestionFabric``. The refusal is read by TYPE at every
+    door (behind HTTP and MCP, off the resolver the door was handed), so a
+    builder that broke cannot pass as refused. The control: the question
+    fabric answers the ONE question it was booted for (the serving deployment's
+    first question is SERVED), so the second one's refusal is the reuse's.
     """
     run = runs.get(shape=shape, anchor=anchor, door=door)
-    served = {side: _served(run, side, "second") for side in (w.CF_WITHHELD, w.CF_NONEXISTENT)}
-    assert not any(served.values()), (
-        f"[{shape}, {anchor}, {door}] a graph an acquisition seam wrote into answered a second question"
-        f" (served: {served}); the second answer:\n"
-        f"  holding:     {w.render(run.channel(w.CF_WITHHELD, w.RESPONSE)['second'])}\n"
-        f"  not holding: {w.render(run.channel(w.CF_NONEXISTENT, w.RESPONSE)['second'])}"
+    refusal, refused_at = w.REUSE_REFUSALS[shape]
+    wrong: dict[str, Any] = {}
+    for side in (w.CF_WITHHELD, w.CF_NONEXISTENT, w.CF_FLOOR, w.SERVED):
+        for position in refused_at:
+            raised = run.raised(side).get(position, "")
+            if _served(run, side, position) or not raised.startswith(f"{refusal}:"):
+                wrong[f"{side}:{position}"] = raised or w.render(run.channel(side, w.RESPONSE)[position])
+    assert not wrong, (
+        f"[{shape}, {anchor}, {door}] a reused fabric was not refused with {refusal} at {refused_at}: {wrong}"
     )
+    if shape == w.REUSED_FABRIC:
+        assert _served(run, w.SERVED, "first"), (
+            f"[{shape}, {anchor}, {door}] control: the question fabric did not serve the one question it was"
+            f" booted for, so the refusal of the second is not evidence about reuse:"
+            f" {w.render(run.channel(w.SERVED, w.RESPONSE)['first'])}"
+        )
 
 
 #: The shapes whose withholding deployment is asked three different questions.
@@ -362,12 +433,13 @@ def test_a_public_reference_never_names_two_records(runs: w.RunCache, shape: str
         side: run.channel(side, w.REFERENCE)
         for side in (w.CF_WITHHELD, w.SAME_NONEXISTENT, w.SAME_FLOOR)
     }
-    # A question that raised, or a door that could not be reached, handed out no
-    # reference at all; it is not a decision with a reference to compare.
+    # A question that raised (at any door: read off the side's own raise, not
+    # off one door's shape of it), or a door that could not be reached, handed
+    # out no reference at all; it is not a decision with a reference to compare.
     references = {
         side: w.render(value, limit=10_000)
         for side, value in answered.items()
-        if not (isinstance(value, dict) and value.get("outcome") in ("raised", "unreachable"))
+        if w.ONLY not in run.raised(side)
     }
     assert len(references) >= 2, (
         f"[{shape}, {anchor}, {door}] fewer than two of the three questions handed out a reference,"
@@ -492,6 +564,11 @@ def test_the_same_deployment_instrument_sees_a_difference(
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
     left_side, right_side = w.SAME_INSTRUMENT_PAIRS[channel]
+    vacuous = _vacuous(run, left_side, right_side, either=True)
+    assert not vacuous, (
+        f"same-deployment instrument not evidence [{shape}, {anchor}, {door}, {channel}]: a side"
+        f" RAISED instead of answering, so a difference it shows is the exception's: {vacuous}"
+    )
     same = w.SAME_DEPLOYMENT
     left = run.channel(left_side, channel, comparison=same)
     right = run.channel(right_side, channel, comparison=same)
