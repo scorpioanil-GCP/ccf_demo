@@ -31,6 +31,7 @@ __all__ = [
     "ERROR_EVIDENCE_CLASS_UNRECOVERABLE",
     "ERROR_EVIDENCE_DISCLOSURE_WITHHELD",
     "ERROR_EVIDENCE_PRINCIPAL_MISMATCH",
+    "ERROR_EXECUTION_FENCED",
     "ERROR_INVALID_GRANT",
     "ERROR_NO_CAPABILITY",
     "ERROR_PRINCIPAL_NOT_ENTITLED",
@@ -204,6 +205,15 @@ ERROR_HITL_EVENT_REVALIDATION_REFUSED: Final[str] = "hitl-event-revalidation-ref
 #: refused and nothing is recorded (409; ``D-IMPL-378``): it can no longer
 #: change that gate's passage, and it does not stand beside it.
 ERROR_HITL_GATE_CLOSED: Final[str] = "hitl-gate-closed"
+
+#: A write that ends a workflow passage found the execution's record moved by a
+#: writer other than that passage, so the engine wrote, audited and enqueued
+#: nothing (409; ``D-IMPL-378``;
+#: :class:`~ccf_runtime.workflow.engine.ExecutionFenced`). Answered by
+#: ``POST /workflow/invocations`` and ``POST /workflow/resumptions``. The record
+#: stands as that other writer left it, and the step the passage ran before the
+#: fenced write may already have had effects.
+ERROR_EXECUTION_FENCED: Final[str] = "execution-fenced"
 
 #: The authenticated caller's grant does not authorize this tenant ×
 #: action under the scope mapping in force (403; HARD-04; D-IMPL-68 —
