@@ -23,6 +23,13 @@ in-process orchestration drivers, which hand the engine's own exception back to
 their caller by name; and by the in-process erasure door. No MCP door executes or
 resumes a workflow.
 
+Since lane 378c-finish (Dave's D2 ruling) the invocation route can also meet the
+fence through the engine's finisher: a retried start whose engine died before its
+first suspension is FINISHED, and that suspension write can lose to another
+writer (``WorkflowEngine._finish_start``). The route's mapping already covered
+every ``ExecutionFenced`` its ``execute`` call raises; the finisher's site is
+measured here too.
+
 Each door is driven as a caller drives it, over the suite's governed application
 (``tests/http_api/test_approval_gate_limits_door.py``). The other writer plays as
 it does in the approval lane's in-process fence test
@@ -61,7 +68,8 @@ from http_api.test_approval_gate_limits_door import (
 )
 from tests.workflow import test_engine as eh
 from tests.workflow.capabilities import execute_capability
-from tests.workflow.test_approval_gate_limits import FIRST_GATE, START
+from tests.workflow.test_approval_gate_limits import COVENANT_GATE, FIRST_GATE, START
+from tests.workflow.test_finish_interrupted_passage import gate_start_covenant
 from tests.workflow.test_resume_single_flight import DOWNSTREAM, INTERRUPTED, NEXT_GATE
 
 #: The fence's own phrase (``WorkflowEngine._fenced_write``).
@@ -260,3 +268,123 @@ def test_after_a_fenced_passage_a_resumption_presented_again_is_refused_as_an_in
     assert presented_again.status_code == 409, presented_again.text
     assert INTERRUPTED in presented_again.json()["reason"], presented_again.json()
     assert bindings.ran.count(f"skill:{DOWNSTREAM}") == ran
+
+
+# --- the finisher's site at the invocation door (lane 378c-finish) -------------------
+
+
+def _gate_first_door(tmp_path: Path) -> tuple[Door, str]:
+    """The suite's fabric serving the covenant workflow started AT its gate
+    (lane 378c-finish's shape: no step precedes the gate)."""
+    fabric, _key, _version = fabric_at(tmp_path / "fabric", two_gate=False)
+    workflow = gate_start_covenant(fabric.registry)
+    door = open_door(
+        fabric, workflow.definition_key, workflow.identity.definition_hash, tmp_path / "gate", eh._Bindings()
+    )
+    return door, str(fabric.product_address.tenant)
+
+
+def _dies_once_at(monkeypatch: pytest.MonkeyPatch, door: Door, *, status: str) -> None:
+    """The engine's process dies at its next write of a workflow-state record
+    with ``status``: that write raises, and nothing is written."""
+    store = door.fabric.registry.state_store
+    real = store.put_if
+
+    def dying(authorized: Any, record_class: str, record: object, **kwargs: Any) -> int:
+        if record_class == WORKFLOW_STATE and getattr(record, "status", None) == status:
+            monkeypatch.setattr(store, "put_if", real)
+            raise OSError(f"the engine's process died at the {status} state write")
+        return real(authorized, record_class, record, **kwargs)  # type: ignore[no-any-return]
+
+    monkeypatch.setattr(store, "put_if", dying)
+
+
+def _moved_once_before(
+    monkeypatch: pytest.MonkeyPatch, door: Door, tenant: str, *, status: str
+) -> list[tuple[object | None, int]]:
+    """Just before the engine's next conditional write of a workflow-state
+    record with ``status``, the other writer writes the execution's record once
+    (the shape a finisher losing to another finisher, or to the original start,
+    meets)."""
+    store = door.fabric.registry.state_store
+    real = store.put_if
+    moved: list[tuple[object | None, int]] = []
+    move = _other_writer(door, tenant, moved)
+
+    def moving(authorized: Any, record_class: str, record: object, **kwargs: Any) -> int:
+        if record_class == WORKFLOW_STATE and getattr(record, "status", None) == status:
+            monkeypatch.setattr(store, "put_if", real)
+            move()
+        return real(authorized, record_class, record, **kwargs)  # type: ignore[no-any-return]
+
+    monkeypatch.setattr(store, "put_if", moving)
+    return moved
+
+
+def _rows(door: Door, key: str, action: str) -> list[AuditEvent]:
+    return [
+        event
+        for event in door.fabric.registry.audit_log.events()
+        if event.key == key and event.action == action and event.resolved
+    ]
+
+
+def _a_start_left_running_at_its_gate(
+    monkeypatch: pytest.MonkeyPatch, door: Door, tenant: str
+) -> Callable[[], httpx.Response]:
+    """Invoke once and die at the first suspension write, leaving the run
+    ``running`` at its gate with no step run; return the invocation to retry."""
+    invocation = {"definition_key": door.key, "definition_version": door.version, "execution_id": EXECUTION}
+
+    def invoke() -> httpx.Response:
+        async def post() -> httpx.Response:
+            async with _unraised(door) as c:
+                return await c.post("/workflow/invocations", json=invocation, headers=STARTER)
+
+        return asyncio.run(post())
+
+    _dies_once_at(monkeypatch, door, status="suspended")
+    died = invoke()
+    assert died.status_code == 500, f"the injected death did not stop the start: {died.status_code} {died.text[:200]}"
+    stuck = door.fabric.registry.state_store.get(WORKFLOW_STATE, f"{tenant}/{EXECUTION}")
+    assert (stuck.status, stuck.current_state, stuck.trace) == ("running", COVENANT_GATE, ())
+    return invoke
+
+
+def test_a_finished_start_fenced_at_the_invocation_door_is_refused_409_execution_fenced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Lane 378c-finish's site in ``WorkflowEngine.execute``. The start's engine
+    dies at its first suspension write; the starter's retried invocation is
+    FINISHED by the engine (``_finish_start``), and the other writer moves the
+    record before the finisher's suspension write. The invocation door answers
+    409 ``execution-fenced``; no approval is offered and the start is not run
+    again. On ``origin/lane-378c-finish`` (no mapping) the same request answers
+    500."""
+    door, tenant = _gate_first_door(tmp_path)
+    key = f"{tenant}/{EXECUTION}"
+    retry = _a_start_left_running_at_its_gate(monkeypatch, door, tenant)
+    moved = _moved_once_before(monkeypatch, door, tenant, status="suspended")
+    retried = retry()
+    assert moved, "the other writer never ran"
+    _assert_refused_execution_fenced(retried)
+    assert not _pending_at(door, tenant, COVENANT_GATE)
+    assert len(_rows(door, key, "workflow_started")) == 1, "the retry finished the start; it never restarted it"
+    assert not _rows(door, key, "workflow_suspended")
+    assert door.fabric.registry.state_store.get_versioned(WORKFLOW_STATE, key) == moved[0]
+
+
+def test_the_same_finished_start_with_no_other_writer_answers_200(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Positive control: no other writer, so the finisher's suspension write
+    lands and the retried invocation answers 200, suspended at the gate with one
+    approval offered. The fence, and nothing else, makes the 409 above."""
+    door, tenant = _gate_first_door(tmp_path)
+    key = f"{tenant}/{EXECUTION}"
+    retry = _a_start_left_running_at_its_gate(monkeypatch, door, tenant)
+    retried = retry()
+    assert retried.status_code == 200, retried.text
+    assert retried.json()["gate"] == COVENANT_GATE
+    assert len(_pending_at(door, tenant, COVENANT_GATE)) == 1
+    assert len(_rows(door, key, "workflow_started")) == 1
