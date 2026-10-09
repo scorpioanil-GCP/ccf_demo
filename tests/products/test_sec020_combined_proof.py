@@ -87,6 +87,23 @@ both its questions (``sec020_worlds.p6_refused``;
 and each of the shape's instruments is then set against that twin answering.
 Its cells stay in the gate, unretired and unmarked.
 
+**Nor on a noise floor whose copy failed** (Dave, 2026-10-09 06:06 MST, ``D-IMPL-378``: *"prove that the
+control successfully answered before using it to excuse differences"*; approved at 06:21 MST: *"A failed spare
+answer cannot excuse differences. Apply the check to the gate and limitation measurements"*). A noise floor is read
+off a second copy of the nonexistent side. Where that copy RAISED, other than the refusal held as the property and
+raised by the side it copies as well, the floor compares an exception with an answer, differs at every path, and
+would excuse every difference. Every comparison checks the copy first (``_compare``): a gate or never-class cell
+fails by name, ``FloorCopyDidNotAnswer``, and a limitation measurement reports the cell under its own outcome,
+``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured.
+
+**X17 (a): the pin channel** (Dave, 2026-10-09 06:06 MST, confirmed 06:21 MST, ``D-IMPL-378``: *"Cover versioned
+resolution and write-then-read in the closure gate"*).
+``test_a_pin_filed_in_one_deployment_reads_alike_in_both[<shape>-<anchor>-<surface>]`` reads, as the asker, every
+executed-query pin filed in only one of the counterfactual's two deployments, in both, at every surface the asker can
+read it at, write-then-read included. Its instrument is ``test_the_pin_instrument_sees_a_difference``, and its
+population is reported every run by ``test_the_pin_channel_census_is_measured_and_reported``. An outsider recomputing
+a pin's address without the record is unreproduced, and that does not excuse the channel.
+
 Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
 -----------------------------------------------------------------------------------------
 For a product that reads the whole population — the fabric loaded before the
@@ -404,7 +421,14 @@ def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], se
     judged together, over the whole comparison, by
     :func:`test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`.
     Every other path is judged exactly as before.
+
+    **The floor's copy must have answered** (Dave, 2026-10-09 06:06/06:21 MST, ``D-IMPL-378``: *"A failed
+    spare answer cannot excuse differences"*). Before anything is judged, :func:`_require_the_floor_copy_answered`
+    fails the cell by name, :class:`FloorCopyDidNotAnswer`, where the floor's copy raised other than as the refusal
+    held as the property together with the side it copies (:func:`_floor_copy_did_not_answer`).
     """
+    # Dave, 2026-10-09: before the floor excuses anything, its copy must have answered (BLD-1, G-FLOOR-COPY).
+    _require_the_floor_copy_answered(run, comparison)
     withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
     withheld = run.channel(withheld_side, channel, comparison=comparison)
     nonexistent = run.channel(nonexistent_side, channel, comparison=comparison)
@@ -1110,6 +1134,12 @@ def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
     in every run), and recorded in the JUnit record as ``d1a_limitation``. A
     cell that cannot be measured — its run fails to build, a channel is missing
     — fails this test, because an unmeasured limitation is not reported.
+
+    **A floor copy that did not answer** (Dave, 2026-10-09, ``D-IMPL-378``: *"A failed spare answer cannot excuse
+    differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
+    (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
+    raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
+    nor indistinguishable, in the same block and the same JUnit record.
     """
     outcomes: dict[str, dict[str, Any]] = {}
     for cell in RETIRED_D1A:
@@ -1119,6 +1149,10 @@ def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
         vacuous = _vacuous(run, withheld_side, nonexistent_side)
         if vacuous:
             outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        unanswered = _floor_copy_did_not_answer(run, comparison)
+        if unanswered:
+            outcomes[cell] = {"outcome": FLOOR_COPY_OUTCOME, "raised": sorted(unanswered)}
             continue
         differing, floor, _, _ = _compare(run, comparison=comparison, channel=channel)
         outcomes[cell] = (
@@ -1195,6 +1229,12 @@ def test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
     cells and never count toward the gate's pass;
     ``tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py``
     is where the counterexample is held to still hold.
+
+    **A floor copy that did not answer** (Dave, 2026-10-09, ``D-IMPL-378``: *"A failed spare answer cannot excuse
+    differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
+    (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
+    raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
+    nor indistinguishable, in the same block and the same JUnit record.
     """
     levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
     for name in _QUIETED_LOGGERS:
@@ -1219,6 +1259,10 @@ def test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
                         vacuous = _vacuous(run, w.CF_WITHHELD, w.SAME_NONEXISTENT)
                         if vacuous:
                             outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+                            continue
+                        unanswered = _floor_copy_did_not_answer(run, w.SAME_DEPLOYMENT)
+                        if unanswered:
+                            outcomes[cell] = {"outcome": FLOOR_COPY_OUTCOME, "raised": sorted(unanswered)}
                             continue
                         differing, _floor, _, _ = _compare(run, comparison=w.SAME_DEPLOYMENT, channel=channel)
                         outcomes[cell] = (
@@ -1531,6 +1575,12 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
     No skip and no expected-failure mark hides it. The counterexample's own
     test, which asserts it still holds, is
     ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``.
+
+    **A floor copy that did not answer** (Dave, 2026-10-09, ``D-IMPL-378``: *"A failed spare answer cannot excuse
+    differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
+    (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
+    raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
+    nor indistinguishable, in the same block and the same JUnit record.
     """
     outcomes: dict[str, dict[str, Any]] = {}
     for cell in _false_declaration_cells():
@@ -1543,6 +1593,10 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
         vacuous = _both_raised(run, withheld_side, nonexistent_side)
         if vacuous:
             outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        unanswered = _floor_copy_did_not_answer(run, comparison)
+        if unanswered:
+            outcomes[cell] = {"outcome": FLOOR_COPY_OUTCOME, "raised": sorted(unanswered)}
             continue
         differing, _floor, _, _ = _compare(run, comparison=comparison, channel=channel)
         found: dict[str, Any] = (
@@ -1568,6 +1622,501 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
           + (f" (withheld side raised {found['withheld_raised']})" if "withheld_raised" in found else "")
           for cell, found in sorted(outcomes.items())),
         "=" * 124,
+    ]
+    with capsys.disabled():
+        print("\n".join(lines))
+
+
+# =============================================================================
+# The noise floor's own copy must have ANSWERED (Dave, 2026-10-09; the final panel's BLD-1, G-FLOOR-COPY)
+# =============================================================================
+#
+# Dave, 2026-10-09 06:06 MST (``D-IMPL-378``), verbatim (kept as a comment, CINV-01a): "Also strengthen the closure
+# test's noise-floor control: prove that the control successfully answered before using it to excuse differences.
+# Obtain explicit approval for that test amendment." 06:21 MST: "Floor change approved. A failed spare answer cannot
+# excuse differences. Apply the check to the gate and limitation measurements; rerun and report any changed counts."
+#
+# The gap (the final panel's BLD-1): every comparison reads its noise floor off a second copy of the nonexistent
+# side, but only the two COMPARED sides were checked for having raised. A floor copy that raised while the compared
+# sides answered differs from the nonexistent answer at every path, so its floor excused every value and missing-key
+# difference between the withheld side and the nonexistent one. The tests below hold the closing test's own judging
+# code to the amendment on SYNTHETIC runs (no deployment is built): the compared sides answer with two different
+# refusal codes and the floor's copy RAISED, as ``sec020_worlds.observe_mcp`` records an unreachable door. Every site
+# that reads a noise floor is held: the gate cell, the never-class cell, and the three reported limitation
+# measurements (D1 (a), ruling P6 (a)'s probe, E2 (ii) (d)'s false declaration).
+
+#: The named reason a cell fails by when its floor's copy did not answer: an ``AssertionError`` of this type name.
+FLOOR_COPY_REFUSAL = "FloorCopyDidNotAnswer"
+#: The outcome a limitation measurement reports such a cell under, by name: neither distinguishable nor
+#: indistinguishable, because no noise floor was measured.
+FLOOR_COPY_OUTCOME = "floor copy raised"
+
+_FLOOR_WITHHELD = {"outcome": "refused", "code": "subject-withheld", "detail": "refused"}
+_FLOOR_NONEXISTENT = {"outcome": "refused", "code": "subject-not-found", "detail": "refused"}
+_FLOOR_UNREACHABLE = {"outcome": "unreachable", "detail": "MCP unreachable: session crashed"}
+_FLOOR_RAISED = "MCP unreachable: session crashed"
+
+
+def _floor_observation(value: Any, *, raised: dict[str, str] | None = None) -> w.Observation:
+    """One synthetic side: ``value`` on every channel; ``raised``, what its question ended in instead of answering."""
+    return w.Observation(channels={channel: value for channel in w.CHANNELS}, raw=value, raised=dict(raised or {}))
+
+
+def _floor_world(*, shape: str = w.SUBJECT_KEYED, withheld: Any = None, floor_raised: bool = True) -> w.Run:
+    """A synthetic run: the compared sides answer; both comparisons' floor copies RAISED, or answered like the nonexistent side."""
+    floor = (
+        _floor_observation(_FLOOR_UNREACHABLE, raised={w.ONLY: _FLOOR_RAISED})
+        if floor_raised
+        else _floor_observation(_FLOOR_NONEXISTENT)
+    )
+    return w.Run(
+        shape=shape,
+        anchor=w.FROM_DECISION,
+        door=w.MCP,
+        sides={
+            w.CF_WITHHELD: _floor_observation(_FLOOR_WITHHELD if withheld is None else withheld),
+            w.CF_NONEXISTENT: _floor_observation(_FLOOR_NONEXISTENT),
+            w.SAME_NONEXISTENT: _floor_observation(_FLOOR_NONEXISTENT),
+            w.CF_FLOOR: floor,
+            w.SAME_FLOOR: floor,
+        },
+    )
+
+
+class _OneRun:
+    """A run cache that answers every ``get`` with one synthetic run."""
+
+    def __init__(self, run: w.Run) -> None:
+        self._run = run
+
+    def get(self, **_: str) -> w.Run:
+        return self._run
+
+
+class _Recorded:
+    """``record_testsuite_property``, kept so the test can read the measurement back."""
+
+    def __init__(self) -> None:
+        self.properties: dict[str, Any] = {}
+
+    def __call__(self, name: str, value: object) -> None:
+        self.properties[name] = json.loads(str(value))
+
+
+class _NoCapture:
+    """``capsys`` for a limitation measurement driven directly: its block prints, uncaptured."""
+
+    def disabled(self) -> Any:
+        import contextlib  # noqa: PLC0415
+
+        return contextlib.nullcontext()
+
+
+def _floor_fails_by_name(cell: Callable[[], None]) -> AssertionError:
+    """Run one cell; it must FAIL, by the named floor-copy reason."""
+    with pytest.raises(AssertionError) as failed:
+        cell()
+    assert type(failed.value).__name__ == FLOOR_COPY_REFUSAL, (
+        f"the cell failed, but not because its floor's copy did not answer: {type(failed.value).__name__}: {failed.value}"
+    )
+    return failed.value
+
+
+def _floor_outcomes_by_name(outcomes: dict[str, dict[str, Any]], expected: list[str]) -> None:
+    """Every expected cell was measured, and every one is reported under the floor-copy outcome, by name."""
+    assert sorted(outcomes) == sorted(expected), "a cell of the limitation was not measured"
+    wrong = {cell: found for cell, found in outcomes.items() if found.get("outcome") != FLOOR_COPY_OUTCOME}
+    assert not wrong, (
+        f"{len(wrong)} of {len(outcomes)} cells whose floor copy RAISED were judged off that floor anyway:"
+        f" {dict(list(wrong.items())[:3])}"
+    )
+
+
+def test_a_floor_copy_that_raised_cannot_excuse_a_gate_cell() -> None:
+    """The gap as the panel executed it (BLD-1): ``subject-withheld`` against ``subject-not-found``, the floor's copy raised.
+
+    Before the amendment the floor read off the raised copy differed from the nonexistent side at every path and
+    excused the code difference, so the cell PASSED. After it, the cell fails by name (:data:`FLOOR_COPY_REFUSAL`).
+    """
+    run = _floor_world()
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    )
+
+
+def test_a_floor_copy_raising_the_held_refusal_where_the_copied_side_answered_cannot_excuse() -> None:
+    """A raise that is a held refusal elsewhere is no floor where the side it copies ANSWERED.
+
+    The reused fabric's second question: both compared sides answered it (with different codes) and only the floor's
+    copy raised ``AcquiredFabricReused`` there, the refusal Q9's cells hold as the property when every side raises
+    it. The floor then compares a refusal with an answer, so it cannot excuse anything.
+    """
+    raised = {"second": "AcquiredFabricReused: synthetic"}
+    run = _floor_world(shape=w.REUSED_FABRIC)
+    for side, value in ((w.CF_WITHHELD, _FLOOR_WITHHELD), (w.CF_NONEXISTENT, _FLOOR_NONEXISTENT)):
+        run.sides[side] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": value})
+    run.sides[w.CF_FLOOR] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": _FLOOR_UNREACHABLE}, raised=raised)
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.REUSED_FABRIC, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
+        )
+    )
+
+
+def test_a_floor_copy_that_raised_cannot_excuse_a_never_class_cell() -> None:
+    """E2 (ii)'s gate cells judge by the same floor: the same synthetic run fails there by name too."""
+    run = _floor_world()
+    _floor_fails_by_name(
+        lambda: test_a_withheld_subject_under_a_never_class_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.NEVER_LATE, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    )
+
+
+def test_a_floor_copy_that_raised_is_reported_by_name_in_the_d1a_limitation() -> None:
+    """D1 (a)'s reported limitation: a retired cell whose floor copy raised is reported under its own outcome, by name."""
+    recorded = _Recorded()
+    test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
+        _OneRun(_floor_world()), recorded, _NoCapture()
+    )
+    _floor_outcomes_by_name(recorded.properties["d1a_limitation"]["outcomes"], list(RETIRED_D1A))
+
+
+def test_a_floor_copy_that_raised_is_reported_by_name_in_the_p6_limitation(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ruling P6 (a)'s reported counterexample: a cell whose floor copy raised is reported under its own outcome, by name.
+
+    The counterexample's world is replaced by the synthetic run, its notes saying the probe was asked first and
+    answered nothing each time, so the measurement reaches its comparison.
+    """
+    probe = w.probe_identifier()
+    run = _floor_world(shape=w.PROBE_RECOGNIZING)
+    run.notes = {"asked": [probe, w.SUBJECT, probe, w.NEVER, probe, w.NEVER_2], "answered_nothing_for": [probe] * 3}
+    monkeypatch.setattr(w, "probe_recognizing_run", lambda base, **_: run)
+    recorded = _Recorded()
+    test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
+        tmp_path_factory, recorded, _NoCapture()
+    )
+    expected = [f"{w.SAME_DEPLOYMENT}-{r}-{a}-{d}-{c}" for r, a, d, c in _p6_limitation_cells()]
+    _floor_outcomes_by_name(recorded.properties["p6_probe_limitation"]["outcomes"], expected)
+
+
+def test_a_floor_copy_that_raised_is_reported_by_name_in_the_e2ii_limitation() -> None:
+    """E2 (ii) (d)'s reported false-declaration cells: a cell whose floor copy raised is reported under its own outcome."""
+    recorded = _Recorded()
+    test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
+        _OneRun(_floor_world()), recorded, _NoCapture()
+    )
+    _floor_outcomes_by_name(
+        recorded.properties["e2ii_false_declaration_limitation"]["outcomes"], _false_declaration_cells()
+    )
+
+
+def test_control_an_answering_floor_copy_still_counts_the_difference() -> None:
+    """Control: the floor's copy ANSWERED like the nonexistent side — the cell fails as before, at the code, as distinguishable."""
+    run = _floor_world(floor_raised=False)
+    with pytest.raises(AssertionError) as failed:
+        test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    assert type(failed.value) is AssertionError, f"{type(failed.value).__name__}: {failed.value}"
+    assert "is distinguishable from a nonexistent one at ['code']" in str(failed.value), failed.value
+
+
+def test_control_equal_answers_over_an_answering_floor_copy_pass() -> None:
+    """Control: the compared sides answer alike and the floor's copy answered — the cell passes."""
+    run = _floor_world(withheld=_FLOOR_NONEXISTENT, floor_raised=False)
+    test_withheld_is_indistinguishable(
+        _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+    )
+
+
+def test_control_a_floor_copy_raising_the_held_refusal_with_the_copied_side_still_floors() -> None:
+    """Control: Q9's reused store — every side raised the held refusal at both positions; the cell passes as before.
+
+    The floor's copy raised exactly what the side it copies raised, the refusal the cell holds as its property, so
+    the floor compares a refusal with a refusal and stays a floor: the amendment does not turn the property's cells red.
+    """
+    refusal = "AcquisitionNeedsAQuestionFabric: synthetic"
+    shape_of = {"outcome": "raised", "type": "AcquisitionNeedsAQuestionFabric", "message": "synthetic"}
+    both = {"first": shape_of, "second": shape_of}
+    raised = {"first": refusal, "second": refusal}
+    run = w.Run(
+        shape=w.REUSED_STORE,
+        anchor=w.FROM_DECISION,
+        door=w.IN_PROCESS,
+        sides={side: _floor_observation(both, raised=raised) for side in (w.CF_WITHHELD, w.CF_NONEXISTENT, w.CF_FLOOR)},
+    )
+    test_withheld_is_indistinguishable(
+        _OneRun(run), w.COUNTERFACTUAL, w.REUSED_STORE, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
+    )
+
+
+# --- the amendment itself (Dave, 2026-10-09 06:06 MST, approved 06:21 MST, D-IMPL-378) ---------------------------
+
+
+class FloorCopyDidNotAnswer(AssertionError):
+    """A cell's noise floor was read off a copy that RAISED: not evidence, by name, and the floor excuses nothing.
+
+    Dave, 2026-10-09 (``D-IMPL-378``), approved at 06:21 MST: *"A failed spare answer cannot excuse differences."*
+    An ``AssertionError``, so a gate or never-class cell that meets it FAILS. A limitation measurement asks
+    :func:`_floor_copy_did_not_answer` before it compares and reports the cell by :data:`FLOOR_COPY_OUTCOME`.
+    """
+
+
+def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
+    """Where the noise floor's copy RAISED in a way that leaves it nothing to measure: position, and what it raised.
+
+    The floor is read off a second copy of the nonexistent side (``sec020_worlds.PAIRS``), and measures that side's
+    own variation only where the copy did what the side does. Where the copy raised, that holds only if the
+    nonexistent side raised at the same position too, and both raised the refusal this proof holds as the property
+    there: Q9's reuse refusals and P2 (c)'s construction refusal (``sec020_worlds.raising_is_the_property``), ruling
+    P6 (a)'s refusal (``sec020_worlds.p6_refusal_is_the_property``). The floor then compares a refusal with a refusal.
+    Every other raise of the copy, at its question or inside one of its record reads (``<position>/record:<read>``,
+    never the property), leaves the floor comparing an exception with an answer, which differs at every path and
+    would excuse every difference. Those are returned, and while any is, the floor may excuse nothing.
+    """
+    _withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
+    copied = run.raised(nonexistent_side)
+
+    def held(position: str, raised: str) -> bool:
+        return w.raising_is_the_property(run.shape, position, raised) or w.p6_refusal_is_the_property(
+            run, position, raised
+        )
+
+    unanswered: dict[str, str] = {}
+    for position, raised in sorted(run.raised(floor_side).items()):
+        if not (position in copied and held(position, raised) and held(position, copied[position])):
+            unanswered[position] = raised
+    return unanswered
+
+
+def _require_the_floor_copy_answered(run: w.Run, comparison: str) -> None:
+    """The amendment where every noise floor of this module is read (:func:`_compare`): fail by name, before any excuse."""
+    unanswered = _floor_copy_did_not_answer(run, comparison)
+    if unanswered:
+        _withheld_side, _nonexistent_side, floor_side = w.PAIRS[comparison]
+        raise FloorCopyDidNotAnswer(
+            f"SEC-020 [{comparison}, {run.shape}, {run.anchor}, {run.door}]: not evidence, the noise floor's copy"
+            f" ({floor_side}) RAISED instead of answering, and a failed spare answer cannot excuse a difference:"
+            f" {unanswered}"
+        )
+
+
+# =============================================================================
+# X17 (a): the pin channel (Dave, 2026-10-09 06:06 MST, confirmed 06:21 MST, D-IMPL-378)
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def pin_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.PinRunCache]:
+    """One pin-channel run per (shape, anchor) for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.PinRunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+@pytest.fixture(scope="module")
+def pin_instrument(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.PinInstrument]:
+    """The pin channel's instrument readings, read once for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.pin_instrument(pathlib.Path(tmp_path_factory.mktemp("pin-instrument")))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+def _pin_cells() -> list[Any]:
+    """One cell per shape, anchor and pin surface; each holds every one-sided pin of its run, in both directions."""
+    return [
+        pytest.param(shape, anchor, surface, id=f"{shape}-{anchor}-{surface}")
+        for shape in ALL_SHAPES
+        for anchor in w.ANCHORS
+        for surface in w.PIN_SURFACES
+    ]
+
+
+def _pin_questions(runs: w.RunCache, pin_run: w.PinRun) -> w.Run:
+    """The pin channel's questions, as the gate judges the same shape's questions.
+
+    The gate's own in-process run of the same shape and anchor, its three counterfactual sides replaced by the pin
+    channel's deployments. A refusal the gate holds as the property is held here exactly when it is held there and
+    these deployments observed it too, word for word: ruling P6 (a)'s refusal is held only together with that run's
+    declared-population twin answering and its other probed sides refused alike (``sec020_worlds.p6_refused``).
+    """
+    gate = runs.get(shape=pin_run.shape, anchor=pin_run.anchor, door=w.IN_PROCESS)
+    return w.Run(
+        shape=pin_run.shape, anchor=pin_run.anchor, door=w.IN_PROCESS, sides={**gate.sides, **pin_run.questions}
+    )
+
+
+@pytest.mark.parametrize(("shape", "anchor", "surface"), _pin_cells())
+def test_a_pin_filed_in_one_deployment_reads_alike_in_both(
+    runs: w.RunCache, pin_runs: w.PinRunCache, shape: str, anchor: str, surface: str
+) -> None:
+    """X17 (a): a pin filed in only ONE of the two deployments reads ALIKE in both, at every surface the asker reads it.
+
+    Dave, 2026-10-09 06:06 MST (``D-IMPL-378``), item 1, confirmed at 06:21 MST ("X17(a)"), verbatim: *"Cover
+    versioned resolution and write-then-read in the closure gate. Keep attacker address derivation labeled unproven
+    until demonstrated; it does not excuse the inconsistent authorization."* Option (a), lane ``378h-names``'s P-2:
+    *"Add the channel with every read. The gate goes red on the resolution resource until that is addressed."*
+
+    **The channel** (``sec020_worlds.pin_run``). The counterfactual's two deployments (the withholding one, and the
+    one whose source does not hold the subject) and the noise floor's copy are each asked the same question in
+    process. Every executed-query pin their records name that is filed in exactly ONE of the two (filing read off
+    each store before anything is written) is read as the asker in all three: the MCP artifact server's names,
+    blob, presence and versioned-URI resolution (``ccf-artifact://{tenant}/{class}/{name}@{version}``, under every
+    name the filing deployment filed it), and the HTTP door's ``/artifact/{content_address}``, ``/replay/decisions``
+    and ``/replay/resolutions``, through the record channel's own reads (the asker, and another principal of the
+    tenant). Then WRITE-THEN-READ: the asker files the pin's canonical bytes on its own client lane
+    (``put_artifact``) and reads them back through blob, presence and names. One cell per shape, anchor and surface;
+    each cell holds every one-sided pin of its run, in both directions.
+
+    **Judged by the gate's own rules.** The questions first: two compared sides that raised, other than as the
+    refusal the gate holds as the property for this shape, are not evidence (:func:`_vacuous`, over
+    :func:`_pin_questions`), and the noise floor's copy must have answered (:func:`_require_the_floor_copy_answered`).
+    The floor's copy must also have filed every one-sided pin exactly where the not-holding deployment did, or its
+    readings are not a floor. Then each reading: :func:`_vacuous`, then :func:`_compare` (the noise floor, the kind
+    rule, the reference form, and the floor-copy rule).
+
+    **Unproven, and no excuse.** The canonical bytes the asker writes are read here from the deployment that filed
+    the pin, and each pin's address from the deployment's own record, as an auditor reads them. An outsider
+    recomputing a pin's address WITHOUT the record, from what it asked and from public documents, is UNREPRODUCED:
+    unproven until demonstrated. That does not excuse the channel. These cells count regardless, and a cell that is
+    red here is red in the gate.
+
+    **Expected on this tree.** The versioned-URI resolution and the three write-then-read reads tell the two
+    deployments apart wherever a pin is one-sided (``D-IMPL-378`` F1-1b and F1-1c: open, design-first), so those
+    cells are RED, and none is marked, skipped or excluded. At two population-reading shapes a pin is one-sided under
+    ``from_entity_freshness`` too, because there the deployment whose source holds the subject serves where the other
+    refuses: D1 (a)'s confound, which this module's D1 (a) block reports, at the outcome, for those shapes'
+    two-deployment cells. D1 (a) retires the other channels' two-deployment cells of those shapes; no ruling retires
+    these, so they are in the gate.
+
+    **Not reached.** A composite's children answer through records that the parent's record does not name in these
+    worlds (its ``child_replay_ref`` is empty), so the pins those children file are outside this channel.
+    """
+    _require(shape)
+    pin_run = pin_runs.get(shape=shape, anchor=anchor)
+    questions = _pin_questions(runs, pin_run)
+    vacuous = _vacuous(questions, w.CF_WITHHELD, w.CF_NONEXISTENT)
+    assert not vacuous, (
+        f"SEC-020 pin channel [{shape}, {anchor}, {surface}]: not evidence, both deployments' questions RAISED"
+        f" instead of answering, so neither filed anything to compare: {vacuous}"
+    )
+    _require_the_floor_copy_answered(questions, w.COUNTERFACTUAL)
+    unfaithful = {
+        pin: {side: pin_run.filed[side][pin] for side in (w.CF_NONEXISTENT, w.CF_FLOOR)}
+        for pin in pin_run.one_sided
+        if pin_run.filed[w.CF_FLOOR][pin] != pin_run.filed[w.CF_NONEXISTENT][pin]
+    }
+    assert not unfaithful, (
+        f"SEC-020 pin channel [{shape}, {anchor}, {surface}]: not evidence, the noise floor's copy did not file"
+        f" these pins where the not-holding deployment did, so its readings are no floor: {unfaithful}"
+    )
+    found: dict[str, Any] = {}
+    for pin in pin_run.one_sided:
+        where = "filed where the subject is held" if pin_run.filed[w.CF_WITHHELD][pin] else "filed where it is not"
+        run = pin_run.surface_run(pin, surface)
+        vacuous = _vacuous(run, w.CF_WITHHELD, w.CF_NONEXISTENT)
+        if vacuous:
+            found[f"{pin} ({where})"] = f"not evidence, both readings failed: {vacuous}"
+            continue
+        differing, floor, withheld, nonexistent = _compare(run, comparison=w.COUNTERFACTUAL, channel=w.PIN)
+        if differing:
+            found[f"{pin} ({where})"] = {
+                "at": sorted(differing),
+                "noise floor, not counted": sorted(floor),
+                "withholding deployment": w.render(withheld, limit=400),
+                "not-holding deployment": w.render(nonexistent, limit=400),
+            }
+    assert not found, (
+        f"SEC-020 pin channel [{shape}, {anchor}, {surface}]: a pin filed in only one of the two deployments tells"
+        f" them apart, {len(found)} of {len(pin_run.one_sided)} one-sided pins: {json.dumps(found, sort_keys=True)}"
+    )
+
+
+@pytest.mark.parametrize("surface", w.PIN_SURFACES)
+def test_the_pin_instrument_sees_a_difference(pin_instrument: w.PinInstrument, surface: str) -> None:
+    """The pin channel's instrument: every surface, read where it MUST answer differently, is seen to differ.
+
+    In one deployment (``sec020_worlds.pin_instrument``), as the asker: the asker's own read-refusal record (read
+    back to the principal it names) by its versioned URI, against an address nobody filed in that record's class,
+    floored by a second such address; for write-then-read, the asker's own client-lane filing read after its put,
+    against the same reads at those two addresses; for the put, a put of other bytes (and that put again, its floor).
+    Compared as the gate's instruments compare: a side that raised is not evidence, and paths in the floor are not
+    counted. The reads do not depend on the shape, so one instrument per surface holds every cell of that surface.
+    """
+    run = pin_instrument.surface_run(surface)
+    vacuous = _vacuous(run, w.SERVED, w.CF_NONEXISTENT, either=True)
+    assert not vacuous, (
+        f"pin instrument not evidence [{surface}]: a side RAISED instead of answering, so a difference it shows is"
+        f" the exception's, not the surface's: {vacuous}"
+    )
+    present = run.channel(w.SERVED, w.PIN)
+    absent = run.channel(w.CF_NONEXISTENT, w.PIN)
+    floor = w.diff_paths(absent, run.channel(w.CF_FLOOR, w.PIN))
+    seen = w.diff_paths(present, absent) - floor
+    assert seen, (
+        f"pin instrument broken [{surface}]: the asker's own artifact and an address nobody filed read alike here,"
+        f" so a PASS of the pin cells at this surface would prove nothing\n  present: {w.render(present)}\n"
+        f"  absent:  {w.render(absent)}"
+    )
+
+
+def test_the_pin_channel_census_is_measured_and_reported(
+    pin_runs: w.PinRunCache, record_testsuite_property: Callable[[str, object], None], capsys: Any
+) -> None:
+    """The pin channel's population, reported every run: which pins each run's records name and which are one-sided.
+
+    Asserts only that every run of the channel was MEASURED (built, asked, read): which pins are one-sided is
+    reported, never asserted, because a run whose two deployments file the same pins carries nothing on this
+    channel, and that is a measurement too. Printed past the output capture, in its own block headed
+    ``SEC-020 PIN CHANNEL CENSUS``, and recorded in the JUnit record as ``pin_channel_census``.
+    """
+    census: dict[str, dict[str, Any]] = {}
+    for shape in ALL_SHAPES:
+        if shape in w.PENDING_SHAPES and not w.PENDING_SHAPES[shape][1]():
+            continue
+        for anchor in w.ANCHORS:
+            run = pin_runs.get(shape=shape, anchor=anchor)
+            recorded = set(run.pins[w.CF_WITHHELD]) | set(run.pins[w.CF_NONEXISTENT])
+            census[f"{shape}-{anchor}"] = {
+                "pins named": {side: len(pins) for side, pins in sorted(run.pins.items())},
+                "one-sided, filed where the subject is held": [p for p in run.one_sided if run.filed[w.CF_WITHHELD][p]],
+                "one-sided, filed where it is not": [p for p in run.one_sided if run.filed[w.CF_NONEXISTENT][p]],
+                "named, filed in neither": sum(
+                    1 for p in recorded if not run.filed[w.CF_WITHHELD][p] and not run.filed[w.CF_NONEXISTENT][p]
+                ),
+                "questions raised": {side: sorted(o.raised) for side, o in sorted(run.questions.items()) if o.raised},
+            }
+    expected = [
+        f"{shape}-{anchor}"
+        for shape in ALL_SHAPES
+        if not (shape in w.PENDING_SHAPES and not w.PENDING_SHAPES[shape][1]())
+        for anchor in w.ANCHORS
+    ]
+    assert sorted(census) == sorted(expected), "a run of the pin channel was not measured"
+    one_sided = sum(len(c["one-sided, filed where the subject is held"]) + len(c["one-sided, filed where it is not"])
+                    for c in census.values())
+    record_testsuite_property("pin_channel_census", json.dumps({"runs": len(census), "census": census}, sort_keys=True))
+    lines = [
+        "",
+        "=" * 30 + " SEC-020 PIN CHANNEL CENSUS (reported; the cells are in the gate) " + "=" * 30,
+        f"{len(census)} runs; {one_sided} one-sided pins read at {len(w.PIN_SURFACES)} surfaces each:",
+        *(f"  {key}: {json.dumps(found, sort_keys=True)}" for key, found in sorted(census.items())),
+        "=" * 126,
     ]
     with capsys.disabled():
         print("\n".join(lines))
