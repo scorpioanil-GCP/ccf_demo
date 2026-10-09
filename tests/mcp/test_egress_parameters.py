@@ -9,7 +9,7 @@ door beside it would be the wrong asymmetry, and the same holds inverted."*
 
 Why this module tests **two** doors
 -----------------------------------
-The MCP tool hard-wired ``parameters={}`` at ``egress.py:588`` and the HTTP
+The MCP tool hard-wired ``parameters={}`` at ``egress.py::build_egress_server.request_context_product`` and the HTTP
 route hard-wired the identical thing at ``product.py:330``, for the identical
 recorded reason. Those are the only two sites in ``runtime/`` that build a
 :class:`~ccf.products.request.ProductRequest` for a door. Repairing one and not
