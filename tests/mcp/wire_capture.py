@@ -27,6 +27,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.shared.message import SessionMessage
 
 import ccf.artifacts.mcp_store as mcp_store_module
+from ccf.mcp.errors import McpClientError, McpServerUnreachable
 from ccf_runtime.mcp.auth import TokenGrant
 from tests.mcp import test_artifact_server_authorized as authorized_server
 
@@ -153,9 +154,24 @@ def call(server: FastMCP, grant: TokenGrant | None, tool: str, arguments: dict[s
 def route_store_through(
     monkeypatch: pytest.MonkeyPatch, server: FastMCP, grant: TokenGrant, wire: Wire
 ) -> None:
-    """Every ``McpArtifactStore`` session-per-call runs over a captured in-memory session to ``server`` as ``grant``."""
+    """Every ``McpArtifactStore`` session-per-call runs over a captured in-memory session to ``server`` as ``grant``.
+
+    What the operation raises reaches the store exactly as the production runner
+    (``ccf.mcp.client.run_with_session``) delivers it: the single exception a task-group wrapper stands for, kept
+    when it is an ``McpClientError`` and reported as ``McpServerUnreachable`` otherwise.
+    """
 
     async def run_with_session(*, url: str, operation: Any, http_client_factory: Any) -> Any:
-        return await captured_session(server, grant, wire, operation)
+        try:
+            return await captured_session(server, grant, wire, operation)
+        except Exception as error:  # noqa: BLE001 - the production runner's own mapping, mirrored
+            named: BaseException = error
+            while isinstance(named, BaseExceptionGroup) and len(named.exceptions) == 1:
+                named = named.exceptions[0]
+            if isinstance(named, McpClientError):
+                raise named from error
+            raise McpServerUnreachable(
+                f"MCP call against {url!r} did not complete: {type(named).__name__}: {named}"
+            ) from error
 
     monkeypatch.setattr(mcp_store_module, "run_with_session", run_with_session)
