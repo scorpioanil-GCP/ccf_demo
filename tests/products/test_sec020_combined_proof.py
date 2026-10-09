@@ -119,6 +119,19 @@ which prints how many are distinguishable in its own block of the run's output
 count toward the gate's pass, and that test fails only if a retired cell could
 not be measured at all.
 
+**Ruling P6 (a)'s counterexample, reported the same way** (Dave, 2026-10-08
+16:40 MST, ``D-IMPL-378``: *"retain the counterexample where a source treats the
+probe identifier differently"*). The ``population`` world with its source
+swapped for one that answers nothing for the probe identifier (exactly, or by
+its shape) and the whole population for every other identifier passes the
+probe; its same-deployment cells EXECUTE every run, through the same
+comparison and the same "not evidence" rule as a gate cell, in
+:func:`test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated`,
+which prints them in their own block (``SEC-020 P6 PROBE LIMITATION``) and
+records them in the JUnit record (``p6_probe_limitation``). They are not gate
+cells, never count toward the gate's pass, and the test fails only if the
+counterexample was not constructed or a cell could not be measured.
+
 Dave's Q11 and Q12, as lane ``378b-s020record`` built them (adapted by lane ``378d-s020trial``)
 -------------------------------------------------------------------------------------------------
 Its PROPOSAL, section 7, names three things this proof needs once Q11 and Q12
@@ -1100,6 +1113,111 @@ def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
         *(f"  {cell}: {found['outcome']}" + (f" at {found['at']}" if "at" in found else "")
           for cell, found in sorted(outcomes.items())),
         "=" * 115,
+    ]
+    with capsys.disabled():
+        print("\n".join(lines))
+
+
+# =============================================================================
+# Ruling P6 (a)'s retained counterexample: a source that recognizes the probe
+# =============================================================================
+#
+# Dave, 2026-10-08 16:40 MST (``D-IMPL-378``), item 2, verbatim: "Do not declare
+# closure based on this probe alone: prove it runs before real-subject
+# acquisition, and retain the counterexample where a source treats the probe
+# identifier differently." The reviewer's framing he relayed: "P6 is still the
+# main risk: a source can recognize the probe and behave differently." Measured
+# every run, reported in its own block of the output as E3's limitation is;
+# never a gate cell.
+
+
+def _p6_limitation_cells() -> list[tuple[str, str, str, str]]:
+    """Every (recognition, anchor, door, channel) the P6 probe limitation measures, same-deployment."""
+    return [
+        (recognition, anchor, door, channel)
+        for recognition in w.PROBE_RECOGNITIONS
+        for anchor in w.ANCHORS
+        for door in w.DOORS
+        for channel in w.channels_for(comparison=w.SAME_DEPLOYMENT, shape=w.POPULATION, door=door)
+    ]
+
+
+def test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
+    tmp_path_factory: pytest.TempPathFactory, record_testsuite_property: Callable[[str, object], None], capsys: Any
+) -> None:
+    """Ruling P6 (a)'s counterexample, executed and reported as a limitation, never gated.
+
+    SEC-020's ``population`` world with its source swapped for one that
+    answers NOTHING for the probe identifier — recognized exactly, or by its
+    shape — and the whole population for every other identifier
+    (``sec020_worlds.ProbeRecognizingPopulationSource``, built by
+    ``sec020_worlds.probe_recognizing_run``): the probe admits it, and the
+    withheld subject and an identifier nothing holds are compared exactly as a
+    gate cell compares them — :func:`_vacuous`, then :func:`_compare` — in the
+    same-deployment comparison D1 (a) makes govern population sources, and
+    classified ``distinguishable``, ``indistinguishable`` or ``not evidence``.
+
+    **What this asserts, and what it does not.** It asserts that the
+    counterexample was CONSTRUCTED — every question handed the source the probe
+    identifier first, and the source answered nothing for it — and that every
+    cell was MEASURED; nothing about the outcome. The measurement is printed in
+    its own block of the run's output, headed ``SEC-020 P6 PROBE LIMITATION``
+    (written past the output capture, so it shows in every run), and recorded
+    in the JUnit record as ``p6_probe_limitation``. Its cells are not gate
+    cells and never count toward the gate's pass;
+    ``tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py``
+    is where the counterexample is held to still hold.
+    """
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    probe = w.probe_identifier()
+    outcomes: dict[str, dict[str, Any]] = {}
+    unconstructed: dict[str, Any] = {}
+    try:
+        for recognition in w.PROBE_RECOGNITIONS:
+            for anchor in w.ANCHORS:
+                for door in w.DOORS:
+                    key = f"{recognition}-{anchor}-{door}"
+                    run = w.probe_recognizing_run(
+                        pathlib.Path(tmp_path_factory.mktemp(f"p6-probe-limitation-{key}")),
+                        recognition=recognition, anchor=anchor, door=door,
+                    )
+                    asked, nothing = run.notes["asked"], run.notes["answered_nothing_for"]
+                    if nothing != [probe] * 3 or asked[::2] != [probe] * 3:
+                        unconstructed[key] = run.notes
+                    for channel in w.channels_for(comparison=w.SAME_DEPLOYMENT, shape=w.POPULATION, door=door):
+                        cell = f"{w.SAME_DEPLOYMENT}-{key}-{channel}"
+                        vacuous = _vacuous(run, w.CF_WITHHELD, w.SAME_NONEXISTENT)
+                        if vacuous:
+                            outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+                            continue
+                        differing, _floor, _, _ = _compare(run, comparison=w.SAME_DEPLOYMENT, channel=channel)
+                        outcomes[cell] = (
+                            {"outcome": "distinguishable", "at": sorted(differing)}
+                            if differing
+                            else {"outcome": "indistinguishable"}
+                        )
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+    assert not unconstructed, f"the counterexample was not constructed (the probe was not answered with nothing): {unconstructed}"
+    expected = {f"{w.SAME_DEPLOYMENT}-{r}-{a}-{d}-{c}" for r, a, d, c in _p6_limitation_cells()}
+    assert set(outcomes) == expected, f"a probe-limitation cell was not measured: {sorted(expected - set(outcomes))}"
+    counts: dict[str, int] = {}
+    for found in outcomes.values():
+        counts[found["outcome"]] = counts.get(found["outcome"], 0) + 1
+    record_testsuite_property("p6_probe_limitation", json.dumps(
+        {"cells": len(outcomes), "counts": counts, "outcomes": outcomes}, sort_keys=True
+    ))
+    lines = [
+        "",
+        "=" * 30 + " SEC-020 P6 PROBE LIMITATION (reported, NOT in the gate) " + "=" * 30,
+        f"a source that recognizes the probe identifier (exactly, or by its shape), {len(outcomes)} same-deployment"
+        f" cells measured on this run: {json.dumps(counts, sort_keys=True)}",
+        *(f"  {cell}: {found['outcome']}" + (f" at {found['at']}" if "at" in found else "")
+          for cell, found in sorted(outcomes.items())),
+        "=" * 117,
     ]
     with capsys.disabled():
         print("\n".join(lines))

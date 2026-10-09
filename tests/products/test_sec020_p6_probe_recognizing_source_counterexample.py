@@ -20,6 +20,11 @@ the population, and what the caller receives tells the two apart. It is a
 measured limitation of the probe, not a control: SEC-020 is OPEN. If the SDK
 ever detects this source, this test goes red and the counterexample is gone.
 
+The same configuration is reported, every run and at every door, in its own
+block of SEC-020's closing test output (``SEC-020 P6 PROBE LIMITATION``,
+``tests/products/test_sec020_combined_proof.py::test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated``),
+never counted as evidence for the gate.
+
 Fixture vocabulary only (CINV-01).
 """
 

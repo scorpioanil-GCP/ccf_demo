@@ -3114,6 +3114,34 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
     return Run(shape=shape, anchor=anchor, door=door, sides=sides)
 
 
+def probe_recognizing_run(base: pathlib.Path, *, recognition: str, anchor: str, door: str) -> Run:
+    """Ruling P6 (a)'s counterexample deployment, asked what the same-deployment comparison asks.
+
+    One deployment holding the subject and withholding it from the asker, its
+    source recognizing the probe (:class:`ProbeRecognizingPopulationSource`):
+    the withheld subject, an identifier nothing holds, and a second one (the
+    noise floor), through ``door``, records read back where that door reads
+    them — the sides :data:`PAIRS` names for the same-deployment comparison.
+    ``notes`` keeps what the source was asked and what it answered nothing
+    for: the evidence the case was constructed. Labeled
+    :data:`PROBE_RECOGNIZING`, outside every gate shape.
+    """
+    built = build_probe_recognizing(
+        base / "withholding", anchor=anchor, holds=True, active=True, recognition=recognition
+    )
+    try:
+        sides = {
+            CF_WITHHELD: observe_side(POPULATION, door, built, SUBJECT, reads=True),
+            SAME_NONEXISTENT: observe_side(POPULATION, door, built, NEVER, reads=True),
+            SAME_FLOOR: observe_side(POPULATION, door, built, NEVER_2, reads=True),
+        }
+        source = built.notes["opened"]._acquire
+        notes = {"asked": list(source.asked), "answered_nothing_for": list(source.answered_nothing_for)}
+    finally:
+        built.close()
+    return Run(shape=PROBE_RECOGNIZING, anchor=anchor, door=door, sides=sides, notes=notes)
+
+
 def refused_at_build(shape: str, refused: Exception, subject: str) -> Observation:
     """What every question to a deployment the SDK refused to build observes: that refusal, by type."""
     shape_of = {"outcome": "raised", "type": type(refused).__name__, "message": str(refused)}
