@@ -8840,6 +8840,8 @@
       "RefusalRecorderProtocol",
       "ReplayRefusalRecorder",
       "ResolverOutcome",
+      "SHARED_OWNER_WALK_DEPTH",
+      "SHARED_OWNER_WALK_OBJECTS",
       "ServedProductResolverProtocol",
       "SubjectDisclosingPlanFactoryProtocol",
       "UNHELD_SUBJECT_PROBE",
@@ -8984,6 +8986,14 @@
       "ResolverOutcome": {
         "kind": "constant",
         "shape": "ccf.replay.serve.ServedProduct | ccf.products.refusal.RefusalEnvelope"
+      },
+      "SHARED_OWNER_WALK_DEPTH": {
+        "kind": "constant",
+        "shape": "int"
+      },
+      "SHARED_OWNER_WALK_OBJECTS": {
+        "kind": "constant",
+        "shape": "int"
       },
       "ServedProductResolverProtocol": {
         "kind": "class",

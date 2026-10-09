@@ -153,9 +153,19 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from itertools import islice
 from pathlib import Path
-from types import MappingProxyType
-from typing import Any, Final, Protocol, TypeVar, runtime_checkable
+from types import (
+    BuiltinFunctionType,
+    FunctionType,
+    GetSetDescriptorType,
+    MappingProxyType,
+    MemberDescriptorType,
+    MethodType,
+    MethodWrapperType,
+    ModuleType,
+)
+from typing import Any, Final, Protocol, TypeVar, cast, runtime_checkable
 
 from ccf.artifacts.file_store import FileArtifactStore
 from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite, WriteKinds
@@ -315,6 +325,8 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "SHARED_OWNER_WALK_DEPTH",
+    "SHARED_OWNER_WALK_OBJECTS",
     "UNHELD_SUBJECT_PROBE",
     "AcquiredFabricReused",
     "AcquisitionNeedsAQuestionFabric",
@@ -693,20 +705,47 @@ class AcquisitionOverUnverifiableStore(AcquisitionNeedsAQuestionFabric):
 
 
 class PopulationPhaseSharesAnOwner(UnsupportedComposition):
-    """The population phase and the subject-keyed phase share an owner.
+    """The population phase and the subject-keyed phase share an owner: one holds the other.
 
     Q7: *"Subject-independent acquisition must not receive the requested
     subject indirectly through context or closures. Unsupported combinations
-    must refuse construction."* Two bound methods of one object, one callable
-    declared as both phases, or a population phase whose closure holds the
-    subject-keyed phase (or its object): state on that one owner carries a
-    subject the subject-keyed phase was handed into a later question's
-    population phase. Refused when the resolver is constructed (and, on the
-    paved road, when the product is opened). The check reads identities — the
-    callables, their bound objects and one level of their closure cells — and
-    cannot see state two separate objects share through a third; that is the
-    deployment's statement to keep, and the security how-to, section 4.12,
-    says so.
+    must refuse construction."* State on the subject-keyed phase's object
+    carries a subject that phase was handed into a later question's population
+    phase wherever the population phase can reach that object. Refused when the
+    resolver is constructed (and, on the paved road, when the product is
+    opened): one callable declared as both phases, two phases bound to one
+    object, and either phase holding the other phase or the object the other
+    is bound to, found by a walk of what it holds.
+
+    The walk (``D-IMPL-378`` decision 3 (a), Dave, 2026-10-09: *"(a). Extend
+    the shared-state guard, with a bounded walk and an explicit statement of
+    what it cannot detect."*) starts at each phase and follows, one step per
+    reference: the object a method is bound to and the function behind it; a
+    function's closure cells, default arguments and attributes; an object's
+    declared slots (``__slots__``) and instance attributes; the members of a
+    ``list``, ``tuple``, ``set`` or ``frozenset`` and the keys and values of a
+    ``dict``, subclasses included. It reads what each object stores and calls
+    nothing an object defines. It stops after
+    :data:`SHARED_OWNER_WALK_DEPTH` steps from a phase, or once it has read
+    :data:`SHARED_OWNER_WALK_OBJECTS` references from it.
+
+    **What it cannot detect**, stated here and in the security how-to,
+    section 4.12:
+
+    * anything further from both phases than either bound;
+    * state the two phases share through a third object that neither phase is
+      nor is bound to, such as a dictionary both hold;
+    * state reached only through a property, another descriptor,
+      ``__getattr__`` or ``__getattribute__``, including the dictionary of a
+      class that replaces ``__dict__``;
+    * state a C-extension object keeps in its own fields, such as a
+      ``functools.partial``'s arguments or a ``collections.deque``'s members;
+    * module globals, and class attributes, a class's own ``__call__``
+      included;
+    * an object reached only through a weak reference or an external store.
+
+    Keeping the two phases free of shared state beyond what the walk sees is
+    the deployment's statement to keep.
     """
 
 
@@ -1259,39 +1298,203 @@ class PackagingTraceProtocol(Protocol):
         ...
 
 
-def _owners(phase: object) -> set[int]:
-    """The identities a phase's state lives on: the callable, and the object it is bound to."""
-    owners = {id(phase)}
-    bound = getattr(phase, "__self__", None)
-    if bound is not None:
-        owners.add(id(bound))
-    return owners
+#: SEC-020 Q7, ``D-IMPL-378`` decision 3 (a) (Dave, 2026-10-09, 06:06 MST,
+#: confirmed as "3a" at 06:21 MST: *"(a). Extend the shared-state guard, with a
+#: bounded walk and an explicit statement of what it cannot detect."*;
+#: SDK-defined, CLAUDE.md §11). How far the shared-owner walk looks from a
+#: phase, in steps. One step is one reference followed: to the object a method
+#: is bound to or the function behind it, to a closure cell's contents, a
+#: default argument, an attribute's or a declared slot's value, or a
+#: container's member. An object more steps than this from each phase is not
+#: seen (:class:`PopulationPhaseSharesAnOwner` states what else is not). Chosen
+#: from a measurement of every pair of phases the SDK's own tests compose (lane
+#: ``378i-q7owner``, 2026-10-09): everything they hold was read within 10 steps.
+SHARED_OWNER_WALK_DEPTH: Final[int] = 12
+
+#: SEC-020 Q7, ``D-IMPL-378`` decision 3 (a) (as :data:`SHARED_OWNER_WALK_DEPTH`).
+#: The most references the shared-owner walk reads from one phase, an object
+#: counted once for every reference to it that the walk reads. The walk stops
+#: when they are spent, nearest first, so its cost has this ceiling whatever a
+#: phase holds; what it would have reached after that is not seen. Chosen from
+#: the same measurement: the most any of those phases holds is 3,989 references.
+SHARED_OWNER_WALK_OBJECTS: Final[int] = 5_000
+
+#: The identities of the types whose instances refer to no other object: the
+#: walk compares such an object's identity and reads nothing from it. Compared
+#: by identity, so no metaclass's ``__hash__`` or ``__eq__`` runs.
+_NO_REFERENCES: Final[frozenset[int]] = frozenset(
+    id(kind) for kind in (str, bytes, bytearray, int, float, complex, bool, type(None))
+)
+#: ``type``'s own descriptors for a class's method resolution order and its
+#: namespace, used directly so that nothing a metaclass defines is consulted.
+_CLASS_MRO: Final[Any] = type.__dict__["__mro__"]
+_CLASS_NAMESPACE: Final[Any] = type.__dict__["__dict__"]
 
 
-def _captured(phase: object) -> set[int]:
-    """The identities one level of the phase's closure cells hold, with their bound objects."""
-    function = getattr(phase, "__func__", phase)
-    captured: set[int] = set()
-    for cell in getattr(function, "__closure__", None) or ():
+def _bound_object(phase: object) -> object | None:
+    """The object a method or a built-in method is bound to; ``None`` for any other callable.
+
+    Read off the method types themselves, so nothing the phase defines — a
+    ``__getattr__``, a property named ``__self__`` — is called (SEC-020 Q7).
+    """
+    if type(phase) is MethodType:
+        return phase.__self__
+    if type(phase) is BuiltinFunctionType or type(phase) is MethodWrapperType:
+        return phase.__self__
+    return None
+
+
+def _owners(phase: object) -> frozenset[int]:
+    """The identities a phase's state lives on: the callable, and the object it is bound to (Q7)."""
+    bound = _bound_object(phase)
+    return frozenset({id(phase)} if bound is None else {id(phase), id(bound)})
+
+
+def _is_the_standard_instance_dict(descriptor: object, klass: type) -> bool:
+    """Whether ``descriptor``, found under ``__dict__`` in ``klass``'s namespace, is the standard one.
+
+    A class that replaces ``__dict__`` with a property or another descriptor is
+    not read: reading its instances' dictionary would call that descriptor.
+    """
+    if type(descriptor) is GetSetDescriptorType:
+        return descriptor.__name__ == "__dict__" and descriptor.__objclass__ is klass
+    return type(descriptor) is MemberDescriptorType and descriptor.__name__ == "__dict__"
+
+
+def _attribute_values(held: object, kind: type, limit: int) -> list[object]:
+    """The values of ``held``'s declared slots and instance attributes, at most ``limit`` of them (Q7).
+
+    The classes are read through ``type``'s own descriptors; the slots the
+    Python classes declare (``__slots__``) through their member descriptors;
+    the instance dictionary only through the standard ``__dict__`` descriptor.
+    No property, other descriptor, ``__getattr__`` or ``__getattribute__`` is
+    called.
+    """
+    values: list[object] = []
+    reads_the_instance_dict: bool | None = None
+    for klass in _CLASS_MRO.__get__(kind):
+        namespace = _CLASS_NAMESPACE.__get__(klass)
+        if reads_the_instance_dict is None and "__dict__" in namespace:
+            reads_the_instance_dict = _is_the_standard_instance_dict(namespace["__dict__"], klass)
+        if "__slots__" in namespace:
+            for descriptor in tuple(namespace.values()):
+                if type(descriptor) is MemberDescriptorType:
+                    try:
+                        values.append(descriptor.__get__(held, klass))
+                    except AttributeError:  # a slot never assigned
+                        continue
+    if reads_the_instance_dict:
         try:
-            held = cell.cell_contents
-        except ValueError:
-            continue
-        captured |= _owners(held)
-    return captured
+            attributes = object.__getattribute__(held, "__dict__")
+        except AttributeError:
+            attributes = None
+        if type(attributes) is dict:
+            values.extend(islice(dict.values(attributes), limit))
+    return values[:limit]
+
+
+def _references(held: object, limit: int) -> list[object]:
+    """What ``held`` stores, read without calling anything it defines: at most ``limit`` references (Q7).
+
+    A bound method: the object it is bound to, and its function. A built-in
+    method: the object it is bound to. A function: its closure cells'
+    contents, its default arguments and its attributes. Any other object: the
+    members of a ``list``, ``tuple``, ``set`` or ``frozenset`` and the keys
+    and values of a ``dict`` (subclasses included, iterated by the base type),
+    then its declared slots and instance attributes. A class, a module, and
+    the fields a C-extension object keeps outside those yield nothing.
+    """
+    kind = type(held)
+    if id(kind) in _NO_REFERENCES or issubclass(kind, (type, ModuleType)):
+        return []
+    if type(held) is MethodType:
+        return [held.__self__, held.__func__][:limit]
+    if type(held) is BuiltinFunctionType or type(held) is MethodWrapperType:
+        bound: object = held.__self__
+        return [] if bound is None else [bound][:limit]
+    if type(held) is FunctionType:
+        found: list[object] = []
+        for cell in held.__closure__ or ():
+            try:
+                found.append(cell.cell_contents)
+            except ValueError:  # an empty cell
+                continue
+        found.extend(held.__defaults__ or ())
+        found.extend(dict.values(held.__kwdefaults__ or {}))
+        found.extend(islice(dict.values(held.__dict__), limit))
+        return found[:limit]
+    # Each container is copied by one call into C before its members are read.
+    members: list[object] = []
+    if issubclass(kind, dict):
+        for key, value in tuple(islice(dict.items(cast("dict[object, object]", held)), limit)):
+            members.extend((key, value))
+    elif issubclass(kind, list):
+        members.extend(tuple(islice(list.__iter__(cast("list[object]", held)), limit)))
+    elif issubclass(kind, tuple):
+        members.extend(tuple(islice(tuple.__iter__(cast("tuple[object, ...]", held)), limit)))
+    elif issubclass(kind, frozenset):
+        members.extend(tuple(islice(frozenset.__iter__(cast("frozenset[object]", held)), limit)))
+    elif issubclass(kind, set):
+        members.extend(tuple(islice(set.__iter__(cast("set[object]", held)), limit)))
+    if len(members) < limit:
+        members.extend(_attribute_values(held, kind, limit - len(members)))
+    return members[:limit]
+
+
+def _reaches(phase: object, owners: frozenset[int]) -> bool:
+    """Whether ``phase`` holds an object whose identity is in ``owners``, within the walk's bounds (Q7).
+
+    Breadth first, so the nearest references are read first. Every object the
+    walk reaches is compared by identity with ``owners``; each one not seen
+    before is read in turn at the next step, up to
+    :data:`SHARED_OWNER_WALK_DEPTH` steps and until
+    :data:`SHARED_OWNER_WALK_OBJECTS` references are spent. An object is read
+    once however many references reach it, which also ends a cycle, and every
+    object reached is held until the walk returns, so no identity it compares
+    can pass to a new object meanwhile.
+    """
+    if id(phase) in owners:
+        return True
+    seen: set[int] = {id(phase)}
+    reached: list[object] = [phase]
+    frontier: list[object] = [phase]
+    budget = SHARED_OWNER_WALK_OBJECTS
+    for _step in range(SHARED_OWNER_WALK_DEPTH):
+        following: list[object] = []
+        for holder in frontier:
+            for held in _references(holder, budget):
+                budget -= 1
+                if id(held) in owners:
+                    return True
+                if id(type(held)) not in _NO_REFERENCES and id(held) not in seen:
+                    seen.add(id(held))
+                    reached.append(held)
+                    following.append(held)
+                if not budget:
+                    return False
+        if not following:
+            return False
+        frontier = following
+    return False
 
 
 def _refuse_shared_owner(population: object, subject_keyed: object) -> None:
-    """Raise :class:`PopulationPhaseSharesAnOwner` when the two phases share an owner (Q7)."""
-    shared = (_owners(population) & (_owners(subject_keyed) | _captured(subject_keyed))) or (
-        _owners(subject_keyed) & (_owners(population) | _captured(population))
-    )
-    if shared:
+    """Raise :class:`PopulationPhaseSharesAnOwner` when either phase reaches the other's owner (Q7).
+
+    An owner is the phase itself or the object it is bound to
+    (:func:`_owners`); the reach is :func:`_reaches`, from each phase in turn,
+    within :data:`SHARED_OWNER_WALK_DEPTH` and :data:`SHARED_OWNER_WALK_OBJECTS`.
+    An object both phases hold that is neither phase nor bound by either is not
+    an owner, and holding it is not refused; :class:`PopulationPhaseSharesAnOwner`
+    states that and the rest of what the walk does not see.
+    """
+    if _reaches(population, _owners(subject_keyed)) or _reaches(subject_keyed, _owners(population)):
         raise PopulationPhaseSharesAnOwner(
-            "the population phase and the subject-keyed phase share an owner, so"
+            "the population phase and the subject-keyed phase share an owner: one"
+            " is, is bound to or holds the other or the object it is bound to, so"
             " state the subject-keyed phase was handed — the asked subject — can"
             " reach a later question's population phase; declare them on separate"
-            " objects (SEC-020, Q7)"
+            " objects that hold nothing of each other (SEC-020, Q7)"
         )
 
 

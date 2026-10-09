@@ -1465,11 +1465,28 @@ unless another test is named.
   reachable from what it is handed found no trace of the asked identifier.
   Then the fabric is read (the state a withheld subject is rendered from), and
   then your ordinary `acquire` runs once, with the asked subject. Two phases on
-  one object, or one phase holding the other in a closure, are refused at
-  construction (`PopulationPhaseSharesAnOwner`). The check compares those
-  objects only: state two separate objects share through a third, such as a
-  common dictionary, is not seen, so keep the population phase free of
-  anything the other phase writes. Declared this way, a population source and
+  one object, or either phase holding the other or the object the other is
+  bound to, are refused at construction and at open
+  (`PopulationPhaseSharesAnOwner`). The check walks what each phase holds
+  (`D-IMPL-378` decision 3 (a)): the object a method is bound to and its
+  function; a function's closure cells, default arguments and attributes; an
+  object's declared slots and instance attributes; the members of a list,
+  tuple, set or frozenset and the keys and values of a dictionary. It follows
+  at most `src/ccf/products/resolver.py::SHARED_OWNER_WALK_DEPTH` (12)
+  references in a row, reads at most
+  `src/ccf/products/resolver.py::SHARED_OWNER_WALK_OBJECTS` (5,000) references
+  from each phase, and calls nothing your objects define. What it cannot
+  detect: anything past either bound; state the two phases share through a
+  third object, such as a common dictionary; state reached only through a
+  property, another descriptor, `__getattr__` or `__getattribute__`, or held
+  by a class that replaces `__dict__`; what a C-extension object keeps in its
+  own fields, such as a `functools.partial`'s arguments or a
+  `collections.deque`'s members; module globals and class attributes; and
+  anything reached only through a weak reference or an external store. Each
+  limit is asserted as the documented behavior in
+  `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_state_the_walk_does_not_read_is_not_seen`
+  and the tests beside it. So keep the population phase free of anything the
+  other phase writes. Declared this way, a population source and
   a hybrid source each matched a nonexistent subject's answer on both anchors.
   A declared parameter that itself names an entity still reaches the
   population phase.
