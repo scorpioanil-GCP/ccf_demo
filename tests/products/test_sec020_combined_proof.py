@@ -2226,14 +2226,16 @@ def test_the_pin_channel_census_is_measured_and_reported(
 # run observed it, by name, with ONE message, AND the supported working twin —
 # the same deployment with its source answering an unheld identifier with
 # nothing, the gate's own ``subject_keyed`` world (``HELD_REFUSAL_TWIN``) —
-# answered every one of the same questions, and the twin's own cell for the
-# same comparison and channel is indistinguishable by the gate's rules.
-# Anything less is judged exactly as a gate cell is: ``_vacuous``, then
-# ``_compare``. Inside ``_compare``, the run's raised noise floor is admitted
-# only by the acceptance helper (``sec020_worlds.a_constant_refusal_is_the_property``,
-# Dave's 2.1 (b)), which reads the twin the run carries
-# (``sec020_worlds.DECLARED_WORKING_TWIN``) and also requires the SDK's
-# constant message and one refusal code on every side. SEC-020 stays OPEN.
+# answered every one of the same questions
+# (``test_a_held_refusal_at_the_probe_is_refused_for_every_question``).
+# Since repair 2.3 (b) (Dave, 2026-10-09 10:54 MST, D-IMPL-378, 2.3, verbatim:
+# "Otherwise implement (b) with a recorded constant SDK cause. Role and
+# parameter refusals must retain their decision records."; built by lane
+# 378j-resolver) no question of this deployment raises: every one is answered.
+# So the cells comparing the withheld subject with the nonexistent one are
+# judged exactly as a gate cell is, with no exception for a raise:
+# ``_vacuous``, then ``_compare``, over the answered refusals. SEC-020 stays
+# OPEN.
 
 
 @pytest.fixture(scope="module")
@@ -2327,29 +2329,18 @@ def _held_refusal_cells() -> list[Any]:
 
 @pytest.mark.parametrize(("comparison", "anchor", "door", "channel"), _held_refusal_cells())
 def test_a_held_refusal_at_the_probe_leaves_withheld_and_nonexistent_indistinguishable(
-    held_refusal_runs: w.HeldRefusalRunCache, runs: w.RunCache, comparison: str, anchor: str, door: str, channel: str
+    held_refusal_runs: w.HeldRefusalRunCache, comparison: str, anchor: str, door: str, channel: str
 ) -> None:
-    """Item 4 (b), the cells: the withheld subject against the nonexistent one, by the gate's rules, CT-A (a) paired."""
+    """Item 4 (b) as repaired by 2.3 (b), the cells: the withheld subject against the nonexistent one, by the gate's rules.
+
+    Every question of the held-refusal deployment is ANSWERED since repair 2.3 (b), so a cell is judged exactly as a
+    gate cell is, with no exception for a raise: :func:`_vacuous`, then :func:`_compare`, over the answered refusals.
+    The refusal itself, and the supported working twin, are held by
+    :func:`test_a_held_refusal_at_the_probe_is_refused_for_every_question`.
+    """
     run = held_refusal_runs.get(anchor=anchor, door=door)
-    twin = runs.get(shape=w.HELD_REFUSAL_TWIN, anchor=anchor, door=door)
     withheld_side, nonexistent_side, _ = w.PAIRS[comparison]
     cell = f"{comparison}, {w.HELD_REFUSAL}, {anchor}, {door}, {channel}"
-    if _held_refusal_refused(run, twin):
-        differing, floor, withheld, nonexistent = _compare(run, comparison=comparison, channel=channel)
-        assert not differing, (
-            f"SEC-020 [{cell}]: the refusal is not the same for the withheld and the nonexistent subject at"
-            f" {sorted(differing)} (noise floor, not counted: {sorted(floor)})\n"
-            f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
-        )
-        vacuous = _vacuous(twin, withheld_side, nonexistent_side)
-        assert not vacuous, f"SEC-020 [{cell}]: not evidence — the twin's sides RAISED: {vacuous}"
-        differing, floor, withheld, nonexistent = _compare(twin, comparison=comparison, channel=channel)
-        assert not differing, (
-            f"SEC-020 [{cell}]: the supported working twin tells the withheld subject apart at"
-            f" {sorted(differing)} (noise floor, not counted: {sorted(floor)})\n"
-            f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
-        )
-        return
     vacuous = _vacuous(run, withheld_side, nonexistent_side)
     assert not vacuous, (
         f"SEC-020 [{cell}]: not evidence — both sides RAISED instead of answering, and two equal exceptions"
