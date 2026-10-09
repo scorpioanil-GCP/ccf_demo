@@ -53,6 +53,7 @@ from ccf.artifacts.protocol import WriteKinds
 from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
 from ccf.authz.capability import ArtifactErase, Execute, ReplayMint, Resume
 from ccf.contracts.canonical import canonical_bytes, content_hash
+from ccf.controlplane.audit import AuditLog, AuthzDecisionAuditEvent
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.erasure import ERASURE_RECORD_CLASS, DOOR_SIGNATURE_ASSERTION
 from ccf.replay.record import DecisionReplayRecord
@@ -182,7 +183,14 @@ def _write_kinds() -> WriteKinds:
     )
 
 
-def _server(root: pathlib.Path, store: Any, *, authorizer: Any) -> FastMCP:
+def _server(
+    root: pathlib.Path,
+    store: Any,
+    *,
+    authorizer: Any,
+    audit_log: AuditLog | None = None,
+    trust: Any = None,
+) -> FastMCP:
     source, recorder = _entitlement_world(root)
     return build_artifact_server(
         server_name="d3b-subject-match",
@@ -196,10 +204,10 @@ def _server(root: pathlib.Path, store: Any, *, authorizer: Any) -> FastMCP:
         authorizer=authorizer,
         entitlement_source=source,
         refusal_recorder=recorder,
-        audit_log=ControlPlaneRegistry().audit_log,
+        audit_log=ControlPlaneRegistry().audit_log if audit_log is None else audit_log,
         # Both tenants declare an erasure authority, under the same test door key: the tenant
         # binding in the signed query is then the only thing that tells their doors apart.
-        erasure_trust=declared_erasure_trust(TENANT, FOREIGN),
+        erasure_trust=declared_erasure_trust(TENANT, FOREIGN) if trust is None else trust,
         erasure_index=no_erasures(),
         control_plane=ControlPlaneRegistry(),
     )
@@ -257,6 +265,7 @@ def _arguments(address: str, subject_ref: str, signature: str) -> dict[str, Any]
 class _World:
     spy: _Spy
     server: FastMCP
+    audit_log: AuditLog
 
 
 def _world(root: pathlib.Path, *, filed: bool) -> _World:
@@ -266,7 +275,9 @@ def _world(root: pathlib.Path, *, filed: bool) -> _World:
         h.client_put(store, name="ordinary", document=ORDINARY)
         h.client_put(store, name="record-shaped", document=_record_shaped_document())
     spy = _Spy(store)
-    return _World(spy=spy, server=_server(root, spy, authorizer=_authorizer(_subject_match_action())))
+    audit_log = ControlPlaneRegistry().audit_log
+    server = _server(root, spy, authorizer=_authorizer(_subject_match_action()), audit_log=audit_log)
+    return _World(spy=spy, server=server, audit_log=audit_log)
 
 
 @functools.cache
@@ -372,6 +383,9 @@ def test_the_door_verifies_a_record_shaped_filing_and_the_document_never_crosses
     assert isinstance(outcome, WorkflowSuspended), outcome
     calls = wire.requests("tools/call")
     assert [call["params"]["name"] for call in calls] == [_subject_match_tool()], calls
+    assert set(calls[0]["params"]["arguments"]) == {
+        "content_address", "subject_ref", "key_paths", "subject_ref_salt", "door_signature"
+    }, "the tenant crosses no wire: the server takes the caller's verified tenant"
     (answer,) = wire.answers("tools/call")
     assert json.loads(answer)["result"]["structuredContent"] == {"verdict": "subject-in-replay-input"}, answer
     blob_reads = [r for r in wire.requests("resources/read") if r["params"]["uri"].startswith("ccf-artifact-blob://")]
@@ -516,6 +530,65 @@ def test_another_tenants_own_door_learns_nothing_about_this_tenants_address(tmp_
     own = _ask_tool(worlds["filed"], FOREIGN_DOOR, _arguments(address, ref, _door_signature(_query(FOREIGN, address, ref))))
     assert own.result.structuredContent == {"verdict": "subject-found"}, own.call
     assert own.reads["get"] == 1, dict(own.reads)
+
+
+def test_a_tenant_without_an_erasure_authority_is_refused_before_anything_is_read(tmp_path: pathlib.Path) -> None:
+    """Another tenant's erasure door, granted the subject-match action there and signing its own tenant's query with
+    the shared test door key, against a server whose trust declares an erasure authority for THIS tenant only: the one
+    constant refusal, and nothing read. Control: the same call against a server that declares that tenant's authority
+    too is answered (``subject-unverifiable`` — it filed nothing) after a naming read."""
+    root = tmp_path / "only-this-tenant"
+    root.mkdir()
+    store = _Spy(FileArtifactStore(root=root / "artifacts", write_kinds=_write_kinds()))
+    h.client_put(store._inner, name="ordinary", document=ORDINARY)
+    world = _World(
+        spy=store,
+        server=_server(
+            root, store, authorizer=_authorizer(_subject_match_action()), trust=declared_erasure_trust(TENANT)
+        ),
+        audit_log=ControlPlaneRegistry().audit_log,
+    )
+    address, ref = content_hash(ORDINARY), _ref(h.SUBJECT_ID)
+    arguments = _arguments(address, ref, _door_signature(_query(FOREIGN, address, ref)))
+
+    refused = _ask_tool(world, FOREIGN_DOOR, arguments)
+    assert refused.result.isError is True, refused.call
+    assert _refused_constant() in refused.result.content[0].text, refused.result.content[0].text
+    assert not refused.reads, dict(refused.reads)
+
+    answered = _ask_tool(_world(tmp_path / "both-tenants", filed=True), FOREIGN_DOOR, arguments)
+    assert answered.result.structuredContent == {"verdict": "subject-unverifiable"}, answered.call
+    assert answered.reads == Counter({"names_at": 1}), dict(answered.reads)
+
+
+def test_every_answer_and_every_refusal_past_the_guard_is_audited(tmp_path: pathlib.Path) -> None:
+    """The server's audit log takes one ``authz_decision`` event per subject-match call that reaches the body: a judged
+    answer keyed by the address, ``resolved`` true, naming the client-lane class; an unjudged answer (nothing filed)
+    keyed by the address, ``resolved`` false, with no byte read; a refusal past the guard keyed by the tenant,
+    ``resolved`` false. Each names the caller and the subject-match action."""
+    action = _subject_match_action()
+    filed, empty = _world(tmp_path / "filed", filed=True), _world(tmp_path / "empty", filed=False)
+    address, ref = content_hash(ORDINARY), _ref(h.SUBJECT_ID)
+    signed = _arguments(address, ref, _door_signature(_query(TENANT, address, ref)))
+
+    def audited(world: _World, grant: TokenGrant, arguments: dict[str, Any]) -> tuple[_Answer, list[Any]]:
+        since = len(world.audit_log.events())
+        answer = _ask_tool(world, grant, arguments)
+        events = [e for e in world.audit_log.events()[since:] if isinstance(e, AuthzDecisionAuditEvent)]
+        return answer, [(e.key, e.resolved, e.actor, e.authz_action_id, e.artifact_class) for e in events]
+
+    judged, events = audited(filed, DOOR, signed)
+    assert judged.result.structuredContent == {"verdict": "subject-found"}, judged.call
+    assert events == [(address, True, DOOR.client_id, action, h.DOC_CLASS)], events
+
+    unjudged, events = audited(empty, DOOR, signed)
+    assert unjudged.result.structuredContent == {"verdict": "subject-unverifiable"}, unjudged.call
+    assert unjudged.reads["get"] == 0, dict(unjudged.reads)
+    assert events == [(address, False, DOOR.client_id, action, None)], events
+
+    refused, events = audited(filed, AGENT, _arguments(address, ref, ""))
+    assert _refused_constant() in refused.result.content[0].text, refused.result.content[0].text
+    assert events == [(TENANT, False, AGENT.client_id, action, None)], events
 
 
 # --- governed evidence stays behind the governed dereference ----------------------------------------------------
