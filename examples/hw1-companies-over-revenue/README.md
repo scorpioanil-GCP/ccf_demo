@@ -108,8 +108,11 @@ was wrong with the wire.
 ### Expected output
 
 The in-process command prints exactly this — the whole of its stdout, nothing
-elided, and `tests/examples/test_hw1_readme_expected_output.py` compares this
-block to a captured run byte for byte on every push:
+elided — except one value: the replay record's address, which is issued afresh
+for every answer and is therefore shown here by its shape, `<issued per answer>`.
+`tests/examples/test_hw1_readme_expected_output.py` compares every other byte of
+this block to a captured run on every push, and holds that one address to its
+shape:
 
 ```
 
@@ -125,7 +128,7 @@ Q: which companies have revenue over 1000000000?
 and what a SELECT would not have told you:
    context debt D_c   0.4271  →  forced_llm
    content address    a8335bb4cde42117c0efd42bac50fcf67c64c4f341e1e82a224dbcbcec5a2df4
-   replay record      ccf-artifact://hw1-demo/hw1.replay-record/eeaa76fccd6b54b42caf3787f614fba8f9d9f411f45ad450130e1792ade7ac0f@b4ae700f3e968892a3bb83e7bd89e38d96479215e80fcafc7e8c39bfe4a2961e
+   replay record      ccf-artifact://hw1-demo/hw1.replay-record/<issued per answer>@<issued per answer>
    answer expires     2026-08-01 00:10:00+00:00
 ```
 
@@ -139,17 +142,22 @@ declares. That is the sentence the whole example exists to make true.
 
 **Two identities are printed, and they are different things.** The *content
 address* is the hash of the served product's bytes — the answer exactly as the
-caller received it. The *replay record* line is the record's own address in the
-artifact store: the name before `@` is the graph snapshot the record pins, and
-the version after `@` is the record's content address. The record names the
-product; the product does not name its record. Both moved once, for one
-reason: since `D-IMPL-341` every served contract carries `ttl_anchor_at` — the
-instant its expiry is measured from — so the served bytes changed, and with
-them the product's address and the record that names it. The debt, its routing
-and the expiry instant did not move; the calculation is the same, the contract
-says one more thing about itself. This fence was re-measured from the run at
-the release qualification of `f0656746` (`docs/QUALIFICATION-f0656746.md`);
-before it, the address was `cbc7db84…d426` and the record `…@8b68efaf…`.
+caller received it — and it reproduces: ask the same question again, over
+either transport, and it is the same string. The *replay record* line is the
+record's own address in the artifact store, the same address in both segments.
+It does not reproduce, by design: every answer's record carries an issuance
+minted for that answer alone (Dave's Q11, `D-IMPL-378` E1 (a)), so every run
+prints a different reference and no caller can compute one in advance. The
+record names the product; the product does not name its record. The content
+address moved once, for one reason: since `D-IMPL-341` every served contract
+carries `ttl_anchor_at` — the instant its expiry is measured from — so the
+served bytes changed, and with them the product's address. The debt, its
+routing and the expiry instant did not move; the calculation is the same, the
+contract says one more thing about itself. This fence was re-measured from the
+run at the release qualification of `f0656746` (`docs/QUALIFICATION-f0656746.md`)
+— before it, the address was `cbc7db84…d426` — and again when the example set of
+`D-IMPL-378` landed: the content address, `D_c`, its routing and the expiry did
+not move, and the replay line became per answer.
 
 ## How this example is proven — stated plainly
 
@@ -159,22 +167,27 @@ temporary directory with no graph in it, runs the copy's own `runner/seed.py`
 against the copy's deployment — the committed declared input, through the single
 writer — and then runs the shipped `consume.py` twice under the two shipped
 bindings, requiring the two runs to agree on every printed line: the answer, the
-measured `D_c`, the content address and the replay reference. It also asserts the
-seeded run routes to `forced_llm`, which is the demonstration sentence above,
-measured. It needs no credentials and no network, so it runs on every push.
+measured `D_c`, the content address and the expiry — and on the replay line's
+tenant and record class, while each run prints a well-formed reference of its
+own: the two references differ, because each answer's is issued for it alone. It
+also asserts the seeded run routes to `forced_llm`, which is the demonstration
+sentence above, measured. It needs no credentials and no network, so it runs on
+every push.
 
 **The expected output above is a CI check too.**
 `tests/examples/test_hw1_readme_expected_output.py` captures the in-process
 command's stdout on the seeded copy and compares it to the fenced block under
-*Expected output* byte for byte — and runs a control string that must *not* be
+*Expected output* byte for byte, but for the replay record's per-answer address,
+which it holds to its shape — and runs a control string that must *not* be
 found, so a comparison that could pass on anything is caught before it passes on
 this.
 
 **The empty fabric is a separate, negative conformance test — and it is
 served, not refused.** `tests/examples/test_hw1_empty_fabric_refusal.py` keeps
 its name and runs both documented commands against the *unseeded* copy. Each
-exits 0 and prints the same bytes as the other: `0 of 0 assembled`, a content
-address, and a `D_c` of `0.0000` routing to `ok`. An operator that evaluates an
+exits 0 and prints the same bytes as the other, but for its replay record's
+per-answer address: `0 of 0 assembled`, a content address, and a `D_c` of
+`0.0000` routing to `ok`. An operator that evaluates an
 empty graph has computed something, so the answer is a computed-empty product
 rather than a refusal (`D-IMPL-253` Q11/Q12) — *zero results is not zero
 knowledge*. The search behind that zero rides on the product as
