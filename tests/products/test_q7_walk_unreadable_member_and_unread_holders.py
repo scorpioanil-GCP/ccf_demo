@@ -25,8 +25,11 @@ Asserted, at both places the guard runs (a ``GovernedResolver`` built by hand,
 and ``open_product`` on the paved road): such a population phase is refused by
 name, ``SharedOwnerWalkIncomplete``, a ``PopulationPhaseSharesAnOwner``, whose
 message names the cause and the walk's counts, whether or not the slot behind
-the unreadable member holds the subject-keyed phase's object. A control: a
-declared slot never assigned still reads as holding nothing, and is admitted.
+the unreadable member holds the subject-keyed phase's object. Two controls: a
+declared slot never assigned still reads as holding nothing, and is admitted;
+so does an empty closure cell, while the same cell holding the subject-keyed
+phase's object is refused (lane ``378j-fixup`` item H, the panel's
+J-SP-WALK-READS).
 
 And, as documented behavior (never as an expected failure), each holder repair
 1.8 names, plus the two the walk's docstring already named, is shown NOT read:
@@ -52,7 +55,7 @@ import pytest
 from ccf.products import resolver as resolver_module
 from ccf.products.resolver import PopulationPhaseSharesAnOwner, _refuse_shared_owner
 from ccf.signal.envelope import SignalEnvelope
-from tests.products.test_q7_shared_owner_bounded_walk import SITES, _compose, _SubjectKeyed
+from tests.products.test_q7_shared_owner_bounded_walk import SITES, _closure_over, _compose, _SubjectKeyed
 
 #: The refusal repair 1.8 names. Looked up on the module, not imported, so this
 #: module collects (and each case fails for its own reason) on a tree that does
@@ -142,6 +145,46 @@ def test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing(tmp_pat
         _PopulationWithAnUnassignedSlot.__dict__["never"].__get__(population, _PopulationWithAnUnassignedSlot)
     composed = _compose(site, tmp_path, population=population, peer=peer)
     assert type(composed).__name__ == ("GovernedResolver" if site == "resolver" else "OpenedProduct"), repr(composed)
+
+
+def _a_population_phase_whose_closure_cell_is_empty() -> Callable[..., tuple[SignalEnvelope, ...]]:
+    """``_closure_over``'s population phase with its one closure cell empty: the name it closes over bound, then deleted."""
+    held: object = object()
+
+    def population(*_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+        return () if held is not None else ()
+
+    del held
+    return population
+
+
+@pytest.mark.parametrize("site", SITES)
+def test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing(tmp_path: pathlib.Path, site: str) -> None:
+    """An empty closure cell raises ``ValueError`` when read; it holds nothing, so the pair is admitted. Filled, refused.
+
+    The panel's J-SP-WALK-READS (measured on ``6cd6023e``): the walk reads an
+    empty cell, as it reads a slot never assigned, as holding nothing, and only
+    another error raised while reading what an object holds refuses the pair
+    (``SharedOwnerWalkIncomplete``). The twin is the same function shape with
+    its cell holding the subject-keyed phase's object, which the walk reads and
+    refuses, so the admission is the cell being empty, not the cell going
+    unread.
+    """
+    peer = _SubjectKeyed()
+    population = _a_population_phase_whose_closure_cell_is_empty()
+    (cell,) = population.__closure__ or ()
+    with pytest.raises(ValueError):
+        cell.cell_contents  # noqa: B018 — an empty cell raises when read
+    (tmp_path / "empty").mkdir()
+    composed = _compose(site, tmp_path / "empty", population=population, peer=peer)
+    assert type(composed).__name__ == ("GovernedResolver" if site == "resolver" else "OpenedProduct"), repr(composed)
+    filled = _closure_over(peer)
+    (filled_cell,) = filled.__closure__ or ()
+    assert filled_cell.cell_contents is peer, "the twin does not hold the subject-keyed object in its cell"
+    (tmp_path / "filled").mkdir()
+    with pytest.raises(PopulationPhaseSharesAnOwner) as refused:
+        _compose(site, tmp_path / "filled", population=filled, peer=peer)
+    assert type(refused.value) is PopulationPhaseSharesAnOwner, repr(refused.value)
 
 
 # --- the holders the walk does not read, each asserted as documented behavior ------------------------------
