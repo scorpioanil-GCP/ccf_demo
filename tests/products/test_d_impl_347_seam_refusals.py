@@ -52,6 +52,27 @@ from tests.products.test_paved_road import (  # noqa: F401 — `tree` is a fixtu
 # projection exists). Such a tree that reaches the acquisition seam states its
 # stance, `never`, as `test_paved_road._write_tree`'s default tree does; at the
 # SDK's default stance the P6 probe would refuse it first, as a population read.
+#
+# `D-IMPL-378` ruling E2 (ii) (d) (Dave, 2026-10-08 16:40 MST): a class affirming
+# `never` is built only over a plan factory that positively declares that no
+# projection it builds withholds (`NonWithholdingPlanFactoryProtocol` in
+# `ccf.products.resolver`); silence is refused when the resolver is built. The
+# fixture's own factory, `tests/deployment/test_replay_binding.py::_plan_factory`,
+# declares it. Every factory this module substitutes under a `never` class raises
+# on every call, before it returns a plan, so it builds no projection at all: it
+# carries `_builds_no_projection`, which is true of it.
+
+
+def _builds_no_projection() -> bool:
+    """The positive declaration of a plan factory here that raises before it returns a plan (E2 (ii) (d)).
+
+    ``True`` only if no projection the factory builds sets the withheld signal
+    (``NonWithholdingPlanFactoryProtocol.withholds_no_subject``). A factory that
+    carries this raises on every call, before any plan exists, so it builds no
+    projection and none can withhold. A factory that returns a plan states its
+    own declaration, from what its projection does; this one is never lent to it.
+    """
+    return True
 
 
 def _refusal() -> SubjectUnavailableRefusal:
@@ -101,6 +122,8 @@ def test_a_refusal_raised_by_the_plan_factory_is_data_and_names_its_seam(
     def _refusing_project(**_: Any) -> Any:
         raise _raised()
 
+    _refusing_project.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_refusing_project) as opened:
         outcome = opened.answer(_question(opened))
         assert isinstance(outcome, RefusalEnvelope), outcome
@@ -120,6 +143,8 @@ def test_a_plan_factory_raising_a_domain_error_still_propagates(
 
     def _broken_project(**_: Any) -> Any:
         raise LookupError("a defect, not a determination")
+
+    _broken_project.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_broken_project) as opened:
         with pytest.raises(LookupError, match="a defect, not a determination"):
@@ -274,6 +299,8 @@ def test_a_declared_domain_exception_becomes_a_governed_refusal(
     def _unreachable(**_: Any) -> Any:
         raise _ControlRoomUnreachable("the control room did not answer")
 
+    _unreachable.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_unreachable) as opened:
         outcome = opened.answer(_question(opened))
         assert isinstance(outcome, RefusalEnvelope), outcome
@@ -300,6 +327,8 @@ def test_an_UNdeclared_domain_exception_still_propagates(
     def _other(**_: Any) -> Any:
         raise TimeoutError("undeclared, therefore a defect")
 
+    _other.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_other) as opened:
         with pytest.raises(TimeoutError, match="undeclared, therefore a defect"):
             opened.answer(_question(opened))
@@ -323,6 +352,8 @@ def test_a_subclass_of_a_declared_type_is_NOT_converted(
 
     def _subclassed(**_: Any) -> Any:
         raise _Narrower("a subclass nobody declared")
+
+    _subclassed.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_subclassed) as opened:
         with pytest.raises(_ControlRoomUnreachable, match="a subclass nobody declared"):
@@ -400,6 +431,8 @@ def test_the_sdks_own_identity_refusal_is_a_governed_refusal_without_a_declarati
         raise IdentityRefused(
             envelope_id="env-null", entity_class="company", key="lei", field="lei", reason="null"
         )
+
+    _null_identity.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_null_identity) as opened:
         outcome = opened.answer(_question(opened))
@@ -690,6 +723,8 @@ def test_rebinding_the_module_attribute_does_NOT_change_dispatch(
     def _unreachable(**_: Any) -> Any:
         raise _ControlRoomUnreachable("a rebind must not buy this a governed 'no'")
 
+    _unreachable.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_unreachable) as opened:
         with pytest.raises(_ControlRoomUnreachable, match="must not buy this"):
             opened.answer(_question(opened))
@@ -954,6 +989,8 @@ def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
             reason="null",
         )
 
+    _subclassed.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_subclassed) as opened:
         with pytest.raises(_DeploymentsOwnIdentityProblem, match="env-sub"):
             opened.answer(_question(opened))
@@ -1007,6 +1044,8 @@ def test_the_match_is_MODULE_QUALIFIED_so_a_look_alike_name_is_not_converted(
     def _look_alike(**_: Any) -> Any:
         raise _ForeignIdentityRefused("a deployment's own identity failure")
 
+    _look_alike.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
+
     with _open(root, scratch, project=_look_alike) as opened:
         with pytest.raises(_ForeignIdentityRefused, match="a deployment's own"):
             opened.answer(_question(opened))
@@ -1040,6 +1079,8 @@ def test_a_DIFFERENT_sdk_exception_at_a_seam_is_not_converted(
 
     def _other_sdk_error(**_: Any) -> Any:
         raise SeamRefusalWidening("an SDK error the SDK did not bind")
+
+    _other_sdk_error.withholds_no_subject = _builds_no_projection  # type: ignore[attr-defined]
 
     with _open(root, scratch, project=_other_sdk_error) as opened:
         with pytest.raises(SeamRefusalWidening, match="did not bind"):

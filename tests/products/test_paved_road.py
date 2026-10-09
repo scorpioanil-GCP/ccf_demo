@@ -341,9 +341,17 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
         declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             arguments = opened.build_arguments(fabric)
-            arguments["plan_factory"] = lambda *, required, request: _plan_factory(
-                required=required, request=request.model_copy(update={"parameters": {THRESHOLD_PARAMETER: 1}})
-            )
+
+            def _moved_threshold(*, required: tuple[str, ...], request: ProductRequest) -> Any:
+                return _plan_factory(
+                    required=required, request=request.model_copy(update={"parameters": {THRESHOLD_PARAMETER: 1}})
+                )
+
+            # `D-IMPL-378` ruling E2 (ii) (d): the default tree's class affirms `never`, so the substituted
+            # factory declares it positively. It builds `_plan_factory`'s own projection over a moved
+            # request, so `_plan_factory`'s declaration is true of it, and it states that one.
+            _moved_threshold.withholds_no_subject = _plan_factory.withholds_no_subject  # type: ignore[attr-defined]
+            arguments["plan_factory"] = _moved_threshold
             moved = build_governed_resolver(**arguments)(
                 tenant=TENANT, product_class=PRODUCT_CLASS, version=PRODUCT_VERSION,
                 perspective=opened.default_perspective, request=_question(opened),
