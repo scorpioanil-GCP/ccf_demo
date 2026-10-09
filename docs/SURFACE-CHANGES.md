@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2508 entries**, of which **2231** name a public Python surface.
+**2515 entries**, of which **2238** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1360 entries — 1314 public Python surface, 46 not public Python API.
+1361 entries — 1315 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19842,7 +19842,19 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Why: SEC-020, decision 2.2 (a) (`D-IMPL-378`, 2026-10-09): neither the stand-in's identifier nor a value a source chose by what it was asked may survive in the answer or the record.
 - Migration: none to declare; read the constant to recognize such a refusal.
 
-*Recorded by `378-62-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL
+- Public surface: true
+- Change type: added
+- Before: absent; a held refusal at the P6 probe raised `UnheldSubjectProbeRefused` and recorded nothing.
+- After: a `SubjectUnavailableRefusal` constant (cause `undisclosed`, no code, one SDK sentence) every question of a class the probe reads is answered and recorded with when the probe call itself ends in a held refusal, on any route.
+- Why: SEC-020, decision 2.3 (b) (`D-IMPL-378`, 2026-10-09): role and parameter refusals keep their decision records, with a constant SDK cause. Its own constant rather than `EARLY_POLICY_ACQUISITION_REFUSAL`, whose sentence says the class declares an early policy.
+- Migration: none to declare; read the constant to recognize such a refusal.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
 
 ### Not public Python API
 
@@ -30215,7 +30227,7 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 Surfaces that no longer exist. Each entry names what replaces it.
 
-47 entries — 47 public Python surface, 0 not public Python API.
+48 entries — 48 public Python surface, 0 not public Python API.
 
 ### Public Python surface
 
@@ -30847,11 +30859,23 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 *Recorded by `353-09-the-join.md`.*
 
+#### ccf.products.resolver.UnheldSubjectProbeRefused
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeRefused
+- Public surface: true
+- Change type: removed
+- Before: an `UnsupportedComposition` raised for every question of a class the probe reads when the probe call ended in a held refusal, recording nothing.
+- After: absent; the SDK raises it nowhere, and such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`.
+- Why: SEC-020, decision 2.3 (b) (see above). A public exception the SDK never raises would invite `except` clauses that never fire; it was added in this same unmerged batch (fragment 378-48).
+- Migration: catch nothing; recognize the returned refusal by `UNHELD_SUBJECT_PROBE_REFUSAL`'s sentence, or by its record at the `acquisition` seam.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
 ## Behavior changes
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-477 entries — 438 public Python surface, 39 not public Python API.
+482 entries — 443 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37657,7 +37681,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: SEC-020, repair 1.3 and decision 2.2 (a) (see above).
 - Migration: none for a class with no early policy.
 
-*Recorded by `378-62-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
 
 #### ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
 
@@ -37669,7 +37693,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: SEC-020, repair 1.3 (see above).
 - Migration: none.
 
-*Recorded by `378-62-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
 
 #### ccf.products.refusal.SubjectUnavailableRefusal
 
@@ -37681,7 +37705,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: SEC-020, decision 2.2 (a) (see above).
 - Migration: none.
 
-*Recorded by `378-62-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
 
 #### ccf.products.product.AcquireProtocol
 
@@ -37693,7 +37717,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: SEC-020, repair 1.3 and decision 2.2 (a) (see above).
 - Migration: none; an `acquire` relying on its refusal's own text, code, cause or kind reaching the caller under an early policy no longer gets it.
 
-*Recorded by `378-62-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
 
 #### ccf.products.subject_disclosure.SubjectDisclosurePolicy
 
@@ -37705,7 +37729,67 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Why: SEC-020, decision 2.2 (a) (see above).
 - Migration: none.
 
-*Recorded by `378-62-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+*Recorded by `378-62-a-sec-020-stand-in-compares-held-content-and-early-policy-acquisition-refusal-is-constant.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: for a class the probe reads, a held refusal from the probe call raised `UnheldSubjectProbeRefused`, recording nothing.
+- After: such a question is recorded at the `acquisition` seam, before the subject-keyed phase is handed its subject, and answered with `UNHELD_SUBJECT_PROBE_REFUSAL`, for every route a held refusal takes (the typed handoff of any refusal kind, a refusal shell recorded by its raiser or not, a class- or SDK-declared seam refusal). A raiser stating `ResolutionNotApplicable` is refused as before.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none for a class with an early policy or one affirming `never`.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: behavior
+- Before: said a held refusal from the probe refuses the question by its own name, `UnheldSubjectProbeRefused`.
+- After: says such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`. The refusal this type names is unchanged.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the probe's call ending in a held refusal refuses the question as `UnheldSubjectProbeRefused`.
+- After: says such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`. The calls the seam receives are unchanged.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said a held refusal for the probe identifier refuses every question, `UnheldSubjectProbeRefused`.
+- After: says such a question is answered and recorded as `UNHELD_SUBJECT_PROBE_REFUSAL`, with no part of the refusal as `acquire` stated it.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none; an `acquire` relying on its own refusal of the probe identifier reaching the caller no longer gets it.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.refusal.SubjectUnavailableRefusal
+
+- Surface: ccf.products.refusal.SubjectUnavailableRefusal
+- Public surface: true
+- Change type: behavior
+- Before: named one place the cause `undisclosed` is recorded as a determination, `EARLY_POLICY_ACQUISITION_REFUSAL`.
+- After: names two, adding `UNHELD_SUBJECT_PROBE_REFUSAL`.
+- Why: SEC-020, decision 2.3 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
 
 ### Not public Python API
 

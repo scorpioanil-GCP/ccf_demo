@@ -1,4 +1,4 @@
-# 378-62 — SEC-020 repair 1.3: the stand-in check compares what was acquired, delivery lineage set aside; repair 2.2 (a): under an early policy, an acquisition refusal is one constant SDK refusal
+# 378-62-a — SEC-020 repair 1.3: the stand-in check compares what was acquired, delivery lineage set aside; repair 2.2 (a): under an early policy, an acquisition refusal is one constant SDK refusal
 
 `D-IMPL-378`, Dave's repair batch of 2026-10-09 10:54 MST (sent again unchanged at 10:58). Repair 1.3, verbatim:
 *"Compare entities, relationships and claim values, excluding delivery lineage. Preserve security-relevant differences

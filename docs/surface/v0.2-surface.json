@@ -8846,11 +8846,11 @@
       "ServedProductResolverProtocol",
       "SubjectDisclosingPlanFactoryProtocol",
       "UNHELD_SUBJECT_PROBE",
+      "UNHELD_SUBJECT_PROBE_REFUSAL",
       "UndeclaredMechanismClass",
       "UndisclosedSubjectAnswered",
       "UndisclosedSubjectSubstituteIsHeld",
       "UnheldSubjectProbeIsHeld",
-      "UnheldSubjectProbeRefused",
       "UnmarkedStoreNotPresumedFresh",
       "UnsupportedComposition",
       "WithholdingClassListedReadable",
@@ -9014,6 +9014,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "UNHELD_SUBJECT_PROBE_REFUSAL": {
+        "kind": "constant",
+        "shape": "SubjectUnavailableRefusal"
+      },
       "UndeclaredMechanismClass": {
         "kind": "class",
         "shape": "type"
@@ -9027,10 +9031,6 @@
         "shape": "type"
       },
       "UnheldSubjectProbeIsHeld": {
-        "kind": "class",
-        "shape": "type"
-      },
-      "UnheldSubjectProbeRefused": {
         "kind": "class",
         "shape": "type"
       },
