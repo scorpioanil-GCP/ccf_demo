@@ -12,8 +12,10 @@ closed connection.
 What is asserted
 ----------------
 The door is spawned exactly the way a client spawns it (the interpreter, the
-program ``binding.yaml``'s ``server:`` names, the deployment root) in the
-environment its own documents declare, and then:
+program ``binding.yaml``'s ``server:`` names, the deployment root) in the plain
+environment a client gives it. Neither advertised address is set: under ruling
+C2-A (b) (``D-IMPL-378``) the SDK's stdio transport supplies its own, so a
+client that knows nothing about the door's environment can start it. Then:
 
 1. **it starts, and lists exactly one tool**, the product request tool;
 2. **one question, asked through the SDK's own ``mcp+stdio`` client, comes back
@@ -50,7 +52,6 @@ import sys
 import tempfile
 from typing import TextIO
 
-import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -60,10 +61,6 @@ from ccf.client.adapters.mcp_stdio import McpStdioAdapter
 from ccf.client.codec import DecodedOutcome, decode_outcome
 from ccf.client.wire import WireRequest
 from ccf.controlplane.artifacts import EGRESS_DOOR, EgressDoorBinding, load_artifact
-from ccf.deployment.environment import (
-    ENVIRONMENT_DOCUMENT_NAME,
-    load_environment_document,
-)
 from ccf.products.door import PRODUCT_REQUEST_TOOL, ProducerAssertion
 
 from tests.examples.test_hw1_empty_fabric_refusal import (
@@ -77,43 +74,11 @@ from tests.examples.test_hw1_two_transports import (
 #: The door's two documents, beside its program.
 DOOR_DOCUMENT = "egress-door.yaml"
 
-#: What this module exports for the two advertised addresses the door reads by
-#: name. Both are inert on stdio and both are under ``.invalid``, which RFC 2606
-#: reserves so that it resolves nowhere: a test supplies them as an operator
-#: would, and nothing is ever reached at either.
-ADVERTISED_ADDRESSES = (
-    "https://issuer.hw1-door-test.invalid",
-    "https://door.hw1-door-test.invalid/mcp",
-)
-
-
 def door_program(root: pathlib.Path) -> pathlib.Path:
     """The program the deployment at ``root`` declares, by its own ``binding.yaml``."""
     program = load_binding_document(root).server
     assert program is not None, f"{root}'s binding.yaml declares no server program"
     return program
-
-
-def export_the_door_environment(
-    server: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Export the two addresses under the names the door's environment document declares.
-
-    A door that declares no environment document is spawned in the ambient
-    environment, which is how the door that preceded ``open_door`` ran: it
-    carried its addresses as values. The credential is never exported, so the
-    door mints one per boot, as it does for any client that spawns it.
-    """
-    if not (server / ENVIRONMENT_DOCUMENT_NAME).is_file():
-        return
-    names = load_environment_document(server).door
-    assert names is not None, (
-        f"{server / ENVIRONMENT_DOCUMENT_NAME} names no `door:` block, and the"
-        " standard door reads its credential and addresses by those names"
-    )
-    issuer, resource = ADVERTISED_ADDRESSES
-    monkeypatch.setenv(names.issuer_url.from_env, issuer)
-    monkeypatch.setenv(names.resource_server_url.from_env, resource)
 
 
 async def listed_tools(program: pathlib.Path, root: pathlib.Path, errlog: TextIO) -> list[str]:
@@ -163,12 +128,10 @@ def ask_in_process(root: pathlib.Path, request: WireRequest) -> DecodedOutcome:
 
 def test_the_door_starts_and_answers_through_the_standard_door(
     example: pathlib.Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """C2 (a). Spawned as a client spawns it, the door lists its tool and answers."""
+    """C2 (a) and C2-A (b). Spawned as a client spawns it, the door lists its tool and answers."""
     root = example / "deployment"
     program = door_program(root)
-    export_the_door_environment(program.parent, monkeypatch)
 
     with tempfile.TemporaryFile(mode="w+") as errlog:
         try:

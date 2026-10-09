@@ -24,7 +24,7 @@
 #
 # * the principal and the role: `../deployment/binding.yaml`'s `perspective:`
 #   already says who this fabric serves and in what capacity;
-# * any URL or credential: deployment ENVIRONMENT, read by name from
+# * any URL or credential: deployment ENVIRONMENT, named in
 #   `ccf_environment.yaml` beside this file (Dave, `D-IMPL-343`: "Do not put
 #   URLs or tokens in configuration.").
 #

@@ -32,11 +32,12 @@ substrate:
 # the process that spawned this door, so nobody has to know it; a parent that
 # wants to know it sets the variable.
 #
-# The two URLs: INERT on stdio, because FastMCP installs bearer authentication
-# on the HTTP app and stdio has none. The door reads them on stdio anyway (the
-# egress builder takes them together with the token verifier, `D-03`), so the
-# environment that spawns this door must carry both, or the door stops before
-# serving anything and names the variable with the remedy below.
+# The two URLs: named because the document's contract requires both names, and
+# READ BY NO TRANSPORT this door runs (`D-IMPL-378`, ruling C2-A (b)). They are
+# what an HTTP door advertises for OAuth discovery; stdio builds no HTTP app,
+# so the SDK's stdio transport supplies its own reserved values and this door
+# starts with neither variable set. Only a deployment that mounts the door's
+# HTTP app under its own host resolves them, and this one does not.
 door:
   credential:
     from_env: CCF_HW1_DOOR_TOKEN
@@ -46,12 +47,12 @@ door:
   issuer_url:
     from_env: CCF_HW1_DOOR_ISSUER_URL
     remedy: >-
-      export CCF_HW1_DOOR_ISSUER_URL with the OAuth issuer this door's auth
-      settings advertise. It is inert over stdio, so any https URL serves for a
-      development door, for example one under the reserved `.invalid` domain.
+      export CCF_HW1_DOOR_ISSUER_URL with the OAuth issuer to advertise when
+      this door's HTTP app is mounted under your own host. The stdio door this
+      example runs does not read it.
   resource_server_url:
     from_env: CCF_HW1_DOOR_RESOURCE_URL
     remedy: >-
-      export CCF_HW1_DOOR_RESOURCE_URL with the resource-server address this
-      door's auth settings advertise. It is inert over stdio, so any https URL
-      serves for a development door.
+      export CCF_HW1_DOOR_RESOURCE_URL with the resource-server address to
+      advertise when this door's HTTP app is mounted under your own host. The
+      stdio door this example runs does not read it.

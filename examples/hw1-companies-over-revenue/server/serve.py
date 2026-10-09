@@ -44,11 +44,10 @@ every *mutating* surface refuse it (``SEC-018``). That is a deployment's
 decision about its own trust boundary, and the deployment's own program is the
 only place it may be written.
 
-The two advertised addresses do nothing on stdio, for the same reason, and the
-door still reads them, because the egress builder takes them together with the
-token verifier (``D-03``). So whatever spawns this program must carry the two
-variables ``ccf_environment.yaml`` names; without them the door stops before
-serving anything and names the variable with that document's remedy.
+The two addresses an HTTP door advertises for OAuth discovery do nothing on
+stdio, for the same reason, and the SDK's stdio transport supplies its own
+(``D-IMPL-378``, ruling C2-A (b)). So nothing that spawns this program has to
+carry the two variables ``ccf_environment.yaml`` names.
 
 Nothing is committed as data (``D-32``)
 -----------------------------------------
