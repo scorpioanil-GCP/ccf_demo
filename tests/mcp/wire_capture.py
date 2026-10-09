@@ -121,7 +121,9 @@ async def captured_session(
                     )
                 await sink.send(item)
 
-    reset = authorized_server._as_grant(grant) if grant is not None else None
+    # ``None`` is SET, never inherited: a test that drove a stdio door in process leaves its ambient identity in
+    # this context var for the rest of the run (measured in regression chunk 1), and "no identity" must mean none.
+    reset = authorized_server._as_grant(grant) if grant is not None else auth_context_var.set(None)
     try:
         low = server._mcp_server
         async with anyio.create_task_group() as group:
@@ -138,8 +140,7 @@ async def captured_session(
             group.cancel_scope.cancel()
         return result
     finally:
-        if reset is not None:
-            auth_context_var.reset(reset)
+        auth_context_var.reset(reset)
 
 
 def call(server: FastMCP, grant: TokenGrant | None, tool: str, arguments: dict[str, Any], wire: Wire) -> Any:
