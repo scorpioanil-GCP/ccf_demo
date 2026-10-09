@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2455 entries**, of which **2178** name a public Python surface.
+**2459 entries**, of which **2182** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1350 entries — 1304 public Python surface, 46 not public Python API.
+1351 entries — 1305 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19724,6 +19724,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
+#### ccf.replay.serve.ReplayReferenceMismatch
+
+- Surface: ccf.replay.serve.ReplayReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the record writer handed out whatever reference the store answered.
+- After: an `ArtifactStoreError` raised by `ReplayWriter.write_replay_record` when any field of the reference the store's `put` answered (content address, URI, tenant, class, name) is not, as an exact string, the record's own. It carries `fields`, the names of the differing fields; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_a_store_answering_another_records_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30731,7 +30743,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-434 entries — 395 public Python surface, 39 not public Python API.
+437 entries — 398 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37070,6 +37082,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
 
 *Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf.replay.serve.ReplayWriter
+
+- Surface: ccf.replay.serve.ReplayWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_replay_record` returned a `DeliveryCapability` over whatever reference the store's `put` answered.
+- After: `write_replay_record` derives the record's own reference and raises `ReplayReferenceMismatch` unless the store's answer equals it field for field; the capability carries the derived reference.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_the_served_path_refuses_a_reference_with_any_field_not_the_records_own`.
+- Migration: none for a store conforming to `D-IMPL-26` (the URI's version is the content address); a store answering any other reference for a record is refused.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.replay.serve.record_refusal
+
+- Surface: ccf.replay.serve.record_refusal
+- Public surface: true
+- Change type: behavior
+- Before: returned whatever reference the store answered for the refusal's record, whose URI the resolver hands to the caller.
+- After: raises `ReplayReferenceMismatch`, through the writer, when that answer is not the record's own reference; returns the record's own reference otherwise.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_the_refusal_path_refuses_a_reference_with_any_field_not_the_records_own`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.replay.serve.serve
+
+- Surface: ccf.replay.serve.serve
+- Public surface: true
+- Change type: behavior
+- Before: delivered the product with whatever reference the store answered for its record.
+- After: raises `ReplayReferenceMismatch`, through the writer, when that answer is not the record's own reference, so nothing is delivered.
+- Why: `D-IMPL-378` decision 5 (a).
+- Migration: none for a conforming store.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
 
 ### Not public Python API
 

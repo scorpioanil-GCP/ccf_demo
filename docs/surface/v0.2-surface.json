@@ -9758,6 +9758,7 @@
       "ProductRecordMismatch",
       "QueryPinMismatch",
       "QueryPinWriter",
+      "ReplayReferenceMismatch",
       "ReplayTenantMismatch",
       "ReplayWriter",
       "ServedProduct",
@@ -9784,6 +9785,10 @@
       "QueryPinWriter": {
         "kind": "class",
         "shape": "(*, authorized: 'Authorized[ReplayMint]', store: 'ArtifactStoreProtocol') -> 'None'"
+      },
+      "ReplayReferenceMismatch": {
+        "kind": "class",
+        "shape": "(*, fields: 'tuple[str, ...]') -> 'None'"
       },
       "ReplayTenantMismatch": {
         "kind": "class",
