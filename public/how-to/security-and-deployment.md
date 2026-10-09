@@ -1493,11 +1493,18 @@ unless another test is named.
   at most `src/ccf/products/resolver.py::SHARED_OWNER_WALK_DEPTH` (12)
   references in a row, reads at most
   `src/ccf/products/resolver.py::SHARED_OWNER_WALK_OBJECTS` (5,000) references
-  from each phase, and calls nothing your objects define. Where reading what
-  an object holds raises, such as another class's member descriptor in a
-  slotted class's namespace, the walk cannot complete, and the two phases are
-  refused rather than admitted (`SharedOwnerWalkIncomplete`, a
-  `PopulationPhaseSharesAnOwner`; `D-IMPL-378` repair 1.8). What it cannot
+  from each phase, and calls nothing your objects define. A declared slot
+  never assigned and an empty closure cell hold nothing, and the walk reads
+  them so
+  (`tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing`,
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing`).
+  Where reading what an object holds raises otherwise, such as another
+  class's member descriptor in a slotted class's namespace, the walk cannot
+  complete, and the two phases are refused rather than admitted
+  (`SharedOwnerWalkIncomplete`, a `PopulationPhaseSharesAnOwner`;
+  `D-IMPL-378` repair 1.8;
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`).
+  What it cannot
   detect: anything past either bound; state the two phases share through a
   third object, such as a common dictionary; state reached only through a
   property, another descriptor, `__getattr__` or `__getattribute__`, or held
