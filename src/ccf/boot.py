@@ -35,7 +35,10 @@ stating what each part is doing:
   uses the connection's writer-lease setting (N-2). It writes no graph
   content, but it is not write-free at the substrate (N-6): opening the store
   still runs the store's own open-time setup, as a writer boot's open does
-  (schema creation; a Fluree ledger's creation). Its worker's writer refuses
+  (schema creation; a Fluree ledger's creation). The SQLite store refuses a
+  database file with more than one name before that setup, for this boot as
+  for a writer boot (SEC-013, P2 (b), ``D-IMPL-378``), so an examiner cannot
+  open a SQLite file that has a hard-link backup. Its worker's writer refuses
   every write by name (:class:`ReadOnlyFabricRefused`). It exists so replay —
   whitepaper §7.10 — can read a classification decision beside the live
   writer of a persistent store, in another process.
@@ -520,7 +523,12 @@ def boot(
             the store only. It writes no graph content, but it is not
             write-free at the substrate (N-6): opening the store still runs
             the store's own open-time setup, as at a writer boot (schema
-            creation; a Fluree ledger's creation). This is the reader
+            creation; a Fluree ledger's creation). The SQLite store refuses
+            a database file with more than one name before that setup, for
+            this boot as for a writer boot, with
+            :class:`~ccf.graph.protocols.WriterLeaseHeld` (SEC-013, P2 (b),
+            ``D-IMPL-378``): an examiner cannot open a SQLite file that has
+            a hard-link backup. This is the reader
             Decision Replay uses beside a live writer
             (:class:`~ccf.replay.environment.RecordedEnvironment`).
             ``False`` (the default) is the writer boot every earlier caller
