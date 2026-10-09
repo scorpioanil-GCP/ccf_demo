@@ -23,7 +23,9 @@ What is measured here, each instrument with a positive control that shows it can
   reads;
 * **another tenant's door learns nothing** about this tenant's address, and its substrate bytes are never read;
 * **governed evidence is never judged** by the subject match: it stays behind the governed dereference;
-* **parity**: the MCP-backed door reaches the in-process door's outcome for every client filing.
+* **parity**: the MCP-backed door reaches the in-process door's outcome for every client filing. For an address
+  its tenant never filed it learns less: it refuses ``class-unverifiable`` where the in-process door refuses
+  ``address-not-in-tenant`` (F1-1, ``D-IMPL-378``).
 
 The timing statement (work by subject and existence for unauthorized callers) is measured by the lane's probe, not
 gated here; the spy above is its deterministic half.
@@ -676,6 +678,17 @@ PARITY = {
     "nothing filed at the address": "address-not-in-tenant",
 }
 
+#: Where the MCP-backed door's outcome is not the in-process door's: an address its tenant never filed (F1-1,
+#: ``D-IMPL-378``). The artifact server's names read answers such an address with the governed read's ``nonexistent``
+#: shell, the answer a governed address holding no record gets, so a present query pin cannot be told from nothing.
+#: The door cannot tell them apart either: it refuses both ``class-unverifiable``, another tenant's address and
+#: nobody's alike (I6), and so learns less than the in-process door, which reads the store's naming directly.
+OVER_MCP = {
+    **PARITY,
+    "another tenant's filing": "class-unverifiable",
+    "nothing filed at the address": "class-unverifiable",
+}
+
 
 def _outcome(door: Any, plane: Any, address: str) -> str:
     try:
@@ -691,9 +704,9 @@ def test_the_mcp_backed_door_reaches_the_in_process_doors_outcome(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, row: str
 ) -> None:
     """The same request through the in-process door and through the MCP-backed door — each on its own fresh plane,
-    the MCP one over a real ``ClientSession`` to the built server — reaches the same outcome, and the outcome pinned
-    for the row. The MCP-backed door learns nothing the in-process door does not: the same refusal code, or the same
-    admission."""
+    the MCP one over a real ``ClientSession`` to the built server — reaches the outcome pinned for the row: the same
+    refusal code, or the same admission, for every client filing. The MCP-backed door learns nothing the in-process
+    door does not; for an address its tenant never filed it learns less (``OVER_MCP``)."""
     plane, store = _deployment(tmp_path / "in-process")
     in_process = _outcome(h.door(plane, store=store), plane, _row(row, plane, store, tmp_path / "in-process"))
 
@@ -705,13 +718,13 @@ def test_the_mcp_backed_door_reaches_the_in_process_doors_outcome(
     client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=names_world._Run(), write_kinds=store.write_kinds)  # type: ignore[arg-type]
     over_mcp = _outcome(h.door(plane, store=client), plane, address)
 
-    assert (in_process, over_mcp) == (PARITY[row], PARITY[row])
+    assert (in_process, over_mcp) == (PARITY[row], OVER_MCP[row])
 
 
 def test_a_record_the_record_writer_filed_is_refused_over_mcp_before_any_subject_match(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The one row where the doors differ, unchanged by D3b and stated rather than hidden: a record the record writer
+    """A row where the doors differ, unchanged by D3b and stated rather than hidden: a record the record writer
     filed, the subject in a replay-input field. In process it is refused ``replay-input``. Over MCP the door's names
     read of an own governed address goes through the governed dereference, which does not admit the door's principal,
     so the door refuses ``class-unverifiable`` — before any read of the bytes and without asking the subject match.
