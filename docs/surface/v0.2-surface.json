@@ -661,6 +661,7 @@
       "ArtifactName",
       "ArtifactNotFound",
       "ArtifactReadRefused",
+      "ArtifactReadUnauthenticated",
       "ArtifactRef",
       "ArtifactStoreError",
       "ArtifactStoreProtocol",
@@ -702,6 +703,10 @@
       "ArtifactReadRefused": {
         "kind": "class",
         "shape": "(message: 'str', *, envelope: 'RefusalEnvelope') -> 'None'"
+      },
+      "ArtifactReadUnauthenticated": {
+        "kind": "class",
+        "shape": "type"
       },
       "ArtifactRef": {
         "kind": "contract",
