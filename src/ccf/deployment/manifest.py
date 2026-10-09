@@ -2235,15 +2235,22 @@ def load_and_boot(
             (SEC-020, ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b), with the
             trigger repair 1.2 restores). A ``ValueError``.
         DeploymentStoreNotVerified: a boot not for a question where safe
-            verification cannot be established, raised after registration
-            and before anything is created at the path: a deployment marker
-            beside a store that reads ``pending`` (the boot that created it
-            never finished its read) or records no state in the form the SDK
-            writes (a marker written before markers recorded their state
-            included), a marker that appeared, or was replaced by another
-            file, while this boot held the store-creation lock, or a
-            store-creation lock that cannot be taken; its ``reason`` says
-            which. The marker is left as it stands,
+            verification cannot be established, raised after registration.
+            At the boot's look, before it creates a store or a marker: a
+            deployment marker beside a store that reads ``pending`` (the boot
+            that created it never finished its read) or records no state in
+            the form the SDK writes (a marker written before markers recorded
+            their state included), a marker that appeared, or a stale marker
+            that was replaced by another file, while this boot held the
+            store-creation lock, or a store-creation lock that cannot be
+            taken. Later, as ``"claimed"``, after this boot created its store
+            and read it empty: the marker this boot created was replaced by
+            another file, or rewritten in place, before it could read
+            ``verified``. The boot then closes that store and leaves it where
+            it stands, beside the marker, and every later boot of the path
+            meets that marker beside a store (measured by
+            ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses``).
+            Its ``reason`` says which. The marker is left as it stands,
             for an operator (SEC-020, ``D-IMPL-378`` repairs 1.1 and 1.2). A
             deployment marker of any state with no store beside it is not
             refused: the boot replaces it with its own and creates and

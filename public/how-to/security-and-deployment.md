@@ -1688,8 +1688,8 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   its own marker, so the marker a boot finds there belongs to no boot still
   running.
 - **Refused until an operator resolves it**, with
-  `DeploymentStoreNotVerified`, which names the marker and its `reason`,
-  creates nothing at the path, and leaves the marker as it is: a marker beside
+  `DeploymentStoreNotVerified`, which names the marker and its `reason` and
+  leaves the marker as it is: a marker beside
   an existing store that reads `pending`
   (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified`)
   or is `unreadable`, which includes the one-line marker written before repair
@@ -1700,6 +1700,16 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   replacement of it (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left`), `claimed`;
   and a store-creation lock that cannot be taken, `lock-unavailable`
   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name`).
+  Each of these is refused at the boot's look, before the boot creates a store
+  or a marker. A `claimed` refusal can also come later, after the boot has
+  created its store and read it empty: the marker the boot created was
+  replaced by another file, or rewritten in place, before the boot could mark
+  it verified. The boot then closes that store and leaves it where it stands,
+  beside the foreign marker, and every later boot of the path meets that
+  marker beside a store. Measured with a marker whose text the SDK does not
+  write, each later boot, writer or read-only, is refused `unreadable` and
+  changes nothing there
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses`).
   The SDK never clears a marker that stands beside a store. A stale marker
   rewritten in place between the boot's look and its replacement keeps its
   file (device and inode) and is not told apart from the one the boot looked
