@@ -240,6 +240,19 @@ class PolicyPlanFactory:
             active=self.active,
         )
 
+    def withholds_no_subject(self) -> bool:
+        """The positive declaration Dave's E2 (ii) (d) requires under ``never`` — true exactly when the policy is off.
+
+        :class:`PolicyProjection` sets the withheld signal only when ``active``
+        (read off its ``invoke``; and measured, lane ``378f-e2d``: every withheld
+        signal a projection of this family raised under a ``never`` class came
+        from a policy-on factory). So the policy-off deployments a ``never``
+        class is built as here — every instrument, every twin, every readable
+        world — declare it, and a policy-on factory states that it may withhold.
+        Classes at the default never read it.
+        """
+        return not self.active
+
 
 # --- early withholding (Dave, Q8) ------------------------------------------------
 
@@ -2085,6 +2098,7 @@ def build_composite(
     readable: bool = False,
     early: bool = False,
     never: bool = False,
+    project: Any = None,
 ) -> Deployment:
     """A composite whose child is asked about its own subject, or about a fixed one (channel 4).
 
@@ -2093,6 +2107,8 @@ def build_composite(
     the subject, both the parent's source and the child's do; the fixed child's
     source holds the fixed subject in every deployment. The parent's Π withholds
     by content (the parent's own view); the child's Π never withholds.
+    ``project`` replaces the parent's plan factory (E2 (ii)'s configurations
+    only; every shape of the matrix builds the policy's own).
     """
     from ccf.products.composite import CHILD_QUESTION_CLASS  # noqa: PLC0415
     from ccf.products.door import door_answer  # noqa: PLC0415
@@ -2108,7 +2124,10 @@ def build_composite(
     site = low_road_site(base, manifest, extra_classes=(CHILD_QUESTION_CLASS,), evidence_readable=readable)
     parent_holdings = {SUBJECT: subject_holding()} if holds else {}
     child_holdings = {FIXED: fixed_holding()} if fixed_child else ({SUBJECT: subject_holding()} if holds else {})
-    parent_factory = plan_factory(early=early, plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=active)
+    parent_factory = (
+        project if project is not None
+        else plan_factory(early=early, plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=active)
+    )
     child_factory = PolicyPlanFactory(plan_id=CHILD_CLASS, asker=PERSPECTIVE.principal_id, active=False)
 
     def child_door(arguments: Mapping[str, str]) -> Mapping[str, str]:
@@ -3018,13 +3037,16 @@ def render(value: Any, *, limit: int = 700) -> str:
 # ``never`` — so the record channel is observed as well; an unlisted ``never``
 # class shows a subset of these observables (its records are sealed alike).
 
-#: The plan factory declares nothing; its projection withholds late, by content.
+#: The plan factory declares nothing — no early policy, no late withholding, no
+#: positive declaration (:class:`SilentPolicyPlanFactory`); its projection
+#: withholds late, by content. Under Dave's E2 (ii) (d) silence is refused.
 NEVER_LATE = "never_late"
 #: The plan factory declares an early policy that does not disclose the subject (Q8).
 NEVER_EARLY = "never_early"
 #: The plan factory declares that its projection withholds late (``subject_disclosure()`` returns ``None``).
 NEVER_DECLARED_LATE = "never_declared_late"
-#: A composite: the plan factory declares nothing; its projection withholds late.
+#: A composite: the plan factory declares nothing (:class:`SilentPolicyPlanFactory`);
+#: its projection withholds late.
 NEVER_COMPOSITE_LATE = "never_composite_late"
 #: A composite: the plan factory declares an early policy that does not disclose the subject.
 NEVER_COMPOSITE_EARLY = "never_composite_early"
@@ -3048,10 +3070,28 @@ NEVER_CONFIGURATIONS: dict[str, str] = {
 NEVER_CAPABILITY_REFUSAL = "NeverWithholdingProjectionCanWithhold"
 
 #: The configuration with its withholding capability removed — the policy off,
-#: and nothing declared but an early policy that withholds nobody — in a
-#: deployment whose source holds the subject: it must SERVE the subject. The
-#: twin a construction refusal is paired with, and every channel's instrument.
+#: positively declaring that it never withholds (Dave's E2 (ii) (d),
+#: :meth:`PolicyPlanFactory.withholds_no_subject`), and for the early
+#: configurations an early policy that withholds nobody — in a deployment whose
+#: source holds the subject: it must SERVE the subject. The declared twin a
+#: construction refusal is paired with (CT-A (a)), and every channel's instrument.
 NEVER_TWIN = "never-twin"
+
+
+class SilentPolicyPlanFactory:
+    """:class:`PolicyPlanFactory`'s projection, behind a factory that declares NOTHING.
+
+    No early policy, no late withholding, and no positive declaration that it
+    never withholds: the silence Dave's E2 (ii) (d) counts as able to withhold.
+    It composes the policy's factory rather than inheriting it, so it carries
+    none of that factory's declarations.
+    """
+
+    def __init__(self, *, plan_id: str, asker: str, active: bool) -> None:
+        self._policy = PolicyPlanFactory(plan_id=plan_id, asker=asker, active=active)
+
+    def __call__(self, *, required: tuple[str, ...], request: ProductRequest) -> PolicyProjection:
+        return self._policy(required=required, request=request)
 
 
 class LateDeclaringPlanFactory(PolicyPlanFactory):
@@ -3072,19 +3112,32 @@ def build_never(
     """One deployment of ``configuration``: its class affirms ``never`` and its tenant lists the class.
 
     ``capable`` builds the configuration as named (the policy on); otherwise
-    its :data:`NEVER_TWIN`: the policy off, with nothing declared, or, for the
-    early configurations, an early policy that withholds nobody.
+    its :data:`NEVER_TWIN`: the policy off, positively declaring that it never
+    withholds, and, for the early configurations, an early policy that
+    withholds nobody. The two late configurations are built over
+    :class:`SilentPolicyPlanFactory` — silence, not a declaration.
     """
     shape = NEVER_CONFIGURATIONS[configuration]
+    silent = capable and configuration in (NEVER_LATE, NEVER_COMPOSITE_LATE)
     if shape in COMPOSITE_SHAPES:
-        return BUILDERS[shape](base, anchor=anchor, holds=holds, active=capable, readable=True, never=True)
+        from tests.products.test_resolver_seam import PERSPECTIVE, PRODUCT_CLASS  # noqa: PLC0415
+
+        project = (
+            SilentPolicyPlanFactory(plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=capable)
+            if silent else None
+        )
+        return BUILDERS[shape](
+            base, anchor=anchor, holds=holds, active=capable, readable=True, never=True, project=project
+        )
     from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
 
-    kind: type[PolicyPlanFactory] = PolicyPlanFactory
+    kind: type[PolicyPlanFactory] | type[SilentPolicyPlanFactory] = PolicyPlanFactory
     if configuration == NEVER_EARLY:
         kind = EarlyWithholdingPlanFactory
     elif configuration == NEVER_DECLARED_LATE and capable:
         kind = LateDeclaringPlanFactory
+    elif silent:
+        kind = SilentPolicyPlanFactory
     holdings = {SUBJECT: subject_holding()} if holds else {}
     return open_paved(
         base, anchor=anchor, acquire=SubjectKeyedSource(holdings),
