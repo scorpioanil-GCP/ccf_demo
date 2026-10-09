@@ -31,8 +31,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from ccf.graph.backends.sqlite import SqliteGraphStore
-from ccf.graph.leases import lock_directory_writer_lease
+from ccf.graph.backends.sqlite import SqliteGraphStore, _database_file_identity
+from ccf.graph.leases import lock_directory_writer_lease, lock_file_name
 from ccf.graph.protocols import ProcessScopedWriterLease, WriterLeaseHeld, WriterLeaseRequired
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
 from tests.graph.test_sqlite_writer_lease_hard_link import _two_names
@@ -217,37 +217,59 @@ def test_a_holder_that_dies_without_closing_does_not_block_the_next_boot_through
         survivor.close()
 
 
-def test_a_recycled_inode_number_does_not_wedge_a_new_database_file(tmp_path: Path) -> None:
-    """A deleted database file's inode number, given to a new file, finds an unheld lock file and boots.
+def test_a_lock_file_an_earlier_holder_of_the_same_file_identity_left_does_not_block_the_boot(tmp_path: Path) -> None:
+    """A new file given a deleted file's inode number finds that file's old lock file, unheld, and boots.
 
-    Requires a filesystem that recycles inode numbers (ext4 and tmpfs do: measured 20 of 20 immediate reuses on this
-    host); on one that never does, the test fails by name rather than passing without exercising reuse.
+    The lock file's name is derived from the device and inode, so a new database file that the filesystem gives a
+    deleted file's inode number finds the lock file the deleted file's last writer left behind. The kernel dropped
+    that writer's ``flock`` when it closed or died, so nobody holds the file and the new file's boot takes it.
+    Exercised deterministically, by putting the lock file for the new file's identity there first, exactly as an
+    earlier holder of that identity leaves it: whether and when a filesystem recycles an inode number depends on the
+    filesystem and on every other process creating files on it.
+    """
+    locks = _locks(tmp_path)
+    database = tmp_path / "given-a-recycled-inode.sqlite3"
+    database.touch()
+    identity = _database_file_identity(str(database))
+    assert identity is not None
+    left_behind = locks / lock_file_name(identity)
+    os.close(os.open(left_behind, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+
+    holder = _boot("sqlite", _declared(database, locks))
+    try:
+        assert _lock_files(locks) == [left_behind]
+        assert f"flock on {str(left_behind)!r}" in (holder.lease_mechanism or ""), holder.lease_mechanism
+    finally:
+        holder.close()
+
+
+def test_a_live_writers_file_identity_is_not_given_to_another_file_while_it_holds_the_lease(tmp_path: Path) -> None:
+    """While the writer's connection holds its database file open, no other file is given that file's inode number.
+
+    So a lease keyed on the identity is never held over an identity another file has been given, and cannot wedge
+    that file's boot: the store opens the file before the lease is taken, and the boot's shutdown gives the lease
+    back before it closes the store. Measured with the held file's only name deleted, which frees nothing while the
+    connection holds the file.
     """
     locks = _locks(tmp_path)
     files = tmp_path / "files"
     files.mkdir()
-    first = files / "first.sqlite3"
-    _boot("sqlite", _declared(first, locks)).close()
-    recycled = os.stat(first).st_ino
-    stale = _lock_files(locks)
-    assert len(stale) == 1, f"the first writer left no lock file in the declared directory: {stale!r}"
-    for leftover in files.iterdir():
-        leftover.unlink()
-
-    candidate = None
-    for attempt in range(64):
-        path = files / f"new-{attempt}.sqlite3"
-        os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
-        if os.stat(path).st_ino == recycled:
-            candidate = path
-            break
-    assert candidate is not None, "this filesystem did not recycle the inode number, so reuse is not exercised here"
-
-    second = _boot("sqlite", _declared(candidate, locks))
+    held = files / "held.sqlite3"
+    holder = _boot("sqlite", _declared(held, locks))
     try:
-        assert f"flock on {str(stale[0])!r}" in (second.lease_mechanism or ""), second.lease_mechanism
+        held_inode = os.stat(held).st_ino
+        held.unlink()
+        created = []
+        for attempt in range(64):
+            path = files / f"new-{attempt}.sqlite3"
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
+            created.append(os.stat(path).st_ino)
+        outcome = _run_child("sqlite", _declared(files / "new-0.sqlite3", locks))
     finally:
-        second.close()
+        holder.close()
+
+    assert held_inode not in created
+    assert outcome == ("BOOTED", "", ""), outcome
 
 
 # --- The lease's own refusals, in one process -----------------------------------------------------------------------
