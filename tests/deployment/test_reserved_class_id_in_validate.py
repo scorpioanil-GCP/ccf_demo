@@ -71,6 +71,7 @@ from ccf.deployment.classes import (
     SDK_ARTIFACT_ROLES,
     SDK_VERSIONED_ARTIFACT_CLASSES,
 )
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.products.product import open_product
 from ccf.replay.serve import ServedProduct
 
@@ -581,7 +582,12 @@ def test_control_the_manifest_door_registers_every_manifest_addressable_sdk_clas
 
 
 def _paved_tree(tmp_path: pathlib.Path, **policy: str) -> pathlib.Path:
-    config = fixture.producer_config()
+    # `D-IMPL-378` ruling P6 (a): this module opens the tree only with `fixture.plan_factory`, whose
+    # projection never sets the withheld signal (it positively declares so, E2 (ii) (d)), and with
+    # `fixture.Acquire`, which returns one constant envelope whatever subject it is asked about; at the
+    # SDK's default stance the P6 probe refuses every question of it as a population read. Its stance,
+    # stated from that behavior, is `never`, as `fixture.producer_config`'s other openers state it.
+    config = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["policy"] = {**config["policy"], **policy}
     return fixture.write_tree(tmp_path / "deployment", config=config, environment=fixture.producer_environment_text())
 

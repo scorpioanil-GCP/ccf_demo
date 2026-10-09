@@ -35,6 +35,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from mcp.server.fastmcp import FastMCP
 
@@ -341,9 +342,17 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
         declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             arguments = opened.build_arguments(fabric)
-            arguments["plan_factory"] = lambda *, required, request: _plan_factory(
-                required=required, request=request.model_copy(update={"parameters": {THRESHOLD_PARAMETER: 1}})
-            )
+
+            def _moved_threshold(*, required: tuple[str, ...], request: ProductRequest) -> Any:
+                return _plan_factory(
+                    required=required, request=request.model_copy(update={"parameters": {THRESHOLD_PARAMETER: 1}})
+                )
+
+            # `D-IMPL-378` ruling E2 (ii) (d): the default tree's class affirms `never`, so the substituted
+            # factory declares it positively. It builds `_plan_factory`'s own projection over a moved
+            # request, so `_plan_factory`'s declaration is true of it, and it states that one.
+            _moved_threshold.withholds_no_subject = _plan_factory.withholds_no_subject  # type: ignore[attr-defined]
+            arguments["plan_factory"] = _moved_threshold
             moved = build_governed_resolver(**arguments)(
                 tenant=TENANT, product_class=PRODUCT_CLASS, version=PRODUCT_VERSION,
                 perspective=opened.default_perspective, request=_question(opened),
@@ -529,16 +538,24 @@ def test_the_stdio_door_reads_neither_door_url_and_advertises_only_reserved_addr
     with _open(root, scratch) as opened:
         door = open_door(opened, environ={})
         assert door.credential, "minted per boot when the variable is unset"
-        door.serve_stdio(
-            identity=AuthenticatedUser(
-                ambient_stdio_identity(
-                    credential=door.credential,
-                    principal_id=door.principal_id,
-                    scope=door.scope,
-                    tenant=door.tenant_id,
+        # `serve_stdio` sets the MCP library's ambient identity for the rest of the process (stdio is
+        # single-principal by its contract). This test runs it inside the pytest process, so it contains
+        # what it sets, as `tests/mcp/test_stdio_door_identity.py` does: no later test runs as this identity
+        # (`tests/products/test_stdio_identity_is_contained_between_tests.py`).
+        reset = auth_context_var.set(None)
+        try:
+            door.serve_stdio(
+                identity=AuthenticatedUser(
+                    ambient_stdio_identity(
+                        credential=door.credential,
+                        principal_id=door.principal_id,
+                        scope=door.scope,
+                        tenant=door.tenant_id,
+                    )
                 )
             )
-        )
+        finally:
+            auth_context_var.reset(reset)
     assert [transport for transport, _, _ in started] == ["stdio"], started
     (_, issuer, resource), = started
     for advertised in (issuer, resource):

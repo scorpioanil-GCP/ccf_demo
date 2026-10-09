@@ -51,7 +51,7 @@ import pytest
 
 from ccf.contracts.canonical import content_hash
 from ccf.deployment import load_and_boot, load_config_and_boot
-from ccf.products.resolver import ProductNotResolvable, build_governed_resolver
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE, ProductNotResolvable, build_governed_resolver
 from ccf.replay.engine import replay
 from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
@@ -506,19 +506,53 @@ class _Routes:
                 self.outcomes[(moment, route)] = raised
 
 
-class _TryingSeam:
-    """A hand-composed acquisition phase that tries every route while the question is using its store."""
+def _during(subject: str) -> str:
+    """The moment one acquisition call's tries are kept under: the subject that call was handed."""
+    return f"during its acquisition phase, handed {subject}"
 
-    def __init__(self, routes: _Routes) -> None:
+
+class _TryingSeam:
+    """A hand-composed acquisition phase that tries every route while the question is using its store, in every call.
+
+    ``D-IMPL-378`` ruling P6 (a) (Q10 amended to permit the probe): a class that
+    may withhold late and declares no early policy hands this phase the probe
+    identifier first, then the question's subject. Each call is part of the
+    question's use, so each call's tries are kept under the subject it was
+    handed (``handed``, in order), and, given ``read_held``, what the
+    question's store holds is read after each call's tries (``held``).
+    """
+
+    def __init__(self, routes: _Routes, *, read_held: Callable[[], int] | None = None) -> None:
         self._routes = routes
+        self._read_held = read_held
+        self.handed: list[str] = []
+        self.held: list[int] = []
 
     def __call__(self, *, request: Any, perspective: Any) -> None:
-        self._routes.run("during its acquisition phase")
+        self.handed.append(request.subject)
+        self._routes.run(_during(request.subject))
+        if self._read_held is not None:
+            self.held.append(self._read_held())
 
 
 def _governed_call(fabric: Any, registry: Any, records: Any) -> Any:
     """A governed question with no acquisition phase over ``fabric``: what a door asks of a store it opened."""
     return m._ask(m._governed((fabric, registry, records), plan_factory=m._late(), acquisition=None), sec020.MISSING)
+
+
+def _assert_each_acquisition_call_tried_and_refused_every_route(
+    routes: _Routes, handed: list[str], expected: dict[str, str], *, road: str
+) -> None:
+    """Every route tried in every acquisition call, in the order the calls were made, each refused by its own name."""
+    for subject in handed:
+        in_call = {route: outcome for (moment, route), outcome in routes.outcomes.items() if moment == _during(subject)}
+        assert set(in_call) == set(expected), (
+            f"[{road}] not every route was tried in the acquisition call handed {subject}: {sorted(in_call)}"
+        )
+        for route, outcome in in_call.items():
+            assert m._named(outcome, expected[route]), (
+                f"[{road}] {route}, {_during(subject)}, was not refused by name ({expected[route]}): {outcome!r}"
+            )
 
 
 def _assert_every_route_refused_by_name(routes: _Routes, expected: dict[str, str], *, road: str) -> None:
@@ -541,6 +575,11 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
     question marker created exclusively, and the fabric is claimed by the
     question's governed call. A second governed call is tried only once the
     first has claimed the fabric.
+
+    ``D-IMPL-378`` ruling P6 (a) (Q10 amended to permit the probe): the
+    acquisition phase is called twice, handed the probe identifier first and
+    then the question's subject; both calls are part of the question's use, so
+    every route is tried and judged in each, and nothing may land in either.
     """
     import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
 
@@ -594,46 +633,61 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
             "a second governed call over the question's fabric": a_second_governed_call,
         }
     )
+    seam = _TryingSeam(routes, read_held=lambda: _held(question))
     try:
         routes.run("after its boot returned", skip=("a second governed call over the question's fabric",))
         outcome = m._ask(
-            m._governed((question, registry, records), plan_factory=m._late(), acquisition=_TryingSeam(routes)),
+            m._governed((question, registry, records), plan_factory=m._late(), acquisition=seam),
             sec020.MISSING,
         )
         held = _held(question)
     finally:
         question.handle.close()
     assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
-    _assert_every_route_refused_by_name(
-        routes,
-        {
-            "a boot for a question at its path": "QuestionFabricNotFresh",
-            "a plain writer boot at its path": "SingleWriterViolation",
-            "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
-            "ccf.boot.boot booting a writer over its path": "SingleWriterViolation",
-            "a second governed call over the question's fabric": "AcquiredFabricReused",
-        },
-        road="by hand",
+    expected = {
+        "a boot for a question at its path": "QuestionFabricNotFresh",
+        "a plain writer boot at its path": "SingleWriterViolation",
+        "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
+        "ccf.boot.boot booting a writer over its path": "SingleWriterViolation",
+        "a second governed call over the question's fabric": "AcquiredFabricReused",
+    }
+    # P6 (a): the probe's call, then the subject's, each once; every route tried and judged in each, the probe's first.
+    assert seam.handed == [UNHELD_SUBJECT_PROBE, sec020.MISSING], (
+        "[by hand] the routes were not tried in every acquisition call; the case was not constructed: the phase"
+        f" was handed {seam.handed}"
     )
+    _assert_each_acquisition_call_tried_and_refused_every_route(routes, seam.handed, expected, road="by hand")
+    _assert_every_route_refused_by_name(routes, expected, road="by hand")
+    assert seam.held == [0, 0], f"nothing any route tried may land in the question's store, in either call: {seam.held}"
     assert held == 0, f"nothing any route tried may land in the question's store: it holds {held} entities"
 
 
 def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_check_to_its_end_on_the_paved_road(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Exclusive ownership through use, the paved road: tried from inside ``acquire``, through the single-file door."""
+    """Exclusive ownership through use, the paved road: tried from inside ``acquire``, through the single-file door.
+
+    ``D-IMPL-378`` ruling P6 (a) (Dave, 2026-10-08 16:40 MST: *"Amend Q10 to
+    permit the probe"*): this class may withhold late and declares no early
+    policy, so ``acquire`` is called twice for its one question, handed the
+    probe identifier first and then the question's subject. Both calls are
+    inside the question's use, so the routes are tried in each call and judged
+    in each, and nothing may land in the store in either.
+    """
     from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER as PAVED_THRESHOLD  # noqa: PLC0415
     from tests.products.test_paved_road import ASKED_AT as PAVED_ASKED_AT  # noqa: PLC0415
 
     scratch = tmp_path / "scratch"
     held: list[int] = []
     routes_holder: list[_Routes] = []
+    handed: list[str] = []
 
     class _TryingAcquire:
         def __init__(self) -> None:
             self._inner = sec020._AcquireForSubject()
 
         def __call__(self, context: Any) -> Any:
+            handed.append(context.request.subject)
             minted = sorted(scratch.glob("paved_fixture*.sqlite3"))
             assert len(minted) == 1, minted
             connection = {"database_path": str(minted[0])}
@@ -674,7 +728,7 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
                     "a plain read-only boot at its path, asked a governed question": a_plain_read_only_boot_asked_a_question,
                 }
             )
-            routes.run("during its acquisition phase")
+            routes.run(f"during its acquisition phase, handed {context.request.subject}")
             routes_holder.append(routes)
             reader = load_config_and_boot(
                 opened.config_path, registry=opened.control_plane, connection=connection, read_only=True,
@@ -688,25 +742,43 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
     with _open_paved(_paved_tree(tmp_path), scratch, acquire=_TryingAcquire()) as opened:
         outcome = m._paved_ask(opened, sec020.PAVED_WITHHELD)
     assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
-    assert len(routes_holder) == 1, "the routes were not tried; the case was not constructed"
-    _assert_every_route_refused_by_name(
-        routes_holder[0],
-        {
-            "a boot for a question at its path": "QuestionFabricNotFresh",
-            "a plain writer boot at its path": "SingleWriterViolation",
-            "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
-        },
-        road="the paved road",
+    # P6 (a): the probe's call, then the subject's, each once; the routes tried in both.
+    assert handed == [UNHELD_SUBJECT_PROBE, sec020.PAVED_WITHHELD] and len(routes_holder) == len(handed), (
+        "the routes were not tried in every acquisition call; the case was not constructed:"
+        f" acquire was handed {handed}, the routes were tried {len(routes_holder)} time(s)"
     )
-    assert held == [0], f"nothing any route tried may land in the question's store: {held}"
+    for routes in routes_holder:
+        _assert_every_route_refused_by_name(
+            routes,
+            {
+                "a boot for a question at its path": "QuestionFabricNotFresh",
+                "a plain writer boot at its path": "SingleWriterViolation",
+                "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
+            },
+            road="the paved road",
+        )
+    assert held == [0, 0], f"nothing any route tried may land in the question's store, in either call: {held}"
 
 
 class _AnotherProcess:
-    """A hand-composed acquisition phase that runs another process's routes into the store while the question uses it."""
+    """A hand-composed acquisition phase that runs another process's routes into the store while the question uses it.
 
-    def __init__(self, manifest: pathlib.Path, path: pathlib.Path, records: pathlib.Path) -> None:
+    ``D-IMPL-378`` ruling P6 (a) (Q10 amended to permit the probe): the phase is
+    handed the probe identifier first, then the question's subject. Each call is
+    part of the question's use, so each call's report from the other process is
+    kept under the subject that call was handed (``calls``, in order), and,
+    given ``read_held``, what the question's store holds is read after each
+    call's run (``held``).
+    """
+
+    def __init__(
+        self, manifest: pathlib.Path, path: pathlib.Path, records: pathlib.Path,
+        *, read_held: Callable[[], int] | None = None,
+    ) -> None:
         self._arguments = (str(manifest), str(path), str(records))
-        self.found: dict[str, Any] = {}
+        self._read_held = read_held
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+        self.held: list[int] = []
 
     def __call__(self, *, request: Any, perspective: Any) -> None:
         import json  # noqa: PLC0415
@@ -723,7 +795,9 @@ class _AnotherProcess:
             cwd=root, env=environment, capture_output=True, text=True, timeout=300, check=False,
         )
         assert ran.returncode == 0, f"the other process did not run: {ran.stderr[-2000:]}"
-        self.found = json.loads(ran.stdout.strip().splitlines()[-1])
+        self.calls.append((request.subject, json.loads(ran.stdout.strip().splitlines()[-1])))
+        if self._read_held is not None:
+            self.held.append(self._read_held())
 
 
 def test_p4e_from_another_process_nothing_claims_opens_or_writes_a_question_store_during_its_use(
@@ -739,30 +813,48 @@ def test_p4e_from_another_process_nothing_claims_opens_or_writes_a_question_stor
     question's acquisition phase runs: a boot for a question at the path, a
     plain writer boot that would write the deployment's three accounts, and a
     plain read-only boot asked a governed question.
+
+    ``D-IMPL-378`` ruling P6 (a) (Q10 amended to permit the probe): the
+    acquisition phase is called twice, handed the probe identifier first and
+    then the question's subject; both calls are part of the question's use, so
+    the other process tries every route in each, each call is judged, and
+    nothing may land in either.
     """
     manifest, registry, records = _deployment(tmp_path)
     path = tmp_path / "question" / _STORE
     path.parent.mkdir()
     other_records = tmp_path / "other-process-records"
-    seam = _AnotherProcess(manifest, path, other_records)
     question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+    seam = _AnotherProcess(manifest, path, other_records, read_held=lambda: _held(question))
     try:
         outcome = m._ask(m._governed((question, registry, records), plan_factory=m._late(), acquisition=seam), sec020.MISSING)
         held = _held(question)
     finally:
         question.handle.close()
     assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
-    imported = pathlib.Path(seam.found.get("imported", ""))
+    # P6 (a): the probe's call, then the subject's, each once; each call's report judged, the probe's first.
+    handed = [subject for subject, _report in seam.calls]
+    assert handed == [UNHELD_SUBJECT_PROBE, sec020.MISSING], (
+        "the other process's routes were not tried in every acquisition call; the case was not constructed: the"
+        f" phase was handed {handed}"
+    )
     root = pathlib.Path(__file__).resolve().parents[2]
-    assert imported.is_relative_to(root / "src"), f"the other process measured another tree: {imported}"
     expected = {
         "a boot for a question at its path": "QuestionFabricNotFresh",
         "a plain writer boot at its path": "SingleWriterViolation",
         "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
     }
-    for route, name in expected.items():
-        found = seam.found.get(route, {})
-        assert name in found.get("raised", []), f"from another process, {route} was not refused by name ({name}): {found}"
+    for subject, report in seam.calls:
+        imported = pathlib.Path(report.get("imported", ""))
+        assert imported.is_relative_to(root / "src"), f"the other process measured another tree: {imported}"
+        for route, name in expected.items():
+            found = report.get(route, {})
+            assert name in found.get("raised", []), (
+                f"from another process, {route}, {_during(subject)}, was not refused by name ({name}): {found}"
+            )
+    assert seam.held == [0, 0], (
+        f"nothing another process tried may land in the question's store, in either call: {seam.held}"
+    )
     assert held == 0, f"nothing another process tried may land in the question's store: it holds {held} entities"
 
 
