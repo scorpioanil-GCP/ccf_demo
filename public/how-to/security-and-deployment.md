@@ -1584,6 +1584,52 @@ To read a question's store back for replay, boot it read-only and not for a
 question; a record served over a fresh question store still replays to its
 own address that way (P4s-A (b)).
 
+**When a boot is refused over its deployment marker (`D-IMPL-378` repairs 1.1
+and 1.2).** A plain boot through a deployment door that creates its store at a
+path first creates the deployment marker beside it
+(`<resolved path>.ccf-deployment-store`) reading `state: pending`, with a third
+line naming the boot (`boot: <token>`), and rewrites it to read
+`state: verified` only once its one read has found the store empty for its
+tenant. A boot that fails anywhere after creating the marker removes it, and a
+boot killed before its read completed leaves it reading `pending`. Every plain
+boot, read-only included, holds `<resolved path>.ccf-store-creation.lock`, an
+exclusive `flock`, from its look at the path until it hands the fabric back,
+so a second boot of the path waits for the first to finish, with no timeout,
+and then reopens the store the first verified, reading nothing (measured
+across two processes,
+`tests/products/test_deployment_marker_serialized_and_stale_refused.py`). Where
+safe verification cannot be established, the boot is refused with
+`DeploymentMarkerUnresolved`, which names the marker and its `reason`, creates
+nothing at the path, and leaves the marker as it is: the SDK never clears a
+marker itself. A deployment marker written before repair 1.1 has one line and
+no state, so a boot of its store is refused (`unreadable`) until an operator
+resolves it. To resolve a refusal:
+
+1. Make sure no process is booting or serving the store: `fuser` or `lsof` on
+   `<resolved path>.ccf-store-creation.lock`, and on the SQLite writer lease
+   `<resolved path>.ccf-writer.lock`, shows a holder. Change nothing while
+   either is held.
+2. Read the marker. `pending` (the boot that created it never finished its
+   read), `unreadable` (one line and no `state:`, or text the SDK does not
+   write) and `claimed` (a marker that appeared or changed while a boot held
+   the lock; find what writes into the store's directory first) all mean that
+   nothing shows the store beside it was read. Move the store (`<path>`,
+   `<path>-wal`, `<path>-shm`) and the marker aside, keeping them if they may
+   be evidence, and boot again: the boot creates a new store, reads it once
+   and marks it verified. Then write the deployment's data into it again
+   through its writer.
+3. `no-store`: the marker reads `verified` but its store is gone. Find where
+   the store went before you remove the marker, then boot again.
+4. `lock-unavailable`: make `<resolved path>.ccf-store-creation.lock` a regular
+   file the deployment's user can open and lock, on a local filesystem whose
+   `flock` works. The store and its marker are untouched.
+
+Never write or edit a deployment marker by hand: a marker an operator writes
+vouches for a store nobody read, which is what the refusal exists to prevent.
+A marker binds to its store by path, beside it rather than inside it, so it
+does not stand against an actor who can write into the store's directory
+(below).
+
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
 
@@ -1786,18 +1832,35 @@ a nonexistent one. Each was measured on test fixtures.
   `expires_at` and `ttl_anchor_at`, against the same store after a question
   that acquired nothing. A used question store written at a path after a
   plain boot left its marker there answered too, until OWED-RULINGS-3 item 2A
-  (b) (`D-IMPL-378`, Dave, 2026-10-09): a plain boot that created its
-  deployment marker now reads the store it opened once, the read a question
-  boot takes, and refuses one holding anything for its tenant
+  (b) (`D-IMPL-378`, Dave, 2026-10-09), with the trigger repair 1.2 restores
+  (Dave, 2026-10-09 10:54 MST): every plain boot that creates its store, at a
+  path that held no store when the boot looked, whoever made a marker beside
+  it, now reads the store it opened once, the read a question boot takes,
+  and refuses one holding anything for its tenant
   (`DeploymentStoreNotEmpty`), removing the marker it created, so a later
   boot of that path answers no governed call
-  (`tests/products/test_plain_boot_creating_its_store_finds_it_empty.py`). A
-  plain boot whose path already carried a deployment marker with no store
-  beside it (the store deleted, its marker kept) created its store without
-  that read, and a used store written there was booted and answered, its
-  later answers moving at the same fields as the forged marker's (lane probes
+  (`tests/products/test_plain_boot_creating_its_store_finds_it_empty.py`,
+  `tests/products/test_deployment_marker_serialized_and_stale_refused.py`).
+  Under repair 1.1 (Dave, 2026-10-09 10:54 MST) that holds for every failed
+  boot, not only a refused read: a boot that fails in `boot()` (a planted
+  store given a second name, or its writer lease held elsewhere), in its
+  read, while marking its marker verified, or in `close()` removes the
+  deployment marker it created, only while that marker is still the one it
+  created, and a retry over a store planted in that window opens it
+  unmarked and answers no governed call
+  (`tests/products/test_deployment_marker_owned_and_crash_safe.py`); before
+  the repair the marker stayed and the retry served the plant (the panel's
+  probes `p_2ab_marker_survives_a_failed_boot.py`,
+  `p_2ab_variant_b_lease_held.py` and `p_b3_close_raises.py`). A plain boot
+  whose path already carried a deployment marker with no store beside it
+  (the store deleted, its marker kept) created its store without that read,
+  and a used store written there was booted and answered, its later answers
+  moving at the same fields as the forged marker's (lane probes
   `probe_stale_deployment_marker.py` and
-  `probe_unreached_stores_distinguish_l4b.py`). A store written at a question
+  `probe_unreached_stores_distinguish_l4b.py`); under repair 1.2 such a boot
+  is refused before it creates anything (`DeploymentMarkerUnresolved`,
+  reason `no-store`), as is a boot over a marker that does not show a
+  completed verification (above). A store written at a question
   boot's path after the SDK's last check was booted as that question's
   fabric; it is now refused when the boot reads it (`QuestionStoreNotEmpty`,
   above), and that one read does not reach three things. A store whose
