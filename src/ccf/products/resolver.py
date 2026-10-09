@@ -352,6 +352,7 @@ __all__ = [
     "ServedProductResolverProtocol",
     "SubjectDisclosingPlanFactoryProtocol",
     "UndisclosedSubjectAnswered",
+    "UndisclosedSubjectStandInIsHeld",
     "UnheldSubjectProbeIsHeld",
     "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
@@ -718,7 +719,10 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
 #: :data:`~ccf.products.request.SUBJECT_FLOOR_V1`; a source sees it as one more
 #: identifier it does not hold. That it names nothing is checked, not assumed:
 #: the fabric is read for it before the call and after it
-#: (:class:`UnheldSubjectProbeIsHeld`). SEC-020 stays OPEN.
+#: (:class:`UnheldSubjectProbeIsHeld`). For a class with a declared early policy
+#: it is the baseline the declared stand-in is compared with: the phase is asked
+#: about it and then about the stand-in (``D-IMPL-378`` decision 4 (a),
+#: :class:`UndisclosedSubjectStandInIsHeld`). SEC-020 stays OPEN.
 UNHELD_SUBJECT_PROBE: Final[str] = "ccf-sdk:unheld-subject-probe"
 
 
@@ -760,7 +764,10 @@ class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
     and the ``SEC-020 P6 PROBE LIMITATION`` block of SEC-020's closing test). It costs one
     more call to the subject-keyed phase and one more read of the fabric per
     question of such a class. A class with a declared early policy is not
-    probed, nor is a class affirming ``subject_withholding: never``. To be
+    refused by this probe — its declared stand-in is verified instead, which
+    asks the phase about :data:`UNHELD_SUBJECT_PROBE` as its baseline
+    (:class:`UndisclosedSubjectStandInIsHeld`) — and a class affirming
+    ``subject_withholding: never`` is not probed. To be
     served, declare the read as the population phase
     (``open_product(population=...)``,
     :attr:`GovernedResolver.population_acquisition`), declare an early policy
@@ -804,6 +811,62 @@ class UnheldSubjectProbeIsHeld(UnsupportedComposition):
     source holding a record FOR the probe identifier therefore writes a node
     with another URI, and the question is refused as
     :class:`PopulationReadInSubjectKeyedPhase` — also fail closed.
+    """
+
+
+class UndisclosedSubjectStandInIsHeld(UnsupportedComposition):
+    """The identifier a declared early policy asks in place of an undisclosed subject names something here.
+
+    ``D-IMPL-378`` decision 4 (a) (SDK-defined, CLAUDE.md §11). Dave,
+    2026-10-09 06:06 MST, confirmed at 06:21 MST: *"Verify the stand-in is
+    absent before and after acquisition. A failed check refuses without
+    exposing subject-dependent differences."* SEC-020 stays OPEN.
+
+    Under a declared early policy (:class:`SubjectDisclosingPlanFactoryProtocol`,
+    Q8) every subject-dependent step is asked about the policy's
+    :attr:`~ccf.products.subject_disclosure.SubjectDisclosurePolicy.undisclosed_subject`
+    in place of a subject the policy does not disclose, so a withheld subject's
+    answer equals the answer for an identifier that names nothing only if the
+    stand-in names nothing. That is checked, not assumed, for EVERY question of
+    such a class, whatever the policy decides for the asked subject, by the
+    mechanism :data:`UNHELD_SUBJECT_PROBE` is checked by
+    (:class:`UnheldSubjectProbeIsHeld`) — a view names an identifier when an
+    entity's URI is the identifier, or a relationship has it at either end:
+
+    * **before acquisition** — the fabric as read before the subject-keyed
+      phase (after a declared population phase) must not name it; and, where a
+      subject-keyed phase is declared, the phase is asked about
+      :data:`UNHELD_SUBJECT_PROBE` and then about the stand-in, the fabric read
+      after each, and what it acquired for the stand-in must name nothing and
+      add nothing to what it acquired for the probe identifier. A source that
+      holds the stand-in, under any URI, acquires for it what it does not
+      acquire for an identifier that names nothing; a read that acquires the
+      same content whatever is asked adds nothing;
+    * **after acquisition** — the fabric the plan reads must not name it.
+
+    Raised by :meth:`GovernedResolver.__call__` with ONE message, whatever
+    subject was asked and whichever check failed: before the subject-keyed
+    phase is handed anything for the question (the checks before acquisition),
+    or before anything is computed or recorded (the check after it). A broken
+    composition, as every :class:`UnsupportedComposition` is: nothing is
+    recorded, and a door answers with its opaque failure. Fail closed.
+
+    What it costs: for a class with a declared early policy and a subject-keyed
+    phase, two more calls to that phase and two more reads of the fabric per
+    question — Q10's *"each once"*, amended by this decision as ruling P6 (a)
+    amended it for the probe.
+
+    What it does not detect, stated: a source that RECOGNIZES the stand-in — its
+    identifier, or its shape — and answers nothing for it while it answers other
+    identifiers it does not hold with content. A source that recognizes
+    :data:`UNHELD_SUBJECT_PROBE` and answers the stand-in as it answers any
+    other identifier is refused (fail closed). The check after acquisition reads
+    what the question's own acquisition wrote, so a source that writes the
+    stand-in for some asked subjects and not for others is refused for those
+    questions only — such a source already answers its subjects differently,
+    and the check refuses rather than answer over a fabric that names the
+    stand-in. A composite's children are asked about the stand-in through their
+    own deployments; what their sources hold for it is not read here.
     """
 
 
@@ -1756,7 +1819,8 @@ class AcquisitionSeamProtocol(Protocol):
     **What the seam is.** One callable a deployment (or the paved road's
     facade on its behalf) hands :class:`GovernedResolver`, invoked by
     :meth:`GovernedResolver.__call__` exactly once per question for the
-    question's subject (and once more, for the P6 probe only, as below),
+    question's subject (and, as below, once more for the P6 probe, or twice
+    more to verify a declared early policy's stand-in),
     **after** the effective request has been resolved — defaults applied, the constraints
     in force folded, the technical capabilities held, the intent judged — and
     **before** the graph is read at the question's boundary. A declared
@@ -1771,7 +1835,15 @@ class AcquisitionSeamProtocol(Protocol):
     for nothing else — with the effective request carrying
     :data:`UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its
     call for the question's subject — and the question is refused if that call
-    changed the fabric (:class:`PopulationReadInSubjectKeyedPhase`). It receives the
+    changed the fabric (:class:`PopulationReadInSubjectKeyedPhase`). **Q10 as
+    amended by decision 4 (a)** (Dave, 2026-10-09 06:06 MST, confirmed 06:21:
+    *"Verify the stand-in is absent before and after acquisition."*): for a
+    class with a declared early policy, this seam is called TWICE MORE per
+    question, and for nothing else — with :data:`UNHELD_SUBJECT_PROBE` and then
+    with the policy's declared stand-in in place of the subject, immediately
+    before its call for the question — and the question is refused if the
+    stand-in acquired anything the probe identifier did not
+    (:class:`UndisclosedSubjectStandInIsHeld`). It receives the
     EFFECTIVE request, so what a deployment reads its sources at is the value
     governance resolved, never a second derivation of it: the seven copies of
     ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
@@ -1852,10 +1924,14 @@ class PopulationAcquisitionSeamProtocol(Protocol):
     — is checked for a class that may withhold and declares no early policy, by
     one extra call with :data:`UNHELD_SUBJECT_PROBE` before that one
     (:class:`PopulationReadInSubjectKeyedPhase`; ``D-IMPL-378`` ruling P6 (a),
-    which amends Q10 to exactly that call). The check does not detect a source
-    that recognizes the probe, so for that source, and for any other class,
-    the obligation stays a trusted statement (the security how-to, section
-    4.12). SEC-020 stays OPEN.
+    which amends Q10 to exactly that call). For a class with a declared early
+    policy, what the phase acquires for the policy's stand-in is compared with
+    what it acquires for :data:`UNHELD_SUBJECT_PROBE`, two extra calls before
+    that one (:class:`UndisclosedSubjectStandInIsHeld`; ``D-IMPL-378`` decision
+    4 (a)). Neither check detects a source that recognizes the identifier it is
+    asked about, so for that source, and for any other class, the obligation
+    stays a trusted statement (the security how-to, section 4.12). SEC-020
+    stays OPEN.
     """
 
     def __call__(self, *, question: PopulationQuestion, perspective: Perspective) -> None:
@@ -3144,7 +3220,10 @@ class GovernedResolver:
     #: question's subject, with the EFFECTIVE request, between resolution and
     #: the graph read — and, for a class that may withhold and declares no early
     #: policy, once more immediately before that, for the P6 probe only
-    #: (:data:`UNHELD_SUBJECT_PROBE`; Q10 as amended by ruling P6 (a)) — see
+    #: (:data:`UNHELD_SUBJECT_PROBE`; Q10 as amended by ruling P6 (a)); for a
+    #: class with a declared early policy, twice more immediately before that,
+    #: with :data:`UNHELD_SUBJECT_PROBE` and then the declared stand-in (Q10 as
+    #: amended by decision 4 (a), :class:`UndisclosedSubjectStandInIsHeld`) — see
     #: :class:`AcquisitionSeamProtocol` for what it is and is not. No default
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
@@ -3905,6 +3984,21 @@ class GovernedResolver:
                     asked, perspective=perspective, before=before_acquisition,
                     at=request.asked_at,
                 )
+            # `D-IMPL-378` decision 4 (a) (Dave, 2026-10-09 06:06 MST, confirmed
+            # 06:21; SEC-020 stays OPEN). Under a declared early policy the
+            # stand-in is what every subject-dependent step is asked about in
+            # place of an undisclosed subject, so it must name nothing: verified
+            # HERE, for every question of the class whatever its policy decides,
+            # before the subject-keyed phase is handed anything for the question
+            # — the fabric read above must not name it, and the phase must
+            # acquire nothing for it that it does not acquire for
+            # `UNHELD_SUBJECT_PROBE`. Decided by nothing about the asked subject.
+            if disclosure is not None:
+                self._refuse_a_stand_in_that_names_something(
+                    disclosure.undisclosed_subject, effective_request,
+                    perspective=perspective, before=before_acquisition,
+                    at=request.asked_at,
+                )
         if self.acquisition is not None:
             try:
                 self.acquisition(request=asked, perspective=perspective)
@@ -3935,6 +4029,12 @@ class GovernedResolver:
         view = self.fabric.handle.reader.as_of(
             tenant_id=self.fabric.tenant_id, at=request.asked_at
         )
+        # `D-IMPL-378` decision 4 (a), AFTER acquisition: the fabric the plan
+        # reads must not name the declared stand-in — checked for every
+        # question of an early-policy class, before anything is computed or
+        # recorded, with the one message the checks before acquisition carry.
+        if disclosure is not None and _names(view, disclosure.undisclosed_subject):
+            raise UndisclosedSubjectStandInIsHeld(self._stand_in_is_held())
         operators = build_operator_registry(
             parameters=self.operator_parameters(effective_request),
             view=view,
@@ -5120,6 +5220,87 @@ class GovernedResolver:
                 " policy, or affirm subject_withholding:"
                 f" {SUBJECT_WITHHOLDING_NEVER!r} (SEC-020; D-IMPL-378 ruling P6 (a))"
             )
+
+    def _refuse_a_stand_in_that_names_something(
+        self,
+        stand_in: str,
+        effective_request: ProductRequest,
+        *,
+        perspective: Perspective,
+        before: GraphView,
+        at: datetime,
+    ) -> None:
+        """Verify the declared stand-in names nothing before acquisition; refuse if it does.
+
+        ``D-IMPL-378`` decision 4 (a) (:class:`UndisclosedSubjectStandInIsHeld`).
+        Called by :meth:`__call__` for EVERY question of a class with a declared
+        early policy, whatever the policy decides for the asked subject, after
+        the read route A takes and BEFORE the subject-keyed phase is handed
+        anything for the question. Nothing here reads the asked subject: every
+        request it hands the phase is the question's effective request with an
+        identifier the SDK chose in place of the subject, under the same
+        perspective, so whether it refuses — and its one message — is the same
+        for every subject.
+
+        1. The fabric as read before (``before``) must not name the stand-in.
+        2. The phase is asked about :data:`UNHELD_SUBJECT_PROBE` and the fabric
+           is read again (``baseline``): what the phase acquires for an
+           identifier that names nothing — nothing, for a source keyed on the
+           subject; the same content as for any identifier, for a read that
+           does not depend on what is asked.
+        3. The phase is asked about the stand-in and the fabric is read again
+           (``after``): neither read may name it, and ``after`` must equal
+           ``baseline`` — the phase acquired nothing for the stand-in that it
+           did not acquire for an identifier that names nothing.
+
+        A held refusal from either call (``GovernedRefusalRaised``, or a type
+        the class or the SDK declares at this seam) acquires nothing, which is
+        how a source may answer an identifier it does not hold; under an early
+        policy the withheld subject's own question is asked as the stand-in, so
+        such a source refuses it as it refuses any unheld identifier. Any other
+        exception propagates, as the phase's own would.
+        """
+        if _names(before, stand_in):
+            raise UndisclosedSubjectStandInIsHeld(self._stand_in_is_held())
+        if self.acquisition is None:
+            return
+        baseline = self._acquired_for(effective_request, UNHELD_SUBJECT_PROBE, perspective=perspective, at=at)
+        after = self._acquired_for(effective_request, stand_in, perspective=perspective, at=at)
+        if _names(baseline, stand_in) or _names(after, stand_in) or after != baseline:
+            raise UndisclosedSubjectStandInIsHeld(self._stand_in_is_held())
+
+    def _acquired_for(
+        self, effective_request: ProductRequest, identifier: str, *, perspective: Perspective, at: datetime
+    ) -> GraphView:
+        """Ask the subject-keyed phase about ``identifier`` in place of the subject; the fabric as read after.
+
+        ``D-IMPL-378`` decision 4 (a)'s one call to the phase and its one read.
+        A held refusal acquires nothing; any other exception propagates.
+        """
+        assert self.acquisition is not None  # the caller tested it
+        try:
+            self.acquisition(
+                request=effective_request.model_copy(update={"subject": identifier}),
+                perspective=perspective,
+            )
+        except GovernedRefusalRaised:
+            pass
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            if self._declared_seam_refusal(error) is None:
+                raise
+        return self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
+
+    @staticmethod
+    def _stand_in_is_held() -> str:
+        """The one message :class:`UndisclosedSubjectStandInIsHeld` carries, whatever was asked and whichever check failed."""
+        return (
+            "the identifier this class's early policy asks in place of a subject it"
+            " does not disclose names something here: the fabric names it, or the"
+            " subject-keyed acquisition phase acquires for it what it does not"
+            f" acquire for {UNHELD_SUBJECT_PROBE!r}, an identifier that names"
+            " nothing; declare a stand-in that no source, child or fabric of this"
+            " deployment holds (SEC-020; D-IMPL-378 decision 4 (a))"
+        )
 
     @staticmethod
     def _probe_identifier_is_held(when: str) -> str:

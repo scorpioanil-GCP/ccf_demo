@@ -401,6 +401,17 @@ class AcquireProtocol(Protocol):
     subject in ``population`` instead (:class:`PopulationAcquireProtocol`).
     SEC-020 stays OPEN: an ``acquire`` that recognizes the probe identifier is
     not detected.
+
+    **Called twice more under a declared early policy** (``D-IMPL-378``
+    decision 4 (a); Q10 amended to exactly these calls). When the plan factory
+    declares an early policy, the paved road first calls ``acquire`` with
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` and then with the
+    policy's declared stand-in as the subject, immediately before the call for
+    the question, and refuses the question,
+    :class:`~ccf.products.resolver.UndisclosedSubjectStandInIsHeld`, if the
+    fabric names the stand-in or if what ``acquire`` returned for the stand-in
+    added anything to what it returned for the probe identifier. Hold nothing
+    for the stand-in you declare.
     """
 
     def __call__(self, context: AcquisitionContext) -> Iterable[SignalEnvelope]: ...
@@ -418,7 +429,9 @@ class PopulationAcquireProtocol(Protocol):
     :class:`PopulationAcquisitionContext` — no request, no subject — and then
     ``acquire`` for the subject-keyed phase, also once for the question's
     subject (plus, for a class that may withhold and declares no early policy,
-    once for the P6 probe immediately before it; :class:`AcquireProtocol`).
+    once for the P6 probe immediately before it, and, for a class with a
+    declared early policy, twice to verify its stand-in;
+    :class:`AcquireProtocol`).
     Both phases' envelopes are held to the tenant and the instant and ingested
     through the same L2 worker. The two must not overlap: an entity the
     population phase returns
@@ -981,7 +994,10 @@ class OpenedProduct:
         Called by the resolver ONCE for the question's subject, with the
         EFFECTIVE request, after resolution and before the graph read — and,
         for a class the P6 probe reads, once more immediately before that with
-        :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as the subject
+        :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as the subject, and,
+        for a class with a declared early policy, twice more immediately before
+        that, with the probe identifier and then the declared stand-in
+        (``D-IMPL-378`` decision 4 (a))
         (``D-IMPL-378`` ruling P6 (a); :class:`AcquireProtocol`). The
         deployment's ``acquire`` runs at the values governance resolved; every
         envelope is held to the tenant and the instant before L2's one writer
