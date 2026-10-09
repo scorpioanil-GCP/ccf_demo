@@ -253,19 +253,25 @@ class McpArtifactStore:
                 canonical form and therefore no stable identity. Raised before
                 anything reaches the wire.
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable
-                or refused the credentials.
-            ArtifactStoreError: the server declined the write.
+                or refused the credentials, or answered with something that is
+                not an artifact reference, which says nothing about whether the
+                write happened.
+            ArtifactStoreError: the server declined the write: the call
+                completed and the server answered it as an error, or with no
+                artifact reference. A declined write is an answer, not an
+                outage, so it is judged after the session closes and is never
+                reported as unreachability.
         """
         target, payload_artifact = authorized_write_target(
             authorized, artifact, write_kinds=self._write_kinds
         )
         payload = base64.b64encode(canonical_bytes(payload_artifact)).decode("ascii")
 
-        async def operation(session: ClientSession) -> ArtifactRef:
+        async def operation(session: ClientSession) -> CallToolResult:
             # Exactly what `put_artifact(artifact_class, name, canonical_b64)`
             # takes: the tenant is the credential's, never a wire argument
             # (D-IMPL-353 §1.2, §1.3).
-            result = await session.call_tool(
+            return await session.call_tool(
                 _PUT_TOOL,
                 {
                     "artifact_class": target.artifact_class,
@@ -273,13 +279,22 @@ class McpArtifactStore:
                     "canonical_b64": payload,
                 },
             )
-            if result.isError or result.structuredContent is None:
-                raise ArtifactStoreError(
-                    f"the artifact server declined to store {target.name!r}"
-                )
-            return ArtifactRef.model_validate(result.structuredContent)
 
-        return self._bridge.run(self._session(operation))
+        # Judged here, after the session closed, never inside the operation: the
+        # session runner reports anything the operation raises as unreachability
+        # (`ccf.mcp.client.run_with_session`), and a declined write is an answer,
+        # not an outage to retry.
+        result = self._bridge.run(self._session(operation))
+        if result.isError or result.structuredContent is None:
+            raise ArtifactStoreError(
+                f"the artifact server declined to store {target.name!r}"
+            )
+        try:
+            return ArtifactRef.model_validate(result.structuredContent)
+        except ValueError as malformed:
+            raise McpServerUnreachable(
+                f"artifact server returned a non-reference answer: {result.structuredContent!r}"[:300]
+            ) from malformed
 
     def get(self, *, content_address: str) -> bytes:
         """Return the exact canonical bytes stored at ``content_address``.

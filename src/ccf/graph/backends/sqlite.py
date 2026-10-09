@@ -175,8 +175,22 @@ class SqliteWriterLease:
     * **An OS lock, never a file-existence check.** The kernel drops the lock
       when the holder dies, however it dies; the sidecar file persists and is
       harmless. A crashed holder therefore never wedges a later boot.
-    * **Keyed on the inode, via the resolved path.** Two spellings of one
-      database file land on one sidecar, so they are one graph to the lease.
+    * **Keyed on the resolved path, not on the file.** A relative and an
+      absolute spelling of one path, or a symbolic link to it, resolve to one
+      sidecar, so they are one graph to the lease. Another name for the same
+      file is not: a hard link resolves to itself, and a live file moved to a
+      new name leaves its old name's sidecar behind, so the sidecar beside
+      the new name is another file, and a writer booted through it in a
+      second process is not refused while the first process's writer is
+      live (measured by
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_a_hard_link_to_a_held_graph``
+      and
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file``).
+      SQLite names its write-ahead log after the path too, so a second name
+      reads another log and misses what the first committed
+      (``tests/graph/test_sqlite_writer_lease_hard_link.py::test_sqlite_keeps_a_write_ahead_log_per_name_so_a_second_name_misses_what_the_first_committed``):
+      give a live database file exactly one name, and do not move it while
+      a writer holds it.
     * **Never blocks.** A held lease raises
       ``src/ccf/graph/protocols.py::WriterLeaseHeld`` at once.
 
