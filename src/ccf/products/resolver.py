@@ -753,7 +753,9 @@ class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
     — its exact identifier, or its shape, outside the URI form the fabric's
     entity resolution mints — and answers nothing for it while it reads the
     population for any other identifier **is not detected**, and a withheld
-    subject and a nonexistent one are then still told apart. It costs one
+    subject and a nonexistent one are then still told apart (measured, and
+    kept visible: ``tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py``,
+    and the ``SEC-020 P6 PROBE LIMITATION`` block of SEC-020's closing test). It costs one
     more call to the subject-keyed phase and one more read of the fabric per
     question of such a class. A class with a declared early policy is not
     probed, nor is a class affirming ``subject_withholding: never``. To be
