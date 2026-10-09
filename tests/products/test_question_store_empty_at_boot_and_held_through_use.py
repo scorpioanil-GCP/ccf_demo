@@ -51,7 +51,7 @@ import pytest
 
 from ccf.contracts.canonical import content_hash
 from ccf.deployment import load_and_boot, load_config_and_boot
-from ccf.products.resolver import ProductNotResolvable, build_governed_resolver
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE, ProductNotResolvable, build_governed_resolver
 from ccf.replay.engine import replay
 from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
@@ -621,19 +621,29 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
 def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_check_to_its_end_on_the_paved_road(
     tmp_path: pathlib.Path,
 ) -> None:
-    """Exclusive ownership through use, the paved road: tried from inside ``acquire``, through the single-file door."""
+    """Exclusive ownership through use, the paved road: tried from inside ``acquire``, through the single-file door.
+
+    ``D-IMPL-378`` ruling P6 (a) (Dave, 2026-10-08 16:40 MST: *"Amend Q10 to
+    permit the probe"*): this class may withhold late and declares no early
+    policy, so ``acquire`` is called twice for its one question, handed the
+    probe identifier first and then the question's subject. Both calls are
+    inside the question's use, so the routes are tried in each call and judged
+    in each, and nothing may land in the store in either.
+    """
     from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER as PAVED_THRESHOLD  # noqa: PLC0415
     from tests.products.test_paved_road import ASKED_AT as PAVED_ASKED_AT  # noqa: PLC0415
 
     scratch = tmp_path / "scratch"
     held: list[int] = []
     routes_holder: list[_Routes] = []
+    handed: list[str] = []
 
     class _TryingAcquire:
         def __init__(self) -> None:
             self._inner = sec020._AcquireForSubject()
 
         def __call__(self, context: Any) -> Any:
+            handed.append(context.request.subject)
             minted = sorted(scratch.glob("paved_fixture*.sqlite3"))
             assert len(minted) == 1, minted
             connection = {"database_path": str(minted[0])}
@@ -674,7 +684,7 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
                     "a plain read-only boot at its path, asked a governed question": a_plain_read_only_boot_asked_a_question,
                 }
             )
-            routes.run("during its acquisition phase")
+            routes.run(f"during its acquisition phase, handed {context.request.subject}")
             routes_holder.append(routes)
             reader = load_config_and_boot(
                 opened.config_path, registry=opened.control_plane, connection=connection, read_only=True,
@@ -688,17 +698,22 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
     with _open_paved(_paved_tree(tmp_path), scratch, acquire=_TryingAcquire()) as opened:
         outcome = m._paved_ask(opened, sec020.PAVED_WITHHELD)
     assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
-    assert len(routes_holder) == 1, "the routes were not tried; the case was not constructed"
-    _assert_every_route_refused_by_name(
-        routes_holder[0],
-        {
-            "a boot for a question at its path": "QuestionFabricNotFresh",
-            "a plain writer boot at its path": "SingleWriterViolation",
-            "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
-        },
-        road="the paved road",
+    # P6 (a): the probe's call, then the subject's, each once; the routes tried in both.
+    assert handed == [UNHELD_SUBJECT_PROBE, sec020.PAVED_WITHHELD] and len(routes_holder) == len(handed), (
+        "the routes were not tried in every acquisition call; the case was not constructed:"
+        f" acquire was handed {handed}, the routes were tried {len(routes_holder)} time(s)"
     )
-    assert held == [0], f"nothing any route tried may land in the question's store: {held}"
+    for routes in routes_holder:
+        _assert_every_route_refused_by_name(
+            routes,
+            {
+                "a boot for a question at its path": "QuestionFabricNotFresh",
+                "a plain writer boot at its path": "SingleWriterViolation",
+                "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
+            },
+            road="the paved road",
+        )
+    assert held == [0, 0], f"nothing any route tried may land in the question's store, in either call: {held}"
 
 
 class _AnotherProcess:
