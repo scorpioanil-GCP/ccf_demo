@@ -354,6 +354,62 @@ def test_1_2_b_a_store_planted_after_the_look_beside_a_stale_marker_is_refused_b
         again.handle.close()
 
 
+@pytest.mark.parametrize("state", ["verified, its store deleted", "the single-line marker of fe25536c"])
+def test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    """A writer outside the SDK puts another file at the stale marker's path after the boot looked: refused, file left.
+
+    ``src/ccf/deployment/manifest.py::_replace_stale_deployment_marker`` checks
+    that the marker is still the file the boot's look found (device and inode)
+    immediately before it replaces it. Injection, the least invasive hook: the
+    module's call into that function is wrapped so that, when the boot makes
+    it, an outside writer first renames a new file over the marker, and the
+    real function then runs with the identity the boot's look took. Nothing the
+    SDK computes is changed; only the outside write's moment is chosen, inside
+    the window between the look and the replacement, where a writer outside
+    the SDK's boots would land. The new file is written beside the marker and
+    renamed over it, so it is another inode (a file deleted and created again
+    can be handed the same inode number). A rewrite in place keeps the file's
+    identity and is NOT told apart by this check (measured by lane
+    ``378j-boot``'s ``probe_claimed_window.py``; disclosed in section 4.12).
+    The lane's own tests passed with this check removed (the coordinator's
+    severing on ``6fc0eeb6``).
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "stale" / _STORE
+    target.parent.mkdir()
+    _stale_with_no_store(tmp_path, manifest, registry, target, state)
+    marker = _marker(target)
+    foreign = b"another writer's marker, put there after the boot looked\n"
+    real_replace = manifest_module._replace_stale_deployment_marker
+    swapped: list[tuple[int, int]] = []
+
+    def an_outside_writer_renames_another_file_over_the_marker_first(path: pathlib.Path, found: tuple[int, int]) -> Any:
+        newcomer = marker.with_name(f"{marker.name}.outside-writer")
+        newcomer.write_bytes(foreign)
+        os.replace(newcomer, marker)
+        status = os.lstat(marker)
+        swapped.append((status.st_dev, status.st_ino))
+        assert swapped[-1] != found, "the outside writer's file has the identity the look found; the case was not constructed"
+        return real_replace(path, found)
+
+    monkeypatch.setattr(
+        manifest_module, "_replace_stale_deployment_marker", an_outside_writer_renames_another_file_over_the_marker_first
+    )
+    outcome = _boot(manifest, registry, target)
+    assert len(swapped) == 1, f"[{state}] the boot never reached the replacement; the case was not constructed"
+    _assert_refused_not_verified(outcome, marker=marker, reason="claimed", case=f"{state}, another file after the look")
+    status = os.lstat(marker)
+    assert (status.st_dev, status.st_ino) == swapped[0] and marker.read_bytes() == foreign, (
+        f"[{state}] the refused boot replaced or changed the file the outside writer put at the marker's path"
+    )
+    assert not target.exists(), f"[{state}] a refused boot created a store at the path"
+    assert not list(marker.parent.glob(f"{marker.name}.replacing-*")), f"[{state}] the refused boot left its staging file"
+
+
 @pytest.mark.parametrize("roles", [("writer", "writer"), ("writer", "read-only")])
 def test_1_2_b_two_plain_boots_racing_on_stale_no_store_paths_never_serve_a_store_they_did_not_verify(
     tmp_path: pathlib.Path, roles: tuple[str, str]
