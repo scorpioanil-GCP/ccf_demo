@@ -35,6 +35,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from mcp.server.fastmcp import FastMCP
 
@@ -537,16 +538,24 @@ def test_the_stdio_door_reads_neither_door_url_and_advertises_only_reserved_addr
     with _open(root, scratch) as opened:
         door = open_door(opened, environ={})
         assert door.credential, "minted per boot when the variable is unset"
-        door.serve_stdio(
-            identity=AuthenticatedUser(
-                ambient_stdio_identity(
-                    credential=door.credential,
-                    principal_id=door.principal_id,
-                    scope=door.scope,
-                    tenant=door.tenant_id,
+        # `serve_stdio` sets the MCP library's ambient identity for the rest of the process (stdio is
+        # single-principal by its contract). This test runs it inside the pytest process, so it contains
+        # what it sets, as `tests/mcp/test_stdio_door_identity.py` does: no later test runs as this identity
+        # (`tests/products/test_stdio_identity_is_contained_between_tests.py`).
+        reset = auth_context_var.set(None)
+        try:
+            door.serve_stdio(
+                identity=AuthenticatedUser(
+                    ambient_stdio_identity(
+                        credential=door.credential,
+                        principal_id=door.principal_id,
+                        scope=door.scope,
+                        tenant=door.tenant_id,
+                    )
                 )
             )
-        )
+        finally:
+            auth_context_var.reset(reset)
     assert [transport for transport, _, _ in started] == ["stdio"], started
     (_, issuer, resource), = started
     for advertised in (issuer, resource):
