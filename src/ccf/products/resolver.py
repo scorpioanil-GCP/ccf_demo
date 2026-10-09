@@ -175,6 +175,7 @@ from ccf.products.demonstration_clock import DeclaredServeClock, compose_serve_c
 from ccf.erasure.store import ErasureCompositionRefused, compose_erasure_consult
 from ccf.erasure.trust import ErasureTrust
 from ccf.contracts.base import CCFContract
+from ccf.contracts.claims import LineageEntry
 from ccf.controlplane.artifacts import (
     DebtProfile,
     RequestBoundParameter,
@@ -196,7 +197,7 @@ from ccf.deployment import (
     build_operator_registry,
     refuse_operator_set_divergence,
 )
-from ccf.graph.protocols import GraphView, TraversalDepthCapability
+from ccf.graph.protocols import EntityRecord, GraphView, RelationshipRecord, TraversalDepthCapability
 from pydantic import ValidationError
 
 from ccf.halflife.assessment import NO_OBLIGATION_IN_FORCE
@@ -916,10 +917,15 @@ class UndisclosedSubjectSubstituteIsHeld(UnsupportedComposition):
       subject-keyed phase is declared, the phase is asked about
       :data:`UNHELD_SUBJECT_PROBE` and then about the stand-in, the fabric read
       after each, and what it acquired for the stand-in must name nothing and
-      add nothing to what it acquired for the probe identifier. A source that
+      add nothing to what it acquired for the probe identifier — compared as
+      entities, relationships and claim values, with delivery lineage set
+      aside (``D-IMPL-378`` repair 1.3, :func:`_held_content`). A source that
       holds the stand-in, under any URI, acquires for it what it does not
       acquire for an identifier that names nothing; a read that acquires the
-      same content whatever is asked adds nothing;
+      same content whatever is asked adds nothing, also when it gives each
+      delivery its own envelope id or receipt instant (the components of a
+      lineage entry a delivery mints), while evidence from another source or
+      another passage adds something;
     * **after acquisition** — the fabric the plan reads must not name it.
 
     Raised by :meth:`GovernedResolver.__call__` with ONE message, whatever
@@ -946,6 +952,64 @@ class UndisclosedSubjectSubstituteIsHeld(UnsupportedComposition):
     stand-in. A composite's children are asked about the stand-in through their
     own deployments; what their sources hold for it is not read here.
     """
+
+
+#: The components of a :class:`~ccf.contracts.claims.LineageEntry` that a DELIVERY
+#: mints rather than the evidence carries (``D-IMPL-378`` repair 1.3): the
+#: ``envelope_id`` of the envelope that delivered the claim, which the
+#: acquisition seam leaves to the adapter, and the ``observed_at`` instant the
+#: fabric received that delivery, which L2 takes from the envelope's
+#: ``ingestion_timestamp`` (:meth:`~ccf.assembly.worker.AssemblyWorker._stitch`).
+#: Every other component — the source's identity, the passage anchor, and any
+#: component the entry declares later — is evidence, and is compared.
+_DELIVERY_LINEAGE: Final[frozenset[str]] = frozenset({"envelope_id", "observed_at"})
+
+
+def _held_content(view: GraphView) -> bytes:
+    """``view``'s entities, relationships and claim values, with delivery lineage set aside, in canonical bytes.
+
+    ``D-IMPL-378`` repair 1.3 (SDK-defined, CLAUDE.md §11). Dave, 2026-10-09
+    10:54 MST: *"Compare entities, relationships and claim values, excluding
+    delivery lineage. Preserve security-relevant differences and the existing
+    held-stand-in controls."* SEC-020 stays OPEN.
+
+    Two views hold the same content exactly when these bytes are equal (the
+    SDK's one canonical form, :func:`~ccf.contracts.canonical.canonical_bytes`).
+    Every member of the view, of each entity and relationship record and of
+    each claim is kept, read off the declared fields, so a member added later is
+    compared rather than skipped; a claim's lineage is kept as the set of its
+    entries with the components in :data:`_DELIVERY_LINEAGE` removed. So a
+    delivery that brings what the fabric already holds under its own envelope id
+    or its own receipt instant adds nothing, while a new entity, a new
+    relationship, a changed claim value, or evidence from another source or
+    another passage still does. Pure over the view.
+    """
+
+    def entry(held: LineageEntry) -> str:
+        return canonical_bytes(
+            {name: getattr(held, name) for name in type(held).model_fields if name not in _DELIVERY_LINEAGE}
+        ).decode("utf-8")
+
+    def record(held: EntityRecord | RelationshipRecord) -> dict[str, object]:
+        claim = held.claim
+        return {
+            **{name: getattr(held, name) for name in type(held).model_fields if name != "claim"},
+            "claim": {
+                **{name: getattr(claim, name) for name in type(claim).model_fields if name != "lineage"},
+                "lineage": frozenset(entry(lineage) for lineage in claim.lineage),
+            },
+        }
+
+    return canonical_bytes(
+        {
+            name: (
+                tuple(record(held) for held in getattr(view, name))
+                if name in ("entities", "relationships")
+                else getattr(view, name)
+            )
+            for name in type(view).model_fields
+        }
+    )
 
 
 def _names(view: GraphView, identifier: str) -> bool:
@@ -5497,9 +5561,13 @@ class GovernedResolver:
            subject; the same content as for any identifier, for a read that
            does not depend on what is asked.
         3. The phase is asked about the stand-in and the fabric is read again
-           (``after``): neither read may name it, and ``after`` must equal
-           ``baseline`` — the phase acquired nothing for the stand-in that it
-           did not acquire for an identifier that names nothing.
+           (``after``): neither read may name it, and ``after`` must hold what
+           ``baseline`` holds — the phase acquired nothing for the stand-in that
+           it did not acquire for an identifier that names nothing. Held as
+           entities, relationships and claim values with delivery lineage set
+           aside (:func:`_held_content`; ``D-IMPL-378`` repair 1.3), so a
+           delivery that only re-delivers under its own envelope id or receipt
+           instant is not a difference, and every other one is.
 
         A held refusal from either call (``GovernedRefusalRaised``, or a type
         the class or the SDK declares at this seam) acquires nothing, which is
@@ -5514,7 +5582,11 @@ class GovernedResolver:
             return
         baseline = self._acquired_for(effective_request, UNHELD_SUBJECT_PROBE, perspective=perspective, at=at)
         after = self._acquired_for(effective_request, stand_in, perspective=perspective, at=at)
-        if _names(baseline, stand_in) or _names(after, stand_in) or after != baseline:
+        if (
+            _names(baseline, stand_in)
+            or _names(after, stand_in)
+            or _held_content(after) != _held_content(baseline)
+        ):
             raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
 
     def _acquired_for(
