@@ -10,10 +10,9 @@ the producer identity it asserts on every outcome, the tenant that assertion
 names, the scope it requires and the prose its tool advertises (the
 ``ccf.egress-door`` class, ``D-IMPL-343``).
 
-``ccf_environment.yaml`` beside this file: the NAMES of the environment
-variables the door's credential and advertised addresses are read from, never
-their values (Dave, ``D-IMPL-343``: *"Do not put URLs or tokens in
-configuration."*).
+``ccf_environment.yaml`` beside this file: the NAME of the environment
+variable the door's credential is read from, never its value (Dave,
+``D-IMPL-343``: *"Do not put URLs or tokens in configuration."*).
 
 All three are data; these two modules are their interpreter (CLAUDE.md §6.4).
 Delete any of them and this program has nothing to serve.
@@ -46,8 +45,9 @@ only place it may be written.
 
 The two addresses an HTTP door advertises for OAuth discovery do nothing on
 stdio, for the same reason, and the SDK's stdio transport supplies its own
-(``D-IMPL-378``, ruling C2-A (b)). So nothing that spawns this program has to
-carry the two variables ``ccf_environment.yaml`` names.
+(``D-IMPL-378``, ruling C2-A (b)). Both names are optional (C2-A2 (a)), so
+``ccf_environment.yaml`` names neither, and nothing that spawns this program has
+to carry a door variable: the credential, unset, is minted per boot.
 
 Nothing is committed as data (``D-32``)
 -----------------------------------------
