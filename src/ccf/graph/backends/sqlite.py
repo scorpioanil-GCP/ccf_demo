@@ -201,6 +201,36 @@ class SqliteWriterLease:
     WAL-mode SQLite (this store's mode) is already unsupported on network
     filesystems, so the sidecar adds no new constraint; a process ``fork``-ed
     while holding the lease shares it until that child exits.
+
+    **Two limits an operator must know, disclosed by ruling** (``D-IMPL-378``,
+    Dave, 2026-10-08 21:24 MST: option (B) "with the rename gap and hard-link
+    backup restriction explicitly disclosed"). ``SEC-013`` stays open.
+
+    * **Do not move a live database file.** A file moved to a new name while
+      a writer holds it keeps one name, so it is not refused, and a writer
+      booted through the new name in a second process is not refused while
+      the first is live (measured above). SQLite leaves the live write-ahead
+      log beside the old name, so the new name does not see what the writer
+      committed; once both names have been written through and closed, what
+      was committed through the old name is gone, and SQLite's integrity
+      check still reports ``ok``
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_moved_live_file_leaves_its_write_ahead_log_behind_and_its_commits_are_lost``).
+      Stop every process that has the file open before moving it: a file
+      moved while closed is one graph under its new name
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_new_name``).
+      Option (C), a lock keyed on the file's device and inode in a declared
+      directory, is being built to close this gap, and ``SEC-013`` stays open
+      until then.
+    * **A hard-link backup refuses every writer boot.** A backup that links
+      the database file instead of copying it gives the file a second name.
+      Until that name is removed, the lease is refused through either name,
+      even with no writer live, so every writer boot of the graph, in any
+      process, is refused with ``SingleWriterViolation``
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed``).
+      Back the file up with a copy SQLite writes itself instead: its online
+      backup API (``sqlite3.Connection.backup``) or ``VACUUM INTO``. Either
+      can run while a writer is live, and the file keeps one name
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name``).
     """
 
     def __init__(self, *, sidecar: Path) -> None:
@@ -290,6 +320,13 @@ class SqliteGraphStore:
 
         Called by the mint only, never at open: a second, read-only store over
         a live fabric's file is legitimate and takes no lease.
+
+        A database file with more than one name is refused whether or not a
+        writer is live, so a hard link a backup made to the file refuses every
+        writer boot until it is removed. A file moved to a new name while a
+        writer holds it keeps one name and is not refused: ``SEC-013`` stays
+        open on that gap pending option (C). Both limits, and what an operator
+        does instead, are disclosed in :class:`SqliteWriterLease`.
 
         Raises:
             WriterLeaseHeld: another holder — in any process — has the lease,

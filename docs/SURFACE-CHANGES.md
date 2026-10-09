@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2451 entries**, of which **2174** name a public Python surface.
+**2452 entries**, of which **2175** name a public Python surface.
 
 ## Added
 
@@ -30707,7 +30707,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-432 entries — 393 public Python surface, 39 not public Python API.
+433 entries — 394 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37022,6 +37022,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: code that caught `McpServerUnreachable` around `put` to handle a server's refusal catches `ArtifactStoreError` instead.
 
 *Recorded by `378-43-small2-store-decline-lease-name-withholding-doc.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: the docstrings of `writer_lease` and of `SqliteWriterLease` stated option (B)'s refusal of a second name and noted that a live file moved to a new name escapes it, but neither said what the refusal costs a deployment that takes hard-link backups, what a move of a live file loses, or how to move or back up a database file safely.
+- After: documentation only; the behavior is option (B)'s, unchanged. Both docstrings and the security page's §4.6 disclose the rename gap (a live database file moved to a new name escapes the lease; SQLite's write-ahead log stays beside the old name, so what was committed through it can be lost with no integrity error; stop every process that has the file open before moving it; `SEC-013` stays open pending option (C)) and the hard-link backup restriction (a hard link to the database file refuses every writer boot until it is removed, even with no writer live; back up with SQLite's online backup API or `VACUUM INTO` instead).
+- Why: Dave's ruling on item 8 (`D-IMPL-378`, 2026-10-08 21:24 MST): "B now, with the rename gap and hard-link backup restriction explicitly disclosed."
+- Migration: a deployment that backs up a SQLite graph by hard-linking its database file, or that moves a live database file, changes how it does both, as above.
+
+*Recorded by `378-44-b8-sqlite-lease-option-b-ruled-and-its-two-limits-disclosed.md`.*
 
 ### Not public Python API
 
