@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2458 entries**, of which **2181** name a public Python surface.
+**2462 entries**, of which **2185** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1351 entries — 1305 public Python surface, 46 not public Python API.
+1352 entries — 1306 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19736,6 +19736,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
 
+#### ccf.graph.registry.is_sdk_development_reference
+
+- Surface: ccf.graph.registry.is_sdk_development_reference
+- Public surface: true
+- Change type: added
+- Before: absent
+- After: `is_sdk_development_reference(name: str) -> bool`. True only when `name` is an adapter the SDK ships (the built-in discovery source, the SDK's own adapter package directory) and the SDK's own registration record for it declares `development_reference`. False for every other name, including any third-party adapter, whatever its registration declares, and nothing is imported for such a name
+- Why: `D-IMPL-378` decision 6 (b). Red test: `tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition`
+- Migration: none; additive
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30743,7 +30755,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-436 entries — 397 public Python surface, 39 not public Python API.
+439 entries — 400 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37106,6 +37118,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: a caller that caught `McpServerUnreachable` around `names_at` to retry it no longer receives a refusal that way; catch `ArtifactReadRefused`, or `ArtifactStoreError`, and treat it as "cannot verify". The SDK's own consumers keep their outcomes: the erasure door still refuses `class-unverifiable`, now with the typed refusal as the cause, and the in-process door is unchanged. Measured by lane `378i-names`'s consumer probe, not by a test in this tree: where the bytes of a record were served to one credential and the naming read of the same address was refused, which stands for the server's decision changing between the two reads, `ccf.replay.engine.resolve_artifact` over such a store raises the typed refusal where it raised `McpServerUnreachable`, and the governed evidence read (`ccf_runtime.authz.delivery_boundary.govern_dereference`) over the erasure-consulting composition of it answers its `nonexistent` shell where `McpServerUnreachable` escaped it.
 
 *Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
+
+#### ccf.graph.registry.BackendRegistration
+
+- Surface: ccf.graph.registry.BackendRegistration
+- Public surface: true
+- Change type: behavior
+- Before: same fields. `development_reference`, set to `True` by any registration, admitted a declared demonstration serve instant over that adapter; fragment `378-22`'s migration note invited a third-party development adapter to set it
+- After: same fields, same default. `development_reference` is read only on the SDK's own registrations, through `is_sdk_development_reference`. On a third-party registration it is never read, so setting it no longer admits demonstration time
+- Why: `D-IMPL-378` decision 6 (b), amending C1 (b)'s "declares itself"
+- Migration: a third-party adapter that set `development_reference=True` boots as before, and a demonstration serve instant declared over it is now refused at composition (`DemonstrationServeInstantRefused`, reason `graph-substrate-not-development`). Demonstration time runs on the SDK's own SQLite or in-memory adapter
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature. Admitted a declaration over any graph adapter whose own registration declared `development_reference`, third-party adapters included
+- After: same signature. Admits a declaration only over a graph adapter the SDK ships whose own registration is a development reference (`is_sdk_development_reference`), with an artifact store that is an instance of `FileArtifactStore` as before. `ccf.products.resolver.build_governed_resolver` and the in-process door call it, so both refuse the same way
+- Why: `D-IMPL-378` decision 6 (b). Red tests: `tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition` and `tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door`
+- Migration: as `ccf.graph.registry.BackendRegistration`
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+- Public surface: true
+- Change type: behavior
+- Before: raised with reason `graph-substrate-not-development` when the graph adapter's own registration did not declare `development_reference`
+- After: raised with the same reason when the graph adapter is not one of the SDK's own approved development backends, whatever its registration declares. The message says an adapter's declaration about itself does not count. The `artifact-store-not-development` reason, the `key` attribute and the `ValueError` base are unchanged
+- Why: `D-IMPL-378` decision 6 (b)
+- Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
+
+*Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
 
 ### Not public Python API
 

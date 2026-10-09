@@ -3,9 +3,11 @@
 **SDK-defined** (CLAUDE.md §11; ruling C1 (a), Dave, 2026-10-07/08): *"an SDK way
 for a deployment to declare a fixed demonstration serve instant, honored by both
 transports, never usable in production (security review required)"*. How it is
-kept out of production was ruled option (b) (Dave, 2026-10-08 10:50 MST); these
-tests hold it: the declaration is refused outside the SDK's development
-substrates, and every record made under it pins it.
+kept out of production was ruled option (b) (Dave, 2026-10-08 10:50 MST), and
+narrowed by decision 6 (b) (Dave, 2026-10-09) to the SDK's own approved
+development backends; these tests hold it: the declaration is refused outside
+the SDK's own approved development backends, and every record made under it
+pins it.
 
 What each test asserts, by mechanism:
 
@@ -22,6 +24,11 @@ What each test asserts, by mechanism:
 * the production guard refuses a declaration over a non-development graph
   substrate and over a non-file artifact store
   (``DemonstrationServeInstantRefused``, by reason);
+* only the SDK's OWN approved development backends are admitted (decision 6
+  (b), Dave, 2026-10-09): a third-party adapter is refused even when its
+  registration declares ``development_reference`` and re-registers one of the
+  SDK's own stores, at composition and at the in-process door, while the SDK's
+  own SQLite and in-memory adapters are admitted;
 * the erasure consult keeps the composition's own clock (the declared instant is
   confined to the serve clock).
 
@@ -463,7 +470,8 @@ def test_a_refusal_record_pins_the_declaration(seeded: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Never usable in production (option (b), ruled): development substrates only.
+# Never usable in production (option (b), ruled): the SDK's own development
+# backends only.
 # ---------------------------------------------------------------------------
 
 
@@ -515,6 +523,247 @@ def test_a_declaration_over_a_non_file_artifact_store_is_refused(
 
 
 # ---------------------------------------------------------------------------
+# Decision 6 (b): the SDK's OWN approved development backends, never an adapter
+# that declares itself one.
+# ---------------------------------------------------------------------------
+
+#: A third-party adapter, the distribution that declares it, and the module its
+#: declaration names. Test vocabulary: no such distribution is installed; the
+#: registry reaches it through its real entry-point path because
+#: :func:`install_third_party_adapter` adds one declaration there.
+THIRD_PARTY_ADAPTER = "acme_dev"
+THIRD_PARTY_DISTRIBUTION = "acme-graph-adapter"
+THIRD_PARTY_MODULE = "acme_graph_adapter"
+
+
+def install_third_party_adapter(monkeypatch: pytest.MonkeyPatch, *, wraps: str) -> None:
+    """Declare a third-party adapter that re-registers one of the SDK's own development stores.
+
+    The strongest forger a third party can build by declaration: a
+    ``BackendRegistration`` carrying the SDK's own ``wraps`` adapter's connection
+    contract, store constructor and writer constructor, under the third party's
+    own name, with ``development_reference=True``. It differs from the SDK's own
+    registration only in not BEING it. It is reached exactly as an installed
+    distribution's adapter is: one declaration in the
+    ``ccf.graph.registry.BACKEND_ENTRY_POINT_GROUP`` entry-point group, beside
+    every declaration this environment has installed, loaded by
+    ``ccf.graph.registry.resolve`` through ``EntryPoint.load``.
+    """
+    import dataclasses
+    import importlib.metadata as metadata
+    import sys
+    import types
+    from types import SimpleNamespace
+
+    from ccf.graph import registry
+
+    forged = types.ModuleType(THIRD_PARTY_MODULE)
+    forged.REGISTRATION = dataclasses.replace(  # type: ignore[attr-defined]
+        registry.resolve(wraps).registration,
+        name=THIRD_PARTY_ADAPTER,
+        development_reference=True,
+    )
+    monkeypatch.setitem(sys.modules, THIRD_PARTY_MODULE, forged)
+    declaration = metadata.EntryPoint(
+        THIRD_PARTY_ADAPTER,
+        f"{THIRD_PARTY_MODULE}:REGISTRATION",
+        registry.BACKEND_ENTRY_POINT_GROUP,
+    )._for(SimpleNamespace(name=THIRD_PARTY_DISTRIBUTION, version="1.0.0"))
+    installed = tuple(registry._declared_entry_points())
+    monkeypatch.setattr(
+        registry,
+        "_declared_entry_points",
+        lambda: metadata.EntryPoints((*installed, declaration)),
+    )
+
+
+def switch_backend(root: Path, backend: str) -> None:
+    """Point the copy's ``backend:`` at another adapter name; nothing else changes."""
+    config = root / "ccf_config.yaml"
+    text = config.read_text(encoding="utf-8")
+    line = "\nbackend: sqlite\n"
+    assert text.count(line) == 1, "the fixture no longer declares its backend on one line"
+    config.write_text(text.replace(line, f"\nbackend: {backend}\n"), encoding="utf-8")
+
+
+def connection_for(store: str, root: Path) -> dict[str, object]:
+    """The connection the SDK's ``store`` adapter takes: a file for SQLite, nothing in memory."""
+    return {"database_path": str(root / "graph.sqlite3")} if store == "sqlite" else {}
+
+
+def boot_declared(
+    root: Path, *, backend: str, connection: dict[str, object]
+) -> tuple[Any, Any]:
+    """Boot the copy on ``backend`` through the config door, with the declaration in force."""
+    from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.deployment.config import load_config_and_boot
+
+    switch_backend(root, backend)
+    declare(root)
+    control_plane = ControlPlaneRegistry()
+    booted = load_config_and_boot(
+        root / "ccf_config.yaml", registry=control_plane, connection=connection
+    )
+    return booted, control_plane
+
+
+def compose_over(booted: Any, control_plane: Any, tmp_path: Path) -> Any:
+    """Ask the composition step for this fabric's serve clock, over the SDK's file store."""
+    from ccf.products.demonstration_clock import compose_serve_clock
+    from ccf.products.resolver import _utc_now
+
+    return compose_serve_clock(
+        control_plane=control_plane,
+        fabric=booted,
+        artifact_store=FileArtifactStore(
+            root=tmp_path / "store", write_kinds=WriteKinds.declare({})
+        ),
+        admission_clock=_utc_now,
+        sdk_clock=_utc_now,
+    )
+
+
+@pytest.mark.parametrize("wraps", ["sqlite", "memory"])
+def test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition(
+    deployment_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, wraps: str
+) -> None:
+    """Decision 6 (b): only the SDK's own approved development backends, whatever an adapter declares.
+
+    Dave, 2026-10-09 (confirmed at 06:21, "6b"): *"(b). Restrict demonstration
+    time to the SDK's own approved development backends. Explicitly amend the
+    broader “declares itself” wording."* The hole, measured by the final panel
+    (G-DEVREF): the guard admitted any adapter whose registration declares
+    ``development_reference``. The forger re-registers the SDK's own ``wraps``
+    store under a third-party name and declares the flag. It is resolved through
+    the registry's real entry-point path and booted through the config door, so
+    the guard is asked about a real booted fabric. Refused by name:
+    ``DemonstrationServeInstantRefused`` with reason
+    ``graph-substrate-not-development``.
+    """
+    from ccf.graph.registry import resolve
+    from ccf.products.demonstration_clock import DemonstrationServeInstantRefused
+
+    install_third_party_adapter(monkeypatch, wraps=wraps)
+    third_party = resolve(THIRD_PARTY_ADAPTER)
+    # Preconditions, so the refusal below cannot be about anything else: the
+    # adapter is a third party's, it declares the flag, and its record is not
+    # the SDK's own.
+    assert third_party.distribution == THIRD_PARTY_DISTRIBUTION, third_party
+    assert third_party.registration.development_reference is True
+    assert third_party.registration is not resolve(wraps).registration
+    booted, control_plane = boot_declared(
+        deployment_root,
+        backend=THIRD_PARTY_ADAPTER,
+        connection=connection_for(wraps, deployment_root),
+    )
+    try:
+        assert booted.handle.adapter.name == THIRD_PARTY_ADAPTER
+        try:
+            clock = compose_over(booted, control_plane, tmp_path)
+        except DemonstrationServeInstantRefused as refused:
+            assert refused.reason == "graph-substrate-not-development", refused.reason
+            assert refused.key == f"{booted.tenant_id}/{CLASS_ID}", refused.key
+        else:
+            pytest.fail(
+                f"ADMITTED: third-party adapter {THIRD_PARTY_ADAPTER!r} (distribution"
+                f" {THIRD_PARTY_DISTRIBUTION!r}), re-registering the SDK's {wraps!r}"
+                " store and declaring development_reference=True, composed a"
+                f" {type(clock).__name__} serving at {clock().isoformat()}"
+            )
+    finally:
+        booted.handle.close()
+
+
+@pytest.mark.parametrize("backend", ["sqlite", "memory"])
+def test_the_sdks_own_development_backends_are_still_admitted_at_composition(
+    deployment_root: Path, tmp_path: Path, backend: str
+) -> None:
+    """The controls: each of the SDK's own two development backends composes the declared clock.
+
+    Same copy, same config door, same composition step as the refusal above;
+    the only difference is that the booted adapter is the SDK's own.
+    """
+    from ccf.products.demonstration_clock import DeclaredServeClock
+
+    booted, control_plane = boot_declared(
+        deployment_root, backend=backend, connection=connection_for(backend, deployment_root)
+    )
+    try:
+        assert booted.handle.adapter.name == backend
+        clock = compose_over(booted, control_plane, tmp_path)
+        assert isinstance(clock, DeclaredServeClock), type(clock).__name__
+        assert clock() == DECLARED
+    finally:
+        booted.handle.close()
+
+
+def test_a_subclass_of_the_sdks_file_store_passes_the_store_check(
+    deployment_root: Path, tmp_path: Path
+) -> None:
+    """A DISCLOSED LIMIT, not a guarantee: the store half of the guard is an ``isinstance`` test.
+
+    Decision 6 (b) tightened the graph half to the adapters the SDK ships. The
+    store half admits an instance of the SDK's ``FileArtifactStore`` class, and
+    an instance of a subclass is one, so a store class declared by subclassing
+    passes it. SP §4.14 says so, and this measures it. It goes red if the store
+    half is tightened, so the page is corrected with the code. Lane
+    ``378i-devref`` reports it for a ruling rather than changing it.
+    """
+    from ccf.products.demonstration_clock import DeclaredServeClock, compose_serve_clock
+    from ccf.products.resolver import _utc_now
+
+    class _SubclassStore(FileArtifactStore):
+        """A store class someone else declares, by inheriting the SDK's."""
+
+    booted, control_plane = boot_declared(
+        deployment_root, backend="sqlite", connection=connection_for("sqlite", deployment_root)
+    )
+    try:
+        clock = compose_serve_clock(
+            control_plane=control_plane,
+            fabric=booted,
+            artifact_store=_SubclassStore(
+                root=tmp_path / "store", write_kinds=WriteKinds.declare({})
+            ),
+            admission_clock=_utc_now,
+            sdk_clock=_utc_now,
+        )
+        assert isinstance(clock, DeclaredServeClock), type(clock).__name__
+        assert clock() == DECLARED
+    finally:
+        booted.handle.close()
+
+
+def test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door(
+    seeded: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same refusal where a deployment meets it: a question at the in-process door.
+
+    The forger re-registers the SDK's SQLite store under a third-party name, so
+    it serves from the deployment's own seeded graph file. Before decision 6 (b)
+    the question was answered on the declared serve instant.
+    """
+    from ccf.products.demonstration_clock import DemonstrationServeInstantRefused
+
+    install_third_party_adapter(monkeypatch, wraps="sqlite")
+    switch_backend(seeded, THIRD_PARTY_ADAPTER)
+    declare(seeded)
+    try:
+        decoded = ask(InProcessAdapter(str(seeded)), seeded, as_of=SEEDED_AT)
+    except DemonstrationServeInstantRefused as refused:
+        assert refused.reason == "graph-substrate-not-development", refused.reason
+    else:
+        record = record_at(seeded, str(decoded.outcome.replay_ref))
+        pytest.fail(
+            "ADMITTED: the in-process door answered over third-party adapter"
+            f" {THIRD_PARTY_ADAPTER!r} declaring development_reference=True"
+            f" (refusal {decoded.outcome.refusal!r}), served at"
+            f" {record.content_generation_path.served_at.isoformat()}; declared"
+            f" {DECLARED.isoformat()}"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Confinement: only the serve clock moves.
 # ---------------------------------------------------------------------------
 
@@ -539,10 +788,13 @@ def test_the_erasure_consult_keeps_the_composition_clock(seeded: Path) -> None:
 def test_only_the_sdks_sqlite_and_in_memory_adapters_are_development_references() -> None:
     """Exactly two built-in adapters declare ``development_reference``.
 
-    The guard asks the booted adapter's own registration, so this holds the
-    declarations: the SQLite and in-memory reference adapters say yes, and every
-    networked adapter the SDK ships says no. An adapter that newly claims the
-    flag — or a development reference that loses it — is red here.
+    The guard reads that flag only on the SDK's own registration of the booted
+    adapter (`ccf.graph.registry.is_sdk_development_reference`; decision 6 (b)),
+    so this holds the SDK's own declarations: the SQLite and in-memory reference
+    adapters say yes, and every networked adapter the SDK ships says no. An SDK
+    adapter that newly claims the flag — or a development reference that loses
+    it — is red here. A third-party registration's flag is never read; the
+    decision 6 (b) tests above hold that.
     """
     from ccf.graph.registry import _builtin_names, resolve
 

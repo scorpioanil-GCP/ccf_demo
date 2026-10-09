@@ -4728,6 +4728,7 @@
       "ResolvedSecret",
       "UnknownBackend",
       "declared_names",
+      "is_sdk_development_reference",
       "resolve",
       "validate_connection"
     ],
@@ -4779,6 +4780,10 @@
       "declared_names": {
         "kind": "function",
         "shape": "() -> 'frozenset[str]'"
+      },
+      "is_sdk_development_reference": {
+        "kind": "function",
+        "shape": "(name: 'str') -> 'bool'"
       },
       "resolve": {
         "kind": "function",

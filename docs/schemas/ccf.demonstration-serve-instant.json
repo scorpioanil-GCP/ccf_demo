@@ -1,6 +1,6 @@
 {
   "additionalProperties": false,
-  "description": "The one instant a demonstration deployment serves every question at.\n\nA deployment value, and the SDK supplies none. Declaring it does not make a\ndeployment a demonstration by itself: the composition that honors it\n(`ccf.products.demonstration_clock.compose_serve_clock`) refuses it outside\nthe SDK's development substrates, and every record made under it pins this\nartifact's exact version in Decision Replay dimension 2.\n\nAttributes:\n    serve_instant: The instant ``served_at`` reads, zone-bearing. A\n        zone-less instant is refused: which zone it silently meant is the\n        difference between two different answers (`D-IMPL-38`).",
+  "description": "The one instant a demonstration deployment serves every question at.\n\nA deployment value, and the SDK supplies none. Declaring it does not make a\ndeployment a demonstration by itself: the composition that honors it\n(`ccf.products.demonstration_clock.compose_serve_clock`) refuses it outside\nthe SDK's own approved development backends (`D-IMPL-378` decision 6 (b):\na third-party graph adapter is refused whatever its registration declares),\nand every record made under it pins this artifact's exact version in\nDecision Replay dimension 2.\n\nAttributes:\n    serve_instant: The instant ``served_at`` reads, zone-bearing. A\n        zone-less instant is refused: which zone it silently meant is the\n        difference between two different answers (`D-IMPL-38`).",
   "properties": {
     "serve_instant": {
       "format": "date-time",

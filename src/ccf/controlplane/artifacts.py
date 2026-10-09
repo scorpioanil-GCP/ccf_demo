@@ -2401,7 +2401,8 @@ class DeploymentConfig(VersionedArtifact):
     # does not declare one keeps its content identity; ABSENCE MEANS THE REAL
     # CLOCK. Declared, it is honored only where
     # `ccf.products.demonstration_clock.compose_serve_clock` admits it — on the
-    # SDK's development substrates — and pinned on every record made under it.
+    # SDK's own approved development backends (decision 6 (b)) — and pinned on
+    # every record made under it.
     demonstration_serve_instant: Mapping[str, Any] | None = Field(
         default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
     )

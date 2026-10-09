@@ -2112,11 +2112,25 @@ neither and recommends neither. The numbers above only show the shape.
 (`D-IMPL-378` C1; SDK-defined). A `demonstration_serve_instant:` section in
 `ccf_config.yaml` makes the resolver serve at the declared instant rather than
 today's, so a demonstration's pinned question does not expire. It is refused
-outside the SDK's development substrates, and every record made under it, served
-or refused, pins it in Decision Replay dimension 2
-(`tests/client/test_demonstration_serve_instant.py::test_a_declaration_over_a_non_development_graph_substrate_is_refused`,
+unless the fabric runs on the SDK's own approved development backends (decision
+6 (b), Dave, 2026-10-09: *"Restrict demonstration time to the SDK's own approved
+development backends. Explicitly amend the broader “declares itself”
+wording."*). The graph adapter must be one the SDK ships whose own registration
+is a development reference: the SQLite or the in-memory adapter. An adapter's
+declaration about itself does not count. This amends the earlier wording, under
+which a substrate that declared itself a development reference was admitted: a
+third-party adapter is refused even when its registration declares
+`development_reference` and re-registers one of the SDK's own stores. The
+artifact store must be an instance of the SDK's `FileArtifactStore`; that check
+is an `isinstance` test, so a subclass of `FileArtifactStore` also passes it
+(`tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition`,
+`::test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door`,
+`::test_the_sdks_own_development_backends_are_still_admitted_at_composition`,
+`::test_a_declaration_over_a_non_development_graph_substrate_is_refused`,
 `::test_a_declaration_over_a_non_file_artifact_store_is_refused`,
-`::test_a_served_record_pins_the_declaration`,
+`::test_a_subclass_of_the_sdks_file_store_passes_the_store_check`). Every record
+made under it, served or refused, pins it in Decision Replay dimension 2
+(`tests/client/test_demonstration_serve_instant.py::test_a_served_record_pins_the_declaration`,
 `::test_a_refusal_record_pins_the_declaration`). **A running service keeps the
 instant it was built with** (ruling C1-late (a), Dave: *"Running services retain
 their startup snapshot. Document that later registration takes effect only after
