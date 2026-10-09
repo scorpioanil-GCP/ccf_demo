@@ -1896,3 +1896,218 @@ def _require_the_floor_copy_answered(run: w.Run, comparison: str) -> None:
             f" ({floor_side}) RAISED instead of answering, and a failed spare answer cannot excuse a difference:"
             f" {unanswered}"
         )
+
+
+# =============================================================================
+# X17 (a): the pin channel (Dave, 2026-10-09 06:06 MST, confirmed 06:21 MST, D-IMPL-378)
+# =============================================================================
+
+
+@pytest.fixture(scope="module")
+def pin_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.PinRunCache]:
+    """One pin-channel run per (shape, anchor) for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.PinRunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+@pytest.fixture(scope="module")
+def pin_instrument(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.PinInstrument]:
+    """The pin channel's instrument readings, read once for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.pin_instrument(pathlib.Path(tmp_path_factory.mktemp("pin-instrument")))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+def _pin_cells() -> list[Any]:
+    """One cell per shape, anchor and pin surface; each holds every one-sided pin of its run, in both directions."""
+    return [
+        pytest.param(shape, anchor, surface, id=f"{shape}-{anchor}-{surface}")
+        for shape in ALL_SHAPES
+        for anchor in w.ANCHORS
+        for surface in w.PIN_SURFACES
+    ]
+
+
+def _pin_questions(runs: w.RunCache, pin_run: w.PinRun) -> w.Run:
+    """The pin channel's questions, as the gate judges the same shape's questions.
+
+    The gate's own in-process run of the same shape and anchor, its three counterfactual sides replaced by the pin
+    channel's deployments. A refusal the gate holds as the property is held here exactly when it is held there and
+    these deployments observed it too, word for word: ruling P6 (a)'s refusal is held only together with that run's
+    declared-population twin answering and its other probed sides refused alike (``sec020_worlds.p6_refused``).
+    """
+    gate = runs.get(shape=pin_run.shape, anchor=pin_run.anchor, door=w.IN_PROCESS)
+    return w.Run(
+        shape=pin_run.shape, anchor=pin_run.anchor, door=w.IN_PROCESS, sides={**gate.sides, **pin_run.questions}
+    )
+
+
+@pytest.mark.parametrize(("shape", "anchor", "surface"), _pin_cells())
+def test_a_pin_filed_in_one_deployment_reads_alike_in_both(
+    runs: w.RunCache, pin_runs: w.PinRunCache, shape: str, anchor: str, surface: str
+) -> None:
+    """X17 (a): a pin filed in only ONE of the two deployments reads ALIKE in both, at every surface the asker reads it.
+
+    Dave, 2026-10-09 06:06 MST (``D-IMPL-378``), item 1, confirmed at 06:21 MST ("X17(a)"), verbatim: *"Cover
+    versioned resolution and write-then-read in the closure gate. Keep attacker address derivation labeled unproven
+    until demonstrated; it does not excuse the inconsistent authorization."* Option (a), lane ``378h-names``'s P-2:
+    *"Add the channel with every read. The gate goes red on the resolution resource until that is addressed."*
+
+    **The channel** (``sec020_worlds.pin_run``). The counterfactual's two deployments (the withholding one, and the
+    one whose source does not hold the subject) and the noise floor's copy are each asked the same question in
+    process. Every executed-query pin their records name that is filed in exactly ONE of the two (filing read off
+    each store before anything is written) is read as the asker in all three: the MCP artifact server's names,
+    blob, presence and versioned-URI resolution (``ccf-artifact://{tenant}/{class}/{name}@{version}``, under every
+    name the filing deployment filed it), and the HTTP door's ``/artifact/{content_address}``, ``/replay/decisions``
+    and ``/replay/resolutions``, through the record channel's own reads (the asker, and another principal of the
+    tenant). Then WRITE-THEN-READ: the asker files the pin's canonical bytes on its own client lane
+    (``put_artifact``) and reads them back through blob, presence and names. One cell per shape, anchor and surface;
+    each cell holds every one-sided pin of its run, in both directions.
+
+    **Judged by the gate's own rules.** The questions first: two compared sides that raised, other than as the
+    refusal the gate holds as the property for this shape, are not evidence (:func:`_vacuous`, over
+    :func:`_pin_questions`), and the noise floor's copy must have answered (:func:`_require_the_floor_copy_answered`).
+    The floor's copy must also have filed every one-sided pin exactly where the not-holding deployment did, or its
+    readings are not a floor. Then each reading: :func:`_vacuous`, then :func:`_compare` (the noise floor, the kind
+    rule, the reference form, and the floor-copy rule).
+
+    **Unproven, and no excuse.** The canonical bytes the asker writes are read here from the deployment that filed
+    the pin, and each pin's address from the deployment's own record, as an auditor reads them. An outsider
+    recomputing a pin's address WITHOUT the record, from what it asked and from public documents, is UNREPRODUCED:
+    unproven until demonstrated. That does not excuse the channel. These cells count regardless, and a cell that is
+    red here is red in the gate.
+
+    **Expected on this tree.** The versioned-URI resolution and the three write-then-read reads tell the two
+    deployments apart wherever a pin is one-sided (``D-IMPL-378`` F1-1b and F1-1c: open, design-first), so those
+    cells are RED, and none is marked, skipped or excluded. At two population-reading shapes a pin is one-sided under
+    ``from_entity_freshness`` too, because there the two deployments answer every identifier differently (one serves
+    where the other refuses ``ttl-bounds``), which is D1 (a)'s confound. D1 (a) retires the other channels'
+    two-deployment cells of those shapes; no ruling retires these, so they are in the gate.
+
+    **Not reached.** A composite's children answer through records that the parent's record does not name in these
+    worlds (its ``child_replay_ref`` is empty), so the pins those children file are outside this channel.
+    """
+    _require(shape)
+    pin_run = pin_runs.get(shape=shape, anchor=anchor)
+    questions = _pin_questions(runs, pin_run)
+    vacuous = _vacuous(questions, w.CF_WITHHELD, w.CF_NONEXISTENT)
+    assert not vacuous, (
+        f"SEC-020 pin channel [{shape}, {anchor}, {surface}]: not evidence, both deployments' questions RAISED"
+        f" instead of answering, so neither filed anything to compare: {vacuous}"
+    )
+    _require_the_floor_copy_answered(questions, w.COUNTERFACTUAL)
+    unfaithful = {
+        pin: {side: pin_run.filed[side][pin] for side in (w.CF_NONEXISTENT, w.CF_FLOOR)}
+        for pin in pin_run.one_sided
+        if pin_run.filed[w.CF_FLOOR][pin] != pin_run.filed[w.CF_NONEXISTENT][pin]
+    }
+    assert not unfaithful, (
+        f"SEC-020 pin channel [{shape}, {anchor}, {surface}]: not evidence, the noise floor's copy did not file"
+        f" these pins where the not-holding deployment did, so its readings are no floor: {unfaithful}"
+    )
+    found: dict[str, Any] = {}
+    for pin in pin_run.one_sided:
+        where = "filed where the subject is held" if pin_run.filed[w.CF_WITHHELD][pin] else "filed where it is not"
+        run = pin_run.surface_run(pin, surface)
+        vacuous = _vacuous(run, w.CF_WITHHELD, w.CF_NONEXISTENT)
+        if vacuous:
+            found[f"{pin} ({where})"] = f"not evidence, both readings failed: {vacuous}"
+            continue
+        differing, floor, withheld, nonexistent = _compare(run, comparison=w.COUNTERFACTUAL, channel=w.PIN)
+        if differing:
+            found[f"{pin} ({where})"] = {
+                "at": sorted(differing),
+                "noise floor, not counted": sorted(floor),
+                "withholding deployment": w.render(withheld, limit=400),
+                "not-holding deployment": w.render(nonexistent, limit=400),
+            }
+    assert not found, (
+        f"SEC-020 pin channel [{shape}, {anchor}, {surface}]: a pin filed in only one of the two deployments tells"
+        f" them apart, {len(found)} of {len(pin_run.one_sided)} one-sided pins: {json.dumps(found, sort_keys=True)}"
+    )
+
+
+@pytest.mark.parametrize("surface", w.PIN_SURFACES)
+def test_the_pin_instrument_sees_a_difference(pin_instrument: w.PinInstrument, surface: str) -> None:
+    """The pin channel's instrument: every surface, read where it MUST answer differently, is seen to differ.
+
+    In one deployment (``sec020_worlds.pin_instrument``), as the asker: the asker's own read-refusal record (read
+    back to the principal it names) by its versioned URI, against an address nobody filed in that record's class,
+    floored by a second such address; for write-then-read, the asker's own client-lane filing read after its put,
+    against the same reads at those two addresses; for the put, a put of other bytes (and that put again, its floor).
+    Compared as the gate's instruments compare: a side that raised is not evidence, and paths in the floor are not
+    counted. The reads do not depend on the shape, so one instrument per surface holds every cell of that surface.
+    """
+    run = pin_instrument.surface_run(surface)
+    vacuous = _vacuous(run, w.SERVED, w.CF_NONEXISTENT, either=True)
+    assert not vacuous, (
+        f"pin instrument not evidence [{surface}]: a side RAISED instead of answering, so a difference it shows is"
+        f" the exception's, not the surface's: {vacuous}"
+    )
+    present = run.channel(w.SERVED, w.PIN)
+    absent = run.channel(w.CF_NONEXISTENT, w.PIN)
+    floor = w.diff_paths(absent, run.channel(w.CF_FLOOR, w.PIN))
+    seen = w.diff_paths(present, absent) - floor
+    assert seen, (
+        f"pin instrument broken [{surface}]: the asker's own artifact and an address nobody filed read alike here,"
+        f" so a PASS of the pin cells at this surface would prove nothing\n  present: {w.render(present)}\n"
+        f"  absent:  {w.render(absent)}"
+    )
+
+
+def test_the_pin_channel_census_is_measured_and_reported(
+    pin_runs: w.PinRunCache, record_testsuite_property: Callable[[str, object], None], capsys: Any
+) -> None:
+    """The pin channel's population, reported every run: which pins each run's records name and which are one-sided.
+
+    Asserts only that every run of the channel was MEASURED (built, asked, read): which pins are one-sided is
+    reported, never asserted, because a run whose two deployments file the same pins carries nothing on this
+    channel, and that is a measurement too. Printed past the output capture, in its own block headed
+    ``SEC-020 PIN CHANNEL CENSUS``, and recorded in the JUnit record as ``pin_channel_census``.
+    """
+    census: dict[str, dict[str, Any]] = {}
+    for shape in ALL_SHAPES:
+        if shape in w.PENDING_SHAPES and not w.PENDING_SHAPES[shape][1]():
+            continue
+        for anchor in w.ANCHORS:
+            run = pin_runs.get(shape=shape, anchor=anchor)
+            recorded = set(run.pins[w.CF_WITHHELD]) | set(run.pins[w.CF_NONEXISTENT])
+            census[f"{shape}-{anchor}"] = {
+                "pins named": {side: len(pins) for side, pins in sorted(run.pins.items())},
+                "one-sided, filed where the subject is held": [p for p in run.one_sided if run.filed[w.CF_WITHHELD][p]],
+                "one-sided, filed where it is not": [p for p in run.one_sided if run.filed[w.CF_NONEXISTENT][p]],
+                "named, filed in neither": sum(
+                    1 for p in recorded if not run.filed[w.CF_WITHHELD][p] and not run.filed[w.CF_NONEXISTENT][p]
+                ),
+                "questions raised": {side: sorted(o.raised) for side, o in sorted(run.questions.items()) if o.raised},
+            }
+    expected = [
+        f"{shape}-{anchor}"
+        for shape in ALL_SHAPES
+        if not (shape in w.PENDING_SHAPES and not w.PENDING_SHAPES[shape][1]())
+        for anchor in w.ANCHORS
+    ]
+    assert sorted(census) == sorted(expected), "a run of the pin channel was not measured"
+    one_sided = sum(len(c["one-sided, filed where the subject is held"]) + len(c["one-sided, filed where it is not"])
+                    for c in census.values())
+    record_testsuite_property("pin_channel_census", json.dumps({"runs": len(census), "census": census}, sort_keys=True))
+    lines = [
+        "",
+        "=" * 30 + " SEC-020 PIN CHANNEL CENSUS (reported; the cells are in the gate) " + "=" * 30,
+        f"{len(census)} runs; {one_sided} one-sided pins read at {len(w.PIN_SURFACES)} surfaces each:",
+        *(f"  {key}: {json.dumps(found, sort_keys=True)}" for key, found in sorted(census.items())),
+        "=" * 126,
+    ]
+    with capsys.disabled():
+        print("\n".join(lines))

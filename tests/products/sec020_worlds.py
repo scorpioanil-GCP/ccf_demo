@@ -3463,3 +3463,421 @@ class NeverRunCache:
                 self._factory("-".join(key)), configuration=configuration, anchor=anchor, door=door
             )
         return self._runs[key]
+
+
+# =============================================================================
+# X17 (a): the pin channel, every pin filed in only ONE of the two deployments
+# =============================================================================
+#
+# Dave, 2026-10-09 06:06 MST (D-IMPL-378), item 1, confirmed at 06:21 MST ("X17(a)"), verbatim (kept as a comment,
+# CINV-01a): "A; fix F1-1b and F1-1c now; X17(a). Approve the names behavior amendments explicitly. Cover versioned
+# resolution and write-then-read in the closure gate. Keep attacker address derivation labeled unproven until
+# demonstrated; it does not excuse the inconsistent authorization." Option (a) is lane 378h-names's P-2, verbatim:
+# "Add the channel with every read. The gate goes red on the resolution resource until that is addressed."
+#
+# A record names the executed-query pins its walk issued (``content_generation_path.graph_query_sequence``). A pin is
+# the content hash of its query, and the deployment files it in its store when the answer is served; a refused answer
+# records its pins and files none (measured, lane 378i-gate). Two deployments asked the same question can therefore
+# file different pins, and a surface that answers a present address differently from an absent one tells the two
+# deployments apart. The closing test reads every pin filed in exactly one of the counterfactual's two deployments,
+# as the asker, in both and in the noise floor's copy, and compares the readings with the gate's own rules
+# (``test_sec020_combined_proof.test_a_pin_filed_in_one_deployment_reads_alike_in_both``).
+
+#: The pin channel's name in the per-pin runs the closing test compares.
+PIN = "pin"
+
+#: The surfaces a pin is read at through the record channel's own reads (:func:`mcp_record_reads`,
+#: :func:`http_record_reads`: as the asker, keyed ``owner`` there, and as another principal of the tenant), each with
+#: the read key it is. The resolution reads are by versioned URI; every other read is by content address.
+PIN_READ_SURFACES: dict[str, str] = {
+    "mcp-names": "names",
+    "mcp-blob": "blob",
+    "mcp-presence": "meta",
+    "mcp-resolution": "resolution",
+    "http-artifact": "artifact",
+    "http-replay-decisions": "replay.decisions",
+    "http-replay-resolutions": "replay.resolutions",
+}
+
+#: Write-then-read, as the asker: its ``put_artifact`` of the pin's canonical bytes on its own client lane, then its
+#: three reads at the pin's address.
+PIN_WRITE_THEN_READ_SURFACES: dict[str, str] = {
+    "write-then-read-put": "put",
+    "write-then-read-blob": "blob",
+    "write-then-read-presence": "meta",
+    "write-then-read-names": "names",
+}
+
+#: Every surface of the pin channel, one closing-test cell each per shape and anchor.
+PIN_SURFACES: tuple[str, ...] = (*PIN_READ_SURFACES, *PIN_WRITE_THEN_READ_SURFACES)
+
+#: The asker's own client lane: a class no deployment here declares, and the name it files a pin's bytes under.
+PIN_CLIENT_CLASS = "fixture.pin-client-lane"
+PIN_CLIENT_NAME = "pin-candidate"
+
+#: The counterfactual's three deployments, as :func:`run_sides` builds them: (side, directory, holds the subject).
+PIN_DEPLOYMENTS: tuple[tuple[str, str, bool], ...] = (
+    (CF_WITHHELD, "withholding", True),
+    (CF_NONEXISTENT, "not-holding", False),
+    (CF_FLOOR, "not-holding-again", False),
+)
+
+
+def pins_named(deployment: Deployment, observation: Observation) -> tuple[str, ...]:
+    """Every executed-query pin named by the records behind ``observation``'s references, in order, once each.
+
+    Read from the deployment's own store, as an auditor reads a record: every record a reference the question was
+    handed names (both questions', on a reused shape). A composite's children answer through their own records,
+    which the parent's record does not name in these worlds (its ``child_replay_ref`` is empty), so their pins are
+    not reached here.
+    """
+    pins: list[str] = []
+    for reference in sorted(references_in(jsonable(observation.channels.get(REFERENCE)))):
+        pins.extend(_record_at(deployment.store, reference).content_generation_path.graph_query_sequence)
+    return tuple(dict.fromkeys(pins))
+
+
+def filed_names(deployment: Deployment, address: str) -> tuple[Any, ...]:
+    """Every name ``deployment``'s own tenant filed ``address`` under in its store (an auditor's read of its naming)."""
+    return tuple(
+        named
+        for named in deployment.store.names_at(content_address=address)
+        if named.tenant_id == deployment.tenant
+    )
+
+
+def _mcp_resource_read(deployment: Deployment, uri: str, *, token: str) -> Any:
+    """One MCP artifact-server resource read, as ``token``, decoded exactly as :func:`mcp_record_reads` decodes it."""
+    from mcp.types import BlobResourceContents, TextResourceContents  # noqa: PLC0415
+    from pydantic import AnyUrl  # noqa: PLC0415
+
+    async def operation(session: Any) -> Any:
+        try:
+            result = await session.read_resource(AnyUrl(uri))
+        except Exception as refused:  # noqa: BLE001 — a protocol error is an observation
+            return {"error": type(refused).__name__, "message": str(refused)}
+        parts = []
+        for contents in result.contents:
+            if isinstance(contents, TextResourceContents):
+                parts.append({"text": _maybe_json(contents.text)})
+            elif isinstance(contents, BlobResourceContents):
+                parts.append({"blob": _maybe_json(base64.b64decode(contents.blob).decode("utf-8", "replace"))})
+        return {"contents": parts}
+
+    return mcp_drive(mcp_artifact_server(deployment), operation, token=token)
+
+
+def _mcp_put(deployment: Deployment, canonical: bytes, *, name: str = PIN_CLIENT_NAME) -> Any:
+    """The asker's ``put_artifact`` of ``canonical`` on its own client lane, through the MCP artifact server."""
+    from mcp.types import TextContent  # noqa: PLC0415
+
+    from ccf_runtime.mcp.artifact_server import PUT_ARTIFACT_TOOL  # noqa: PLC0415
+
+    arguments = {
+        "artifact_class": PIN_CLIENT_CLASS,
+        "name": name,
+        "canonical_b64": base64.b64encode(canonical).decode("ascii"),
+    }
+
+    async def operation(session: Any) -> Any:
+        try:
+            result = await session.call_tool(PUT_ARTIFACT_TOOL, arguments)
+        except Exception as refused:  # noqa: BLE001 — a protocol error is an observation
+            return {"error": type(refused).__name__, "message": str(refused)}
+        return {
+            "is_error": bool(result.isError),
+            "structured": result.structuredContent,
+            "text": [_maybe_json(c.text) for c in result.content if isinstance(c, TextContent)],
+        }
+
+    return mcp_drive(mcp_artifact_server(deployment), operation, token=ASKER_TOKEN)
+
+
+def _put_failed(answered: Any) -> bool:
+    """Whether a put filed nothing: a protocol error, an unreachable server, or the tool's own error result."""
+    return isinstance(answered, dict) and (
+        "error" in answered or "unreachable" in answered or bool(answered.get("is_error"))
+    )
+
+
+def _pin_read_failed(surface: str, answered: Any) -> bool:
+    """Whether one read ended in a failure rather than an answer: an HTTP 5xx, or a failed MCP read (:func:`_mcp_read_failed`)."""
+    if surface.startswith("http-"):
+        status = answered.get("status") if isinstance(answered, dict) else None
+        return isinstance(status, int) and status >= 500
+    return _mcp_read_failed(answered)
+
+
+def read_pin(
+    deployment: Deployment, address: str, uris: tuple[str, ...], readings: dict[str, Any], failures: dict[str, str]
+) -> None:
+    """Every :data:`PIN_READ_SURFACES` read of one address, into ``readings``; every read that failed, into ``failures``.
+
+    The record channel's own reads (:func:`mcp_record_reads`, :func:`http_record_reads`), once per versioned URI the
+    address was filed under: a resolution reading is one per URI, every other reading the one at the address. Each
+    read's own presented reference and address are normalized there, as the record channel normalizes them.
+    """
+    if not uris or any(_reference_parts(uri)["version"] != address for uri in uris):
+        raise AssertionError(f"read_pin: {address} is not the version of every URI it was handed: {uris}")
+    app = http_app(deployment)
+    by_uri = [mcp_record_reads(deployment, uri) | http_record_reads(deployment, uri, app=app) for uri in uris]
+    for surface, read in PIN_READ_SURFACES.items():
+        keys = (f"owner:{read}", f"other-principal:{read}")
+        if read in ("resolution", "replay.resolutions"):
+            readings[surface] = {key: [reads[key] for reads in by_uri] for key in keys}
+        else:
+            readings[surface] = {key: by_uri[0][key] for key in keys}
+        failed = sorted({key for reads in by_uri for key in keys if _pin_read_failed(surface, reads[key])})
+        if failed:
+            failures[surface] = f"{surface} read failed: {failed}: {render(readings[surface], limit=300)}"
+
+
+def write_then_read_pin(
+    deployment: Deployment,
+    address: str,
+    canonical: bytes,
+    presented: tuple[str, ...],
+    readings: dict[str, Any],
+    failures: dict[str, str],
+) -> None:
+    """The asker files ``canonical`` on its client lane, then reads blob, presence and names at ``address``.
+
+    ``presented`` is what the asker itself handed the server (the pin's URIs and address), normalized as
+    :func:`mcp_record_reads` normalizes it. A put that filed nothing is a failure of every reading after it too: a
+    read with no write before it is not a write-then-read.
+    """
+    from ccf_runtime.mcp.artifact_server import (  # noqa: PLC0415
+        artifact_blob_uri,
+        artifact_meta_uri,
+        artifact_names_uri,
+    )
+
+    put = _normalize_presented(jsonable(_mcp_put(deployment, canonical)), presented)
+    readings["write-then-read-put"] = put
+    put_failure = f"put_artifact filed nothing: {render(put, limit=300)}" if _put_failed(put) else None
+    if put_failure:
+        failures["write-then-read-put"] = put_failure
+    resources = {"blob": artifact_blob_uri, "meta": artifact_meta_uri, "names": artifact_names_uri}
+    for surface, read in PIN_WRITE_THEN_READ_SURFACES.items():
+        if read == "put":
+            continue
+        answered = _normalize_presented(
+            jsonable(_mcp_resource_read(deployment, resources[read](content_address=address), token=ASKER_TOKEN)),
+            presented,
+        )
+        readings[surface] = answered
+        if _mcp_read_failed(answered):
+            failures[surface] = f"{surface} read failed: {render(answered, limit=300)}"
+        elif put_failure:
+            failures[surface] = put_failure
+
+
+@dataclass
+class PinRun:
+    """One (shape, anchor)'s pin channel: the three deployments' questions, their pins, and every one-sided pin's readings."""
+
+    shape: str
+    anchor: str
+    #: What each deployment's question(s) observed, in process (:func:`observe_side`), by side.
+    questions: dict[str, Observation]
+    #: Every pin each deployment's records name, by side.
+    pins: dict[str, tuple[str, ...]]
+    #: Whether each deployment's store filed each pin either compared side's records name, read before any write.
+    filed: dict[str, dict[str, bool]]
+    #: The pins filed in exactly one of the withholding and the not-holding deployment.
+    one_sided: tuple[str, ...]
+    #: Per one-sided pin, the versioned URIs the deployment that filed it filed it under.
+    uris: dict[str, tuple[str, ...]]
+    #: Per one-sided pin and side, every surface's reading.
+    readings: dict[str, dict[str, dict[str, Any]]]
+    #: Per one-sided pin and side, every surface whose read failed, and how.
+    failures: dict[str, dict[str, dict[str, str]]]
+
+    def surface_run(self, pin: str, surface: str) -> Run:
+        """One pin at one surface as a :class:`Run` of the counterfactual's three sides, for the gate's own comparison."""
+        sides = {}
+        for side, _directory, _holds in PIN_DEPLOYMENTS:
+            failure = self.failures[pin][side].get(surface)
+            sides[side] = Observation(
+                channels={PIN: self.readings[pin][side][surface]},
+                raw=self.readings[pin][side][surface],
+                raised={f"{PIN}/{surface}": failure} if failure else {},
+            )
+        return Run(shape=self.shape, anchor=self.anchor, door=PIN, sides=sides)
+
+
+def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
+    """Build the counterfactual's three deployments, ask each its question in process, read every one-sided pin.
+
+    Filing is read off each deployment's own store before anything is written, because write-then-read files the
+    pin's bytes itself. Every plain read of every pin happens before the first write. The canonical bytes the asker
+    writes are read from the deployment that filed the pin, as an auditor would: the stand-in for an outsider
+    recomputing them, which is unreproduced (the closing test's pin channel says so).
+    """
+    from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
+
+    deployments: dict[str, Deployment] = {}
+    try:
+        for side, directory, holds in PIN_DEPLOYMENTS:
+            deployments[side] = BUILDERS[shape](base / directory, anchor=anchor, holds=holds, active=True)
+        questions = {side: observe_side(shape, IN_PROCESS, built, SUBJECT) for side, built in deployments.items()}
+        pins = {side: pins_named(built, questions[side]) for side, built in deployments.items()}
+        candidates = tuple(dict.fromkeys((*pins[CF_WITHHELD], *pins[CF_NONEXISTENT])))
+        filed = {
+            side: {pin: bool(filed_names(built, pin)) for pin in candidates} for side, built in deployments.items()
+        }
+        one_sided = tuple(pin for pin in candidates if filed[CF_WITHHELD][pin] != filed[CF_NONEXISTENT][pin])
+        uris: dict[str, tuple[str, ...]] = {}
+        canonical: dict[str, bytes] = {}
+        for pin in one_sided:
+            filer = deployments[CF_WITHHELD if filed[CF_WITHHELD][pin] else CF_NONEXISTENT]
+            uris[pin] = tuple(
+                artifact_uri(
+                    tenant_id=named.tenant_id, artifact_class=named.artifact_class, name=named.name,
+                    artifact_version=pin,
+                )
+                for named in filed_names(filer, pin)
+            )
+            canonical[pin] = filer.store.get(content_address=pin)
+            if hashlib.sha256(canonical[pin]).hexdigest() != pin:
+                raise AssertionError(f"the bytes filed at pin {pin} do not hash to it: not the pin's canonical bytes")
+        readings: dict[str, dict[str, dict[str, Any]]] = {pin: {side: {} for side in deployments} for pin in one_sided}
+        failures: dict[str, dict[str, dict[str, str]]] = {
+            pin: {side: {} for side in deployments} for pin in one_sided
+        }
+        for pin in one_sided:
+            for side, built in deployments.items():
+                read_pin(built, pin, uris[pin], readings[pin][side], failures[pin][side])
+        for pin in one_sided:
+            for side, built in deployments.items():
+                write_then_read_pin(
+                    built, pin, canonical[pin], (*uris[pin], pin), readings[pin][side], failures[pin][side]
+                )
+    finally:
+        for built in deployments.values():
+            built.close()
+    return PinRun(
+        shape=shape, anchor=anchor, questions=questions, pins=pins, filed=filed, one_sided=one_sided, uris=uris,
+        readings=readings, failures=failures,
+    )
+
+
+class PinRunCache:
+    """One :class:`PinRun` per (shape, anchor) for the whole session."""
+
+    def __init__(self, factory: Callable[[str], pathlib.Path]) -> None:
+        self._factory = factory
+        self._runs: dict[tuple[str, str], PinRun] = {}
+
+    def get(self, *, shape: str, anchor: str) -> PinRun:
+        key = (shape, anchor)
+        if key not in self._runs:
+            self._runs[key] = pin_run(self._factory("-".join(("pin", *key))), shape=shape, anchor=anchor)
+        return self._runs[key]
+
+
+# --- the pin channel's instrument -----------------------------------------------------------------------------
+#
+# Every surface read where it must answer differently, in one deployment: the asker's own readable record (minted by
+# a refused read of an address nobody filed; the governed read reads it back to the principal it names, D-IMPL-345
+# C20) and the asker's own client-lane filing, against an address nobody filed, floored by a second such address.
+
+#: Addresses nobody files in any deployment here: one whose refused read mints the asker's own record, and two read as
+#: the absent side and its floor.
+PIN_INSTRUMENT_MINT = hashlib.sha256(b"sec020 pin instrument: minted").hexdigest()
+PIN_INSTRUMENT_NOBODY = hashlib.sha256(b"sec020 pin instrument: nobody").hexdigest()
+PIN_INSTRUMENT_NOBODY_2 = hashlib.sha256(b"sec020 pin instrument: nobody again").hexdigest()
+
+
+@dataclass
+class PinInstrument:
+    """Per surface and side, the instrument's readings: :data:`SERVED` (present), :data:`CF_NONEXISTENT` (absent), :data:`CF_FLOOR`."""
+
+    readings: dict[str, dict[str, Any]]
+    failures: dict[str, dict[str, str]]
+
+    def surface_run(self, surface: str) -> Run:
+        sides = {
+            side: Observation(
+                channels={PIN: self.readings[surface][side]},
+                raw=self.readings[surface][side],
+                raised={f"{PIN}/{surface}": self.failures[surface][side]} if side in self.failures[surface] else {},
+            )
+            for side in (SERVED, CF_NONEXISTENT, CF_FLOOR)
+        }
+        return Run(shape=SUBJECT_KEYED, anchor=FROM_DECISION, door=PIN, sides=sides)
+
+
+def pin_instrument(base: pathlib.Path) -> PinInstrument:
+    """Read every pin surface on the asker's own artifacts and on two addresses nobody filed, in one deployment.
+
+    The plain reads: the asker's own read-refusal record, by its versioned URI, against two addresses nobody filed in
+    that record's class. Write-then-read: the asker's own client-lane filing, read after its put, against the same
+    reads at the two addresses nobody filed; and the put itself, against a put of other bytes (and that put again,
+    its floor). Nothing presented is normalized in the put's pair: the instrument asks whether the comparison sees
+    the put's answer at all.
+    """
+    from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
+    from ccf_runtime.mcp.artifact_server import (  # noqa: PLC0415
+        artifact_blob_uri,
+        artifact_meta_uri,
+        artifact_names_uri,
+    )
+
+    deployment = BUILDERS[SUBJECT_KEYED](base / "instrument", anchor=FROM_DECISION, holds=True, active=True)
+    readings: dict[str, dict[str, Any]] = {surface: {} for surface in PIN_SURFACES}
+    failures: dict[str, dict[str, str]] = {surface: {} for surface in PIN_SURFACES}
+    try:
+        minted = _mcp_resource_read(
+            deployment, artifact_meta_uri(content_address=PIN_INSTRUMENT_MINT), token=ASKER_TOKEN
+        )
+        own_record = minted["contents"][0]["text"]["replay_reference"]
+        record_class = _reference_parts(own_record)["artifact_class"]
+
+        def uri_of(address: str) -> str:
+            return artifact_uri(
+                tenant_id=deployment.tenant, artifact_class=record_class, name=address, artifact_version=address
+            )
+
+        sides = (
+            (SERVED, own_record),
+            (CF_NONEXISTENT, uri_of(PIN_INSTRUMENT_NOBODY)),
+            (CF_FLOOR, uri_of(PIN_INSTRUMENT_NOBODY_2)),
+        )
+        for side, uri in sides:
+            plain: dict[str, Any] = {}
+            failed: dict[str, str] = {}
+            read_pin(deployment, _reference_parts(uri)["version"], (uri,), plain, failed)
+            for surface in PIN_READ_SURFACES:
+                readings[surface][side] = plain[surface]
+                if surface in failed:
+                    failures[surface][side] = failed[surface]
+        own_bytes = canonical_bytes({"sec020": "pin instrument", "filing": "own"})
+        other_bytes = canonical_bytes({"sec020": "pin instrument", "filing": "other"})
+        own_address = hashlib.sha256(own_bytes).hexdigest()
+        for side, canonical in ((SERVED, own_bytes), (CF_NONEXISTENT, other_bytes), (CF_FLOOR, other_bytes)):
+            put = jsonable(_mcp_put(deployment, canonical))
+            readings["write-then-read-put"][side] = put
+            if _put_failed(put):
+                failures["write-then-read-put"][side] = f"put_artifact filed nothing: {render(put, limit=300)}"
+        resources = {"blob": artifact_blob_uri, "meta": artifact_meta_uri, "names": artifact_names_uri}
+        for side, address in (
+            (SERVED, own_address),
+            (CF_NONEXISTENT, PIN_INSTRUMENT_NOBODY),
+            (CF_FLOOR, PIN_INSTRUMENT_NOBODY_2),
+        ):
+            for surface, read in PIN_WRITE_THEN_READ_SURFACES.items():
+                if read == "put":
+                    continue
+                answered = _normalize_presented(
+                    jsonable(
+                        _mcp_resource_read(deployment, resources[read](content_address=address), token=ASKER_TOKEN)
+                    ),
+                    (address,),
+                )
+                readings[surface][side] = answered
+                if _mcp_read_failed(answered):
+                    failures[surface][side] = f"{surface} read failed: {render(answered, limit=300)}"
+    finally:
+        deployment.close()
+    return PinInstrument(readings=readings, failures=failures)
