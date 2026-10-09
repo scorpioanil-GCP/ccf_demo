@@ -126,6 +126,7 @@ def _boot_once(observed: _Observed, manifest: pathlib.Path, registry: Any, store
         )
     except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
         report.update(
+            returned_ns=time.monotonic_ns(),
             outcome="raised",
             raised=[klass.__name__ for klass in type(raised).__mro__],
             reason=getattr(raised, "reason", None),
@@ -133,11 +134,13 @@ def _boot_once(observed: _Observed, manifest: pathlib.Path, registry: Any, store
         )
     else:
         report.update(
-            outcome="booted", store_creation=fabric.store_creation, question_store=fabric.question_store
+            returned_ns=time.monotonic_ns(),
+            outcome="booted",
+            store_creation=fabric.store_creation,
+            question_store=fabric.question_store,
         )
         fabric.handle.close()
     report.update(
-        returned_ns=time.monotonic_ns(),
         boot_entered_ns=observed.boot_entered_ns,
         created_the_store=observed.created_the_store,
         emptiness_reads=observed.emptiness_reads,
