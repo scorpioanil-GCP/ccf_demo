@@ -53,6 +53,20 @@ product_class:
     gate_id: cp-13-canonical.citations-are-checked
     gate_version: "1.0.0"
 
+  # THE WITHHOLDING STANCE (`D-IMPL-378` P6 (a) and E2 (ii) (d), Dave,
+  # 2026-10-08). This class's Π
+  # (`projection.py::CovenantCrossReferenceProjection`) never raises the
+  # withheld signal: its one `ProjectionOutput` carries a plan id and a payload
+  # and nothing else, for any subject or principal. So the class affirms
+  # `never`, `produce.py::plan_factory` positively declares it, and the resolver
+  # refuses by name any answer that withholds under it. Without the affirmation,
+  # ruling P6 (a)'s probe would refuse every question that reaches acquisition:
+  # `deployment.py::acquire` reads the request's `covenant_sources`,
+  # `corpus_scope` and `resolve_depth`, never its subject, so it acquires the
+  # same content for the probe's identifier as for the question's
+  # (`PopulationReadInSubjectKeyedPhase`).
+  subject_withholding: never
+
 operators:
   policy.principal-subgraph:
     classification_attribute_by_class:
