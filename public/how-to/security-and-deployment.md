@@ -1493,9 +1493,22 @@ unless another test is named.
   the documented behavior in
   `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_state_the_walk_does_not_read_is_not_seen`,
   `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_limit_a_holder_the_walk_does_not_read_is_not_seen`
-  and the tests beside them. So keep the population phase free of anything the
-  other phase writes. Declared this way, a population source and
-  a hybrid source each matched a nonexistent subject's answer on both anchors.
+  and the tests beside them. The walk also reads the SDK's own state a phase
+  holds, which grows as a service runs. On the paved road each question's
+  walk reads the L2 worker, the Control Plane registry and the registry's
+  audit log, which gains events at every question, so after a few questions
+  of one opened product the walk needs more than its reference bound, is cut
+  off, and admits the two phases: what lies past the cut-off is not checked.
+  A resolver you build whose population phase holds its fabric reads the same
+  state: a holding of the other phase's object that the walk reached and
+  refused on a fresh registry was admitted once resolvers built against that
+  registry had grown its audit log. So, as built (`D-IMPL-378` decision 3
+  (a); repair 2.4 is not built), the guard's coverage shrinks as a service
+  runs (both measured in
+  `tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py`).
+  So keep the population phase free of anything the other phase writes.
+  Declared this way, a population source and a hybrid source each matched a
+  nonexistent subject's answer on both anchors.
   A declared parameter that itself names an entity still reaches the
   population phase.
 - **An early decision, before anything is fetched (Q8).** A plan factory may
