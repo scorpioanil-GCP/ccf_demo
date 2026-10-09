@@ -38,35 +38,48 @@ SERVER_TO_CLIENT = "server->client"
 
 @dataclass
 class Wire:
-    """Every JSON-RPC message that crossed, in order, as ``(direction, serialized message)``."""
+    """Every JSON-RPC message that crossed, in order, as ``(session, direction, serialized message)``.
 
-    messages: list[tuple[str, str]] = field(default_factory=list)
+    ``session`` numbers the sessions this wire captured, from 0: a store that opens a session per call reuses
+    JSON-RPC ids in each, so a request is matched to its answer within its own session.
+    """
+
+    messages: list[tuple[int, str, str]] = field(default_factory=list)
+    sessions: int = 0
 
     def haystack(self) -> bytes:
         """Everything that crossed: each message's text, and every base64 ``blob`` member decoded beside it."""
         parts: list[bytes] = []
-        for _direction, text in self.messages:
+        for _session, _direction, text in self.messages:
             parts.append(text.encode("utf-8"))
             parts.extend(_decoded_blobs(json.loads(text)))
         return b"\n".join(parts)
+
+    def served(self) -> list[str]:
+        """Every server->client message, exactly as serialized, in order."""
+        return [text for _session, direction, text in self.messages if direction == SERVER_TO_CLIENT]
 
     def requests(self, method: str) -> list[dict[str, Any]]:
         """Every client request of ``method``, parsed."""
         return [
             parsed
-            for direction, text in self.messages
+            for _session, direction, text in self.messages
             if direction == CLIENT_TO_SERVER and (parsed := json.loads(text)).get("method") == method
         ]
 
     def answers(self, method: str) -> list[str]:
         """The server's message answering each request of ``method``, exactly as serialized, in order."""
-        ids = [request["id"] for request in self.requests(method)]
-        by_id = {
-            json.loads(text).get("id"): text
-            for direction, text in self.messages
-            if direction == SERVER_TO_CLIENT and "id" in json.loads(text)
+        asked = [
+            (session, json.loads(text)["id"])
+            for session, direction, text in self.messages
+            if direction == CLIENT_TO_SERVER and json.loads(text).get("method") == method
+        ]
+        by_session_and_id = {
+            (session, parsed["id"]): text
+            for session, direction, text in self.messages
+            if direction == SERVER_TO_CLIENT and "id" in (parsed := json.loads(text))
         }
-        return [by_id[identifier] for identifier in ids]
+        return [by_session_and_id[key] for key in asked]
 
 
 def _decoded_blobs(node: Any) -> list[bytes]:
@@ -95,12 +108,15 @@ async def captured_session(
     tapped_send, tapped_receive = anyio.create_memory_object_stream[SessionMessage | Exception](32)
     answered_send, answered_receive = anyio.create_memory_object_stream[SessionMessage | Exception](32)
 
+    session_number = wire.sessions
+    wire.sessions += 1
+
     async def tee(source: Any, sink: Any, direction: str) -> None:
         async with sink:
             async for item in source:
                 if isinstance(item, SessionMessage):
                     wire.messages.append(
-                        (direction, item.message.model_dump_json(by_alias=True, exclude_none=True))
+                        (session_number, direction, item.message.model_dump_json(by_alias=True, exclude_none=True))
                     )
                 await sink.send(item)
 

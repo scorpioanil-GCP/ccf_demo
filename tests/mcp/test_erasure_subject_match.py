@@ -294,7 +294,7 @@ def _ask_tool(world: _World, grant: TokenGrant | None, arguments: dict[str, Any]
     result = wire_capture.call(world.server, grant, _subject_match_tool(), arguments, wire)
     reads = Counter(world.spy.reads)
     reads.subtract(before)
-    served = "\n".join(text for direction, text in wire.messages if direction == wire_capture.SERVER_TO_CLIENT)
+    served = "\n".join(wire.served())
     (call,) = wire.answers("tools/call")
     return _Answer(text=served, call=call, reads=+reads, result=result)
 
