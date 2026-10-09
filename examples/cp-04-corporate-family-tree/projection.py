@@ -166,7 +166,7 @@ class FamilyTreeProjection:
         # SOURCE IRI -> the URI L2 MINTED for it, taken from what
         # `worker.ingest` reported and never recomputed. The graph mints
         # `<entity-class>://<identity-hash>`
-        # (`src/ccf/assembly/worker.py::SpecDrivenEntityResolution.resolve`)
+        # (`src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity`)
         # and the identity keys are CONSUMED by the resolver rather than stored
         # back as attributes — so the source IRI is not readable off a served
         # record, and rehashing it here would be this module reimplementing
