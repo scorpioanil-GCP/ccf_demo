@@ -1475,17 +1475,25 @@ unless another test is named.
   at most `src/ccf/products/resolver.py::SHARED_OWNER_WALK_DEPTH` (12)
   references in a row, reads at most
   `src/ccf/products/resolver.py::SHARED_OWNER_WALK_OBJECTS` (5,000) references
-  from each phase, and calls nothing your objects define. What it cannot
+  from each phase, and calls nothing your objects define. Where reading what
+  an object holds raises, such as another class's member descriptor in a
+  slotted class's namespace, the walk cannot complete, and the two phases are
+  refused rather than admitted (`SharedOwnerWalkIncomplete`, a
+  `PopulationPhaseSharesAnOwner`; `D-IMPL-378` repair 1.8). What it cannot
   detect: anything past either bound; state the two phases share through a
   third object, such as a common dictionary; state reached only through a
   property, another descriptor, `__getattr__` or `__getattribute__`, or held
   by a class that replaces `__dict__`; what a C-extension object keeps in its
-  own fields, such as a `functools.partial`'s arguments or a
-  `collections.deque`'s members; module globals and class attributes; and
-  anything reached only through a weak reference or an external store. Each
-  limit is asserted as the documented behavior in
-  `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_state_the_walk_does_not_read_is_not_seen`
-  and the tests beside it. So keep the population phase free of anything the
+  own fields, which the walk does not read: a `functools.partial`'s
+  arguments, a `collections.deque`'s members, a `types.MappingProxyType`'s
+  mapping, a generator's frame, an `operator.methodcaller`'s arguments, and a
+  closure cell's contents where the cell is held anywhere but in a function's
+  closure; module globals and class attributes; and anything reached only
+  through a weak reference or an external store. Each limit is asserted as
+  the documented behavior in
+  `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_state_the_walk_does_not_read_is_not_seen`,
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_limit_a_holder_the_walk_does_not_read_is_not_seen`
+  and the tests beside them. So keep the population phase free of anything the
   other phase writes. Declared this way, a population source and
   a hybrid source each matched a nonexistent subject's answer on both anchors.
   A declared parameter that itself names an entity still reaches the
