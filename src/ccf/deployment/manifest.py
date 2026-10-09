@@ -471,11 +471,11 @@ class DeploymentStoreNotVerified(ValueError):
     marker."*). A plain boot holds the store-creation lock of every path naming
     its store (``<resolved path>.ccf-store-creation.lock``) from its look at the
     path through the hand-back, so a boot that finds another creating the store
-    waits for it to finish. A boot that creates its
-    store at a path leaves its deployment marker there first, reading
-    ``pending`` and carrying a token of its own, and makes it read ``verified``
-    only once its emptiness read has completed (:class:`DeploymentStoreNotEmpty`
-    otherwise), atomically and durably. Every failed boot removes the markers it
+    waits for it to finish. A boot that creates its store at a path leaves its
+    deployment marker there first, reading ``pending`` and carrying a token of
+    its own, and makes it read ``verified`` only once its emptiness read has
+    completed (:class:`DeploymentStoreNotEmpty` otherwise), atomically and
+    durably. Every failed boot removes the markers it
     created that are still its own — the same file, carrying its token —
     whatever failed: ``boot()``, the read, the promotion, or ``close()``. So a
     marker that reads ``pending`` was left by a boot that never finished
