@@ -141,6 +141,11 @@ def filed_by_record_writer(
 
     Raises:
         UnattributableRecordStore: ``store`` cannot answer the question.
+        ccf.artifacts.protocol.ArtifactReadRefused: the store's naming read
+            was refused: the MCP-backed store raises it where its server
+            will not name the address to this credential (``D-IMPL-378``,
+            decision 1 (A)). Propagated, never answered ``False``: a refusal
+            does not show that the record writer did not file the address.
     """
     declared, names_at = _attribution(store)
     return any(
@@ -163,6 +168,9 @@ def require_filed_by_record_writer(
         RecordNotFiledByRecordWriter: no such filing — the bytes are not a
             record the fabric wrote, whatever they say.
         UnattributableRecordStore: ``store`` cannot answer the question.
+        ccf.artifacts.protocol.ArtifactReadRefused: the store's naming read
+            was refused; propagated, never turned into
+            :class:`RecordNotFiledByRecordWriter`, which is an absence.
     """
     if not filed_by_record_writer(
         store, content_address=content_address, tenant_id=tenant_id
