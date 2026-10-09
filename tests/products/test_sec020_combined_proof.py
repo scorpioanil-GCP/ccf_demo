@@ -2419,15 +2419,18 @@ def test_a_held_refusal_at_the_probe_leaves_withheld_and_nonexistent_indistingui
 
 
 # =============================================================================
-# Integration (coordinator, D-IMPL-378, 2026-10-09): the floor check meets the two constant refusals
+# Integration (coordinator, D-IMPL-378, 2026-10-09): the floor check meets the constant refusals (two as first built;
+# one, the stand-in world's, since repair 2.3 (b) below)
 # =============================================================================
 #
 # Three of Dave's 06:21 MST rulings meet here. The floor check, verbatim: "A failed spare answer cannot excuse
 # differences." It accepts a floor copy that raised only where what it raised is the property the cell holds, as Q9's,
 # P2 (c)'s and P6 (a)'s refusals are. Item 4 (b), verbatim: "4(b), plus the closing-test case and a supported working
-# twin" — every side of its deployment is refused alike with ``UnheldSubjectProbeRefused``. Decision 4 (a), verbatim:
+# twin" — as first built, every side of its deployment was refused alike with ``UnheldSubjectProbeRefused``, which
+# repair 2.3 (b) removed (below). Decision 4 (a), verbatim:
 # "A failed check refuses without exposing subject-dependent differences." — every side is refused alike with
-# ``UndisclosedSubjectSubstituteIsHeld``. In both, the floor copy raises the refusal because it IS the property. Merged
+# ``UndisclosedSubjectSubstituteIsHeld``. In both, as first built, the floor copy raised the refusal because it IS the
+# property. Merged
 # without an exception for them, the 40 held-refusal cells here and the 12 stand-in cells of
 # ``tests/products/test_sec020_stand_in_is_verified_absent.py`` failed by FloorCopyDidNotAnswer (measured on the batch).
 # The coordinator's judging change 09d5c2ba (J5) admitted any run whose every side raised one of the two refusals with
