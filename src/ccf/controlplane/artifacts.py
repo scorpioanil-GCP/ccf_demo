@@ -1597,11 +1597,28 @@ class ProductClassDeclaration(VersionedArtifact):
             affirmation that makes the class's decision records eligible to be
             read back by their owners: a tenant may list only such a class in
             its entitlement policy's ``evidence_readable_classes`` (the
-            governed resolver refuses to boot otherwise), every record of the
-            class carries the affirmation it was decided under, and the
-            governed resolver refuses a withheld answer from a class that made
-            it. Hash-transparent at the default, so every class declaration
-            authored before it keeps its content address and pin.
+            governed resolver refuses to boot otherwise), and every record of
+            the class carries the affirmation it was decided under. **The
+            affirmation needs the plan factory's positive declaration** (Dave's
+            E2 (ii), option (d), 2026-10-08 16:40 MST): the governed resolver
+            is built over a class affirming ``never`` only when its plan
+            factory implements
+            :class:`~ccf.products.resolver.NonWithholdingPlanFactoryProtocol`
+            and its ``withholds_no_subject()`` returns exactly ``True``.
+            Silence, meaning a factory that does not implement it, or any other
+            value counts as able to withhold, and construction is refused with
+            :class:`~ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration`;
+            a factory that declares it withholds is refused before that, with
+            :class:`~ccf.products.resolver.NeverWithholdingProjectionCanWithhold`.
+            The declaration is trusted deployment code, read with no argument
+            when the resolver is built, and the trust extends only to code no
+            caller can influence. A false declaration constructs; its withheld
+            answer meets the serve-time defense,
+            :class:`~ccf.products.resolver.NeverWithholdingContradicted`,
+            raised for the withheld subject alone, which still tells that
+            subject from one nothing holds. SEC-020 is OPEN. Hash-transparent
+            at the default, so every class declaration authored before it keeps
+            its content address and pin.
 
     **The eight governance fields above all default**, on the
     ``accepted_policy_binding_modes`` precedent and for the same reason: an
