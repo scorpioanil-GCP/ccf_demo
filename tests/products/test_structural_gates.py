@@ -548,22 +548,53 @@ def test_the_resolver_resolves_then_gates_then_withholds_and_hands_no_principal(
     # answered; a tolerance step that ran before the gates would withhold a
     # product nobody had established could exist.
     #
-    # TWO graph reads since SEC-020's acquisition round (`D-IMPL-376` (3), route
-    # A), each still after the resolution and before the gates: the fabric as
-    # it stood BEFORE the declared acquisition seam (the state a Π-withheld
-    # subject is rendered over), and the read the plan's registry is built
-    # from AFTER it. The seam call sits between them, which is the property
-    # that read exists for.
-    reads = sorted(
-        (c for c in calls if ast.unparse(c.func).endswith("handle.reader.as_of")),
-        key=lambda call: call.lineno,
-    )
+    # TWO graph reads in `__call__` since SEC-020's acquisition round
+    # (`D-IMPL-376` (3), route A), each still after the resolution and before
+    # the gates: the fabric as it stood BEFORE the declared acquisition seam
+    # (the state a Π-withheld subject is rendered over), and the read the
+    # plan's registry is built from AFTER it. The seam call for the question's
+    # subject sits between them, which is the property that read exists for.
+    #
+    # And ruling P6 (a) (`D-IMPL-378`, Dave 2026-10-08 16:40 MST; Q10 amended
+    # to exactly this): ONE more read and ONE more seam call site, both inside
+    # `_refuse_a_population_read_in_the_subject_keyed_phase` — the probe's call
+    # with UNHELD_SUBJECT_PROBE, then the read it is compared by — and `__call__`
+    # calls that helper between the read before acquisition and the seam's call
+    # for the question's subject. No other read or seam call exists in the module.
+    def _calls_in(node: ast.AST) -> list[ast.Call]:
+        return [found for found in ast.walk(node) if isinstance(found, ast.Call)]
+
+    def _reads_in(node: ast.AST) -> list[ast.Call]:
+        return sorted(
+            (c for c in _calls_in(node) if ast.unparse(c.func).endswith("handle.reader.as_of")),
+            key=lambda call: call.lineno,
+        )
+
+    def _seams_in(node: ast.AST) -> list[ast.Call]:
+        return [c for c in _calls_in(node) if ast.unparse(c.func) == "self.acquisition"]
+
+    (governed,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "GovernedResolver"]
+    methods = {n.name: n for n in governed.body if isinstance(n, ast.FunctionDef)}
+    call_method = methods["__call__"]
+    probe_method = methods["_refuse_a_population_read_in_the_subject_keyed_phase"]
+    assert len(_reads_in(tree)) == 3, "three graph reads in the module: two in __call__, one in the P6 probe"
+    reads = _reads_in(call_method)
     assert len(reads) == 2
     before_acquisition, plan_read = reads
-    seams = [c for c in calls if ast.unparse(c.func) == "self.acquisition"]
-    assert len(seams) == 1, "the declared acquisition seam is invoked in one place"
+    assert len(_seams_in(tree)) == 2, "the declared acquisition seam is invoked in two places: the question's, the probe's"
+    seams = _seams_in(call_method)
+    assert len(seams) == 1, "the declared acquisition seam is invoked in one place in __call__"
     (seam,) = seams
-    assert before_acquisition.lineno < seam.lineno < plan_read.lineno
+    probes = [
+        c for c in _calls_in(call_method)
+        if ast.unparse(c.func) == "self._refuse_a_population_read_in_the_subject_keyed_phase"
+    ]
+    assert len(probes) == 1, "the P6 probe is asked in one place"
+    (probe,) = probes
+    assert before_acquisition.lineno < probe.lineno < seam.lineno < plan_read.lineno
+    (probe_seam,) = _seams_in(probe_method)
+    (probe_read,) = _reads_in(probe_method)
+    assert probe_seam.lineno < probe_read.lineno, "the probe's comparison read follows the probe's own call"
     gate_calls = [c for c in calls if _named(c) == "run_gates"]
     assert len(gate_calls) == 1
     (gate_call,) = gate_calls
