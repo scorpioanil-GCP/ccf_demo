@@ -738,8 +738,7 @@ def build_artifact_server(
         introspection, so the erasure door can verify an address's STORED
         class and tenant through the MCP-backed reference store. Scoped to the
         capability's verified tenant: another tenant's filing of the same bytes
-        never crosses (I6). Naming only — no artifact byte is read; a malformed
-        address answers the empty list, as the store's ``names_at`` does.
+        never crosses (I6). Naming only: no artifact byte crosses.
 
         **The same entitlement the blob read requires** (fix round 2, N4). An
         address the caller's own tenant filed under a class the deployment
@@ -751,6 +750,21 @@ def build_artifact_server(
         any class — takes no part in the decision (C8, ``D-IMPL-376`` (6)), so
         it can neither make this tenant's own naming unverifiable nor tell this
         tenant that some other tenant holds the bytes.
+
+        **An address the caller's tenant never filed is decided the same way**
+        (``D-IMPL-378``, the final panel's F1-1). Another tenant's address and
+        an address nobody filed take the governed dereference the blob and
+        presence reads take for them, and answer its ``nonexistent`` shell:
+        the answer a governed address that holds no record gets. An
+        executed-query pin is such an address. It is named by the hash of its
+        own inputs, the same whichever principal asked, and it answered the
+        shell while an address nobody filed answered ``[]``, which told a
+        caller that the pin exists
+        (``tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike``).
+        The erasure door over the MCP-backed store therefore refuses an
+        address its tenant never filed ``class-unverifiable``, as it refuses a
+        governed address it may not read; the in-process door reads the
+        store's naming directly and refuses it ``address-not-in-tenant``.
         """
         verify(authorized, kind=ArtifactRead, resource=content_address)
         names = store.names_at(content_address=content_address)
@@ -758,7 +772,11 @@ def build_artifact_server(
         governed = any(
             ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
         )
-        if governed:
+        # Governed evidence, another tenant's address, or nothing at all: the
+        # split's one governed decision, asked without bytes (F1-1, D-IMPL-378).
+        # Answering `[]` for nothing beside the shell for a governed address
+        # told the two apart.
+        if governed or not own:
             decided = govern_dereference(
                 authorized,
                 reference=DereferenceRequest(
