@@ -225,14 +225,28 @@ def _paved_sections(*, producer_id: str, tenant: str) -> dict[str, Any]:
     }
 
 
-def producer_config(**overrides: Any) -> dict[str, Any]:
-    """The producer: the servable fixture, re-labeled as the child class under its own tenant."""
+def producer_config(*, subject_withholding: SubjectWithholding | None = None, **overrides: Any) -> dict[str, Any]:
+    """The producer: the servable fixture, re-labeled as the child class under its own tenant.
+
+    ``subject_withholding`` is the withholding stance the producer's class
+    states, and defaults to no statement, the SDK's own default
+    (``may-withhold``), as :func:`consumer_config`'s does: the projection is the
+    opener's (``project=``), not this document's. ``D-IMPL-378`` ruling P6 (a)
+    probes a class at that default whose plan factory declares no early policy;
+    this module's :class:`Acquire` returns one constant envelope whatever
+    subject it is asked about, so a producer opened with it is refused, every
+    question, as a population read left in the subject-keyed phase — measured.
+    An opener whose projection never withholds (this module's
+    :func:`plan_factory` never sets the withheld signal) states ``never``.
+    """
     document = _servable_config(**_paved_sections(producer_id=PRODUCER_ID, tenant=PRODUCER_TENANT))
     document["tenant_id"] = PRODUCER_TENANT
     document["product_class"]["schema_name"] = CHILD_CLASS
     document["product_class"]["schema_version"] = CHILD_VERSION
     document["request_contract"]["schema_name"] = CHILD_CLASS
     document["request_contract"]["schema_version"] = CHILD_VERSION
+    if subject_withholding is not None:
+        document["product_class"]["subject_withholding"] = subject_withholding
     document.update(overrides)
     return document
 

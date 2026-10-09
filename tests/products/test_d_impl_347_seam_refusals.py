@@ -45,6 +45,14 @@ from tests.products.test_paved_road import (  # noqa: F401 — `tree` is a fixtu
     tree,
 )
 
+# `D-IMPL-378` ruling P6 (a): every tree here is opened with the paved fixture's
+# `_Acquire`, which returns one constant envelope whatever subject it is asked
+# about, and with a projection that never sets the withheld signal (the
+# fixture's own `_CountProjection`, or a factory that raises before any
+# projection exists). Such a tree that reaches the acquisition seam states its
+# stance, `never`, as `test_paved_road._write_tree`'s default tree does; at the
+# SDK's default stance the P6 probe would refuse it first, as a population read.
+
 
 def _refusal() -> SubjectUnavailableRefusal:
     return SubjectUnavailableRefusal(
@@ -133,7 +141,7 @@ def test_a_refusal_raised_by_the_product_gate_is_data_and_names_its_seam(
     ``declared_product_gate`` are both-or-neither: the SDK refuses to stamp an
     identity on a refusal produced by a gate the class never declared.
     """
-    config = _config()
+    config = _config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["declared_product_gate"] = {
         "gate_id": "fixture.gate",
         "gate_version": "1.0.0",
@@ -241,7 +249,7 @@ class _ControlRoomUnreachable(RuntimeError):
 
 
 def _class_declaring_the_domain_error() -> dict[str, Any]:
-    config = _config()
+    config = _config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["seam_refusals"] = [
         {
             "exception": f"{__name__}._ControlRoomUnreachable",
@@ -385,7 +393,7 @@ def test_the_sdks_own_identity_refusal_is_a_governed_refusal_without_a_declarati
     the SDK knows what its own IdentityRefused means (a record naming no
     entity), so the paved road converts it under cause `nonexistent` even
     though no product class declares it. Before: an HTTP 500 with no record."""
-    root = _write_tree(tmp_path / "b3", config=_config())   # declares NO seam_refusals
+    root = _write_tree(tmp_path / "b3", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))   # declares NO seam_refusals
     scratch = tmp_path / "b3" / "scratch"
 
     def _null_identity(**_: Any) -> Any:
@@ -480,7 +488,7 @@ def test_the_sdks_own_temporal_write_refusal_is_a_governed_refusal_without_a_dec
 
     monkeypatch.setattr(AssemblyWorker, "ingest", counting_ingest)
 
-    config = fixture.producer_config()
+    config = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     # The tenant's OWN declared window, exactly as the step-8 suite declares it.
     config["temporal_boundary"] = {
         "max_past_seconds": 60,
@@ -676,7 +684,7 @@ def test_rebinding_the_module_attribute_does_NOT_change_dispatch(
     )
     assert smuggled in resolver_module.SDK_SEAM_REFUSALS, "the rebind itself must land"
 
-    root = _write_tree(tmp_path / "b3rebind", config=_config())  # declares NO seam_refusals
+    root = _write_tree(tmp_path / "b3rebind", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))  # declares NO seam_refusals
     scratch = tmp_path / "b3rebind" / "scratch"
 
     def _unreachable(**_: Any) -> Any:
@@ -934,7 +942,7 @@ def test_a_subclass_of_an_SDK_seam_class_is_NOT_converted_either(
     class _DeploymentsOwnIdentityProblem(IdentityRefused):
         pass
 
-    root = _write_tree(tmp_path / "b3sub", config=_config())
+    root = _write_tree(tmp_path / "b3sub", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / "b3sub" / "scratch"
 
     def _subclassed(**_: Any) -> Any:
@@ -993,7 +1001,7 @@ def test_the_match_is_MODULE_QUALIFIED_so_a_look_alike_name_is_not_converted(
         "this must not be the subclass case; that is pinned separately"
     )
 
-    root = _write_tree(tmp_path / "b3qual", config=_config())  # declares NO seam_refusals
+    root = _write_tree(tmp_path / "b3qual", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))  # declares NO seam_refusals
     scratch = tmp_path / "b3qual" / "scratch"
 
     def _look_alike(**_: Any) -> Any:
@@ -1027,7 +1035,7 @@ def test_a_DIFFERENT_sdk_exception_at_a_seam_is_not_converted(
         SDK_SEAM_REFUSALS
     )
 
-    root = _write_tree(tmp_path / "b3other", config=_config())
+    root = _write_tree(tmp_path / "b3other", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / "b3other" / "scratch"
 
     def _other_sdk_error(**_: Any) -> Any:

@@ -35,6 +35,7 @@ import pytest
 
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.temporal_boundary import temporal_boundary_policy_key
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.signal.envelope import SignalEnvelope, SourceIdentity
 
 TENANT = "tenant-step8"
@@ -200,7 +201,7 @@ def test_on_the_paved_road_an_out_of_window_write_is_UNREACHABLE(
     from tests.products.test_paved_road import _open, _question, _write_tree
 
     root = _pathlib.Path(str(tmp_path))
-    config = fixture.producer_config()
+    config = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["temporal_boundary"] = {
         "max_past_seconds": 60,
         "permitted_clock_skew_seconds": 60,
@@ -298,7 +299,7 @@ def test_on_the_paved_road_a_TICKING_clock_reaches_the_write_guard_and_it_is_gov
     asked_at = served_at - timedelta(seconds=1)
 
     def _route(name: str, *, ticking: bool) -> tuple[object, object, list[datetime]]:
-        config = fixture.producer_config()
+        config = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
         config["temporal_boundary"] = {
             "max_past_seconds": 60,
             "permitted_clock_skew_seconds": 60,
