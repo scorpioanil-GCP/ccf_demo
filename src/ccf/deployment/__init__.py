@@ -135,6 +135,7 @@ from ccf.deployment.config import (
 from ccf.deployment.manifest import (
     BootedFabric,
     DeploymentStoreNotEmpty,
+    DeploymentStoreNotVerified,
     ManifestKeysPlaceToOneKey,
     QuestionFabricNotExclusive,
     QuestionFabricNotFresh,
@@ -159,6 +160,7 @@ __all__ = [
     "BootedFabric",
     "DeploymentManifest",
     "DeploymentStoreNotEmpty",
+    "DeploymentStoreNotVerified",
     "DerivedDeployment",
     "EnvironmentDocument",
     "ManifestEntry",

@@ -69,6 +69,7 @@ from typing import Annotated, Any, Literal, Union, cast, get_args, get_origin
 import dataclasses
 
 import os
+import stat
 import types
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -76,6 +77,11 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePath
 
 from pydantic import SecretStr
+
+try:  # pragma: no cover - import shape only
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - a platform without flock
+    _fcntl = None  # type: ignore[assignment]
 
 from ccf.authz.capability import (
     CompositionRegister,
@@ -127,7 +133,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "DeploymentStoreNotEmpty", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "DeploymentStoreNotEmpty", "DeploymentStoreNotVerified", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -244,11 +250,22 @@ class BootedFabric:
             created exclusively before the store exists: the question marker
             on a boot for one question, ``<resolved path>.ccf-deployment-store``
             on any other boot. ``"verified"``: every path naming the store
-            carries one of the two, written by this boot or an earlier one. A
-            plain boot that wrote its deployment marker in this boot also read
-            the store once before handing it back and found nothing for the
-            tenant (:class:`DeploymentStoreNotEmpty` otherwise, which removes
-            that marker; OWED-RULINGS-3 item 2A (b), ``D-IMPL-378``).
+            carries a question marker, or a deployment marker that records a
+            completed verification, written by this boot or an earlier one. A
+            deployment marker reads ``pending`` from its creation until the
+            boot that created it has read the store once and found nothing for
+            the tenant (:class:`DeploymentStoreNotEmpty` otherwise, which
+            removes it; OWED-RULINGS-3 item 2A (b), ``D-IMPL-378``), and
+            ``verified`` only after; a boot meeting a deployment marker beside
+            a store that reads anything else is refused
+            (:class:`DeploymentStoreNotVerified`; repairs 1.1 and 1.2,
+            ``D-IMPL-378``), and a boot meeting a deployment marker of any
+            state with no store beside it replaces it with its own and
+            verifies the new store as any boot creating one. A plain boot
+            holds the store-creation lock of every path from its look at the
+            path to the hand-back, so a boot that finds another creating the
+            store waits for it. Read when the boot hands the fabric back,
+            after its read, never before it.
             ``"unmarked"``: the store existed at boot and carries neither — a
             store booted for a question before the markers existed, a copy
             taken without its marker, a store created outside these doors —
@@ -361,10 +378,16 @@ class DeploymentStoreNotEmpty(ValueError):
     """A plain boot that created its store opened a store that already holds claims for its tenant.
 
     SEC-020, ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b) (Dave, 2026-10-09 06:21
-    MST: *"2A(b)"*). The option he ruled: *"A plain boot that created its
-    deployment marker in this boot is creating a new store, so it must also
-    find it empty. One read per store creation, no Protocol change. Reopening
-    an existing store is unaffected."* A boot not for a question leaves its
+    MST: *"2A(b)"*). The option he ruled, on the sheet he ruled from: *"Run
+    the same one emptiness read when a plain boot creates a new store (one
+    read per store creation, no Protocol change; reopening is unaffected)."*
+    The build first took a lane's narrower wording (*"A plain boot that created
+    its deployment marker in this boot"*); repair 1.2 (Dave, 2026-10-09 10:54
+    MST: *"Run the emptiness check whenever a plain boot creates a new
+    store."*) restores the ruled trigger: the read is taken by every plain boot
+    whose path held no store when it looked, whoever made a marker beside it
+    (a store created where a question marker stands included), while the boot
+    holds the store-creation lock. A boot not for a question leaves its
     deployment marker beside a path that holds no store and no marker, and the
     adapter creates the store at the boot, so a store written at the path after
     the marker and before the adapter opened it was booted as the deployment's
@@ -380,15 +403,136 @@ class DeploymentStoreNotEmpty(ValueError):
     its own, so the path is left holding a store with no marker beside it, over
     which no governed call is answered
     (``src/ccf/products/resolver.py::UnmarkedStoreNotPresumedFresh``). A boot
-    that reopens a store (the path held a store, or a marker, before the boot)
-    takes no read.
+    that reopens a store (the path held a store before the boot) takes no
+    read.
 
     The read sees what a question boot's read sees and has the same limits
-    (the security how-to, section 4.12). It is taken only by the boot that
-    created the marker: a boot whose path carries a deployment marker it did
-    not create, with no store beside it, creates the store without the read.
-    The refusal states no count and nothing the store holds.
+    (the security how-to, section 4.12). A boot whose path carries a
+    deployment marker of any state with no store beside it is creating a new
+    store too: it replaces that marker with its own, under the store-creation
+    lock, and takes the same read. The refusal states no count and nothing the
+    store holds.
     """
+
+
+#: Why :class:`DeploymentStoreNotVerified` refused, by its ``reason``: what the marker (or its lock) shows.
+_NOT_VERIFIED_WHY = {
+    "pending": (
+        "records a store creation whose emptiness read never completed (state pending: the boot that"
+        " created it was killed or interrupted before it finished, or something outside the SDK wrote it)"
+    ),
+    "unreadable": (
+        "records no state in the form this SDK writes (a marker written before markers recorded their"
+        " state, text the SDK did not write, or not a regular file this process can read)"
+    ),
+    "claimed": (
+        "appeared at the path after the boot looked, changed between the boot's look and its replacement"
+        " of it, or was replaced or rewritten while the boot that created it was verifying its store, so"
+        " something outside the SDK's boots writes beside the store"
+    ),
+    "lock-unavailable": "cannot be checked, because the store-creation lock beside it cannot be taken",
+}
+
+#: What an operator does about each :class:`DeploymentStoreNotVerified` ``reason``: the end of its text.
+_NOT_VERIFIED_REMEDY = {
+    "pending": (
+        "inspect the marker and the store beside it, then remove the marker (and the store, if one"
+        " stands there) so that a boot creates and verifies a new store"
+    ),
+    "unreadable": (
+        "inspect the marker and the store beside it, then remove the marker (and the store, if one"
+        " stands there) so that a boot creates and verifies a new store"
+    ),
+    "claimed": (
+        "find what writes into the store's directory, then remove the marker (and the store, if one"
+        " stands there) so that a boot creates and verifies a new store"
+    ),
+    "lock-unavailable": (
+        "make the lock's path a regular file this process can open and lock with flock, on a filesystem"
+        " whose flock works"
+    ),
+}
+
+
+class DeploymentStoreNotVerified(ValueError):
+    """A plain boot where safe verification cannot be established: refused, and left for an operator to resolve.
+
+    SEC-020, ``D-IMPL-378`` repair 1.1 (Dave, 2026-10-09 10:54 MST, verbatim:
+    *"Remove markers created by this boot on every failed-boot path, including
+    failure during close. Remove only markers this boot owns. A marker left by
+    a crash must not imply completed verification."*) and repair 1.2 (*"Run the
+    emptiness check whenever a plain boot creates a new store. Serialize
+    creation and verification; test competing boots. If safe verification
+    cannot be established, refuse until an operator resolves the stale
+    marker."*). A plain boot holds the store-creation lock of every path naming
+    its store (``<resolved path>.ccf-store-creation.lock``) from its look at the
+    path through the hand-back, so a boot that finds another creating the store
+    waits for it to finish. A boot that creates its store at a path leaves its
+    deployment marker there first, reading ``pending`` and carrying a token of
+    its own, and makes it read ``verified`` only once its emptiness read has
+    completed (:class:`DeploymentStoreNotEmpty` otherwise), atomically and
+    durably. Every failed boot removes the markers it
+    created that are still its own — the same file, carrying its token —
+    whatever failed: ``boot()``, the read, the promotion, or ``close()``. So a
+    marker that reads ``pending`` was left by a boot that never finished
+    (killed, or interrupted while it cleaned up) or by a writer outside the
+    SDK, and nothing shows that the store beside it was ever read. Such a marker
+    is never read as a completed verification: every plain boot of the path,
+    writer or read-only, is refused here, by name, before its store is booted,
+    and the marker is left exactly as it is — never cleared automatically — for
+    an operator to resolve (the security how-to, section 4.12, says what to
+    inspect and what to remove). So is a boot that cannot take the
+    store-creation lock at all. Each is refused after registration and before
+    anything is created at the path. A deployment marker of any state with NO
+    store beside it is not refused: the boot creating the store there replaces
+    it with its own, under the lock, and verifies the new store with the read
+    any fresh creation takes (repair 1.2; :func:`_replace_stale_deployment_marker`).
+    The refusal states nothing the store holds.
+
+    Attributes:
+        marker: The deployment marker's path,
+            ``<resolved store path>.ccf-deployment-store``.
+        reason: Which check refused:
+
+            * ``"pending"`` — a store stands beside the marker, and the marker
+              records a store creation whose emptiness read never completed;
+            * ``"unreadable"`` — a store stands beside the marker, and the
+              marker records no state in the form the SDK writes: a marker
+              written before markers recorded their state (one line), text the
+              SDK did not write, a symbolic link, anything that is not a regular
+              file, or a file this process cannot read; or no store stands
+              there, and what stands at the marker's path is a directory the
+              boot cannot replace;
+            * ``"claimed"`` — a marker appeared at the path after this boot
+              looked and before it created its own, the stale marker it found
+              changed before it could replace it, or the marker this boot
+              created was replaced or rewritten before the boot could make it
+              read ``verified``: something outside the SDK's boots writes
+              beside the store;
+            * ``"lock-unavailable"`` — the store-creation lock beside the marker
+              cannot be opened or locked (no ``flock`` on this platform or
+              filesystem, something other than a regular file at its path, or
+              no permission).
+        lock: The store-creation lock's path, for ``"lock-unavailable"``;
+            ``None`` otherwise.
+    """
+
+    def __init__(
+        self,
+        *,
+        marker: Path,
+        reason: Literal["pending", "unreadable", "claimed", "lock-unavailable"],
+        lock: Path | None = None,
+        detail: str | None = None,
+    ) -> None:
+        self.marker, self.reason, self.lock = marker, reason, lock
+        what = f"the deployment marker {str(marker)!r} {_NOT_VERIFIED_WHY[reason]}"
+        if lock is not None:
+            what += f" ({str(lock)!r}: {detail or 'unavailable'})"
+        super().__init__(
+            f"DeploymentStoreNotVerified: {what}. No boot of that store proceeds until an operator resolves"
+            f" it: {_NOT_VERIFIED_REMEDY[reason]} (the security how-to, section 4.12; SEC-020, D-IMPL-378)"
+        )
 
 
 class ManifestKeysPlaceToOneKey(ValueError):
@@ -460,6 +604,380 @@ _QUESTION_STORE_MARKER_TEXT = "booted for one question; it serves no later one (
 _DEPLOYMENT_STORE_MARKER_TEXT = (
     "created by a boot not for a question; no acquisition phase writes into it (SEC-020, D-IMPL-378)\n"
 )
+
+#: SEC-020 repair 1.1 (``D-IMPL-378``; Dave, 2026-10-09 10:54 MST: *"A marker
+#: left by a crash must not imply completed verification."*): the two states a
+#: deployment marker records after the line above. A boot creates its marker
+#: ``pending`` and makes it ``verified`` only once its emptiness read has
+#: completed, so a marker a crash or an interrupted boot leaves never reads as a
+#: completed verification.
+_MARKER_PENDING = "pending"
+_MARKER_VERIFIED = "verified"
+
+#: The length, in hex characters, of the token a deployment marker carries: the
+#: boot that created it, so a boot removes or promotes only its own marker.
+_MARKER_TOKEN_HEX = 32
+
+
+def _deployment_marker_text(state: str, token: str) -> str:
+    """A deployment marker's whole text: the line every marker has carried, then its state and its boot's token."""
+    return f"{_DEPLOYMENT_STORE_MARKER_TEXT}state: {state}\nboot: {token}\n"
+
+
+@dataclass(frozen=True)
+class _MarkerRecord:
+    """What a deployment marker records, read back: its state and the token of the boot that created it."""
+
+    state: str
+    token: str
+
+
+@dataclass(frozen=True)
+class _OwnedMarker:
+    """A deployment marker this boot created: its path, the token it wrote, and the file it is (device and inode)."""
+
+    path: Path
+    token: str
+    device: int
+    inode: int
+
+
+def _sync_directory(directory: Path) -> None:
+    """Sync ``directory``, so an entry created, replaced or removed in it survives a crash."""
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _write_all(descriptor: int, text: str) -> None:
+    """Write all of ``text`` to ``descriptor``."""
+    data = text.encode("utf-8")
+    while data:
+        data = data[os.write(descriptor, data):]
+
+
+def _unlink_if_same_file(path: Path, identity: tuple[int, int] | None) -> None:
+    """Unlink ``path`` while it is still the file ``identity`` names (device and inode); ``None`` names whatever is there."""
+    try:
+        status = os.lstat(path)
+    except FileNotFoundError:
+        return
+    if identity is None or (status.st_dev, status.st_ino) == identity:
+        path.unlink(missing_ok=True)
+
+
+def _read_deployment_marker(marker: Path) -> tuple[_MarkerRecord | None, tuple[int, int] | None]:
+    """What the deployment marker at ``marker`` records, and which file it is (device and inode), through one descriptor.
+
+    Opened without following a symbolic link and without blocking, and read
+    only if it is a regular file no longer than the longest marker the SDK
+    writes. The record is ``None`` for a marker an earlier tree wrote (one line,
+    no state), text the SDK did not write, a symbolic link, anything that is not
+    a regular file, and a file this process cannot read: none of them shows a
+    completed verification. The identity is ``None`` when nothing could be
+    opened.
+    """
+    longest = len(_deployment_marker_text(_MARKER_VERIFIED, "0" * _MARKER_TOKEN_HEX).encode("utf-8"))
+    try:
+        descriptor = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError:
+        return None, None
+    identity: tuple[int, int] | None = None
+    data = b""
+    try:
+        status = os.fstat(descriptor)
+        identity = (status.st_dev, status.st_ino)
+        if not stat.S_ISREG(status.st_mode):
+            return None, identity
+        while len(data) <= longest:
+            chunk = os.read(descriptor, longest + 1 - len(data))
+            if not chunk:
+                break
+            data += chunk
+    except OSError:
+        return None, identity
+    finally:
+        os.close(descriptor)
+    if len(data) > longest:
+        return None, identity
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None, identity
+    for state in (_MARKER_PENDING, _MARKER_VERIFIED):
+        head = f"{_DEPLOYMENT_STORE_MARKER_TEXT}state: {state}\nboot: "
+        token = text.removeprefix(head).removesuffix("\n")
+        if (
+            text.startswith(head)
+            and text.endswith("\n")
+            and len(token) == _MARKER_TOKEN_HEX
+            and all(character in "0123456789abcdef" for character in token)
+        ):
+            return _MarkerRecord(state=state, token=token), identity
+    return None, identity
+
+
+def _create_pending_deployment_marker(path: Path) -> _OwnedMarker:
+    """Create the deployment marker beside ``path`` exclusively, reading ``pending`` with a fresh token; file and directory synced.
+
+    SEC-020 repair 1.1 (``D-IMPL-378``). ``O_CREAT | O_EXCL`` with
+    ``O_NOFOLLOW``: of two creators exactly one succeeds, and the other meets
+    :class:`FileExistsError`. From here the marker is this boot's: its token and
+    its file (device and inode) are what :func:`_promote_deployment_marker` and
+    :func:`_remove_deployment_marker_if_owned` check. A failure after the file
+    exists removes it before propagating, so a marker this call could not
+    finish writing is never left behind.
+    """
+    marker = _deployment_store_marker(path)
+    token = os.urandom(_MARKER_TOKEN_HEX // 2).hex()
+    descriptor = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+    identity: tuple[int, int] | None = None
+    try:
+        try:
+            status = os.fstat(descriptor)
+            identity = (status.st_dev, status.st_ino)
+            _write_all(descriptor, _deployment_marker_text(_MARKER_PENDING, token))
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        _sync_directory(marker.parent)
+    except BaseException:
+        _unlink_if_same_file(marker, identity)
+        raise
+    return _OwnedMarker(path=marker, token=token, device=identity[0], inode=identity[1])
+
+
+def _promote_deployment_marker(owned: _OwnedMarker) -> _OwnedMarker:
+    """Make a marker this boot created read ``verified``, atomically, once its emptiness read has completed; return it.
+
+    SEC-020 repair 1.1 (``D-IMPL-378``). The verified text is written to a
+    staging file beside the marker, synced, and renamed over the marker
+    (``os.replace``); the caller then syncs the directory. A crash at any
+    instant leaves the marker reading ``pending`` or ``verified``, never part of
+    either. A marker that is no longer the one this boot created (another file,
+    or other text) is not replaced, and the boot is refused
+    (:class:`DeploymentStoreNotVerified`, reason ``"claimed"``). The marker
+    returned names the file that now stands at the path, for the removal a later
+    failure would take.
+    """
+    record, identity = _read_deployment_marker(owned.path)
+    if record is None or record.token != owned.token or identity != (owned.device, owned.inode):
+        raise DeploymentStoreNotVerified(marker=owned.path, reason="claimed")
+    staging = owned.path.with_name(f"{owned.path.name}.promoting-{owned.token}")
+    descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+    staged: tuple[int, int] | None = None
+    try:
+        try:
+            status = os.fstat(descriptor)
+            staged = (status.st_dev, status.st_ino)
+            _write_all(descriptor, _deployment_marker_text(_MARKER_VERIFIED, owned.token))
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        os.replace(staging, owned.path)
+    except BaseException:
+        _unlink_if_same_file(staging, staged)
+        raise
+    return _OwnedMarker(path=owned.path, token=owned.token, device=staged[0], inode=staged[1])
+
+
+def _identity_at(path: Path) -> tuple[int, int] | None:
+    """The device and inode of what stands at ``path`` (not following a symbolic link), or ``None`` when nothing can be found there."""
+    try:
+        status = os.lstat(path)
+    except OSError:
+        return None
+    return status.st_dev, status.st_ino
+
+
+def _replace_stale_deployment_marker(path: Path, found: tuple[int, int]) -> _OwnedMarker:
+    """Replace the deployment marker that stands with no store beside ``path`` by this boot's own, reading ``pending``.
+
+    SEC-020 repair 1.2 (``D-IMPL-378``; Dave, 2026-10-09 10:54 MST: *"Run the
+    emptiness check whenever a plain boot creates a new store."*), built as lane
+    ``378j-boot``'s proposal P-1 (B) for this case only. A path whose marker, of
+    any state, stands with no store beside it names a store this boot creates,
+    which it can verify exactly as it verifies a store at a fresh path.
+
+    **Why this does not take another live boot's marker.** It is called with
+    the store-creation lock of the path held, and every boot that creates or
+    verifies a deployment marker holds that lock from its look at the path
+    until it hands its fabric back, and removes its own marker on any failure
+    before it lets go (:func:`_undo_a_failed_boot`); a boot for a question
+    creates no deployment marker. So no live boot's creation is in progress at
+    the path, and the marker found was left by a boot that is no longer
+    running — killed, or one whose store was since deleted — or by a writer
+    outside the SDK. The marker is checked to be the same file found at the
+    look (device and inode) immediately before it is replaced, so one that
+    changed since was put there by a writer outside the SDK's boots, and the
+    boot is refused (:class:`DeploymentStoreNotVerified`, ``"claimed"``).
+
+    The replacement is atomic: this boot's marker is written to a staging file
+    beside it, synced, and renamed over whatever stands at the marker's path (a
+    symbolic link there is replaced, not followed), and the directory is synced.
+    The old marker's text is not kept. A directory at the marker's path cannot be
+    replaced, and the boot is refused (``"unreadable"``). From here the marker is
+    this boot's own, removed on any failure and promoted after its read, exactly
+    as one :func:`_create_pending_deployment_marker` created.
+    """
+    marker = _deployment_store_marker(path)
+    token = os.urandom(_MARKER_TOKEN_HEX // 2).hex()
+    staging = marker.with_name(f"{marker.name}.replacing-{token}")
+    descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+    staged: tuple[int, int] | None = None
+    try:
+        try:
+            status = os.fstat(descriptor)
+            staged = (status.st_dev, status.st_ino)
+            _write_all(descriptor, _deployment_marker_text(_MARKER_PENDING, token))
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        if _identity_at(marker) != found:
+            raise DeploymentStoreNotVerified(marker=marker, reason="claimed")
+        try:
+            os.replace(staging, marker)
+        except IsADirectoryError:
+            raise DeploymentStoreNotVerified(marker=marker, reason="unreadable") from None
+    except BaseException:
+        _unlink_if_same_file(staging, staged)
+        raise
+    _sync_directory(marker.parent)
+    return _OwnedMarker(path=marker, token=token, device=staged[0], inode=staged[1])
+
+
+def _remove_deployment_marker_if_owned(owned: _OwnedMarker) -> None:
+    """Remove a marker this boot created, only while it is still that file and still carries this boot's token.
+
+    SEC-020 repair 1.1 (``D-IMPL-378``: *"Remove only markers this boot
+    owns."*). The file's device and inode and its token are read through one
+    descriptor, then the path is unlinked and its directory synced. A writer
+    outside the SDK that replaces the file between that check and the unlink
+    loses its file: the residual a path leaves, because POSIX offers no
+    unlink-if-still-this-file call.
+    """
+    record, identity = _read_deployment_marker(owned.path)
+    if record is None or record.token != owned.token or identity != (owned.device, owned.inode):
+        return
+    owned.path.unlink(missing_ok=True)
+    _sync_directory(owned.path.parent)
+
+
+#: SEC-020 repair 1.2 (``D-IMPL-378``; Dave, 2026-10-09 10:54 MST: *"Serialize
+#: creation and verification"*): what a plain boot appends to the resolved
+#: spelling of each path naming its store, to name the lock it holds from its
+#: look at the path through the hand-back. Held for the boot, never for the
+#: fabric's life. Not the SQLite writer lease (``<store>.ccf-writer.lock``,
+#: held while a writer's fabric is open), and not a declared lock directory
+#: (``writer_lease_lock_dir``).
+_STORE_CREATION_LOCK_SUFFIX = ".ccf-store-creation.lock"
+
+
+class _StoreCreationLock:
+    """The store-creation locks of every path a plain boot names, taken in one order and held through the boot.
+
+    SEC-020 repair 1.2 (``D-IMPL-378``). One exclusive ``flock`` per path, on
+    ``<resolved path>.ccf-store-creation.lock`` (opened ``O_RDWR | O_CREAT |
+    O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC``, mode ``0o600``, and only a regular
+    file is locked), taken in sorted order, so two boots naming the same paths
+    cannot deadlock. A ``flock`` belongs to an open file description, so it
+    excludes another boot in another process and in another thread of this
+    one, and the kernel drops it when its holder dies, however it dies: a
+    crashed boot never wedges the next, whose look then finds the crashed
+    boot's marker reading ``pending``. A boot that finds the lock held WAITS for
+    it, with no timeout: another boot is creating or verifying the store, and
+    when it has finished this boot sees what it left. A lock that cannot be
+    opened or locked at all refuses the boot
+    (:class:`DeploymentStoreNotVerified`, reason ``"lock-unavailable"``). A path
+    whose directory does not exist takes no lock and is left to the adapter, as
+    its marker is. The lock files stay beside their stores and vouch for
+    nothing; removing one while no boot runs is harmless.
+    """
+
+    def __init__(self, paths: Sequence[Path]) -> None:
+        locks = {
+            Path(f"{path.resolve()}{_STORE_CREATION_LOCK_SUFFIX}"): path
+            for path in paths
+            if path.resolve().parent.is_dir()
+        }
+        self._locks = sorted(locks.items(), key=lambda item: str(item[0]))
+        self._held: list[int] = []
+
+    def acquire(self) -> None:
+        """Take every lock, in order, waiting for each; refuse by name if one cannot be taken at all."""
+        for lock, path in self._locks:
+            try:
+                if _fcntl is None:
+                    raise OSError("this platform offers no flock")
+                descriptor = os.open(
+                    lock, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, 0o600
+                )
+            except OSError as unavailable:
+                self.release()
+                raise DeploymentStoreNotVerified(
+                    marker=_deployment_store_marker(path), reason="lock-unavailable", lock=lock,
+                    detail=unavailable.strerror or str(unavailable),
+                ) from unavailable
+            try:
+                if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                    raise OSError("not a regular file")
+                _fcntl.flock(descriptor, _fcntl.LOCK_EX)
+            except OSError as unavailable:
+                os.close(descriptor)
+                self.release()
+                raise DeploymentStoreNotVerified(
+                    marker=_deployment_store_marker(path), reason="lock-unavailable", lock=lock,
+                    detail=unavailable.strerror or str(unavailable),
+                ) from unavailable
+            except BaseException:
+                os.close(descriptor)
+                self.release()
+                raise
+            self._held.append(descriptor)
+
+    def release(self) -> None:
+        """Release every lock held, in reverse order. Never raises: closing a descriptor drops its lock regardless."""
+        held, self._held = self._held, []
+        for descriptor in reversed(held):
+            try:
+                if _fcntl is not None:
+                    _fcntl.flock(descriptor, _fcntl.LOCK_UN)
+            except OSError:
+                pass  # the close below drops the lock all the same
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass  # the descriptor is released even when close reports an error
+
+
+def _undo_a_failed_boot(
+    failure: BaseException, *, handle: FabricHandle | None, created: Sequence[_OwnedMarker]
+) -> None:
+    """Close a failed boot's fabric and remove the markers it created that are still its own, never masking ``failure``.
+
+    SEC-020 repair 1.1 (``D-IMPL-378``: *"Remove markers created by this boot on
+    every failed-boot path, including failure during close."*). The markers are
+    removed whatever ``close()`` does: an ``Exception`` from it, or from a
+    removal, is recorded on ``failure`` as a note, so the caller meets the
+    failure that refused the boot. A ``BaseException`` that is not an
+    ``Exception`` (an interrupt) during this cleanup still runs the removals,
+    then propagates in place of ``failure``; a marker it stops this cleanup from
+    removing reads ``pending``, which no boot reads as a completed verification.
+    """
+    try:
+        if handle is not None:
+            try:
+                handle.close()
+            except Exception as closing:  # noqa: BLE001 — recorded on the failure, never raised over it
+                failure.add_note(f"closing the fabric after this failure raised {closing!r}")
+    finally:
+        for owned in created:
+            try:
+                _remove_deployment_marker_if_owned(owned)
+            except Exception as removing:  # noqa: BLE001 — recorded on the failure, never raised over it
+                failure.add_note(f"removing the deployment marker {str(owned.path)!r} after this failure raised {removing!r}")
 
 
 def _marker(path: Path, suffix: str) -> Path:
@@ -548,34 +1066,62 @@ def _reserve_question_store(paths: Sequence[Path]) -> None:
         raise
 
 
-def _mark_deployment_store(paths: Sequence[Path]) -> tuple[Path, ...]:
-    """Leave the deployment marker beside every path whose store this boot is about to create; return those created.
+def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -> bool:
+    """Refuse where safe verification cannot be established; mark ``pending`` every path whose store this boot creates.
 
-    SEC-020 P4 (a) made strict. A path with no store and no marker of either
-    kind names a store this boot creates, so the marker goes first, created
-    exclusively; a concurrent boot that created one first wins, and its marker
-    is read as it stands. A path whose directory is absent is left to the
-    adapter, which creates the store or refuses it. A path holding a store, or
-    a marker already, is read as it stands: never marked after the fact,
-    because a marker written beside a store that already exists would vouch
-    for contents this boot did not create.
+    SEC-020 P4 (a) made strict, and repairs 1.1 and 1.2 (``D-IMPL-378``).
+    Called with the store-creation lock of every path held
+    (:class:`_StoreCreationLock`), so no other boot of these paths is creating
+    or verifying a store while it looks. A path holding a store whose deployment
+    marker does not record a completed verification — ``pending`` (its boot
+    never finished its read: it was killed, or interrupted) or no state in the
+    SDK's form — is refused by name (:class:`DeploymentStoreNotVerified`) and
+    left for an operator. A path holding a store, with a verified marker, a
+    question marker or none, is read as it stands: never marked after the fact,
+    because a marker written beside a store that already exists would vouch for
+    contents this boot did not create.
 
-    The markers this call created are returned: a boot that created one is
-    creating a new store, which it must find empty (OWED-RULINGS-3 item 2A
-    (b), :class:`DeploymentStoreNotEmpty`).
+    A path with no store names a store this boot creates. A deployment marker
+    of any state standing there with no store beside it is replaced by this
+    boot's own, reading ``pending`` (:func:`_replace_stale_deployment_marker`;
+    repair 1.2, built as lane ``378j-boot``'s proposal P-1 (B) for this case
+    only); where none stands, the marker is created exclusively, reading
+    ``pending`` (:func:`_create_pending_deployment_marker`), and a marker that
+    appears there before that exclusive create was made outside the SDK's
+    boots, and is refused (``"claimed"``). Either way the marker joins
+    ``created`` at once, so a failure anywhere after it removes it, and it is
+    made to read ``verified`` only after the read. A path whose directory is
+    absent is left to the adapter, which creates the store or refuses it, and a
+    path a question marker holds gets no deployment marker.
+
+    Returns whether this boot creates a store — a path held no store when it
+    looked — which it must find empty, whoever made a marker beside the path
+    (OWED-RULINGS-3 item 2A (b) and repair 1.2,
+    :class:`DeploymentStoreNotEmpty`).
     """
-    created: list[Path] = []
+    creates_a_store = False
     for path in paths:
-        if path.exists() or not path.resolve().parent.is_dir():
+        marker = _deployment_store_marker(path)
+        found = _identity_at(marker)
+        if path.exists():
+            if found is not None:
+                record, _identity = _read_deployment_marker(marker)
+                if record is None:
+                    raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
+                if record.state != _MARKER_VERIFIED:
+                    raise DeploymentStoreNotVerified(marker=marker, reason="pending")
             continue
-        if _question_store_marker(path).exists() or _deployment_store_marker(path).exists():
+        creates_a_store = True
+        if not path.resolve().parent.is_dir() or _question_store_marker(path).exists():
+            continue
+        if found is not None:
+            created.append(_replace_stale_deployment_marker(path, found))
             continue
         try:
-            _create_marker_exclusively(_deployment_store_marker(path), _DEPLOYMENT_STORE_MARKER_TEXT)
+            created.append(_create_pending_deployment_marker(path))
         except FileExistsError:
-            continue
-        created.append(_deployment_store_marker(path))
-    return tuple(created)
+            raise DeploymentStoreNotVerified(marker=marker, reason="claimed") from None
+    return creates_a_store
 
 
 def _marked_for_a_question(paths: Sequence[Path]) -> bool:
@@ -584,15 +1130,23 @@ def _marked_for_a_question(paths: Sequence[Path]) -> bool:
 
 
 def _store_creation(paths: Sequence[Path]) -> Literal["verified", "unmarked", "unverifiable"]:
-    """What :attr:`BootedFabric.store_creation` reads: from the markers beside the store, never its contents."""
+    """What :attr:`BootedFabric.store_creation` reads: from the markers beside the store, never its contents.
+
+    Read when the boot hands the fabric back, after its emptiness read and
+    after the markers it created were made to read ``verified`` — never before
+    (repair 1.1, ``D-IMPL-378``): ``"verified"`` needs, beside every path, a
+    question marker or a deployment marker that records a completed
+    verification.
+    """
     if not paths:
         return "unverifiable"
-    if all(
-        _question_store_marker(path).exists() or _deployment_store_marker(path).exists()
-        for path in paths
-    ):
-        return "verified"
-    return "unmarked"
+    for path in paths:
+        if _question_store_marker(path).exists():
+            continue
+        record, _identity = _read_deployment_marker(_deployment_store_marker(path))
+        if record is None or record.state != _MARKER_VERIFIED:
+            return "unmarked"
+    return "verified"
 
 
 def _names_a_path(annotation: object) -> bool:
@@ -1182,60 +1736,88 @@ def _register_and_boot(
     # exclusive reservation of the path, and any other boot that creates its
     # store marks it too, so an existing store with neither marker is unmarked
     # and never presumed fresh (`BootedFabric.store_creation`).
-    created: tuple[Path, ...] = ()
-    if for_question:
-        _reserve_question_store(paths)
-    else:
-        created = _mark_deployment_store(paths)
-    question_store = _marked_for_a_question(paths)
-    store_creation = _store_creation(paths)
-    handle = boot(
-        backend=manifest.backend,
-        connection=connection or {},
-        secrets=secrets,
-        registry=registry,
-        resolution_spec_key=manifest.resolution_spec_key,
-        resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
-        policy_bundle_key=manifest.policy_bundle_key,
-        policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
-        # D-IMPL-354: the one tenant this deployment runs as is the one tenant
-        # the fabric is composed for; `boot` mints its invalidation-register
-        # capability from this and nothing else.
-        tenant_ids=(resolved_tenant,),
-        read_only=read_only,
-    )
-    if for_question or created:
-        # SEC-020 P4s-A (b) (`D-IMPL-378`; Dave, 2026-10-08 16:40 MST: *"Add
-        # the emptiness check ... The check must precede acquisition and
-        # remain protected by exclusive ownership through use."*): the store
-        # the adapter opened is read once, here, after `boot` took the writer
-        # lease and before the fabric is handed back, so before any
-        # acquisition phase or governed call can run over it. A store holding
-        # anything for the tenant is closed and refused; its question marker
-        # stays, so the path keeps refusing.
-        # OWED-RULINGS-3 item 2A (b) (Dave, 2026-10-09 06:21 MST): a plain boot
-        # that created its deployment marker is creating a new store, so it
-        # takes the same one read. Refused, it removes the markers it created,
-        # as a refused reservation removes its own, so no marker vouches for
-        # the store; a boot that reopens a store takes no read.
-        try:
+    # Repair 1.1 (`D-IMPL-378`; Dave, 2026-10-09 10:54 MST: *"Remove markers
+    # created by this boot on every failed-boot path, including failure during
+    # close. Remove only markers this boot owns. A marker left by a crash must
+    # not imply completed verification."*): ONE span, from the first marker
+    # this boot creates to the hand-back. A deployment marker is created
+    # reading `pending`, carrying this boot's token, and joins `created` at
+    # once; it is made to read `verified` only after the emptiness read has
+    # completed; and any failure in the span — `boot()`, the read, the
+    # promotion, building the fabric, or an interrupt — closes the handle and
+    # removes the markers that are still this boot's own, whatever `close()`
+    # does (`_undo_a_failed_boot`). A question marker stays, as before.
+    # Repair 1.2 (Dave, 2026-10-09 10:54 MST: *"Run the emptiness check
+    # whenever a plain boot creates a new store. Serialize creation and
+    # verification ... If safe verification cannot be established, refuse until
+    # an operator resolves the stale marker."*): a plain boot holds the
+    # store-creation lock of every path from its look through the hand-back, so
+    # a boot that finds another creating the store waits for it; its look
+    # refuses what it cannot verify safely; and every plain boot whose path held
+    # no store takes the read, whoever made a marker there. A question boot's
+    # path is held by its exclusive question marker instead, as before.
+    created: list[_OwnedMarker] = []
+    handle: FabricHandle | None = None
+    lock = _StoreCreationLock(() if for_question else paths)
+    lock.acquire()
+    try:
+        if for_question:
+            _reserve_question_store(paths)
+            creates_a_store = True
+        else:
+            creates_a_store = _mark_deployment_store(paths, created)
+        handle = boot(
+            backend=manifest.backend,
+            connection=connection or {},
+            secrets=secrets,
+            registry=registry,
+            resolution_spec_key=manifest.resolution_spec_key,
+            resolution_spec_version=pins.version_for(manifest.resolution_spec_key),
+            policy_bundle_key=manifest.policy_bundle_key,
+            policy_bundle_version=pins.version_for(manifest.policy_bundle_key),
+            # D-IMPL-354: the one tenant this deployment runs as is the one tenant
+            # the fabric is composed for; `boot` mints its invalidation-register
+            # capability from this and nothing else.
+            tenant_ids=(resolved_tenant,),
+            read_only=read_only,
+        )
+        if creates_a_store:
+            # SEC-020 P4s-A (b) (`D-IMPL-378`; Dave, 2026-10-08 16:40 MST: *"Add
+            # the emptiness check ... The check must precede acquisition and
+            # remain protected by exclusive ownership through use."*): the store
+            # the adapter opened is read once, here, after `boot` took the writer
+            # lease and before the fabric is handed back, so before any
+            # acquisition phase or governed call can run over it. A store holding
+            # anything for the tenant is closed and refused; its question marker
+            # stays, so the path keeps refusing.
+            # OWED-RULINGS-3 item 2A (b) (Dave, 2026-10-09 06:21 MST), with the
+            # trigger repair 1.2 restores: a plain boot whose path held no store
+            # is creating a new store, so it takes the same one read, whoever
+            # made a marker there. Refused, it removes the markers it created,
+            # so no marker vouches for the store; a boot that reopens a store
+            # takes no read.
             _refuse_unless_empty(handle.reader, tenant_id=resolved_tenant, for_question=for_question)
-        except BaseException:
-            handle.close()
-            for marker in created:
-                marker.unlink(missing_ok=True)
-            raise
-    return BootedFabric(
-        handle=handle,
-        pins=pins,
-        tenant_id=resolved_tenant,
-        artifacts=parsed,
-        survivor_cap=manifest.survivor_cap,
-        keys=keys,
-        for_question=for_question,
-        question_store=question_store,
-        store_creation=store_creation,
-    )
+        # Repair 1.1: only now, the read completed, does a marker this boot
+        # created read `verified` — atomically, then durably.
+        for index, owned in enumerate(created):
+            created[index] = _promote_deployment_marker(owned)
+            _sync_directory(owned.path.parent)
+        return BootedFabric(
+            handle=handle,
+            pins=pins,
+            tenant_id=resolved_tenant,
+            artifacts=parsed,
+            survivor_cap=manifest.survivor_cap,
+            keys=keys,
+            for_question=for_question,
+            question_store=_marked_for_a_question(paths),
+            store_creation=_store_creation(paths),
+        )
+    except BaseException as failure:
+        _undo_a_failed_boot(failure, handle=handle, created=created)
+        raise
+    finally:
+        lock.release()
 
 
 def keys_under_tenant(keys: DeploymentKeys, *, tenant: str) -> DeploymentKeys:
@@ -1632,11 +2214,44 @@ def load_and_boot(
             refusal; or, as :class:`QuestionFabricNotExclusive`,
             ``read_only=True`` beside it, before anything is registered
             (SEC-020, ``D-IMPL-378``). A ``ValueError``.
-        DeploymentStoreNotEmpty: a boot not for a question that created its
-            deployment marker opened a store that held anything for the
-            tenant when the boot returned; its handle is closed and the
-            markers it created are removed before the refusal (SEC-020,
-            ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b)). A ``ValueError``.
+        DeploymentStoreNotEmpty: a boot not for a question that creates its
+            store — a path naming it held no store when the boot looked,
+            whoever made a marker beside it — opened a store that held
+            anything for the tenant when the boot returned; its handle is
+            closed and the markers it created are removed before the refusal
+            (SEC-020, ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b), with the
+            trigger repair 1.2 restores). A ``ValueError``.
+        DeploymentStoreNotVerified: a boot not for a question where safe
+            verification cannot be established, raised after registration
+            and before anything is created at the path: a deployment marker
+            beside a store that reads ``pending`` (the boot that created it
+            never finished its read) or records no state in the form the SDK
+            writes (a marker written before markers recorded their state
+            included), a marker that appeared or changed while this boot held
+            the store-creation lock, or a store-creation lock that cannot be
+            taken; its ``reason`` says which. The marker is left as it stands,
+            for an operator (SEC-020, ``D-IMPL-378`` repairs 1.1 and 1.2). A
+            deployment marker of any state with no store beside it is not
+            refused: the boot replaces it with its own and creates and
+            verifies the store. A ``ValueError``.
+        UngovernedClassificationAttribute: a Policy operator the manifest
+            names admits on a source-asserted classification attribute that
+            no declared authority governs (SEC-023, ``D-IMPL-372``); raised
+            before anything is registered or minted. A ``ValueError``.
+        ccf.graph._writer.SingleWriterViolation: a writer boot of a graph that
+            already has a live writer, in this process or, under the store's
+            cross-process writer lease, in another (SEC-013; raised by
+            :func:`ccf.boot.boot`); the markers this boot created are removed
+            before it propagates. A read-only boot is never refused for one.
+            A ``RuntimeError``.
+        ccf.graph.protocols.WriterLeaseHeld: the SQLite store refuses to open
+            a database file that has more than one name (a hard link), for a
+            writer boot and a read-only boot alike, before any setup
+            (SEC-013, P2 (b), ``D-IMPL-378``); the markers this boot created
+            are removed before it propagates. A ``RuntimeError``.
+        ccf.graph.protocols.WriterLeaseRequired: a writer boot of a persistent
+            network store that declares no writer lease (SEC-013; raised by
+            :func:`ccf.boot.boot`). A ``RuntimeError``.
         TypeError: a ``registration: versioned`` entry names a class whose
             documents declare no string ``artifact_version``, so the bump check
             has nothing to verify. This is what an adopter sees when they declare
@@ -1653,6 +2268,11 @@ def load_and_boot(
             every document is parsed, before anything is minted or registered
             (``D-IMPL-378``).
         OSError: the manifest or a named artifact document cannot be read.
+        BaseException: whatever the declared adapter's own store or writer
+            constructor raises, re-raised unchanged after the markers this boot
+            created are removed — for the SQLite adapter, SQLite's own error
+            for a path whose directory does not exist
+            (``sqlite3.OperationalError``).
     """
     manifest_file = Path(manifest_path)
     manifest = load_artifact(

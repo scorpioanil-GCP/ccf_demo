@@ -2737,6 +2737,7 @@
       "BootedFabric",
       "DeploymentManifest",
       "DeploymentStoreNotEmpty",
+      "DeploymentStoreNotVerified",
       "DerivedDeployment",
       "EnvironmentDocument",
       "ManifestEntry",
@@ -2793,6 +2794,10 @@
       "DeploymentStoreNotEmpty": {
         "kind": "class",
         "shape": "type"
+      },
+      "DeploymentStoreNotVerified": {
+        "kind": "class",
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "DerivedDeployment": {
         "kind": "class",
@@ -3073,6 +3078,7 @@
     "__all__": [
       "BootedFabric",
       "DeploymentStoreNotEmpty",
+      "DeploymentStoreNotVerified",
       "ManifestKeysPlaceToOneKey",
       "QuestionFabricNotExclusive",
       "QuestionFabricNotFresh",
@@ -3091,6 +3097,10 @@
       "DeploymentStoreNotEmpty": {
         "kind": "class",
         "shape": "type"
+      },
+      "DeploymentStoreNotVerified": {
+        "kind": "class",
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "ManifestKeysPlaceToOneKey": {
         "kind": "class",
