@@ -9,7 +9,9 @@ things the ruling requires an operator to be told, so that the disclosures in
 
 * **The hard-link backup restriction.** A backup that links the database file instead of copying it gives the file a
   second name, so every writer boot of the graph is refused, with no writer live, until the backup's name is removed
-  (:func:`test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`). What to do instead: a copy SQLite
+  (:func:`test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`). Since P2 (b) (``D-IMPL-378``, lane
+  ``378i-p2b``) the refusal comes when each boot's store opens, with ``WriterLeaseHeld``, and covers read-only boots
+  too (``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py``). What to do instead: a copy SQLite
   writes itself, by its online backup API or by ``VACUUM INTO``, taken while a writer is live, leaves the file one
   name (:func:`test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name`).
 * **The rename gap, which (B) does not close.** A live file moved to a new name keeps one name, so a writer booted
@@ -35,15 +37,15 @@ from pathlib import Path
 
 import pytest
 
-from ccf.graph._writer import SingleWriterViolation
 from ccf.graph.backends.sqlite import WRITER_LEASE_SUFFIX
+from ccf.graph.protocols import WriterLeaseHeld
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
 
-#: The refusal's own words for a database file with two names (``SqliteGraphStore.writer_lease``).
+#: The refusal's own words for a database file with two names (the store's open, and the writer lease's).
 _TWO_NAMES = "has 2 names (hard links)"
 
-#: How the boot's mint (``src/ccf/graph/_writer.py::mint_boot_token``) opens every refusal it reports.
-_ALREADY_EXISTS = "a GraphWriter already exists"
+#: The store's own words when it refuses to open a file with more than one name (P2 (b)).
+_REFUSED_AT_OPEN = "the store refuses to open it, readers included, before any connection or setup"
 
 
 def _two_names(tmp_path: Path) -> tuple[Path, Path]:
@@ -72,21 +74,22 @@ def _tables_seen_through(path: Path) -> str:
 
 def test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed(tmp_path: Path) -> None:
     """A hard link a backup made, with no writer live: every writer boot, in this process and in another, through
-    either name, is refused with ``SingleWriterViolation`` naming the file's two names, until the link is removed."""
+    either name, is refused when its store opens (P2 (b): ``WriterLeaseHeld``, before the mint) naming the file's two
+    names, until the link is removed."""
     live, backup = _two_names(tmp_path)
     _boot("sqlite", {"database_path": live}).close()  # a graph, and no writer live
     os.link(live, backup)  # what a hard-link backup does: the same file under a second name, not a copy
     assert os.stat(live).st_nlink == 2
 
     for name in (live, backup):
-        with pytest.raises(SingleWriterViolation) as in_process:
+        with pytest.raises(WriterLeaseHeld) as in_process:
             _boot("sqlite", {"database_path": name})
         second_process = _run_child("sqlite", {"database_path": name})
-        assert second_process[:2] == ("REFUSED", "SingleWriterViolation"), second_process
-        # The mint's wrapper opens with "a GraphWriter already exists" though none is live; the cause is named after.
+        assert second_process[:2] == ("REFUSED", "WriterLeaseHeld"), second_process
+        # The store's own refusal, before the mint: it names the file's two names and says it refused to open it.
         for message in (str(in_process.value), second_process[2]):
-            assert message.startswith(_ALREADY_EXISTS), message
             assert _TWO_NAMES in message, message
+            assert _REFUSED_AT_OPEN in message, message
 
     os.unlink(backup)
     _boot("sqlite", {"database_path": live}).close()  # control: the refusal goes with the backup's name

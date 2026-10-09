@@ -59,6 +59,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+import stat
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 from types import TracebackType
@@ -183,6 +184,51 @@ def _database_file_identity(database_path: str) -> str | None:
     return f"sqlite-database-file:{status.st_dev}:{status.st_ino}"
 
 
+def _refuse_a_file_with_more_than_one_name(database_path: str) -> None:
+    """Refuse the database file ``database_path`` names if it has more than one name (a hard link).
+
+    SEC-013, P2 (b) (Dave, 2026-10-09; ``D-IMPL-378``): *"reject multi-name
+    files before any setup writes, including reader setup."* SQLite keeps a
+    write-ahead log beside each name a file is opened through, so an open
+    through a second name, even one that only reads, writes the store's setup
+    into a log beside that name and leaves it there while another process
+    holds the file; the next open through that name rolls back what was
+    committed through the other, and SQLite's integrity check still reports
+    ``ok`` (measured by
+    ``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py::test_a_second_open_through_a_hard_link_is_refused_before_it_writes_anything_and_the_holder_keeps_its_commit``).
+    :class:`SqliteGraphStore` calls this before SQLite connects and again once
+    it has, before the setup's first statement.
+
+    A path that names no file has no name to count: SQLite creates the file
+    with one name, or refuses the path itself, as it always has. Only a
+    regular file's names are counted: a hard link names a regular file, while
+    a directory's link count counts its subdirectories, not other names for
+    it. ``":memory:"`` and ``""`` have no file.
+
+    Raises:
+        WriterLeaseHeld: the file has more than one name. The type option (B)'s
+            refusal at the writer lease raises, here raised by the store's
+            open, readers included, where no mint translates it.
+        OSError: the file's names cannot be counted for a reason other than
+            there being no file at the path.
+    """
+    if database_path in _NO_FILE_DATABASES:
+        return
+    try:
+        status = os.stat(database_path)
+    except (FileNotFoundError, NotADirectoryError):
+        return
+    if stat.S_ISREG(status.st_mode) and status.st_nlink > 1:
+        raise WriterLeaseHeld(
+            f"the SQLite database file {database_path!r} has"
+            f" {status.st_nlink} names (hard links); an open through any of"
+            " them, even to read, can leave a write-ahead log beside that name"
+            " that later rolls back what was committed through another, so"
+            " the store refuses to open it, readers included, before any"
+            " connection or setup: remove the other names (SEC-013)"
+        )
+
+
 class SqliteWriterLease:
     """The SQLite writer lease: an exclusive ``flock`` on a sidecar file.
 
@@ -208,18 +254,22 @@ class SqliteWriterLease:
       :meth:`SqliteGraphStore.writer_lease` therefore refuses a database file
       with more than one name, through either name, as ``WriterLeaseHeld``
       (measured by
-      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph``
-      and
       ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_the_lease_refuses_a_database_file_with_a_second_name_through_either_name``).
+      Since P2 (b) (``D-IMPL-378``) the store refuses such a file earlier,
+      when it is opened, readers included, so a second process never boots
+      through a hard link to a held graph
+      (``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph``);
+      the lease's count refuses a second name made after the store opened.
       **Not closed:** a live file moved to a new name keeps one name, and a
       writer booted through the new name in a second process is not refused
       while the first process's writer is live (measured by
       ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file``).
       **Unless a lock directory is declared:** with ``writer_lease_lock_dir``
       declared, :meth:`SqliteGraphStore.writer_lease` also holds a lock keyed
-      on the database file's device and inode, which refuses that writer, and
-      a writer through a hard link, among writers that declare the same
-      directory (SEC-013, option (C); measured by
+      on the database file's device and inode, which refuses that writer
+      among writers that declare the same directory (a writer through a hard
+      link is refused earlier, when its store opens) (SEC-013, option (C);
+      measured by
       ``tests/graph/test_sqlite_writer_lease_file_identity.py::test_a_second_process_is_refused_through_the_new_name_of_the_renamed_live_file``).
       SQLite names its write-ahead log after the path too, so a second name
       reads another log and misses what the first committed
@@ -254,12 +304,16 @@ class SqliteWriterLease:
       writers that declare the same directory, but no lock keeps the old
       name's commits: do not move a live file either way. ``SEC-013`` stays
       open.
-    * **A hard-link backup refuses every writer boot.** A backup that links
-      the database file instead of copying it gives the file a second name.
-      Until that name is removed, the lease is refused through either name,
-      even with no writer live, so every writer boot of the graph, in any
-      process, is refused with ``SingleWriterViolation``
-      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed``).
+    * **A hard-link backup refuses every open, an examiner's included.** A
+      backup that links the database file instead of copying it gives the
+      file a second name. Until that name is removed, the store refuses to
+      open the file through either name, even with no writer live, so every
+      writer boot of the graph, in any process, is refused with
+      ``WriterLeaseHeld`` when its store opens
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed``),
+      and since P2 (b) (``D-IMPL-378``) so is every read-only boot: an
+      examiner cannot open a file that has a hard-link backup
+      (``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py::test_a_reader_open_of_a_file_with_two_names_is_refused_by_name_through_either_name``).
       Back the file up with a copy SQLite writes itself instead: its online
       backup API (``sqlite3.Connection.backup``) or ``VACUUM INTO``. Either
       can run while a writer is live, and the file keeps one name
@@ -418,6 +472,28 @@ class SqliteGraphStore:
         ValueError: ``writer_lease`` is declared and the database has no file
             to follow (``":memory:"`` or ``""``), or none at its path once
             opened. Raised before the store's own setup runs.
+        WriterLeaseHeld: the database file has more than one name (a hard
+            link), for every open, readers included (SEC-013, P2 (b),
+            ``D-IMPL-378``). The names are counted before SQLite connects and
+            again once it has, before the setup's first statement, so a
+            refused open writes nothing through any name, and a connection
+            opened between the two counts is closed unused (measured by
+            ``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py::test_a_second_open_through_a_hard_link_is_refused_before_it_writes_anything_and_the_holder_keeps_its_commit``
+            and
+            ``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py::test_a_second_name_made_between_the_first_count_and_the_connection_is_refused_before_the_setup``).
+            An examiner cannot open a file that has a hard-link backup either.
+
+    **What the two counts do not see** (P2 (b)'s time-of-check window). Each
+    count reads whatever file the path names at that moment. A second name
+    made after the second count and before the setup's first statement (an
+    instant) is not refused, and neither is a file swapped in under the path
+    between SQLite's open and the second count: Python's ``sqlite3`` exposes no
+    descriptor to count the opened file's names through. A name made after
+    the store has opened is not this open's to refuse: the open connection
+    keeps its own name, every later open through either name is refused, and
+    a writer's lease refuses it at the mint (:meth:`writer_lease`). Only this
+    store's opens are refused; a tool that opens the file with SQLite directly
+    is not.
 
     The store is *not* a ``GraphStore`` in the sense of offering both halves of
     the Protocol: it offers :attr:`reader` and, to the writer module alone, the
@@ -431,7 +507,18 @@ class SqliteGraphStore:
         writer_lease: WriterLeaseSource | None = None,
     ) -> None:
         self._database_path = str(database_path)
+        # SEC-013, P2 (b): a file with more than one name is refused before
+        # SQLite connects, so nothing is opened or written through any name...
+        _refuse_a_file_with_more_than_one_name(self._database_path)
         self._connection = sqlite3.connect(self._database_path)
+        try:
+            # ...and counted again now that SQLite has it open, before the
+            # setup's first statement: a name made between the two counts is
+            # refused here, and the connection is closed unused.
+            _refuse_a_file_with_more_than_one_name(self._database_path)
+        except BaseException:
+            self._connection.close()
+            raise
         # SEC-013, option (C): the file THIS connection opened, read once, at
         # once, so the declared lease follows that file whatever it is called
         # when the mint takes the lease.
@@ -478,19 +565,21 @@ class SqliteGraphStore:
         ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, so a
         declared lease that does not exclude other processes is refused — and
         then the name count below; the lease returned holds both locks. A
-        writer of the same file through another name, a hard link or the new
-        name of a renamed file, that declared the same directory is refused by
-        the file lease, before the name count is read. **Not before the
-        store's own setup:** the mint takes this lease after the store has
-        opened the database and run its setup, so a process refused here has
-        already written that setup through its own name, and through a hard
-        link the log it leaves later rolls back what the holder committed
-        (measured by
-        ``tests/graph/test_sqlite_writer_lease_file_identity_limits.py::test_limit_a_process_refused_through_a_hard_link_has_already_written_setup_that_later_rolls_back_the_holder``).
+        writer of the same file through the new name of a renamed file that
+        declared the same directory is refused by the file lease, before the
+        name count is read. A writer through a hard link never gets this far:
+        the store refuses a file with more than one name when it is opened,
+        before its setup (P2 (b), ``D-IMPL-378``; see :class:`SqliteGraphStore`).
+        **This lease still comes after the store's own setup:** the mint takes
+        it after the store has opened the database and run its setup, through
+        whatever single name the store was opened by.
 
-        A database file with more than one name is refused whether or not a
-        writer is live, so a hard link a backup made to the file refuses every
-        writer boot until it is removed. A file moved to a new name while a
+        The name count below refuses a database file that gained a second
+        name after this store opened it, whether or not a writer is live; one
+        that had a second name when the store opened was refused then. Either
+        way a hard link a backup made to the file refuses every writer boot
+        until it is removed, and, since P2 (b), every read-only boot too. A
+        file moved to a new name while a
         writer holds it keeps one name and is not refused by the name count;
         only the declared file lease above refuses it, so a deployment that
         declares no lock directory keeps that gap (``SEC-013`` stays open on
@@ -500,9 +589,9 @@ class SqliteGraphStore:
         Raises:
             WriterLeaseHeld: another holder — in any process — has the lease
                 (the sidecar, or the declared lease on the database file), or
-                the database file has more than one name (a hard link), so
-                a lock beside this name could not exclude a writer through
-                another.
+                the database file has gained a second name (a hard link) since
+                this store opened it, so a lock beside this name could not
+                exclude a writer through another.
             WriterLeaseRequired: the declared lease's scope is not
                 ``"cross-process"``.
         """

@@ -598,10 +598,11 @@ network stores above) makes each writer also hold an exclusive `flock` on
 `<writer_lease_lock_dir>/<sha256(database file identity)>.lock`, where the
 identity is the file's device and inode, read when the store opens the file
 (`src/ccf/graph/backends/sqlite.py::SqliteGraphStore`). A second process's
-writer through a hard link or through the renamed file's new name is then
-refused with `SingleWriterViolation` naming that lock, among writers that
-declare the same directory
-(`tests/graph/test_sqlite_writer_lease_file_identity.py`). An in-memory
+writer through the renamed file's new name is then refused with
+`SingleWriterViolation` naming that lock, among writers that declare the same
+directory (`tests/graph/test_sqlite_writer_lease_file_identity.py`); one
+through a hard link is refused earlier, when its store opens (P2 (b), below).
+An in-memory
 database with a lock directory declared is refused when its store is built: it
 has no file to follow. What the declared lock does not close, each measured in
 `tests/graph/test_sqlite_writer_lease_file_identity_limits.py`:
@@ -613,19 +614,35 @@ has no file to follow. What the declared lock does not close, each measured in
   keeps the writer's write-ahead log under the name it opened, so commits not
   yet checkpointed are absent through the new name once the writer closes, and
   SQLite's `integrity_check` still reports `ok`.
-- **The lease is taken when the writer is minted, after the store has opened
-  the database and run its setup.** A process the lease refuses has already
-  written that setup through its own name. Through a hard link, the log it
-  leaves rolls back what the holder committed once anything opens the file
-  through the link, again with `integrity_check` reporting `ok`. Do not open a
-  live database file through a second name, even to read it, and remove hard
-  links to it.
 - **A lock file stays behind for each database file identity ever leased, and
   is harmless.** The kernel drops the `flock` when its holder exits or crashes,
   so a lock file no process holds never blocks a boot, including one a deleted
   file left whose inode number a new file was given; and while a writer holds
   its file open, no other file can be given that file's inode number. Measured
   on Linux (ext4); macOS not measured.
+
+**SQLite: a database file with more than one name is refused when its store
+opens, before any setup, for every open, readers included (SEC-013, P2 (b),
+D-IMPL-378).** The writer lease is taken when the writer is minted, after the
+store has opened the database and run its setup. Until P2 (b), a process that
+opened the file through a hard link, a writer the lease then refused or a
+read-only boot, had already written that setup into a write-ahead log beside
+the link, and that log rolled back what the holder committed once anything
+opened the file through the link, with `integrity_check` still reporting `ok`.
+The store (`src/ccf/graph/backends/sqlite.py::SqliteGraphStore`) now counts
+the database file's names before SQLite connects and again before the setup's
+first statement, and refuses a file with more than one name with
+`WriterLeaseHeld`, naming the file and its number of names, so the refused open
+writes nothing through any name
+(`tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py`). A
+writer boot through a hard link is therefore refused when its store opens,
+before the mint, and is reported as `WriterLeaseHeld` rather than
+`SingleWriterViolation`. What the two counts do not see: a second name made in
+the instant between the second count and the setup; a file swapped in under the
+path between SQLite's open and the second count, because Python's `sqlite3`
+exposes no descriptor to count the opened file's names through; and any tool
+that opens the file with SQLite directly rather than through the SDK. Do not
+open a live database file through a second name, and remove hard links to it.
 
 Consequences for a deployment on the stores that do lease:
 
@@ -647,18 +664,21 @@ Consequences for a deployment on the stores that do lease:
   account the SDK runs as (disclosed 2026-10-07, `D-IMPL-377`; `D-IMPL-375`
   recorded this residual as disclosed here before it was).
 - **SQLite: one name per database file, so no hard-link backups (`D-IMPL-378`,
-  option (B)).** The lease refuses a database file that has more than one
-  name, a hard link, through any of its names; the boot is refused with
-  `SingleWriterViolation`, whose message gives the file's number of names
-  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph`).
+  option (B) and P2 (b)).** The store refuses to open a database file that
+  has more than one name, a hard link, through any of its names, for every
+  open, readers included: the boot is refused when the store opens, with
+  `WriterLeaseHeld`, whose message gives the file's number of names
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph`),
+  and the writer lease refuses a second name made after the store opened.
   A backup that links the database file instead of copying it, as a
   hard-link backup does inside the same filesystem, gives the file a second
   name. While that name exists, every writer boot of the graph is refused, in
-  any process and through either name, even with no writer live; the
-  message then opens "a GraphWriter already exists", although none is, and
-  names the file's two names after it. Removing the backup's name ends the
-  refusal
-  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`).
+  any process and through either name, even with no writer live
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`),
+  and so is every read-only boot: an examiner cannot open a SQLite file that
+  has a hard-link backup
+  (`tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py::test_a_reader_open_of_a_file_with_two_names_is_refused_by_name_through_either_name`).
+  Removing the backup's name ends the refusal.
   Back a SQLite graph up with a copy SQLite writes itself instead: its online
   backup API (`sqlite3.Connection.backup`) or `VACUUM INTO`. Either can run
   while a writer is live, and the database file keeps one name
@@ -711,9 +731,13 @@ the store's own open-time setup, exactly as a writer boot's open does. Each
 store creates what it needs if it is absent: SQLite its database file, tables
 and indexes; Postgres its schema, tables and indexes; MongoDB and Neo4j their
 indexes; Fluree its ledger. Credentials that cannot perform that setup can fail
-a read-only boot when the store is opened. A read-only boot is not coordinated
-with the writer: it reads what the store returns at each read. Replay reads the
-recorded snapshot boundary, which an append-only graph does not move.
+a read-only boot when the store is opened. On SQLite, a database file with more
+than one name is refused before that setup, for a read-only boot as for a
+writer boot (P2 (b), D-IMPL-378, above): an examiner cannot open a SQLite file
+that has a hard-link backup until the link is removed. A read-only boot is not
+coordinated with the writer: it reads what the store returns at each read.
+Replay reads the recorded snapshot boundary, which an append-only graph does
+not move.
 
 ### 4.7 Declare which sources may assert a classification (SEC-023, D-IMPL-372)
 

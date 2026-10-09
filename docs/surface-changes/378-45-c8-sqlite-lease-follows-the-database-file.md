@@ -8,7 +8,9 @@ precedent. Option (B) is kept. SEC-013's status is unchanged by this entry: its 
 Measured before this entry: while one process held the writer, a second process booted a writer through the new name
 of the renamed live file (and, with (B), was refused through a hard link only by the name count). Red before and green
 after: `tests/graph/test_sqlite_writer_lease_file_identity.py::test_a_second_process_is_refused_through_the_new_name_of_the_renamed_live_file`
-and `tests/graph/test_sqlite_writer_lease_file_identity.py::test_a_second_process_is_refused_through_a_hard_link_by_the_file_lease_before_the_name_count`.
+and the hard-link test that entry `378-52` (P2 (b)) has since renamed
+`tests/graph/test_sqlite_writer_lease_file_identity.py::test_a_second_process_through_a_hard_link_is_refused_when_its_store_opens_before_the_file_lease`,
+because a hard link is now refused when the second process's store opens, before the file lease.
 **What it does not close, measured** in `tests/graph/test_sqlite_writer_lease_file_identity_limits.py`: writers that
 declare different directories, or none; a renamed live file's uncheckpointed commits, which SQLite strands under the
 old name whatever any lock does; and the store's own setup, which runs at open, before the lease is taken at the mint,
