@@ -129,3 +129,43 @@ def test_sqlite_keeps_a_write_ahead_log_per_name_so_a_second_name_misses_what_th
 
     assert through_the_same_name == "['committed_through_the_first_name']"
     assert through_the_other_name == "[]"
+
+
+# --- PROPOSAL, option B (lane 378f-small2): the lease refuses a database file with a second name -------------------
+
+
+def test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph(tmp_path: Path) -> None:
+    held, linked = _two_names(tmp_path)
+    holder = _boot("sqlite", {"database_path": held})
+    try:
+        os.link(held, linked)
+        assert os.path.samefile(held, linked)
+        same_name = _run_child("sqlite", {"database_path": held})
+        other_name = _run_child("sqlite", {"database_path": linked})
+    finally:
+        holder.close()
+
+    assert same_name[:2] == ("REFUSED", "SingleWriterViolation"), same_name
+    assert other_name[:2] == ("REFUSED", "SingleWriterViolation"), other_name
+    assert "has 2 names (hard links)" in other_name[2], other_name
+
+
+def test_the_lease_refuses_a_database_file_with_a_second_name_through_either_name(tmp_path: Path) -> None:
+    held, linked = _two_names(tmp_path)
+    with SqliteGraphStore(database_path=held) as store:
+        lease = store.writer_lease()  # control: a file with one name is leased
+    try:
+        os.link(held, linked)
+        with SqliteGraphStore(database_path=linked) as store, pytest.raises(
+            WriterLeaseHeld, match=r"has 2 names \(hard links\)"
+        ):
+            store.writer_lease()
+    finally:
+        lease.release()
+    with SqliteGraphStore(database_path=held) as store, pytest.raises(
+        WriterLeaseHeld, match=r"has 2 names \(hard links\)"
+    ):
+        store.writer_lease()
+    os.unlink(linked)
+    with SqliteGraphStore(database_path=held) as store:
+        store.writer_lease().release()  # control: the refusal goes with the second name
