@@ -1886,7 +1886,7 @@ def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
         return (
             w.raising_is_the_property(run.shape, position, raised)
             or w.p6_refusal_is_the_property(run, position, raised)
-            or w.held_refusal_is_the_property(run, position, raised)
+            or w.a_constant_refusal_is_the_property(run, position, raised)
         )
 
     unanswered: dict[str, str] = {}
@@ -2279,47 +2279,48 @@ def test_a_held_refusal_at_the_probe_leaves_withheld_and_nonexistent_indistingui
 
 
 # =============================================================================
-# Integration (coordinator, D-IMPL-378, 2026-10-09): the floor check meets item 4 (b)'s refusal
+# Integration (coordinator, D-IMPL-378, 2026-10-09): the floor check meets the two constant refusals
 # =============================================================================
 #
-# Two of Dave's 06:21 MST rulings meet here. The floor check, verbatim: "A failed spare answer cannot excuse
+# Three of Dave's 06:21 MST rulings meet here. The floor check, verbatim: "A failed spare answer cannot excuse
 # differences." It accepts a floor copy that raised only where what it raised is the property the cell holds, as Q9's,
-# P2 (c)'s and P6 (a)'s refusals are. Item 4 (b)'s closing-test case, verbatim: "4(b), plus the closing-test case and a
-# supported working twin". Its deployment refuses every side alike with ``UnheldSubjectProbeRefused``, so its floor
-# copy raises that refusal because the refusal IS the property. Merged without this, all 40 of its cells failed by
-# FloorCopyDidNotAnswer (measured on the batch). ``sec020_worlds.held_refusal_is_the_property`` adds that one refusal
-# under the conditions P6 (a)'s has; the three tests below hold it to them. A JUDGING CHANGE, in its own commit, for
-# Dave to rule on. SEC-020 stays OPEN.
+# P2 (c)'s and P6 (a)'s refusals are. Item 4 (b), verbatim: "4(b), plus the closing-test case and a supported working
+# twin" — every side of its deployment is refused alike with ``UnheldSubjectProbeRefused``. Decision 4 (a), verbatim:
+# "A failed check refuses without exposing subject-dependent differences." — every side is refused alike with
+# ``UndisclosedSubjectSubstituteIsHeld``. In both, the floor copy raises the refusal because it IS the property. Merged
+# without this, the 40 held-refusal cells here and the 12 stand-in cells of
+# ``tests/products/test_sec020_stand_in_is_verified_absent.py`` failed by FloorCopyDidNotAnswer (measured on the batch).
+# ``sec020_worlds.a_constant_refusal_is_the_property`` holds those two refusals as the property under P6 (a)'s
+# conditions; the tests below hold it to them. A JUDGING CHANGE, in its own commits, for Dave to rule on. SEC-020 stays
+# OPEN.
 
 
-def _held_refusal_world(*, every_side_refused: bool) -> w.Run:
-    """A synthetic held-refusal run: every side refused alike, or one compared side and the served side answering."""
-    refusal = (
-        f"{w.HELD_REFUSAL_REFUSAL}: the subject-keyed acquisition phase answered the probe identifier with a held"
-        " refusal"
-    )
-    refused = _floor_observation({"outcome": "refused", "detail": refusal}, raised={w.ONLY: refusal})
+def _refused_world(refusal: str, *, every_side_refused: bool, shape: str = w.HELD_REFUSAL) -> w.Run:
+    """A synthetic run: every side refused alike by ``refusal``, or one compared side and the served side answering."""
+    message = f"{refusal}: refused alike, whatever was asked"
+    refused = _floor_observation({"outcome": "refused", "detail": message}, raised={w.ONLY: message})
     sides = {side: refused for side in w.HELD_REFUSAL_SIDES}
     if not every_side_refused:
         sides[w.CF_WITHHELD] = _floor_observation(_FLOOR_WITHHELD)
         sides[w.SERVED] = _floor_observation({"outcome": "served"})
-    return w.Run(shape=w.HELD_REFUSAL, anchor=w.FROM_DECISION, door=w.MCP, sides=sides)
+    return w.Run(shape=shape, anchor=w.FROM_DECISION, door=w.MCP, sides=sides)
 
 
-def test_control_a_held_refusal_floor_copy_is_a_floor_where_every_side_raised_it() -> None:
-    """Every side of the held-refusal deployment raised item 4 (b)'s refusal with one message: the copy is a floor."""
-    assert _floor_copy_did_not_answer(_held_refusal_world(every_side_refused=True), w.COUNTERFACTUAL) == {}
+@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+def test_control_a_constant_refusal_floor_copy_is_a_floor_where_every_side_raised_it(refusal: str) -> None:
+    """Every side raised one ruled constant refusal with one message: the floor copy is a floor."""
+    assert _floor_copy_did_not_answer(_refused_world(refusal, every_side_refused=True), w.COUNTERFACTUAL) == {}
 
 
-def test_a_held_refusal_floor_copy_excuses_nothing_where_a_side_answered() -> None:
+@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+def test_a_constant_refusal_floor_copy_excuses_nothing_where_a_side_answered(refusal: str) -> None:
     """A side answered: the refusal is not what the run holds, so the raised floor copy excuses nothing, by name."""
     with pytest.raises(FloorCopyDidNotAnswer):
-        _require_the_floor_copy_answered(_held_refusal_world(every_side_refused=False), w.COUNTERFACTUAL)
+        _require_the_floor_copy_answered(_refused_world(refusal, every_side_refused=False), w.COUNTERFACTUAL)
 
 
-def test_a_floor_copy_raising_the_held_refusal_in_another_shape_excuses_nothing() -> None:
-    """The same refusal on every side of another shape is not item 4 (b)'s case: the floor copy excuses nothing."""
-    held = _held_refusal_world(every_side_refused=True)
-    other = w.Run(shape=w.SUBJECT_KEYED, anchor=held.anchor, door=held.door, sides=held.sides)
+def test_a_refusal_not_ruled_constant_excuses_nothing_even_where_every_side_raised_it() -> None:
+    """Any other refusal, raised by every side alike, is not the property: the floor copy excuses nothing, by name."""
+    run = _refused_world("SomeOtherRefusal", every_side_refused=True, shape=w.SUBJECT_KEYED)
     with pytest.raises(FloorCopyDidNotAnswer):
-        _require_the_floor_copy_answered(other, w.COUNTERFACTUAL)
+        _require_the_floor_copy_answered(run, w.COUNTERFACTUAL)
