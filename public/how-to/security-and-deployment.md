@@ -1597,13 +1597,41 @@ exclusive `flock`, from its look at the path until it hands the fabric back,
 so a second boot of the path waits for the first to finish, with no timeout,
 and then reopens the store the first verified, reading nothing (measured
 across two processes,
-`tests/products/test_deployment_marker_serialized_and_stale_refused.py`). Where
-safe verification cannot be established, the boot is refused with
-`DeploymentStoreNotVerified`, which names the marker and its `reason`, creates
-nothing at the path, and leaves the marker as it is: the SDK never clears a
-marker itself. A deployment marker written before repair 1.1 has one line and
-no state, so a boot of its store is refused (`unreadable`) until an operator
-resolves it. To resolve a refusal:
+`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens`).
+Which stale markers a boot verifies again by itself, and which it refuses:
+
+- **Verified again, with no operator step: a deployment marker of any state
+  with no store beside it.** That covers `pending` from a boot killed before
+  its store existed, `verified` with its store deleted or moved, a marker
+  written before repair 1.1 (one line, no state), text the SDK does not write,
+  and a symbolic link. The boot is creating a new store there, so, holding the
+  lock, it replaces that marker with its own (`pending`), reads the new store
+  once and marks it verified, exactly as at a fresh path
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified`).
+  A store planted at the path before the boot opens it is refused by that read
+  (`DeploymentStoreNotEmpty`) and the boot's marker removed
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_store_planted_after_the_look_beside_a_stale_marker_is_refused_by_the_read_and_the_marker_removed`),
+  and of two boots racing there, one creates and verifies the store and the
+  other waits and reopens it
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_two_plain_boots_racing_on_stale_no_store_paths_never_serve_a_store_they_did_not_verify`).
+  The lock is what makes the replacement safe: every boot that creates or
+  verifies a marker holds it until it has handed its fabric back or removed
+  its own marker, so the marker a boot finds there belongs to no boot still
+  running.
+- **Refused until an operator resolves it**, with
+  `DeploymentStoreNotVerified`, which names the marker and its `reason`,
+  creates nothing at the path, and leaves the marker as it is: a marker beside
+  an existing store that reads `pending`
+  (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified`)
+  or is `unreadable`, which includes the one-line marker written before repair
+  1.1 (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for_an_operator`);
+  a marker that appeared or changed while the boot held the lock, `claimed`
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed`);
+  and a store-creation lock that cannot be taken, `lock-unavailable`
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name`).
+  The SDK never clears a marker that stands beside a store.
+
+To resolve a refusal:
 
 1. Make sure no process is booting or serving the store: `fuser` or `lsof` on
    `<resolved path>.ccf-store-creation.lock`, and on the SQLite writer lease
@@ -1614,13 +1642,12 @@ resolves it. To resolve a refusal:
    write) and `claimed` (a marker that appeared or changed while a boot held
    the lock; find what writes into the store's directory first) all mean that
    nothing shows the store beside it was read. Move the store (`<path>`,
-   `<path>-wal`, `<path>-shm`) and the marker aside, keeping them if they may
-   be evidence, and boot again: the boot creates a new store, reads it once
-   and marks it verified. Then write the deployment's data into it again
-   through its writer.
-3. `no-store`: the marker reads `verified` but its store is gone. Find where
-   the store went before you remove the marker, then boot again.
-4. `lock-unavailable`: make `<resolved path>.ccf-store-creation.lock` a regular
+   `<path>-wal`, `<path>-shm`) aside, with the marker if you want to keep it
+   as evidence, and boot again: with no store beside it, any marker is
+   replaced, and the boot creates a new store, reads it once and marks it
+   verified. Then write the deployment's data into it again through its
+   writer.
+3. `lock-unavailable`: make `<resolved path>.ccf-store-creation.lock` a regular
    file the deployment's user can open and lock, on a local filesystem whose
    `flock` works. The store and its marker are untouched.
 
@@ -1858,9 +1885,10 @@ a nonexistent one. Each was measured on test fixtures.
   moving at the same fields as the forged marker's (lane probes
   `probe_stale_deployment_marker.py` and
   `probe_unreached_stores_distinguish_l4b.py`); under repair 1.2 such a boot
-  is refused before it creates anything (`DeploymentStoreNotVerified`,
-  reason `no-store`), as is a boot over a marker that does not show a
-  completed verification (above). A store written at a question
+  replaces that marker with its own, under the store-creation lock, and takes
+  the read a fresh creation takes, so a used store written there before the
+  boot opens it is refused (`DeploymentStoreNotEmpty`) and the boot's marker
+  removed (above). A store written at a question
   boot's path after the SDK's last check was booted as that question's
   fabric; it is now refused when the boot reads it (`QuestionStoreNotEmpty`,
   above), and that one read does not reach three things. A store whose
