@@ -478,17 +478,33 @@ def test_the_write_is_not_refused_and_the_names_resource_still_lists_the_filing(
     assert _trail(world, address, since) == [(DEREFERENCE_PRODUCT_ID, False)]
 
 
-def test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_filing_to_verify_its_subject(
+class _ToolCallsRecorded(names_world._InProcessSession):
+    """``names_world._InProcessSession``, keeping every tool call and the structured answer it got."""
+
+    def __init__(self, server: FastMCP) -> None:
+        super().__init__(server)
+        self.tool_calls: list[tuple[str, Any]] = []
+
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+        result = await super().call_tool(name, arguments)
+        self.tool_calls.append((name, result.structuredContent))
+        return result
+
+
+def test_an_erasure_door_over_the_mcp_backed_store_judges_a_record_shaped_filing_as_the_in_process_door_does(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A consequence of the refusal, disclosed on the security page (§4.10). The
-    erasure door verifies the subject of every address a request names by
-    reading that address's bytes (``ErasureDoor._verify_addresses``). Over the
-    MCP-backed store the read is a blob read, so a request naming a
-    record-shaped client-lane filing is refused ``subject-unverifiable``. The
-    in-process door reads the store directly and judges the subject from the
-    bytes: ``subject-not-found`` here, because the record carries nothing at the
-    subject's declared key path."""
+    """The erasure door verifies the subject of every address a request names
+    (``ErasureDoor._verify_addresses``). Over the MCP-backed store its read is a
+    blob read, which answers a record-shaped client-lane filing as a missing
+    address. Before Dave's 16:40 MST item 5 (D3b, ``D-IMPL-378``) the door then
+    refused ``subject-unverifiable`` — this test asserted exactly that, under the
+    name ``test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_filing_to_verify_its_subject``.
+    The deliberate change: the door asks the artifact server's subject match
+    (``match_artifact_subject``), which judges the bytes where they are and
+    answers a verdict, so the door reaches the in-process door's outcome —
+    ``subject-not-found`` here, because the record carries nothing at the
+    subject's declared key path — and the blob read still answers absent."""
     plane = h.compose(tmp_path)
     record = _record(tenant=h.TENANT, principal=VICTIM, subject="clientlane-erasure")
     filed = h.client_put(plane.store, name="record-copy", document=json.loads(canonical_bytes(record)))
@@ -497,7 +513,7 @@ def test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_f
     request = base.model_copy(
         update={"addresses": (named.model_copy(update={"content_address": filed.content_address}),)}
     )
-    session = names_world._InProcessSession(names_world._server(tmp_path, plane.store))
+    session = _ToolCallsRecorded(names_world._server(tmp_path, plane.store))
 
     async def run_with_session(*, url: str, operation: Any, http_client_factory: Any) -> Any:
         return await operation(session)
@@ -506,13 +522,17 @@ def test_an_erasure_door_over_the_mcp_backed_store_cannot_read_a_record_shaped_f
     client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=_Run(), write_kinds=h.write_kinds())  # type: ignore[arg-type]
     refused = h.door_module("ErasureRefused")
 
+    with pytest.raises(ArtifactNotFound):
+        client.get(content_address=filed.content_address)  # the blob still answers absent
     with pytest.raises(refused) as over_mcp:
         h.run(
             h.door(plane, store=client).request(
                 h.execute_cap(), definition_version=plane.definition_version, request=request, erase=h.erase_cap(request)
             )
         )
-    assert over_mcp.value.reason_code == "subject-unverifiable"
+    assert over_mcp.value.reason_code == "subject-not-found", over_mcp.value.reason_code
+    subject_match_tool = h.contract("ccf_runtime.mcp.artifact_server", "SUBJECT_MATCH_TOOL")
+    assert session.tool_calls == [(subject_match_tool, {"verdict": "subject-not-found"})], session.tool_calls
     with pytest.raises(refused) as in_process:
         h.run(
             h.door(plane).request(

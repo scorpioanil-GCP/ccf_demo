@@ -50,12 +50,11 @@ Algorithmic module (CINV-03): the clock is injected.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Callable
 from datetime import datetime
 
 from ccf.artifacts.protocol import (
+    ArtifactNotFound,
     ArtifactStoreError,
     ArtifactStoreProtocol,
     DerivedWrite,
@@ -75,7 +74,6 @@ from ccf.controlplane.state import state_key
 from ccf.erasure.contracts import (
     ERASURE_APPROVAL_CLASS,
     ERASURE_RECORD_CLASS,
-    REPLAY_INPUT_PATHS,
     ErasedAddress,
     ErasureApproval,
     ErasureRecord,
@@ -94,6 +92,13 @@ from ccf.erasure.approval import (
 from ccf.erasure.errors import ErasureCompositionRefused
 from ccf.erasure.index import ErasureIndexEntry, ErasureIndexProtocol
 from ccf.erasure.store import ErasureIndexUnavailable
+from ccf.erasure.subject_match import (
+    SubjectJudgment,
+    SubjectMatchQuery,
+    SubjectMatchVerdict,
+    judge_subject,
+    sign_subject_match_query,
+)
 from ccf.erasure.trust import (
     DOOR_SIGNATURE_ASSERTION,
     ErasureAuthority,
@@ -143,25 +148,6 @@ class ErasureRefused(PermissionError):
 
 class ErasureWorkflowUngated(ValueError):
     """The deployment's erasure workflow can complete without a typed approval gate (U9; SEC-009, `D-IMPL-374` (4))."""
-
-
-def _values_at(document: object, path: str) -> tuple[str, ...]:
-    """The scalar value(s) at a dotted path — a list contributes its scalar members."""
-    node = document
-    for part in path.split("."):
-        if not isinstance(node, dict) or part not in node:
-            return ()
-        node = node[part]
-    members = node if isinstance(node, list) else [node]
-    return tuple(str(m) for m in members if isinstance(m, (str, int)) and not isinstance(m, bool))
-
-
-def _hashes_to(salt: str, values: tuple[str, ...], subject_ref: str) -> bool:
-    for value in values:
-        material = salt.encode("utf-8") + b"\x00" + value.encode("utf-8")
-        if hashlib.sha256(material).hexdigest() == subject_ref:
-            return True
-    return False
 
 
 class ErasureDoor:
@@ -771,7 +757,13 @@ class ErasureDoor:
         replay-input path of the stored document carries the subject (design
         §7, ``replay-input``; :meth:`_filed_by_record_writer`, ``D-IMPL-378``).
         The stored bytes are read through the UNCONSULTED inner store for this
-        check only and never leave the door.
+        check only and never leave the door, and judged with
+        :func:`~ccf.erasure.judge_subject`. Where that store answers an address
+        as absent and offers ``match_subject`` — the MCP-backed store, for a
+        client-lane filing its server does not serve — the door reads nothing:
+        it asks the server, which judges the bytes where they are with the same
+        function and answers a verdict (:meth:`_judged_where_the_bytes_are`;
+        D3b, ``D-IMPL-378``).
         """
         names_at = getattr(self._store, "names_at", None)
         if not callable(names_at):
@@ -830,20 +822,46 @@ class ErasureDoor:
                     " D-IMPL-374 (4), C2)",
                     reason_code="class-label-mismatch",
                 )
+            # The ONE judgment (`ccf.erasure.judge_subject`), the same function
+            # the MCP artifact server's subject match applies (D3b).
+            try:
+                query = SubjectMatchQuery(
+                    tenant_id=tenant,
+                    content_address=where,
+                    subject_ref=request.subject_ref,
+                    key_paths=subject.key_paths,
+                    subject_ref_salt=subject.subject_ref_salt,
+                )
+            except ValueError as unaskable:
+                raise ErasureRefused(
+                    "a requested address could not be read to verify its subject (SEC-009)",
+                    reason_code="subject-unverifiable",
+                ) from unaskable
+            judged: SubjectJudgment | SubjectMatchVerdict
             try:
                 payload = reader.get(content_address=where)
+            except ArtifactNotFound as absent:
+                # D3b (`D-IMPL-378`, Dave's 16:40 MST item 5): a store that
+                # answers the address as absent — the MCP artifact server does
+                # so for a client-lane filing it does not serve, a record-shaped
+                # one foremost — may judge it where the bytes are, for this door
+                # alone, and answer the verdict, never the bytes.
+                judged = self._judged_where_the_bytes_are(reader, query, absent)
             except (ArtifactStoreError, KeyError, ValueError) as unreadable:
                 raise ErasureRefused(
                     "a requested address could not be read to verify its subject (SEC-009)",
                     reason_code="subject-unverifiable",
                 ) from unreadable
+            else:
+                judged = judge_subject(payload, query)
             # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
             # integrity." Byte fidelity FIRST, as the replay engine holds it
             # (`D-IMPL-89`): the address is the sha256 of the stored canonical
             # bytes, so bytes that hash to anything else are not the artifact
             # the request names. The subject and the replay-input rule are
-            # never judged from them, and nothing reaches approval.
-            if hashlib.sha256(payload).hexdigest() != where:
+            # never judged from them (`judge_subject` stops there), and nothing
+            # reaches approval.
+            if judged == "bytes-not-at-address":
                 raise ErasureRefused(
                     "the bytes stored at a requested address do not hash to that"
                     " address, so they are not the artifact the request names and"
@@ -851,27 +869,22 @@ class ErasureDoor:
                     " D-IMPL-378 E1 (a))",
                     reason_code="subject-unverifiable",
                 )
-            try:
-                document = json.loads(payload)
-            except ValueError as unreadable:
-                raise ErasureRefused(
-                    "a requested address could not be read to verify its subject (SEC-009)",
-                    reason_code="subject-unverifiable",
-                ) from unreadable
-            if not any(
-                _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
-                for path in subject.key_paths
-            ):
+            if judged == "subject-not-found":
                 raise ErasureRefused(
                     "no value at the subject's declared key paths in a requested"
                     " artifact hashes to the request's subject_ref; the fabric verifies"
                     " every address a request names (SEC-009; D-IMPL-374 (4), ruling (iv))",
                     reason_code="subject-not-found",
                 )
-            if any(
-                _hashes_to(subject.subject_ref_salt, _values_at(document, path), request.subject_ref)
-                for path in REPLAY_INPUT_PATHS
-            ) and self._filed_by_record_writer(tenant, where):
+            # Fail closed: only a judgment that FOUND the subject passes —
+            # `bytes-unparseable`, and anything a store's match answers that is
+            # not a verdict, refuses.
+            if judged != "subject-found" and judged != "subject-in-replay-input":
+                raise ErasureRefused(
+                    "a requested address could not be read to verify its subject (SEC-009)",
+                    reason_code="subject-unverifiable",
+                )
+            if judged == "subject-in-replay-input" and self._filed_by_record_writer(tenant, where):
                 decision = RetentionDecision(
                     policy_ref=request.retention_policy_ref,
                     verdict="refuse",
@@ -888,6 +901,50 @@ class ErasureDoor:
                 )
             stored[where] = address.artifact_class
         return stored
+
+    def _judged_where_the_bytes_are(
+        self, reader: object, query: SubjectMatchQuery, absent: ArtifactNotFound
+    ) -> SubjectMatchVerdict:
+        """The store's server-side subject match for ``query``, signed by this door (D3b; `D-IMPL-378`).
+
+        Asked only where the store answered the address as absent and offers
+        ``match_subject`` — :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.match_subject`
+        over the MCP artifact server, which answers the erasure door of the
+        caller's tenant alone, by this door's signature
+        (:func:`~ccf.erasure.sign_subject_match_query`), and judges the bytes
+        with :func:`~ccf.erasure.judge_subject`, the function this door applies
+        to bytes it reads. The bytes never reach this door; the verdict does.
+
+        Raises:
+            ErasureRefused: ``subject-unverifiable`` — the store offers no
+                subject match, the match did not answer (the cause), or it
+                answered ``subject-unverifiable`` (the absent read is the cause).
+        """
+        match = getattr(reader, "match_subject", None)
+        if not callable(match):
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject (SEC-009)",
+                reason_code="subject-unverifiable",
+            ) from absent
+        try:
+            signature = sign_subject_match_query(query, signer=self._door_signer, key_id=self._door_key_id)
+            verdict: SubjectMatchVerdict = match(query=query, door_signature=signature)
+        except (McpServerUnreachable, ArtifactStoreError, IdentityError) as unanswered:
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject, and the"
+                f" store's subject match did not answer ({type(unanswered).__name__})"
+                " (SEC-009; D-IMPL-378, D3b)",
+                reason_code="subject-unverifiable",
+            ) from unanswered
+        if verdict not in ("subject-not-found", "subject-in-replay-input", "subject-found"):
+            # `subject-unverifiable`, or an answer that is no verdict: fail closed.
+            raise ErasureRefused(
+                "a requested address could not be read to verify its subject, and the"
+                " store's subject match could not verify it from the bytes stored there"
+                " (SEC-009; D-IMPL-378, D3b)",
+                reason_code="subject-unverifiable",
+            ) from absent
+        return verdict
 
     def _filed_by_record_writer(self, tenant: str, address: str) -> bool:
         """Whether the fabric's record writer filed ``address`` under ``tenant`` (`D-IMPL-378`).

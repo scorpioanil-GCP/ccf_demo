@@ -134,6 +134,27 @@ class _InProcessSession:
         ]
         return result
 
+    async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
+        """A tool call under the same grant, answered as the low-level server answers it.
+
+        Success is a ``CallToolResult`` carrying the tool's structured content; a raised refusal is
+        ``isError=True`` with the exception's text, which is what ``mcp``'s low-level server makes of
+        it on the wire (``Server._make_error_result``). Added for the erasure door's server-side
+        subject match (``D-IMPL-378``, D3b), the one tool call the door makes.
+        """
+        from mcp.server.auth.middleware.auth_context import auth_context_var
+        from mcp.types import CallToolResult, TextContent
+
+        reset = aa._as_grant(_grant())
+        try:
+            converted = await self._server.call_tool(name, arguments)
+        except Exception as raised:  # noqa: BLE001 - every raised refusal crosses as an error result
+            return CallToolResult(content=[TextContent(type="text", text=str(raised))], isError=True)
+        finally:
+            auth_context_var.reset(reset)
+        content, structured = converted if isinstance(converted, tuple) else (converted, None)
+        return CallToolResult(content=list(content), structuredContent=structured, isError=False)
+
 
 class _Run:
     """The bridge's contract — run a coroutine to completion from sync code —

@@ -557,11 +557,21 @@ def test_no_surface_on_the_artifact_server_is_untenanted(tmp_path: pathlib.Path)
     ledger = tenancy._LEDGERS[world.server]
     # SEC-009 ruling 2 (D-IMPL-374 (4)): the names resource joins the roster,
     # hash-addressed and grant-tenanted like the blob and presence resources.
-    from ccf_runtime.mcp.artifact_server import NAMES_URI_TEMPLATE
+    from ccf_runtime.mcp.artifact_server import NAMES_URI_TEMPLATE, SUBJECT_MATCH_TOOL
 
+    # D3b (`D-IMPL-378`, Dave's 16:40 MST item 5): the erasure door's subject
+    # match joins the roster — its own action, the action id as its resource,
+    # the grant's sole tenant, and closed to a stated (ambient) identity.
     assert set(ledger) == {
-        BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAMES_URI_TEMPLATE, NAME_URI_TEMPLATE, PUT_ARTIFACT_TOOL
+        BLOB_URI_TEMPLATE, META_URI_TEMPLATE, NAMES_URI_TEMPLATE, NAME_URI_TEMPLATE, PUT_ARTIFACT_TOOL,
+        SUBJECT_MATCH_TOOL,
     }
+    from ccf.authz.actions import ACTION_ARTIFACT_SUBJECT_MATCH
+
+    assert ledger[SUBJECT_MATCH_TOOL].subject.grant is True
+    assert ledger[SUBJECT_MATCH_TOOL].action == ACTION_ARTIFACT_SUBJECT_MATCH
+    assert ledger[SUBJECT_MATCH_TOOL].resource.route is True
+    assert ledger[SUBJECT_MATCH_TOOL].mutating is True
     assert ledger[BLOB_URI_TEMPLATE].subject.grant is True
     assert ledger[META_URI_TEMPLATE].subject.grant is True
     assert ledger[NAMES_URI_TEMPLATE].subject.grant is True
