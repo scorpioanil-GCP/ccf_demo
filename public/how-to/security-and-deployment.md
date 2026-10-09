@@ -438,6 +438,17 @@ every caller of the process, and the door composes none of its own
 > remains single-principal by construction; a multi-principal deployment uses
 > `serve_loopback` or composes its own transport.
 
+The identity lasts as long as the call and no longer (`D-IMPL-378`, item 9
+(b)). `serve_stdio` sets it just before the server starts and, in a `finally`,
+restores the login identity the caller's context held before the call,
+whichever way the call ends: a normal return, an exception raised inside the
+transport, or cancellation
+(`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_a_normal_return_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_an_exception_inside_the_transport_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_cancellation_while_serving_the_previous_identity_is_restored`).
+So whatever the calling code does after the call no longer runs as the stdio
+identity.
+
 Two bounds hold on an identity composed with `ambient_stdio_identity`, and
 both are mechanism rather than convention. It is scoped to exactly the one
 tenant it names — pass the tenant the door was opened to serve — and it is
@@ -518,7 +529,7 @@ boot token records it.
 
 | Store | Lease scope | What enforces it |
 | --- | --- | --- |
-| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path; with `writer_lease_lock_dir` declared, also one on `<writer_lease_lock_dir>/<sha256(database file identity)>.lock` (below) |
 | Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
 | In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
 | Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | An exclusive `flock` on `<writer_lease_lock_dir>/<sha256(graph identity)>.lock`; the deployment declares only the absolute directory |
@@ -576,6 +587,46 @@ write a parent directory can rename the lock directory and put another in its
 place between the check and the lock file's open, so keep every ancestor
 writable only by the writers' user or root.
 
+**SQLite: declare a lock directory so the lease follows the database file, not
+its name (SEC-013, option (C), D-IMPL-378).** The sidecar is keyed on the
+database file's resolved path, so a writer that reaches the same file through
+another name is not excluded by it: through a hard link it is refused only
+because the file has two names, and through the new name of a renamed live
+file it boots. A deployment that declares `writer_lease_lock_dir` on the SQLite
+connection settings (the same setting, validation and directory rules as the
+network stores above) makes each writer also hold an exclusive `flock` on
+`<writer_lease_lock_dir>/<sha256(database file identity)>.lock`, where the
+identity is the file's device and inode, read when the store opens the file
+(`src/ccf/graph/backends/sqlite.py::SqliteGraphStore`). A second process's
+writer through a hard link or through the renamed file's new name is then
+refused with `SingleWriterViolation` naming that lock, among writers that
+declare the same directory
+(`tests/graph/test_sqlite_writer_lease_file_identity.py`). An in-memory
+database with a lock directory declared is refused when its store is built: it
+has no file to follow. What the declared lock does not close, each measured in
+`tests/graph/test_sqlite_writer_lease_file_identity_limits.py`:
+
+- **Writers that declare different directories, or none, are not excluded**
+  through another name. Declare one directory for every process that writes the
+  file.
+- **Do not rename or move a live database file; no lock makes it safe.** SQLite
+  keeps the writer's write-ahead log under the name it opened, so commits not
+  yet checkpointed are absent through the new name once the writer closes, and
+  SQLite's `integrity_check` still reports `ok`.
+- **The lease is taken when the writer is minted, after the store has opened
+  the database and run its setup.** A process the lease refuses has already
+  written that setup through its own name. Through a hard link, the log it
+  leaves rolls back what the holder committed once anything opens the file
+  through the link, again with `integrity_check` reporting `ok`. Do not open a
+  live database file through a second name, even to read it, and remove hard
+  links to it.
+- **A lock file stays behind for each database file identity ever leased, and
+  is harmless.** The kernel drops the `flock` when its holder exits or crashes,
+  so a lock file no process holds never blocks a boot, including one a deleted
+  file left whose inode number a new file was given; and while a writer holds
+  its file open, no other file can be given that file's inode number. Measured
+  on Linux (ext4); macOS not measured.
+
 Consequences for a deployment on the stores that do lease:
 
 - **Two processes that each boot the same deployment are mutually exclusive.**
@@ -595,6 +646,44 @@ Consequences for a deployment on the stores that do lease:
   lease to a file of its choosing. Keep that directory writable only by the
   account the SDK runs as (disclosed 2026-10-07, `D-IMPL-377`; `D-IMPL-375`
   recorded this residual as disclosed here before it was).
+- **SQLite: one name per database file, so no hard-link backups (`D-IMPL-378`,
+  option (B)).** The lease refuses a database file that has more than one
+  name, a hard link, through any of its names; the boot is refused with
+  `SingleWriterViolation`, whose message gives the file's number of names
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph`).
+  A backup that links the database file instead of copying it, as a
+  hard-link backup does inside the same filesystem, gives the file a second
+  name. While that name exists, every writer boot of the graph is refused, in
+  any process and through either name, even with no writer live; the
+  message then opens "a GraphWriter already exists", although none is, and
+  names the file's two names after it. Removing the backup's name ends the
+  refusal
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`).
+  Back a SQLite graph up with a copy SQLite writes itself instead: its online
+  backup API (`sqlite3.Connection.backup`) or `VACUUM INTO`. Either can run
+  while a writer is live, and the database file keeps one name
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name`).
+  Keep the database file out of any backup that hard-links.
+- **SQLite: do not move a live database file. Without a declared lock
+  directory the lease does not follow a rename, and `SEC-013` stays open on
+  it.** A database file moved to a new
+  name while a writer holds it still has one name, so option (B) does not
+  refuse it, and a writer booted through the new name in a second process is
+  not refused while the first is live
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file`).
+  SQLite leaves the live write-ahead log beside the old name, so the new name
+  does not see what the writer committed; once both names have been written
+  through and closed, what was committed through the old name is gone, and
+  SQLite's integrity check still reports `ok`
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_moved_live_file_leaves_its_write_ahead_log_behind_and_its_commits_are_lost`).
+  Stop every process that has the database file open before you move or
+  rename it: a file moved while no process has it open is one graph under
+  its new name, and its lease refuses a second writer as usual
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_new_name`).
+  Option (C) (`D-IMPL-378`, 2026-10-08), the lock that follows the database
+  file when `writer_lease_lock_dir` is declared (above), refuses that second
+  writer among writers that declare the same directory; a deployment that
+  declares none keeps this gap, and `SEC-013` stays open.
 - **Postgres.** Connect directly or through a *session*-pooled connection. A
   transaction- or statement-pooled connection (PgBouncer in those modes)
   cannot carry a session lock. A dropped connection loses the lease silently:
@@ -1090,13 +1179,36 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   a replay-input field, and an erasure-consulting composition over a store
   that answers no `names_at`, for any address
   (`tests/erasure/test_replay_input_retention_provenance.py`). An erasure door
-  built over the MCP-backed store reads each named address's bytes to verify
-  its subject, so it still refuses a request naming such a filing
-  `subject-unverifiable`: through that door, a principal can keep a client
-  file out of reach of erasure by shaping it as a record (measured, and kept
-  as a strict expected failure in the same module). A request naming client
-  bytes the record validator refuses is verified and admitted through it like
-  any other.
+  built over the MCP-backed store cannot read such a filing's bytes, and does
+  not need them (D3b, D-IMPL-378): where the blob resource answers a requested
+  address as absent, the door asks the artifact server's
+  `match_artifact_subject` tool, which judges the bytes where they are with
+  the in-process door's own judgment
+  (`src/ccf/erasure/subject_match.py::judge_subject`) and answers one verdict,
+  never the bytes. Measured: a request naming such a filing reaches the
+  in-process door's outcome (admitted, or `subject-not-found`), and no message
+  of the exchange, in either direction, carries the document
+  (`tests/mcp/test_erasure_subject_match.py`). The tool answers the erasure
+  door of the caller's tenant alone, decided before the substrate is read: the
+  deployment must grant `artifact.subject.match` by name to the door's MCP
+  credential; the caller's tenant must have an `ErasureAuthority` in the
+  server's `ErasureTrust`; and the query, rebuilt under the caller's tenant,
+  must carry a signature by that authority's declared door key, made for this
+  purpose (`src/ccf/erasure/subject_match.py::verify_subject_match_query`).
+  Every other caller gets one constant refusal — measured for a caller with no
+  identity, another tenant's bearer, this tenant's reader without the grant,
+  and a principal holding the grant but not the door key: the same bytes
+  whether the address exists, whether the filing is record-shaped, whether the
+  subject matches, and no read of the substrate. The tool judges only an
+  address the caller's tenant filed on its client lane: governed evidence and
+  addresses the tenant never filed answer `subject-unverifiable` without a
+  byte read. Not closed by this: the door key is the trust root here as for
+  the door's records, so a party holding it and a credential granted
+  `artifact.subject.match` can ask about any of that tenant's client-lane
+  addresses, as the door does; over the MCP-backed store a record the fabric's
+  record writer filed is still refused `class-unverifiable` before any
+  subject match (in process: `replay-input`); and the erasure claim this
+  bullet qualifies (SEC-009) stays open until the final panel verifies it.
 - **A read-refusal record names who asked; one minted before its marker
   reads as missing for everyone, its owner included (forged-record re-review,
   D-IMPL-376; D-IMPL-378).** The governed read records each refusal through
@@ -1271,7 +1383,21 @@ unless another test is named.
   boot for a question at a path another boot holds, and a store that appeared
   at the path after the check, are refused by the same name
   (`tests/products/test_unmarked_and_unverifiable_question_stores.py`, which
-  measures every P4 (a) refusal in this bullet). A store whose settings name
+  measures every P4 (a) refusal in this bullet). Under P4s-A (b), which Dave
+  ruled on 2026-10-08 at 16:40 MST, the store the adapter opened is then read
+  once through the governed reader, at the latest instant a timestamp can
+  name, after the boot takes its writer lease and before the fabric is handed
+  back. A store holding anything for the tenant is refused
+  (`QuestionStoreNotEmpty`), before any acquisition phase runs, with the same
+  refusal whatever the question asks. A boot for a question that is also
+  read-only would hold no writer lease, so it is refused before anything is
+  registered (`QuestionFabricNotExclusive`). From the read to the question's
+  end, a second boot for a question at the path, another writer boot of the
+  path and a read-only boot asked a governed question are each refused by
+  name, in this process and from another process, and so is a second governed
+  call over the question's fabric
+  (`tests/products/test_question_store_empty_at_boot_and_held_through_use.py`,
+  which measures the order too). A store whose settings name
   no path, a network graph store and also the in-memory development store
   although each boot of that one is new, cannot be shown fresh: a boot for a
   question over it is refused (`QuestionFabricNotFresh`, measured for every
@@ -1330,7 +1456,9 @@ unless another test is named.
   early policy nor `subject_withholding: never` on its class
   (`CompositeNeedsAWithholdingStance`, measured by
   `tests/products/test_sec020_p2c_composite_stance.py`): Dave's ruling P2 (c),
-  2026-10-08.
+  2026-10-08. Since his E2 (ii) (d), later that day, `never` is a stance only
+  over a plan factory that positively declares it never withholds (the bullet
+  on the record behind an answer, below).
   With the early policy, a withheld composite matched a nonexistent subject's
   on both child anchors.
 - **Each phase once, and one computation (Q10).** Each declared phase runs
@@ -1368,7 +1496,11 @@ marker), so delete or copy a store together with its marker. A store created
 before this change, or outside the doors, still boots, and every governed call
 over it is refused (`UnmarkedStoreNotPresumedFresh`, or
 `AcquisitionNeedsAQuestionFabric` with an acquisition phase) until it is
-recreated through a door.
+recreated through a door. Boot a question's fabric as a writer:
+`for_question=True` with `read_only=True` raises `QuestionFabricNotExclusive`.
+To read a question's store back for replay, boot it read-only and not for a
+question; a record served over a fresh question store still replays to its
+own address that way (P4s-A (b)).
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
@@ -1420,7 +1552,8 @@ a nonexistent one. Each was measured on test fixtures.
   record straight from a store, rather than through one of those readers,
   must re-hash it itself.
 - **The record behind it (D-IMPL-378, Q12; Dave ruled its three details on
-  2026-10-08 as E2: (i) and (iii) approved, (ii) rejected).**
+  2026-10-08 as E2: (i) and (iii) approved, (ii) rejected at 12:29 and ruled
+  option (d) at 16:40).**
   Dimension 1 of a withheld decision's record lists what the plan actually
   read, the acquired subject included. Before this change, read end to end
   through the governed dereference by their owner at full disclosure, the
@@ -1451,13 +1584,36 @@ a nonexistent one. Each was measured on test fixtures.
   resolver is built, the same for every subject
   (`src/ccf/products/resolver.py::NeverWithholdingProjectionCanWithhold`;
   `tests/products/test_sec020_never_capability.py`). The SDK cannot see a
-  withhold that the plan factory does not declare: a class that affirms `never`
-  while such a projection withholds is a broken deployment, and its withheld
-  question raises where a nonexistent subject's is served (an HTTP 500 against
-  a 200). Dave rejected treating that as a disclosed obligation (E2 (ii)); it is
-  measured, and kept failing in the closing test until a treatment removes it
+  withhold that the plan factory does not declare, so under Dave's E2 (ii)
+  option (d) a class that affirms `never` is built only over a plan factory
+  that positively declares that its projection never withholds:
+  `withholds_no_subject()` returning `True`
+  (`src/ccf/products/resolver.py::NonWithholdingPlanFactoryProtocol`). Silence,
+  or any other value, counts as able to withhold and is refused when the
+  resolver is built, before anything is fetched, the same for every subject
+  (`src/ccf/products/resolver.py::NeverWithholdingNeedsAPositiveDeclaration`;
+  `tests/products/test_sec020_never_capability.py::test_e2ii_d_the_paved_road_refuses_every_subject_alike_before_anything_is_fetched`).
+  In the closing test every configuration whose plan factory declares that it
+  withholds, or declares nothing, is now refused that way on every side, held
+  against a positively declaring twin that answers
   (`tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable`).
-  Do not affirm `never` for a class whose projection can withhold.
+  **The positive declaration is trusted deployment code, an explicit
+  assumption limited to code no caller can influence.** The SDK reads it once,
+  with no argument, where the resolver is built, from the plan factory you
+  composed it with; no request, parameter, door payload, harness or agent
+  input, or caller-supplied document supplies, selects or alters it (measured
+  statically and at the in-process, HTTP and MCP doors, with a control in which
+  deployment code lets a caller in:
+  `tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_no_caller_input_supplies_selects_or_alters_the_positive_declaration`).
+  A FALSE declaration is the residual and stays visible: the class is built,
+  and its withheld question raises where a nonexistent subject's is served (an
+  HTTP 500 against a 200)
+  (`tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart`),
+  and every run of the closing test reports it outside its gate
+  (`tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`).
+  Declare `withholds_no_subject()` only over a projection that never sets the
+  withheld signal, never let it read anything a caller sends, and do not
+  affirm `never` for a class whose projection can withhold.
   **Where default-deny applies, and where it does not (E2 (i)).** Every read
   an agent can reach holds it: the governed evidence reads above, and the
   Experience door, which refuses. In process, what an agent, a harness
@@ -1509,12 +1665,14 @@ a nonexistent one. Each was measured on test fixtures.
   (P2 (c), above), and `CompositeWithheldLate` remains for a composite whose
   early policy does not cover a subject its projection withholds
   (`tests/products/test_sec020_never_capability.py::test_ct_d_control_composite_withheld_late_remains_for_a_composite_whose_early_policy_misses_the_subject`).
-  A composite whose class affirms `never` and withholds anyway is refused as
+  A composite whose class affirms `never` is built only over a plan factory
+  positively declaring that it never withholds (E2 (ii) (d)); one whose
+  declaration is false and that withholds anyway is refused as
   `NeverWithholdingContradicted`, which is checked first (`D-IMPL-378` CT-D
   (a), diagnostic precedence only;
   `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
   its withheld question still raises where a nonexistent subject's is
-  answered, the limit the bullet on the record behind an answer names.
+  answered, the residual the bullet on the record behind an answer names.
 - **A question's store the markers do not reach.** The withheld subject's
   acquisition stays in the store its question wrote, and the paved road leaves
   that store on disk when it closes the fabric (the replay road reopens it).
@@ -1535,10 +1693,10 @@ a nonexistent one. Each was measured on test fixtures.
   still replay to their own addresses (both test modules). What the markers do
   not reach is measured by lane probes, not by a test in this tree
   (`probe_p4_strict_limits.py`, `probe_question_boot_window.py`,
-  `probe_unreached_stores_distinguish.py`, `probe_p4_marker_limits.py`). A
-  marker binds to its store by path, beside it rather than inside it, and the
-  SDK checks and reserves a path while the adapter creates the store at the
-  boot. So a copy of a used question store with a deployment marker forged
+  `probe_unreached_stores_distinguish.py`, `probe_p4_marker_limits.py`,
+  `probe_emptiness_limits.py`). A marker binds to its store by path, beside
+  it rather than inside it, and the SDK checks and reserves a path while the
+  adapter creates the store at the boot. So a copy of a used question store with a deployment marker forged
   beside it, and a used question store written at a path after a plain boot
   left its marker there, each answered a later question: after a question
   about a withheld subject the source holds, that later answer about an
@@ -1546,21 +1704,60 @@ a nonexistent one. Each was measured on test fixtures.
   `debt.factors.freshness`, and under `from_entity_freshness` also at
   `expires_at` and `ttl_anchor_at`, against the same store after a question
   that acquired nothing. A store written at a question boot's path after the
-  SDK's last check was booted as that question's fabric. A deployment's own
-  writes into a reopened store go through. A marker left after its store is
-  deleted makes a later boot for a question at that path refuse, and every
+  SDK's last check was booted as that question's fabric; it is now refused
+  when the boot reads it (`QuestionStoreNotEmpty`, above), and that one read
+  does not reach three things. A store whose every claim was superseded
+  before the latest instant with no current successor, which no SDK writer
+  leaves, written there by raw SQL, was booted, and its question read its
+  rows. A raw SQLite connection, outside the SDK's writer lease, wrote into a
+  question's store while the question ran, and the question read what it
+  wrote. A store holding rows only for another tenant was booted, and the
+  paved fixture's answer over it matched its answer over a fresh store. A
+  deployment's own writes into a reopened store go through. A marker left
+  after its store is deleted makes a later boot for a question at that path
+  refuse, and every
   governed call over a plain boot there refuse: it fails closed. Ask new
   questions only of fabrics booted for them, and protect a question's store,
   and the directory it sits in, as you would its decision record.
-- **A population read left inside your `acquire`.** Declared as the
-  population phase, or under an early policy, such a read matched (above).
-  Left inside your ordinary `acquire`, with the withhold decided inside the
-  projection, a nonexistent subject's question walks that content and the
-  withheld rendering does not. The two differ at the empty finding under
-  `from_decision`, and as `ttl-refusal` against `ttl-anchor-refusal` under
-  `from_entity_freshness`. The SDK cannot see which shape your `acquire` has:
-  that it acquires nothing for an identifier the source does not hold is your
-  statement, not a check the SDK makes.
+- **A population read left inside your `acquire` (ruling P6 (a); not
+  closure).** Declared as the population phase, or under an early policy, such
+  a read matched (above). Left inside your ordinary `acquire`, with the
+  withhold decided inside the projection, a nonexistent subject's question
+  walks that content and the withheld rendering does not; the two differed at
+  the empty finding under `from_decision`, and as `ttl-refusal` against
+  `ttl-anchor-refusal` under `from_entity_freshness`. Dave's ruling P6 (a)
+  (`D-IMPL-378`, 2026-10-08, a conditional implementation go) refuses that
+  configuration with a probe. For a class that may withhold and declares no
+  early policy, the governed call first asks your subject-keyed acquisition
+  about `UNHELD_SUBJECT_PROBE` (`ccf-sdk:unheld-subject-probe`), reads the
+  graph again, and refuses the question with
+  `PopulationReadInSubjectKeyedPhase` if anything was written. It does so
+  before your acquisition is handed the question's subject, and decides by
+  nothing about the asked subject, so on test fixtures a withheld subject and
+  a nonexistent one were refused alike, with one message, on the paved road
+  and the low road: `tests/products/test_sec020_p6_population_read_in_subject_keyed_phase.py`,
+  whose order tests log your acquisition's calls and every graph read in one
+  sequence. That the probe identifier names nothing is checked, not assumed:
+  a graph that names it (an entity, or a relationship end) before the probe,
+  or after it, is refused as `UnheldSubjectProbeIsHeld` instead
+  (`tests/products/test_sec020_p6_unheld_subject_probe_is_verified_absent.py`).
+  The ruling amends Q10's "each phase once" to exactly this one extra call. It
+  costs one more call to your acquisition and one more graph read per question
+  of such a class (measured on one test fixture: two calls and three reads,
+  against one and two). A class with a declared early policy, or affirming
+  `subject_withholding: never`, is not probed. To be served, declare the read
+  as the population phase (`open_product(population=...)`), declare an early
+  policy, or affirm `never` for a projection that never withholds. **The probe
+  is defeated by a source that recognizes it.** A source that answers nothing
+  for the probe identifier, matched exactly or by its shape, and reads the
+  population for every other identifier passes the probe, and the withheld
+  subject and a nonexistent one are then still told apart
+  (`tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py`;
+  reported every run of SEC-020's closing test in its own block,
+  `SEC-020 P6 PROBE LIMITATION`). The closing test holds the refused cells as
+  the refusal plus a twin that answers: the same source with its read declared
+  as the population phase. That is Dave's CT-A rule extended to this refusal,
+  not closure.
 
 **Until SEC-020 closes,** do not rely on `withheld=True` alone to keep a
 subject's existence from a caller. The composite-child, reopened-store and

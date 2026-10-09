@@ -70,6 +70,8 @@ from ccf.graph.protocols import (
     WriterLease,
     WriterLeaseHeld,
     WriterLeaseScope,
+    WriterLeaseSource,
+    acquire_declared_writer_lease,
 )
 
 try:
@@ -157,6 +159,29 @@ _SCHEMA = (
 #: Not ``.lock``: SQLite's own ``unix-dotfile`` VFS uses ``<db>.lock``.
 WRITER_LEASE_SUFFIX = ".ccf-writer.lock"
 
+#: SQLite's names for a database with no file of its own: ``":memory:"`` and the
+#: private temporary database ``""``. No second process can reach either, and
+#: neither has a device and inode a declared writer lease could follow.
+_NO_FILE_DATABASES = frozenset({":memory:", ""})
+
+
+def _database_file_identity(database_path: str) -> str | None:
+    """The database file's identity — its device and inode — or ``None`` when it has none.
+
+    SEC-013, option (C) (Dave, 2026-10-08 21:24 MST; D-IMPL-378). What a
+    declared writer lease is keyed on: every name of one file, a hard link or
+    the new name of a renamed file, has the same device and inode, so every
+    writer of the file asks for the same lock, whatever name it reached it by.
+    Read by :class:`SqliteGraphStore` right after SQLite opens the file.
+    """
+    if database_path in _NO_FILE_DATABASES:
+        return None
+    try:
+        status = os.stat(database_path)
+    except OSError:
+        return None
+    return f"sqlite-database-file:{status.st_dev}:{status.st_ino}"
+
 
 class SqliteWriterLease:
     """The SQLite writer lease: an exclusive ``flock`` on a sidecar file.
@@ -175,8 +200,31 @@ class SqliteWriterLease:
     * **An OS lock, never a file-existence check.** The kernel drops the lock
       when the holder dies, however it dies; the sidecar file persists and is
       harmless. A crashed holder therefore never wedges a later boot.
-    * **Keyed on the inode, via the resolved path.** Two spellings of one
-      database file land on one sidecar, so they are one graph to the lease.
+    * **Keyed on the resolved path, and on a file with one name.** A
+      relative and an absolute spelling of one path, or a symbolic link to
+      it, resolve to one sidecar, so they are one graph to the lease. A hard
+      link resolves to itself and the sidecar beside it is another file, so a
+      lock beside one name cannot exclude a writer through another:
+      :meth:`SqliteGraphStore.writer_lease` therefore refuses a database file
+      with more than one name, through either name, as ``WriterLeaseHeld``
+      (measured by
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph``
+      and
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_the_lease_refuses_a_database_file_with_a_second_name_through_either_name``).
+      **Not closed:** a live file moved to a new name keeps one name, and a
+      writer booted through the new name in a second process is not refused
+      while the first process's writer is live (measured by
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file``).
+      **Unless a lock directory is declared:** with ``writer_lease_lock_dir``
+      declared, :meth:`SqliteGraphStore.writer_lease` also holds a lock keyed
+      on the database file's device and inode, which refuses that writer, and
+      a writer through a hard link, among writers that declare the same
+      directory (SEC-013, option (C); measured by
+      ``tests/graph/test_sqlite_writer_lease_file_identity.py::test_a_second_process_is_refused_through_the_new_name_of_the_renamed_live_file``).
+      SQLite names its write-ahead log after the path too, so a second name
+      reads another log and misses what the first committed
+      (``tests/graph/test_sqlite_writer_lease_hard_link.py::test_sqlite_keeps_a_write_ahead_log_per_name_so_a_second_name_misses_what_the_first_committed``):
+      do not move a live database file while a writer holds it.
     * **Never blocks.** A held lease raises
       ``src/ccf/graph/protocols.py::WriterLeaseHeld`` at once.
 
@@ -184,6 +232,38 @@ class SqliteWriterLease:
     WAL-mode SQLite (this store's mode) is already unsupported on network
     filesystems, so the sidecar adds no new constraint; a process ``fork``-ed
     while holding the lease shares it until that child exits.
+
+    **Two limits an operator must know, disclosed by ruling** (``D-IMPL-378``,
+    Dave, 2026-10-08 21:24 MST: option (B) "with the rename gap and hard-link
+    backup restriction explicitly disclosed"). ``SEC-013`` stays open.
+
+    * **Do not move a live database file.** A file moved to a new name while
+      a writer holds it keeps one name, so it is not refused, and a writer
+      booted through the new name in a second process is not refused while
+      the first is live (measured above). SQLite leaves the live write-ahead
+      log beside the old name, so the new name does not see what the writer
+      committed; once both names have been written through and closed, what
+      was committed through the old name is gone, and SQLite's integrity
+      check still reports ``ok``
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_moved_live_file_leaves_its_write_ahead_log_behind_and_its_commits_are_lost``).
+      Stop every process that has the file open before moving it: a file
+      moved while closed is one graph under its new name
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_new_name``).
+      Option (C), the lock keyed on the file's device and inode in a declared
+      directory (``writer_lease_lock_dir``), refuses that second writer among
+      writers that declare the same directory, but no lock keeps the old
+      name's commits: do not move a live file either way. ``SEC-013`` stays
+      open.
+    * **A hard-link backup refuses every writer boot.** A backup that links
+      the database file instead of copying it gives the file a second name.
+      Until that name is removed, the lease is refused through either name,
+      even with no writer live, so every writer boot of the graph, in any
+      process, is refused with ``SingleWriterViolation``
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed``).
+      Back the file up with a copy SQLite writes itself instead: its online
+      backup API (``sqlite3.Connection.backup``) or ``VACUUM INTO``. Either
+      can run while a writer is live, and the file keeps one name
+      (``tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name``).
     """
 
     def __init__(self, *, sidecar: Path) -> None:
@@ -235,21 +315,139 @@ class SqliteWriterLease:
         self.release()
 
 
+class _SqliteFileWriterLease:
+    """The sidecar lease and a declared lease on the database FILE, held and given back together.
+
+    SEC-013, option (C) (Dave, 2026-10-08 21:24 MST; D-IMPL-378). What
+    :meth:`SqliteGraphStore.writer_lease` returns when the deployment declared
+    a lease: the :class:`SqliteWriterLease` sidecar (keyed on the name) plus the
+    declared lease keyed on the database file's device and inode. Scope
+    ``"cross-process"``: both halves are. :meth:`release` gives back the file
+    lease, then the sidecar, whatever the first does; both are idempotent, so
+    this is too.
+    """
+
+    def __init__(
+        self, *, sidecar: WriterLease, file_lease: WriterLease, file_identity: str
+    ) -> None:
+        self._sidecar = sidecar
+        self._file_lease = file_lease
+        self._file_identity = file_identity
+
+    @property
+    def scope(self) -> WriterLeaseScope:
+        return "cross-process"
+
+    @property
+    def mechanism(self) -> str:
+        return (
+            f"{self._sidecar.mechanism}; and {self._file_lease.mechanism}, keyed"
+            f" on the database file ({self._file_identity})"
+        )
+
+    def release(self) -> None:
+        """Give back the file lease, then the sidecar. Idempotent."""
+        try:
+            self._file_lease.release()
+        finally:
+            self._sidecar.release()
+
+    def __enter__(self) -> _SqliteFileWriterLease:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.release()
+
+
+def _with_the_file_lease(
+    sidecar: WriterLease, declared: tuple[WriterLeaseSource, str], resolved: Path
+) -> _SqliteFileWriterLease:
+    """Acquire the declared lease on the database FILE beside the held sidecar, or give the sidecar back and refuse.
+
+    SEC-013, option (C) (Dave, 2026-10-08 21:24 MST; D-IMPL-378). ``declared``
+    is the deployment's lease source and the file identity
+    (:func:`_database_file_identity`) read when the store opened the file. The
+    acquisition goes through
+    ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, as every
+    network store's does, so a declared lease that does not exclude other
+    processes is refused with ``WriterLeaseRequired``. Another holder of the
+    file's lease is refused as ``WriterLeaseHeld`` naming the file, its
+    identity and the lock that is held.
+    """
+    source, file_identity = declared
+    try:
+        file_lease = acquire_declared_writer_lease(
+            source, substrate="sqlite", graph_identity=file_identity
+        )
+    except WriterLeaseHeld as exc:
+        sidecar.release()
+        raise WriterLeaseHeld(
+            f"the database file {str(resolved)!r} ({file_identity}) is held by"
+            " another writer that declared the same lock directory, whatever"
+            f" name it reached the file by: {exc} (SEC-013)"
+        ) from exc
+    except BaseException:
+        sidecar.release()
+        raise
+    return _SqliteFileWriterLease(
+        sidecar=sidecar, file_lease=file_lease, file_identity=file_identity
+    )
+
+
 class SqliteGraphStore:
     """Connection and schema owner for the SQLite reference backend.
 
     Args:
         database_path: File to open. A distinct path per fabric is what makes
             "one writer per graph" a checkable statement at boot.
+        writer_lease: A deployment-declared writer lease
+            (``src/ccf/graph/protocols.py::WriterLeaseSource``) that follows
+            the database FILE (SEC-013, option (C), D-IMPL-378): the boot
+            passes the lock-directory lease ``writer_lease_lock_dir`` declares
+            (``src/ccf/graph/backends/sqlite_write.py::SqliteConnection``).
+            The store reads the file's device and inode right after SQLite
+            opens it, and :meth:`writer_lease` acquires this lease for that
+            identity, in addition to the sidecar. Never acquired at open.
+
+    Raises:
+        ValueError: ``writer_lease`` is declared and the database has no file
+            to follow (``":memory:"`` or ``""``), or none at its path once
+            opened. Raised before the store's own setup runs.
 
     The store is *not* a ``GraphStore`` in the sense of offering both halves of
     the Protocol: it offers :attr:`reader` and, to the writer module alone, the
     connection. See the module docstring.
     """
 
-    def __init__(self, *, database_path: Path | str) -> None:
+    def __init__(
+        self,
+        *,
+        database_path: Path | str,
+        writer_lease: WriterLeaseSource | None = None,
+    ) -> None:
         self._database_path = str(database_path)
         self._connection = sqlite3.connect(self._database_path)
+        # SEC-013, option (C): the file THIS connection opened, read once, at
+        # once, so the declared lease follows that file whatever it is called
+        # when the mint takes the lease.
+        self._declared_file_lease: tuple[WriterLeaseSource, str] | None = None
+        if writer_lease is not None:
+            file_identity = _database_file_identity(self._database_path)
+            if file_identity is None:
+                self._connection.close()
+                raise ValueError(
+                    f"the SQLite database {self._database_path!r} has no database"
+                    " file (an in-memory database, or no file at its path once"
+                    " opened), so a declared writer lease, which follows the"
+                    " database file's device and inode, has nothing to follow"
+                    " (SEC-013)"
+                )
+            self._declared_file_lease = (writer_lease, file_identity)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode = WAL")
         self._connection.execute("PRAGMA foreign_keys = ON")
@@ -274,11 +472,61 @@ class SqliteGraphStore:
         Called by the mint only, never at open: a second, read-only store over
         a live fabric's file is legitimate and takes no lease.
 
+        **With a lease declared** (``writer_lease=``; SEC-013, option (C),
+        D-IMPL-378) the sidecar is taken first, then the declared lease for the
+        database file's identity read at open — through
+        ``src/ccf/graph/protocols.py::acquire_declared_writer_lease``, so a
+        declared lease that does not exclude other processes is refused — and
+        then the name count below; the lease returned holds both locks. A
+        writer of the same file through another name, a hard link or the new
+        name of a renamed file, that declared the same directory is refused by
+        the file lease, before the name count is read. **Not before the
+        store's own setup:** the mint takes this lease after the store has
+        opened the database and run its setup, so a process refused here has
+        already written that setup through its own name, and through a hard
+        link the log it leaves later rolls back what the holder committed
+        (measured by
+        ``tests/graph/test_sqlite_writer_lease_file_identity_limits.py::test_limit_a_process_refused_through_a_hard_link_has_already_written_setup_that_later_rolls_back_the_holder``).
+
+        A database file with more than one name is refused whether or not a
+        writer is live, so a hard link a backup made to the file refuses every
+        writer boot until it is removed. A file moved to a new name while a
+        writer holds it keeps one name and is not refused by the name count;
+        only the declared file lease above refuses it, so a deployment that
+        declares no lock directory keeps that gap (``SEC-013`` stays open on
+        it). Both limits, and what an operator does instead, are disclosed in
+        :class:`SqliteWriterLease`.
+
         Raises:
-            WriterLeaseHeld: another holder — in any process — has the lease.
+            WriterLeaseHeld: another holder — in any process — has the lease
+                (the sidecar, or the declared lease on the database file), or
+                the database file has more than one name (a hard link), so
+                a lock beside this name could not exclude a writer through
+                another.
+            WriterLeaseRequired: the declared lease's scope is not
+                ``"cross-process"``.
         """
         resolved = Path(self._database_path).resolve()
-        return SqliteWriterLease(sidecar=Path(f"{resolved}{WRITER_LEASE_SUFFIX}"))
+        lease: WriterLease = SqliteWriterLease(
+            sidecar=Path(f"{resolved}{WRITER_LEASE_SUFFIX}")
+        )
+        if self._declared_file_lease is not None:
+            lease = _with_the_file_lease(lease, self._declared_file_lease, resolved)
+        try:
+            names = os.stat(resolved).st_nlink
+        except FileNotFoundError:
+            names = 1  # no file at the path (an in-memory database): no other name
+        except BaseException:
+            lease.release()
+            raise
+        if names > 1:
+            lease.release()
+            raise WriterLeaseHeld(
+                f"the database file {str(resolved)!r} has {names} names (hard"
+                " links); its writer lease is a lock beside one name and cannot"
+                " exclude a writer through another, so it is refused (SEC-013)"
+            )
+        return lease
 
     @property
     def reader(self) -> SqliteGraphReader:

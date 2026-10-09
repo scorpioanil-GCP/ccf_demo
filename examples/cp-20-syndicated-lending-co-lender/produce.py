@@ -91,6 +91,18 @@ class CoLenderPlanFactory:
     ) -> ProjectionPlan:
         return self._plan(required=required, request=request, children=children)
 
+    def withholds_no_subject(self) -> bool:
+        """The positive declaration a ``never`` class needs (`D-IMPL-378` E2 (ii) (d)).
+
+        ``NonWithholdingPlanFactoryProtocol``: ``ccf_config.yaml`` affirms
+        ``subject_withholding: never``, and the SDK builds this class only over a
+        factory that says so. True of everything this factory builds: both seams
+        build ``projection.CoLenderPositionPlan``, whose ``invoke`` returns its
+        one ``ProjectionOutput`` with a plan id and a payload and never the
+        withheld signal, for any subject or principal.
+        """
+        return True
+
 
 def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
     """Bind this deployment's verbs and its child seam to its two documents.

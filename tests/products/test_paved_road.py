@@ -35,6 +35,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 from mcp.server.fastmcp import FastMCP
 
@@ -44,6 +45,7 @@ from ccf.deployment import load_config_and_boot
 from ccf.deployment.environment import EnvironmentMissing
 from ccf.halflife.assessment import DebtFactors
 from ccf.halflife.debt import DebtAssessment, assess_debt
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER, SubjectWithholding
 from ccf.products.entitlement import ProductEntitlementPolicy, product_entitlement_key
 from ccf.products.product import AcquisitionContext, AssessmentContext, OpenedProduct, open_product
 from ccf.products.provenance import EffectiveRequest
@@ -78,8 +80,14 @@ LIMIT_DEFAULT = 5
 DSN_VARIABLE = "PAVED_FIXTURE_DSN"
 
 
-def _config(**overrides: Any) -> dict[str, Any]:
-    """The servable fixture config plus the three paved sections and a class default."""
+def _config(*, subject_withholding: SubjectWithholding | None = None, **overrides: Any) -> dict[str, Any]:
+    """The servable fixture config plus the three paved sections and a class default.
+
+    ``subject_withholding`` is the withholding stance the class states, and
+    defaults to no statement, the SDK's own default (``may-withhold``) — the
+    document does not know which projection its opener supplies. The default
+    tree :func:`_write_tree` writes states ``never`` (see there).
+    """
     document = _servable_config(
         replay={"record_class": "ccf.replay-record", "query_pin_class": "ccf.graph-query", "store_dirname": "artifact-store"},
         ttl={"max_ttl_seconds": 3600, "product_ttl_seconds": 600},
@@ -97,6 +105,8 @@ def _config(**overrides: Any) -> dict[str, Any]:
         "description": "Fixture parameter with a class default.",
     }
     document["request_contract"]["defaults"] = {LIMIT_PARAMETER: LIMIT_DEFAULT}
+    if subject_withholding is not None:
+        document["product_class"]["subject_withholding"] = subject_withholding
     document.update(overrides)
     return document
 
@@ -123,9 +133,25 @@ def _environment_text(*, sources: bool = True, door: bool = True) -> str:
 
 
 def _write_tree(tmp_path: pathlib.Path, *, config: dict[str, Any] | None = None, environment: str | None = None) -> pathlib.Path:
+    """Write the fixture deployment; with no ``config``, the fixture's own product, which states ``never``.
+
+    ``D-IMPL-378`` ruling P6 (a) (Dave, 2026-10-08 16:40 MST). The fixture's
+    own product is :func:`_open`'s: its projection is
+    ``tests/deployment/test_replay_binding.py::_plan_factory``, which never
+    sets the withheld signal, and its :class:`_Acquire` returns one constant
+    envelope whatever subject it is asked about — so under the SDK's default
+    stance the P6 probe refuses every question of it, measured, as a population
+    read left in the subject-keyed phase. Its stance, stated from that
+    behavior, is ``never``: it then is not probed. A test that opens the
+    default tree with a projection that may withhold must write its own
+    config instead.
+    """
     root = tmp_path / "deployment"
     root.mkdir(parents=True)
-    write_artifact(root, "ccf_config.yaml", config if config is not None else _config())
+    write_artifact(
+        root, "ccf_config.yaml",
+        config if config is not None else _config(subject_withholding=SUBJECT_WITHHOLDING_NEVER),
+    )
     (root / "ccf_environment.yaml").write_text(environment if environment is not None else _environment_text(), encoding="utf-8")
     return root
 
@@ -316,9 +342,17 @@ def test_the_low_road_yields_the_same_content_address_through_build_arguments(
         declare_wide_temporal_boundary(opened.control_plane, tenant_id=fabric.tenant_id)
         try:
             arguments = opened.build_arguments(fabric)
-            arguments["plan_factory"] = lambda *, required, request: _plan_factory(
-                required=required, request=request.model_copy(update={"parameters": {THRESHOLD_PARAMETER: 1}})
-            )
+
+            def _moved_threshold(*, required: tuple[str, ...], request: ProductRequest) -> Any:
+                return _plan_factory(
+                    required=required, request=request.model_copy(update={"parameters": {THRESHOLD_PARAMETER: 1}})
+                )
+
+            # `D-IMPL-378` ruling E2 (ii) (d): the default tree's class affirms `never`, so the substituted
+            # factory declares it positively. It builds `_plan_factory`'s own projection over a moved
+            # request, so `_plan_factory`'s declaration is true of it, and it states that one.
+            _moved_threshold.withholds_no_subject = _plan_factory.withholds_no_subject  # type: ignore[attr-defined]
+            arguments["plan_factory"] = _moved_threshold
             moved = build_governed_resolver(**arguments)(
                 tenant=TENANT, product_class=PRODUCT_CLASS, version=PRODUCT_VERSION,
                 perspective=opened.default_perspective, request=_question(opened),
@@ -397,7 +431,8 @@ def test_the_ttl_and_decision_instant_keywords_are_held_equal_to_the_declaration
 
 
 def test_a_config_with_a_declared_decision_instant_is_built_from_the_declaration(tmp_path: pathlib.Path) -> None:
-    config = _config()
+    # The fixture's own product, opened with its own projection: it states `never` (see `_write_tree`).
+    config = _config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     config["product_class"]["decision_instant_parameter"] = "as_of"
     config["request_contract"]["arguments"]["properties"]["as_of"] = {"type": "string", "description": "the decision instant"}
     root = _write_tree(tmp_path, config=config)
@@ -503,16 +538,24 @@ def test_the_stdio_door_reads_neither_door_url_and_advertises_only_reserved_addr
     with _open(root, scratch) as opened:
         door = open_door(opened, environ={})
         assert door.credential, "minted per boot when the variable is unset"
-        door.serve_stdio(
-            identity=AuthenticatedUser(
-                ambient_stdio_identity(
-                    credential=door.credential,
-                    principal_id=door.principal_id,
-                    scope=door.scope,
-                    tenant=door.tenant_id,
+        # `serve_stdio` sets the MCP library's ambient identity for the rest of the process (stdio is
+        # single-principal by its contract). This test runs it inside the pytest process, so it contains
+        # what it sets, as `tests/mcp/test_stdio_door_identity.py` does: no later test runs as this identity
+        # (`tests/products/test_stdio_identity_is_contained_between_tests.py`).
+        reset = auth_context_var.set(None)
+        try:
+            door.serve_stdio(
+                identity=AuthenticatedUser(
+                    ambient_stdio_identity(
+                        credential=door.credential,
+                        principal_id=door.principal_id,
+                        scope=door.scope,
+                        tenant=door.tenant_id,
+                    )
                 )
             )
-        )
+        finally:
+            auth_context_var.reset(reset)
     assert [transport for transport, _, _ in started] == ["stdio"], started
     (_, issuer, resource), = started
     for advertised in (issuer, resource):

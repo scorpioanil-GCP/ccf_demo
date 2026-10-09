@@ -417,6 +417,22 @@ def _plan_factory(
     return _CountProjection(required=required, request=request)
 
 
+def _withholds_no_subject() -> bool:
+    """``_plan_factory``'s positive declaration (Dave's E2 (ii) (d), ``NonWithholdingPlanFactoryProtocol``).
+
+    True of what the factory builds: ``_CountProjection.invoke`` returns a
+    ``ProjectionOutput`` with no withheld signal, for every subject and
+    principal. It is the paved road's default factory in
+    ``tests/products/test_paved_road.py``.
+    """
+    return True
+
+
+#: A NAMED ``def`` carries the declaration as an attribute — the structural form
+#: of the companion protocol for a function.
+_plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
+
+
 @dataclasses.dataclass(frozen=True)
 class _Booted:
     """A booted config-form deployment and the plane it booted against."""

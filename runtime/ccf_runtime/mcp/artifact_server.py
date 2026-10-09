@@ -57,6 +57,10 @@ the split (below)             Resource ``ccf-artifact-meta://{address}`` —
                               {name}@{version}`` —
                               ``Authorized[ArtifactRead]`` for
                               ``"<class>/<name>"``
+the subject match (below)     Tool ``match_artifact_subject`` —
+                              ``Authorized[ArtifactSubjectMatch]`` for
+                              the action id itself; the erasure door's
+                              verdict, never bytes
 ============================  ==========================================
 
 **There is no untenanted read of artifact bytes.** The two hash-addressed
@@ -134,6 +138,27 @@ in this order:
    provenance check). A caller cannot learn from this door that another tenant
    holds bytes at an address it names.
 
+THE SUBJECT MATCH — the erasure door's verdict, never the bytes (D3b)
+---------------------------------------------------------------------
+``D-IMPL-378``, Dave's 16:40 MST item 5: *"Build the narrowly authorized
+server-side subject-match path without serving the bytes."* The erasure door
+over the MCP-backed store verifies each requested address's subject; where the
+blob resource answers the address as absent — a record-shaped client-lane
+filing above all — the door asks the ``match_artifact_subject`` tool instead,
+and this server judges the bytes where they are with
+:func:`~ccf.erasure.judge_subject`, the function the in-process door applies to
+the bytes it reads, and answers one :class:`~ccf.erasure.SubjectMatchAnswer`.
+It answers the erasure door of the caller's tenant alone, decided before the
+substrate is read: the deployment must grant
+:data:`~ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH` by name (the guard); the
+caller's tenant must have an erasure authority in this server's trust; and the
+query, rebuilt under the caller's tenant, must carry a signature by that
+authority's declared door key (:func:`~ccf.erasure.verify_subject_match_query`).
+Every refusal past the guard is the one :data:`SUBJECT_MATCH_REFUSED`. It judges
+only an address the caller's tenant filed on its client lane; another tenant's
+address, an empty one and governed evidence answer ``subject-unverifiable``
+without a byte read.
+
 The blob handler's ``-> bytes`` annotation is load-bearing: it produces
 ``BlobResourceContents`` (base64) and preserves canonical bytes exactly, where
 a ``str`` handler would produce ``TextResourceContents`` and put the fidelity
@@ -171,14 +196,34 @@ from ccf.artifacts.protocol import (
     ARTIFACT_URI_SCHEME,
     ArtifactName,
     ArtifactRef,
+    ArtifactStoreError,
     ArtifactStoreProtocol,
     ArtifactUriUnresolvable,
     WriteKinds,
     artifact_uri,
 )
-from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_WRITE
-from ccf.authz.capability import ArtifactRead, ArtifactWrite, Authorized, ReplayMint, verify
-from ccf.erasure import ErasedContentRefused, ErasureIndexProtocol, ErasureTrust, compose_erasure_consult
+from ccf.authz.actions import ACTION_ARTIFACT_READ, ACTION_ARTIFACT_SUBJECT_MATCH, ACTION_ARTIFACT_WRITE
+from ccf.authz.capability import (
+    ArtifactRead,
+    ArtifactSubjectMatch,
+    ArtifactWrite,
+    Authorized,
+    ReplayMint,
+    verify,
+)
+from ccf.erasure import (
+    ErasedContentRefused,
+    ErasureIndexProtocol,
+    ErasureTrust,
+    SubjectMatchAnswer,
+    SubjectMatchQuery,
+    SubjectMatchVerdict,
+    compose_erasure_consult,
+    judge_subject,
+    reference_approval_verifier,
+    subject_match_verdict,
+    verify_subject_match_query,
+)
 from ccf.erasure.approval import PinnedPolicySource
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes
@@ -207,10 +252,13 @@ __all__ = [
     "NAMES_URI_TEMPLATE",
     "NAME_URI_TEMPLATE",
     "PUT_ARTIFACT_TOOL",
+    "SUBJECT_MATCH_REFUSED",
+    "SUBJECT_MATCH_TOOL",
     "ArtifactPresence",
     "ArtifactResolution",
     "ArtifactSubstrate",
     "NonCanonicalPayload",
+    "SubjectMatchRefused",
     "artifact_blob_uri",
     "artifact_meta_uri",
     "build_artifact_server",
@@ -246,6 +294,22 @@ NAME_URI_TEMPLATE = (
 
 #: Name of the one mutating surface. A Tool, because Resources are read-only.
 PUT_ARTIFACT_TOOL = "put_artifact"
+
+#: The erasure door's subject match (SEC-009; ``D-IMPL-378``, Dave's 16:40 MST
+#: item 5 — D3b): a Tool, because it takes the door's whole signed query, and
+#: answers one verdict, never bytes. See :func:`build_artifact_server`.
+SUBJECT_MATCH_TOOL = "match_artifact_subject"
+
+#: The ONE refusal every caller the subject match does not answer receives,
+#: whichever check refused it — no erasure authority for the caller's tenant, a
+#: query that is not one, or no signature by that tenant's declared door key over
+#: exactly the query. Constant, so the refusal says nothing about the address,
+#: the subject or the store; it is raised before the substrate is read.
+SUBJECT_MATCH_REFUSED = (
+    "the subject match answers the erasure door of the caller's tenant alone: no"
+    " signature by that tenant's declared door key verifies over exactly this query"
+    " (SEC-009; D-IMPL-378, D3b)"
+)
 
 #: The resource a write and a name resolution are decided on: the class and
 #: name segments the naming key already uses (``D-IMPL-353`` §1.2), spelled
@@ -302,6 +366,14 @@ class NonCanonicalPayload(ValueError):
     it would mean the address a later reader computes from the bytes is not the
     address the store filed them under, which is the one failure content
     addressing exists to make impossible (T-06-22).
+    """
+
+
+class SubjectMatchRefused(PermissionError):
+    """The subject match refused its caller: it answers the erasure door of the caller's tenant alone (D3b).
+
+    Its message is always :data:`SUBJECT_MATCH_REFUSED`, and it is raised
+    before anything is read from the substrate.
     """
 
 
@@ -816,5 +888,146 @@ def build_artifact_server(
                 "recompute"
             )
         return consulted.put(authorized, artifact)
+
+    # D3b (`D-IMPL-378`): the verifier the door's query signature is checked
+    # with — the SDK's reference detached-JWS verifier, the one the consult
+    # above verifies the door's record signatures with.
+    door_signature_verifier = reference_approval_verifier()
+
+    def the_doors_query(
+        authorized: Authorized[ArtifactSubjectMatch],
+        *,
+        content_address: str,
+        subject_ref: str,
+        key_paths: list[str],
+        subject_ref_salt: str,
+        door_signature: str,
+    ) -> SubjectMatchQuery:
+        """The query, rebuilt under the caller's tenant, if the erasure door of that tenant signed exactly it.
+
+        Reads nothing from the substrate. Every refusal — no authority for the
+        tenant, not a query, no signature by the tenant's declared door key over
+        it — is the one :class:`SubjectMatchRefused`, audited unresolved.
+        """
+        authority = erasure_trust.authority_for(authorized.tenant)
+        try:
+            if authority is None:
+                raise ValueError("no erasure authority is declared for the caller's tenant")
+            query = SubjectMatchQuery(
+                tenant_id=authorized.tenant,
+                content_address=content_address,
+                subject_ref=subject_ref,
+                key_paths=tuple(key_paths),
+                subject_ref_salt=subject_ref_salt,
+            )
+            verify_subject_match_query(
+                query,
+                door_signature=door_signature,
+                authority=authority,
+                identity_provider=door_signature_verifier,
+            )
+        except ValueError:
+            audit_log.append(
+                action="authz_decision",
+                key=authorized.tenant,
+                version=ArtifactSubjectMatch.action_id,
+                resolved=False,
+                occurred_at=entitlement_source.clock(),
+                actor=authorized.principal,
+                authz_action_id=ArtifactSubjectMatch.action_id,
+                authz_resource=ArtifactSubjectMatch.action_id,
+            )
+            raise SubjectMatchRefused(SUBJECT_MATCH_REFUSED) from None
+        return query
+
+    @door.tool(
+        name=SUBJECT_MATCH_TOOL,
+        action=ACTION_ARTIFACT_SUBJECT_MATCH,
+        subject=door.from_grant(),
+        resource=door.resource_route(),
+        # It writes nothing. Its kind is deliberately not a read kind, and the
+        # guard requires such a surface registered mutating: a stated (ambient
+        # stdio) identity is refused before any decision is asked for.
+        mutating=True,
+        products=door.products_unknown(
+            "the erasure door's subject match names an address, never a Context Product class"
+        ),
+    )
+    def match_artifact_subject(
+        authorized: Authorized[ArtifactSubjectMatch],
+        content_address: str,
+        subject_ref: str,
+        key_paths: list[str],
+        subject_ref_salt: str,
+        door_signature: str,
+    ) -> SubjectMatchAnswer:
+        """The erasure door's subject match: a verdict on an address's stored bytes, never the bytes (D3b).
+
+        ``D-IMPL-378``, Dave's 16:40 MST item 5: *"Build the narrowly authorized
+        server-side subject-match path without serving the bytes."* The erasure
+        door over the MCP-backed store cannot read a client-lane filing the blob
+        resource answers as absent — a record-shaped one foremost — so it asks
+        here, and gets the verdict the in-process door reaches from the same
+        bytes (:func:`~ccf.erasure.judge_subject`, the same function).
+
+        **Authorized three ways, before anything is read.** (1) The deployment's
+        authorizer must allow :data:`~ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH`
+        — its own action, granted by name — for the grant's sole tenant (the
+        guard, before this body). (2) That tenant must have an
+        :class:`~ccf.erasure.ErasureAuthority` in this server's trust. (3) The
+        query, rebuilt under the caller's tenant, must carry the signature of
+        that authority's declared door key (:func:`~ccf.erasure.verify_subject_match_query`).
+        Every refusal past the guard is :class:`SubjectMatchRefused` with
+        :data:`SUBJECT_MATCH_REFUSED`, whatever refused.
+
+        **Judged only where the caller's tenant filed the address on its client
+        lane.** An address it never filed (another tenant's, or none), and one
+        it filed under a class the substrate declares under ``ReplayMint`` —
+        governed evidence, read only through the governed dereference — answer
+        ``subject-unverifiable`` without a byte read. Otherwise the bytes are
+        read from the substrate for this judgment only, as the in-process door
+        reads them from its unconsulted store, re-hashed against the address
+        before anything is judged, and never leave this function: the answer
+        is :class:`~ccf.erasure.SubjectMatchAnswer`, one verdict. Every answer
+        appends one ``authz_decision`` audit event naming the address.
+        """
+        verify(authorized, kind=ArtifactSubjectMatch, resource=ArtifactSubjectMatch.action_id)
+        query = the_doors_query(
+            authorized,
+            content_address=content_address,
+            subject_ref=subject_ref,
+            key_paths=key_paths,
+            subject_ref_salt=subject_ref_salt,
+            door_signature=door_signature,
+        )
+        own = [
+            named
+            for named in store.names_at(content_address=query.content_address)
+            if named.tenant_id == authorized.tenant
+        ]
+        governed = any(
+            ReplayMint in store.write_kinds.for_class(named.artifact_class) for named in own
+        )
+        verdict: SubjectMatchVerdict = "subject-unverifiable"
+        if own and not governed:
+            try:
+                payload = store.get(content_address=query.content_address)
+            except (ArtifactStoreError, KeyError, ValueError):
+                pass
+            else:
+                verdict = subject_match_verdict(judge_subject(payload, query))
+        audit_log.append(
+            action="authz_decision",
+            key=query.content_address,
+            version=query.content_address,
+            resolved=bool(own) and not governed,
+            occurred_at=entitlement_source.clock(),
+            actor=authorized.principal,
+            artifact_class=own[0].artifact_class if own and not governed else None,
+            authz_action_id=ArtifactSubjectMatch.action_id,
+            authz_matched_pattern=None,
+            authz_resource=query.content_address,
+        )
+        return SubjectMatchAnswer(verdict=verdict)
 
     return door.build()

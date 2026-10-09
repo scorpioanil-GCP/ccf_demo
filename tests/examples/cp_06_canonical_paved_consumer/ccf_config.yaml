@@ -14,6 +14,9 @@ product_class:
   required_operator_keys: [traversal.typed-neighborhood]
   requires:
     - {product_class: credit-risk.collateral-coverage, required: true, compatible_from: "1.0.0"}
+  # `D-IMPL-378` P2 (c): opened with `tests/products/paved_fixture.py::plan_factory`, whose
+  # projection never raises the withheld signal, so the composite states it never withholds.
+  subject_withholding: never
 operators:
   traversal.typed-neighborhood:
     seed_entity_classes: [account]

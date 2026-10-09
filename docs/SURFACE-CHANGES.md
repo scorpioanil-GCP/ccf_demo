@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2393 entries**, of which **2116** name a public Python surface.
+**2455 entries**, of which **2178** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1315 entries — 1269 public Python surface, 46 not public Python API.
+1350 entries — 1304 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19304,6 +19304,426 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-37-stored-bytes-verified-before-use.md`.*
 
+#### ccf.products.resolver.NonWithholdingPlanFactoryProtocol
+
+- Surface: ccf.products.resolver.NonWithholdingPlanFactoryProtocol
+- Public surface: true
+- Change type: added
+- Before: absent; nothing let a plan factory state that its projection never withholds.
+- After: a `runtime_checkable` Protocol with one method, `withholds_no_subject() -> bool`, an optional companion to `ProjectionPlanFactoryProtocol` on the `SubjectDisclosingPlanFactoryProtocol` precedent: `True` only if no projection the factory builds sets the withheld signal, for any subject or principal. Read once, with no argument, when a `GovernedResolver` is built over a class affirming `never`; classes at the default never read it.
+- Why: SEC-020, E2 (ii) (d) (Dave, 2026-10-08 16:40 MST): require a positive declaration. A method rather than an attribute so a configurable or wrapping factory can state truthfully what it builds.
+- Migration: a deployment whose class affirms `never` implements `withholds_no_subject()` returning `True` on its plan factory, only if its projection never sets the withheld signal. A plain function factory may carry it as an attribute.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration
+
+- Surface: ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent; a class affirming `never` over a plan factory that declared nothing constructed, and a projection of it that withheld anyway raised `NeverWithholdingContradicted` at serve for the withheld subject alone.
+- After: a `NeverWithholdingProjectionCanWithhold` (so an `UnsupportedComposition`) raised by `GovernedResolver` construction when the class declaration affirms `subject_withholding: never` and the plan factory does not implement `NonWithholdingPlanFactoryProtocol`, or its `withholds_no_subject()` returns anything but `True`. The message names the class, never the subject.
+- Why: SEC-020, E2 (ii) (d): default silence to refusal. A refusal where the resolver is built is the same whatever subject would have been asked.
+- Migration: declare the factory's `withholds_no_subject()` (see above) or leave the class at the default `may-withhold`. Code catching `NeverWithholdingProjectionCanWithhold` catches this too.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: added
+- Before: absent; a population read left in the subject-keyed phase ran, and a subject withheld inside the projection was rendered over a fabric a nonexistent subject's question is not answered over.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, before the subject-keyed phase is asked about the question's subject, when asking that phase about `UNHELD_SUBJECT_PROBE` changed the fabric, for a class that may withhold and declares no early policy.
+- Why: SEC-020, ruling P6 (a) (`D-IMPL-378`, 2026-10-08 16:40 MST): the refusal is decided by the phase's answer for an identifier that names nothing, never by the asked subject, so it is the same for a withheld subject and a nonexistent one. Not closure: a source that recognizes the probe is not detected.
+- Migration: declare a subject-independent read as the population phase (`open_product(population=...)` or `GovernedResolver(population_acquisition=...)`), declare an early policy, or affirm `subject_withholding: never` when the projection never withholds.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.UnheldSubjectProbeIsHeld
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeIsHeld
+- Public surface: true
+- Change type: added
+- Before: absent; nothing checked that the identifier the P6 probe asks about names nothing.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for a class the P6 probe reads, when the fabric as read before the probe names `UNHELD_SUBJECT_PROBE` (an entity whose URI it is, or a relationship with it at either end; the subject-keyed phase is then asked nothing), or when the fabric as read after the probe does; before the phase is handed the question's subject, with one message whatever subject was asked.
+- Why: SEC-020, ruling P6 (a), Dave's condition "Verify that the fixed identifier is actually absent; do not assume it." Fail closed: a probe identifier that names something cannot show what the phase acquires for an identifier its sources do not hold.
+- Migration: nothing in a deployment may be named by `UNHELD_SUBJECT_PROBE`. L2's ingest never mints it (every node it writes is `<entity_class>://<content hash>`); only the admission path for an already-resolved claim, or a store written outside this SDK, can.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf-sdk:unheld-subject-probe"`, the identifier the subject-keyed phase is asked about first, inside `SUBJECT_FLOOR_V1`; a deployment's source sees it as an identifier it does not hold.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none; a source must treat it as any identifier it does not hold.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.deployment.manifest.QuestionStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.QuestionStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent; a store written at a question boot's path after the SDK's last check was booted as the question's fabric.
+- After: a subclass of `QuestionFabricNotFresh` (so a `ValueError`), raised by `load_and_boot` and `load_config_and_boot` with `for_question=True` when the store the adapter opened holds any entity or relationship for the tenant at the boot's one read, taken through the governed reader at the latest instant a timestamp can name, after the writer lease is taken and before the fabric is handed back. The handle is closed first; the question marker stays. Its text states no count.
+- Why: SEC-020 P4s-A (b): the emptiness check precedes acquisition.
+- Migration: none; additive. A handler for `QuestionFabricNotFresh` also catches it.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionStoreNotEmpty
+
+- Surface: ccf.deployment.QuestionStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionStoreNotEmpty`.
+- Why: SEC-020 P4s-A (b).
+- Migration: none; additive.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotExclusive
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotExclusive
+- Public surface: true
+- Change type: added
+- Before: absent; `for_question=True` with `read_only=True` booted a question's fabric that held no writer lease.
+- After: a subclass of `QuestionFabricNotFresh` (so a `ValueError`), raised by `load_and_boot` and `load_config_and_boot` for `for_question=True` with `read_only=True`, before anything is registered or created at the path.
+- Why: SEC-020 P4s-A (b): the check stays protected by exclusive ownership through use, which the question marker and the boot's writer lease provide; a read-only boot takes no lease.
+- Migration: boot a question's fabric as a writer; read a question's store for replay with a read-only boot that is not for a question.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionFabricNotExclusive
+
+- Surface: ccf.deployment.QuestionFabricNotExclusive
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionFabricNotExclusive`.
+- Why: SEC-020 P4s-A (b).
+- Migration: none; additive.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: added
+- Before: absent from this module. The class was defined in `ccf.controlplane.artifacts` and raised only by `declared_artifact_class`
+- After: the same `ValueError`, carrying `class_id`, defined here beside `ArtifactClass.validate`, which now raises it, because `ccf.controlplane.registry` reaches it through `ArtifactClass` and must not import `ccf.controlplane.artifacts`. Its message names the id, cites `D-IMPL-84`, and says a document that states its own class is refused under a reserved id
+- Why: `D-IMPL-378` K1 follow-up (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_a_directly_built_reserved_class_refuses_a_document_stating_it_by_name`
+- Migration: none; additive. `ccf.controlplane.artifacts.ReservedArtifactClassId` is the same class
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH
+
+- Surface: ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"artifact.subject.match"`: the action the MCP artifact server's `match_artifact_subject` tool declares; its resource is the action id itself. Distinct from every read, write and erase, so a scope mapping reaches the tool only by naming it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. A deployment whose erasure door files through the MCP-backed store grants `artifact.subject.match` to the door's MCP credential, and to nothing else, or the door refuses record-shaped client filings `subject-unverifiable` as before.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.authz.capability.ArtifactSubjectMatch
+
+- Surface: ccf.authz.capability.ArtifactSubjectMatch
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The capability kind for `artifact.subject.match`, minted only by `mint()` from an authorizer's allow, never at composition, and outside the MCP guard's read kinds, so a stated (ambient stdio) identity is refused it before any decision.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SUBJECT_MATCH_CLASS
+
+- Surface: ccf.erasure.subject_match.SUBJECT_MATCH_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf.erasure-subject-match"`: what a subject-match query's door signature asserts in its protected header under `DOOR_SIGNATURE_ASSERTION`. A door-key signature made for an erasure record or for the door's composition probe does not verify as a query, and a query's does not verify as a record's.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SUBJECT_MATCH_CLASS
+
+- Surface: ccf.erasure.SUBJECT_MATCH_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SUBJECT_MATCH_CLASS`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectJudgment
+
+- Surface: ccf.erasure.subject_match.SubjectJudgment
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The judgment over stored bytes, in its order: `bytes-not-at-address`, `bytes-unparseable`, `subject-not-found`, `subject-in-replay-input`, `subject-found`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectJudgment
+
+- Surface: ccf.erasure.SubjectJudgment
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectJudgment`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchAnswer
+
+- Surface: ccf.erasure.subject_match.SubjectMatchAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A contract carrying one `verdict` (a `SubjectMatchVerdict`): the whole answer of the subject match. No bytes, no document, no value read out of it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchAnswer
+
+- Surface: ccf.erasure.SubjectMatchAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchAnswer`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchQuery
+
+- Surface: ccf.erasure.subject_match.SubjectMatchQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A contract: what the erasure door asks about one requested address — `tenant_id`, `content_address`, `subject_ref` (both sha256 hex), the subject class's `key_paths` and `subject_ref_salt`. On the server the tenant is the caller's verified tenant, never a wire value.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchQuery
+
+- Surface: ccf.erasure.SubjectMatchQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchQuery`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchSignatureInvalid
+
+- Surface: ccf.erasure.subject_match.SubjectMatchSignatureInvalid
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A `ValueError` raised by `verify_subject_match_query`: no signature by the declared door key of the query's tenant verifies over exactly the query.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchSignatureInvalid
+
+- Surface: ccf.erasure.SubjectMatchSignatureInvalid
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchSignatureInvalid`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchVerdict
+
+- Surface: ccf.erasure.subject_match.SubjectMatchVerdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The wire verdict: `subject-unverifiable` (bytes not at the address, unparseable, or an address the server does not judge), `subject-not-found`, `subject-in-replay-input`, `subject-found`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchVerdict
+
+- Surface: ccf.erasure.SubjectMatchVerdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchVerdict`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.judge_subject
+
+- Surface: ccf.erasure.subject_match.judge_subject
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `judge_subject(payload, query)`: the erasure door's judgment over stored bytes, once — re-hash against the address FIRST, then parse, then a value at a declared key path hashing to the salted reference, then whether the subject also sits in a replay-input field. The in-process door and the MCP artifact server both apply it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.judge_subject
+
+- Surface: ccf.erasure.judge_subject
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.judge_subject`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.sign_subject_match_query
+
+- Surface: ccf.erasure.subject_match.sign_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `sign_subject_match_query(query, *, signer, key_id)`: the erasure door's detached signature over the query's canonical bytes, asserting `SUBJECT_MATCH_CLASS`; returns `protected..signature`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.sign_subject_match_query
+
+- Surface: ccf.erasure.sign_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.sign_subject_match_query`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.subject_match_verdict
+
+- Surface: ccf.erasure.subject_match.subject_match_verdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `subject_match_verdict(judgment)`: the wire verdict for a judgment; anything but a found or not-found subject is `subject-unverifiable`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match_verdict
+
+- Surface: ccf.erasure.subject_match_verdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.subject_match_verdict`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.verify_subject_match_query
+
+- Surface: ccf.erasure.subject_match.verify_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `verify_subject_match_query(query, *, door_signature, authority, identity_provider)`: refuses, `SubjectMatchSignatureInvalid`, unless the authority is the query's tenant's and the signature verifies over exactly the query against its declared door keys and asserts `SUBJECT_MATCH_CLASS`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.verify_subject_match_query
+
+- Surface: ccf.erasure.verify_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.verify_subject_match_query`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_TOOL
+
+- Surface: ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_TOOL
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"match_artifact_subject"`: the name of the artifact server's subject-match tool.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_REFUSED
+
+- Surface: ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_REFUSED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The one message every caller the subject match does not answer receives, whichever check refused it (no erasure authority for the caller's tenant, a query that is not one, or no door-key signature over exactly it). It names no address, subject or store.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SubjectMatchRefused
+
+- Surface: ccf_runtime.mcp.artifact_server.SubjectMatchRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A `PermissionError` the subject-match tool raises, always with `SUBJECT_MATCH_REFUSED`, before the substrate is read; it crosses MCP as the tool's error result.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -20039,7 +20459,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-622 entries — 430 public Python surface, 192 not public Python API.
+624 entries — 432 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -27271,6 +27691,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-35-c2a2-the-door-address-names-are-optional.md`.*
 
+#### ccf.graph.backends.sqlite_write.SqliteConnection
+
+- Surface: ccf.graph.backends.sqlite_write.SqliteConnection
+- Public surface: true
+- Change type: reshaped
+- Before: one setting, `database_path`.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so a connection without it hashes as before), validated exactly as the network stores' setting: a relative path, a path through a symbolic link, a missing directory, one another user owns, or a group- or world-writable one is refused by name. When set, the boot hands the store the lock-directory lease over it; a read-only boot sets it aside unvalidated (N-2).
+- Why: SEC-013, option (C). The sidecar lease is keyed on the resolved path, so a writer through another name of the same file, a hard link or the new name of a renamed live file, takes another lock.
+- Migration: none required: a connection that declares no directory boots exactly as before (the sidecar and the name count; a renamed live file's new name is not excluded). To have the lease follow the file, declare the same absolute, private directory for every process that writes it.
+
+*Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `SqliteGraphStore(*, database_path)`; `writer_lease()` took the sidecar `flock` and refused a file with more than one name.
+- After: `SqliteGraphStore(*, database_path, writer_lease: WriterLeaseSource | None = None)`. With a lease declared, the store reads the database file's device and inode right after SQLite opens it, and refuses with `ValueError` when there is no file (`":memory:"`, `""`); `writer_lease()` then takes the sidecar, the declared lease for that identity (through `acquire_declared_writer_lease`, so a lease that does not exclude other processes is refused with `WriterLeaseRequired`), and the name count, and returns both locks held together, its `mechanism` naming both. Another holder of the file's lease is refused with `WriterLeaseHeld` naming the file, its identity and the held lock, which the boot mint reports as `SingleWriterViolation`. Without `writer_lease=` nothing changes, the `mechanism` text included.
+- Why: SEC-013, option (C): every name of one file has the same device and inode, so every writer of the file that declares the same directory asks for the same lock.
+- Migration: none for a store built without `writer_lease=`. Never rename or move a live database file, and never open one through a second name, even read-only: neither is made safe by any lock.
+
+*Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -30287,7 +30731,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-409 entries — 370 public Python surface, 39 not public Python API.
+434 entries — 395 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36326,6 +36770,306 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a store that returns what was written.
 
 *Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction refused a class affirming `never` only when its plan factory declared, through `SubjectDisclosingPlanFactoryProtocol`, that it withholds; `never` alone was a composite's withholding stance under P2 (c).
+- After: construction also refuses a class affirming `never` whose plan factory does not positively declare that it never withholds, with `NeverWithholdingNeedsAPositiveDeclaration` — after the declared-capability check, before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`) and before Q12's listing check. A composite's `never` stance therefore needs the declaration as well. On the paved road the refusal arrives when the resolver is built for a question.
+- Why: as above.
+- Migration: as above; a class at the default `may-withhold` is unaffected.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the declared subject-keyed acquisition seam was called once per question, with the question's effective request.
+- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A fabric that names the probe identifier, before or after that call, is refused with `UnheldSubjectProbeIsHeld` instead. A class affirming `never`, or declaring an early policy, is not probed.
+- Why: SEC-020, ruling P6 (a) (see above); Q10 amended to exactly this one extra call.
+- Migration: as above.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: invoked once per question.
+- After: for a class that may withhold and declares no early policy, also invoked once with `UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its call for the question's subject.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none for a seam keyed on the subject; a seam that counts its calls sees one more.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.PopulationAcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.PopulationAcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the subject-keyed phase's obligation to acquire nothing for an identifier its source does not hold stays a trusted statement.
+- After: says that obligation is checked by the probe for a class that may withhold and declares no early policy, that the check does not detect a source recognizing the probe, and that for that source and any other class it stays a trusted statement. The population phase itself is still invoked once per question, first.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the paved road called the deployment's `acquire` once per question, for the question's subject.
+- After: for a class that may withhold and declares no early policy, the paved road first calls `acquire` with a context whose request carries `UNHELD_SUBJECT_PROBE` as its subject; what it returns is ingested, and if it changed the fabric the question is refused with `PopulationReadInSubjectKeyedPhase` before `acquire` is handed the question's subject.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: return nothing for an identifier the sources do not hold; read what does not depend on the subject in `population` (`PopulationAcquireProtocol`).
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: raised for a store a boot for a question could not show fresh at its path: none named, one existing, or one reserved or created by another boot.
+- After: also raised, as its subclass `QuestionStoreNotEmpty`, after the boot when the store it opened holds anything for the tenant, and, as its subclass `QuestionFabricNotExclusive`, before anything is registered when the boot is also read-only.
+- Why: SEC-020 P4s-A (b).
+- Migration: none for a handler of this class.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4s-A (b).
+- Migration: none.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `for_question` said the boot verified the store's path did not exist and reserved it.
+- After: `for_question` also says the store held nothing for the tenant when the boot read it, just before handing the fabric back.
+- Why: SEC-020 P4s-A (b).
+- Migration: none.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` reserved the store's path and booted whatever store the adapter opened at it; `read_only=True` beside it booted a fabric with no writer lease.
+- After: `for_question=True` reads the store the adapter opened once, after the writer lease is taken and before returning, and raises `QuestionStoreNotEmpty` if it holds anything for the tenant; with `read_only=True` it raises `QuestionFabricNotExclusive` before anything is registered.
+- Why: SEC-020 P4s-A (b): the emptiness check precedes acquisition and stays protected by exclusive ownership through use.
+- Migration: boot a question's fabric as a writer, at a path that does not exist, and ingest anything it must start with after the boot returns.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine, and the paved road boots every question's fabric through this one.
+- Why: SEC-020 P4s-A (b).
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: defined in this module and raised only by `declared_artifact_class`
+- After: the same class, now defined in `ccf.controlplane.artifact_base` and re-exported here, and also raised by `ArtifactClass.validate`. Its message is reworded to cover both places it is raised; its attribute `class_id` and its `ValueError` base are unchanged
+- Why: `D-IMPL-378` K1 follow-up (b), as for `ccf.controlplane.artifact_base.ReservedArtifactClassId`
+- Migration: none for a caller that catches it by name or as `ValueError`. A caller that matched its message text reads the new wording
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: same constructor. `validate` held a self-stating document to the class's own id and admitted it whatever that id was, so a class built directly under a `ccf.` id registered the open envelope under an SDK class name
+- After: same constructor. `validate` raises `ReservedArtifactClassId` when the artifact's contract declares a top-level `class_id`, the artifact states this class's id, and that id starts with `ccf.`. It is checked after the class-identity check, so a document stating another class is still `ArtifactClassIdMismatch`
+- Why: `D-IMPL-378` K1 follow-up (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_a_directly_built_reserved_class_refuses_a_document_stating_it_by_name`
+- Migration: code that built a `ccf.` class over the envelope registers an SDK class with the SDK's own `ArtifactClass` constant, or chooses a class id in its own namespace
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`
+- After: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.parse_artifact
+
+- Surface: ccf.controlplane.artifacts.parse_artifact
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A self-stating document parsed as a class built directly under the `ccf.` id it states was returned
+- After: same signature. That document raises `ReservedArtifactClassId` (a `ValueError`) from `ArtifactClass.validate`
+- Why: `D-IMPL-378` K1 follow-up (b). Red test as for `ccf.controlplane.artifact_base.ArtifactClass`
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.load_artifact
+
+- Surface: ccf.controlplane.artifacts.load_artifact
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifacts.parse_artifact`, from YAML text
+- After: as `ccf.controlplane.artifacts.parse_artifact`, which it calls
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: as `ccf.controlplane.artifacts.parse_artifact`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.DeclaredArtifact
+
+- Surface: ccf.controlplane.artifacts.DeclaredArtifact
+- Public surface: true
+- Change type: behavior
+- Before: same fields. Its `class_id` was held to the class it was presented as, and the class could be built under a `ccf.` id
+- After: same fields. It is also refused under a class id starting `ccf.`, however that class was built, as `ReservedArtifactClassId`
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: none for a document in an adopter's own namespace
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: same methods. `register_typed` and `register_versioned` filed a self-stating document under a class built directly with the `ccf.` id it states, bound the key to that id and audited it
+- After: same methods. Both raise `ReservedArtifactClassId` from `artifact_class.validate` for that document, before anything is stored or audited. A third-party plane that validates as `D-IMPL-378` K2 obliges refuses it the same way
+- Why: `D-IMPL-378` K1 follow-up (b). Red test as for `ccf.controlplane.artifact_base.ArtifactClass`
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the server registered five surfaces: the blob, presence, names and naming resources and `put_artifact`.
+- After: it also registers the tool `match_artifact_subject` (action `artifact.subject.match`, resource the action id, the grant's sole tenant, registered mutating so a stated identity is refused). Past the guard it requires an `ErasureAuthority` for the caller's tenant and that authority's door-key signature over the query rebuilt under the caller's tenant, else raises `SubjectMatchRefused`; it then judges only an address the caller's tenant filed on its client lane (no own name under a class the substrate declares under `ReplayMint`), reading the bytes from the substrate as the in-process door reads them, and answers `SubjectMatchAnswer`; governed evidence, another tenant's address and an empty one answer `subject-unverifiable` without a byte read. Every answer and every refusal past the guard appends one `authz_decision` audit event.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none for a deployment that does not grant `artifact.subject.match`: every call is refused by the authorizer. Grant it to the erasure door's credential only.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: the store read, wrote and resolved artifacts and answered naming; it asked the server for nothing else.
+- After: it also offers `match_subject(*, query, door_signature)`, which calls the server's `match_artifact_subject` tool (the tenant does not cross the wire) and returns the verdict; a refusal, a server without the tool, or an answer that is not a verdict raises `ArtifactStoreError`, judged after the session closes so it is never reported as an outage.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store, a request naming a client-lane filing the artifact server answers as absent — a record-shaped one, the residual — was refused `subject-unverifiable`, because the door could not read the bytes to verify the subject.
+- After: where its store answers a requested address as absent (`ArtifactNotFound`) and offers `match_subject`, the door signs the query with its door key and asks; the verdict is judged exactly as bytes it reads are (`judge_subject`, the same function), so it reaches the in-process door's outcome. A store with no `match_subject`, a match that does not answer, and any answer that is not a verdict refuse `subject-unverifiable`, as before. Bytes the door reads are judged with `judge_subject` too, with the same refusal codes and messages.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store, a request naming a client-lane filing the artifact server answers as absent — a record-shaped one, the residual — was refused `subject-unverifiable`, because the door could not read the bytes to verify the subject.
+- After: where its store answers a requested address as absent (`ArtifactNotFound`) and offers `match_subject`, the door signs the query with its door key and asks; the verdict is judged exactly as bytes it reads are (`judge_subject`, the same function), so it reaches the in-process door's outcome. A store with no `match_subject`, a match that does not answer, and any answer that is not a verdict refuse `subject-unverifiable`, as before. Bytes the door reads are judged with `judge_subject` too, with the same refusal codes and messages.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: `writer_lease()` took the `flock` beside the resolved path and returned it, whatever other names the database file had, so a writer through a hard link took a different lock and was not refused.
+- After: `writer_lease()` refuses a database file with more than one name (a hard link), through any of its names, with `WriterLeaseHeld`, after releasing the lock it took; a boot through either name is refused with `SingleWriterViolation`. A file with one name, and an in-memory database, are leased as before.
+- Why: SEC-013 (CLAUDE.md §10): a lock beside one name cannot exclude a writer through another, and SQLite names its write-ahead log after the path too, so a second name reads another log and misses what the first committed.
+- Migration: keep one name for a live database file. A hard link to it, including one a hard-link backup makes inside the same filesystem, refuses every writer boot until it is removed.
+
+*Recorded by `378-43-proposal-sqlite-lease-refuses-a-second-name.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `put` raised `McpServerUnreachable` for a write the server declined (a tool answer with `isError`, or one with no structured reference), because the decline was raised inside the session operation and the session runner reports what an operation raises as unreachability; an answer that was not an artifact reference was also `McpServerUnreachable`.
+- After: `put` judges the answer after the session closes. A decline raises `ArtifactStoreError` (exactly that type, "the artifact server declined to store '<name>'"), including a refusal by the server's tenant guard or authorizer, which reaches the client as a tool error. An answer that is not an artifact reference still raises `McpServerUnreachable`, because it says nothing about whether the write happened. Transport, handshake and credential failures are unchanged (a rejected bearer token is still `McpServerUnreachable`).
+- Why: `put`'s own docstring promised `ArtifactStoreError` for a declined write; a decline is an answer, not an outage to retry.
+- Migration: code that caught `McpServerUnreachable` around `put` to handle a server's refusal catches `ArtifactStoreError` instead.
+
+*Recorded by `378-43-small2-store-decline-lease-name-withholding-doc.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: the docstrings of `writer_lease` and of `SqliteWriterLease` stated option (B)'s refusal of a second name and noted that a live file moved to a new name escapes it, but neither said what the refusal costs a deployment that takes hard-link backups, what a move of a live file loses, or how to move or back up a database file safely.
+- After: documentation only; the behavior is option (B)'s, unchanged. Both docstrings and the security page's §4.6 disclose the rename gap (a live database file moved to a new name escapes the lease; SQLite's write-ahead log stays beside the old name, so what was committed through it can be lost with no integrity error; stop every process that has the file open before moving it; `SEC-013` stays open pending option (C)) and the hard-link backup restriction (a hard link to the database file refuses every writer boot until it is removed, even with no writer live; back up with SQLite's online backup API or `VACUUM INTO` instead).
+- Why: Dave's ruling on item 8 (`D-IMPL-378`, 2026-10-08 21:24 MST): "B now, with the rename gap and hard-link backup restriction explicitly disclosed."
+- Migration: a deployment that backs up a SQLite graph by hard-linking its database file, or that moves a live database file, changes how it does both, as above.
+
+*Recorded by `378-44-b8-sqlite-lease-option-b-ruled-and-its-two-limits-disclosed.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `serve_stdio` set `auth_context_var` to the identity it was handed and left it set after it returned, raised or was cancelled, so after the call the caller's context still held the stdio identity.
+- After: `serve_stdio` restores, in a `finally`, the login identity the caller's context held before the call, a prior identity or none, whichever way the call ends: a normal return, an exception raised inside the transport (it still propagates, unchanged), or cancellation (`asyncio.CancelledError` still propagates). While the server runs, the identity it was handed answers for every caller, as before, and a call without an identity is still refused with `StdioIdentityRequired` before anything is set.
+- Why: Dave's ruling on item 9 (b) (`D-IMPL-378`, 2026-10-08 21:24 MST): "Restore the previous login identity in finally; verify normal return, exception and cancellation."
+- Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
+
+*Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
 
 ### Not public Python API
 

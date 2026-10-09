@@ -751,6 +751,10 @@ def test_every_exported_kind_is_classified_read_or_mutating() -> None:
         capability.ArtifactWrite,
         # SEC-009 ruling 3 (`D-IMPL-374` (4)): the erasure door's kind mutates.
         capability.ArtifactErase,
+        # D3b (`D-IMPL-378`, Dave's 16:40 MST item 5): writes nothing, and is
+        # deliberately not a read kind — never minted to a stated (ambient stdio)
+        # identity; the erasure door's verified credential alone reaches it.
+        capability.ArtifactSubjectMatch,
         capability.AgentDeclare,
         capability.ConfigRegister,
         capability.HitlSubmit,

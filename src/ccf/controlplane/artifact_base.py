@@ -32,12 +32,15 @@ Three things live here, and they are the three the cycle turned on:
 * :class:`ArtifactClass` — the identity-plus-contract pair a registration is
   checked against.
 
-One thing joined them for the same reason: :class:`ArtifactClassIdMismatch`,
-the refusal :meth:`ArtifactClass.validate` raises, lives beside the method that
-raises it because ``registry`` reaches it through ``ArtifactClass`` and must not
-import ``artifacts`` (``D-IMPL-378``).
+Two things joined them for the same reason: :class:`ArtifactClassIdMismatch`
+and :class:`ReservedArtifactClassId`, the two refusals
+:meth:`ArtifactClass.validate` raises, live beside the method that raises them
+because ``registry`` reaches them through ``ArtifactClass`` and must not import
+``artifacts`` (``D-IMPL-378``). ``ReservedArtifactClassId`` moved here from
+:mod:`ccf.controlplane.artifacts` when ``validate`` began raising it (the K1
+follow-up), and its reserved prefix moved with it.
 
-:mod:`ccf.controlplane.artifacts` re-exports all four, so every import path
+:mod:`ccf.controlplane.artifacts` re-exports all five, so every import path
 that worked before this module existed still resolves.
 
 Algorithmic module (CINV-03).
@@ -47,6 +50,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Final
 
 from pydantic import field_validator
 
@@ -57,6 +61,7 @@ __ccf_mode__ = "algorithmic"
 __all__ = [
     "ArtifactClass",
     "ArtifactClassIdMismatch",
+    "ReservedArtifactClassId",
     "VersionedArtifact",
     "validate_semver",
 ]
@@ -67,6 +72,15 @@ __all__ = [
 #: declares it at top level; an adopter's own artifact contract that declares it
 #: states its class the same way and is held to it the same way.
 _STATED_CLASS_FIELD = "class_id"
+
+#: The prefix the SDK owns (``D-IMPL-84``), stated once for the three places
+#: that apply the reservation: :meth:`ArtifactClass.validate` below,
+#: :func:`ccf.controlplane.artifacts.declared_artifact_class` and
+#: :func:`ccf.deployment.classes.resolve_artifact_class`, which import it.
+#: Private, and deliberately not in ``__all__``: the reservation is a behavior
+#: of those three, and an exported string would invite an adopter to branch on
+#: it instead of letting the refusal fire.
+_RESERVED_CLASS_ID_PREFIX: Final = "ccf."
 
 #: Semantic Versioning ``MAJOR.MINOR.PATCH`` with optional pre-release/build.
 #: The *grammar* is mechanism (whitepaper §6.3 requires semver on contracts);
@@ -160,6 +174,47 @@ class ArtifactClassIdMismatch(TypeError, ValueError):
         )
 
 
+class ReservedArtifactClassId(ValueError):
+    """A class id in the SDK's reserved ``ccf.`` namespace, offered for an adopter's class.
+
+    ``D-IMPL-84`` reserves the prefix for the SDK. The SDK's own classes are
+    typed ``ArtifactClass`` constants over contracts it wrote, and none of those
+    contracts states a ``class_id``; a document that states its own class — the
+    open :class:`~ccf.controlplane.artifacts.DeclaredArtifact` envelope, or an
+    adopter's contract that declares ``class_id`` — is therefore an adopter's
+    content. Admitted under a ``ccf.`` id, it would register under an SDK class
+    name, the registry would bind the key to that name, and the boot would pin
+    it into Decision Replay dimension 2. Two places refuse it, by this name:
+
+    * :func:`~ccf.controlplane.artifacts.declared_artifact_class`, before any
+      class exists (``D-IMPL-378`` K1 (b), Dave, 2026-10-08 12:29 MST);
+    * :meth:`ArtifactClass.validate`, for a class built directly with the
+      public constructor, before anything is registered or audited
+      (``D-IMPL-378`` K1 follow-up (b), Dave, 2026-10-08 16:40 MST: *"Close the
+      direct-construction bypass while preserving legitimate SDK classes."*).
+
+    A ``ValueError``, as the manifest door's refusal of the same reservation
+    (:func:`~ccf.deployment.classes.resolve_artifact_class`) is, so a caller
+    that catches ``ValueError`` around any of them keeps catching it.
+
+    Attributes:
+        class_id: The id that was refused.
+    """
+
+    def __init__(self, class_id: str) -> None:
+        super().__init__(
+            f"artifact class id {class_id!r} claims the SDK's reserved"
+            f" {_RESERVED_CLASS_ID_PREFIX!r} prefix (D-IMPL-84; D-IMPL-378 K1);"
+            " a document that states its own class — the open DeclaredArtifact"
+            " envelope, or any contract declaring class_id — is refused under"
+            " it, because it would register, pin and enter Decision Replay"
+            " dimension 2 under an SDK class name with content no SDK contract"
+            " validated — register an SDK class with the SDK's own"
+            " ArtifactClass constant, or choose a class id in your own namespace"
+        )
+        self.class_id = class_id
+
+
 @dataclass(frozen=True)
 class ArtifactClass:
     """The identity and contract of one Control Plane artifact class.
@@ -181,14 +236,19 @@ class ArtifactClass:
     def validate(self, artifact: object) -> CCFContract:
         """Return ``artifact`` if it satisfies this class, else raise.
 
-        Satisfying the class is two things. The artifact is an instance of the
-        class contract; and where that contract declares a top-level
+        Satisfying the class is three things. The artifact is an instance of
+        the class contract. Where that contract declares a top-level
         ``class_id``, the class the artifact states is this one
-        (``D-IMPL-378``). The second is read from the artifact, never supplied
-        by the caller, so no way of building this :class:`ArtifactClass` — the
-        manifest's resolver, :func:`~ccf.controlplane.artifacts.declared_artifact_class`
-        or a direct construction — reaches a document that says it is
-        something else.
+        (``D-IMPL-378``). And such a self-stating document is never this
+        class when this class's id is in the SDK's reserved ``ccf.`` namespace
+        (``D-IMPL-84``; ``D-IMPL-378`` K1 follow-up): the SDK's own classes
+        state no ``class_id``, so one that does is an adopter's content under
+        an SDK class name. The second and third are read from the artifact's
+        own type and statement, never supplied by the caller, so no way of
+        building this :class:`ArtifactClass` — the manifest's resolver,
+        :func:`~ccf.controlplane.artifacts.declared_artifact_class` or a
+        direct construction — reaches a document that says it is something
+        else, or files a self-stating document under an SDK class name.
 
         Raises:
             TypeError: the artifact is not an instance of the class contract.
@@ -196,6 +256,9 @@ class ArtifactClass:
                 structural luck is not a contract.
             ArtifactClassIdMismatch: the artifact states a ``class_id`` other
                 than this class's own.
+            ReservedArtifactClassId: the artifact states this class's own
+                ``class_id`` and that id starts with the reserved ``ccf.``
+                prefix.
         """
         if not isinstance(artifact, self.contract):
             raise TypeError(
@@ -208,4 +271,8 @@ class ArtifactClass:
                 raise ArtifactClassIdMismatch(
                     presented_class_id=self.class_id, document_class_id=stated
                 )
+            # The base `str` method, never the id's own: a `str` subclass built
+            # in code compares equal to the plain id and could answer for itself.
+            if str.startswith(self.class_id, _RESERVED_CLASS_ID_PREFIX):
+                raise ReservedArtifactClassId(self.class_id)
         return artifact

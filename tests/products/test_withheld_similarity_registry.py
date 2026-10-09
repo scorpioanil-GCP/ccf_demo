@@ -77,7 +77,7 @@ from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import GovernedResolver, ReplayRefusalRecorder
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE, GovernedResolver, ReplayRefusalRecorder
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
 from tests.composition import (
@@ -380,7 +380,10 @@ def _ask_both(
         tmp_path / "nonexistent", MISSING, with_similarity=with_similarity,
         text=text, withhold=frozenset({WITHHELD}), anchor=anchor,
     )
-    assert {**returned_w, **returned_n} == {WITHHELD: 1, MISSING: 0}, (
+    # `D-IMPL-378` ruling P6 (a): the class may withhold late and declares no
+    # early policy, so the seam is first asked, once per question, about the
+    # probe identifier — and returns nothing for it.
+    assert {**returned_w, **returned_n} == {UNHELD_SUBJECT_PROBE: 0, WITHHELD: 1, MISSING: 0}, (
         "case not constructed: the source must return the withheld subject's"
         f" claim and nothing for the absent one: {returned_w}, {returned_n}"
     )
@@ -504,7 +507,10 @@ def test_i2_a_served_subject_is_still_scored_against_the_text_its_acquisition_wr
     absent, _ = _ask_one(
         tmp_path / "absent", MISSING, with_similarity=True, text=QUERY, withhold=frozenset()
     )
-    assert returned == {WITHHELD: 1}, returned
+    # `D-IMPL-378` ruling P6 (a): the class may withhold (its factory is the
+    # late-withholding one, here withholding nobody) and declares no early
+    # policy, so the seam is first asked about the probe identifier, for nothing.
+    assert returned == {UNHELD_SUBJECT_PROBE: 0, WITHHELD: 1}, returned
     assert isinstance(refreshed, ServedProduct) and isinstance(unchanged, ServedProduct)
     assert refreshed.product.payload == {"accounts": [WITHHELD]}, (
         "a served subject must be scored against the text its own acquisition"

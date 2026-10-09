@@ -70,6 +70,19 @@ product_class:
     - policy.principal-subgraph
     - traversal.typed-neighborhood
 
+  # THE WITHHOLDING STANCE (`D-IMPL-378` P6 (a) and E2 (ii) (d), Dave,
+  # 2026-10-08). This class's Π (`projection.py::PackagedMemoProjection`) never
+  # raises the withheld signal: both of its `ProjectionOutput`s carry a plan id
+  # and a payload and nothing else, for any subject or principal. So the class
+  # affirms `never`, `produce.py::plan_factory` positively declares it, and the
+  # resolver refuses by name any answer that withholds under it. Without the
+  # affirmation, ruling P6 (a)'s probe would refuse every question that reaches
+  # acquisition: `deployment.py::acquire` asks its upstream about the request's
+  # `facility_id`, never about its own subject, so it acquires the same content
+  # for the probe's identifier as for the question's
+  # (`PopulationReadInSubjectKeyedPhase`).
+  subject_withholding: never
+
 operators:
   # Sections are entitlement-bearing exactly as their substrate was: a section
   # derived from evidence a principal may not see is not a section this

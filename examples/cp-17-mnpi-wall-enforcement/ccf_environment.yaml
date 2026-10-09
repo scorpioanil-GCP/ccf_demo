@@ -96,8 +96,8 @@ door:
     from_env: CCF_CP_17_DOOR_ISSUER_URL
     remedy: >-
       export CCF_CP_17_DOOR_ISSUER_URL with the OAuth issuer the door
-      advertises (any https URL for a development stdio door; the loopback
-      door advertises its own port).
+      advertises (resolved only by your own code mounting this door's HTTP app;
+      no SDK transport reads either address name).
   resource_server_url:
     from_env: CCF_CP_17_DOOR_RESOURCE_URL
     remedy: >-

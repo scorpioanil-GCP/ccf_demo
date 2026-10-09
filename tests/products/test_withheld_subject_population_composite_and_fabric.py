@@ -66,7 +66,7 @@ from ccf.products.door import WireRequest, door_answer
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import GovernedResolver, ProductNotResolvable, ReplayRefusalRecorder
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE, GovernedResolver, ProductNotResolvable, ReplayRefusalRecorder
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
@@ -606,7 +606,9 @@ def test_q9_a_question_fabric_answers_one_question_whatever_the_second_asks(tmp_
         with pytest.raises(ProductNotResolvable) as raised:
             _ask(_governed(booted, plan_factory=_late(), acquisition=source), sec020._uri("acct-missing-2"))
         assert _named(raised.value, "AcquiredFabricReused"), repr(raised.value)
-        assert source.asked == [sec020.MISSING], source.asked
+        # `D-IMPL-378` ruling P6 (a): the first question's subject-keyed phase is
+        # first asked about the probe identifier; the second asks nothing.
+        assert source.asked == [UNHELD_SUBJECT_PROBE, sec020.MISSING], source.asked
     finally:
         booted[0].handle.close()
 
@@ -659,7 +661,10 @@ def test_q9_two_concurrent_questions_on_one_fabric_the_second_refuses(tmp_path: 
     assert isinstance(outcome.get("second"), ProductNotResolvable) and _named(outcome["second"], "AcquiredFabricReused"), (
         f"the concurrent second question was not refused by the one-question claim: {outcome.get('second')!r}"
     )
-    assert seam.asked == [sec020.MISSING], seam.asked
+    # `D-IMPL-378` ruling P6 (a): the first question's first call to the seam is
+    # the probe (it blocks there, inside its acquisition phase, while the
+    # second is refused); then its own subject. The second asks nothing.
+    assert seam.asked == [UNHELD_SUBJECT_PROBE, sec020.MISSING], seam.asked
 
 
 def test_q9_booting_for_a_question_over_a_store_that_exists_refuses(tmp_path: pathlib.Path) -> None:
@@ -690,8 +695,8 @@ def test_q7_a_declared_population_phase_does_not_reveal_a_late_withheld_subject(
     The mechanism first, by name: the population phase ran once per question,
     handed a ``PopulationAcquisitionContext`` with no request and a question with
     no subject; the subject-keyed phase ran once per question, with the asked
-    subject. Then the withheld subject and a nonexistent one, as the controls
-    compare them.
+    subject, after the P6 probe (``D-IMPL-378`` ruling P6 (a)). Then the withheld
+    subject and a nonexistent one, as the controls compare them.
     """
     from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
 
@@ -708,8 +713,13 @@ def test_q7_a_declared_population_phase_does_not_reveal_a_late_withheld_subject(
         assert type(context).__name__ == "PopulationAcquisitionContext", type(context)
         assert not hasattr(context, "request"), f"[{case}] the population phase was handed a request"
         assert "subject" not in type(context.question).model_fields, f"[{case}] its question carries a subject"
-    assert subject.asked == [sec020.PAVED_WITHHELD, sec020.PAVED_ABSENT], (
-        f"[{case}] the subject-keyed phase runs once per question, with the asked subject: {subject.asked}"
+    # `D-IMPL-378` ruling P6 (a): Π withholds late and no early policy is
+    # declared, so before each question's subject the phase is asked about the
+    # probe identifier (Q10 as amended: that one extra call, and nothing else).
+    probe = UNHELD_SUBJECT_PROBE
+    assert subject.asked == [probe, sec020.PAVED_WITHHELD, probe, sec020.PAVED_ABSENT], (
+        f"[{case}] the subject-keyed phase runs once per question with the asked subject, after the"
+        f" probe: {subject.asked}"
     )
     _assert_indistinguishable(withheld, nonexistent, case=case)
 
@@ -844,7 +854,9 @@ def test_q7_the_low_road_population_phase_cannot_reach_the_subject(tmp_path: pat
     finally:
         booted[0].handle.close()
     assert population.walks == [[]], f"the asked subject is reachable from the population phase: {population.walks}"
-    assert subject_phase.asked == [fresh], subject_phase.asked
+    # `D-IMPL-378` ruling P6 (a): the late-withholding class's subject-keyed
+    # phase is first asked about the probe identifier, then about the subject.
+    assert subject_phase.asked == [UNHELD_SUBJECT_PROBE, fresh], subject_phase.asked
 
 
 class _BothPhases:

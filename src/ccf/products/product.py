@@ -386,6 +386,21 @@ class AcquireProtocol(Protocol):
     the claim's own age as ``observed_time`` (`D-IMPL-331`, `CP03C-F-08`). An
     empty iterable is a legitimate answer: nothing is written, and the
     governed path then refuses on the product's own gate, with a record.
+
+    **Called once more for a class that may withhold** (SEC-020, ``D-IMPL-378``
+    ruling P6 (a); Q10 amended to exactly this call). When the class may
+    withhold its subject and the plan factory declares no early policy, the
+    paved road first calls ``acquire`` with a context whose request carries
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as its subject,
+    immediately before the call for the question's subject. What it returns
+    for that identifier is ingested like any answer, and if it changed the
+    fabric the question is refused,
+    :class:`~ccf.products.resolver.PopulationReadInSubjectKeyedPhase`, before
+    ``acquire`` is handed the question's subject. Return nothing for an
+    identifier your sources do not hold; read what does not depend on the
+    subject in ``population`` instead (:class:`PopulationAcquireProtocol`).
+    SEC-020 stays OPEN: an ``acquire`` that recognizes the probe identifier is
+    not detected.
     """
 
     def __call__(self, context: AcquisitionContext) -> Iterable[SignalEnvelope]: ...
@@ -401,9 +416,12 @@ class PopulationAcquireProtocol(Protocol):
     :class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`). The paved
     road calls it once per question, FIRST, with a
     :class:`PopulationAcquisitionContext` — no request, no subject — and then
-    ``acquire`` for the subject-keyed phase, also once. Both phases' envelopes
-    are held to the tenant and the instant and ingested through the same L2
-    worker. The two must not overlap: an entity the population phase returns
+    ``acquire`` for the subject-keyed phase, also once for the question's
+    subject (plus, for a class that may withhold and declares no early policy,
+    once for the P6 probe immediately before it; :class:`AcquireProtocol`).
+    Both phases' envelopes are held to the tenant and the instant and ingested
+    through the same L2 worker. The two must not overlap: an entity the
+    population phase returns
     is not returned again by ``acquire``.
     """
 
@@ -960,10 +978,14 @@ class OpenedProduct:
     ) -> Callable[..., None]:
         """The declared acquisition boundary for one question (`D-IMPL-343` R-4).
 
-        Called by the resolver ONCE, with the EFFECTIVE request, after
-        resolution and before the graph read. The deployment's ``acquire``
-        runs at the values governance resolved; every envelope is held to the
-        tenant and the instant before L2's one writer sees it.
+        Called by the resolver ONCE for the question's subject, with the
+        EFFECTIVE request, after resolution and before the graph read — and,
+        for a class the P6 probe reads, once more immediately before that with
+        :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as the subject
+        (``D-IMPL-378`` ruling P6 (a); :class:`AcquireProtocol`). The
+        deployment's ``acquire`` runs at the values governance resolved; every
+        envelope is held to the tenant and the instant before L2's one writer
+        sees it.
 
         With ``population_phase`` (SEC-020 Q7, ``D-IMPL-378``; see
         :meth:`_population_seam`) it returns the declared population phase

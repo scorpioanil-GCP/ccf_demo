@@ -240,6 +240,19 @@ class PolicyPlanFactory:
             active=self.active,
         )
 
+    def withholds_no_subject(self) -> bool:
+        """The positive declaration Dave's E2 (ii) (d) requires under ``never`` — true exactly when the policy is off.
+
+        :class:`PolicyProjection` sets the withheld signal only when ``active``
+        (read off its ``invoke``; and measured, lane ``378f-e2d``: every withheld
+        signal a projection of this family raised under a ``never`` class came
+        from a policy-on factory). So the policy-off deployments a ``never``
+        class is built as here — every instrument, every twin, every readable
+        world — declare it, and a policy-on factory states that it may withhold.
+        Classes at the default never read it.
+        """
+        return not self.active
+
 
 # --- early withholding (Dave, Q8) ------------------------------------------------
 
@@ -1843,6 +1856,73 @@ def build_population(
     )
 
 
+# --- ruling P6 (a)'s retained counterexample: a source that recognizes the probe ------------
+#
+# Dave, 2026-10-08 16:40 MST (D-IMPL-378), item 2, verbatim (kept as a comment, CINV-01a):
+#   "Do not declare closure based on this probe alone: prove it runs before
+#   real-subject acquisition, and retain the counterexample where a source treats
+#   the probe identifier differently."
+#
+#: How a source recognizes the identifier the P6 probe asks about: EXACTLY, or by
+#: its SHAPE — it is no ``account://`` URI, the form this fixture's entity
+#: resolution mints for every account (:func:`entity_uri`).
+PROBE_RECOGNIZED_BY_IDENTIFIER = "by_identifier"
+PROBE_RECOGNIZED_BY_SHAPE = "by_shape"
+PROBE_RECOGNITIONS = (PROBE_RECOGNIZED_BY_IDENTIFIER, PROBE_RECOGNIZED_BY_SHAPE)
+#: The label a probe-recognizing run carries. Deliberately outside :data:`SHAPES`
+#: and :data:`PENDING_SHAPES`: it is never a cell of the closure gate.
+PROBE_RECOGNIZING = "population_probe_recognized"
+
+
+def probe_identifier() -> str | None:
+    """The identifier ruling P6 (a)'s probe asks about, read where it is used (``None`` on a tree without it)."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return getattr(resolver, "UNHELD_SUBJECT_PROBE", None)
+
+
+class ProbeRecognizingPopulationSource(PopulationSource):
+    """``acquire`` that answers NOTHING for the probe identifier and the whole population for any other.
+
+    The counterexample ruling P6 (a) keeps: the probe sees a phase that acquires
+    nothing for an identifier it does not hold, and admits the product, while
+    every real question — the withheld subject's and an identifier nothing
+    holds alike — reads the whole population.
+    """
+
+    def __init__(self, holdings: Mapping[str, Holding], *, recognition: str) -> None:
+        super().__init__(holdings)
+        self._recognition = recognition
+        #: Every identifier this source recognized as the probe, and answered nothing for.
+        self.answered_nothing_for: list[str] = []
+
+    def recognizes(self, subject: str) -> bool:
+        if self._recognition == PROBE_RECOGNIZED_BY_IDENTIFIER:
+            return subject == probe_identifier()
+        return not subject.startswith("account://")
+
+    def __call__(self, context: Any) -> tuple[SignalEnvelope, ...]:
+        subject = context.request.subject
+        if not self.recognizes(subject):
+            return super().__call__(context)
+        self.asked.append(subject)
+        self.answered_nothing_for.append(subject)
+        return ()
+
+
+def build_probe_recognizing(
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, recognition: str
+) -> Deployment:
+    """:func:`build_population`'s deployment with a source that recognizes the probe (ruling P6 (a)'s counterexample)."""
+    from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
+
+    holdings = {SIBLING: sibling_holding(), **({SUBJECT: subject_holding()} if holds else {})}
+    return open_paved(
+        base, anchor=anchor, acquire=ProbeRecognizingPopulationSource(holdings, recognition=recognition),
+        project=plan_factory(early=False, plan_id=PRODUCT_CLASS, asker=ASKER, active=active),
+    )
+
+
 def _required_policy_traversal() -> list[str]:
     from tests.products.test_withheld_is_indistinguishable_from_absent import REQUIRED_OPERATORS  # noqa: PLC0415
 
@@ -2085,6 +2165,7 @@ def build_composite(
     readable: bool = False,
     early: bool = False,
     never: bool = False,
+    project: Any = None,
 ) -> Deployment:
     """A composite whose child is asked about its own subject, or about a fixed one (channel 4).
 
@@ -2093,6 +2174,8 @@ def build_composite(
     the subject, both the parent's source and the child's do; the fixed child's
     source holds the fixed subject in every deployment. The parent's Π withholds
     by content (the parent's own view); the child's Π never withholds.
+    ``project`` replaces the parent's plan factory (E2 (ii)'s configurations
+    only; every shape of the matrix builds the policy's own).
     """
     from ccf.products.composite import CHILD_QUESTION_CLASS  # noqa: PLC0415
     from ccf.products.door import door_answer  # noqa: PLC0415
@@ -2108,7 +2191,10 @@ def build_composite(
     site = low_road_site(base, manifest, extra_classes=(CHILD_QUESTION_CLASS,), evidence_readable=readable)
     parent_holdings = {SUBJECT: subject_holding()} if holds else {}
     child_holdings = {FIXED: fixed_holding()} if fixed_child else ({SUBJECT: subject_holding()} if holds else {})
-    parent_factory = plan_factory(early=early, plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=active)
+    parent_factory = (
+        project if project is not None
+        else plan_factory(early=early, plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=active)
+    )
     child_factory = PolicyPlanFactory(plan_id=CHILD_CLASS, asker=PERSPECTIVE.principal_id, active=False)
 
     def child_door(arguments: Mapping[str, str]) -> Mapping[str, str]:
@@ -2444,6 +2530,10 @@ def instrument_pair(channel: str, run: Run) -> tuple[str, str]:
         # P2 (c): no side of an undeclared composite answers; the refusal every
         # side observes is set against the same composite declaring a stance.
         return DECLARED_TWIN, CF_NONEXISTENT
+    if p6_refused(run):
+        # CT-A extended to ruling P6 (a): no probed side answers; the refusal
+        # every one observes is set against the declared-population twin answering.
+        return POPULATION_TWIN, CF_NONEXISTENT
     return INSTRUMENT_PAIRS[channel]
 
 
@@ -2468,6 +2558,11 @@ def same_instrument_sides(channel: str, run: Run) -> tuple[str, str, str, str]:
     """
     if channel == RECORD and SERVED_READABLE_NEVER_HELD in run.sides:
         return SERVED_READABLE, SERVED_READABLE_NEVER_HELD, SERVED_READABLE_NEVER_HELD, SERVED_READABLE_NEVER_HELD_2
+    if p6_refused(run):
+        # CT-A extended to ruling P6 (a): every question of the deployment is
+        # the one refusal, so the comparison is shown it can see the twin's
+        # answer (its never-held question) against that refusal.
+        return POPULATION_TWIN_NEVER_HELD, SAME_NONEXISTENT, SAME_NONEXISTENT, SAME_FLOOR
     left, right = SAME_INSTRUMENT_PAIRS[channel]
     return left, right, SAME_NONEXISTENT, SAME_FLOOR
 
@@ -2556,6 +2651,75 @@ def stance_refusal_exists() -> bool:
 def refused_at_construction(shape: str) -> bool:
     """Whether every question of ``shape`` is P2 (c)'s construction refusal on this tree."""
     return shape in CONSTRUCTION_REFUSALS and stance_refusal_exists()
+
+
+# --- CT-A extended to ruling P6 (a) ---------------------------------------------------------
+#
+# Dave, 2026-10-08 16:40 MST (D-IMPL-378), item 2, verbatim (kept as a comment, CINV-01a):
+#   "P6: (a), conditional implementation GO. Amend Q10 to permit the probe.
+#   Extend CT-A with the working declared-population twin. Do not declare
+#   closure based on this probe alone: ..."
+# CT-A (a), Dave, 2026-10-08 12:29 MST: "Construction refusal counts, paired
+# with a declared twin that successfully answers."
+
+#: Ruling P6 (a)'s refusal (``ccf.products.resolver.PopulationReadInSubjectKeyedPhase``),
+#: raised for every question of a class that may withhold, declares no early
+#: policy and reads its population inside the subject-keyed phase — decided by
+#: the probe, never by the subject. Every deployment of the ``population`` shape
+#: reads that way.
+P6_REFUSAL = "PopulationReadInSubjectKeyedPhase"
+P6_REFUSED_SHAPES = (POPULATION,)
+#: The sides of such a run whose deployment the probe reads: every side but the
+#: questions their request contract refuses before acquisition
+#: (:data:`REFUSED_QUESTION`, :data:`REFUSED_NEVER_HELD`) and the readable
+#: worlds, whose class affirms ``never``.
+P6_PROBED_SIDES = (CF_WITHHELD, SAME_NONEXISTENT, SAME_FLOOR, CF_NONEXISTENT, CF_FLOOR, SERVED, SERVED_NEVER_HELD)
+#: The declared-population twin: the same source, its whole-population read
+#: declared as the population phase through ``open_product(population=...)`` —
+#: the ``population_declared`` world (:data:`BUILDERS`) — holding the subject and
+#: withholding it from the asker exactly as the shape's withholding deployment
+#: does, asked about the subject and about an identifier nothing holds.
+POPULATION_TWIN = "declared-population-twin"
+POPULATION_TWIN_NEVER_HELD = "declared-population-twin-never-held"
+
+
+def probe_refusal_exists() -> bool:
+    """Whether ruling P6 (a)'s refusal exists under its name."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return hasattr(resolver, P6_REFUSAL)
+
+
+def p6_refused(run: Run) -> bool:
+    """CT-A extended to ruling P6 (a): whether this run's P6 refusal is the property its cells hold.
+
+    True only when ALL of these hold: the run is of a shape in
+    :data:`P6_REFUSED_SHAPES` on a tree that has the refusal; every probed side
+    (:data:`P6_PROBED_SIDES`) ended its one question in that refusal, by type
+    name, with ONE message among them all (so the refusal is the same whatever
+    subject was asked, and whether or not the source holds it); and the
+    declared-population twin ANSWERED both its questions — served, or refused
+    as data — raising nothing. Anything less and every raise in the run stays
+    "not evidence", as everywhere in this proof.
+    """
+    if run.shape not in P6_REFUSED_SHAPES or not probe_refusal_exists():
+        return False
+    if POPULATION_TWIN not in run.sides or POPULATION_TWIN_NEVER_HELD not in run.sides:
+        return False
+    refusals = {run.raised(side).get(ONLY, "") for side in P6_PROBED_SIDES}
+    if len(refusals) != 1 or not next(iter(refusals)).startswith(f"{P6_REFUSAL}:"):
+        return False
+    return not run.raised(POPULATION_TWIN) and not run.raised(POPULATION_TWIN_NEVER_HELD)
+
+
+def p6_refusal_is_the_property(run: Run, position: str, raised: str) -> bool:
+    """Whether a side raising ``raised`` at ``position`` is ruling P6 (a)'s refusal, held as the property.
+
+    Only at the question's own position (a raise inside a record read never
+    is), only that refusal by type name, and only where :func:`p6_refused`
+    holds for the whole run.
+    """
+    return position == ONLY and raised.startswith(f"{P6_REFUSAL}:") and p6_refused(run)
 
 
 def raising_is_the_property(shape: str, position: str, raised: str) -> bool:
@@ -2927,6 +3091,15 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
             twin = build(base / "declared-twin", anchor=anchor, holds=False, active=False, early=True)
             opened.append(twin)
             sides[DECLARED_TWIN] = observe_side(shape, door, twin, SUBJECT, reads=True)
+        if shape in P6_REFUSED_SHAPES and probe_refusal_exists():
+            # CT-A extended to ruling P6 (a): the declared-population twin, the
+            # same source and the same withholding, its read declared.
+            population_twin = BUILDERS[POPULATION_DECLARED](
+                base / "declared-population-twin", anchor=anchor, holds=True, active=True
+            )
+            opened.append(population_twin)
+            sides[POPULATION_TWIN] = observe_side(shape, door, population_twin, SUBJECT, reads=True)
+            sides[POPULATION_TWIN_NEVER_HELD] = observe_side(shape, door, population_twin, NEVER, reads=True)
         if door in (HTTP, MCP) and evidence_allowlist_exists():
             # Dave's Q12 as built: the record instrument's worlds list the class
             # AND the class affirms ``never``, policy off — served and nonexistent
@@ -2958,6 +3131,34 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
         for built in opened:
             built.close()
     return Run(shape=shape, anchor=anchor, door=door, sides=sides)
+
+
+def probe_recognizing_run(base: pathlib.Path, *, recognition: str, anchor: str, door: str) -> Run:
+    """Ruling P6 (a)'s counterexample deployment, asked what the same-deployment comparison asks.
+
+    One deployment holding the subject and withholding it from the asker, its
+    source recognizing the probe (:class:`ProbeRecognizingPopulationSource`):
+    the withheld subject, an identifier nothing holds, and a second one (the
+    noise floor), through ``door``, records read back where that door reads
+    them — the sides :data:`PAIRS` names for the same-deployment comparison.
+    ``notes`` keeps what the source was asked and what it answered nothing
+    for: the evidence the case was constructed. Labeled
+    :data:`PROBE_RECOGNIZING`, outside every gate shape.
+    """
+    built = build_probe_recognizing(
+        base / "withholding", anchor=anchor, holds=True, active=True, recognition=recognition
+    )
+    try:
+        sides = {
+            CF_WITHHELD: observe_side(POPULATION, door, built, SUBJECT, reads=True),
+            SAME_NONEXISTENT: observe_side(POPULATION, door, built, NEVER, reads=True),
+            SAME_FLOOR: observe_side(POPULATION, door, built, NEVER_2, reads=True),
+        }
+        source = built.notes["opened"]._acquire
+        notes = {"asked": list(source.asked), "answered_nothing_for": list(source.answered_nothing_for)}
+    finally:
+        built.close()
+    return Run(shape=PROBE_RECOGNIZING, anchor=anchor, door=door, sides=sides, notes=notes)
 
 
 def refused_at_build(shape: str, refused: Exception, subject: str) -> Observation:
@@ -3018,13 +3219,16 @@ def render(value: Any, *, limit: int = 700) -> str:
 # ``never`` — so the record channel is observed as well; an unlisted ``never``
 # class shows a subset of these observables (its records are sealed alike).
 
-#: The plan factory declares nothing; its projection withholds late, by content.
+#: The plan factory declares nothing — no early policy, no late withholding, no
+#: positive declaration (:class:`SilentPolicyPlanFactory`); its projection
+#: withholds late, by content. Under Dave's E2 (ii) (d) silence is refused.
 NEVER_LATE = "never_late"
 #: The plan factory declares an early policy that does not disclose the subject (Q8).
 NEVER_EARLY = "never_early"
 #: The plan factory declares that its projection withholds late (``subject_disclosure()`` returns ``None``).
 NEVER_DECLARED_LATE = "never_declared_late"
-#: A composite: the plan factory declares nothing; its projection withholds late.
+#: A composite: the plan factory declares nothing (:class:`SilentPolicyPlanFactory`);
+#: its projection withholds late.
 NEVER_COMPOSITE_LATE = "never_composite_late"
 #: A composite: the plan factory declares an early policy that does not disclose the subject.
 NEVER_COMPOSITE_EARLY = "never_composite_early"
@@ -3038,6 +3242,35 @@ NEVER_CONFIGURATIONS: dict[str, str] = {
     NEVER_COMPOSITE_EARLY: EARLY_COMPOSITE_SUBJECT_CHILD,
 }
 
+# Dave's E2 (ii), option (d), 2026-10-08 16:40 MST (``D-IMPL-378``), verbatim:
+# "Require a positive declaration, default silence to refusal, and explicitly
+# limit the trusted-code assumption to deployment code callers cannot
+# influence. Keep the false-declaration counterexample visible." The positive
+# declaration is trusted deployment code, so a FALSE one is the residual: the
+# class is built, and its withheld subject meets the serve-time defense. These
+# configurations are that residual. They are NOT in NEVER_CONFIGURATIONS and
+# generate no gate cell: the closing test measures them on every run and
+# reports them in their own block, never as passing evidence.
+
+#: The plan factory positively declares that its projection never withholds,
+#: and the projection withholds late, by content (:class:`FalselyDeclaringPolicyPlanFactory`).
+NEVER_FALSE_DECLARATION = "never_false_declaration"
+#: A composite over the same false declaration.
+NEVER_COMPOSITE_FALSE_DECLARATION = "never_composite_false_declaration"
+
+#: E2 (ii) (d)'s residual configurations and the matrix shape each follows — reported, never gated.
+NEVER_FALSE_DECLARATION_CONFIGURATIONS: dict[str, str] = {
+    NEVER_FALSE_DECLARATION: SUBJECT_KEYED,
+    NEVER_COMPOSITE_FALSE_DECLARATION: COMPOSITE_SUBJECT_CHILD,
+}
+
+
+def never_shape(configuration: str) -> str:
+    """The matrix shape an E2 (ii) configuration follows, gated or reported."""
+    if configuration in NEVER_FALSE_DECLARATION_CONFIGURATIONS:
+        return NEVER_FALSE_DECLARATION_CONFIGURATIONS[configuration]
+    return NEVER_CONFIGURATIONS[configuration]
+
 #: The refusal, by name, of a class affirming ``never`` whose projection the SDK
 #: knows can withhold, raised where its resolver is built (E2 (ii)). Read by
 #: NAME so this module imports on a tree without it. Where every side of a
@@ -3047,11 +3280,52 @@ NEVER_CONFIGURATIONS: dict[str, str] = {
 #: twin that successfully answers."
 NEVER_CAPABILITY_REFUSAL = "NeverWithholdingProjectionCanWithhold"
 
+#: The refusal, by name, of a class affirming ``never`` whose plan factory does
+#: NOT positively declare that it never withholds — silence included (Dave's
+#: E2 (ii), option (d), 2026-10-08 16:40 MST) — raised where its resolver is
+#: built, after the refusal above. A subclass of it, read by NAME for the same
+#: reason.
+NEVER_DECLARATION_REFUSAL = "NeverWithholdingNeedsAPositiveDeclaration"
+
+#: The construction refusals an E2 (ii) cell may hold as the property under
+#: test — under CT-A (a), and only when EVERY compared side observed the SAME
+#: one (:func:`never_refused_at_construction`) and :data:`NEVER_TWIN` answers.
+NEVER_CONSTRUCTION_REFUSALS = (NEVER_CAPABILITY_REFUSAL, NEVER_DECLARATION_REFUSAL)
+
 #: The configuration with its withholding capability removed — the policy off,
-#: and nothing declared but an early policy that withholds nobody — in a
-#: deployment whose source holds the subject: it must SERVE the subject. The
-#: twin a construction refusal is paired with, and every channel's instrument.
+#: positively declaring that it never withholds (Dave's E2 (ii) (d),
+#: :meth:`PolicyPlanFactory.withholds_no_subject`), and for the early
+#: configurations an early policy that withholds nobody — in a deployment whose
+#: source holds the subject: it must SERVE the subject. The declared twin a
+#: construction refusal is paired with (CT-A (a)), and every channel's instrument.
 NEVER_TWIN = "never-twin"
+
+
+class SilentPolicyPlanFactory:
+    """:class:`PolicyPlanFactory`'s projection, behind a factory that declares NOTHING.
+
+    No early policy, no late withholding, and no positive declaration that it
+    never withholds: the silence Dave's E2 (ii) (d) counts as able to withhold.
+    It composes the policy's factory rather than inheriting it, so it carries
+    none of that factory's declarations.
+    """
+
+    def __init__(self, *, plan_id: str, asker: str, active: bool) -> None:
+        self._policy = PolicyPlanFactory(plan_id=plan_id, asker=asker, active=active)
+
+    def __call__(self, *, required: tuple[str, ...], request: ProductRequest) -> PolicyProjection:
+        return self._policy(required=required, request=request)
+
+
+class FalselyDeclaringPolicyPlanFactory(PolicyPlanFactory):
+    """The policy's factory declaring that it never withholds WHATEVER ``active`` says: FALSE with the policy on.
+
+    A broken deployment, on purpose — the residual of the trusted-code
+    assumption Dave's E2 (ii) (d) makes explicit, kept visible.
+    """
+
+    def withholds_no_subject(self) -> bool:
+        return True
 
 
 class LateDeclaringPlanFactory(PolicyPlanFactory):
@@ -3072,19 +3346,39 @@ def build_never(
     """One deployment of ``configuration``: its class affirms ``never`` and its tenant lists the class.
 
     ``capable`` builds the configuration as named (the policy on); otherwise
-    its :data:`NEVER_TWIN`: the policy off, with nothing declared, or, for the
-    early configurations, an early policy that withholds nobody.
+    its :data:`NEVER_TWIN`: the policy off, positively declaring that it never
+    withholds, and, for the early configurations, an early policy that
+    withholds nobody. The two late configurations are built over
+    :class:`SilentPolicyPlanFactory` — silence, not a declaration — and the two
+    false-declaration configurations over :class:`FalselyDeclaringPolicyPlanFactory`.
     """
-    shape = NEVER_CONFIGURATIONS[configuration]
+    shape = never_shape(configuration)
+    silent = capable and configuration in (NEVER_LATE, NEVER_COMPOSITE_LATE)
+    false = capable and configuration in NEVER_FALSE_DECLARATION_CONFIGURATIONS
     if shape in COMPOSITE_SHAPES:
-        return BUILDERS[shape](base, anchor=anchor, holds=holds, active=capable, readable=True, never=True)
+        from tests.products.test_resolver_seam import PERSPECTIVE, PRODUCT_CLASS  # noqa: PLC0415
+
+        project: Any = None
+        if silent:
+            project = SilentPolicyPlanFactory(plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=capable)
+        elif false:
+            project = FalselyDeclaringPolicyPlanFactory(
+                plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=capable
+            )
+        return BUILDERS[shape](
+            base, anchor=anchor, holds=holds, active=capable, readable=True, never=True, project=project
+        )
     from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
 
-    kind: type[PolicyPlanFactory] = PolicyPlanFactory
+    kind: type[PolicyPlanFactory] | type[SilentPolicyPlanFactory] = PolicyPlanFactory
     if configuration == NEVER_EARLY:
         kind = EarlyWithholdingPlanFactory
     elif configuration == NEVER_DECLARED_LATE and capable:
         kind = LateDeclaringPlanFactory
+    elif silent:
+        kind = SilentPolicyPlanFactory
+    elif false:
+        kind = FalselyDeclaringPolicyPlanFactory
     holdings = {SUBJECT: subject_holding()} if holds else {}
     return open_paved(
         base, anchor=anchor, acquire=SubjectKeyedSource(holdings),
@@ -3104,7 +3398,7 @@ def never_run(base: pathlib.Path, *, configuration: str, anchor: str, door: str)
     refuses by contract (the refusal channel's instrument). A deployment the
     SDK refuses while it is being built is an observation, as in :func:`run_sides`.
     """
-    shape = NEVER_CONFIGURATIONS[configuration]
+    shape = never_shape(configuration)
     sides: dict[str, Observation] = {}
     opened: list[Deployment] = []
 
@@ -3144,8 +3438,15 @@ def never_run(base: pathlib.Path, *, configuration: str, anchor: str, door: str)
 
 
 def never_refused_at_construction(run: Run, sides: tuple[str, ...]) -> bool:
-    """Whether every one of ``sides`` observed exactly :data:`NEVER_CAPABILITY_REFUSAL`, and nothing else."""
-    return all(run.raised(side).get(ONLY, "").startswith(f"{NEVER_CAPABILITY_REFUSAL}:") for side in sides)
+    """Whether every one of ``sides`` observed the SAME one of :data:`NEVER_CONSTRUCTION_REFUSALS`, by name.
+
+    The same one: two sides refused by two different construction refusals
+    would be told apart by the refusal's name.
+    """
+    return any(
+        all(run.raised(side).get(ONLY, "").startswith(f"{name}:") for side in sides)
+        for name in NEVER_CONSTRUCTION_REFUSALS
+    )
 
 
 class NeverRunCache:

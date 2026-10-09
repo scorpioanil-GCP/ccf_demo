@@ -672,7 +672,7 @@ for the low road: `build_arguments(fabric) -> Mapping` (the exact keyword mappin
   Mapping[str, Mapping[str, str]], instant: datetime)` — `instant` is the question's
   `asked_at`, exposed so an SDK L1 adapter used inside `acquire` can be constructed
   with `clock=lambda: context.instant` (the adapters stamp `ingestion_timestamp` from
-  a clock: `signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `signal/mcp_source.py:172`).
+  a clock: `signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `signal/mcp_source.py::MCPSourceAdapter.envelopes`).
 - `AssessmentContext(view, evidence, decided_at, half_life, profile, children:
   ChildContractView | None)`.
 
@@ -770,7 +770,7 @@ the door **verbatim** (`egress.py::_answer_question`; `D-IMPL-264` D-04, `D-IMPL
 there is no `_typed` (`R-8` records the behavior change for the canonical tree);
 the wrong-address verdict is one site in `src/` built against the current
 `ProductRequestViolation` contract. **Its reach, verified:** `_answer_question` runs
-`govern_entitlement` (`egress.py:1201`) before the resolver (`:1226`), and the derived
+`govern_entitlement` (`egress.py::build_egress_server._answer_question`) before the resolver (`:1226`), and the derived
 policy permits exactly `{schema_name}`, so a **wrong class** is denied by
 entitlement at the door and a **wrong lane** reaches `resolve()` and is refused
 `class-mismatch` at `key="schema_version"` with a record — `R-9` records that this

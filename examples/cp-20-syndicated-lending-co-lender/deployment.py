@@ -426,7 +426,12 @@ def _registered_chain(registry: Any) -> tuple[str, AgentDefinition, str, SkillCa
         for entry in derived.manifest.artifacts
         if entry.key in wanted
     }
-    register_manifest_entries(derived.manifest, parsed, registry=registry, only=wanted)
+    # `tenant=`: the tenant this composition root composes for, which the SDK's
+    # one register loop now requires and mints each entry's capability under
+    # (D-IMPL-354). The two wanted keys are already authored under it.
+    register_manifest_entries(
+        derived.manifest, parsed, registry=registry, tenant=config.tenant_id, only=wanted
+    )
 
     agent_document = {
         **declaration["agent"],

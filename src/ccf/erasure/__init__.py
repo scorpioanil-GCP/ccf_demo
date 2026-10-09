@@ -159,6 +159,18 @@ from ccf.erasure.trust import (
     verify_door_signature,
     verify_erasure_entry,
 )
+from ccf.erasure.subject_match import (
+    SUBJECT_MATCH_CLASS,
+    SubjectJudgment,
+    SubjectMatchAnswer,
+    SubjectMatchQuery,
+    SubjectMatchSignatureInvalid,
+    SubjectMatchVerdict,
+    judge_subject,
+    sign_subject_match_query,
+    subject_match_verdict,
+    verify_subject_match_query,
+)
 
 __ccf_mode__ = "algorithmic"
 
@@ -176,6 +188,16 @@ __all__ = [
     "sign_erasure_record",
     "verify_door_signature",
     "verify_erasure_entry",
+    "SUBJECT_MATCH_CLASS",
+    "SubjectJudgment",
+    "SubjectMatchAnswer",
+    "SubjectMatchQuery",
+    "SubjectMatchSignatureInvalid",
+    "SubjectMatchVerdict",
+    "judge_subject",
+    "sign_subject_match_query",
+    "subject_match_verdict",
+    "verify_subject_match_query",
     "ERASURE_INDEX_FILENAME",
     "ERASURE_APPROVAL_CLASS",
     "ERASURE_RECORD_CLASS",

@@ -107,7 +107,7 @@ class _Acquire:
 
 
 def _config(*, ttl_anchor: str, decay_basis: str | None) -> dict[str, Any]:
-    document = fixture.producer_config()
+    document = fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     document = copy.deepcopy(document)
     document["product_class"]["ttl_anchor"] = ttl_anchor
     row = dict(document["half_life"][ENTITY_CLASS])

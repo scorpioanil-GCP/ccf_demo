@@ -36,6 +36,15 @@ product_class:
     - traversal.typed-neighborhood
   decision_instant_parameter: as_of
 
+  # THE WITHHOLDING STANCE (`D-IMPL-378` P2 (c), Dave, 2026-10-08): a composite
+  # states, before any question, whether its answers may withhold their subject.
+  # This class's Π (`projection.py::CoLenderPositionPlan`) never raises the
+  # withheld signal: what a principal may not see is left out of the payload (the
+  # principal subgraph; the envelopes only the AGENT role is shown), never
+  # answered in the subject's place. So the class states `never`, and the
+  # resolver refuses by name any answer that withholds under it.
+  subject_withholding: never
+
   # THE ONE CHILD. A CLASS and a FLOOR — never a producer, a skill, a tenant or
   # a transport. `required: false` because reaching across an organizational
   # boundary is a deliberate act with legal consequences and `include_federated`

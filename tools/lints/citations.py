@@ -26,7 +26,11 @@ Three rules
     ``def`` / ``class`` / module-level binding in the cited file is checked
     against that symbol's own line span; a dot- or kebab-namespaced literal id
     anchor (an artifact class id, say) is checked by looking for the token in
-    the cited lines.
+    the cited lines. A span that is itself a citation — a line citation, a
+    ``::`` symbol citation, or a bare ``:NNN`` continuation — names a
+    location, not what the cited lines hold, so it is never an anchor and the
+    citation after it is unanchored (``D-IMPL-378`` C6; see
+    ``tools/lints/citations.py::anchor_before``).
 
 ``cite03-node-id``
     A ``file.py::symbol`` citation must resolve to something of that name in
@@ -53,7 +57,10 @@ reviews.
   nothing to bind, so a line shift inside the cited file is invisible. This is
   the largest blind spot by count and it is reported: ``--report`` prints the
   unanchored total. The remedy is authorial — anchor the citation, or cite the
-  symbol with ``::``.
+  symbol with ``::``. A citation whose adjacent span ``cite02`` cannot check
+  — a name defined twice, an expression — is exactly as unchecked; ``--report``
+  counts it as "anchor not resolvable", and the coverage ratchet counts both
+  kinds (``tools/lints/citations.py::checkable_anchor``).
 * **Ambiguity.** A bare ``run.py:NNN`` naming one of eleven ``run.py`` files,
   or an anchor matching two ``def``\\ s in the cited file, is counted as
   *unchecked* and is never a finding. Guessing which one was meant is how a
@@ -135,7 +142,9 @@ __all__ = [
     "RULE_NODE_ID",
     "RULE_RESOLVES",
     "Scan",
+    "anchor_before",
     "check_source",
+    "checkable_anchor",
     "check_tree",
     "exemption_reason",
     "scan_tree",
@@ -290,6 +299,11 @@ NODE_ID = re.compile(
 #: A backticked span: RST ``x`` and Markdown `x` alike. Newline-free, so a
 #: span never straddles two lines.
 _BACKTICKED = re.compile(r"(?P<ticks>`+)(?P<body>[^`\n]+)(?P=ticks)")
+
+#: The bare line-number continuation of a line citation — the ``:394`` after a
+#: cited path — which ``CITATION`` does not match because it carries no path
+#: (the "Bare continuations" entry in the module docstring).
+_CONTINUATION = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*(?![\w-])")
 
 #: Punctuation that may sit between an anchor and the citation it anchors.
 #: ``:`` and ``=`` are deliberately absent: ``rule: site`` and ``name = value``
@@ -491,17 +505,39 @@ def _gap_is_an_anchor_gap(gap: str) -> bool:
     return True
 
 
+def _points_elsewhere(span: str) -> bool:
+    """True when a backticked span is itself a citation rather than a name.
+
+    A line citation, a ``::`` symbol citation, or a bare ``:NNN``
+    continuation points at a location. The module docstring defines an anchor
+    as the thing *the cited lines must still hold*; a pointer names nothing
+    those lines hold, so it is never one.
+    """
+    return bool(
+        CITATION.match(span) or NODE_ID.match(span) or _CONTINUATION.match(span)
+    )
+
+
 def anchor_before(line: str, start: int) -> str | None:
-    """The backticked span immediately preceding the citation at `start`."""
+    """The anchor immediately preceding the citation at `start`, or ``None``.
+
+    The backticked span immediately before the citation, when only an anchor
+    gap separates them and the span is not itself a citation. Returning the
+    neighboring citation as the anchor was the blind spot ``D-IMPL-378`` C6
+    ruled on: the citation after it then counted as anchored, and the
+    coverage ratchet, which skips anchored citations, could not see it.
+    """
     best: str | None = None
     for match in _BACKTICKED.finditer(line):
         if match.start() >= start:
             break
         if match.end() > start:  # the span wrapping the citation itself
             continue
+        body = match.group("body").strip()
         best = (
-            match.group("body").strip()
+            body
             if _gap_is_an_anchor_gap(line[match.end() : start])
+            and not _points_elsewhere(body)
             else None
         )
     return best
@@ -599,6 +635,33 @@ def _anchor_verdict(
         return anchor in "\n".join(body[lo - 1 : hi])
 
     return None
+
+
+def checkable_anchor(
+    line: str,
+    start: int,
+    target: pathlib.Path,
+    numbers: list[int],
+    trees: _Tree | None = None,
+) -> str | None:
+    """The anchor ``cite02`` checks the citation at `start` against, or ``None``.
+
+    ``None`` when :func:`anchor_before` finds no anchor, and also when the
+    anchor it finds is one ``cite02`` cannot check against `target`: a name
+    defined there zero times or more than once, or a span that is neither a
+    Python name nor a namespaced id. ``check_source`` counts that second case
+    as ``unusable_anchor``. Both leave the citation unchecked, which is the
+    population ``D-IMPL-123`` puts under the coverage ratchet — *"citations the
+    checker declines to check because they carry no anchor to check against"*
+    (``tests/invariants/test_citation_coverage.py::citation_sites``).
+    """
+    anchor = anchor_before(line, start)
+    if anchor is None:
+        return None
+    cache = trees if trees is not None else _Tree()
+    if _anchor_verdict(anchor, target, numbers, cache) is None:
+        return None
+    return anchor
 
 
 def check_source(

@@ -33,7 +33,11 @@ content address, print no refusal at all, and print **byte-identical** stdout �
 the same standard
 :func:`~tests.examples.test_hw1_two_transports.parity_violations` holds the
 seeded run to, because an empty answer is an answer and agreeing on it is the
-same claim as agreeing on a full one.
+same claim as agreeing on a full one. That standard reads one value as its
+shape: the replay reference's address, issued per answer since Dave's Q11 and
+``D-IMPL-378`` E1 (a) (*"equality is no longer the criterion"*), which each leg
+must print once, well formed, and never the other leg's
+(:func:`~tests.examples.test_hw1_two_transports.per_answer_reference_violations`).
 
 Why this module still cannot reuse the sibling's comparison
 -----------------------------------------------------------
@@ -75,6 +79,8 @@ from tests.examples.test_hw1_two_transports import (
     TIMEOUT_SECONDS,
     example,  # noqa: F401 — the UNSEEDED copy fixture, re-exported for pytest
     invocation,
+    per_answer_reference_violations,
+    with_reference_shape,
 )
 
 #: The line ``consume.py`` prints for a question that matched no companies.
@@ -130,9 +136,12 @@ def run_leg(command: str, *, example: pathlib.Path) -> tuple[int, str]:
 def served_parity_violations(*, legs: Mapping[str, tuple[int, str]]) -> list[str]:
     """Every way a set of per-binding answers fails to be the same served answer.
 
-    Five named classes: nothing was compared; a leg that did not exit 0; a leg
-    that refused; a leg carrying no content address; and two legs whose stdout
-    differs. Each is a distinct string so a control can name the one it
+    Seven named classes: nothing was compared; a leg that did not exit 0; a leg
+    that refused; a leg carrying no content address; a leg not printing exactly
+    one well-formed replay reference, or two legs printing the same one
+    (:func:`~tests.examples.test_hw1_two_transports.per_answer_reference_violations`);
+    and two legs whose stdout differs once the per-answer address is read as its
+    shape. Each is a distinct string so a control can name the one it
     expects, and every class is collected rather than short-circuited — a leg
     that both exited non-zero AND refused is two facts, and reporting one of
     them would let a sabotage look like a smaller failure than it is.
@@ -165,7 +174,10 @@ def served_parity_violations(*, legs: Mapping[str, tuple[int, str]]) -> list[str
                 f" nothing to agree about:\n{stdout}"
             )
 
-    distinct = {stdout for _, stdout in legs.values()}
+    violations.extend(
+        per_answer_reference_violations({binding: stdout for binding, (_, stdout) in legs.items()})
+    )
+    distinct = {with_reference_shape(stdout) for _, stdout in legs.values()}
     if len(distinct) != 1:
         left, right = sorted(legs)
         violations.append(
@@ -251,7 +263,7 @@ def test_both_documented_transports_serve_a_computed_empty_fabric(
 
     The two transports agree on an empty answer exactly as the sibling module's
     seeded case has them agree on a full one: same exit, same address, same
-    stdout.
+    stdout but for the replay reference's per-answer address.
     """
     legs = {
         shlex.split(command)[0].partition("=")[2]: run_leg(command, example=example)
@@ -260,7 +272,7 @@ def test_both_documented_transports_serve_a_computed_empty_fabric(
     violations = served_parity_violations(legs=legs)
     assert not violations, "\n".join(violations)
 
-    (answer,) = {stdout for _, stdout in legs.values()}
+    (answer,) = {with_reference_shape(stdout) for _, stdout in legs.values()}
     assert EMPTY_ANSWER.search(answer), (
         "the two legs agreed, but on something other than the empty answer —"
         " a copy that quietly acquired rows would satisfy parity while proving"
@@ -442,6 +454,36 @@ def test_the_comparison_refuses_a_leg_without_an_address() -> None:
     )
     assert violations, "two empty outputs were reported as agreement"
     assert any("no content address" in entry for entry in violations), violations
+
+
+def _served_with_reference(reference: str) -> str:
+    """:data:`_SERVED` plus the replay line a served leg prints, under ``reference``."""
+    return (
+        _SERVED
+        + f"   replay record      ccf-artifact://hw1-demo/hw1.replay-record/{reference}@{reference}\n"
+    )
+
+
+def test_two_served_legs_differing_only_in_their_per_answer_reference_agree() -> None:
+    """The per-answer address is read as its shape here too, and nothing else is."""
+    violations = served_parity_violations(
+        legs={
+            "inprocess:x": (0, _served_with_reference("1" * 64)),
+            "mcp+stdio:y": (0, _served_with_reference("2" * 64)),
+        }
+    )
+    assert violations == [], violations
+
+
+def test_the_comparison_refuses_two_legs_sharing_one_reference() -> None:
+    """Two served legs printing one reference: the reference stopped being per answer."""
+    violations = served_parity_violations(
+        legs={
+            "inprocess:x": (0, _served_with_reference("1" * 64)),
+            "mcp+stdio:y": (0, _served_with_reference("1" * 64)),
+        }
+    )
+    assert any("one replay reference" in entry for entry in violations), violations
 
 
 # ---------------------------------------------------------------------------

@@ -114,7 +114,7 @@ from ccf.deployment.keys import DeploymentKeys
 from ccf.deployment.pins import ArtifactPin, ResolvedPins
 # SEC-023 (`D-IMPL-374`): the refusal now lives beside the view the
 # consumer-time check reads; re-exported here under its batch-5 name.
-from ccf.graph.protocols import UngovernedClassificationAttribute
+from ccf.graph.protocols import GraphReader, UngovernedClassificationAttribute
 from ccf.graph.leases import _LOCK_DIRECTORY_SETTING, _without_lock_directory_setting
 from ccf.graph.registry import (
     ResolvedBackend,
@@ -127,7 +127,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "ManifestKeysPlaceToOneKey", "QuestionFabricNotFresh", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -210,7 +210,9 @@ class BootedFabric:
             the multi-file door is unchanged by this field.
         for_question: Whether this fabric was booted for ONE question, onto a
             substrate the boot verified did not exist before it
-            (:class:`QuestionFabricNotFresh` otherwise). SEC-020, ``D-IMPL-378``
+            (:class:`QuestionFabricNotFresh` otherwise) and that held nothing
+            for its tenant when the boot returned (:class:`QuestionStoreNotEmpty`
+            otherwise; SEC-020 P4s-A (b)). SEC-020, ``D-IMPL-378``
             (Dave, 2026-10-07, Q9: *"Enforce a fresh fabric per question
             whenever acquisition exists, including concurrent use"*): a
             governed call refuses to run an acquisition phase over a fabric
@@ -292,7 +294,62 @@ class QuestionFabricNotFresh(ValueError):
     or another boot's deployment marker, that appeared at a path after the
     check. The SDK then creates nothing at the store's path itself — the
     adapter does, at the boot — so a store another actor writes at the path
-    after this last check is opened as the one this boot created.
+    after this last check is opened as the one this boot created; when the
+    boot returns, the store is read once and refused if it holds anything
+    for the tenant (:class:`QuestionStoreNotEmpty`). A boot for a question
+    that would hold no writer lease is refused before anything is registered
+    (:class:`QuestionFabricNotExclusive`).
+    """
+
+
+class QuestionStoreNotEmpty(QuestionFabricNotFresh):
+    """A fabric booted for one question opened a store that already holds claims for its tenant.
+
+    SEC-020 P4s-A (b), ``D-IMPL-378`` (Dave, 2026-10-08 16:40 MST: *"Add the
+    emptiness check and keep unverifiable stores free of acquisition. The
+    check must precede acquisition and remain protected by exclusive
+    ownership through use."*). The boot reserves a question's path and checks
+    it again before the adapter opens it, and the adapter creates the store
+    at the boot, so a store written at the path between that last check and
+    the open was booted as the question's fabric (measured: a used question
+    store copied there, and the deployment's own plain boot filling one
+    there). Now, after the adapter opens the store and the boot takes its
+    writer lease, and before the fabric is handed back, the store is read
+    once through the governed reader, at the latest instant a timestamp can
+    name; a store holding any entity or relationship for the
+    fabric's tenant is closed and refused here, before any acquisition phase
+    or governed call, so the refusal reads nothing about a question's subject
+    and is the same for every subject. The question marker stays beside the
+    store, so a later boot of that path keeps refusing it.
+
+    What the one read does not see is stated in the security how-to, section
+    4.12: a claim superseded before that instant with no current successor
+    (no SDK writer leaves one; a store written outside the SDK can hold one),
+    a store holding rows only for another tenant, and a write into the store,
+    after the read, by a writer outside the SDK's writer lease.
+    """
+
+
+class QuestionFabricNotExclusive(QuestionFabricNotFresh):
+    """A boot for one question that would hold no writer lease, refused before anything is registered.
+
+    SEC-020 P4s-A (b), ``D-IMPL-378`` (Dave, 2026-10-08 16:40 MST: *"The
+    check must precede acquisition and remain protected by exclusive
+    ownership through use."*). From its emptiness check
+    (:class:`QuestionStoreNotEmpty`) to the question's end, a question's store
+    is held by the question marker its boot created exclusively, which
+    refuses a second boot for a question at the path, and by the writer lease
+    its boot holds until the handle is closed, which refuses another writer
+    boot of the path (``src/ccf/graph/_writer.py::SingleWriterViolation``);
+    a plain boot that only reads the store is refused at its governed call
+    (``src/ccf/products/resolver.py::QuestionStoreReopened``). A read-only
+    boot (``read_only=True``) takes no writer lease: booted for a question,
+    another writer boot of the same path wrote into its store while its
+    fabric was open, and the fabric read what it wrote (measured). So a boot
+    for a question that is also read-only is refused by name, before anything
+    is registered or created at its path. Decision Replay reads a question's
+    store through a read-only boot that is not for a question, which is
+    unaffected.
     """
 
 
@@ -534,6 +591,36 @@ def _refuse_unless_fresh(backend: str, paths: Sequence[Path]) -> None:
             "a fabric booted for one question must be a fresh one, and the"
             " store this boot names already exists — another question may have"
             " written into it (SEC-020, Q9)"
+        )
+
+
+#: SEC-020 P4s-A (b) (``D-IMPL-378``): the instant a question boot's one
+#: emptiness read is taken at, the latest a timestamp can name. An as-of read
+#: returns the claims observed at or before its instant and not superseded by
+#: it, so at this instant it returns every claim of the tenant's that has no
+#: successor, whenever it was observed: the newest claim of every entity and
+#: relationship, which an SDK writer never supersedes without one.
+_EMPTINESS_READ_AT = datetime.max.replace(tzinfo=UTC)
+
+
+def _refuse_unless_empty(reader: GraphReader, *, tenant_id: str) -> None:
+    """Read a question's store once, through the governed reader, and refuse it unless it holds nothing for ``tenant_id``.
+
+    SEC-020 P4s-A (b) (``D-IMPL-378``; Dave, 2026-10-08 16:40 MST). One
+    ``as_of`` read at :data:`_EMPTINESS_READ_AT`, through the Protocol every
+    adapter answers: no Protocol change and no adapter-specific query. The
+    refusal states no count and nothing the store holds.
+
+    Raises:
+        QuestionStoreNotEmpty: the view holds an entity or a relationship.
+    """
+    view = reader.as_of(tenant_id=tenant_id, at=_EMPTINESS_READ_AT)
+    if view.entities or view.relationships:
+        raise QuestionStoreNotEmpty(
+            "a fabric booted for one question must be a fresh one, and the"
+            " store it opened already holds claims for its tenant: something"
+            " other than this question wrote into it at its path before the"
+            " boot returned (SEC-020, P4)"
         )
 
 
@@ -1008,6 +1095,19 @@ def _register_and_boot(
     # fresh before anything is registered or booted.
     paths = _store_paths(manifest.backend, connection)
     if for_question:
+        # SEC-020 P4s-A (b) (`D-IMPL-378`; Dave, 2026-10-08 16:40 MST: *"The
+        # check must precede acquisition and remain protected by exclusive
+        # ownership through use."*): what holds a question's store from its
+        # emptiness check to the question's end is the question marker and the
+        # writer lease, and a read-only boot takes no lease. Refused here,
+        # before anything is registered or created at the path.
+        if read_only:
+            raise QuestionFabricNotExclusive(
+                "a fabric booted for one question holds its store from its"
+                " emptiness check to the question's end through its writer"
+                " lease, and a read-only boot takes none: another boot could"
+                " write into the store while the question reads it (SEC-020, P4)"
+            )
         _refuse_unless_fresh(manifest.backend, paths)
     manifest, parsed, keys = manifest_under_tenant(manifest, parsed, keys, tenant=resolved_tenant)
     # SEC-023 (`D-IMPL-372`): before anything is registered or minted, a
@@ -1046,6 +1146,20 @@ def _register_and_boot(
         tenant_ids=(resolved_tenant,),
         read_only=read_only,
     )
+    if for_question:
+        # SEC-020 P4s-A (b) (`D-IMPL-378`; Dave, 2026-10-08 16:40 MST: *"Add
+        # the emptiness check ... The check must precede acquisition and
+        # remain protected by exclusive ownership through use."*): the store
+        # the adapter opened is read once, here, after `boot` took the writer
+        # lease and before the fabric is handed back, so before any
+        # acquisition phase or governed call can run over it. A store holding
+        # anything for the tenant is closed and refused; its question marker
+        # stays, so the path keeps refusing.
+        try:
+            _refuse_unless_empty(handle.reader, tenant_id=resolved_tenant)
+        except BaseException:
+            handle.close()
+            raise
     return BootedFabric(
         handle=handle,
         pins=pins,
@@ -1397,7 +1511,9 @@ def load_and_boot(
             (N-2). ``False`` (the default) is the writer boot, unchanged.
         for_question: ``True`` boots the fabric for ONE question (SEC-020,
             ``D-IMPL-378`` Q9): the substrate is verified fresh first
-            (:class:`QuestionFabricNotFresh` otherwise) and the returned
+            (:class:`QuestionFabricNotFresh` otherwise), read once when the
+            boot returns and refused if it holds anything for the tenant
+            (:class:`QuestionStoreNotEmpty`, P4s-A (b)), and the returned
             :class:`BootedFabric` says so, which is what lets a governed call
             run an acquisition phase over it — once. ``False`` (the default)
             boots a fabric that may answer many questions and is never
@@ -1441,6 +1557,14 @@ def load_and_boot(
             their classes and roles. A ``ValueError``, raised after every
             document is parsed and before anything is minted or registered
             (``D-IMPL-378``).
+        QuestionFabricNotFresh: ``for_question=True`` over a store the boot
+            cannot show fresh — its connection names no path, a path already
+            exists or another boot reserved it — or, as
+            :class:`QuestionStoreNotEmpty`, a store that held anything for the
+            tenant when the boot returned, whose handle is closed before the
+            refusal; or, as :class:`QuestionFabricNotExclusive`,
+            ``read_only=True`` beside it, before anything is registered
+            (SEC-020, ``D-IMPL-378``). A ``ValueError``.
         TypeError: a ``registration: versioned`` entry names a class whose
             documents declare no string ``artifact_version``, so the bump check
             has nothing to verify. This is what an adopter sees when they declare

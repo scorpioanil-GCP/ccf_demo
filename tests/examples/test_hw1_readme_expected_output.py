@@ -22,6 +22,18 @@ the fence.
 The subject is the seeded copy ``test_hw1_two_transports.py`` builds, driven by
 the README's own first documented command, so the string a reader types is the
 string under test and the output a reader sees is the output compared.
+
+The one value that is compared by its shape
+-------------------------------------------
+The replay record's address is issued afresh for every answer (Dave's Q11;
+``D-IMPL-378`` E1 (a): *"equality is no longer the criterion"*), so no fence can
+quote the address a run will print. The fence shows it as
+:data:`~tests.examples.test_hw1_two_transports.PER_ANSWER`, labeled as such in
+the README, and the run's line is read through
+:func:`~tests.examples.test_hw1_two_transports.with_reference_shape` before the
+byte comparison — which keeps the tenant and the record class in it — after
+:func:`~tests.examples.test_hw1_two_transports.per_answer_reference_violations`
+has required the run to print exactly one well-formed reference.
 """
 
 from __future__ import annotations
@@ -35,9 +47,12 @@ from tools.docs_tests._prose import _FENCE_RE
 from tests.examples.test_client_example_purity import documented_commands
 from tests.examples.test_hw1_two_transports import (
     EXAMPLE_ROOT,
+    PER_ANSWER,
     example,  # noqa: F401 — `seeded_example` is built on it
+    per_answer_reference_violations,
     run_leg,
     seeded_example,  # noqa: F401 — the populated copy fixture
+    with_reference_shape,
 )
 
 #: The heading the fence sits under, and where its section ends.
@@ -101,15 +116,18 @@ def fence_violations(fence: str, stdout: str) -> list[str]:
     """Every way the fence fails to be the run's output.
 
     A function of two strings so the controls can hand the shipped comparison a
-    divergent pair and be watched failing.
+    divergent pair and be watched failing. Byte for byte, but for the replay
+    record's per-answer address, which the run must print once, well formed,
+    and which the fence shows as its shape.
     """
     if not fence.strip() or not stdout.strip():
         return [
             "one side is empty, so nothing was compared —"
             f" fence={fence!r} stdout={stdout!r}"
         ]
+    violations = per_answer_reference_violations({"consume.py stdout": stdout})
     expected = _strip_one_newline(fence)
-    actual = _strip_one_newline(stdout)
+    actual = _strip_one_newline(with_reference_shape(stdout))
     if expected != actual:
         diff = "\n".join(
             difflib.unified_diff(
@@ -120,8 +138,8 @@ def fence_violations(fence: str, stdout: str) -> list[str]:
                 lineterm="",
             )
         )
-        return [f"the fence and the run differ.\n{diff}"]
-    return []
+        violations.append(f"the fence and the run differ.\n{diff}")
+    return violations
 
 
 def _readme() -> str:
@@ -180,3 +198,28 @@ def test_the_comparison_refuses_empty_output() -> None:
     violations = fence_violations(fence, "")
     assert violations, "empty stdout was reported as equality"
     assert any("empty" in entry for entry in violations), violations
+
+
+def _run_printing(reference: str) -> str:
+    """The shipped fence as a run would print it, under a concrete ``reference``."""
+    fence = expected_output_fence(_readme())
+    return fence.replace(f"{PER_ANSWER}@{PER_ANSWER}", f"{reference}@{reference}") + "\n"
+
+
+def test_a_run_differing_from_the_fence_only_in_its_per_answer_address_matches() -> None:
+    """The judging change itself, watched: the issued address is read as its shape."""
+    fence = expected_output_fence(_readme())
+    assert f"{PER_ANSWER}@{PER_ANSWER}" in fence, (
+        "the shipped fence does not show the replay record's per-answer address"
+        " by its shape"
+    )
+    violations = fence_violations(fence, _run_printing("1" * 64))
+    assert violations == [], violations
+
+
+def test_the_comparison_refuses_a_run_without_a_well_formed_reference() -> None:
+    """A run whose reference names two contents is not the per-answer shape."""
+    fence = expected_output_fence(_readme())
+    malformed = fence.replace(f"{PER_ANSWER}@{PER_ANSWER}", f"{'1' * 64}@{'2' * 64}") + "\n"
+    violations = fence_violations(fence, malformed)
+    assert any("well-formed replay references" in entry for entry in violations), violations

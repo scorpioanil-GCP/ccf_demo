@@ -30,11 +30,14 @@ What this module holds, each test asserting the mechanism by name:
   erasure consult, and an erasure-consulting composition whose substrate answers
   no ``names_at``;
 * the MCP-backed door (``ccf.artifacts.mcp_store.McpArtifactStore``): a client
-  filing the record validator refuses is erasable through it; one the validator
-  accepts is still not, because the artifact server does not serve those bytes
-  on the client lane (lane 378-clientlane), so the door cannot read them to
-  verify the subject — the residual, kept executable as a strict expected
-  failure rather than pinned as if intended.
+  filing the record validator refuses is erasable through it; so must one the
+  validator accepts be (Dave, 16:40 MST, item 5 — D3b, ``D-IMPL-378``). The
+  artifact server does not serve those bytes on the client lane (lane
+  378-clientlane), so the door cannot read them to verify the subject itself;
+  the server's narrowly authorized subject match must judge them for it,
+  without the bytes crossing. The residual was kept as a strict expected
+  failure until that path existed; the mark is removed, and the test is the
+  red-first test of the path.
 
 Tenant, principal, class and name strings are test deployment vocabulary,
 meaningful nowhere else (CINV-01 applied to test data).
@@ -363,24 +366,19 @@ class _StillUnverifiable(AssertionError):
     """The MCP-backed door refused ``subject-unverifiable`` — the measured residual."""
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=_StillUnverifiable,
-    reason=(
-        "RESIDUAL (lane 378c-d3, reported, not redesigned): the MCP artifact server does not serve"
-        " client-lane bytes the record validator accepts (lane 378-clientlane), so the MCP-backed"
-        " erasure door cannot read them to verify the subject and refuses subject-unverifiable;"
-        " in process the same filing is erased"
-    ),
-)
 def test_over_the_mcp_backed_store_a_record_shaped_client_filing_is_erased_like_any_client_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """What the ruling asks of a record-shaped client filing, through the
-    MCP-backed door. It does not hold: the door reads the address through the
-    artifact server, which answers record-shaped client-lane bytes exactly as a
-    missing address, so the subject cannot be verified. Kept executable: the day
-    the MCP path can verify such a filing, this XPASSes and fails the run."""
+    MCP-backed door. The door reads the address through the artifact server,
+    which answers record-shaped client-lane bytes exactly as a missing address,
+    so the door cannot verify the subject from bytes it holds. Dave's 16:40 MST
+    item 5 (D3b, ``D-IMPL-378``) — "Build the narrowly authorized server-side
+    subject-match path without serving the bytes" — is what lets the door
+    verify it anyway. Was a strict expected failure (lane 378c-d3, the
+    residual); now the red-first test of that path: it fails with
+    ``_StillUnverifiable`` wherever the door still refuses
+    ``subject-unverifiable``."""
     plane, store = _deployment(tmp_path)
     record = _record_naming_the_subject()
     filed = h.client_put(store, name="record-copy", document=json.loads(canonical_bytes(record)))

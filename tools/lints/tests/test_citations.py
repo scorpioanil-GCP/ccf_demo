@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import pathlib
 
+import pytest
+
 from tools.lints.citations import (
     RULE_ANCHOR,
     RULE_NODE_ID,
     RULE_RESOLVES,
+    anchor_before,
     check_tree,
     exemption_reason,
     scan_tree,
@@ -250,6 +253,49 @@ def test_a_verb_between_anchor_and_citation_breaks_the_binding(
         "`refuse` is discussed by the docstring at `src/pkg/mod.py:1-2`.\n",
     )
     assert check_tree(tmp_path) == []
+
+
+#: Spans that may sit immediately before a citation and are themselves a
+#: citation: a line citation, a ``::`` symbol citation, and the bare ``:NNN``
+#: continuation of a line citation. Each points at a location; none names what
+#: the cited lines hold, which is what the module docstring says an anchor is.
+#: Paired with the number of ``no_anchor`` citations the line must then show:
+#: a leading line citation is itself unanchored, a leading symbol citation is
+#: checked by ``cite03`` instead, and a continuation is not a citation at all.
+_POINTERS: tuple[tuple[str, int], ...] = (
+    ("`src/pkg/mod.py:1-2`", 2),
+    ("`src/pkg/mod.py::refuse`", 1),
+    ("`:1-2`", 1),
+)
+
+
+@pytest.mark.parametrize(("pointer", "unanchored"), _POINTERS)
+def test_a_citation_is_never_the_anchor_of_the_citation_after_it(
+    tmp_path: pathlib.Path, pointer: str, unanchored: int
+) -> None:
+    """D-IMPL-378 C6: an adjacent citation is a pointer, not an anchor.
+
+    Lane ``378e-c6`` measured 86 line citations of Python files in three
+    documents that the coverage ratchet could not see, because
+    ``anchor_before`` returned *any* backticked span right before a citation
+    as its anchor -- another citation included -- and the ratchet skips a
+    citation that has one. Dave (2026-10-08 16:40 MST): *"fix the checker's
+    adjacent-backtick blind spot and re-scan the 86 hidden citations; zero
+    findings from a blind checker is insufficient evidence."*
+
+    Asserted on the mechanism by name: ``anchor_before`` returns no anchor for
+    the second citation, and the scan counts it as unanchored rather than as
+    carrying an anchor it could not resolve.
+    """
+    line = f"See {pointer}, `src/pkg/mod.py:7-9`.\n"
+    _write(tmp_path, "src/pkg/mod.py", _CITED_AFTER)
+    _write(tmp_path, "docs/note.md", line)
+
+    assert anchor_before(line, line.index("src/pkg/mod.py:7-9")) is None
+    scan = scan_tree(tmp_path)
+    assert scan.findings == []
+    assert scan.unusable_anchor == 0
+    assert scan.no_anchor == unanchored
 
 
 def test_an_anchor_matching_two_definitions_is_unchecked(

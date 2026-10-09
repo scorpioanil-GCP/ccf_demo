@@ -126,13 +126,13 @@ not the "about 25" the design estimates.
 | `admission_clock()` read | `src/ccf/products/resolver.py::GovernedResolver.__call__` | **the one clock read inside `__call__`**, composite branch only |
 | `OpenedProduct._clock` | `src/ccf/products/product.py::OpenedProduct.__init__`, `:602`, `:749` | one injected clock used **twice**: `:602` hands it to the resolver as `admission_clock`; **`:749` calls it directly** for the door's own address refusal, on a path that never enters `__call__` |
 | delivery boundary | `runtime/ccf_runtime/authz/delivery_boundary.py::_determined_at` | `determined_at = entitlement_source.clock()`, read at `:386`, `:477`, `:626`, `:1007` — all **outside** `__call__` |
-| client adapters | `src/ccf/client/adapters/inprocess.py::InProcessAdapter.ask`, `src/ccf/client/adapters/mcp_stdio.py:251` | `asked_at = request.temporal_boundary or datetime.now(UTC)` — client-side resolution of a deferred instant (`D-IMPL-159`) |
-| ingress | `src/ccf/signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `src/ccf/signal/mcp_source.py:66-72`, `runtime/ccf_runtime/cdc/adapter.py:155` | injected seams defaulting to `datetime.now(UTC)` |
+| client adapters | `src/ccf/client/adapters/inprocess.py::InProcessAdapter.ask`, `src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter.ask` | `asked_at = request.temporal_boundary or datetime.now(UTC)` — client-side resolution of a deferred instant (`D-IMPL-159`) |
+| ingress | `src/ccf/signal/acquisition.py::FileRecordAcquisitionSource.envelopes`, `src/ccf/signal/mcp_source.py::_utc_now`, `runtime/ccf_runtime/cdc/adapter.py::CDCSourceAdapter.envelopes` | injected seams defaulting to `datetime.now(UTC)` |
 | peered admission | `src/ccf/peering/admission.py::PeeringAdmissionGate.admit` | `now` is a **parameter**; docstring `:911-914` declares the caller-clock posture **deliberate** |
 
 ### 2.2 Replay holds, and what it does not do
 
-`src/ccf/replay/engine.py:78` — *"Nothing here reads a clock, and nothing here
+`src/ccf/replay/engine.py` (module docstring) — *"Nothing here reads a clock, and nothing here
 resolves 'latest'"* — **resolves exactly and is TRUE of that module**: zero
 `run_gates`, zero `datetime.now`, zero `GovernedResolver` import, store calls
 limited to `get`/`resolve_uri`. Replay drives `ProjectionEngine` over a
@@ -204,13 +204,13 @@ Three measured problems with D6(d) as written:
    `admit_relationship_claim` carry no `ingestion_timestamp` at all; their only
    instant is `claim.observed_at`, which is the as-of cut key.
 2. **The writer never learns a tenant, so it cannot resolve a per-tenant policy
-   once.** `AssemblyWorker.__init__` (`src/ccf/assembly/worker.py:595-611`) stores writer,
+   once.** `AssemblyWorker.__init__` (`src/ccf/assembly/worker.py::AssemblyWorker.__init__`) stores writer,
    resolution, registry and the pinned bundle — **nothing tenant-shaped**.
    `boot(tenant_ids=…)` (`src/ccf/boot.py::boot`) holds the roster and does not pass it.
    D5 rules the policy **per-tenant**; D6(d) puts the guard in a component with
    no tenant. **This is the sheet's most load-bearing gap.**
 3. **Resolving per envelope writes an audit event per envelope.**
-   `ControlPlaneRegistry.resolve_latest` (`src/ccf/controlplane/registry.py:815-835`)
+   `ControlPlaneRegistry.resolve_latest` (`src/ccf/controlplane/registry.py::ControlPlaneRegistry.resolve_latest`)
    calls `self._record(action="resolve_latest", …)` on **both** the miss (`:827`)
    and hit (`:832`) legs, and the paved road ingests one envelope at a time.
 
@@ -318,7 +318,7 @@ exactly this.
 | `tests/products/test_policy_constraint_resolver.py::test_a_request_at_the_boundary_instant_resolves_the_second` | *"exactly the property replay would lose if effectivity were evaluated at 'now'"* | D1(a) **amends that reading** |
 | `test_c11_a_composites_mixing_floor_is_measured_from_the_decision_instant` in `tests/products/test_d_impl_341_ttl_anchor.py` (replaced in 2f8852b5 by `tests/products/test_d_impl_341_ttl_anchor.py::test_c11_a_composites_mixing_floor_is_measured_from_the_evaluation_instant`) | mixing floor measured from the decision instant, parametrized (720s/False, 540s/True) | D8 moves mixing to `served_at` |
 | `tests/products/test_refusal_envelope.py::test_envelope_for_ttl_refusal` | `set(envelope.fields) == {"expires_at","now","max_ttl_seconds"}` | `TTLRefusal` gaining `served_at`; **neighbouring assertions in the same block also read the roster** |
-| the nine record-shape pins | the top-level record shape | a new dimension-5 field. Roster resolved so it can be edited rather than re-derived: `tests/replay/test_attestation_pin.py::test_the_attestation_extends_dimension_one_never_the_record`, `tests/replay/test_adapter_pin.py:126`, and seven more |
+| the nine record-shape pins | the top-level record shape | a new dimension-5 field. Roster resolved so it can be edited rather than re-derived: `tests/replay/test_attestation_pin.py::test_the_attestation_extends_dimension_one_never_the_record`, `tests/replay/test_adapter_pin.py::test_the_pin_extends_dimension_2_never_the_record`, and seven more |
 
 ### 4.2 Controls the wave must CREATE, each with its reddening edit
 

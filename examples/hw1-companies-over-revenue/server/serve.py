@@ -1,65 +1,71 @@
-"""HW-1's own MCP server program — the far side of `mcp+stdio:`.
+"""HW-1's own MCP server program: the far side of `mcp+stdio:`, on the SDK's standard door.
 
-The two documents this program reads
+The three documents this program reads
 --------------------------------------
-``../deployment/binding.yaml`` — the deployment's wiring, read through
+``../deployment/binding.yaml``: the deployment's wiring, composed by
 :func:`compose.compose` next door.
 
-``egress-door.yaml`` beside this file — the door's own four governance values.
-Both are data; these two modules are their interpreter (CLAUDE.md §6.4). Delete
-either and this program has nothing to serve.
+``egress-door.yaml`` beside this file: the door's identity and prose, which is
+the producer identity it asserts on every outcome, the tenant that assertion
+names, the scope it requires and the prose its tool advertises (the
+``ccf.egress-door`` class, ``D-IMPL-343``).
+
+``ccf_environment.yaml`` beside this file: the NAME of the environment
+variable the door's credential is read from, never its value (Dave,
+``D-IMPL-343``: *"Do not put URLs or tokens in configuration."*).
+
+All three are data; these two modules are their interpreter (CLAUDE.md §6.4).
+Delete any of them and this program has nothing to serve.
+
+The door is the SDK's
+---------------------
+:func:`~ccf_runtime.mcp.product_door.open_door` composes the door over what
+:func:`compose.compose` holds: the entitlement policy for the declared principal
+and role, the scope mapping its authorizer decides every call under, pinned at
+the version its registration returns (``D-IMPL-353``), a credential minted per
+boot when the environment names none, and the egress server, which asserts the
+declared producer identity on every outcome (``D-IMPL-340``). This file writes
+none of that.
 
 Identity over stdio, stated rather than smuggled
 --------------------------------------------------
 **MCP stdio carries no authentication channel.** ``FastMCP`` installs its bearer
-middleware on the HTTP app and there is no HTTP app here, so
-``get_access_token()`` inside the door's handler finds nothing and the door
-refuses every caller as unverified. The transport's own security boundary is
+middleware on the HTTP app and there is no HTTP app here, so the door would
+refuse every caller as unverified. The transport's own security boundary is
 process ownership: this server is a child that this deployment's client
 spawned, under the same user, on the same host, with no socket anywhere.
 
-So this deployment states who its stdio caller is, once, before serving. That is
-a **deployment's** decision about its own trust boundary, and the deployment's
-own program is the only place it may be written. The verifier and auth settings
-are supplied because the builder requires them together (``D-03``) and because
-this same deployment is reachable over HTTP with them in force; over stdio they
-are inert.
+So this program states who its stdio caller is, once, before serving, and the
+door states none of its own (``D-IMPL-361`` §7.3). The identity is built by
+:func:`~ccf_runtime.mcp.tenancy.ambient_stdio_identity`, which scopes it to
+exactly the tenant the door serves and marks it ambient, which is what makes
+every *mutating* surface refuse it (``SEC-018``). That is a deployment's
+decision about its own trust boundary, and the deployment's own program is the
+only place it may be written.
+
+The two addresses an HTTP door advertises for OAuth discovery do nothing on
+stdio, for the same reason, and the SDK's stdio transport supplies its own
+(``D-IMPL-378``, ruling C2-A (b)). Both names are optional (C2-A2 (a)), so
+``ccf_environment.yaml`` names neither, and nothing that spawns this program has
+to carry a door variable: the credential, unset, is minted per boot.
 
 Nothing is committed as data (``D-32``)
 -----------------------------------------
-The token table is minted per boot into a temporary directory that is deleted on
-exit, exactly as ``examples/04-cross-process`` mints its signing key; the graph
+The credential is minted per boot and lives only in this process; the graph
 this boots against is whatever ``binding.yaml`` points at, populated or not.
 """
 
 from __future__ import annotations
 
-import json
-import secrets
 import sys
-import tempfile
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
-import yaml
-from mcp.server.auth.middleware.auth_context import auth_context_var
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
-from mcp.server.auth.provider import AccessToken
-from mcp.server.auth.settings import AuthSettings
-from pydantic import AnyHttpUrl
 
-from ccf.client.adapters.binding_document import (
-    BindingDocument,
-    load_binding_document,
-)
-from ccf.projection.plan import Perspective
-from ccf_runtime.authz.product_entitlement import (
-    ControlPlaneProductEntitlementSource,
-    TokenGrant,
-)
-from ccf_runtime.mcp.auth import FileTokenSource, SourceBackedTokenVerifier
-from ccf_runtime.mcp.egress import build_egress_server
+from ccf.client.adapters.binding_document import load_binding_document
+from ccf.controlplane.artifacts import EGRESS_DOOR, EgressDoorBinding, load_artifact
+from ccf.deployment import load_environment_document
+from ccf_runtime.mcp.product_door import open_door
 from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 
 # The boot next door. This program is spawned as a bare `python <this file>`,
@@ -67,143 +73,60 @@ from ccf_runtime.mcp.tenancy import ambient_stdio_identity
 # by name.
 from compose import compose
 
-#: The door's own document, beside this file — the four governance values
-#: this program interprets and never spells (CLAUDE.md §6.4).
-EGRESS_DOOR = Path(__file__).resolve().parent / "egress-door.yaml"
+#: This file's directory, which holds the door's two documents.
+HERE = Path(__file__).resolve().parent
 
-#: What the minted token table is called inside the per-boot temporary
-#: directory. A filename is mechanism; the credential in it is generated.
-TOKEN_FILE = "stdio-tokens.json"
+#: The door's own document, beside this file: the four values the standard
+#: door asserts and advertises, which this program interprets and never spells
+#: (CLAUDE.md §6.4).
+EGRESS_DOOR_DOCUMENT = HERE / "egress-door.yaml"
 
 
-def door_values() -> dict[str, Any]:
-    """The four governance values this door needs, from the document that owns them.
+def door_binding() -> EgressDoorBinding:
+    """The door's identity and prose, through the SDK's own artifact loader.
 
-    Read rather than spelled, and read **strictly**: a document missing a key is
-    an authoring mistake worth naming here rather than discovering as a
-    ``KeyError`` inside a builder three frames down.
+    Loaded as the ``ccf.egress-door`` class, so a principal, a role, a URL or a
+    credential written into the document is refused by name here rather than
+    carried into the door.
     """
-    parsed = yaml.safe_load(EGRESS_DOOR.read_text(encoding="utf-8"))
-    if not isinstance(parsed, dict):
-        raise TypeError(f"{EGRESS_DOOR} is not a mapping of names to values")
-    missing = sorted(
-        key
-        for key in (
-            "tool_description",
-            "required_scope",
-            "issuer_url",
-            "resource_server_url",
-        )
-        if not str(parsed.get(key, "")).strip()
+    binding = load_artifact(
+        EGRESS_DOOR_DOCUMENT.read_text(encoding="utf-8"), EGRESS_DOOR
     )
-    if missing:
-        raise ValueError(
-            f"{EGRESS_DOOR} states no {', '.join(missing)} — this door's"
-            " governance values live in that document and the SDK holds no"
-            " default for any of them (CINV-01)"
+    if not isinstance(binding, EgressDoorBinding):
+        raise TypeError(
+            f"{EGRESS_DOOR_DOCUMENT} did not load as {EGRESS_DOOR.class_id}"
         )
-    return parsed
+    return binding
 
 
 def serve(root: Path) -> None:
-    """Boot the deployment at ``root``, expose its product door, serve on stdio.
+    """Boot the deployment at ``root``, open the standard door, serve on stdio.
 
-    What this function does is the door: read the four governance values the
-    door's own document holds, mint the credential this boot will be reached
-    with, hand the composed resolver to
-    :func:`~ccf_runtime.mcp.egress.build_egress_server`, state who the stdio
-    caller is, and run. Booting the deployment and building that resolver is
-    :func:`compose.compose`'s work, next door.
+    Booting the deployment and building its resolver is
+    :func:`compose.compose`'s work, next door. What this function does is the
+    door: hand the composed deployment to
+    :func:`~ccf_runtime.mcp.product_door.open_door`, state who the stdio caller
+    is, and run.
     """
-    document: BindingDocument = load_binding_document(root)
-    door = door_values()
-
-    composed = compose(document)
-    perspective = document.perspective
-
-    def resolve_perspective(
-        *, grant: TokenGrant, tenant: str, requested_role: str | None
-    ) -> Perspective:
-        """Serve under the role this deployment declared, for the verified caller.
-
-        The subject is the **verified** ``client_id``, never a value the caller
-        supplied. Whatever this returns is still checked against the principal's
-        entitlement grant before a product is resolved, so widening it here
-        would not widen the door.
-        """
-        return Perspective(principal_id=grant.client_id, role=perspective.role)
-
-    scope = str(door["required_scope"])
-    with tempfile.TemporaryDirectory(prefix="ccf-hw1-stdio-") as scratch:
-        tokens = Path(scratch) / TOKEN_FILE
-        credential = secrets.token_urlsafe(32)
-        tokens.write_text(
-            json.dumps(
-                {
-                    credential: {
-                        "client_id": perspective.principal_id,
-                        "scopes": [scope],
-                    }
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        server = build_egress_server(
-            # The server's name is this deployment's tenant, off the fabric it
-            # booted — a server name written here would be a domain value in code.
-            server_name=composed.fabric.tenant_id,
-            resolver=composed.resolver,
-            token_verifier=SourceBackedTokenVerifier(
-                source=FileTokenSource(path=tokens)
-            ),
-            auth_settings=AuthSettings(
-                issuer_url=AnyHttpUrl(str(door["issuer_url"])),
-                resource_server_url=AnyHttpUrl(str(door["resource_server_url"])),
-                required_scopes=[scope],
-            ),
-            entitlement_source=ControlPlaneProductEntitlementSource(
-                # A door decision happens when it happens: the audit timestamp
-                # is a wall-clock read, never `question.asked_at`. A declared
-                # instant here would have the audit plane state that every
-                # decision this deployment ever made happened at one moment.
-                control_plane=composed.control_plane,
-                clock=lambda: datetime.now(UTC),
-            ),
-            perspective_resolver=resolve_perspective,
-            # A denial at this door is a recorded decision, appended by the
-            # resolver's own writer (`D-IMPL-253` Q13, `D-IMPL-256`).
-            refusal_recorder=composed.resolver.refusal_recorder,
-            expose_product_tool=True,
-            product_tool_description=str(door["tool_description"]),
-        )
-
-        # The stdio caller's identity, established once before anything is
-        # served. See the module docstring: stdio carries no bearer channel, and
-        # a deployment that left this unstated would refuse every caller as
-        # unverified rather than serve the process that spawned it.
-        #
-        # Built through `ambient_stdio_identity` rather than as a bare
-        # AccessToken: `SEC-018` gave every MCP surface a mandatory tenancy
-        # floor, so an identity that names no tenant now reaches nothing. The
-        # helper scopes this one to exactly the tenant the door was opened to
-        # serve, and marks it ambient — which is what makes every *mutating*
-        # surface refuse it. Before the tenant axis existed, a stated stdio
-        # identity was unbounded in reach.
-        auth_context_var.set(
-            AuthenticatedUser(
+    deployment = compose(
+        load_binding_document(root),
+        door=door_binding(),
+        environment=load_environment_document(HERE),
+    )
+    try:
+        door = open_door(deployment)
+        door.serve_stdio(
+            identity=AuthenticatedUser(
                 ambient_stdio_identity(
-                    credential=credential,
-                    principal_id=perspective.principal_id,
-                    scope=scope,
-                    tenant=composed.fabric.tenant_id,
+                    credential=door.credential,
+                    principal_id=door.principal_id,
+                    scope=door.scope,
+                    tenant=door.tenant_id,
                 )
             )
         )
-        try:
-            server.run(transport="stdio")
-        finally:
-            composed.fabric.handle.close()
+    finally:
+        deployment.fabric.handle.close()
 
 
 if __name__ == "__main__":

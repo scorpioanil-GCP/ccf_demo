@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **350** across **113** files
+- Coupling rows: **348** across **111** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **190** across **67** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
@@ -18,18 +18,18 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 12 |
 | 17-08 | 121 |
-| 23-04 | 198 |
+| 23-04 | 196 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
 
 | Shape | Rows |
 | --- | --- |
-| `comment` | 15 |
+| `comment` | 14 |
 | `config-token` | 7 |
 | `count-constant` | 5 |
 | `count-scan-function` | 5 |
-| `docstring` | 81 |
+| `docstring` | 80 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 8 |
 | `makefile-recipe` | 2 |
@@ -161,8 +161,6 @@ Rows by coupling shape:
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 9 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/hw1-companies-over-revenue/server/egress-door.yaml` | 7 | `examples/04-cross-process` | `comment` | documentary | - | - | 23-04 |  |
-| `examples/hw1-companies-over-revenue/server/serve.py` | 31 | `examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/drive.py` | 941 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/model_stub.py` | 10 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/model_stub.py` | 33 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
@@ -241,8 +239,8 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 174 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 186 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/security-and-deployment.md` | 167 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 1855 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
-| `public/how-to/security-and-deployment.md` | 1856 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 2052 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 2053 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |
@@ -273,8 +271,8 @@ Rows by coupling shape:
 | `src/ccf/products/bind.py` | 76 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 1892 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `src/ccf/products/request.py` | 3018 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 2559 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
-| `src/ccf/products/resolver.py` | 5683 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 2800 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
+| `src/ccf/products/resolver.py` | 6027 | `examples/s1-01-hello-context-product` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/cli/test_schema_export.py` | 60 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/artifacts` |
 | `tests/client/conformance/suite.py` | 501 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
 | `tests/client/conformance/suite.py` | 534 | `tests/examples/test_s1_00_output.py` | `docstring` | documentary | - | - | 17-08 |  |
@@ -386,7 +384,7 @@ Rows by coupling shape:
 | `tools/docs_tests/test_retirement_sweep.py` | 369 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 883 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 57 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
-| `tools/lints/tests/test_citations.py` | 350 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
+| `tools/lints/tests/test_citations.py` | 396 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
 | `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |
