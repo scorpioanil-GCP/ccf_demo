@@ -1793,6 +1793,7 @@
     "__all__": [
       "ArtifactClass",
       "ArtifactClassIdMismatch",
+      "ReservedArtifactClassId",
       "VersionedArtifact",
       "validate_semver"
     ],
@@ -1804,6 +1805,10 @@
       "ArtifactClassIdMismatch": {
         "kind": "class",
         "shape": "(*, presented_class_id: 'str', document_class_id: 'object') -> 'None'"
+      },
+      "ReservedArtifactClassId": {
+        "kind": "class",
+        "shape": "(class_id: 'str') -> 'None'"
       },
       "VersionedArtifact": {
         "kind": "contract",

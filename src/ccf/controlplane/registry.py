@@ -587,6 +587,11 @@ class ControlPlaneRegistry:
                 artifact states a ``class_id`` other than ``artifact_class``'s
                 own — a ``TypeError``, raised by ``artifact_class.validate``
                 before anything is stored or audited (``D-IMPL-378``).
+            ccf.controlplane.artifact_base.ReservedArtifactClassId: the
+                artifact states ``artifact_class``'s own ``class_id`` and it is
+                in the reserved ``ccf.`` namespace — a ``ValueError``, raised by
+                ``artifact_class.validate`` before anything is stored or audited
+                (``D-IMPL-378`` K1 follow-up).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """
@@ -691,6 +696,11 @@ class ControlPlaneRegistry:
                 artifact states a ``class_id`` other than ``artifact_class``'s
                 own — a ``TypeError``, raised by ``artifact_class.validate``
                 before anything is stored or audited (``D-IMPL-378``).
+            ccf.controlplane.artifact_base.ReservedArtifactClassId: the
+                artifact states ``artifact_class``'s own ``class_id`` and it is
+                in the reserved ``ccf.`` namespace — a ``ValueError``, raised by
+                ``artifact_class.validate`` before anything is stored or audited
+                (``D-IMPL-378`` K1 follow-up).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
         """

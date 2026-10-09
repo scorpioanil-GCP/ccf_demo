@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2387 entries**, of which **2110** name a public Python surface.
+**2395 entries**, of which **2118** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1314 entries — 1268 public Python surface, 46 not public Python API.
+1315 entries — 1269 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19292,6 +19292,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
 
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: added
+- Before: absent from this module. The class was defined in `ccf.controlplane.artifacts` and raised only by `declared_artifact_class`
+- After: the same `ValueError`, carrying `class_id`, defined here beside `ArtifactClass.validate`, which now raises it, because `ccf.controlplane.registry` reaches it through `ArtifactClass` and must not import `ccf.controlplane.artifacts`. Its message names the id, cites `D-IMPL-84`, and says a document that states its own class is refused under a reserved id
+- Why: `D-IMPL-378` K1 follow-up (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_a_directly_built_reserved_class_refuses_a_document_stating_it_by_name`
+- Migration: none; additive. `ccf.controlplane.artifacts.ReservedArtifactClassId` is the same class
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30275,7 +30287,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-404 entries — 365 public Python surface, 39 not public Python API.
+411 entries — 372 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36254,6 +36266,90 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none, unless code matched the end of the message text; match the refusal by its type instead.
 
 *Recorded by `378-36-prose-p2c-p4a-stated-as-ruled.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: defined in this module and raised only by `declared_artifact_class`
+- After: the same class, now defined in `ccf.controlplane.artifact_base` and re-exported here, and also raised by `ArtifactClass.validate`. Its message is reworded to cover both places it is raised; its attribute `class_id` and its `ValueError` base are unchanged
+- Why: `D-IMPL-378` K1 follow-up (b), as for `ccf.controlplane.artifact_base.ReservedArtifactClassId`
+- Migration: none for a caller that catches it by name or as `ValueError`. A caller that matched its message text reads the new wording
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: same constructor. `validate` held a self-stating document to the class's own id and admitted it whatever that id was, so a class built directly under a `ccf.` id registered the open envelope under an SDK class name
+- After: same constructor. `validate` raises `ReservedArtifactClassId` when the artifact's contract declares a top-level `class_id`, the artifact states this class's id, and that id starts with `ccf.`. It is checked after the class-identity check, so a document stating another class is still `ArtifactClassIdMismatch`
+- Why: `D-IMPL-378` K1 follow-up (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_a_directly_built_reserved_class_refuses_a_document_stating_it_by_name`
+- Migration: code that built a `ccf.` class over the envelope registers an SDK class with the SDK's own `ArtifactClass` constant, or chooses a class id in its own namespace
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`
+- After: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.parse_artifact
+
+- Surface: ccf.controlplane.artifacts.parse_artifact
+- Public surface: true
+- Change type: behavior
+- Before: same signature. A self-stating document parsed as a class built directly under the `ccf.` id it states was returned
+- After: same signature. That document raises `ReservedArtifactClassId` (a `ValueError`) from `ArtifactClass.validate`
+- Why: `D-IMPL-378` K1 follow-up (b). Red test as for `ccf.controlplane.artifact_base.ArtifactClass`
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.load_artifact
+
+- Surface: ccf.controlplane.artifacts.load_artifact
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifacts.parse_artifact`, from YAML text
+- After: as `ccf.controlplane.artifacts.parse_artifact`, which it calls
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: as `ccf.controlplane.artifacts.parse_artifact`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.artifacts.DeclaredArtifact
+
+- Surface: ccf.controlplane.artifacts.DeclaredArtifact
+- Public surface: true
+- Change type: behavior
+- Before: same fields. Its `class_id` was held to the class it was presented as, and the class could be built under a `ccf.` id
+- After: same fields. It is also refused under a class id starting `ccf.`, however that class was built, as `ReservedArtifactClassId`
+- Why: `D-IMPL-378` K1 follow-up (b)
+- Migration: none for a document in an adopter's own namespace
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
+
+#### ccf.controlplane.registry.ControlPlaneRegistry
+
+- Surface: ccf.controlplane.registry.ControlPlaneRegistry
+- Public surface: true
+- Change type: behavior
+- Before: same methods. `register_typed` and `register_versioned` filed a self-stating document under a class built directly with the `ccf.` id it states, bound the key to that id and audited it
+- After: same methods. Both raise `ReservedArtifactClassId` from `artifact_class.validate` for that document, before anything is stored or audited. A third-party plane that validates as `D-IMPL-378` K2 obliges refuses it the same way
+- Why: `D-IMPL-378` K1 follow-up (b). Red test as for `ccf.controlplane.artifact_base.ArtifactClass`
+- Migration: as `ccf.controlplane.artifact_base.ArtifactClass`
+
+*Recorded by `378-41-k1b-a-reserved-ccf-class-built-directly-refuses-a-self-stating-document.md`.*
 
 ### Not public Python API
 
