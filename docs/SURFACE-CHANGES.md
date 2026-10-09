@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2459 entries**, of which **2182** name a public Python surface.
+**2464 entries**, of which **2187** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1351 entries — 1305 public Python surface, 46 not public Python API.
+1353 entries — 1307 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19736,6 +19736,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
 
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent; a store written at a plain boot's path after its deployment marker was booted as the deployment's own, the marker vouching for it.
+- After: a `ValueError` raised by `load_and_boot` and `load_config_and_boot` when a boot not for a question that created its deployment marker in this boot opens a store holding any entity or relationship for the tenant at its one read, taken through the governed reader at the latest instant a timestamp can name, before the fabric is handed back. The handle is closed and the markers that boot created are removed first. Its text states no count.
+- Why: SEC-020, `D-IMPL-378` OWED-RULINGS-3 item 2A (b). Red test: `tests/products/test_plain_boot_creating_its_store_finds_it_empty.py::test_2a_b_a_plain_boot_creating_its_store_refuses_a_store_planted_at_its_path_by_name`.
+- Migration: none; additive. Boot a new store at a path that holds nothing, and write into it after the boot returns.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.DeploymentStoreNotEmpty`.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b).
+- Migration: none; additive.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30743,7 +30767,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-437 entries — 398 public Python surface, 39 not public Python API.
+440 entries — 401 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37118,6 +37142,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a conforming store.
 
 *Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a boot not for a question created its deployment marker and booted whatever store the adapter opened at the path, unread.
+- After: such a boot, when it created its marker in this boot, reads the store once before returning and raises `DeploymentStoreNotEmpty` if it holds anything for the tenant; a boot that reopens a store (the path held a store or a marker before the boot) takes no read.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b): a boot creating a new store must find it empty, as a boot for a question must.
+- Migration: none for a deployment that boots a new store at a fresh path and writes into it after the boot.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b). Red test: `tests/products/test_plain_boot_creating_its_store_finds_it_empty.py::test_2a_b_the_config_door_refuses_a_store_planted_at_a_plain_boots_path_by_name`.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `store_creation` `"verified"` said every path naming the store carried a marker.
+- After: it also says that a plain boot that wrote its deployment marker in this boot read the store once and found nothing for the tenant.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b).
+- Migration: none.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
 
 ### Not public Python API
 
