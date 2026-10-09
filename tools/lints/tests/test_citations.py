@@ -23,8 +23,10 @@ from tools.lints.citations import (
     RULE_NODE_ID,
     RULE_RESOLVES,
     anchor_before,
+    check_source,
     check_tree,
     exemption_reason,
+    repo_index,
     scan_tree,
 )
 
@@ -349,6 +351,160 @@ def test_a_node_id_that_resolves_is_admitted_and_survives_a_line_shift(
     for body in (_CITED_BEFORE, _CITED_AFTER):
         _write(tmp_path, "src/pkg/mod.py", body)
         assert check_tree(tmp_path) == []
+
+
+# --- cite03: qualified names (D-IMPL-378, OWED-RULINGS-3 item 7 (a)) --------
+
+#: The repo root, for the one case reproduced on the real tree.
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
+
+#: A cited module carrying every kind of member a qualified citation names:
+#: methods, an async method, a class-level field, two annotations, a nested
+#: class and its members, a method under a compound statement, a subclass, a
+#: function nested in a function, and an alias bound by assignment.
+_MEMBERS = '''"""A module."""
+from typing import TYPE_CHECKING
+
+
+class Gate:
+    """A class."""
+
+    LIMIT = 3
+    tenant: str
+    ceiling: int = 7
+
+    class Config:
+        strict = True
+
+        def check(self) -> None: ...
+
+    def admit(self) -> None: ...
+
+    async def drain(self) -> None: ...
+
+    if TYPE_CHECKING:
+        def typed_only(self) -> None: ...
+
+
+class Strict(Gate):
+    def refuse(self) -> None: ...
+
+
+def build_router() -> None:
+    async def resume() -> None: ...
+
+
+TestGate = Gate.Config
+'''
+
+
+def test_a_citation_of_a_member_the_real_class_does_not_define_is_caught() -> None:
+    """The hole as ``D-IMPL-378`` OWED-RULINGS-3 item 7 words it, on the real tree.
+
+    Lane ``378f-c6b`` measured that *"a citation of
+    ``GrantBoundChildResolver.no_such_method_anywhere`` gives no finding"*:
+    ``cite03`` resolved ``GrantBoundChildResolver`` and never read the rest.
+    Dave ruled (a): check the full qualified name.
+    """
+    cited = "src/ccf/products/child_resolver.py"
+    findings = check_source(
+        f"See `{cited}::GrantBoundChildResolver.no_such_method_anywhere`.\n",
+        pathlib.Path("docs/note.md"),
+        _REPO_ROOT,
+        repo_index(_REPO_ROOT),
+    )
+    assert _rules(findings) == [RULE_NODE_ID], findings
+    assert "GrantBoundChildResolver.no_such_method_anywhere" in findings[0]
+
+
+def test_a_citation_of_a_member_the_class_does_not_define_is_caught(
+    tmp_path: pathlib.Path,
+) -> None:
+    _write(tmp_path, "src/pkg/mod.py", _MEMBERS)
+    _write(tmp_path, "docs/note.md", "See `src/pkg/mod.py::Gate.no_such_member`.\n")
+    findings = check_tree(tmp_path)
+    assert _rules(findings) == [RULE_NODE_ID]
+    assert "Gate.no_such_member" in findings[0]
+
+
+@pytest.mark.parametrize(
+    "qualified",
+    [
+        "Gate.Config.no_such_member",
+        "Gate.no_such_member.deeper",
+        "build_router.no_such_member",
+    ],
+)
+def test_a_missing_member_is_caught_at_any_depth(
+    tmp_path: pathlib.Path, qualified: str
+) -> None:
+    _write(tmp_path, "src/pkg/mod.py", _MEMBERS)
+    _write(tmp_path, "docs/note.md", f"See `src/pkg/mod.py::{qualified}`.\n")
+    findings = check_tree(tmp_path)
+    assert _rules(findings) == [RULE_NODE_ID]
+    assert "no_such_member" in findings[0]
+
+
+@pytest.mark.parametrize(
+    "qualified",
+    [
+        "Gate.admit",
+        "Gate.drain",
+        "Gate.LIMIT",
+        "Gate.tenant",
+        "Gate.ceiling",
+        "Gate.Config",
+        "Gate.Config.strict",
+        "Gate.Config.check",
+        "Gate.typed_only",
+        "Strict.refuse",
+        "build_router.resume",
+    ],
+)
+def test_a_citation_of_a_real_member_is_admitted(
+    tmp_path: pathlib.Path, qualified: str
+) -> None:
+    """Methods, class-level fields and annotations, nested classes, a member
+    under ``if TYPE_CHECKING:``, and a function nested in a function: each is
+    what Python's ``__qualname__`` spells (``<locals>`` dropped), so none is a
+    finding. A checker red on these would be red on correct prose."""
+    _write(tmp_path, "src/pkg/mod.py", _MEMBERS)
+    _write(tmp_path, "docs/note.md", f"See `src/pkg/mod.py::{qualified}`.\n")
+    scan = scan_tree(tmp_path)
+    assert scan.findings == []
+    assert scan.checked == 1
+
+
+def test_an_inherited_member_is_cited_at_the_class_that_defines_it(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``Strict.admit`` resolves at runtime, but ``admit`` is defined in
+    ``Gate``'s body: its qualified name is ``Gate.admit``. A citation is a
+    pointer into the cited file, and ``Strict``'s body holds no ``admit``."""
+    _write(tmp_path, "src/pkg/mod.py", _MEMBERS)
+    _write(tmp_path, "docs/note.md", "See `src/pkg/mod.py::Strict.admit`.\n")
+    findings = check_tree(tmp_path)
+    assert _rules(findings) == [RULE_NODE_ID]
+    assert "Strict.admit" in findings[0]
+
+    _write(tmp_path, "docs/note.md", "See `src/pkg/mod.py::Gate.admit`.\n")
+    assert check_tree(tmp_path) == []
+
+
+def test_a_member_reached_through_an_assignment_is_unchecked_and_counted(
+    tmp_path: pathlib.Path,
+) -> None:
+    """``TestGate = Gate.Config``: what ``TestGate.check`` names depends on a
+    runtime value, the shape of Hypothesis's ``TestX = Machine.TestCase``. It
+    is never a finding — guessing is how a lint goes red on correct code — and
+    it is counted, because an unchecked citation nobody counts is a blind spot
+    nobody sees."""
+    _write(tmp_path, "src/pkg/mod.py", _MEMBERS)
+    _write(tmp_path, "docs/note.md", "See `src/pkg/mod.py::TestGate.check`.\n")
+    scan = scan_tree(tmp_path)
+    assert scan.findings == []
+    assert scan.unfollowable_member == 1
+    assert scan.checked == 0
 
 
 # --- what is scanned, and what is exempt -----------------------------------
