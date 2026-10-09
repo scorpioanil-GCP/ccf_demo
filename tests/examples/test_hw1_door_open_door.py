@@ -30,12 +30,12 @@ client that knows nothing about the door's environment can start it. Then:
 
 Why the decision is compared rather than named
 ----------------------------------------------
-Today this deployment refuses every question ``temporal-boundary-undeclared``
-over both transports: the declared boundary and the serve instant are ruling
-C1's work, in another lane. When that lands, both transports serve instead.
-This module's subject is the door, so it asks that the door makes the decision
-the in-process transport makes (the same kind and reason when refused, the same
-content address when served) and holds no opinion on which one that is.
+Without ruling C1's declarations this deployment refused every question
+``temporal-boundary-undeclared`` over both transports; with the declared
+boundary and serve instant (the ``D-IMPL-378`` C3 example set) both transports
+serve. This module's subject is the door, so it asks that the door makes the
+decision the in-process transport makes (the same kind and reason when refused,
+the same content address when served) and holds no opinion on which one that is.
 
 The subject is the unseeded copy :mod:`tests.examples.test_hw1_two_transports`
 builds, and the question is the documented command's own, read by

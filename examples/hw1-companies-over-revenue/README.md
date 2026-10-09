@@ -93,9 +93,44 @@ virtual environment, `python` is the same interpreter and you may type that.
 The API default is `as_of=None`, which means *the producing deployment's own
 decision instant*. The documented command passes a fixed boundary instead so
 the printed debt figure and content address **reproduce exactly** — run it
-twice and the address is the same string. Drop the flag and you get today's
-answer, which is the right default for a caller and the wrong one for a
-document that quotes an address.
+twice and the address is the same string. Drop the flag and the deployment
+answers as of its own decision instant, which here is not today: this
+deployment declares a demonstration serve instant (next section), so both
+transports answer as of 2026-08-01 00:05 UTC — the same five companies and the
+same `D_c`, under a different content address, expiring at 00:15. That default
+is right for a caller and wrong for a document that quotes an address.
+
+### Why this deployment declares when it serves
+
+The documented question is asked as of 2026-08-01 00:00 UTC, and its answer
+lives ten minutes (`product_ttl_seconds` in `deployment/binding.yaml`). Since
+`D-IMPL-358` an answer's expiry is judged when it is *served*, so on a fabric
+whose clock reads today that answer expired long ago and is refused —
+correctly. `deployment/ccf_config.yaml` therefore declares two things in this
+deployment's own Control Plane (`D-IMPL-378` C1):
+
+- a `temporal_boundary:` — how far into the past this tenant answers for (one
+  hour) and how far ahead of its clock (not at all); an undeclared boundary
+  refuses every question;
+- a `demonstration_serve_instant:` — the instant this deployment serves at,
+  2026-08-01 00:05 UTC, five minutes after the question's instant and inside
+  the answer's lifetime.
+
+Nothing a question carries can move the serve instant. The SDK refuses the
+declaration unless the fabric runs on its development substrates (this
+deployment's SQLite graph and file-backed store), and every replay record
+written under it names the declaration, so a reader can tell a demonstration
+record from a real one. Remove the section and the deployment serves on the real
+clock again — and refuses the documented question on both transports with
+`refused: asked-at-outside-temporal-bound`, because it asks as of a moment more
+than the declared hour before today.
+
+> **Illustrative calibration:** This example runs against a point-in-time
+> demonstration estate rather than continuously refreshed production data.
+> Freshness half-lives and related thresholds are calibrated to make the
+> governed behavior observable in that snapshot. They demonstrate how the SDK
+> applies these controls and should not be interpreted as recommended
+> production coverage-policy thresholds.
 
 The offset in `+00:00` is required, not decoration. `D-IMPL-38` admits no
 implicit UTC anywhere in the fabric, so `--as-of 2026-08-01T00:00:00` is
@@ -221,8 +256,11 @@ refuses a `resolver:` key by name.
 Open it if you are curious. Nothing in `consume.py` needs you to.
 
 `server/` is the producer's world too, and it is off-stage: `serve.py` is the MCP
-server program this deployment declares, `egress-door.yaml` holds the four
-governance values it interprets, and you may open either if you are curious.
+server program this deployment declares, and it runs the SDK's standard door
+(`open_door`) over the deployment `compose.py` boots; `egress-door.yaml` holds
+the four values that door asserts and advertises, and `ccf_environment.yaml`
+names the one variable its credential is read from (left unset, the door mints
+one per boot). You may open any of them if you are curious.
 Where it sits in this example is incidental — the server is not the focus here,
 and a real one commonly lives somewhere else entirely, on another machine.
 
