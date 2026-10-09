@@ -38,14 +38,15 @@ refused):
 - **A stale marker with no store beside it is verified afresh.** A deployment marker of any state — `pending` from a
   boot killed before its store existed, `verified` with its store deleted, the single-line marker, foreign text, a
   symbolic link — with no store beside it is replaced, under the store-creation lock, by the boot's own `pending`
-  marker (an atomic rename from a synced staging file, after checking it is still the file the boot looked at); the
+  marker (an atomic rename from a synced staging file, after checking it is still the file, by device and inode, that
+  the boot looked at); the
   boot reads the new store once and marks it `verified`. A used store planted at the path after the boot's look and
   before the store opens is refused by that read (`DeploymentStoreNotEmpty`) and the boot's marker removed, so the
   retry opens it `"unmarked"` and a governed call over it is refused. Before (`fe25536c`), the verified case booted a
   planted store `"verified"` with no read (the small lane's P-B); before P-1 (B), every case was refused.
 - **Stale, refused before anything is created.** A store-creation lock that cannot be taken (`"lock-unavailable"`) and
-  a marker made between the boot's look and its exclusive create, or changed before the boot replaced it
-  (`"claimed"`), are refused, the marker untouched.
+  a marker made between the boot's look and its exclusive create, or a stale marker replaced by another file between
+  the boot's look and its replacement of it (`"claimed"`), are refused, the marker untouched.
 - **Serialized.** Every plain boot holds `<resolved path>.ccf-store-creation.lock` (an exclusive `flock`, taken in path
   order, waited for with no timeout) from its look at the path to the hand-back. Two processes: a boot started while
   another is held inside its creation does not finish until that one has verified the store, then reopens it,
@@ -61,12 +62,16 @@ refused):
   serialization tests, and in 100 free-running trials per pairing, on fresh paths the second boot was refused as stale
   in every one, while on stale paths the second boot replaced the first one's live marker and was refused, or made the
   first refuse, in every one; the read dropped for a replaced marker reddened all eight no-store cases (no read, and
-  the plant booted `"verified"`).
+  the plant booted `"verified"`); the identity re-check before the replacement removed (the coordinator's severing,
+  vacuous against the lane's first 33 tests) reddened the test added for it, both cases.
 
 **What it does not cover.** The marker binds to its store by path, so it does not stand against an actor who can
 write into the store's directory: a marker forged beside a used store still answers, as before, and a writer outside
-the SDK that replaces a marker between a boot's ownership check and its unlink, or between its look and its
-replacement, loses its file. The read has the limits section 4.12 states. A replaced marker's text is not kept. A boot
+the SDK that replaces a marker between a boot's ownership check and its unlink, or between its re-check and its
+replacement, loses its file. The re-check compares the stale marker's device and inode only: the same file rewritten
+in place between the boot's look and its replacement, or deleted and created again with the same inode number (on
+ext4 an immediate recreation kept it in 200 of 200 tries), is not told apart and is replaced like any stale marker;
+the boot still verifies the store it opens. The read has the limits section 4.12 states. A replaced marker's text is not kept. A boot
 waits for the store-creation lock with no timeout, so a boot stuck inside its creation holds the others of that path
 until it is stopped. A boot over a marker beside a store that this change refuses waits for an operator; the
 security how-to (section 4.12) gives the procedure.
@@ -107,7 +112,7 @@ security how-to (section 4.12) gives the procedure.
 - Public surface: true
 - Change type: behavior
 - Before: a plain boot left a one-line deployment marker beside a store it created, read the store only if it had created that marker, and removed the marker only when that read refused the store; its Raises named neither `WriterLeaseHeld` nor `SingleWriterViolation`.
-- After: a plain boot holds the store-creation lock of every path from its look to the hand-back (a second boot of the path waits); refuses a marker beside a store that does not show a completed verification, a marker made or changed outside its lock, or a lock it cannot take (`DeploymentStoreNotVerified`); replaces a stale marker of any state that stands with no store beside it by its own; creates its marker reading `pending` and makes it `verified` only after its read; reads every store it creates; and on any failure after its marker exists, closes its handle and removes the markers still its own. Its Raises adds `DeploymentStoreNotVerified`, `UngovernedClassificationAttribute`, `SingleWriterViolation`, `WriterLeaseHeld`, `WriterLeaseRequired` and the adapter's own errors. A boot for a question is unchanged: its marker stays on a refusal, and it takes no store-creation lock.
+- After: a plain boot holds the store-creation lock of every path from its look to the hand-back (a second boot of the path waits); refuses a marker beside a store that does not show a completed verification, a marker made, or replaced by another file, outside its lock, or a lock it cannot take (`DeploymentStoreNotVerified`); replaces a stale marker of any state that stands with no store beside it by its own; creates its marker reading `pending` and makes it `verified` only after its read; reads every store it creates; and on any failure after its marker exists, closes its handle and removes the markers still its own. Its Raises adds `DeploymentStoreNotVerified`, `UngovernedClassificationAttribute`, `SingleWriterViolation`, `WriterLeaseHeld`, `WriterLeaseRequired` and the adapter's own errors. A boot for a question is unchanged: its marker stays on a refusal, and it takes no store-creation lock.
 - Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2; the Raises from the findings brief's item 1.6 (the panel's F-G2-4). Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_that_fails_inside_boot_leaves_no_marker_and_the_retry_over_the_plant_is_refused`, `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified`.
 - Migration: delete or copy a store together with its deployment marker. A store whose marker is deleted boots `"unmarked"` and answers no governed call, as before; a path whose store is deleted and whose marker is kept boots again, the marker replaced and a new store verified. Every plain boot, read-only included, creates `<resolved path>.ccf-store-creation.lock` beside its store, so the store's directory must let the deployment's user create that file.
 
