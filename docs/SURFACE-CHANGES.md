@@ -37437,7 +37437,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: the docstring of `write_if` said the store's conditional write comes first and the event after it, so a refused write appends nothing; it did not say what an append that fails after the write landed leaves.
-- After: documentation only; the behavior is unchanged. The docstring of `write_if` adds that these are two writes, not one atomic step: an append that fails after `put_if` landed leaves the record moved with no event for the transition, and the append's error propagates to the caller. Making such a transition detectable and recoverable is being designed (`D-IMPL-378`, decision 7 (b)), not built.
+- After: documentation only; the behavior is unchanged. The docstring of `write_if` adds that these are two writes, not one atomic step: an append that fails after `put_if` landed leaves the record moved with no event for the transition, and the append's error propagates to the caller. Making such a transition detectable and recoverable is being designed (`D-IMPL-378`, decision 7 (b)), not built. The docstring of `write`, which summarized itself as "one write, one event", now says the same of the unconditional write: the store's write, then the append, two writes (a coordinator wording edit at integration).
 - Why: Dave's ruling on decision 7 (`D-IMPL-378`, 2026-10-09): "Do not claim atomicity that does not exist."
 - Migration: none in code. A reader who takes the audit log as the complete history of Control Plane state writes allows for a write whose event append failed, which has no event.
 

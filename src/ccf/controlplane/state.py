@@ -557,10 +557,14 @@ class AuditedStateWriter:
         record_id: str,
         event: AuditEvent,
     ) -> AuditEvent:
-        """Write ``record`` and append ``event`` — one write, one event.
+        """Write ``record``, then append ``event``: two writes, one event for the one state write.
 
         The store verifies ``authorized``; a refusal there propagates and no
-        event is appended, because there was no write to evidence.
+        event is appended, because there was no write to evidence. The append
+        is a separate write that runs after the store's write lands: if it
+        fails, the record has moved and no event exists for that transition —
+        the same window :meth:`write_if` states (``D-IMPL-378`` decision 7:
+        detection and recovery are being designed, not built).
 
         Returns the appended event, sequence assigned by the log.
         """

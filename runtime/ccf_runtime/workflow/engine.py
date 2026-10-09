@@ -2300,7 +2300,7 @@ class WorkflowEngine:
         actor: str | None,
         expected_version: int,
     ) -> int:
-        """Write state through the audited surface, conditionally — one write, one event.
+        """Write state through the audited surface, conditionally: the state write, then its one event (two writes).
 
         A DERIVED write (D-IMPL-353 §1.2, derived-writes rule): the state
         store derives the key it writes under from ``authorized.tenant`` and
