@@ -2261,7 +2261,15 @@ the same id is refused "already exists".
   verdict is then recorded without the primitive's stamp and still opens the
   gate once. The recovery files the request on its own engine's HITL
   transport, so run one HITL transport per Control Plane state store: with
-  two, a request pending on one is filed again on the other.
+  two, a request pending on one is filed again on the other. The recovery
+  trusts the record it reads: a writer outside the engine (a single-writer
+  violation) that rewinds a record to `suspended` at a gate the run already
+  passed gets a request restored for it, and one human approval then runs the
+  step after that gate a second time, as the same writer can already make that
+  step run again with no human at all by writing the record
+  `exception-routed` at it (disclosed by Dave's decision 1 (a), `D-IMPL-378`,
+  2026-10-09;
+  `tests/workflow/test_outside_writer_can_rerun_the_step_after_a_gate.py`).
 - **A passage fenced by another writer is refused `execution-fenced`**
   (`D-IMPL-378`). Every write that ends a passage is conditional on the
   version the passage wrote
