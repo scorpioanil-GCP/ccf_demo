@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
@@ -50,6 +52,27 @@ def _commit_a_table_through(path: Path, table: str) -> None:
         connection.execute(f"CREATE TABLE {table} (x)")
     finally:
         connection.close()
+
+
+#: A second process that boots the fabric READ-ONLY through the path it is given, then closes it (FW-2: no lease).
+_READ_ONLY_BOOT = """
+import sys
+from tests.graph.test_sqlite_writer_lease_file_identity import _boot_read_only
+_boot_read_only({"database_path": sys.argv[1]}).close()
+"""
+
+
+def _read_only_boot_in_another_process(path: Path) -> None:
+    root = Path(__file__).resolve().parents[2]
+    pythonpath = os.pathsep.join(str(part) for part in (root, root / "src", root / "runtime"))
+    subprocess.run(
+        [sys.executable, "-B", "-c", _READ_ONLY_BOOT, str(path)],
+        cwd=root,
+        env=dict(os.environ, PYTHONPATH=pythonpath),
+        check=True,
+        capture_output=True,
+        timeout=120,
+    )
 
 
 def test_limit_writers_that_declare_different_lock_directories_are_not_excluded_through_a_renamed_file(
@@ -119,4 +142,26 @@ def test_limit_a_process_refused_through_a_hard_link_has_already_written_setup_t
     assert leftover_log > 0, "the refused process's open was expected to leave a log beside the link"
     assert "committed_after_the_refusal" in before_the_link_is_opened, before_the_link_is_opened
     assert "committed_after_the_refusal" not in after, after
+    assert integrity == "ok"
+
+
+def test_limit_a_read_only_boot_through_a_hard_link_also_writes_setup_that_later_rolls_back_the_holder(
+    tmp_path: Path,
+) -> None:
+    held, linked = _two_names(tmp_path)
+    holder = _boot("sqlite", _declared(held, _locks(tmp_path)))
+    try:
+        os.link(held, linked)
+        _read_only_boot_in_another_process(linked)
+        leftover_log = Path(f"{linked}-wal").stat().st_size
+        _commit_a_table_through(held, "committed_after_the_reader")
+    finally:
+        holder.close()
+    before_the_link_is_opened, _ = _tables_and_integrity(held)
+    _tables_and_integrity(linked)  # anything that later opens the file through the link
+    after, integrity = _tables_and_integrity(held)
+
+    assert leftover_log > 0, "the read-only boot's open was expected to leave a log beside the link"
+    assert "committed_after_the_reader" in before_the_link_is_opened, before_the_link_is_opened
+    assert "committed_after_the_reader" not in after, after
     assert integrity == "ok"

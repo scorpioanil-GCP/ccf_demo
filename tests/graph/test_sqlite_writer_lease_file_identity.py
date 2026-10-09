@@ -272,6 +272,33 @@ def test_a_live_writers_file_identity_is_not_given_to_another_file_while_it_hold
     assert outcome == ("BOOTED", "", ""), outcome
 
 
+# --- The setting is validated as the network stores' is -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("case", ["relative", "through-a-symbolic-link", "missing", "group-writable"])
+def test_a_writer_boot_refuses_a_lock_directory_the_precedent_refuses_naming_the_setting(
+    case: str, tmp_path: Path
+) -> None:
+    real = _locks(tmp_path)
+    if case == "relative":
+        declared = "relative-locks"
+    elif case == "through-a-symbolic-link":
+        link = tmp_path / "current"
+        link.symlink_to(real)
+        declared = str(link)
+    elif case == "missing":
+        declared = str(tmp_path / "no-such-directory")
+    else:
+        real.chmod(0o770)
+        declared = str(real)
+
+    from ccf.graph.registry import InvalidBackendConfig
+
+    with pytest.raises(InvalidBackendConfig) as refused:
+        _boot("sqlite", {"database_path": tmp_path / "graph.sqlite3", LEASE_FIELD: declared})
+    assert LEASE_FIELD in str(refused.value), str(refused.value)
+
+
 # --- The lease's own refusals, in one process -----------------------------------------------------------------------
 
 
