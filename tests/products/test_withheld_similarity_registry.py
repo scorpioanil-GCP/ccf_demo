@@ -622,7 +622,17 @@ def test_channel_1_a_population_read_still_tells_the_two_apart_with_similarity(
                     booted, subject, with_similarity=True, acquisition=acquisition,
                     withhold=frozenset({WITHHELD}), plan_factory=_EarlyWithholding(),
                 )
-                ran = sum(acquisition.returned.values())
+                # `D-IMPL-378` decision 4 (a): before the question, the phase is
+                # asked about UNHELD_SUBJECT_PROBE and then the declared stand-in,
+                # verifying the stand-in names nothing; the question itself is
+                # asked once (the stand-in, in the withheld subject's place).
+                stand_in = _EarlyWithholding().subject_disclosure().undisclosed_subject
+                asked = stand_in if name == "withheld" else subject
+                expected = {UNHELD_SUBJECT_PROBE: 1, stand_in: 1}
+                expected[asked] = expected.get(asked, 0) + 1
+                if acquisition.returned != expected:
+                    pytest.fail(f"case not constructed: the phase was asked {acquisition.returned} for {name}")
+                ran = 1  # the question's own call, once: the exact calls are verified just above
         finally:
             booted[0].handle.close()
         if ran != 1:

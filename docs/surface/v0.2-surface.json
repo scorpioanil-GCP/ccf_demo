@@ -8847,7 +8847,9 @@
       "UNHELD_SUBJECT_PROBE",
       "UndeclaredMechanismClass",
       "UndisclosedSubjectAnswered",
+      "UndisclosedSubjectSubstituteIsHeld",
       "UnheldSubjectProbeIsHeld",
+      "UnheldSubjectProbeRefused",
       "UnmarkedStoreNotPresumedFresh",
       "UnsupportedComposition",
       "WithholdingClassListedReadable",
@@ -9015,7 +9017,15 @@
         "kind": "class",
         "shape": "type"
       },
+      "UndisclosedSubjectSubstituteIsHeld": {
+        "kind": "class",
+        "shape": "type"
+      },
       "UnheldSubjectProbeIsHeld": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UnheldSubjectProbeRefused": {
         "kind": "class",
         "shape": "type"
       },

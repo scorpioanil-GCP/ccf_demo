@@ -1514,7 +1514,35 @@ unless another test is named.
   over a plan factory that positively declares it never withholds (the bullet
   on the record behind an answer, below).
   With the early policy, a withheld composite matched a nonexistent subject's
-  on both child anchors.
+  on both child anchors. That the stand-in names nothing is checked, not
+  assumed (Dave's decision 4 (a), `D-IMPL-378`, 2026-10-09). For every
+  question of a class with an early policy, whatever the policy decides for
+  the asked subject: the graph read before your subject-keyed acquisition must
+  not name the stand-in (an entity, or a relationship end); your acquisition
+  is asked about `UNHELD_SUBJECT_PROBE` and then about the stand-in, and must
+  acquire nothing for the stand-in that it does not acquire for the probe
+  identifier; and the graph the plan reads must not name it. A failed check
+  refuses the question as `UndisclosedSubjectSubstituteIsHeld`, with one message
+  whatever was asked, before your acquisition is handed the question (the
+  check after acquisition: before anything is computed or recorded). On test
+  fixtures, a source holding the stand-in under its own URI or under another,
+  or a population phase writing it, was refused alike for a withheld subject,
+  two nonexistent ones and a served one, and the withheld and nonexistent
+  answers did not differ by the closing test's rules at any door
+  (`tests/products/test_sec020_stand_in_is_verified_absent.py`); before the
+  check, a source holding the stand-in told them apart, at the empty finding
+  and the debt under `from_decision` and by the refusal kind under
+  `from_entity_freshness`. A read that acquires the same content whatever is
+  asked is not refused. It costs two more calls to your acquisition and two more graph
+  reads per question of such a class (measured on the paved road's test
+  fixture: three calls and five reads, against one and three for a class
+  affirming `never`). Not detected: a source that recognizes the stand-in and
+  answers nothing for it while it answers other identifiers it does not hold
+  with content, and what a composite's children's sources hold for it; and
+  the check after acquisition reads what the question's own acquisition wrote,
+  so a source that writes the stand-in for some subjects only is refused for
+  those questions only. Declare a stand-in that nothing in your deployment
+  holds.
 - **Each phase once, and one computation (Q10).** Each declared phase runs
   once per question. Under the early decision the stand-in replaces the
   subject; the subject is never fetched as well. The product is computed once
@@ -1811,10 +1839,26 @@ a nonexistent one. Each was measured on test fixtures.
   The ruling amends Q10's "each phase once" to exactly this one extra call. It
   costs one more call to your acquisition and one more graph read per question
   of such a class (measured on one test fixture: two calls and three reads,
-  against one and two). A class with a declared early policy, or affirming
-  `subject_withholding: never`, is not probed. To be served, declare the read
-  as the population phase (`open_product(population=...)`), declare an early
-  policy, or affirm `never` for a projection that never withholds. **The probe
+  against one and two). A class affirming `subject_withholding: never` is not
+  probed; a class with a declared early policy is not refused by the probe,
+  and its stand-in is verified instead, with the probe identifier as the
+  baseline (the early-decision bullet above). A source that answers the probe
+  identifier with a held refusal (a `GovernedRefusalRaised`, or a type your
+  class or the SDK declares at the seam, such as `IdentityRefused`) refused an
+  identifier nothing holds while a withheld subject was answered, on both
+  roads. Since Dave's OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, 2026-10-09),
+  every question to such a class is refused as `UnheldSubjectProbeRefused`,
+  with one message, before your acquisition is handed the question's subject
+  (`tests/products/test_sec020_held_refusal_at_the_probe.py`; held in SEC-020's
+  closing test as the refusal plus a twin that answers: the same deployment
+  with your acquisition answering an unheld identifier with nothing). That
+  includes a held refusal decided by the question rather than the identifier,
+  such as an intent, a parameter or a role your source refuses: such a
+  question, refused as data with its record before, now raises this refusal
+  and records nothing. Answer an identifier your sources do not hold with
+  nothing. To be served, declare the read as the population phase
+  (`open_product(population=...)`), declare an early policy, or affirm `never`
+  for a projection that never withholds. **The probe
   is defeated by a source that recognizes it.** A source that answers nothing
   for the probe identifier, matched exactly or by its shape, and reads the
   population for every other identifier passes the probe, and the withheld

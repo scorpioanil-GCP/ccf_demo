@@ -916,9 +916,11 @@ def test_channel_1_an_early_withheld_subject_is_indistinguishable_under_any_acqu
 
     Under the hole as worded the withheld subject is rendered over the fabric
     before acquisition while a nonexistent subject walks the population. With
-    the disclosure decided first, the seam is asked once, about the declared
-    undisclosed subject, and acquires what it acquires for any identifier it
-    does not hold.
+    the disclosure decided first, the seam is asked about the declared
+    undisclosed subject in the withheld subject's place, and acquires what it
+    acquires for any identifier it does not hold. ``D-IMPL-378`` decision 4 (a):
+    before each question it is also asked about ``UNHELD_SUBJECT_PROBE`` and
+    then the stand-in, which verifies the stand-in names nothing.
     """
     from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
 
@@ -930,9 +932,11 @@ def test_channel_1_an_early_withheld_subject_is_indistinguishable_under_any_acqu
         nonexistent = _paved_ask(opened, sec020.PAVED_ABSENT)
     case = f"{anchor}, {shape}, early disclosure, class-seeded paved road"
     _assert_indistinguishable(withheld, nonexistent, case=case)
-    assert seam.asked == [UNDISCLOSED, sec020.PAVED_ABSENT], (
-        f"[{case}] the seam is asked once per question, and for the withheld subject"
-        f" with the declared undisclosed subject in its place: {seam.asked}"
+    verification = [UNHELD_SUBJECT_PROBE, UNDISCLOSED]
+    assert seam.asked == [*verification, UNDISCLOSED, *verification, sec020.PAVED_ABSENT], (
+        f"[{case}] the seam is asked once per question after decision 4 (a)'s two verification"
+        f" calls, and for the withheld subject with the declared undisclosed subject in its place:"
+        f" {seam.asked}"
     )
 
 
@@ -1189,7 +1193,11 @@ def test_q8_the_early_decision_is_the_same_for_a_subject_the_source_holds_and_on
     with _open(root, tmp_path / "scratch", acquire=seam, project=project) as opened:
         for subject in (held, unheld, held_unnamed, unheld_unnamed):
             _paved_ask(opened, subject)
-    assert seam.asked == [UNDISCLOSED, UNDISCLOSED, held_unnamed, unheld_unnamed], (
+    # `D-IMPL-378` decision 4 (a): every question is preceded by the same two
+    # verification calls (UNHELD_SUBJECT_PROBE, then the stand-in), whatever is
+    # asked; the third call of each question is the one the decision chooses.
+    assert seam.asked[0::3] == [UNHELD_SUBJECT_PROBE] * 4 and seam.asked[1::3] == [UNDISCLOSED] * 4, seam.asked
+    assert seam.asked[2::3] == [UNDISCLOSED, UNDISCLOSED, held_unnamed, unheld_unnamed], (
         f"the decision must not depend on whether the source holds the subject: {seam.asked}"
     )
     policy = _policy(named)
@@ -1268,11 +1276,15 @@ def test_q8_a_stand_in_that_names_a_withheld_subject_or_leaves_the_floor_is_refu
 
 
 def test_q10_each_phase_is_called_once_and_the_stand_in_replaces_the_subject(tmp_path: pathlib.Path) -> None:
-    """Under early withholding, with both phases declared: each runs once per question.
+    """Under early withholding, with both phases declared: each runs once per question for the question.
 
     The population phase is handed no subject; the subject-keyed phase is
     handed the stand-in IN PLACE OF the withheld subject — never the subject
-    itself, and never the stand-in in addition to it (no comparison fetch).
+    itself. Q10 as amended by ``D-IMPL-378`` decision 4 (a) (Dave, 2026-10-09
+    06:06 MST, confirmed 06:21: *"Verify the stand-in is absent before and after
+    acquisition."*): before each question the subject-keyed phase is also asked
+    about ``UNHELD_SUBJECT_PROBE`` and then the stand-in — two comparison
+    fetches, the same for every question — and for nothing else.
     """
     from tests.products.test_paved_road import _open, _write_tree  # noqa: PLC0415
 
@@ -1284,7 +1296,8 @@ def test_q10_each_phase_is_called_once_and_the_stand_in_replaces_the_subject(tmp
         withheld = _paved_ask(opened, sec020.PAVED_WITHHELD)
         nonexistent = _paved_ask(opened, sec020.PAVED_ABSENT)
     assert len(population.contexts) == 2, len(population.contexts)
-    assert subject.asked == [UNDISCLOSED, sec020.PAVED_ABSENT], subject.asked
+    verification = [UNHELD_SUBJECT_PROBE, UNDISCLOSED]
+    assert subject.asked == [*verification, UNDISCLOSED, *verification, sec020.PAVED_ABSENT], subject.asked
     _assert_indistinguishable(withheld, nonexistent, case="both phases, early withholding")
 
 

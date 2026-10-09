@@ -2120,3 +2120,157 @@ def test_the_pin_channel_census_is_measured_and_reported(
     ]
     with capsys.disabled():
         print("\n".join(lines))
+
+
+# =============================================================================
+# OWED-RULINGS-3 item 4 (b): a held refusal at the P6 probe — the refusal counts, paired with a working twin
+# =============================================================================
+#
+# Dave, 2026-10-09 06:21 MST (``D-IMPL-378``), verbatim: "4(b), plus the
+# closing-test case and a supported working twin". The option ruled
+# (OWED-RULINGS-3, dl-378-record @ 3533cc89), verbatim: "Refuse when the probe
+# call itself returns a held refusal (refuses every question to a source that
+# refuses unknown identifiers)." CT-A (a), Dave, 2026-10-08 12:29 MST, verbatim:
+# "Construction refusal counts, paired with a declared twin that successfully
+# answers."
+#
+# A judging change, appended: the cells below sit beside the matrix and change
+# nothing it judges. The deployment is the ``subject_keyed`` world with its
+# source answering an identifier it does not hold with a HELD refusal
+# (``sec020_worlds.HeldRefusalSource``) — before item 4 (b), the withheld
+# subject was answered while an identifier nothing holds was refused as data,
+# at every door. Every question of it is now refused,
+# ``UnheldSubjectProbeRefused``, decided by the probe and never by the subject.
+# That refusal counts as the property a cell holds only when every side of the
+# run observed it, by name, with ONE message, AND the supported working twin —
+# the same deployment with its source answering an unheld identifier with
+# nothing, the gate's own ``subject_keyed`` world (``HELD_REFUSAL_TWIN``) —
+# answered every one of the same questions, and the twin's own cell for the
+# same comparison and channel is indistinguishable by the gate's rules.
+# Anything less is judged exactly as a gate cell is: ``_vacuous``, then
+# ``_compare``. SEC-020 stays OPEN.
+
+
+@pytest.fixture(scope="module")
+def held_refusal_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.HeldRefusalRunCache]:
+    """One held-refusal run per (anchor, door) for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    try:
+        yield w.HeldRefusalRunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+def _held_refusal_refused(run: w.Run, twin: w.Run) -> bool:
+    """CT-A (a) for item 4 (b): whether the held-refusal run's refusal is the property its cells hold.
+
+    True only when every side of the run (``sec020_worlds.HELD_REFUSAL_SIDES``)
+    ended its one question in ``UnheldSubjectProbeRefused``, by type name, with
+    ONE message among them all, and the twin raised nothing for any of the same
+    sides' questions.
+    """
+    refusals = {run.raised(side).get(w.ONLY, "") for side in w.HELD_REFUSAL_SIDES}
+    if len(refusals) != 1 or not next(iter(refusals)).startswith(f"{w.HELD_REFUSAL_REFUSAL}:"):
+        return False
+    return not any(twin.raised(side).get(w.ONLY) for side in w.HELD_REFUSAL_SIDES)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_a_held_refusal_at_the_probe_is_refused_for_every_question(
+    held_refusal_runs: w.HeldRefusalRunCache, runs: w.RunCache, anchor: str, door: str
+) -> None:
+    """Item 4 (b), the refusal: every question of the held-refusal deployment refused alike, the twin answering.
+
+    Every side — the withheld subject, two identifiers nothing holds, the
+    counterfactual pair and an ordinarily served subject — observes
+    ``UnheldSubjectProbeRefused``, by name, with one message, at every door
+    (read by type behind HTTP and MCP off the resolver each door was handed);
+    every source was handed the probe identifier and never an asked subject;
+    and the supported working twin answered every one of the same questions,
+    its served subject SERVED.
+    """
+    run = held_refusal_runs.get(anchor=anchor, door=door)
+    twin = runs.get(shape=w.HELD_REFUSAL_TWIN, anchor=anchor, door=door)
+    refusals = {side: run.raised(side).get(w.ONLY, "") for side in w.HELD_REFUSAL_SIDES}
+    wrong = {
+        side: refusal or w.render(run.channel(side, w.RESPONSE))
+        for side, refusal in refusals.items()
+        if not refusal.startswith(f"{w.HELD_REFUSAL_REFUSAL}:")
+    }
+    assert not wrong, f"[{anchor}, {door}] not refused by {w.HELD_REFUSAL_REFUSAL}: {wrong}"
+    assert len(set(refusals.values())) == 1, (
+        f"[{anchor}, {door}] the refusal must be worded once, whatever was asked: {sorted(set(refusals.values()))}"
+    )
+    probe = w.probe_identifier()
+    handed = {name: asked for name, asked in run.notes["asked"].items() if set(asked) != {probe}}
+    assert not handed, f"[{anchor}, {door}] a source was handed more than the probe identifier: {handed}"
+    twin_raised = {side: twin.raised(side).get(w.ONLY) for side in w.HELD_REFUSAL_SIDES if twin.raised(side).get(w.ONLY)}
+    assert not twin_raised, (
+        f"[{anchor}, {door}] control: the supported working twin raised, so the refusal above is not"
+        f" evidence that the held refusal is what it refuses: {twin_raised}"
+    )
+    served = twin.channel(w.SERVED, w.RESPONSE)
+    if door == w.IN_PROCESS:
+        answered = served.get("outcome") == "served"
+    elif door == w.HTTP:
+        answered = served.get("status") == 200
+    else:
+        outcome = served.get("outcome")
+        answered = not served.get("is_error") and isinstance(outcome, dict) and outcome.get("refusal") is None
+    assert answered, (
+        f"[{anchor}, {door}] control: the twin did not serve its ordinarily served subject: {w.render(served)}"
+    )
+    assert _held_refusal_refused(run, twin), f"[{anchor}, {door}] CT-A (a) does not hold for this run"
+
+
+def _held_refusal_cells() -> list[Any]:
+    """Every (comparison, anchor, door, channel) the held-refusal deployment is judged on: the subject-keyed shape's own."""
+    return [
+        pytest.param(comparison, anchor, door, channel, id=f"{comparison}-{w.HELD_REFUSAL}-{anchor}-{door}-{channel}")
+        for comparison in w.COMPARISONS
+        for anchor in w.ANCHORS
+        for door in w.DOORS
+        for channel in w.channels_for(comparison=comparison, shape=w.HELD_REFUSAL, door=door)
+    ]
+
+
+@pytest.mark.parametrize(("comparison", "anchor", "door", "channel"), _held_refusal_cells())
+def test_a_held_refusal_at_the_probe_leaves_withheld_and_nonexistent_indistinguishable(
+    held_refusal_runs: w.HeldRefusalRunCache, runs: w.RunCache, comparison: str, anchor: str, door: str, channel: str
+) -> None:
+    """Item 4 (b), the cells: the withheld subject against the nonexistent one, by the gate's rules, CT-A (a) paired."""
+    run = held_refusal_runs.get(anchor=anchor, door=door)
+    twin = runs.get(shape=w.HELD_REFUSAL_TWIN, anchor=anchor, door=door)
+    withheld_side, nonexistent_side, _ = w.PAIRS[comparison]
+    cell = f"{comparison}, {w.HELD_REFUSAL}, {anchor}, {door}, {channel}"
+    if _held_refusal_refused(run, twin):
+        differing, floor, withheld, nonexistent = _compare(run, comparison=comparison, channel=channel)
+        assert not differing, (
+            f"SEC-020 [{cell}]: the refusal is not the same for the withheld and the nonexistent subject at"
+            f" {sorted(differing)} (noise floor, not counted: {sorted(floor)})\n"
+            f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
+        )
+        vacuous = _vacuous(twin, withheld_side, nonexistent_side)
+        assert not vacuous, f"SEC-020 [{cell}]: not evidence — the twin's sides RAISED: {vacuous}"
+        differing, floor, withheld, nonexistent = _compare(twin, comparison=comparison, channel=channel)
+        assert not differing, (
+            f"SEC-020 [{cell}]: the supported working twin tells the withheld subject apart at"
+            f" {sorted(differing)} (noise floor, not counted: {sorted(floor)})\n"
+            f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
+        )
+        return
+    vacuous = _vacuous(run, withheld_side, nonexistent_side)
+    assert not vacuous, (
+        f"SEC-020 [{cell}]: not evidence — both sides RAISED instead of answering, and two equal exceptions"
+        f" are equal on every channel: {vacuous}"
+    )
+    differing, floor, withheld, nonexistent = _compare(run, comparison=comparison, channel=channel)
+    assert not differing, (
+        f"SEC-020 [{cell}]: a withheld subject is distinguishable from a nonexistent one at {sorted(differing)}"
+        f" (noise floor, not counted: {sorted(floor)})\n"
+        f"  withheld:    {w.render(withheld)}\n  nonexistent: {w.render(nonexistent)}"
+    )
