@@ -984,7 +984,7 @@ this phase asked Dave to accept.
   because they carry no anchor, 14 because the anchor resolves to nothing or to
   two things, 6 ambiguous paths, 9 unresolvable paths. The unanchored population
   is the
-  bare-site-list shape this very file uses (`- \`examples/01-agent-basics/run.py:36\``),
+  bare-site-list shape this very file uses (`- \`examples/01-agent-basics/run.py\` (module docstring)`),
   which has nothing to bind to. The guard also cannot see semantics, ambiguous
   bare filenames, extensionless targets (`Makefile:NNN`), bare `:NNN`
   continuations, or — most importantly — **a false claim carrying no citation at
