@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2522 entries**, of which **2245** name a public Python surface.
+**2526 entries**, of which **2249** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1362 entries — 1316 public Python surface, 46 not public Python API.
+1363 entries — 1317 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19856,6 +19856,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
 
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: added
+- Before: absent; a member the shared-owner walk could not read raised its own error, such as a bare `TypeError`, out of construction and `open_product`.
+- After: a `PopulationPhaseSharesAnOwner` raised where that refusal is (at `GovernedResolver` construction and at `open_product`) when reading what an object the walk reached holds raises. Its message names the phase the walk started from, the error's type, the step and the references read, and nothing any object holds.
+- Why: `D-IMPL-378` repair 1.8. Red test: `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`.
+- Migration: none; additive. A handler for `PopulationPhaseSharesAnOwner` also catches it.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
 #### ccf.artifacts.protocol.ArtifactReadUnauthenticated
 
 - Surface: ccf.artifacts.protocol.ArtifactReadUnauthenticated
@@ -30887,7 +30899,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-488 entries — 449 public Python surface, 39 not public Python API.
+491 entries — 452 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37802,6 +37814,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-62-b-sec-020-a-held-refusal-at-the-p6-probe-is-answered-and-recorded.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: behavior
+- Before: its docstring named a `functools.partial`'s arguments and a `collections.deque`'s members as C-extension state the walk does not read; a member the walk could not read escaped as its own error.
+- After: its docstring also names a `types.MappingProxyType`'s mapping, a generator's frame, an `operator.methodcaller`'s arguments and a closure cell held anywhere but in a function's closure, each measured, and states that a member the walk cannot read is refused by its subclass `SharedOwnerWalkIncomplete`.
+- Why: `D-IMPL-378` repair 1.8.
+- Migration: none.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction raised whatever error reading a member raised during the shared-owner walk, such as a bare `TypeError`.
+- After: construction raises `SharedOwnerWalkIncomplete` in that case.
+- Why: `D-IMPL-378` repair 1.8.
+- Migration: as for `SharedOwnerWalkIncomplete`.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: open raised whatever error reading a member raised during the shared-owner walk over `population` and `acquire`.
+- After: open raises `SharedOwnerWalkIncomplete` in that case; the `population` argument's description names it.
+- Why: `D-IMPL-378` repair 1.8.
+- Migration: as for `SharedOwnerWalkIncomplete`.
+
+*Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
 
 #### ccf_runtime.workflow.engine.WorkflowEngine
 

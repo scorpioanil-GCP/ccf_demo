@@ -8849,6 +8849,7 @@
       "SHARED_OWNER_WALK_DEPTH",
       "SHARED_OWNER_WALK_OBJECTS",
       "ServedProductResolverProtocol",
+      "SharedOwnerWalkIncomplete",
       "SubjectDisclosingPlanFactoryProtocol",
       "UNHELD_SUBJECT_PROBE",
       "UNHELD_SUBJECT_PROBE_REFUSAL",
@@ -9010,6 +9011,10 @@
       "ServedProductResolverProtocol": {
         "kind": "class",
         "shape": "(*, tenant: 'str', product_class: 'str', version: 'str', perspective: 'Perspective', request: 'ProductRequest | None') -> 'ResolverOutcome'"
+      },
+      "SharedOwnerWalkIncomplete": {
+        "kind": "class",
+        "shape": "type"
       },
       "SubjectDisclosingPlanFactoryProtocol": {
         "kind": "class",

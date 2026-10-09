@@ -1176,7 +1176,9 @@ def open_product(
             (:class:`PopulationAcquireProtocol`; SEC-020 Q7, ``D-IMPL-378``):
             called once per question before ``acquire`` and handed no subject.
             Refused at open when it shares an owner with ``acquire``
-            (:class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`).
+            (:class:`~ccf.products.resolver.PopulationPhaseSharesAnOwner`), or
+            when the walk that looks for one cannot read what an object it
+            reaches holds (:class:`~ccf.products.resolver.SharedOwnerWalkIncomplete`).
         project: The deployment's NAMED plan factory (`D-IMPL-137`: its only
             operator source is the ``required`` tuple the SDK hands it).
         assess: The deployment's debt rule (:class:`AssessProtocol`).
