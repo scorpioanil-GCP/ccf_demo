@@ -2154,13 +2154,15 @@ def test_the_pin_channel_census_is_measured_and_reported(
 
 
 @pytest.fixture(scope="module")
-def held_refusal_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[w.HeldRefusalRunCache]:
-    """One held-refusal run per (anchor, door) for this module."""
+def held_refusal_runs(
+    tmp_path_factory: pytest.TempPathFactory, runs: w.RunCache
+) -> Iterator[w.HeldRefusalRunCache]:
+    """One held-refusal run per (anchor, door) for this module, each carrying the gate's own twin run (``runs``)."""
     levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
     for name in _QUIETED_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
     try:
-        yield w.HeldRefusalRunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)))
+        yield w.HeldRefusalRunCache(lambda name: pathlib.Path(tmp_path_factory.mktemp(name)), twins=runs)
     finally:
         for name, level in levels.items():
             logging.getLogger(name).setLevel(level)

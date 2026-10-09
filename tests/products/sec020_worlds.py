@@ -3952,7 +3952,15 @@ def build_held_refusal(base: pathlib.Path, *, anchor: str, holds: bool, active: 
     )
 
 
-def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str) -> Run:
+#: Where a run of a constant-refusal world keeps its declared working twin: a :class:`Run` of the same questions,
+#: through the same door, asked of the supported deployment the world declares (``Run.notes``). Kept ON the run, so
+#: whatever judges the run reads the twin from the run itself, never from a caller's word that one answered
+#: (``D-IMPL-378``, Dave, 2026-10-09 10:54 MST, 2.1 (b): *"plus a working declared twin. Enforce these conditions
+#: inside the acceptance helper."*).
+DECLARED_WORKING_TWIN = "declared_working_twin"
+
+
+def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str, twin: Run) -> Run:
     """Every side of :data:`HELD_REFUSAL_SIDES`, asked of :func:`build_held_refusal`'s deployments through ``door``.
 
     The deployment that holds the subject and withholds it from the asker is
@@ -3964,6 +3972,9 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str) -> Run:
     :func:`run_sides` reads them for a subject-keyed shape. ``notes["asked"]``
     keeps, per deployment, every identifier its source was handed: the evidence
     the case was constructed, and of what the phase saw.
+    ``notes[DECLARED_WORKING_TWIN]`` is ``twin``: the gate's own run of
+    :data:`HELD_REFUSAL_TWIN` at the same anchor and door, the supported working
+    twin the run is judged against (:data:`DECLARED_WORKING_TWIN`).
     """
     opened: list[tuple[str, Deployment]] = []
 
@@ -3992,23 +4003,129 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str) -> Run:
     finally:
         for _name, built in opened:
             built.close()
-    return Run(shape=HELD_REFUSAL, anchor=anchor, door=door, sides=sides, notes={"asked": asked})
+    return Run(
+        shape=HELD_REFUSAL, anchor=anchor, door=door, sides=sides,
+        notes={"asked": asked, DECLARED_WORKING_TWIN: twin},
+    )
 
 
 class HeldRefusalRunCache:
-    """One held-refusal run per (anchor, door) for the whole session."""
+    """One held-refusal run per (anchor, door) for the whole session, each carrying the gate's own twin run."""
 
-    def __init__(self, factory: Callable[[str], pathlib.Path]) -> None:
+    def __init__(self, factory: Callable[[str], pathlib.Path], *, twins: RunCache) -> None:
         self._factory = factory
+        self._twins = twins
         self._runs: dict[tuple[str, str], Run] = {}
 
     def get(self, *, anchor: str, door: str) -> Run:
         key = (anchor, door)
         if key not in self._runs:
             self._runs[key] = held_refusal_run(
-                self._factory(f"{HELD_REFUSAL}-{anchor}-{door}"), anchor=anchor, door=door
+                self._factory(f"{HELD_REFUSAL}-{anchor}-{door}"), anchor=anchor, door=door,
+                twin=self._twins.get(shape=HELD_REFUSAL_TWIN, anchor=anchor, door=door),
             )
         return self._runs[key]
+
+
+# =============================================================================
+# Decision 4 (a): the stand-in world — a declared early policy whose stand-in names something here
+# =============================================================================
+#
+# Dave, 2026-10-09 06:06 MST, confirmed at 06:21 MST (D-IMPL-378), item 4, verbatim (kept as a comment, CINV-01a):
+#   "(a). Verify the stand-in is absent before and after acquisition. A failed
+#   check refuses without exposing subject-dependent differences."
+# Built by lane 378i-probe in tests/products/test_sec020_stand_in_is_verified_absent.py, which judges it with this
+# proof's own rules; moved here, unchanged, so the world and its declared working twin are built where every other
+# world of the proof is (D-IMPL-378, Dave, 2026-10-09 10:54 MST, 2.1 (b): "Limit the closing-test exception to the
+# held-refusal and stand-in worlds.").
+
+#: The label a stand-in run carries: every question of a deployment whose declared early policy's stand-in names
+#: something here is refused by :data:`STAND_IN_REFUSAL`, whatever subject was asked.
+STAND_IN_HELD = "stand_in_held"
+#: Its declared working twin: the same deployments with the stand-in held nowhere, asked the same questions.
+STAND_IN_TWIN = "stand_in_held_nowhere"
+#: Decision 4 (a)'s refusal (``ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld``).
+STAND_IN_REFUSAL = "UndisclosedSubjectSubstituteIsHeld"
+#: How a deployment's source holds the declared stand-in. ``itself``: a record whose resolution the fabric names by
+#: the stand-in. ``another-uri``: a record for the stand-in that the fabric names otherwise (an account whose identity
+#: mints another URI), which only a comparison of what the phase acquired can see. ``population-phase``: the declared
+#: population phase writes the stand-in's own record before the subject-keyed phase runs.
+STAND_IN_ITSELF = "itself"
+STAND_IN_ANOTHER_URI = "another-uri"
+STAND_IN_POPULATION_PHASE = "population-phase"
+STAND_IN_HELD_AS = (STAND_IN_ITSELF, STAND_IN_ANOTHER_URI, STAND_IN_POPULATION_PHASE)
+#: The account a source returns for the stand-in under ``another-uri``. Fixture vocabulary.
+STAND_IN_SHADOW_REF = "acct-stand-in-shadow"
+#: Every side a stand-in run asks: the same-deployment comparison's three sides (the withheld subject, an identifier
+#: nothing holds and a second one) and an ordinarily served subject (the policy off). Every one is refused alike.
+STAND_IN_SIDES = (CF_WITHHELD, SAME_NONEXISTENT, SAME_FLOOR, SERVED)
+
+
+def stand_in_holding(account_ref: str) -> Holding:
+    """The stand-in's own record, in an open book, observed shortly before the question."""
+    return Holding(
+        account_ref=account_ref, book=OPEN_BOOK, label="stand-in label", observed_at=asked_at() - timedelta(minutes=5)
+    )
+
+
+def build_stand_in(
+    base: pathlib.Path, *, anchor: str, held_as: str | None, active: bool
+) -> tuple[Deployment, SubjectKeyedSource]:
+    """The early-withholding paved deployment holding the subject; ``held_as`` says where the stand-in is held.
+
+    ``held_as=None`` is the twin: the stand-in held nowhere. Returns the deployment and its source (whose ``asked``
+    keeps every identifier the subject-keyed phase was handed).
+    """
+    from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
+
+    holdings = {SUBJECT: subject_holding()}
+    overrides: dict[str, Any] = {}
+    if held_as == STAND_IN_ITSELF:
+        holdings[STAND_IN] = stand_in_holding(STAND_IN_REF)
+    elif held_as == STAND_IN_ANOTHER_URI:
+        holdings[STAND_IN] = stand_in_holding(STAND_IN_SHADOW_REF)
+    elif held_as == STAND_IN_POPULATION_PHASE:
+        overrides["population"] = PopulationHalf({STAND_IN: stand_in_holding(STAND_IN_REF)})
+    source = SubjectKeyedSource(holdings)
+    built = open_paved(
+        base, anchor=anchor, acquire=source,
+        project=plan_factory(early=True, plan_id=PRODUCT_CLASS, asker=ASKER, active=active),
+        **overrides,
+    )
+    return built, source
+
+
+def _stand_in_sides(base: pathlib.Path, *, anchor: str, door: str, held_as: str | None) -> dict[str, Observation]:
+    """:data:`STAND_IN_SIDES`, asked through ``door`` of :func:`build_stand_in`'s deployments, policy on and off."""
+    withholding, _ = build_stand_in(base / "withholding", anchor=anchor, held_as=held_as, active=True)
+    serving, _ = build_stand_in(base / "serving", anchor=anchor, held_as=held_as, active=False)
+    try:
+        return {
+            CF_WITHHELD: observe_side(SUBJECT_KEYED, door, withholding, SUBJECT),
+            SAME_NONEXISTENT: observe_side(SUBJECT_KEYED, door, withholding, NEVER),
+            SAME_FLOOR: observe_side(SUBJECT_KEYED, door, withholding, NEVER_2),
+            SERVED: observe_side(SUBJECT_KEYED, door, serving, SUBJECT),
+        }
+    finally:
+        withholding.close()
+        serving.close()
+
+
+def stand_in_run(base: pathlib.Path, *, anchor: str, door: str, held_as: str) -> Run:
+    """Every side of :data:`STAND_IN_SIDES` with the stand-in held as ``held_as``, carrying its declared working twin.
+
+    The twin (``notes[DECLARED_WORKING_TWIN]``, labeled :data:`STAND_IN_TWIN`) is the same two deployments with the
+    stand-in held nowhere, asked the same questions through the same door.
+    """
+    sides = _stand_in_sides(base / "held", anchor=anchor, door=door, held_as=held_as)
+    twin = Run(
+        shape=STAND_IN_TWIN, anchor=anchor, door=door,
+        sides=_stand_in_sides(base / "twin", anchor=anchor, door=door, held_as=None),
+    )
+    return Run(
+        shape=STAND_IN_HELD, anchor=anchor, door=door, sides=sides,
+        notes={"held_as": held_as, DECLARED_WORKING_TWIN: twin},
+    )
 
 
 #: The two refusals Dave's 2026-10-09 06:21 MST rulings made constant across every subject (``D-IMPL-378``): item 4
