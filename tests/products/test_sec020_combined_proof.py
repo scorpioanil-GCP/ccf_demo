@@ -199,9 +199,10 @@ LIMITATION``) and records them in the JUnit record
 (``e2ii_false_declaration_limitation``). They never count as passing evidence,
 and no mark hides them.
 
-The listed-class cell below holds only the record channel of that
-configuration (the runtime defense writes no record); it is not evidence of
-indistinguishability.
+The listed-class cell below holds only the record channel of a listed
+``never`` class whose policy withholds; under (d) that class is refused where
+its resolver is built, so nothing is recorded to read back. It is not evidence
+of indistinguishability.
 
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
@@ -808,22 +809,21 @@ LISTED_SHAPES = w.LISTED_SHAPES
 #: ``378b-s020record`` PROPOSAL section 7, item 1). A class that does not affirm
 #: ``never``, listed: refused where its resolver is built, in the deployment that
 #: holds the subject and in the one that does not. The withheld subject under a
-#: class that affirms ``never``: refused before anything is recorded, as
-#: ``NeverWithholdingContradicted`` — for a composite too, named before Q8's
-#: ``CompositeWithheldLate`` (Dave's CT-D (a), 2026-10-08 12:29 MST: "for
-#: diagnostic precedence; this does not resolve E2(ii)'s oracle").
-#: That second expectation names the runtime DEFENSE Dave retained (E2 (ii),
-#: 2026-10-08 12:29 MST), held here for the record channel only: the raise
-#: itself, against the nonexistent subject's answer, is the oracle he ruled, and
-#: :func:`test_a_withheld_subject_under_a_never_class_is_indistinguishable`
-#: fails on it.
+#: class that affirms ``never`` and whose policy withholds it: since Dave's
+#: E2 (ii) (d) (2026-10-08 16:40 MST) that deployment's plan factory does not
+#: positively declare that it never withholds — its policy is on, and it says
+#: so — so the class is refused where its resolver is built, before anything is
+#: read or recorded, by ``sec020_worlds.NEVER_DECLARATION_REFUSAL``; for a
+#: composite too. Until (d) this arm expected the runtime DEFENSE,
+#: ``NeverWithholdingContradicted``; under (d) the defense is reached only through
+#: a FALSE positive declaration — trusted deployment code — which this module
+#: never counts as passing evidence and reports outside the gate instead
+#: (:func:`test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`,
+#: whose record-channel cells measure exactly that case).
 LISTED_REFUSALS: dict[str, dict[str, str]] = {
     w.WITHHELD_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
     w.NONEXISTENT_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
-    w.WITHHELD_READABLE: {
-        w.SUBJECT_KEYED: "NeverWithholdingContradicted",
-        w.COMPOSITE_SUBJECT_CHILD: "NeverWithholdingContradicted",
-    },
+    w.WITHHELD_READABLE: {shape: w.NEVER_DECLARATION_REFUSAL for shape in w.LISTED_SHAPES},
 }
 
 
@@ -855,22 +855,22 @@ def test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record
       side. Equal by that NAMED refusal, which is the property here — as Q9's
       refusals are for the reused shapes — and never by an arbitrary exception.
     * **A class that affirms ``never``, LISTED, whose policy withholds the
-      subject** — the withheld question is refused by name before anything is
-      recorded, so no record of it exists to read back. The control: the
-      nonexistent subject under the same listing is answered, and its owner
-      reads its record back — the listing is live.
+      subject** — since Dave's E2 (ii) (d) its plan factory, whose policy is on,
+      does not positively declare that it never withholds, so the class is
+      refused where its resolver is built, by name, before anything is read or
+      recorded; no record of the question exists to read back. The control:
+      the nonexistent subject under the same listing — the policy off, truly
+      declaring — is answered, and its owner reads its record back — the
+      listing is live.
 
-    The second arm holds the RECORD CHANNEL only: the runtime defense refuses
-    the withheld question by name before anything is recorded, so no record of
-    it exists to read back. It is not evidence that the two subjects are
-    indistinguishable. The withheld subject's question raises where the
-    nonexistent subject's is answered, and Dave ruled that difference a
-    measured oracle (E2 (ii), 2026-10-08 12:29 MST, "REJECTED as
-    disclosure-only"; it was OWED when this cell was written).
-    :func:`test_a_withheld_subject_under_a_never_class_is_indistinguishable`
-    judges it, and fails while it stands, for the two configurations this
-    arm's deployments are built as (``never_late`` on the paved road,
-    ``never_composite_late`` for the composite).
+    The second arm holds the RECORD CHANNEL only. Until (d) it expected the
+    runtime defense, raised for the withheld subject alone — the oracle Dave
+    ruled (E2 (ii), 2026-10-08 12:29 MST, "REJECTED as disclosure-only"). That
+    defense is now reached only through a FALSE positive declaration, the
+    residual (d) leaves to trusted deployment code; it is measured, every run,
+    outside the gate by
+    :func:`test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`,
+    and is never counted here.
     """
     if not w.evidence_allowlist_exists():
         pytest.skip(f"pending API: {w.EVIDENCE_ALLOWLIST_FIELD} (ProductEntitlementPolicy)")
