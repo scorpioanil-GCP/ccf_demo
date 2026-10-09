@@ -16,6 +16,10 @@ answered). The order is logged, not inferred: the subject-keyed phase is handed 
 is read again strictly before the phase is handed the question's subject, and a refused question never hands the
 phase the question's subject. The same read declared as the population phase, a source keyed on the subject, the
 same read under a declared early policy and under a class affirming `never` are still answered.
+`tests/products/test_sec020_p6_unheld_subject_probe_is_verified_absent.py`: that the probe identifier names nothing is
+checked, not assumed — a fabric naming it (an entity, or a relationship end) before the question, and a source
+holding it, are each refused by name, `UnheldSubjectProbeIsHeld`, before the phase is handed the question's subject
+(red before the check: the first two were answered and the third was refused as a population read).
 
 **What it changes for a deployment.** Every question of a class that may withhold and declares no early policy calls
 the subject-keyed phase twice: once with the probe identifier, then once for the question's subject (Q10 amended to
@@ -33,6 +37,16 @@ affirms `never` or declares an early policy, or the read moves to the declared p
 - Why: SEC-020, ruling P6 (a) (`D-IMPL-378`, 2026-10-08 16:40 MST): the refusal is decided by the phase's answer for an identifier that names nothing, never by the asked subject, so it is the same for a withheld subject and a nonexistent one. Not closure: a source that recognizes the probe is not detected.
 - Migration: declare a subject-independent read as the population phase (`open_product(population=...)` or `GovernedResolver(population_acquisition=...)`), declare an early policy, or affirm `subject_withholding: never` when the projection never withholds.
 
+## ccf.products.resolver.UnheldSubjectProbeIsHeld
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeIsHeld
+- Public surface: true
+- Change type: added
+- Before: absent; nothing checked that the identifier the P6 probe asks about names nothing.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for a class the P6 probe reads, when the fabric as read before the probe names `UNHELD_SUBJECT_PROBE` (an entity whose URI it is, or a relationship with it at either end; the subject-keyed phase is then asked nothing), or when the fabric as read after the probe does; before the phase is handed the question's subject, with one message whatever subject was asked.
+- Why: SEC-020, ruling P6 (a), Dave's condition "Verify that the fixed identifier is actually absent; do not assume it." Fail closed: a probe identifier that names something cannot show what the phase acquires for an identifier its sources do not hold.
+- Migration: nothing in a deployment may be named by `UNHELD_SUBJECT_PROBE`. L2's ingest never mints it (every node it writes is `<entity_class>://<content hash>`); only the admission path for an already-resolved claim, or a store written outside this SDK, can.
+
 ## ccf.products.resolver.UNHELD_SUBJECT_PROBE
 
 - Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
@@ -49,7 +63,7 @@ affirms `never` or declares an early policy, or the read moves to the declared p
 - Public surface: true
 - Change type: behavior
 - Before: the declared subject-keyed acquisition seam was called once per question, with the question's effective request.
-- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A class affirming `never`, or declaring an early policy, is not probed.
+- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A fabric that names the probe identifier, before or after that call, is refused with `UnheldSubjectProbeIsHeld` instead. A class affirming `never`, or declaring an early policy, is not probed.
 - Why: SEC-020, ruling P6 (a) (see above); Q10 amended to exactly this one extra call.
 - Migration: as above.
 

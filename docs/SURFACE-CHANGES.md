@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2393 entries**, of which **2116** name a public Python surface.
+**2394 entries**, of which **2117** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1316 entries — 1270 public Python surface, 46 not public Python API.
+1317 entries — 1271 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19304,6 +19304,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
 
+#### ccf.products.resolver.UnheldSubjectProbeIsHeld
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeIsHeld
+- Public surface: true
+- Change type: added
+- Before: absent; nothing checked that the identifier the P6 probe asks about names nothing.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for a class the P6 probe reads, when the fabric as read before the probe names `UNHELD_SUBJECT_PROBE` (an entity whose URI it is, or a relationship with it at either end; the subject-keyed phase is then asked nothing), or when the fabric as read after the probe does; before the phase is handed the question's subject, with one message whatever subject was asked.
+- Why: SEC-020, ruling P6 (a), Dave's condition "Verify that the fixed identifier is actually absent; do not assume it." Fail closed: a probe identifier that names something cannot show what the phase acquires for an identifier its sources do not hold.
+- Migration: nothing in a deployment may be named by `UNHELD_SUBJECT_PROBE`. L2's ingest never mints it (every node it writes is `<entity_class>://<content hash>`); only the admission path for an already-resolved claim, or a store written outside this SDK, can.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
 #### ccf.products.resolver.UNHELD_SUBJECT_PROBE
 
 - Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
@@ -36285,7 +36297,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: the declared subject-keyed acquisition seam was called once per question, with the question's effective request.
-- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A class affirming `never`, or declaring an early policy, is not probed.
+- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A fabric that names the probe identifier, before or after that call, is refused with `UnheldSubjectProbeIsHeld` instead. A class affirming `never`, or declaring an early policy, is not probed.
 - Why: SEC-020, ruling P6 (a) (see above); Q10 amended to exactly this one extra call.
 - Migration: as above.
 

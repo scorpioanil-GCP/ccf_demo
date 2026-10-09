@@ -8660,6 +8660,7 @@
       "UNHELD_SUBJECT_PROBE",
       "UndeclaredMechanismClass",
       "UndisclosedSubjectAnswered",
+      "UnheldSubjectProbeIsHeld",
       "UnmarkedStoreNotPresumedFresh",
       "UnsupportedComposition",
       "WithholdingClassListedReadable",
@@ -8808,6 +8809,10 @@
         "shape": "type"
       },
       "UndisclosedSubjectAnswered": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "UnheldSubjectProbeIsHeld": {
         "kind": "class",
         "shape": "type"
       },

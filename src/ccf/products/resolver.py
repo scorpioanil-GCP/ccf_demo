@@ -350,6 +350,7 @@ __all__ = [
     "ServedProductResolverProtocol",
     "SubjectDisclosingPlanFactoryProtocol",
     "UndisclosedSubjectAnswered",
+    "UnheldSubjectProbeIsHeld",
     "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
     "declared_refusal_recorder",
@@ -713,7 +714,9 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
 #: question's subject, before it is asked about that subject
 #: (:class:`PopulationReadInSubjectKeyedPhase`). It lies inside
 #: :data:`~ccf.products.request.SUBJECT_FLOOR_V1`; a source sees it as one more
-#: identifier it does not hold. SEC-020 stays OPEN.
+#: identifier it does not hold. That it names nothing is checked, not assumed:
+#: the fabric is read for it before the call and after it
+#: (:class:`UnheldSubjectProbeIsHeld`). SEC-020 stays OPEN.
 UNHELD_SUBJECT_PROBE: Final[str] = "ccf-sdk:unheld-subject-probe"
 
 
@@ -759,7 +762,57 @@ class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
     :attr:`GovernedResolver.population_acquisition`), declare an early policy
     (:class:`SubjectDisclosingPlanFactoryProtocol`), or affirm
     ``subject_withholding: never`` for a projection that never withholds.
+
+    That the probe identifier names nothing is checked, not assumed
+    (:class:`UnheldSubjectProbeIsHeld`): a fabric or a source that names it is
+    refused by that name instead, before this decision is taken.
     """
+
+
+class UnheldSubjectProbeIsHeld(UnsupportedComposition):
+    """The identifier the P6 probe treats as naming nothing names something here.
+
+    ``D-IMPL-378`` ruling P6 (a) (SDK-defined, CLAUDE.md §11). Dave,
+    2026-10-08 16:40 MST: *"Verify that the fixed identifier is actually
+    absent; do not assume it."* SEC-020 stays OPEN.
+
+    :class:`PopulationReadInSubjectKeyedPhase` is decided by what the
+    subject-keyed phase acquires for :data:`UNHELD_SUBJECT_PROBE`, which
+    measures what it acquires for an identifier its sources do not hold only if
+    the probe identifier names nothing. So it is read, by the reading the SDK
+    seeds a walk from a subject with
+    (:func:`~ccf.products.request.request_seeds`: the subject is the node whose
+    entity URI it is), on both axes of a view — an entity whose URI is the
+    identifier, or a relationship with it at either end. Raised by
+    :meth:`GovernedResolver.__call__`, for a class the probe reads, when the
+    fabric as read before the probe names it (then the phase is not asked
+    about the probe at all), or when the fabric as read after the probe does
+    (the phase's source holds the identifier, so what it acquired is not a
+    population read's evidence) — before the phase is handed the question's
+    subject, with one message whatever subject was asked. Fail closed.
+
+    L2's ingest mints every node it writes as
+    ``<entity_class>://<content hash>``, a form the probe identifier does not
+    have, so on the paved road no write can name it; a node named by it reaches
+    a fabric only through the admission path for an already-resolved claim
+    (:meth:`~ccf.assembly.worker.AssemblyWorker.admit_entity_claim`, the path a
+    replayed snapshot takes) or a store written outside this SDK. A paved
+    source holding a record FOR the probe identifier therefore writes a node
+    with another URI, and the question is refused as
+    :class:`PopulationReadInSubjectKeyedPhase` — also fail closed.
+    """
+
+
+def _names(view: GraphView, identifier: str) -> bool:
+    """Whether ``view`` names ``identifier``: an entity whose URI it is, or a relationship with it at either end.
+
+    The reading :func:`~ccf.products.request.request_seeds` seeds a walk from a
+    subject with. Pure over the view; reads no clock and no store.
+    """
+    return any(record.claim.entity_uri == identifier for record in view.entities) or any(
+        identifier in (record.claim.subject_uri, record.claim.object_uri)
+        for record in view.relationships
+    )
 
 
 class CompositeNeedsAnEarlyPolicy(UnsupportedComposition):
@@ -4905,8 +4958,17 @@ class GovernedResolver:
         this seam) acquires nothing and is not this question's answer: the read
         decides. Any other exception propagates, as the phase's own would.
         Nothing here reads the asked subject.
+
+        Dave's condition, *"Verify that the fixed identifier is actually
+        absent; do not assume it"*: a fabric that names the probe identifier
+        before the call is refused before the phase is asked anything, and one
+        that names it after the call — the phase's source holds the identifier,
+        so what it acquired is not a population read's evidence — is refused
+        before the comparison is read; both as :class:`UnheldSubjectProbeIsHeld`.
         """
         assert self.acquisition is not None  # the caller tested it
+        if _names(before, UNHELD_SUBJECT_PROBE):
+            raise UnheldSubjectProbeIsHeld(self._probe_identifier_is_held("before the probe"))
         probe = asked.model_copy(update={"subject": UNHELD_SUBJECT_PROBE})
         try:
             self.acquisition(request=probe, perspective=perspective)
@@ -4916,6 +4978,8 @@ class GovernedResolver:
             if self._declared_seam_refusal(error) is None:
                 raise
         after = self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
+        if _names(after, UNHELD_SUBJECT_PROBE):
+            raise UnheldSubjectProbeIsHeld(self._probe_identifier_is_held("after the probe"))
         if after != before:
             raise PopulationReadInSubjectKeyedPhase(
                 "the subject-keyed acquisition phase acquired content when asked"
@@ -4928,6 +4992,17 @@ class GovernedResolver:
                 " policy, or affirm subject_withholding:"
                 f" {SUBJECT_WITHHOLDING_NEVER!r} (SEC-020; D-IMPL-378 ruling P6 (a))"
             )
+
+    @staticmethod
+    def _probe_identifier_is_held(when: str) -> str:
+        """The one message :class:`UnheldSubjectProbeIsHeld` carries, naming only WHEN the fabric named it."""
+        return (
+            f"the fabric as read {when} names {UNHELD_SUBJECT_PROBE!r}, the"
+            " identifier the subject-keyed acquisition phase is asked about as one"
+            " that names nothing, so its answer cannot show what the phase acquires"
+            " for an identifier its sources do not hold; nothing in this deployment"
+            " may be named by it (SEC-020; D-IMPL-378 ruling P6 (a))"
+        )
 
     def _declared_seam_refusal(
         self,
