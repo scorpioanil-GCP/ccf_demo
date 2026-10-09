@@ -19,14 +19,21 @@ import pathlib
 import pytest
 
 from tools.lints.citations import (
+    _MEMBER_TAIL,
+    NODE_ID,
     RULE_ANCHOR,
     RULE_NODE_ID,
     RULE_RESOLVES,
+    _Tree,
     anchor_before,
     check_source,
     check_tree,
     exemption_reason,
+    iter_scanned_files,
+    member_verdict,
+    prose_lines,
     repo_index,
+    resolve_cited,
     scan_tree,
 )
 
@@ -505,6 +512,334 @@ def test_a_member_reached_through_an_assignment_is_unchecked_and_counted(
     assert scan.findings == []
     assert scan.unfollowable_member == 1
     assert scan.checked == 0
+
+
+# --- cite03: bindings only from module and class bodies (D-IMPL-378 1.7) ---
+#
+# Dave, 2026-10-09 10:54 MST, repair 1.7 as the findings brief specifies it:
+# *"Take bindings only from the cited file's module and class bodies; let
+# tuple, `for` and `with` targets bind; cap the 'unfollowable member' count at
+# 0 with a test."* Evidence: Fable G2 F-G2-3 (probes `p_citations_shadow.py`,
+# `p_citations_synthetic2.py`) and the panel's K68 (`p_b6_homonym_anywhere.py`),
+# on `dl-378-record` @ `15e79163`.
+
+#: The cited class of the repair 1.7 cases: ``A.m`` exists, ``A.nope`` does not.
+_CLASS_A = "class A:\n    def m(self) -> None: ...\n"
+
+#: Bindings of the cited class's name inside a function. Before repair 1.7 the
+#: first three made the dead citation ``A.nope`` "member not followable", and a
+#: class nested in a function that defines ``nope`` made it *checked*. The last
+#: three bound nothing before the repair; they are here because the repair also
+#: makes those three target kinds bind, and a function's body must stay out.
+_FUNCTION_LOCAL_HOMONYMS: dict[str, str] = {
+    "an assignment (F-G2-3 (a))": "def f() -> None:\n    A = object()\n",
+    "an annotated assignment": "def f() -> None:\n    A: object = object()\n",
+    "an assignment in an async function": "async def f() -> None:\n    A = object()\n",
+    "a nested class that defines the member": (
+        "def f() -> None:\n    class A:\n        def nope(self) -> None: ...\n"
+    ),
+    "a for target": "def f() -> None:\n    for A in ():\n        pass\n",
+    "a with target": "def f() -> None:\n    with open('x') as A:\n        pass\n",
+    "a tuple target": "def f() -> None:\n    A, B = 1, 2\n",
+}
+
+
+@pytest.mark.parametrize("homonym", sorted(_FUNCTION_LOCAL_HOMONYMS))
+def test_a_function_local_homonym_cannot_launder_a_missing_member(
+    tmp_path: pathlib.Path, homonym: str
+) -> None:
+    """Fable G2 F-G2-3 (a): a function-local ``A = object()`` turned the dead
+    citation ``x.py::A.nope`` into "member not followable", a count with no
+    ceiling, so no finding ever named it. A function's local is not what ``A``
+    names in that file; the class is. Asserted on the mechanism: the
+    ``cite03`` finding names ``A.nope``, and the scan neither checked the
+    citation nor counted it unfollowable."""
+    _write(
+        tmp_path, "src/pkg/mod.py", _CLASS_A + "\n\n" + _FUNCTION_LOCAL_HOMONYMS[homonym]
+    )
+    _write(tmp_path, "docs/note.md", "See `src/pkg/mod.py::A.nope`.\n")
+    scan = scan_tree(tmp_path)
+    assert _rules(scan.findings) == [RULE_NODE_ID], scan
+    assert "A.nope" in scan.findings[0]
+    assert (scan.checked, scan.unfollowable_member) == (0, 0), scan
+
+
+#: Names bound only inside a function's body. Each is a local of that function:
+#: Python's ``__qualname__`` spells a nested definition
+#: ``build_router.<locals>.retrieve``, and gives a local variable none at all.
+_FUNCTION_LOCALS = '''"""A module."""
+import contextlib
+
+
+def build_router() -> None:
+    limit = 3
+    first, second = 1, 2
+    for item in ():
+        pass
+    with contextlib.nullcontext() as handle:
+        pass
+
+    def retrieve() -> None: ...
+
+    async def resume() -> None: ...
+
+    class Payload:
+        size = 1
+
+
+class Gate:
+    def admit(self) -> None:
+        decision = 1
+'''
+
+
+@pytest.mark.parametrize(
+    "bare", ["retrieve", "resume", "Payload", "limit", "first", "item", "handle", "decision"]
+)
+def test_a_name_bound_only_inside_a_function_is_not_a_citable_first_name(
+    tmp_path: pathlib.Path, bare: str
+) -> None:
+    """Repair 1.7 for the first name: a citation resolves only through a
+    binding in the module body or a class body. ``x.py::retrieve`` named a
+    route handler nested in ``build_router``, and the checker found it only by
+    walking the whole file (lane ``378i-docs``' out-of-scope finding 3,
+    *"function locals resolve"*). The finding names the missing first name;
+    the qualified citation the next test admits is the one that resolves."""
+    _write(tmp_path, "src/pkg/mod.py", _FUNCTION_LOCALS)
+    _write(tmp_path, "docs/note.md", f"See `src/pkg/mod.py::{bare}`.\n")
+    findings = check_tree(tmp_path)
+    assert _rules(findings) == [RULE_NODE_ID], findings
+    assert f"defines no {bare!r}" in findings[0]
+
+
+@pytest.mark.parametrize(
+    ("qualified", "resolves"),
+    [
+        ("build_router.retrieve", True),
+        ("build_router.resume", True),
+        ("build_router.Payload", True),
+        ("build_router.Payload.size", True),
+        ("build_router.limit", False),
+        ("build_router.first", False),
+        ("build_router.item", False),
+        ("build_router.handle", False),
+        ("Gate.admit.decision", False),
+    ],
+)
+def test_a_member_is_a_definition_nested_in_a_function_never_its_local_variable(
+    tmp_path: pathlib.Path, qualified: str, resolves: bool
+) -> None:
+    """Repair 1.7 for the members, *"never a function's local"*: an
+    assignment, a loop target or a ``with`` target inside a function is never a
+    member a citation resolves through -- ``Gate.admit.decision`` names a
+    method's local variable, which nobody can reach. Unchanged by the repair,
+    and asserted here as its boundary: a ``def`` or ``class`` nested in a
+    function stays citable by naming the function first, the name Python's
+    ``__qualname__`` gives it with ``<locals>`` dropped (``D-IMPL-378``
+    OWED-RULINGS-3 item 7 (a) as built)."""
+    _write(tmp_path, "src/pkg/mod.py", _FUNCTION_LOCALS)
+    _write(tmp_path, "docs/note.md", f"See `src/pkg/mod.py::{qualified}`.\n")
+    scan = scan_tree(tmp_path)
+    if resolves:
+        assert (scan.findings, scan.checked) == ([], 1), scan
+    else:
+        assert _rules(scan.findings) == [RULE_NODE_ID], scan
+        assert qualified in scan.findings[0]
+        assert scan.unfollowable_member == 0
+
+
+#: A module whose class body and module body bind names by tuple-unpacking,
+#: ``for`` and ``with`` targets. Fable G2 F-G2-3 (b): each such member was
+#: reported missing, red on correct prose.
+_TARGETS = '''"""A module."""
+import contextlib
+
+ROW, COLUMN = 1, 2
+for LOOPED in (1, 2):
+    pass
+with contextlib.nullcontext() as HANDLED:
+    pass
+
+
+class Table:
+    x, y = 1, 2
+    first, *rest = (1, 2, 3)
+    (outer, (inner, last)) = (1, (2, 3))
+    [left, right] = [1, 2]
+    for z in (1, 2):
+        pass
+    for key, value in {}.items():
+        pass
+    with contextlib.nullcontext() as fh:
+        pass
+    with contextlib.nullcontext() as src, contextlib.nullcontext() as (dst, extra):
+        pass
+'''
+
+
+@pytest.mark.parametrize(
+    "cited",
+    [
+        "ROW",
+        "COLUMN",
+        "LOOPED",
+        "HANDLED",
+        "Table.x",
+        "Table.y",
+        "Table.first",
+        "Table.rest",
+        "Table.outer",
+        "Table.inner",
+        "Table.last",
+        "Table.left",
+        "Table.right",
+        "Table.z",
+        "Table.key",
+        "Table.value",
+        "Table.fh",
+        "Table.src",
+        "Table.dst",
+        "Table.extra",
+    ],
+)
+def test_tuple_for_and_with_targets_bind(tmp_path: pathlib.Path, cited: str) -> None:
+    """Repair 1.7, *"let tuple, `for` and `with` targets bind"*: in the module
+    body and in a class body, a name a tuple or list target unpacks to
+    (starred and nested included), a ``for`` target and a ``with ... as``
+    target are bound there, exactly as Python binds them. Fable G2 F-G2-3 (b)
+    measured ``A.x`` (tuple), ``A.z`` (``for``) and ``A.fh`` (``with``) reported
+    missing."""
+    _write(tmp_path, "src/pkg/mod.py", _TARGETS)
+    _write(tmp_path, "docs/note.md", f"See `src/pkg/mod.py::{cited}`.\n")
+    scan = scan_tree(tmp_path)
+    assert (scan.findings, scan.checked) == ([], 1), scan
+
+
+#: Homonyms of the cited class bound where repair 1.7 still takes bindings: the
+#: module body or a class body. The panel's K68 measured the first three
+#: turning a missing member into "member not followable"; the last three bind
+#: once tuple, ``for`` and ``with`` targets do, and do the same.
+_MODULE_OR_CLASS_HOMONYMS: dict[str, str] = {
+    "a module-level alias": "A = A\n",
+    "an annotated module-level alias": "A: type = A\n",
+    "an unrelated class body": "class B:\n    A = 1\n",
+    "a module-level for target": "for A in ():\n    pass\n",
+    "a module-level with target": "with open('x') as A:\n    pass\n",
+    "a module-level tuple target": "A, B = A, 1\n",
+}
+
+
+@pytest.mark.parametrize("homonym", sorted(_MODULE_OR_CLASS_HOMONYMS))
+def test_a_homonym_in_the_module_or_a_class_body_never_passes_a_missing_member(
+    tmp_path: pathlib.Path, homonym: str
+) -> None:
+    """What the ruling leaves to the cap (K68). A binding in the module or a
+    class body that shares the cited class's name is still taken, so which
+    binding ``A`` names is unknown; the citation is never *checked*. It is a
+    finding or it is counted "member not followable", and
+    ``test_the_unfollowable_member_count_is_capped_at_zero`` holds that count
+    at 0 on the real tree -- so neither passes the gate."""
+    _write(
+        tmp_path, "src/pkg/mod.py", _CLASS_A + "\n\n" + _MODULE_OR_CLASS_HOMONYMS[homonym]
+    )
+    _write(tmp_path, "docs/note.md", "See `src/pkg/mod.py::A.nope`.\n")
+    scan = scan_tree(tmp_path)
+    assert scan.checked == 0, scan
+    assert len(scan.findings) + scan.unfollowable_member == 1, scan
+
+
+#: The ceiling on "member not followable" (repair 1.7: *"cap the 'unfollowable
+#: member' count at 0 with a test"*). A citation counted there is one
+#: ``cite03`` could not check -- its name before the member is bound by an
+#: assignment (an alias, an instance), or a homonym in the module or a class
+#: body hides which binding it names -- so the member could be missing and no
+#: finding would say so. Measured 0 on this tree before the cap was written.
+MAXIMUM_UNFOLLOWABLE_MEMBER_CITATIONS = 0
+
+#: What to do when the cap is exceeded. Raising it on purpose and raising it to
+#: turn a red build green are the identical edit, so the edit must say which.
+UNFOLLOWABLE_CAP_INSTRUCTION = (
+    "Re-cite the member at the class or function that defines it, by its own"
+    " name (`path.py::Class.member`, or `path.py::function.nested` for a"
+    " definition nested in a function), or remove the binding that shares the"
+    " cited name. If a citation genuinely cannot be followed, raise"
+    " MAXIMUM_UNFOLLOWABLE_MEMBER_CITATIONS in the same commit and name the"
+    " citation in the commit message."
+)
+
+
+def unfollowable_member_sites(root: pathlib.Path) -> list[str]:
+    """Every symbol citation the scan of `root` counts "member not followable".
+
+    As ``host:line cites path::A.b``. Reproduces the ``cite03`` branch of
+    ``tools/lints/citations.py::check_source`` that bumps
+    ``unfollowable_member`` -- path resolved, first name present, a member
+    tail, and ``member_verdict`` answering ``None`` -- with the checker's own
+    walk, exemption policy, prose filter, patterns and verdict. The tests below
+    assert that its length equals ``scan_tree``'s count, so it cannot drift
+    from what the gate counts.
+    """
+    index = repo_index(root)
+    trees = _Tree()
+    sites: list[str] = []
+    for path in iter_scanned_files(root):
+        host = path.relative_to(root).as_posix()
+        if exemption_reason(host) is not None:
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        prose = prose_lines(source) if path.suffix == ".py" else None
+        for lineno, line in enumerate(source.splitlines(), 1):
+            if prose is not None and lineno not in prose:
+                continue
+            for match in NODE_ID.finditer(line):
+                cited, symbol = match.group("path"), match.group("symbol")
+                target, _ambiguous = resolve_cited(cited, root, index)
+                if target is None or symbol not in trees.spans(target):
+                    continue
+                tail = _MEMBER_TAIL.match(line, match.end())
+                if tail is None:
+                    continue
+                qualified = [symbol, *tail.group(0)[1:].split(".")]
+                verdict, _stop = member_verdict(trees.definitions(target), qualified)
+                if verdict is None:
+                    sites.append(f"{host}:{lineno} cites {cited}::{'.'.join(qualified)}")
+    return sites
+
+
+def test_the_unfollowable_member_count_is_capped_at_zero() -> None:
+    """The cap, on this tree. A count nobody bounds is how F-G2-3's laundered
+    citations stayed invisible: the scan counted them and nothing failed."""
+    sites = unfollowable_member_sites(_REPO_ROOT)
+    assert len(sites) == scan_tree(_REPO_ROOT).unfollowable_member, sites
+    assert len(sites) <= MAXIMUM_UNFOLLOWABLE_MEMBER_CITATIONS, (
+        f"{len(sites)} symbol citations are 'member not followable', ceiling"
+        f" {MAXIMUM_UNFOLLOWABLE_MEMBER_CITATIONS}: cite03 could not check"
+        f" them, so a missing member behind them is no finding."
+        f" {UNFOLLOWABLE_CAP_INSTRUCTION} Found:"
+        + "".join(f"\n  - {site}" for site in sites)
+    )
+
+
+def test_the_cap_sees_every_site_the_scan_counts(tmp_path: pathlib.Path) -> None:
+    """The cap's positive control: on a tree carrying a member reached through
+    an assignment (``TestGate = Gate.Config``) and a missing member behind a
+    module-level alias (K68), the cap's own lister names both sites, agrees
+    with ``scan_tree``'s count, and would fail the ceiling. A cap whose lister
+    found nothing would pass forever."""
+    _write(tmp_path, "src/pkg/mod.py", _MEMBERS)
+    _write(tmp_path, "src/pkg/alias.py", _CLASS_A + "\n\nA = A\n")
+    _write(
+        tmp_path,
+        "docs/note.md",
+        "See `src/pkg/mod.py::TestGate.check`.\nSee `src/pkg/alias.py::A.nope`.\n",
+    )
+    sites = unfollowable_member_sites(tmp_path)
+    assert sites == [
+        "docs/note.md:1 cites src/pkg/mod.py::TestGate.check",
+        "docs/note.md:2 cites src/pkg/alias.py::A.nope",
+    ], sites
+    assert len(sites) == scan_tree(tmp_path).unfollowable_member
+    assert len(sites) > MAXIMUM_UNFOLLOWABLE_MEMBER_CITATIONS
 
 
 # --- what is scanned, and what is exempt -----------------------------------
