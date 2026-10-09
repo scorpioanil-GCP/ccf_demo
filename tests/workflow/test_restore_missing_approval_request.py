@@ -62,7 +62,12 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.controlplane.state import InMemoryStateStore
 from ccf.hitl.approval_gate import GATE_EVENT_CLASS
-from ccf.hitl.transport import InMemoryHitlTransport, PendingHitlEvent
+from ccf.hitl.transport import (
+    HitlActionSubmission,
+    HitlGateClosed,
+    InMemoryHitlTransport,
+    PendingHitlEvent,
+)
 from ccf.workflow.factory import Workflow
 from ccf_runtime.workflow.engine import (
     WORKFLOW_TRACE_ARTIFACT_CLASS,
@@ -78,7 +83,7 @@ from http_api.composition_authority import deployment_write_kinds
 from tests.hitl.sec006_harness import execute_as_principal
 from tests.workflow import test_engine as eh
 from tests.workflow import test_sec006_engine_controls as s6
-from tests.workflow.test_approval_gate_limits import SharedBackingStore, StandInRecords
+from tests.workflow.test_approval_gate_limits import ALREADY_EXISTS, SharedBackingStore, StandInRecords
 from tests.workflow.test_resume_single_flight import (
     APPROVER,
     DOWNSTREAM,
@@ -154,26 +159,56 @@ class TraceStore(FileArtifactStore):
 
 
 class DyingTransport(InMemoryHitlTransport):
-    """The reference transport, whose caller's process dies at its NEXT enqueue.
+    """The reference transport, whose caller's process dies at, or is held before, its NEXT enqueue.
 
-    That enqueue raises once and queues nothing; every other call is the
-    reference transport's own.
+    A death raises once and queues nothing; a hold blocks that one enqueue (or,
+    armed separately, the next submit) before it records anything and outside
+    the transport's own lock, until :attr:`release` is set. Every other call is
+    the reference transport's own.
     """
 
     def __init__(self) -> None:
         super().__init__()
         self._death_lock = threading.Lock()
         self._die_next = False
+        self._hold_next = False
+        self._hold_submit = False
+        self.held = threading.Event()
+        self.release = threading.Event()
 
     def die_at_next_enqueue(self) -> None:
         with self._death_lock:
             self._die_next = True
 
+    def hold_next_enqueue(self) -> None:
+        with self._death_lock:
+            self._hold_next = True
+
+    def hold_next_submit(self) -> None:
+        with self._death_lock:
+            self._hold_submit = True
+
+    def submit(self, authorized: Any, *, submission: HitlActionSubmission) -> HitlActionSubmission:
+        with self._death_lock:
+            hold, self._hold_submit = self._hold_submit, False
+        if hold:
+            self.held.set()
+            if not self.release.wait(HOLD_SECONDS):
+                raise RuntimeError("the held submit was never released")
+        return super().submit(authorized, submission=submission)
+
     def enqueue(self, *, event: PendingHitlEvent) -> None:
         with self._death_lock:
             die, self._die_next = self._die_next, False
+            hold = not die and self._hold_next
+            if hold:
+                self._hold_next = False
         if die:
             raise OSError("the process died before its enqueue")
+        if hold:
+            self.held.set()
+            if not self.release.wait(HOLD_SECONDS):
+                raise RuntimeError("the held enqueue was never released")
         super().enqueue(event=event)
 
 
@@ -326,6 +361,7 @@ def test_a_suspension_whose_request_never_reached_the_queue_gets_exactly_that_re
     ran = list(run.bindings.ran)
     assert ran == ["skill:fetch-certificates"], ran
     suspended_rows = rows((run.registry,), run.key, "workflow_suspended")
+    verdicts = run.transport.submissions(tenant=run.tenant)
 
     outcome = recover(run, trigger)
 
@@ -342,8 +378,10 @@ def test_a_suspension_whose_request_never_reached_the_queue_gets_exactly_that_re
     assert state_of(run) == stuck
     assert outcome.trace_artifact.content_address == meant == content_hash(stuck.trace)
     assert run.store.get(content_address=meant) == canonical_bytes(stuck.trace)
-    # (iv) no step ran.
+    # (iv) no step ran; and no verdict was recorded and no gate closed.
     assert run.bindings.ran == ran
+    assert run.transport.submissions(tenant=run.tenant) == verdicts
+    assert run.transport.closures(tenant=run.tenant) == ()
     # The recovery is audited, by one row.
     assert rows((run.registry,), run.key, "workflow_suspended") == suspended_rows + [None]
 
@@ -447,3 +485,170 @@ def test_two_processes_recovering_one_suspension_at_once_file_one_request(tmp_pa
         "the suspension's own row and ONE recovery"
     )
     assert a.bindings.ran == ["skill:fetch-certificates"] and b.bindings.ran == []
+
+
+# --- what the recovery must never do ---------------------------------------------
+
+
+def test_a_request_the_approval_gate_resolved_is_never_filed_again(tmp_path: Path) -> None:
+    """The run suspends normally and its request is RESOLVED through the real
+    :class:`~ccf.hitl.approval_gate.ApprovalGate`, which claims the request off
+    the queue before it records the approval. The run is now ``suspended`` with
+    no pending request, and nothing is missing: a verdict recorded against the
+    pending request is on the authority path. The starter's retried start must
+    not file the request again, which would reopen a decided gate to more
+    verdicts. It is refused "already exists" and files nothing, and the recorded
+    approval still carries the run past the gate once."""
+    run = compose(tmp_path)
+    first = start(run)
+    assert isinstance(first, WorkflowSuspended)
+    eh._resolve_gate(
+        run.registry, run.transport, tenant=run.tenant, event_key=first.event_key,
+        action="approve", subject_id=APPROVER,
+    )
+    assert requests(run, FIRST_GATE) == []
+    before = state_of(run)
+    suspended_rows = rows((run.registry,), run.key, "workflow_suspended")
+
+    again = start(run)
+
+    assert isinstance(again, WorkflowResumeRefused), again
+    assert ALREADY_EXISTS in again.reason, again.reason
+    assert requests(run, FIRST_GATE) == [], "a resolved request was filed again"
+    assert state_of(run) == before
+    assert rows((run.registry,), run.key, "workflow_suspended") == suspended_rows
+    passed = resume(run)
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
+    assert run.bindings.ran.count(f"skill:{DOWNSTREAM}") == 1
+
+
+# --- residuals, measured ----------------------------------------------------------
+#
+# Each test below pins what the recovery does NOT prevent, so the disclosure in
+# ``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._restore_request``
+# rests on a measurement. Each goes red if the residual is ever closed, and must
+# then be rewritten to assert the closing mechanism.
+
+
+@pytest.mark.parametrize("overlap", ["a slow suspension", "a recovery held at its enqueue"])
+def test_an_overlapping_recovery_can_file_a_second_identical_request_and_the_gate_still_opens_once(
+    tmp_path: Path, overlap: str
+) -> None:
+    """RESIDUAL. The conditional write orders recoveries that read the same
+    version, not one that reads the record after another write landed and before
+    that write's enqueue. Process A is held there, either inside its suspension's
+    trace write (the suspension is alive but slow, after its suspension write
+    landed) or inside a recovery's enqueue (after that recovery's write landed),
+    while process B's resumption runs to its end. Both file the request: two
+    identical requests for the one suspension. One approval then opens the gate
+    exactly once, the gate's closure retires both requests, and a later verdict
+    on the suspension is refused ``hitl-gate-closed``."""
+    records = StandInRecords()
+    transport = DyingTransport()
+    transport.scope = "shared"  # type: ignore[misc]
+    a = compose(tmp_path / "a", store=SharedBackingStore(records), transport=transport)
+    b = compose(tmp_path / "b", store=SharedBackingStore(records), transport=transport)
+    if overlap == "a slow suspension":
+        a.store.hold_next_trace_write()
+        held, release = a.store.held, a.store.release
+        first = Worker(lambda: start(a)).start()
+    else:
+        interrupt(a, "enqueue", lambda: start(a))
+        transport.hold_next_enqueue()
+        held, release = transport.held, transport.release
+        first = Worker(lambda: resume(a)).start()
+    try:
+        if not held.wait(HOLD_SECONDS):
+            pytest.fail(f"process A was never held: {first.join()!r}")
+        second = resume(b)
+    finally:
+        release.set()
+    assert isinstance(second, WorkflowSuspended), second
+    assert isinstance(first.join(), WorkflowSuspended)
+    stuck = state_of(a)
+    expected = the_request_a_suspension_files(a, stuck)
+    assert requests(a, FIRST_GATE) == [expected, expected], "the residual: two identical requests"
+
+    eh._resolve_gate(
+        a.registry, transport, tenant=a.tenant, event_key=expected.event_key,
+        action="approve", subject_id=APPROVER,
+    )
+    passed = resume(a)
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
+    assert requests(a, FIRST_GATE) == [], "the gate's closure retired both requests"
+    with pytest.raises(HitlGateClosed):
+        eh._submit_only(
+            transport, tenant=a.tenant, event_key=expected.event_key,
+            product_content_hash=expected.product_content_hash, action="reject", subject_id=APPROVER,
+        )
+    assert isinstance(resume(b), WorkflowResumeRefused)
+    assert a.bindings.ran.count(f"skill:{DOWNSTREAM}") == 1 and b.bindings.ran == []
+
+
+def test_with_two_transports_over_one_state_store_a_recovery_files_on_its_own_transport(
+    tmp_path: Path,
+) -> None:
+    """RESIDUAL: the deployment condition. Two engines over ONE state store,
+    each with its own HITL transport, which is outside the posture SP §4.13
+    requires (one shared HITL transport wherever one state store is resumed
+    from). Engine A suspends normally, so the request is pending on A's
+    transport. A resumption through engine B finds no approval and no request on
+    B's transport, and files the request there: the suspension's request is
+    pending on both, and each transport's verdicts are judged only by its own
+    engine. The recovery cannot tell a request filed on another transport from
+    one never filed, because nothing in the suspension names its transport."""
+    store = InMemoryStateStore()
+    a = compose(tmp_path / "a", store=store)
+    b = compose(tmp_path / "b", store=store)
+    assert a.transport is not b.transport and a.registry.state_store is b.registry.state_store
+    first = start(a)
+    assert isinstance(first, WorkflowSuspended)
+    expected = the_request_a_suspension_files(a, state_of(a))
+    assert requests(a, FIRST_GATE) == [expected] and requests(b, FIRST_GATE) == []
+
+    outcome = resume(b)
+
+    assert isinstance(outcome, WorkflowSuspended), outcome
+    assert requests(a, FIRST_GATE) == [expected]
+    assert requests(b, FIRST_GATE) == [expected], "the residual: filed again on B's transport"
+    assert a.bindings.ran == ["skill:fetch-certificates"] and b.bindings.ran == []
+
+
+def test_a_request_claimed_and_not_yet_answered_is_filed_again_and_its_verdict_still_counts_once(
+    tmp_path: Path,
+) -> None:
+    """RESIDUAL. The real :class:`~ccf.hitl.approval_gate.ApprovalGate` claims
+    the pending request (it removes it from the queue) and is held before the
+    transport records its verdict. A claim is not visible through the transport
+    Protocol, so a resumption then finds no request, no verdict and no closure,
+    and files the request again; the transport's enqueue discards the
+    outstanding claim, as its Protocol documents. The gate's verdict is then
+    recorded against the restored request, unstamped (``pending``), and it
+    carries the run past the gate exactly once."""
+    run = compose(tmp_path)
+    first = start(run)
+    assert isinstance(first, WorkflowSuspended)
+    run.transport.hold_next_submit()
+    resolving = Worker(
+        lambda: eh._resolve_gate(
+            run.registry, run.transport, tenant=run.tenant, event_key=first.event_key,
+            action="approve", subject_id=APPROVER,
+        )
+    ).start()
+    try:
+        if not run.transport.held.wait(HOLD_SECONDS):
+            pytest.fail(f"the gate's submit was never held: {resolving.join()!r}")
+        assert requests(run, FIRST_GATE) == [], "the gate claimed the request"
+        restored = resume(run)
+    finally:
+        run.transport.release.set()
+    resolving.join()
+
+    assert isinstance(restored, WorkflowSuspended), restored
+    (recorded,) = run.transport.submissions(tenant=run.tenant)
+    assert (recorded.event_state_at_submit, recorded.answered_event_class) == ("pending", None)
+    assert requests(run, FIRST_GATE) == [the_request_a_suspension_files(run, state_of(run))]
+    passed = resume(run)
+    assert isinstance(passed, WorkflowSuspended) and passed.gate == NEXT_GATE, passed
+    assert requests(run, FIRST_GATE) == []
+    assert run.bindings.ran.count(f"skill:{DOWNSTREAM}") == 1
