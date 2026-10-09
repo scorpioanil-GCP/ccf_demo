@@ -3482,7 +3482,10 @@ class NeverRunCache:
 # and a surface that answers a present address differently from an absent one tells the two deployments apart. The
 # closing test reads every pin filed in exactly one of the counterfactual's two deployments,
 # as the asker, in both and in the noise floor's copy, and compares the readings with the gate's own rules
-# (``test_sec020_combined_proof.test_a_pin_filed_in_one_deployment_reads_alike_in_both``).
+# (``test_sec020_combined_proof.test_a_pin_filed_in_one_deployment_reads_alike_in_both``). Dave, 2026-10-09 10:54 MST,
+# 2.6 (a), verbatim: "Add both coverage cases to the closure gate." — the write-then-read read back by a second
+# principal (:func:`read_back_as_another_principal`), and every pin filed in BOTH deployments, read and judged the
+# same way (``test_sec020_combined_proof.test_a_pin_filed_in_both_deployments_reads_alike_in_both``).
 
 #: The pin channel's name in the per-pin runs the closing test compares.
 PIN = "pin"
@@ -3722,7 +3725,7 @@ def read_back_as_another_principal(
 
 @dataclass
 class PinRun:
-    """One (shape, anchor)'s pin channel: the three deployments' questions, their pins, and every one-sided pin's readings."""
+    """One (shape, anchor)'s pin channel: the three deployments' questions, their pins, and every one-sided and two-sided pin's readings."""
 
     shape: str
     anchor: str
@@ -3734,12 +3737,16 @@ class PinRun:
     filed: dict[str, dict[str, bool]]
     #: The pins filed in exactly one of the withholding and the not-holding deployment.
     one_sided: tuple[str, ...]
-    #: Per one-sided pin, the versioned URIs the deployment that filed it filed it under.
+    #: Per one-sided pin, the versioned URIs the deployment that filed it filed it under; per two-sided pin, every
+    #: versioned URI either compared deployment filed it under.
     uris: dict[str, tuple[str, ...]]
-    #: Per one-sided pin and side, every surface's reading.
+    #: Per one-sided or two-sided pin and side, every surface's reading.
     readings: dict[str, dict[str, dict[str, Any]]]
-    #: Per one-sided pin and side, every surface whose read failed, and how.
+    #: Per one-sided or two-sided pin and side, every surface whose read failed, and how.
     failures: dict[str, dict[str, dict[str, str]]]
+    #: The pins filed in BOTH the withholding and the not-holding deployment (2.6 (a): "readings for pins filed in
+    #: both deployments").
+    two_sided: tuple[str, ...] = ()
 
     def surface_run(self, pin: str, surface: str) -> Run:
         """One pin at one surface as a :class:`Run` of the counterfactual's three sides, for the gate's own comparison."""
@@ -3761,7 +3768,9 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
     pin's bytes itself. Every plain read of every pin happens before the first write. The canonical bytes the asker
     writes are read from the deployment that filed the pin, as an auditor would: the stand-in for an outsider
     recomputing them, which is unreproduced (the closing test's pin channel says so). After every write-then-read of
-    the asker, each pin is read back by a second principal (:func:`read_back_as_another_principal`, 2.6 (a)).
+    the asker, each pin is read back by a second principal (:func:`read_back_as_another_principal`, 2.6 (a)). Every
+    pin filed in BOTH compared deployments is read the same way, after the one-sided pins' reads of the same kind,
+    under every name either deployment filed it under (2.6 (a), case two); its plain reads too precede the first write.
     """
     from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
 
@@ -3790,13 +3799,39 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
             canonical[pin] = filer.store.get(content_address=pin)
             if hashlib.sha256(canonical[pin]).hexdigest() != pin:
                 raise AssertionError(f"the bytes filed at pin {pin} do not hash to it: not the pin's canonical bytes")
-        readings: dict[str, dict[str, dict[str, Any]]] = {pin: {side: {} for side in deployments} for pin in one_sided}
+        # 2.6 (a), case two: every pin filed in BOTH compared deployments, under every name either filed it under.
+        two_sided = tuple(pin for pin in candidates if filed[CF_WITHHELD][pin] and filed[CF_NONEXISTENT][pin])
+        for address in two_sided:
+            uris[address] = tuple(
+                sorted(
+                    {
+                        artifact_uri(
+                            tenant_id=named.tenant_id, artifact_class=named.artifact_class, name=named.name,
+                            artifact_version=address,
+                        )
+                        for side in (CF_WITHHELD, CF_NONEXISTENT)
+                        for named in filed_names(deployments[side], address)
+                    }
+                )
+            )
+            canonical[address] = deployments[CF_WITHHELD].store.get(content_address=address)
+            if hashlib.sha256(canonical[address]).hexdigest() != address:
+                raise AssertionError(
+                    f"the bytes filed at pin {address} do not hash to it: not the pin's canonical bytes"
+                )
+        readings: dict[str, dict[str, dict[str, Any]]] = {
+            pin: {side: {} for side in deployments} for pin in (*one_sided, *two_sided)
+        }
         failures: dict[str, dict[str, dict[str, str]]] = {
-            pin: {side: {} for side in deployments} for pin in one_sided
+            pin: {side: {} for side in deployments} for pin in (*one_sided, *two_sided)
         }
         for pin in one_sided:
             for side, built in deployments.items():
                 read_pin(built, pin, uris[pin], readings[pin][side], failures[pin][side])
+        # 2.6 (a), case two: the two-sided pins' plain reads, still before the first write.
+        for address in two_sided:
+            for side, built in deployments.items():
+                read_pin(built, address, uris[address], readings[address][side], failures[address][side])
         for pin in one_sided:
             for side, built in deployments.items():
                 write_then_read_pin(
@@ -3806,12 +3841,24 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
         for pin in one_sided:
             for side, built in deployments.items():
                 read_back_as_another_principal(built, pin, (*uris[pin], pin), readings[pin][side], failures[pin][side])
+        # 2.6 (a), case two: the two-sided pins' write-then-read, then their read-back by a second principal.
+        for address in two_sided:
+            for side, built in deployments.items():
+                write_then_read_pin(
+                    built, address, canonical[address], (*uris[address], address), readings[address][side],
+                    failures[address][side],
+                )
+        for address in two_sided:
+            for side, built in deployments.items():
+                read_back_as_another_principal(
+                    built, address, (*uris[address], address), readings[address][side], failures[address][side]
+                )
     finally:
         for built in deployments.values():
             built.close()
     return PinRun(
         shape=shape, anchor=anchor, questions=questions, pins=pins, filed=filed, one_sided=one_sided, uris=uris,
-        readings=readings, failures=failures,
+        readings=readings, failures=failures, two_sided=two_sided,
     )
 
 

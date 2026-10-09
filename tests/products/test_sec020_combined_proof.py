@@ -107,7 +107,9 @@ resolution and write-then-read in the closure gate"*).
 ``test_a_pin_filed_in_one_deployment_reads_alike_in_both[<shape>-<anchor>-<surface>]`` reads, as the asker, every
 executed-query pin filed in only one of the counterfactual's two deployments, in both, at every surface the asker can
 read it at, write-then-read included, and reads the write-then-read back as a second principal of the tenant too
-(Dave, 2026-10-09 10:54 MST, 2.6 (a): *"Add both coverage cases to the closure gate."*). Its instrument is
+(Dave, 2026-10-09 10:54 MST, 2.6 (a): *"Add both coverage cases to the closure gate."*). The second case,
+``test_a_pin_filed_in_both_deployments_reads_alike_in_both[<shape>-<anchor>-<surface>]``, reads every pin filed in
+BOTH deployments the same way and judges it by the same rules. Its instrument is
 ``test_the_pin_instrument_sees_a_difference``, and its
 population is reported every run by ``test_the_pin_channel_census_is_measured_and_reported``. An outsider recomputing
 a pin's address without the record is unreproduced, and that does not excuse the channel.
@@ -2065,6 +2067,64 @@ def test_a_pin_filed_in_one_deployment_reads_alike_in_both(
     )
 
 
+@pytest.mark.parametrize(("shape", "anchor", "surface"), _pin_cells())
+def test_a_pin_filed_in_both_deployments_reads_alike_in_both(
+    runs: w.RunCache, pin_runs: w.PinRunCache, shape: str, anchor: str, surface: str
+) -> None:
+    """2.6 (a), case two: a pin filed in BOTH deployments reads ALIKE in both, at every surface of the pin channel.
+
+    Dave, 2026-10-09 10:54 MST (``D-IMPL-378``), 2.6 (a), verbatim: *"Add both coverage cases to the closure gate."*
+    The second case, verbatim from the "i" panel's findings brief (section 2.6): "readings for pins filed in both
+    deployments" (the panel's G-PIN-VACUOUS-CELLS: the one-sided cells read nothing where no pin is one-sided).
+
+    **The readings** (``sec020_worlds.pin_run``): every executed-query pin filed in both the withholding and the
+    not-holding deployment, read in all three of the counterfactual's deployments exactly as a one-sided pin is read:
+    the plain reads (as the asker and as another principal; the versioned-URI resolution under every name EITHER
+    compared deployment filed it under), before the first write; then write-then-read; then the read-back by a second
+    principal. One cell per shape, anchor and surface; each holds every two-sided pin of its run.
+
+    **Judged exactly as** :func:`test_a_pin_filed_in_one_deployment_reads_alike_in_both` **judges a one-sided pin**:
+    the questions first (:func:`_vacuous` over :func:`_pin_questions`, and the noise floor's copy must have answered);
+    the floor's copy must have filed every two-sided pin, as the not-holding deployment did; then each reading,
+    :func:`_vacuous`, then :func:`_compare`. A cell whose run has no two-sided pin reads nothing, and the census
+    (``test_the_pin_channel_census_is_measured_and_reported``) reports, every run, which runs have one.
+    """
+    _require(shape)
+    pin_run = pin_runs.get(shape=shape, anchor=anchor)
+    questions = _pin_questions(runs, pin_run)
+    vacuous = _vacuous(questions, w.CF_WITHHELD, w.CF_NONEXISTENT)
+    assert not vacuous, (
+        f"SEC-020 pin channel, two-sided [{shape}, {anchor}, {surface}]: not evidence, both deployments' questions"
+        f" RAISED instead of answering, so neither filed anything to compare: {vacuous}"
+    )
+    _require_the_floor_copy_answered(questions, w.COUNTERFACTUAL)
+    unfaithful = [pin for pin in pin_run.two_sided if not pin_run.filed[w.CF_FLOOR][pin]]
+    assert not unfaithful, (
+        f"SEC-020 pin channel, two-sided [{shape}, {anchor}, {surface}]: not evidence, the noise floor's copy did not"
+        f" file these pins, which the not-holding deployment filed, so its readings are no floor: {unfaithful}"
+    )
+    found: dict[str, Any] = {}
+    for pin in pin_run.two_sided:
+        run = pin_run.surface_run(pin, surface)
+        vacuous = _vacuous(run, w.CF_WITHHELD, w.CF_NONEXISTENT)
+        if vacuous:
+            found[pin] = f"not evidence, both readings failed: {vacuous}"
+            continue
+        differing, floor, withheld, nonexistent = _compare(run, comparison=w.COUNTERFACTUAL, channel=w.PIN)
+        if differing:
+            found[pin] = {
+                "at": sorted(differing),
+                "noise floor, not counted": sorted(floor),
+                "withholding deployment": w.render(withheld, limit=400),
+                "not-holding deployment": w.render(nonexistent, limit=400),
+            }
+    assert not found, (
+        f"SEC-020 pin channel, two-sided [{shape}, {anchor}, {surface}]: a pin filed in both deployments reads"
+        f" differently in the two, {len(found)} of {len(pin_run.two_sided)} two-sided pins:"
+        f" {json.dumps(found, sort_keys=True)}"
+    )
+
+
 @pytest.mark.parametrize("surface", w.PIN_SURFACES)
 def test_the_pin_instrument_sees_a_difference(pin_instrument: w.PinInstrument, surface: str) -> None:
     """The pin channel's instrument: every surface, read where it MUST answer differently, is seen to differ.
@@ -2096,11 +2156,11 @@ def test_the_pin_instrument_sees_a_difference(pin_instrument: w.PinInstrument, s
 def test_the_pin_channel_census_is_measured_and_reported(
     pin_runs: w.PinRunCache, record_testsuite_property: Callable[[str, object], None], capsys: Any
 ) -> None:
-    """The pin channel's population, reported every run: which pins each run's records name and which are one-sided.
+    """The pin channel's population, reported every run: which pins each run's records name, which are one-sided, which two-sided.
 
-    Asserts only that every run of the channel was MEASURED (built, asked, read): which pins are one-sided is
-    reported, never asserted, because a run whose two deployments file the same pins carries nothing on this
-    channel, and that is a measurement too. Printed past the output capture, in its own block headed
+    Asserts only that every run of the channel was MEASURED (built, asked, read): which pins are one-sided, and which
+    are filed in both deployments (two-sided, 2.6 (a)), is reported, never asserted, because a run with neither carries
+    nothing on this channel, and that is a measurement too. Printed past the output capture, in its own block headed
     ``SEC-020 PIN CHANNEL CENSUS``, and recorded in the JUnit record as ``pin_channel_census``.
     """
     census: dict[str, dict[str, Any]] = {}
@@ -2114,6 +2174,7 @@ def test_the_pin_channel_census_is_measured_and_reported(
                 "pins named": {side: len(pins) for side, pins in sorted(run.pins.items())},
                 "one-sided, filed where the subject is held": [p for p in run.one_sided if run.filed[w.CF_WITHHELD][p]],
                 "one-sided, filed where it is not": [p for p in run.one_sided if run.filed[w.CF_NONEXISTENT][p]],
+                "two-sided, filed in both": list(run.two_sided),
                 "named, filed in neither": sum(
                     1 for p in recorded if not run.filed[w.CF_WITHHELD][p] and not run.filed[w.CF_NONEXISTENT][p]
                 ),
@@ -2128,11 +2189,13 @@ def test_the_pin_channel_census_is_measured_and_reported(
     assert sorted(census) == sorted(expected), "a run of the pin channel was not measured"
     one_sided = sum(len(c["one-sided, filed where the subject is held"]) + len(c["one-sided, filed where it is not"])
                     for c in census.values())
+    two_sided = sum(len(c["two-sided, filed in both"]) for c in census.values())
     record_testsuite_property("pin_channel_census", json.dumps({"runs": len(census), "census": census}, sort_keys=True))
     lines = [
         "",
         "=" * 30 + " SEC-020 PIN CHANNEL CENSUS (reported; the cells are in the gate) " + "=" * 30,
-        f"{len(census)} runs; {one_sided} one-sided pins read at {len(w.PIN_SURFACES)} surfaces each:",
+        f"{len(census)} runs; {one_sided} one-sided pins and {two_sided} two-sided pins (filed in both deployments)"
+        f" read at {len(w.PIN_SURFACES)} surfaces each:",
         *(f"  {key}: {json.dumps(found, sort_keys=True)}" for key, found in sorted(census.items())),
         "=" * 126,
     ]
