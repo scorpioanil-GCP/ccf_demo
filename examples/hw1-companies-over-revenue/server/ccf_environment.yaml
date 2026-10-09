@@ -1,0 +1,57 @@
+# THE DOOR'S ENVIRONMENT: the names the SDK's standard door (`open_door`) reads
+# its credential and its two advertised addresses from (`D-IMPL-343`). No value
+# appears here. A URL or a token in a document is what Dave's `D-IMPL-343` lock
+# refuses ("Do not put URLs or tokens in configuration."), and the SDK's reader
+# refuses anything in a `from_env` position that is not a variable NAME.
+#
+# Where this sits, and why. The SDK's reader expects this document beside a
+# `ccf_config.yaml`. HW-1's door is the only program that reads it, so it sits
+# beside the door, in `server/`, the directory every copy of this example
+# carries along with the deployment.
+#
+# Two members are inert here, and both are stated so their presence is not
+# read as wiring:
+#
+# * `substrate` is REQUIRED by the document's contract. The paved road mints a
+#   per-question fabric from it; HW-1 does not. Its graph is
+#   `../deployment/binding.yaml`'s `connection:`, booted once per door process,
+#   and nothing reads this block.
+# * `config` is left at its default, `ccf_config.yaml` beside this document,
+#   which does not exist. The document HW-1's door serves is
+#   `../deployment/ccf_config.yaml`, which the field cannot name (it refuses a
+#   path above this directory), and nothing reads the field here.
+
+substrate:
+  setting: database_path
+  prefix: hw1_door_inert
+  suffix: .sqlite3
+
+# The standard door's three names.
+#
+# The credential: when UNSET the door mints one per boot. The stdio caller is
+# the process that spawned this door, so nobody has to know it; a parent that
+# wants to know it sets the variable.
+#
+# The two URLs: INERT on stdio, because FastMCP installs bearer authentication
+# on the HTTP app and stdio has none. The door reads them on stdio anyway (the
+# egress builder takes them together with the token verifier, `D-03`), so the
+# environment that spawns this door must carry both, or the door stops before
+# serving anything and names the variable with the remedy below.
+door:
+  credential:
+    from_env: CCF_HW1_DOOR_TOKEN
+    remedy: >-
+      export CCF_HW1_DOOR_TOKEN with the bearer credential this door is to be
+      reached with, or leave it unset to have one minted per boot.
+  issuer_url:
+    from_env: CCF_HW1_DOOR_ISSUER_URL
+    remedy: >-
+      export CCF_HW1_DOOR_ISSUER_URL with the OAuth issuer this door's auth
+      settings advertise. It is inert over stdio, so any https URL serves for a
+      development door, for example one under the reserved `.invalid` domain.
+  resource_server_url:
+    from_env: CCF_HW1_DOOR_RESOURCE_URL
+    remedy: >-
+      export CCF_HW1_DOOR_RESOURCE_URL with the resource-server address this
+      door's auth settings advertise. It is inert over stdio, so any https URL
+      serves for a development door.
