@@ -36,7 +36,7 @@ import pytest
 
 from ccf.contracts.canonical import content_hash
 from ccf.deployment import load_and_boot, load_config_and_boot
-from ccf.products.resolver import ProductNotResolvable, build_governed_resolver
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE, ProductNotResolvable, build_governed_resolver
 from ccf.replay.engine import replay
 from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
@@ -230,7 +230,11 @@ def test_p4_strict_control_a_verifiably_fresh_question_store_serves_its_one_ques
     finally:
         booted[0].handle.close()
     assert isinstance(answered, ServedProduct), f"a verifiably fresh question store must answer its one question: {answered!r}"
-    assert seam.asked == [sec020.MISSING], f"its acquisition phase must run, once, for that question: {seam.asked}"
+    # `D-IMPL-378` ruling P6 (a): a late-withholding class with no early policy, so
+    # the phase is first asked about the probe identifier, then once for the question.
+    assert seam.asked == [UNHELD_SUBJECT_PROBE, sec020.MISSING], (
+        f"its acquisition phase must run, once, for that question, after the probe: {seam.asked}"
+    )
 
 
 def test_p4_strict_control_a_store_the_sdk_created_for_a_deployment_serves_again_when_reopened(

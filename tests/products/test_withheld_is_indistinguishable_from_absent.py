@@ -69,7 +69,7 @@ from ccf.products.debt_scorer import AssemblyDebtScorer, DeclaredFactor
 from ccf.products.entitlement import product_entitlement_key
 from ccf.products.refusal import RefusalEnvelope
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import GovernedResolver, ReplayRefusalRecorder
+from ccf.products.resolver import UNHELD_SUBJECT_PROBE, GovernedResolver, ReplayRefusalRecorder
 from ccf.projection.plan import Perspective, ProjectionOutput
 from ccf.replay.serve import ServedProduct
 from ccf.signal.envelope import SignalEnvelope
@@ -924,7 +924,10 @@ def test_the_paved_road_acquisition_seam_does_not_reveal_a_withheld_subject(
         withheld_record = opened.record_of(withheld)
 
     case = f"{anchor}, {seeding}-seeded paved road"
-    assert acquire.returned == {PAVED_WITHHELD: 1, PAVED_ABSENT: 0}, (
+    # `D-IMPL-378` ruling P6 (a): this class may withhold late and declares no
+    # early policy, so the subject-keyed phase is first asked, once per
+    # question, about the probe identifier — and returns nothing for it.
+    assert acquire.returned == {UNHELD_SUBJECT_PROBE: 0, PAVED_WITHHELD: 1, PAVED_ABSENT: 0}, (
         f"[{case}] the case was not constructed: the source must return the"
         f" withheld subject's evidence and nothing for the absent one: {acquire.returned}"
     )
