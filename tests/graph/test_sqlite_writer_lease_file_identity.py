@@ -270,6 +270,32 @@ def test_a_refused_file_lease_gives_back_the_sidecar_so_a_corrected_retry_is_lea
         store.writer_lease().release()  # the refused attempt gave its sidecar back
 
 
+def test_the_file_lease_is_keyed_on_the_file_the_store_opened_not_on_what_its_path_names_at_the_mint(
+    tmp_path: Path,
+) -> None:
+    """A path re-pointed at another file between the store's open and the mint does not move the lease.
+
+    The store reads the file's device and inode right after SQLite opens it. If the lease were keyed on whatever the
+    path names when the mint takes it, a file swapped in under the path would be leased while the connection still
+    writes the file it opened, which another writer holds.
+    """
+    locks = _locks(tmp_path)
+    database = tmp_path / "opened.sqlite3"
+    swapped_in = tmp_path / "swapped-in.sqlite3"
+    swapped_in.touch()
+    with SqliteGraphStore(database_path=database, writer_lease=lock_directory_writer_lease(str(locks))) as store:
+        store.writer_lease().release()  # control: leased; the opened file's lock file now exists
+        [opened_files_lock] = _lock_files(locks)
+        other_holder = os.open(opened_files_lock, os.O_RDWR)
+        try:
+            fcntl.flock(other_holder, fcntl.LOCK_EX | fcntl.LOCK_NB)  # another writer holds the OPENED file
+            os.replace(swapped_in, database)  # the path now names another file; the connection does not
+            with pytest.raises(WriterLeaseHeld, match=r"is held by another writer"):
+                store.writer_lease()
+        finally:
+            os.close(other_holder)
+
+
 def test_a_declared_lease_with_no_database_file_is_refused_when_the_store_is_built(tmp_path: Path) -> None:
     locks = _locks(tmp_path)
     with pytest.raises(ValueError, match=r"has no database file"):
