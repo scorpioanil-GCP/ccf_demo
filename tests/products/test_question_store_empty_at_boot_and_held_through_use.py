@@ -28,7 +28,9 @@ From the boot's return to the question's end, a second boot for a question at
 the same path, a plain writer boot, the composition root's own writer boot, a
 plain read-only boot asked a governed question, and a second governed call
 over the question's fabric are each refused by name, and nothing lands in the
-question's store. Measured on ``6942dadc`` (``probe-window-attempts-6942dad.txt``):
+question's store; the routes a second worker process of the deployment has are
+tried from another process too, where only the store's writer lease and the
+question marker stand. Measured on ``6942dadc`` (``probe-window-attempts-6942dad.txt``):
 a boot for a question that is also read-only took no writer lease, and a plain
 writer boot then wrote into its store while it was open. That boot is refused
 by name here, before anything is registered.
@@ -697,6 +699,71 @@ def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_
         road="the paved road",
     )
     assert held == [0], f"nothing any route tried may land in the question's store: {held}"
+
+
+class _AnotherProcess:
+    """A hand-composed acquisition phase that runs another process's routes into the store while the question uses it."""
+
+    def __init__(self, manifest: pathlib.Path, path: pathlib.Path, records: pathlib.Path) -> None:
+        self._arguments = (str(manifest), str(path), str(records))
+        self.found: dict[str, Any] = {}
+
+    def __call__(self, *, request: Any, perspective: Any) -> None:
+        import json  # noqa: PLC0415
+        import os  # noqa: PLC0415
+        import subprocess  # noqa: PLC0415
+        import sys  # noqa: PLC0415
+
+        root = pathlib.Path(__file__).resolve().parents[2]
+        estate = ("PG", "FLUREE_", "MONGO_", "NEO4J_", "CO_LENDER_")
+        environment = {key: value for key, value in os.environ.items() if not key.startswith(estate)}
+        environment["PYTHONPATH"] = os.pathsep.join(str(root / part) for part in ("src", "runtime"))
+        ran = subprocess.run(
+            [sys.executable, "-B", "-m", "tests.products._question_store_routes_from_another_process", *self._arguments],
+            cwd=root, env=environment, capture_output=True, text=True, timeout=300, check=False,
+        )
+        assert ran.returncode == 0, f"the other process did not run: {ran.stderr[-2000:]}"
+        self.found = json.loads(ran.stdout.strip().splitlines()[-1])
+
+
+def test_p4e_from_another_process_nothing_claims_opens_or_writes_a_question_store_during_its_use(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Exclusive ownership through use, across processes: the routes another worker process has are refused by name.
+
+    In one process a second writer is refused by the process's live-writer
+    table before the store's writer lease is asked; across processes, only
+    the lease (a ``flock`` beside the SQLite file) and the question marker
+    stand. A second process of the same deployment, with its own Control
+    Plane registry built from the same documents, tries each route while the
+    question's acquisition phase runs: a boot for a question at the path, a
+    plain writer boot that would write the deployment's three accounts, and a
+    plain read-only boot asked a governed question.
+    """
+    manifest, registry, records = _deployment(tmp_path)
+    path = tmp_path / "question" / _STORE
+    path.parent.mkdir()
+    other_records = tmp_path / "other-process-records"
+    seam = _AnotherProcess(manifest, path, other_records)
+    question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+    try:
+        outcome = m._ask(m._governed((question, registry, records), plan_factory=m._late(), acquisition=seam), sec020.MISSING)
+        held = _held(question)
+    finally:
+        question.handle.close()
+    assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
+    imported = pathlib.Path(seam.found.get("imported", ""))
+    root = pathlib.Path(__file__).resolve().parents[2]
+    assert imported.is_relative_to(root / "src"), f"the other process measured another tree: {imported}"
+    expected = {
+        "a boot for a question at its path": "QuestionFabricNotFresh",
+        "a plain writer boot at its path": "SingleWriterViolation",
+        "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
+    }
+    for route, name in expected.items():
+        found = seam.found.get(route, {})
+        assert name in found.get("raised", []), f"from another process, {route} was not refused by name ({name}): {found}"
+    assert held == 0, f"nothing another process tried may land in the question's store: it holds {held} entities"
 
 
 # --- controls ----------------------------------------------------------------------------
