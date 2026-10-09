@@ -483,11 +483,16 @@ class WorkflowEngine:
 
         An execution id is started once (D-23): the start is recorded
         ``running`` by a create-if-absent write before its first node runs, and
-        a second start is refused. The one exception is the starter's own retry
+        a second start is refused. One exception is the starter's own retry
         of a start whose first node is a ``hitl-gate`` and whose engine stopped
         before suspending there: no step ran, so it is FINISHED — the
         version-fenced suspension write and its one queue event — never started
-        again (``D-IMPL-378``, Dave's D2 ruling).
+        again (``D-IMPL-378``, Dave's D2 ruling). The other is the starter's own
+        retry of an execution left ``suspended`` with no approval request, its
+        engine having stopped, or its artifact store failed, between the
+        suspension write and the queue: the retry RESTORES that one request and
+        returns the suspension, and no step runs (Dave's decision 8 (a);
+        :meth:`_restore_request`).
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
@@ -496,8 +501,8 @@ class WorkflowEngine:
                 not an ``Execute``, or minted for another definition key.
             WorkflowWiringError: a step ref resolves to nothing, or nominal
                 routing is ambiguous.
-            ExecutionFenced: a finished start lost its suspension write to
-                another writer.
+            ExecutionFenced: a finished start lost its suspension write, or a
+                restored request its write, to another writer.
         """
         self._require_handle(workflow)
         verify(authorized, kind=Execute, resource=workflow.definition_key)
@@ -629,10 +634,21 @@ class WorkflowEngine:
         because the step may already have had effects no engine can see, and
         an operator reconciles the execution outside the fabric.
 
+        **A suspension whose approval request never reached the queue** (its
+        suspension write landed and its engine stopped, or its artifact store
+        failed, before the enqueue) has no approval to find. A resumption that
+        finds none RESTORES that one request, built as the suspension built it
+        and bound to its unchanged content hash, and returns the suspension:
+        nothing passes the gate, and a verdict recorded while the request was
+        missing is never authority (Dave's decision 8 (a);
+        :meth:`_restore_request`, which also states what a recovery cannot
+        see).
+
         Measured by ``tests/workflow/test_approval_gate_limits.py``,
         ``tests/http_api/test_approval_gate_limits_door.py``,
-        ``tests/workflow/test_resume_single_flight.py`` and
-        ``tests/workflow/test_finish_interrupted_passage.py``.
+        ``tests/workflow/test_resume_single_flight.py``,
+        ``tests/workflow/test_finish_interrupted_passage.py`` and
+        ``tests/workflow/test_restore_missing_approval_request.py``.
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
@@ -836,6 +852,20 @@ class WorkflowEngine:
                 snapshot=snapshot,
             )
             if not qualifying:
+                # D-IMPL-378, Dave's decision 8 (a): a suspension whose approval
+                # request never reached the queue has no approval to find; it
+                # gets that one request back, and nothing passes the gate.
+                restored = self._restore_request(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    key=key,
+                    record=record,
+                    version=version,
+                    snapshot=snapshot,
+                )
+                if restored is not None:
+                    return restored
                 return self._refuse(
                     authorized,
                     workflow,
@@ -1291,7 +1321,9 @@ class WorkflowEngine:
         """Suspend on a hitl-gate: persist, enqueue, return a typed handle.
 
         The record, the state key, the trace artifact and the pending HITL
-        event are all filed under ``authorized.tenant`` (§1.3).
+        event are all filed under ``authorized.tenant`` (§1.3). A suspension
+        whose request never reached the queue, after its persist landed, gets
+        that request back from :meth:`_restore_request`.
         """
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
@@ -1309,25 +1341,43 @@ class WorkflowEngine:
             authorized, workflow, key, record, action="workflow_suspended", version=version
         )
         trace_artifact = self._write_trace(authorized, key, execution_id, trace)
-        event_key = self._event_key(key, gate)
-        self._hitl_transport.enqueue(
-            event=PendingHitlEvent(
-                event_key=event_key,
-                event_class=GATE_EVENT_CLASS,
-                tenant=tenant,
-                workflow_state_ref=key,
-                product_content_hash=content_hash(record),
-                policy_ref=workflow.definition.gate_policies.get(gate),
-                # SEC-006 (D-IMPL-366 G1 (a)): the requester is the starter.
-                requested_by=started_by,
-            )
-        )
+        event = self._gate_event(workflow, tenant=tenant, key=key, record=record)
+        self._hitl_transport.enqueue(event=event)
         return WorkflowSuspended(
             tenant=tenant,
             execution_id=execution_id,
             gate=gate,
-            event_key=event_key,
+            event_key=event.event_key,
             trace_artifact=trace_artifact,
+        )
+
+    def _gate_event(
+        self,
+        workflow: Workflow,
+        *,
+        tenant: str,
+        key: str,
+        record: WorkflowStateRecord,
+    ) -> PendingHitlEvent:
+        """The one approval request a suspension files on the HITL transport.
+
+        Built here for :meth:`_suspend` and :meth:`_restore_request` alike, from
+        the suspension record and the definition alone, so a restored request is
+        the request the suspension filed, whoever restores it (``D-IMPL-378``;
+        Dave's decision 8 (a): *"Preserve the original authorization and
+        suspension identity"*). The gate's event key and class, the execution's
+        state key, the record's own content hash, the gate's pinned approval
+        policy, and the starter as requester (SEC-006; ``D-IMPL-366`` G1 (a)).
+        """
+        gate = record.current_state
+        return PendingHitlEvent(
+            event_key=self._event_key(key, gate),
+            event_class=GATE_EVENT_CLASS,
+            tenant=tenant,
+            workflow_state_ref=key,
+            product_content_hash=content_hash(record),
+            policy_ref=workflow.definition.gate_policies.get(gate),
+            requested_by=record.started_by,
         )
 
     def _route_exception(
@@ -2051,19 +2101,37 @@ class WorkflowEngine:
         suspension write and its one queue event. ``None`` for anything else,
         which the caller refuses as a second start.
 
+        Extended by Dave's decision 8 (a) of 2026-10-09: when the record, under
+        this definition and stamped with this starter, is ``suspended`` and its
+        approval request never reached the queue, the starter's retry restores
+        that request (:meth:`_restore_request`).
+
         Raises:
             ExecutionFenced: another finisher, or the original start, wrote the
-                suspension first.
+                suspension first; or another recovery restored the request
+                first.
         """
         record, version = self._read_versioned(key)
         if (
             not isinstance(record, WorkflowStateRecord)
-            or record.status != "running"
-            or record.trace
             or record.started_by != authorized.principal
             or record.workflow_definition_uri != workflow.identity.definition_uri
             or record.workflow_definition_hash
             != workflow.identity.definition_hash
+        ):
+            return None
+        if record.status == "suspended":
+            return self._restore_request(
+                authorized,
+                workflow,
+                execution_id=execution_id,
+                key=key,
+                record=record,
+                version=version,
+            )
+        if (
+            record.status != "running"
+            or record.trace
             or self._remainder(
                 workflow, tenant=authorized.tenant, key=key, record=record
             )
@@ -2078,6 +2146,132 @@ class WorkflowEngine:
             trace=record.trace,
             started_by=record.started_by,
             version=version,
+        )
+
+    def _restore_request(
+        self,
+        authorized: Authorized[Execute] | Authorized[Resume],
+        workflow: Workflow,
+        *,
+        execution_id: str,
+        key: str,
+        record: WorkflowStateRecord,
+        version: int,
+        snapshot: tuple[HitlActionSubmission, ...] | None = None,
+    ) -> WorkflowSuspended | None:
+        """File, once, the approval request a suspension never got onto the queue.
+
+        ``D-IMPL-378``; Dave's decision 8 (a) of 2026-10-09, which extends his D2
+        ruling: *"Recover the suspended run by idempotently restoring its missing
+        approval request. Preserve the original authorization and suspension
+        identity; never manufacture approval or rerun an effect."* A suspension
+        is three acts (:meth:`_suspend`): the version-fenced ``suspended`` write,
+        the trace write-through, and the enqueue of its one request. A process
+        that dies, or an artifact store that fails, after the first act leaves
+        ``record`` suspended at its gate with no request, so no verdict on it
+        could ever count. D2's two triggers reach it, the starter's retried
+        start (:meth:`_finish_start`) and a resumption that finds no approval
+        (:meth:`resume`), and this files what is left of the suspension, in this
+        order:
+
+        * the trace artifact, from the record's own trace. It is
+          content-addressed, so it is the artifact the suspension meant to file,
+          at the same address, and one already filed is unchanged;
+        * the record, re-written UNCHANGED, conditionally on ``version``, the
+          version the caller read (:meth:`_fenced_write`). Its content hash,
+          which the request, every verdict and the gate's closure are bound to,
+          does not change, and the write appends one more ``workflow_suspended``
+          row for the same suspension. Of two recoveries that read the same
+          version, one write lands and the other raises
+          :class:`ExecutionFenced` having filed no request;
+        * the one request, built by :meth:`_gate_event` exactly as the
+          suspension built it, so its key, class, content hash, pinned approval
+          policy and requester are the suspension's, whoever recovers it.
+
+        No step runs, no verdict is recorded and no gate is closed. Returns
+        ``None``, filing nothing, unless the record is ``suspended`` at a
+        ``hitl-gate`` and the HITL transport holds nothing for this suspension:
+        no pending request, no closure, and no verdict other than one recorded
+        while no request was pending. So a request that is pending, answered or
+        decided is never filed again. The only verdicts a recovery files around
+        were recorded while the request was missing, as
+        ``event_state_at_submit="missing"``, and such a verdict is never
+        authority (:meth:`_gate_authority`), though it still counts as a
+        disagreement (``D-IMPL-366`` H2;
+        ``tests/workflow/test_sec006_engine_controls.py::test_t12b_a_missing_state_verdict_still_counts_as_a_conflict``):
+        the gate opens only on a verdict recorded against the restored request.
+        The closure term is a backstop: a closure is taken only on a verdict,
+        which the verdict term already finds.
+
+        **What it cannot see**, each measured by
+        ``tests/workflow/test_restore_missing_approval_request.py``. Nothing in a
+        suspension says whether, or where, its request was filed:
+
+        * **Two identical requests are possible.** The conditional write orders
+          recoveries that read the same version. It does not order a recovery
+          that reads the record after another write landed and before that
+          write's enqueue: the suspension's own passage, still alive and slow at
+          its trace write, or another recovery between its write and its
+          enqueue. Each then files the request. The gate still opens once on one
+          approval: both requests are bound to the one suspension, its closure
+          judges every verdict recorded on it and retires both, and a later
+          verdict is refused ``hitl-gate-closed``. Filing at most one would take
+          an enqueue that is atomic with its own absence check, which is a change
+          to the :class:`~ccf.hitl.transport.HITLTransportProtocol`.
+        * **A request a gate primitive has claimed and not yet answered is filed
+          again.** A claim is not visible through the transport Protocol. The
+          enqueue discards the claim, as the Protocol documents, so the
+          primitive's verdict is recorded against the restored request,
+          ``pending`` and unstamped, and it carries the run past the gate once.
+        * **The request is filed on this engine's own transport.** Deployed with
+          one HITL transport per Control Plane state store (SP §4.13), that is
+          the suspension's own. With more than one, a request pending on another
+          engine's transport is filed again on this one, whose verdicts this
+          engine judges.
+        """
+        gate = record.current_state
+        step = next(
+            (s for s in workflow.task_definition.steps if s.name == gate), None
+        )
+        if record.status != "suspended" or step is None or step.kind != "hitl-gate":
+            return None
+        tenant = authorized.tenant
+        event_key = self._event_key(key, gate)
+        suspension = content_hash(record)
+        if snapshot is None:
+            snapshot = self._hitl_transport.submissions(tenant=tenant)
+        if (
+            any(
+                event.event_key == event_key
+                and event.event_class == GATE_EVENT_CLASS
+                and event.product_content_hash == suspension
+                for event in self._hitl_transport.pending(tenant=tenant)
+            )
+            or any(
+                closure.event_key == event_key
+                and closure.product_content_hash == suspension
+                for closure in self._hitl_transport.closures(tenant=tenant)
+            )
+            or any(
+                submission.event_key == event_key
+                and submission.principal.product_content_hash == suspension
+                and submission.event_state_at_submit != "missing"
+                for submission in snapshot
+            )
+        ):
+            return None
+        trace_artifact = self._write_trace(authorized, key, execution_id, record.trace)
+        self._fenced_write(
+            authorized, workflow, key, record, action="workflow_suspended", version=version
+        )
+        event = self._gate_event(workflow, tenant=tenant, key=key, record=record)
+        self._hitl_transport.enqueue(event=event)
+        return WorkflowSuspended(
+            tenant=tenant,
+            execution_id=execution_id,
+            gate=gate,
+            event_key=event.event_key,
+            trace_artifact=trace_artifact,
         )
 
     def _read_versioned(self, key: str) -> tuple[object | None, int]:
