@@ -1055,9 +1055,9 @@ Two behaviors follow from the design and are stated rather than changed:
   `issued_at`, and the retry reuses the door signature its prior attempt
   appended (an ES256 signature is not deterministic, and the index takes only
   an identical entry again), after verifying it.
-- Over the MCP-backed store, a names read that the server refuses reaches the
-  door as a typed refusal, never as an outage: the client raises
-  `ArtifactReadRefused`, carrying the server's refusal shell
+- Over the MCP-backed store, a names read that the server answers with its
+  refusal shell reaches the door as a typed refusal, never as an outage: the
+  client raises `ArtifactReadRefused`, carrying the shell
   (`src/ccf/artifacts/protocol.py::ArtifactReadRefused`; decision 1 (A),
   D-IMPL-378). The server refuses it for a governed address the door may not
   read and for an address the door's tenant never filed (F1-1, D-IMPL-378).
@@ -1072,6 +1072,19 @@ Two behaviors follow from the design and are stated rather than changed:
   store an address the tenant never filed is refused `class-unverifiable`,
   where the door in process refuses it `address-not-in-tenant`
   (`tests/mcp/test_erasure_subject_match.py::test_the_mcp_backed_door_reaches_the_in_process_doors_outcome`).
+  A credential the server's guard does not authenticate (HTTP 401) is
+  neither that refusal nor an outage: every read of the client raises the
+  typed authentication refusal `ArtifactReadUnauthenticated` instead
+  (`src/ccf/artifacts/protocol.py::ArtifactReadUnauthenticated`; repair 2.5
+  (a), D-IMPL-378; `tests/mcp/test_auth_401_typed_through_the_client.py`), a
+  third type beside the two
+  (`tests/mcp/test_auth_401_typed_through_the_client.py::test_a_401_an_access_refusal_and_an_outage_reach_the_caller_as_three_types`),
+  and the door refuses it `class-unverifiable` with that cause
+  (`tests/mcp/test_auth_401_never_read_as_absence.py::test_the_erasure_door_over_a_store_whose_credential_is_refused_refuses_class_unverifiable_with_the_typed_cause`).
+  The guard's other refusals, a credential without a required scope (HTTP
+  403) and the tenancy guard's denials, still reach the client as
+  `McpServerUnreachable`, an outage
+  (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 

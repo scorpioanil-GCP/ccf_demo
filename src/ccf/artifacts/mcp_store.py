@@ -414,13 +414,17 @@ class McpArtifactStore:
 
         Raises:
             ccf.artifacts.protocol.ArtifactReadRefused: the server answered
-                with its governed refusal shell instead of names. It gives that
-                one answer for a present governed address this credential may
-                not read and for an address its tenant never filed (another
-                tenant's, or nobody's), so all it says is that the address
+                with its governed refusal shell instead of names: the address
                 cannot be verified through this credential. Carries the shell
-                as ``envelope``. An access refusal, never an outage and never
-                an absence (``D-IMPL-378``, decision 1 (A)).
+                as ``envelope``. What the shell says of why is the server's:
+                one answer, the ``nonexistent`` shell, for an address this
+                credential's tenant never filed (another tenant's, or nobody's)
+                and for a present governed address that holds no record; a
+                governed record this credential may not read can be refused
+                with its own cause (see
+                :class:`~ccf.artifacts.protocol.ArtifactReadRefused`). An
+                access refusal, never an outage and never an absence
+                (``D-IMPL-378``, decision 1 (A)).
             ccf.artifacts.protocol.ArtifactReadUnauthenticated: the server's
                 guard answered HTTP 401: it did not authenticate this store's
                 credential, so no access decision about the address was made

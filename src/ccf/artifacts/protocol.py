@@ -374,10 +374,19 @@ class ArtifactReadRefused(ArtifactStoreError):
     artifact server's names resource answered with its governed refusal shell
     — an already-recorded, already-disclosed
     :class:`~ccf.products.refusal.RefusalEnvelope` — instead of names. The
-    server gives that one answer for a present governed address the caller may
-    not read, for another tenant's address and for an address nobody filed, so
-    the refusal says the address *cannot be verified* through this credential,
-    never which of those it is. Dave, 2026-10-09 06:21 MST: *"approve the
+    refusal says the address *cannot be verified* through this credential.
+    What its shell says of why is the server's. For an address the caller's
+    tenant never filed — another tenant's, or nobody's — and for a present
+    governed address that holds no record, a query pin above all, it is one
+    answer, the governed read's ``nonexistent`` shell
+    (``tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_names_at_raises_the_typed_refusal_for_a_query_pin_and_for_addresses_its_tenant_never_filed``).
+    For a governed record the caller may not read it is that record's own
+    refusal, and its cause can say why — ``unauthorized``, with error code
+    ``evidence-principal-mismatch``, for a record determined for another
+    principal
+    (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_typed_access_refusal_carries_the_servers_own_cause_which_differs_by_address``)
+    — so the refusal does not always hide which case it is; that disclosure
+    predates ``D-IMPL-378``. Dave, 2026-10-09 06:21 MST: *"approve the
     uniform “cannot verify” erasure refusal and refusal instead of an empty
     names list. Do not mislabel that access refusal “server unreachable.”
     Preserve a typed refusal through the MCP client."*
@@ -386,7 +395,9 @@ class ArtifactReadRefused(ArtifactStoreError):
     and the server decided, so it is no outage to retry. **Not an**
     :class:`ArtifactNotFound` either: the refusal does not say that nothing is
     filed at the address, and a caller that read it as absence would conclude
-    what the server withheld.
+    what the server withheld. **Not** :class:`ArtifactReadUnauthenticated`:
+    that is a read the server's guard refused before deciding anything about
+    the address.
 
     Attributes:
         envelope: The refusal the server answered, parsed. What it discloses
