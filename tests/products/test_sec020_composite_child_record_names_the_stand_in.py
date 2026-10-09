@@ -8,15 +8,19 @@ distinguishing value survives."* As built, the constant
 (``src/ccf/products/resolver.py::EARLY_POLICY_ACQUISITION_REFUSAL``) reaches the PARENT's subject-keyed acquisition,
 not a composite child's. Under the parent's early policy the child is asked about the stand-in in place of a withheld
 subject; the child's own door answers from the child's own source and files the child's own decision record, under
-the child's product class, in the deployment's store. A child source that refuses an identifier it does not hold with
-text that names it (``no record for <identifier>``, the F-G1-1 shape 2.2 (a) answered for the parent) files, for the
-withheld subject, a child record naming the stand-in, and for a nonexistent subject one naming the identifier asked.
+the child's product class, in the deployment's store. That record keeps the question the child was asked: for a
+withheld subject it names the stand-in, whatever the child's source answers, and for a nonexistent subject the
+identifier asked. A child source that refuses an identifier it does not hold with text that names it (``no record for
+<identifier>``, the F-G1-1 shape 2.2 (a) answered for the parent) puts it in that record's refusal text as well.
 
 Asserted as the measured state, never as an expected failure, on both anchors:
 
-* in process, per question: exactly one decision record of the child's product class is filed; the withheld
-  question's names the stand-in and not the subject, the nonexistent question's names the identifier asked and not the
-  stand-in; the answer and the parent's own record name neither the child's record nor the stand-in;
+* in process, per question, for a child source that refuses naming what it was asked and for one that answers
+  nothing (the worlds' own): exactly one decision record of the child's product class is filed; its question names
+  the stand-in for the withheld subject and the identifier asked for the nonexistent one, and never the withheld
+  subject; the echoing source's refusal text names the same; the answer names neither the child's record nor the
+  stand-in, and the parent's own record does not name the child's record (the parent's record of a served early
+  answer names the stand-in itself, at ``executed_seeds``, which the security how-to already states);
 * at every door (in process, HTTP, MCP): SEC-020's closing test's own rules find no difference between the withheld
   and the nonexistent answers on any channel, and the stand-in is in nothing either side observed, while the
   deployment's store holds exactly one artifact naming it, a decision record of the child's product class.
@@ -67,9 +71,17 @@ class _ChildEchoingSeam(_WORLD_SEAM):
         )
 
 
-def _early_composite(base: pathlib.Path, anchor: str, monkeypatch: pytest.MonkeyPatch) -> w.Deployment:
-    """SEC-020's early-policy composite whose source holds the subject, its child's source refusing with an echo."""
-    monkeypatch.setattr(w, "SubjectKeyedSeam", _ChildEchoingSeam)
+#: How the child's source answers an identifier it does not hold.
+_ECHOING = "refuses naming what it was asked"
+_SILENT = "answers nothing"
+
+
+def _early_composite(
+    base: pathlib.Path, anchor: str, monkeypatch: pytest.MonkeyPatch, *, child_source: str = _ECHOING
+) -> w.Deployment:
+    """SEC-020's early-policy composite whose source holds the subject, its child's source as ``child_source`` says."""
+    if child_source == _ECHOING:
+        monkeypatch.setattr(w, "SubjectKeyedSeam", _ChildEchoingSeam)
     return w.build_composite(base, anchor=anchor, holds=True, active=True, fixed_child=False, early=True)
 
 
@@ -79,8 +91,8 @@ def _stored(built: w.Deployment) -> dict[str, bytes]:
     return {path.name: path.read_bytes() for path in root.rglob("*") if path.is_file()}
 
 
-def _product_class(data: bytes) -> str | None:
-    """The product class a decision record's question names; ``None`` for anything that is not a decision record."""
+def _question(data: bytes) -> dict[str, Any] | None:
+    """The question a decision record keeps (``content_generation_path.request``); ``None`` for anything else."""
     try:
         document = json.loads(data)
     except (ValueError, UnicodeDecodeError):
@@ -90,48 +102,59 @@ def _product_class(data: bytes) -> str | None:
     request = document["content_generation_path"].get("request")
     if isinstance(request, str):
         request = json.loads(request)
-    return None if request is None else str(request.get("schema_name"))
+    return request if isinstance(request, dict) else None
 
 
+def _product_class(data: bytes) -> str | None:
+    """The product class a decision record's question names; ``None`` for anything that is not a decision record."""
+    question = _question(data)
+    return None if question is None else str(question.get("schema_name"))
+
+
+@pytest.mark.parametrize("child_source", (_ECHOING, _SILENT))
 @pytest.mark.parametrize("anchor", w.ANCHORS)
 def test_limitation_a_composite_childs_own_record_names_the_stand_in_and_nothing_the_caller_is_handed_names_it(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, anchor: str
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, anchor: str, child_source: str
 ) -> None:
-    """Per question: one child record; the withheld question's names the stand-in; the answer and parent record name neither."""
-    built = _early_composite(tmp_path / "early", anchor, monkeypatch)
-    filed: dict[str, tuple[RefusalEnvelope, dict[str, bytes], bytes]] = {}
+    """Per question: one child record, its question the stand-in for the withheld subject; nothing handed back names it."""
+    built = _early_composite(tmp_path / "early", anchor, monkeypatch, child_source=child_source)
+    filed: dict[str, tuple[Any, dict[str, bytes], bytes]] = {}
     try:
         for side, subject in (("withheld", w.SUBJECT), ("nonexistent", w.NEVER)):
             before = _stored(built)
             answer = built.ask(subject, None)
-            assert isinstance(answer, RefusalEnvelope), f"[{anchor}, {side}] not refused as data: {answer!r}"
             new = {name: data for name, data in _stored(built).items() if name not in before}
-            filed[side] = (answer, new, _record_bytes(built, answer.replay_reference))
+            reference = (
+                answer.replay_reference if isinstance(answer, RefusalEnvelope) else answer.replay_ref.content_address
+            )
+            filed[side] = (answer, new, _record_bytes(built, reference))
     finally:
         built.close()
-    kinds = {side: (answer.kind, answer.detail) for side, (answer, _new, _parent) in filed.items()}
-    assert len(set(kinds.values())) == 1, f"[{anchor}] the two answers differ in kind or text: {kinds}"
-    children: dict[str, tuple[str, bytes]] = {}
+    case = f"{anchor}, child source {child_source}"
+    outcomes = {side: (type(answer).__name__, getattr(answer, "kind", None)) for side, (answer, _n, _p) in filed.items()}
+    assert len(set(outcomes.values())) == 1, f"[{case}] the two answers differ in type or kind: {outcomes}"
+    children: dict[str, bytes] = {}
     for side, (answer, new, parent) in filed.items():
         child = [(name, data) for name, data in new.items() if _product_class(data) == CHILD_CLASS]
-        assert len(child) == 1, f"[{anchor}, {side}] one decision record of the child's class must be filed: {sorted(new)}"
-        children[side] = child[0]
-        name = child[0][0]
+        assert len(child) == 1, f"[{case}, {side}] one decision record of the child's class must be filed: {sorted(new)}"
+        name, children[side] = child[0]
         served = answer.model_dump_json()
-        assert name not in served and name.encode() not in parent, (
-            f"[{anchor}, {side}] the answer or the parent's record names the child's record {name}"
+        assert name not in served and w.STAND_IN not in served, (
+            f"[{case}, {side}] the answer names the child's record {name} or the stand-in"
         )
-        assert w.STAND_IN not in served and w.STAND_IN.encode() not in parent, (
-            f"[{anchor}, {side}] the answer or the parent's record names the stand-in"
+        assert name.encode() not in parent, f"[{case}, {side}] the parent's record names the child's record {name}"
+    for side, asked in (("withheld", w.STAND_IN), ("nonexistent", w.NEVER)):
+        question = _question(children[side]) or {}
+        assert question.get("subject") == asked, (
+            f"[{case}, {side}] the child's record keeps a question about {question.get('subject')!r}, not {asked!r}:"
+            " the limitation this module measures has moved; change the security how-to and the register with it"
         )
-    withheld, nonexistent = children["withheld"][1], children["nonexistent"][1]
-    assert f"no record for {w.STAND_IN}".encode() in withheld and w.SUBJECT.encode() not in withheld, (
-        f"[{anchor}] the withheld question's child record no longer names the stand-in (or names the subject):"
-        " the limitation this module measures has moved; change the security how-to and the register with it"
-    )
-    assert f"no record for {w.NEVER}".encode() in nonexistent and w.STAND_IN.encode() not in nonexistent, (
-        f"[{anchor}] the nonexistent question's child record does not name the identifier asked, or names the stand-in"
-    )
+        assert w.SUBJECT.encode() not in children[side], f"[{case}, {side}] the child's record names the withheld subject"
+        if child_source == _ECHOING:
+            assert f"no record for {asked}".encode() in children[side], (
+                f"[{case}, {side}] the child's record does not keep its source's refusal text naming {asked!r}"
+            )
+    assert w.STAND_IN.encode() not in children["nonexistent"], f"[{case}] the nonexistent question's child record names the stand-in"
 
 
 @pytest.mark.parametrize("door", w.DOORS)
