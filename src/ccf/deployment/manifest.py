@@ -133,7 +133,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "DeploymentMarkerUnresolved", "DeploymentStoreNotEmpty", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "DeploymentStoreNotEmpty", "DeploymentStoreNotVerified", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -258,7 +258,7 @@ class BootedFabric:
             removes it; OWED-RULINGS-3 item 2A (b), ``D-IMPL-378``), and
             ``verified`` only after; a boot meeting a deployment marker that
             reads anything else, or one that reads ``verified`` with no store
-            beside it, is refused (:class:`DeploymentMarkerUnresolved`;
+            beside it, is refused (:class:`DeploymentStoreNotVerified`;
             repairs 1.1 and 1.2, ``D-IMPL-378``). A plain boot holds the
             store-creation lock of every path from its look at the path to the
             hand-back, so a boot that finds another creating the store waits
@@ -407,13 +407,13 @@ class DeploymentStoreNotEmpty(ValueError):
     The read sees what a question boot's read sees and has the same limits
     (the security how-to, section 4.12). A boot whose path carries a
     deployment marker with no store beside it creates nothing: it is refused
-    first (:class:`DeploymentMarkerUnresolved`, reason ``"no-store"``). The
+    first (:class:`DeploymentStoreNotVerified`, reason ``"no-store"``). The
     refusal states no count and nothing the store holds.
     """
 
 
-#: Why :class:`DeploymentMarkerUnresolved` refused, by its ``reason``: what the marker (or its lock) shows.
-_UNRESOLVED_WHY = {
+#: Why :class:`DeploymentStoreNotVerified` refused, by its ``reason``: what the marker (or its lock) shows.
+_NOT_VERIFIED_WHY = {
     "pending": (
         "records a store creation whose emptiness read never completed (state pending: the boot that"
         " created it was killed or interrupted before it finished, or something outside the SDK wrote it)"
@@ -433,8 +433,8 @@ _UNRESOLVED_WHY = {
     "lock-unavailable": "cannot be checked, because the store-creation lock beside it cannot be taken",
 }
 
-#: What an operator does about each :class:`DeploymentMarkerUnresolved` ``reason``: the end of its text.
-_UNRESOLVED_REMEDY = {
+#: What an operator does about each :class:`DeploymentStoreNotVerified` ``reason``: the end of its text.
+_NOT_VERIFIED_REMEDY = {
     "pending": (
         "inspect the marker and the store beside it, then remove the marker (and the store, if one"
         " stands there) so that a boot creates and verifies a new store"
@@ -458,7 +458,7 @@ _UNRESOLVED_REMEDY = {
 }
 
 
-class DeploymentMarkerUnresolved(ValueError):
+class DeploymentStoreNotVerified(ValueError):
     """A plain boot where safe verification cannot be established: refused, and left for an operator to resolve.
 
     SEC-020, ``D-IMPL-378`` repair 1.1 (Dave, 2026-10-09 10:54 MST, verbatim:
@@ -527,12 +527,12 @@ class DeploymentMarkerUnresolved(ValueError):
         detail: str | None = None,
     ) -> None:
         self.marker, self.reason, self.lock = marker, reason, lock
-        what = f"the deployment marker {str(marker)!r} {_UNRESOLVED_WHY[reason]}"
+        what = f"the deployment marker {str(marker)!r} {_NOT_VERIFIED_WHY[reason]}"
         if lock is not None:
             what += f" ({str(lock)!r}: {detail or 'unavailable'})"
         super().__init__(
-            f"DeploymentMarkerUnresolved: {what}. No boot of that store proceeds until an operator resolves"
-            f" it: {_UNRESOLVED_REMEDY[reason]} (the security how-to, section 4.12; SEC-020, D-IMPL-378)"
+            f"DeploymentStoreNotVerified: {what}. No boot of that store proceeds until an operator resolves"
+            f" it: {_NOT_VERIFIED_REMEDY[reason]} (the security how-to, section 4.12; SEC-020, D-IMPL-378)"
         )
 
 
@@ -759,13 +759,13 @@ def _promote_deployment_marker(owned: _OwnedMarker) -> _OwnedMarker:
     instant leaves the marker reading ``pending`` or ``verified``, never part of
     either. A marker that is no longer the one this boot created (another file,
     or other text) is not replaced, and the boot is refused
-    (:class:`DeploymentMarkerUnresolved`, reason ``"claimed"``). The marker
+    (:class:`DeploymentStoreNotVerified`, reason ``"claimed"``). The marker
     returned names the file that now stands at the path, for the removal a later
     failure would take.
     """
     record, identity = _read_deployment_marker(owned.path)
     if record is None or record.token != owned.token or identity != (owned.device, owned.inode):
-        raise DeploymentMarkerUnresolved(marker=owned.path, reason="claimed")
+        raise DeploymentStoreNotVerified(marker=owned.path, reason="claimed")
     staging = owned.path.with_name(f"{owned.path.name}.promoting-{owned.token}")
     descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
     staged: tuple[int, int] | None = None
@@ -826,7 +826,7 @@ class _StoreCreationLock:
     it, with no timeout: another boot is creating or verifying the store, and
     when it has finished this boot sees what it left. A lock that cannot be
     opened or locked at all refuses the boot
-    (:class:`DeploymentMarkerUnresolved`, reason ``"lock-unavailable"``). A path
+    (:class:`DeploymentStoreNotVerified`, reason ``"lock-unavailable"``). A path
     whose directory does not exist takes no lock and is left to the adapter, as
     its marker is. The lock files stay beside their stores and vouch for
     nothing; removing one while no boot runs is harmless.
@@ -852,7 +852,7 @@ class _StoreCreationLock:
                 )
             except OSError as unavailable:
                 self.release()
-                raise DeploymentMarkerUnresolved(
+                raise DeploymentStoreNotVerified(
                     marker=_deployment_store_marker(path), reason="lock-unavailable", lock=lock,
                     detail=unavailable.strerror or str(unavailable),
                 ) from unavailable
@@ -863,7 +863,7 @@ class _StoreCreationLock:
             except OSError as unavailable:
                 os.close(descriptor)
                 self.release()
-                raise DeploymentMarkerUnresolved(
+                raise DeploymentStoreNotVerified(
                     marker=_deployment_store_marker(path), reason="lock-unavailable", lock=lock,
                     detail=unavailable.strerror or str(unavailable),
                 ) from unavailable
@@ -1011,7 +1011,7 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
     or verifying a store while it looks. A path whose deployment marker does not
     record a completed verification — ``pending`` (its boot never finished its
     read: it was killed, or interrupted) or no state in the SDK's form — is
-    refused by name (:class:`DeploymentMarkerUnresolved`), and so is a marker
+    refused by name (:class:`DeploymentStoreNotVerified`), and so is a marker
     that reads ``verified`` with no store beside it; each is left for an
     operator. A path with no store and no marker of either kind names a store
     this boot creates, so the marker goes first, created exclusively and
@@ -1035,11 +1035,11 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
         if os.path.lexists(marker):
             record, _identity = _read_deployment_marker(marker)
             if record is None:
-                raise DeploymentMarkerUnresolved(marker=marker, reason="unreadable")
+                raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
             if record.state != _MARKER_VERIFIED:
-                raise DeploymentMarkerUnresolved(marker=marker, reason="pending")
+                raise DeploymentStoreNotVerified(marker=marker, reason="pending")
             if not path.exists():
-                raise DeploymentMarkerUnresolved(marker=marker, reason="no-store")
+                raise DeploymentStoreNotVerified(marker=marker, reason="no-store")
             continue
         if path.exists():
             continue
@@ -1049,7 +1049,7 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
         try:
             created.append(_create_pending_deployment_marker(path))
         except FileExistsError:
-            raise DeploymentMarkerUnresolved(marker=marker, reason="claimed") from None
+            raise DeploymentStoreNotVerified(marker=marker, reason="claimed") from None
     return creates_a_store
 
 
@@ -2150,7 +2150,7 @@ def load_and_boot(
             closed and the markers it created are removed before the refusal
             (SEC-020, ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b), with the
             trigger repair 1.2 restores). A ``ValueError``.
-        DeploymentMarkerUnresolved: a boot not for a question where safe
+        DeploymentStoreNotVerified: a boot not for a question where safe
             verification cannot be established, raised after registration
             and before anything is created at the path: a deployment marker
             that reads ``pending`` (the boot that created it never finished

@@ -33,7 +33,7 @@ What is asserted, by mechanism:
    completed and ``verified`` only after; a boot killed (``SIGKILL``, in another
    process) before its read completes leaves a ``pending`` marker, and every
    later boot of the path, writer or read-only, is refused by name
-   (``DeploymentMarkerUnresolved``, reason ``pending``) and leaves the marker
+   (``DeploymentStoreNotVerified``, reason ``pending``) and leaves the marker
    for an operator.
 4. **A marker that cannot show a completed verification is never read as one**:
    the single-line marker this tree wrote before the repair, a marker whose text
@@ -65,7 +65,7 @@ from tests.products import test_question_store_empty_at_boot_and_held_through_us
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
 
 #: The refusal a boot meets over a marker that does not show a completed verification (absent on a tree without it).
-UNRESOLVED = "DeploymentMarkerUnresolved"
+NOT_VERIFIED = "DeploymentStoreNotVerified"
 
 #: The store file every hand-composed fixture fabric here names.
 _STORE = "graph.sqlite3"
@@ -396,16 +396,16 @@ def _boot_in_another_process(mode: str, manifest: pathlib.Path, signals: pathlib
     )
 
 
-def _assert_refused_unresolved(outcome: Any, *, marker: pathlib.Path, reason: str, case: str) -> None:
+def _assert_refused_not_verified(outcome: Any, *, marker: pathlib.Path, reason: str, case: str) -> None:
     if not isinstance(outcome, Exception):
         held = p4e._held(outcome)
         creation = outcome.store_creation
         outcome.handle.close()
         pytest.fail(
             f"[{case}] a boot over a marker that shows no completed verification booted (store_creation"
-            f" {creation!r}, {held} entities held); it must be refused by name ({UNRESOLVED}, reason {reason!r})"
+            f" {creation!r}, {held} entities held); it must be refused by name ({NOT_VERIFIED}, reason {reason!r})"
         )
-    assert m._named(outcome, UNRESOLVED), f"[{case}] refused, but not by {UNRESOLVED}: {outcome!r}"
+    assert m._named(outcome, NOT_VERIFIED), f"[{case}] refused, but not by {NOT_VERIFIED}: {outcome!r}"
     assert getattr(outcome, "reason", None) == reason, f"[{case}] refused for another reason: {outcome.reason!r}"
     assert getattr(outcome, "marker", None) == marker, f"[{case}] the refusal names another marker: {outcome.marker!r}"
     assert str(marker) in str(outcome), f"[{case}] the refusal's text must name the marker's path: {outcome}"
@@ -447,7 +447,7 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
             )
         except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
             outcome = raised
-        _assert_refused_unresolved(outcome, marker=marker, reason="pending", case=f"{killed}, read_only={read_only}")
+        _assert_refused_not_verified(outcome, marker=marker, reason="pending", case=f"{killed}, read_only={read_only}")
     assert marker.read_bytes() == left, f"[{killed}] the refused boots changed the marker; it is the operator's to resolve"
     assert _state(marker) == "pending", (
         f"[{killed}] the marker a boot killed before its read completed must read pending: {left!r}"
@@ -499,7 +499,7 @@ def test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for
             )
         except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
             outcome = raised
-        _assert_refused_unresolved(outcome, marker=marker, reason="unreadable", case=f"{marker_is}, read_only={read_only}")
+        _assert_refused_not_verified(outcome, marker=marker, reason="unreadable", case=f"{marker_is}, read_only={read_only}")
     now = os.readlink(marker) if marker.is_symlink() else marker.read_bytes()
     assert now == left, f"[{marker_is}] the refused boots changed the marker; it is the operator's to resolve"
 

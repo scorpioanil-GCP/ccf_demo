@@ -247,7 +247,7 @@ def test_two_deployment_roots_boot_two_fabrics(
     # The copy's store is deleted together with the deployment marker beside it,
     # as the security how-to (section 4.12) tells an operator to: a marker left
     # with no store beside it is refused by the next boot until an operator
-    # resolves it (`DeploymentMarkerUnresolved`, reason "no-store"; D-IMPL-378
+    # resolves it (`DeploymentStoreNotVerified`, reason "no-store"; D-IMPL-378
     # repair 1.2).
     (second_root / "graph.sqlite3").unlink()
     (second_root / "graph.sqlite3.ccf-deployment-store").unlink()

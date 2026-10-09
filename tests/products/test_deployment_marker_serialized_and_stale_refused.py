@@ -26,7 +26,7 @@ What is asserted, by mechanism:
    that reads ``verified`` with no store beside it (reason ``no-store``), a
    store-creation lock that cannot be taken (``lock-unavailable``), and a marker
    that appeared at the path after the boot looked (``claimed``) are each
-   refused (``DeploymentMarkerUnresolved``) before any store is created there,
+   refused (``DeploymentStoreNotVerified``) before any store is created there,
    and nothing beside the path is cleared.
 2. **The read runs whenever a plain boot creates a store**, whoever made the
    marker beside the path: a store created at a path a question marker had
@@ -61,7 +61,7 @@ from tests.products import test_question_store_empty_at_boot_and_held_through_us
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
 
 #: The refusal a boot meets where safe verification cannot be established (absent on a tree without it).
-UNRESOLVED = "DeploymentMarkerUnresolved"
+NOT_VERIFIED = "DeploymentStoreNotVerified"
 
 #: The store file every hand-composed fixture fabric here names.
 _STORE = "graph.sqlite3"
@@ -94,15 +94,15 @@ def _boot(manifest: pathlib.Path, registry: Any, store: pathlib.Path, *, read_on
         return raised
 
 
-def _assert_refused_unresolved(outcome: Any, *, marker: pathlib.Path, reason: str, case: str) -> None:
+def _assert_refused_not_verified(outcome: Any, *, marker: pathlib.Path, reason: str, case: str) -> None:
     if not isinstance(outcome, Exception):
         creation, held = outcome.store_creation, p4e._held(outcome)
         outcome.handle.close()
         pytest.fail(
             f"[{case}] a boot where safe verification cannot be established booted (store_creation {creation!r},"
-            f" {held} entities held); it must be refused by name ({UNRESOLVED}, reason {reason!r})"
+            f" {held} entities held); it must be refused by name ({NOT_VERIFIED}, reason {reason!r})"
         )
-    assert m._named(outcome, UNRESOLVED), f"[{case}] refused, but not by {UNRESOLVED}: {outcome!r}"
+    assert m._named(outcome, NOT_VERIFIED), f"[{case}] refused, but not by {NOT_VERIFIED}: {outcome!r}"
     assert getattr(outcome, "reason", None) == reason, f"[{case}] refused for another reason: {outcome.reason!r}"
     assert getattr(outcome, "marker", None) == marker, f"[{case}] the refusal names another marker: {outcome.marker!r}"
     assert str(marker) in str(outcome), f"[{case}] the refusal's text must name the marker's path: {outcome}"
@@ -154,7 +154,7 @@ def test_1_2_a_verified_marker_with_no_store_beside_it_is_refused_by_name_and_le
     planted = _planting(monkeypatch, used)
     for read_only in (False, True):
         outcome = _boot(manifest, registry, target, read_only=read_only)
-        _assert_refused_unresolved(outcome, marker=marker, reason="no-store", case=f"read_only={read_only}")
+        _assert_refused_not_verified(outcome, marker=marker, reason="no-store", case=f"read_only={read_only}")
     assert planted == [], f"the refusal must come before the boot creates or opens a store there: {planted}"
     assert not target.exists(), "a refused boot created a store at the path"
     assert marker.read_bytes() == left, "the refused boots changed the stale marker; it is the operator's to resolve"
@@ -168,7 +168,7 @@ def test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name
     lock = pathlib.Path(f"{target.resolve()}{_STORE_CREATION_LOCK_SUFFIX}")
     lock.mkdir()
     outcome = _boot(manifest, registry, target)
-    _assert_refused_unresolved(outcome, marker=_marker(target), reason="lock-unavailable", case="lock is a directory")
+    _assert_refused_not_verified(outcome, marker=_marker(target), reason="lock-unavailable", case="lock is a directory")
     assert str(lock) in str(outcome), f"the refusal's text must name the lock's path: {outcome}"
     assert not target.exists() and not _marker(target).exists(), "a refused boot created a store or a marker"
     assert lock.is_dir(), "the refused boot changed what stands at the lock's path"
@@ -197,7 +197,7 @@ def test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed(
 
     monkeypatch.setattr(manifest_module, "_create_pending_deployment_marker", an_outside_writer_first)
     outcome = _boot(manifest, registry, target)
-    _assert_refused_unresolved(outcome, marker=_marker(target), reason="claimed", case="a marker made after the look")
+    _assert_refused_not_verified(outcome, marker=_marker(target), reason="claimed", case="a marker made after the look")
     assert not target.exists(), "a refused boot created a store at the path"
     assert _marker(target).read_bytes() == foreign, "the refused boot changed a marker it did not create"
 
@@ -226,7 +226,7 @@ def test_1_2_measure_a_marker_replaced_before_promotion_is_refused_as_claimed_an
 
     monkeypatch.setattr(manifest_module, "boot", replace_the_marker_then_boot)
     outcome = _boot(manifest, registry, target)
-    _assert_refused_unresolved(outcome, marker=_marker(target), reason="claimed", case="replaced before promotion")
+    _assert_refused_not_verified(outcome, marker=_marker(target), reason="claimed", case="replaced before promotion")
     assert _marker(target).read_bytes() == foreign, "the refused boot removed or changed a marker it did not own"
 
 

@@ -2731,8 +2731,8 @@
       "ArtifactPin",
       "BootedFabric",
       "DeploymentManifest",
-      "DeploymentMarkerUnresolved",
       "DeploymentStoreNotEmpty",
+      "DeploymentStoreNotVerified",
       "DerivedDeployment",
       "EnvironmentDocument",
       "ManifestEntry",
@@ -2786,13 +2786,13 @@
           "tenant_id": "str | None"
         }
       },
-      "DeploymentMarkerUnresolved": {
-        "kind": "class",
-        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'no-store', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
-      },
       "DeploymentStoreNotEmpty": {
         "kind": "class",
         "shape": "type"
+      },
+      "DeploymentStoreNotVerified": {
+        "kind": "class",
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'no-store', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "DerivedDeployment": {
         "kind": "class",
@@ -3072,8 +3072,8 @@
   "ccf.deployment.manifest": {
     "__all__": [
       "BootedFabric",
-      "DeploymentMarkerUnresolved",
       "DeploymentStoreNotEmpty",
+      "DeploymentStoreNotVerified",
       "ManifestKeysPlaceToOneKey",
       "QuestionFabricNotExclusive",
       "QuestionFabricNotFresh",
@@ -3089,13 +3089,13 @@
         "kind": "class",
         "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False, store_creation: \"Literal['verified', 'unmarked', 'unverifiable']\" = 'unmarked') -> None"
       },
-      "DeploymentMarkerUnresolved": {
-        "kind": "class",
-        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'no-store', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
-      },
       "DeploymentStoreNotEmpty": {
         "kind": "class",
         "shape": "type"
+      },
+      "DeploymentStoreNotVerified": {
+        "kind": "class",
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'no-store', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "ManifestKeysPlaceToOneKey": {
         "kind": "class",

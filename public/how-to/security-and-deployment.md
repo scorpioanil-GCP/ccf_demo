@@ -1599,7 +1599,7 @@ and then reopens the store the first verified, reading nothing (measured
 across two processes,
 `tests/products/test_deployment_marker_serialized_and_stale_refused.py`). Where
 safe verification cannot be established, the boot is refused with
-`DeploymentMarkerUnresolved`, which names the marker and its `reason`, creates
+`DeploymentStoreNotVerified`, which names the marker and its `reason`, creates
 nothing at the path, and leaves the marker as it is: the SDK never clears a
 marker itself. A deployment marker written before repair 1.1 has one line and
 no state, so a boot of its store is refused (`unreadable`) until an operator
@@ -1858,7 +1858,7 @@ a nonexistent one. Each was measured on test fixtures.
   moving at the same fields as the forged marker's (lane probes
   `probe_stale_deployment_marker.py` and
   `probe_unreached_stores_distinguish_l4b.py`); under repair 1.2 such a boot
-  is refused before it creates anything (`DeploymentMarkerUnresolved`,
+  is refused before it creates anything (`DeploymentStoreNotVerified`,
   reason `no-store`), as is a boot over a marker that does not show a
   completed verification (above). A store written at a question
   boot's path after the SDK's last check was booted as that question's

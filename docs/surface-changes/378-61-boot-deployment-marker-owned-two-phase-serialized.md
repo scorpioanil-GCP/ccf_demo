@@ -22,11 +22,11 @@ before repair 1.2):
   refused (`UnmarkedStoreNotPresumedFresh`). The read's refusal reaches the caller when `close()` raises, the close's
   error attached as a note.
 - **Only markers this boot owns.** A marker replaced by another file, or rewritten in place, during the boot is left
-  where it is when the boot fails, and is never made to read verified (`DeploymentMarkerUnresolved`, `"claimed"`).
+  where it is when the boot fails, and is never made to read verified (`DeploymentStoreNotVerified`, `"claimed"`).
 - **Crash-safe.** A marker reads `state: pending` until the boot's read has completed and `state: verified` only after
   (written to a staging file, synced, renamed over the marker, the directory synced). A boot killed (`SIGKILL`, in
   another process) before `boot()`, after it, or inside the read leaves a `pending` marker, and every later boot of
-  the path, writer or read-only, is refused (`DeploymentMarkerUnresolved`, `"pending"`); before, the next boot booted
+  the path, writer or read-only, is refused (`DeploymentStoreNotVerified`, `"pending"`); before, the next boot booted
   it `"verified"`. The single-line marker of the code before this change, text the SDK does not write, and a
   symbolic link at the marker's path are refused (`"unreadable"`).
 - **The ruled trigger.** A store created where a question marker stands is read, and a plant there is refused
@@ -53,9 +53,9 @@ section 4.12 states. A boot waits for the store-creation lock with no timeout, s
 holds the others of that path until it is stopped. A boot over a marker this change refuses waits for an operator;
 the security how-to (section 4.12) gives the procedure.
 
-## ccf.deployment.manifest.DeploymentMarkerUnresolved
+## ccf.deployment.manifest.DeploymentStoreNotVerified
 
-- Surface: ccf.deployment.manifest.DeploymentMarkerUnresolved
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
 - Public surface: true
 - Change type: added
 - Before: absent; a deployment marker vouched for its store by existing, whatever its boot did after creating it.
@@ -63,13 +63,13 @@ the security how-to (section 4.12) gives the procedure.
 - Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2. Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_verified_marker_with_no_store_beside_it_is_refused_by_name_and_left_for_an_operator`.
 - Migration: a store whose marker an earlier build wrote (one line, no state) is refused (`"unreadable"`) until an operator resolves it as section 4.12 describes; delete or copy a store together with its marker.
 
-## ccf.deployment.DeploymentMarkerUnresolved
+## ccf.deployment.DeploymentStoreNotVerified
 
-- Surface: ccf.deployment.DeploymentMarkerUnresolved
+- Surface: ccf.deployment.DeploymentStoreNotVerified
 - Public surface: true
 - Change type: added
 - Before: absent.
-- After: the package-level spelling of `ccf.deployment.manifest.DeploymentMarkerUnresolved`.
+- After: the package-level spelling of `ccf.deployment.manifest.DeploymentStoreNotVerified`.
 - Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2.
 - Migration: none; additive.
 
@@ -79,7 +79,7 @@ the security how-to (section 4.12) gives the procedure.
 - Public surface: true
 - Change type: behavior
 - Before: raised only by a plain boot that created its deployment marker in this boot.
-- After: raised by every plain boot that creates its store (a path that held no store when the boot looked), whoever made a marker beside it, a store created where a question marker stands included; a boot over a deployment marker with no store beside it is refused first (`DeploymentMarkerUnresolved`). Its text is unchanged.
+- After: raised by every plain boot that creates its store (a path that held no store when the boot looked), whoever made a marker beside it, a store created where a question marker stands included; a boot over a deployment marker with no store beside it is refused first (`DeploymentStoreNotVerified`). Its text is unchanged.
 - Why: SEC-020, `D-IMPL-378` repair 1.2, restoring OWED-RULINGS-3 item 2A (b) as ruled. Red test: `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_plain_boot_creating_a_store_where_a_question_marker_stands_takes_the_read`.
 - Migration: none for a deployment that boots a new store at a fresh path and writes into it after the boot.
 
@@ -89,7 +89,7 @@ the security how-to (section 4.12) gives the procedure.
 - Public surface: true
 - Change type: behavior
 - Before: a plain boot left a one-line deployment marker beside a store it created, read the store only if it had created that marker, and removed the marker only when that read refused the store; its Raises named neither `WriterLeaseHeld` nor `SingleWriterViolation`.
-- After: a plain boot holds the store-creation lock of every path from its look to the hand-back (a second boot of the path waits); refuses a marker that does not show a completed verification, a verified marker with no store beside it, a marker made outside its lock, or a lock it cannot take (`DeploymentMarkerUnresolved`); creates its marker reading `pending` and makes it `verified` only after its read; reads every store it creates; and on any failure after its marker exists, closes its handle and removes the markers still its own. Its Raises adds `DeploymentMarkerUnresolved`, `UngovernedClassificationAttribute`, `SingleWriterViolation`, `WriterLeaseHeld`, `WriterLeaseRequired` and the adapter's own errors. A boot for a question is unchanged: its marker stays on a refusal, and it takes no store-creation lock.
+- After: a plain boot holds the store-creation lock of every path from its look to the hand-back (a second boot of the path waits); refuses a marker that does not show a completed verification, a verified marker with no store beside it, a marker made outside its lock, or a lock it cannot take (`DeploymentStoreNotVerified`); creates its marker reading `pending` and makes it `verified` only after its read; reads every store it creates; and on any failure after its marker exists, closes its handle and removes the markers still its own. Its Raises adds `DeploymentStoreNotVerified`, `UngovernedClassificationAttribute`, `SingleWriterViolation`, `WriterLeaseHeld`, `WriterLeaseRequired` and the adapter's own errors. A boot for a question is unchanged: its marker stays on a refusal, and it takes no store-creation lock.
 - Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2; the Raises from the findings brief's item 1.6 (the panel's F-G2-4). Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_that_fails_inside_boot_leaves_no_marker_and_the_retry_over_the_plant_is_refused` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens`.
 - Migration: delete or copy a store together with its deployment marker; a store kept with its marker deleted beside it is refused until an operator resolves it. Every plain boot, read-only included, creates `<resolved path>.ccf-store-creation.lock` beside its store, so the store's directory must let the deployment's user create that file.
 
