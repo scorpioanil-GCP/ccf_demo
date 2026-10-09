@@ -7030,6 +7030,7 @@
       "ChildArguments",
       "ChildQuestion",
       "ChildQuestions",
+      "ChildRecordAltered",
       "ChildRecordMismatch",
       "GrantBoundChildResolver",
       "MalformedDoorAnswer",
@@ -7053,6 +7054,10 @@
       "ChildQuestions": {
         "kind": "function",
         "shape": "collections.abc.Callable[[ccf.products.contract.ChildRequirement, ccf.products.request.ProductRequest], ccf.products.child_resolver.ChildQuestion]"
+      },
+      "ChildRecordAltered": {
+        "kind": "class",
+        "shape": "type"
       },
       "ChildRecordMismatch": {
         "kind": "class",

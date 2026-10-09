@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2387 entries**, of which **2110** name a public Python surface.
+**2393 entries**, of which **2116** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1314 entries — 1268 public Python surface, 46 not public Python API.
+1315 entries — 1269 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19292,6 +19292,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
 
+#### ccf.products.child_resolver.ChildRecordAltered
+
+- Surface: ccf.products.child_resolver.ChildRecordAltered
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: a `ChildRecordMismatch`, and so a `ValueError`, raised by `GrantBoundChildResolver`'s read of a locally dispatched child's record when the bytes its replay reference resolves to do not hash to that address. Raised before the bytes are parsed, so before the record's provenance or product is checked and before anything read out of them reaches the admission gate. Wrapped opaque at the MCP egress door, like `ChildRecordMismatch`.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none; code that catches `ChildRecordMismatch` also catches it. Catch `ChildRecordAltered` to tell bytes altered under a reference from a record about another product.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30275,7 +30287,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-404 entries — 365 public Python surface, 39 not public Python API.
+409 entries — 370 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36254,6 +36266,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none, unless code matched the end of the message text; match the refusal by its type instead.
 
 *Recorded by `378-36-prose-p2c-p4a-stated-as-ruled.md`.*
+
+#### ccf.products.child_resolver.GrantBoundChildResolver
+
+- Surface: ccf.products.child_resolver.GrantBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: a locally dispatched child's record was read through its replay reference and parsed without checking the bytes against the address. Over the file-backed store, bytes altered in place under the address were taken as the child's record, and their touched entities went to the composite admission gate: measured, the composite served and the gate received the altered value.
+- After: the bytes are re-hashed against the address before they are parsed. A mismatch raises `ChildRecordAltered`, so the composite does not serve and the gate receives nothing from them. Over the MCP-backed store, the store's own re-hash already read altered bytes as absent (`ArtifactNotFound`) and still does.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none for a store that returns what was written. A store that returns other bytes under an address now gets `ChildRecordAltered` where children used to be admitted on those bytes.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.products.child_resolver.GrantBoundChildResolver`, whose record read it delegates to.
+- After: as for `ccf.products.child_resolver.GrantBoundChildResolver`.
+- Why: Dave's E1 (a) (`D-IMPL-378`).
+- Migration: as for `ccf.products.child_resolver.GrantBoundChildResolver`.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `request` and `complete` judged each requested address's subject, and the `replay-input` retention rule, from the bytes the store returned at the address, without checking them against it. After a record's bytes were altered in place to drop the subject from its replay-input field, a request the door had refused `replay-input` started its approval workflow.
+- After: each address's bytes are re-hashed against the address right after they are read. A mismatch is refused `subject-unverifiable`, with a message saying the bytes do not hash to the address, before the retention judgment, before the workflow starts on `request`, and before the index append and the record filing on `complete`.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none for a store that returns what was written. A request naming an address whose stored bytes no longer hash to it is now refused `subject-unverifiable` instead of being judged on those bytes.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf_runtime.erasure.ErasureDoor`.
+- After: as for `ccf_runtime.erasure.ErasureDoor`.
+- Why: Dave's E1 (a) (`D-IMPL-378`).
+- Migration: as for `ccf_runtime.erasure.ErasureDoor`.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: on the client lane (an address the caller's tenant filed only in classes not declared under `ReplayMint`), the blob and presence resources served the stored bytes and `{"found":true}` whether or not those bytes hashed to the address. Bytes altered in place crossed under the old address and were audited as a client-lane serve. `McpArtifactStore` refused them on arrival; any other MCP client took them.
+- After: client-lane bytes are re-hashed against the address before they are routed or served. Bytes that do not hash to it go to the governed dereference, which answers them as a missing address: the recorded `nonexistent` / `evidence-absent` determination, on blob and presence alike. Bytes that hash to the address are served exactly as before.
+- Why: Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address integrity."
+- Migration: none for a store that returns what was written.
+
+*Recorded by `378-37-stored-bytes-verified-before-use.md`.*
 
 ### Not public Python API
 
