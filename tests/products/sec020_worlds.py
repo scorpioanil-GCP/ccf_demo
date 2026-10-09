@@ -2803,8 +2803,13 @@ def observe_side(
     *,
     parameters: Mapping[str, Any] | None = None,
     reads: bool = False,
+    after_question: Callable[[], None] | None = None,
 ) -> Observation:
-    """Ask one side's question(s) through ``door``; with ``reads``, read back what a principal can."""
+    """Ask one side's question(s) through ``door``; with ``reads``, read back what a principal can.
+
+    ``after_question``, when given, is called right after each question is answered and before anything else is read
+    for it: the one point at which what the QUESTION wrote can be told apart from what its record reads write.
+    """
     app = http_app(deployment) if door == HTTP else None
     observed: list[Observation] = []
     for asked in _questions(shape, subject):
@@ -2814,6 +2819,8 @@ def observe_side(
             observation = observe_mcp(deployment, asked, parameters=parameters)
         else:
             observation = observe_in_process(deployment, asked, parameters=parameters)
+        if after_question is not None:
+            after_question()
         reference = _reference_of(door, observation)
         if reads and shape in COMPOSITE_SHAPES and door == IN_PROCESS:
             observation.channels[COMPOSITE] = {
@@ -4076,6 +4083,34 @@ def build_held_refusal(base: pathlib.Path, *, anchor: str, holds: bool, active: 
 DECLARED_WORKING_TWIN = "declared_working_twin"
 
 
+def content_addressed(store: Any) -> frozenset[str]:
+    """Every content-addressed artifact a deployment's store holds (its records and pins), listed as an auditor would."""
+    root = getattr(store, "inner", store).root
+    return frozenset(path.name for path in root.iterdir() if re.fullmatch(r"[0-9a-f]{64}", path.name))
+
+
+def written_artifacts(store: Any, addresses: Iterable[str]) -> list[dict[str, Any]]:
+    """What a question wrote, address by address: each decision record with its refusal seam and recorded refusal.
+
+    An artifact that is not a decision record (an executed-query pin, say) is listed as ``{"record": False}``. Read
+    from the deployment's own store, as an auditor reads it.
+    """
+    found: list[dict[str, Any]] = []
+    for address in sorted(addresses):
+        try:
+            record = _record_at(store, address)
+        except ValueError:  # pydantic's ValidationError is a ValueError: these bytes are no decision record
+            found.append({"address": address, "record": False})
+            continue
+        path = record.content_generation_path
+        try:
+            refusal: Any = json.loads(path.assembly_refusal)
+        except ValueError:
+            refusal = path.assembly_refusal
+        found.append({"address": address, "record": True, "seam": path.refusal_seam, "refusal": refusal})
+    return found
+
+
 def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str, twin: Run) -> Run:
     """Every side of :data:`HELD_REFUSAL_SIDES`, asked of :func:`build_held_refusal`'s deployments through ``door``.
 
@@ -4087,7 +4122,10 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str, twin: Run) -
     subject). Records are read back where the door reads them, as
     :func:`run_sides` reads them for a subject-keyed shape. ``notes["asked"]``
     keeps, per deployment, every identifier its source was handed: the evidence
-    the case was constructed, and of what the phase saw.
+    the case was constructed, and of what the phase saw. ``notes["written"]``
+    keeps, per side, what that side's QUESTION alone wrote to its deployment's
+    store (:func:`written_artifacts`, read between the question and its record
+    reads, through ``observe_side``'s ``after_question``).
     ``notes[DECLARED_WORKING_TWIN]`` is ``twin``: the gate's own run of
     :data:`HELD_REFUSAL_TWIN` at the same anchor and door, the supported working
     twin the run is judged against (:data:`DECLARED_WORKING_TWIN`).
@@ -4099,21 +4137,30 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str, twin: Run) -
         opened.append((name, built))
         return built
 
+    written: dict[str, list[dict[str, Any]]] = {}
+
+    def ask(side: str, built: Deployment, subject: str, *, reads: bool = False) -> Observation:
+        """``side``'s question through ``door``, keeping what that QUESTION alone wrote to the store (``notes["written"]``)."""
+        before = content_addressed(built.store)
+        after: list[frozenset[str]] = []
+        observed = observe_side(
+            HELD_REFUSAL, door, built, subject, reads=reads,
+            after_question=lambda: after.append(content_addressed(built.store)),
+        )
+        written[side] = written_artifacts(built.store, after[0] - before)
+        return observed
+
     try:
         withholding = deployment("withholding", holds=True, active=True)
         sides = {
-            CF_WITHHELD: observe_side(HELD_REFUSAL, door, withholding, SUBJECT, reads=True),
-            SAME_NONEXISTENT: observe_side(HELD_REFUSAL, door, withholding, NEVER),
-            SAME_FLOOR: observe_side(HELD_REFUSAL, door, withholding, NEVER_2),
-            CF_NONEXISTENT: observe_side(
-                HELD_REFUSAL, door, deployment("not-holding", holds=False, active=True), SUBJECT, reads=True
+            CF_WITHHELD: ask(CF_WITHHELD, withholding, SUBJECT, reads=True),
+            SAME_NONEXISTENT: ask(SAME_NONEXISTENT, withholding, NEVER),
+            SAME_FLOOR: ask(SAME_FLOOR, withholding, NEVER_2),
+            CF_NONEXISTENT: ask(
+                CF_NONEXISTENT, deployment("not-holding", holds=False, active=True), SUBJECT, reads=True
             ),
-            CF_FLOOR: observe_side(
-                HELD_REFUSAL, door, deployment("not-holding-again", holds=False, active=True), SUBJECT, reads=True
-            ),
-            SERVED: observe_side(
-                HELD_REFUSAL, door, deployment("serving", holds=True, active=False), SUBJECT, reads=True
-            ),
+            CF_FLOOR: ask(CF_FLOOR, deployment("not-holding-again", holds=False, active=True), SUBJECT, reads=True),
+            SERVED: ask(SERVED, deployment("serving", holds=True, active=False), SUBJECT, reads=True),
         }
         asked = {name: list(built.notes["opened"]._acquire.asked) for name, built in opened}
     finally:
@@ -4121,7 +4168,7 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str, twin: Run) -
             built.close()
     return Run(
         shape=HELD_REFUSAL, anchor=anchor, door=door, sides=sides,
-        notes={"asked": asked, DECLARED_WORKING_TWIN: twin},
+        notes={"asked": asked, "written": written, DECLARED_WORKING_TWIN: twin},
     )
 
 
