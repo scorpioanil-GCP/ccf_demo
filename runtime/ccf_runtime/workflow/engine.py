@@ -603,12 +603,18 @@ class WorkflowEngine:
           door with ``hitl-gate-closed``, so it never stands beside a decision
           it can no longer reach, and the queue stops offering the gate.
         * **The conditional passage commit.** The passage — the record leaving
-          the gate, together with its attributed ``workflow_resumed`` row, in
-          ONE audited write — is committed conditionally on the version the
-          resumption read, BEFORE the step after the gate runs. Of two
+          the gate — is committed conditionally on the version the resumption
+          read, BEFORE the step after the gate runs, and its attributed
+          ``workflow_resumed`` row is appended after the commit lands
+          (:meth:`~ccf.controlplane.state.AuditedStateWriter.write_if`). Of two
           resumptions in two processes, or through two state-store objects
           over one durable store, exactly one commit lands; the other is
-          refused before it runs anything.
+          refused before it runs anything. The commit and the row are two
+          writes, not one: an append that fails after the commit landed leaves
+          the execution past its gate with no ``workflow_resumed`` row
+          (``public/how-to/security-and-deployment.md`` §4.13 states what an
+          operator then finds). Detecting and recovering such a passage is
+          being designed (``D-IMPL-378``, decision 7 (b)), not built.
 
         **An interrupted passage is never re-run** (Dave's Q4 and D2 rulings
         on ``D-IMPL-378``). A passage whose commit never landed leaves the
@@ -1009,11 +1015,13 @@ class WorkflowEngine:
                     record.trace, record.current_state, decision, "resume"
                 ),
             )
-            # D-IMPL-378: the passage — the record leaving the gate — and its
-            # attributed row are ONE audited write, committed conditionally on
-            # the version read, BEFORE the step after the gate runs. Of two
-            # resumptions anywhere, exactly one commit lands; a refused or
-            # failed commit appends no row.
+            # D-IMPL-378: the passage — the record leaving the gate — is
+            # committed conditionally on the version read, BEFORE the step
+            # after the gate runs, and its attributed row is appended after the
+            # commit lands: two writes, not one. Of two resumptions anywhere,
+            # exactly one commit lands; a refused or failed commit appends no
+            # row, and a row append that fails after the commit leaves the
+            # passage without its row (decision 7 of D-IMPL-378; SP §4.13).
             try:
                 version = self._write_state(
                     authorized,

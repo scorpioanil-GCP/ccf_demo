@@ -255,7 +255,7 @@ ARTIFACT_STORE_DIRNAME = "artifacts-store"
 
 #: The payload key carrying a node's SOURCE identity, and the one
 #: `ccf_config.yaml`'s two entity rules both name under `identity_keys`. The
-#: MINTED `entity_uri` is not this value — `worker.py::SpecDrivenEntityResolution.identity` hashes the identity
+#: MINTED `entity_uri` is not this value — `worker.py::SpecDrivenEntityResolution.resolve` hashes the identity
 #: map and mints `<entity-class>://<hash>` — which is exactly why
 #: :func:`relationship_claims` takes the minted URIs from the ingest results
 #: rather than recomputing them here.
@@ -2818,7 +2818,7 @@ def build_envelopes(
 
     Returns the envelopes and a map from ``envelope_id`` back to the SOURCE
     node IRI. The spine needs that map because the graph mints its own
-    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py::SpecDrivenEntityResolution.identity`) —
+    ``entity_uri`` — ``<entity-class>://<identity-hash>`` (`worker.py::SpecDrivenEntityResolution.resolve`) —
     so the URI an edge must be built from is knowable only after ingest, from
     each ``IngestResult``'s own ``node_key``. Recomputing the hash here would
     be this module reimplementing L2's identity rule, which is exactly the

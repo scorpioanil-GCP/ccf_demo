@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2481 entries**, of which **2204** name a public Python surface.
+**2483 entries**, of which **2206** name a public Python surface.
 
 ## Added
 
@@ -30791,7 +30791,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-455 entries — 416 public Python surface, 39 not public Python API.
+457 entries — 418 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37382,6 +37382,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.state.AuditedStateWriter
+
+- Surface: ccf.controlplane.state.AuditedStateWriter
+- Public surface: true
+- Change type: behavior
+- Before: the docstring of `write_if` said the store's conditional write comes first and the event after it, so a refused write appends nothing; it did not say what an append that fails after the write landed leaves.
+- After: documentation only; the behavior is unchanged. The docstring of `write_if` adds that these are two writes, not one atomic step: an append that fails after `put_if` landed leaves the record moved with no event for the transition, and the append's error propagates to the caller. Making such a transition detectable and recoverable is being designed (`D-IMPL-378`, decision 7 (b)), not built.
+- Why: Dave's ruling on decision 7 (`D-IMPL-378`, 2026-10-09): "Do not claim atomicity that does not exist."
+- Migration: none in code. A reader who takes the audit log as the complete history of Control Plane state writes allows for a write whose event append failed, which has no event.
+
+*Recorded by `378-54-decision-7-the-passage-and-its-row-are-two-writes.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the docstring of `resume` said the passage is committed "together with its attributed `workflow_resumed` row, in ONE audited write".
+- After: documentation only; the behavior is unchanged. The docstring of `resume` says the passage is committed conditionally before the step after the gate runs and its row is appended after the commit lands: two writes, not one. An append that fails after the commit leaves the execution past its gate with no `workflow_resumed` row, and the security page's §4.13 states what an operator then finds. Detecting and recovering such a passage is being designed (`D-IMPL-378`, decision 7 (b)), not built.
+- Why: Dave's ruling on decision 7 (`D-IMPL-378`, 2026-10-09): "Do not claim atomicity that does not exist."
+- Migration: none in code. An operator who reconciles executions against the audit log reads a `running` execution past its gate with no `workflow_resumed` row as a passage whose row append failed; the approver is named by the gate's closure on the HITL transport (`decided_by`).
+
+*Recorded by `378-54-decision-7-the-passage-and-its-row-are-two-writes.md`.*
 
 ### Not public Python API
 

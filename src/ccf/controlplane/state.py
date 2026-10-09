@@ -598,6 +598,13 @@ class AuditedStateWriter:
         transition the store did not take. Returns the appended event and the
         record's new version.
 
+        These are two writes, not one atomic step. If the append fails after
+        ``put_if`` landed, the record has moved and the log holds no event for
+        the transition; the append's error propagates to the caller
+        (``tests/controlplane/test_audited_write_is_two_writes.py``). Making
+        such a transition detectable and recoverable is being designed
+        (``D-IMPL-378``, decision 7 (b)), not built.
+
         Raises:
             StateConflict: the record moved since ``expected_version`` was read.
             TypeError: the store offers no conditional write.
