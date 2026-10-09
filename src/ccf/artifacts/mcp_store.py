@@ -111,6 +111,7 @@ from ccf.artifacts.protocol import (
     parse_artifact_uri,
 )
 from ccf.contracts.canonical import canonical_bytes
+from ccf.erasure.subject_match import SubjectMatchAnswer, SubjectMatchQuery, SubjectMatchVerdict
 from ccf.products.refusal import RefusalEnvelope
 from ccf.mcp.client import (
     HttpClientFactory,
@@ -135,6 +136,8 @@ _META_SCHEME = "ccf-artifact-meta"
 #: The naming resource (SEC-009; `D-IMPL-374` (4), ruling 2).
 _NAMES_SCHEME = "ccf-artifact-names"
 _PUT_TOOL = "put_artifact"
+#: The erasure door's server-side subject match (SEC-009; `D-IMPL-378`, D3b).
+_SUBJECT_MATCH_TOOL = "match_artifact_subject"
 
 
 class McpArtifactStore:
@@ -357,6 +360,51 @@ class McpArtifactStore:
             raise McpServerUnreachable(
                 f"artifact server returned a non-naming answer: {answer!r}"[:300]
             ) from error
+
+    def match_subject(self, *, query: SubjectMatchQuery, door_signature: str) -> SubjectMatchVerdict:
+        """The artifact server's verdict on ``query``, judged where the bytes are (SEC-009; `D-IMPL-378`, D3b).
+
+        For the erasure door, and only for a request it signed: the server's
+        ``match_artifact_subject`` tool judges the bytes stored at
+        ``query.content_address`` with :func:`~ccf.erasure.judge_subject` and
+        answers one :data:`~ccf.erasure.SubjectMatchVerdict` — never the bytes.
+        The tenant does not cross the wire: the server rebuilds the query under
+        the caller's verified tenant, so ``door_signature``
+        (:func:`~ccf.erasure.sign_subject_match_query`) verifies only for the
+        tenant it was made for. Not one of the Protocol's four verbs.
+
+        Raises:
+            ccf.artifacts.protocol.MalformedContentAddress: ``query`` names no
+                content address; raised before the call leaves this process.
+            ArtifactStoreError: the server declined the call — it refuses every
+                caller but the erasure door of the caller's tenant, and a server
+                without the tool declines too — or answered something that is
+                not a verdict.
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.
+        """
+        address = held_content_address(query.content_address)
+
+        async def operation(session: ClientSession) -> SubjectMatchVerdict:
+            result = await session.call_tool(
+                _SUBJECT_MATCH_TOOL,
+                {
+                    "content_address": address,
+                    "subject_ref": query.subject_ref,
+                    "key_paths": list(query.key_paths),
+                    "subject_ref_salt": query.subject_ref_salt,
+                    "door_signature": door_signature,
+                },
+            )
+            if result.isError or result.structuredContent is None:
+                raise ArtifactStoreError("the artifact server declined the erasure door's subject match")
+            try:
+                return SubjectMatchAnswer.model_validate(result.structuredContent).verdict
+            except ValueError as malformed:
+                raise ArtifactStoreError(
+                    "the artifact server's answer to the subject match is not a verdict"
+                ) from malformed
+
+        return self._bridge.run(self._session(operation))
 
     def resolve_uri(self, *, uri: str) -> str:
         """Return the content address ``uri`` names, exactly.
