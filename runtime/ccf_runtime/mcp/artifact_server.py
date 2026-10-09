@@ -745,8 +745,11 @@ def build_artifact_server(
         declared governed answers its names only to a principal the governed
         dereference admits — the same decision, record and disclosure
         :func:`artifact_blob` makes, asked without bytes. A refusal crosses as
-        the shell, which the client reads as an unverifiable answer and the
-        erasure door as ``class-unverifiable``. Another tenant's filing — of
+        the shell, which :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.names_at`
+        raises as :class:`~ccf.artifacts.protocol.ArtifactReadRefused`
+        carrying it — a typed refusal, never an outage (``D-IMPL-378``,
+        decision 1 (A)) — and the erasure door refuses
+        ``class-unverifiable``. Another tenant's filing — of
         any class — takes no part in the decision (C8, ``D-IMPL-376`` (6)), so
         it can neither make this tenant's own naming unverifiable nor tell this
         tenant that some other tenant holds the bytes.

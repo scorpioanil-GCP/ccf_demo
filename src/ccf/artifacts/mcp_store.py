@@ -64,7 +64,11 @@ than as a transport error, so a client can tell a governed *no* from an
 outage. On the blob the shell cannot hash to the address asked for, so
 :meth:`get` verifies ``sha256(bytes)`` against the address and refuses to
 hand back bytes that are not the artifact; on the presence resource the shell
-stands where ``found: false`` would and is read as exactly that. Nothing here
+stands where ``found: false`` would and is read as exactly that. The names
+resource answers a refusal with the same shell, and there it is read as what it
+is, a refusal: :meth:`names_at` raises
+:class:`~ccf.artifacts.protocol.ArtifactReadRefused` carrying it, never an
+outage and never an empty list (``D-IMPL-378``, decision 1 (A)). Nothing here
 parses the shell's cause — what a consumer may learn of it is the disclosure
 layer's decision, made at the server.
 
@@ -99,6 +103,7 @@ from pydantic import AnyUrl
 
 from ccf.artifacts.protocol import (
     ArtifactName, ArtifactNotFound,
+    ArtifactReadRefused,
     ArtifactRef,
     ArtifactStoreError,
     ArtifactUriUnresolvable,
@@ -358,8 +363,17 @@ class McpArtifactStore:
         Empty, with no round trip, for a string that is not a content address.
 
         Raises:
+            ccf.artifacts.protocol.ArtifactReadRefused: the server answered
+                with its governed refusal shell instead of names. It gives that
+                one answer for a present governed address this credential may
+                not read and for an address its tenant never filed (another
+                tenant's, or nobody's), so all it says is that the address
+                cannot be verified through this credential. Carries the shell
+                as ``envelope``. An access refusal, never an outage and never
+                an absence (``D-IMPL-378``, decision 1 (A)).
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
-                or answered something that is not a list of names.
+                or answered something that is neither a list of names nor a
+                refusal envelope.
         """
         try:
             addressed = held_content_address(content_address)
@@ -368,6 +382,18 @@ class McpArtifactStore:
         answer = self._read_text(f"{_NAMES_SCHEME}://{addressed}")
         try:
             parsed = json.loads(answer)
+            if isinstance(parsed, dict):
+                # The server's governed refusal (decision 1 (A), `D-IMPL-378`),
+                # recognized as `_presence_of` recognizes it: an answer that
+                # validates as a refusal envelope. Judged here, after the
+                # session closed, so it is never reported as unreachability.
+                refused = RefusalEnvelope.model_validate(parsed)
+                raise ArtifactReadRefused(
+                    f"the artifact server refused to name {addressed!r} to this"
+                    f" credential ({refused.kind}); the address cannot be verified"
+                    " through it",
+                    envelope=refused,
+                )
             if not isinstance(parsed, list):
                 raise ValueError("not a list")
             return tuple(ArtifactName.model_validate(item) for item in parsed)

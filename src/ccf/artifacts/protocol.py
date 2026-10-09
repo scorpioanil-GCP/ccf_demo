@@ -50,7 +50,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
-from typing import Final, Protocol, TypeAlias, runtime_checkable
+from typing import TYPE_CHECKING, Final, Protocol, TypeAlias, runtime_checkable
 
 from ccf.authz.capability import (
     ActionKind, ArtifactErase,  # same line: committed specs cite this module by line range
@@ -71,7 +71,7 @@ __all__ = [
     "LATEST_VERSION_TOKEN",
     "NAME_SEGMENT_SEPARATOR",
     "ArtifactName",
-    "ArtifactNotFound",
+    "ArtifactNotFound", "ArtifactReadRefused",  # same line: committed specs cite this module by line range
     "ArtifactRef",
     "ArtifactStoreError",
     "ArtifactStoreProtocol",
@@ -356,6 +356,46 @@ class WriteKinds:
     def __repr__(self) -> str:
         declared = {c: tuple(k.__name__ for k in ks) for c, ks in sorted(self._kinds_by_class.items())}
         return f"WriteKinds({declared!r})"
+
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    # Typing only, and here rather than with the imports above: the refusal
+    # module imports this one (through the fabric it describes), so a run-time
+    # import here would be a cycle; and committed specs cite this module's
+    # lines by range, which lines added above them would move.
+    from ccf.products.refusal import RefusalEnvelope
+
+
+class ArtifactReadRefused(ArtifactStoreError):
+    """A read the store's server answered with a governed refusal, carried here whole (``D-IMPL-378``, decision 1 (A)).
+
+    The read side's :class:`ArtifactWriteRefused`. Raised by
+    :meth:`~ccf.artifacts.mcp_store.McpArtifactStore.names_at` where the MCP
+    artifact server's names resource answered with its governed refusal shell
+    — an already-recorded, already-disclosed
+    :class:`~ccf.products.refusal.RefusalEnvelope` — instead of names. The
+    server gives that one answer for a present governed address the caller may
+    not read, for another tenant's address and for an address nobody filed, so
+    the refusal says the address *cannot be verified* through this credential,
+    never which of those it is. Dave, 2026-10-09 06:21 MST: *"approve the
+    uniform “cannot verify” erasure refusal and refusal instead of an empty
+    names list. Do not mislabel that access refusal “server unreachable.”
+    Preserve a typed refusal through the MCP client."*
+
+    **Not** :class:`~ccf.mcp.errors.McpServerUnreachable`: the call completed
+    and the server decided, so it is no outage to retry. **Not an**
+    :class:`ArtifactNotFound` either: the refusal does not say that nothing is
+    filed at the address, and a caller that read it as absence would conclude
+    what the server withheld.
+
+    Attributes:
+        envelope: The refusal the server answered, parsed. What it discloses
+            of its cause is what the server's disclosure layer put in it.
+    """
+
+    def __init__(self, message: str, *, envelope: RefusalEnvelope) -> None:
+        super().__init__(message)
+        self.envelope = envelope
 
 
 class DerivedWrite:
