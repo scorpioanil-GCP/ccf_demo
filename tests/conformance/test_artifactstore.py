@@ -492,12 +492,26 @@ def test_a_store_presenting_no_credential_is_refused(
     What would fail here: a server built without the verifier, or with a
     verifier its settings never install as middleware. Then the anonymous
     store reads and writes freely and this call returns instead of raising.
+
+    The refusal is the typed authentication refusal, never an outage: the
+    server's guard answered HTTP 401 (repair 2.5 (a), ``D-IMPL-378``, Dave,
+    2026-10-09 10:54 MST: *"Return a typed authentication refusal for 401,
+    preserving its distinction from authorization denial and transport
+    outage."*). Amended from ``McpServerUnreachable``, the label that ruling
+    replaces for a read.
     """
+    from tests.mcp.test_auth_401_typed_through_the_client import (
+        assert_the_authentication_refusal,
+    )
+
     anonymous = McpArtifactStore(
         url=artifact_server_url, bridge=bridge, write_kinds=WriteKinds({})
     )
-    with pytest.raises(McpServerUnreachable):
+    with pytest.raises(Exception) as refusal:
         anonymous.exists(content_address=content_hash(_Artifact(label="x", ordinal=1)))
+    assert_the_authentication_refusal(
+        refusal.value, what="a store presenting no credential, at exists"
+    )
 
 
 def test_a_store_presenting_a_rejected_token_is_refused_as_an_outage(
