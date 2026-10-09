@@ -757,7 +757,13 @@ class ErasureDoor:
         replay-input path of the stored document carries the subject (design
         §7, ``replay-input``; :meth:`_filed_by_record_writer`, ``D-IMPL-378``).
         The stored bytes are read through the UNCONSULTED inner store for this
-        check only and never leave the door.
+        check only and never leave the door, and judged with
+        :func:`~ccf.erasure.judge_subject`. Where that store answers an address
+        as absent and offers ``match_subject`` — the MCP-backed store, for a
+        client-lane filing its server does not serve — the door reads nothing:
+        it asks the server, which judges the bytes where they are with the same
+        function and answers a verdict (:meth:`_judged_where_the_bytes_are`;
+        D3b, ``D-IMPL-378``).
         """
         names_at = getattr(self._store, "names_at", None)
         if not callable(names_at):
