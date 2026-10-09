@@ -38,8 +38,11 @@ for the execution's state key, oldest first:
 * of two processes recovering one suspension at once, each resumption is
   recorded as refused, and one restore's row lands.
 
-RED FIRST: committed before the fix, when the restore returned before the
-refusal row. Test vocabulary only (CINV-01).
+RED FIRST: the four tests above the residual section were committed before
+the fix, when the restore returned before the refusal row. The residual
+measurement after them was added with the fix; it passes before and after it,
+and goes red if a later design marks the restore's row, when it must be
+rewritten to assert that mark. Test vocabulary only (CINV-01).
 """
 
 from __future__ import annotations
@@ -96,6 +99,11 @@ def appended_since(run: Run, before: list[AuditEvent]) -> list[AuditEvent]:
 
 def shapes(events: list[AuditEvent]) -> list[Shape]:
     return [(type(event).__name__, event.action, event.resolved, event.actor) for event in events]
+
+
+def comparable(event: AuditEvent) -> dict[str, object]:
+    """Every field of a row but the two the log and the clock assign: its sequence and its time."""
+    return {"type": type(event).__name__, **event.model_dump(mode="json", exclude={"sequence", "occurred_at"})}
 
 
 def stuck_at_the_first_gate(run: Run) -> WorkflowStateRecord:
@@ -234,3 +242,33 @@ def test_two_processes_recovering_at_once_are_each_recorded_as_refused_and_one_r
     assert shapes(appended_since(a, a_before)) == [REFUSAL], "A: refused, then fenced"
     assert shapes(appended_since(b, b_before)) == [REFUSAL, RESTORE], "B: refused, then restored"
     assert requests(a, FIRST_GATE) == [the_request_a_suspension_files(a, stuck)]
+
+
+# --- residuals, measured ----------------------------------------------------------
+#
+# What the restore's row says to an auditor. The engine's own vocabulary has no
+# action for a restore (Dave's option (a): no new audit action), so the restore's
+# re-write is audited as the suspension write it is.
+
+
+def test_the_restores_row_is_the_suspensions_own_row_but_for_its_sequence_and_time(
+    tmp_path: Path,
+) -> None:
+    """RESIDUAL. The restore still appends a ``workflow_suspended`` row, and that
+    row is the original suspension's row in every field but its sequence and its
+    time: nothing in it marks a restore. Read alone, it reads as a second
+    suspension at the same gate. (That it follows the refusal row is the first
+    test's assertion.)"""
+    run = compose(tmp_path)
+    stuck_at_the_first_gate(run)
+    (original,) = [event for event in rows_of(run) if event.action == "workflow_suspended"]
+
+    resume(run)
+
+    events = rows_of(run)
+    suspensions = [event for event in events if event.action == "workflow_suspended"]
+    assert len(suspensions) == 2 and suspensions[0] == original, shapes(events)
+    restored = suspensions[1]
+    assert type(restored) is type(original) is AuditEvent
+    assert comparable(restored) == comparable(original)
+    assert restored.sequence > original.sequence
