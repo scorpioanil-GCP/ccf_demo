@@ -26,6 +26,9 @@ Modes:
 * ``crash-after-boot`` — inside the boot, after the adapter created and opened
   the store and before the boot's emptiness read, the process kills itself
   with ``SIGKILL``.
+* ``crash-during-read`` — inside the boot's emptiness read (the governed
+  reader's ``as_of`` at the latest instant), before it returns, the process
+  kills itself with ``SIGKILL``.
 * ``pause-inside-boot`` — inside the boot, before the adapter opens the store,
   writes ``<signals>/inside`` and waits for ``<signals>/release``; then boots,
   reports and closes.
@@ -104,6 +107,8 @@ class _Observed:
         def observed_as_of(self: Any, *, tenant_id: str, at: datetime) -> Any:
             if at == _LATEST:
                 observed.emptiness_reads += 1
+                if mode == "crash-during-read":
+                    os.kill(os.getpid(), signal.SIGKILL)
             return real_as_of(self, tenant_id=tenant_id, at=at)
 
         manifest_module.boot = observed_boot

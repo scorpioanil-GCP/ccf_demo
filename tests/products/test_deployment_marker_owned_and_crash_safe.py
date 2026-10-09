@@ -412,7 +412,7 @@ def _assert_refused_unresolved(outcome: Any, *, marker: pathlib.Path, reason: st
     assert "operator" in str(outcome), f"[{case}] the refusal's text must say an operator resolves it: {outcome}"
 
 
-@pytest.mark.parametrize("killed", ["crash-before-boot", "crash-after-boot"])
+@pytest.mark.parametrize("killed", ["crash-before-boot", "crash-after-boot", "crash-during-read"])
 def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified(
     tmp_path: pathlib.Path, killed: str
 ) -> None:
@@ -420,8 +420,11 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
 
     ``crash-before-boot``: killed before the adapter opens the store (none is
     created). ``crash-after-boot``: killed after the adapter created and opened
-    the store, before the read. Measured on ``fe25536c``: the marker the killed
-    boot left was read as ``"verified"`` by the next boot, which booted.
+    the store, before the read. ``crash-during-read``: killed inside the read
+    itself, the latest instant before it completes (added after the fix commit;
+    its red is measured against ``fe25536c``'s ``manifest.py``). Measured on
+    ``fe25536c``: the marker the killed boot left was read as ``"verified"`` by
+    the next boot, which booted.
     """
     manifest, registry, _records = p4e._deployment(tmp_path)
     target = tmp_path / "crashed" / _STORE
@@ -435,7 +438,7 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
     )
     marker = _marker(target)
     assert marker.exists(), f"[{killed}] the killed boot left no marker; the case was not constructed"
-    assert target.exists() == (killed == "crash-after-boot"), f"[{killed}] the store's presence is not as constructed"
+    assert target.exists() == (killed != "crash-before-boot"), f"[{killed}] the store's presence is not as constructed"
     left = marker.read_bytes()
     for read_only in (False, True):
         try:
@@ -449,7 +452,7 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
     assert _state(marker) == "pending", (
         f"[{killed}] the marker a boot killed before its read completed must read pending: {left!r}"
     )
-    assert target.exists() == (killed == "crash-after-boot"), f"[{killed}] a refused boot created or removed the store"
+    assert target.exists() == (killed != "crash-before-boot"), f"[{killed}] a refused boot created or removed the store"
 
 
 # --- 4. a marker that cannot show a completed verification ---------------------------------------------------------
