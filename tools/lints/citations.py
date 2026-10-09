@@ -132,6 +132,21 @@ correction was written against; the definition has moved since".
 surrounding lines carry one of those phrases, or a bare git object id, is
 exempt from ``cite01`` and ``cite02`` alike.
 
+Pinned historical citations (PROPOSAL, not ruled)
+-------------------------------------------------
+
+A frozen specimen may not be edited (``D-IMPL-261``), so a citation in it that
+names nothing is a ``cite03`` finding for ever. ``D-IMPL-378`` repair 1.5 (Dave,
+2026-10-09 10:54 MST) reverted the edit that corrected three such citations in
+``examples/cp-04-corporate-family-tree``, declined to exclude frozen examples
+from the check, and asked for *"a narrowly pinned historical citation
+exception"*. ``PINNED_HISTORICAL_CITATIONS`` is that exception as proposed: each
+entry keeps ONE finding, keyed by the file, the line, the exact citation text
+and the sha256 of the file's text, and only while all four still match. Any
+other dangling citation, in that file or anywhere, is a finding; any change to
+a pinned file's bytes voids every pin on it. A kept citation is counted
+(``Scan.pinned_historical``; ``--report``), never dropped unseen.
+
 Scope is configured, and was measured
 -------------------------------------
 
@@ -153,6 +168,7 @@ from __future__ import annotations
 
 import ast
 import fnmatch
+import hashlib
 import io
 import pathlib
 import re
@@ -167,6 +183,8 @@ __all__ = [
     "HISTORICAL_RECORDS",
     "MAINTAINED_RECORDS",
     "NODE_ID",
+    "PINNED_HISTORICAL_CITATIONS",
+    "PinnedCitation",
     "RULE_ANCHOR",
     "RULE_NODE_ID",
     "RULE_RESOLVES",
@@ -273,6 +291,56 @@ HISTORICAL_RECORDS: dict[str, str] = {
 #: tense, and Phase 16 reads it as authoritative. Exactly the file whose
 #: pointers must be true now.
 MAINTAINED_RECORDS: tuple[str, ...] = (".planning/phases/*/deferred-items.md",)
+
+
+class PinnedCitation(NamedTuple):
+    """One ``cite03`` finding kept, by its file, line, text and the file's hash.
+
+    PROPOSAL (``D-IMPL-378`` repair 1.5), not ruled. ``sha256`` is the digest of
+    the file's text as the checker reads it (UTF-8); a change to any byte of
+    the file voids the pin.
+    """
+
+    path: str
+    line: int
+    citation: str
+    sha256: str
+    reason: str
+
+
+#: The pinned historical citations: three, all in the frozen cp-04 specimen.
+#: Each names ``SpecDrivenEntityResolution.identity``, which never existed;
+#: the specimen may not be edited (``D-IMPL-261``; declared gate CFC-G09,
+#: "ZERO files changed"), and repair 1.5 reverted the edit that corrected
+#: them (``b7defda9``, reverted in ``20003cee``). The hashes are the files'
+#: bytes at the specimen's branch point ``d429dcfa``.
+_CP04_REASON = (
+    "frozen specimen (D-IMPL-261, CFC-G09): cites a member that never existed;"
+    " kept as written by D-IMPL-378 repair 1.5, which reverted its correction"
+)
+PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
+    PinnedCitation(
+        path="examples/cp-04-corporate-family-tree/deployment.py",
+        line=258,
+        citation="worker.py::SpecDrivenEntityResolution.identity",
+        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        reason=_CP04_REASON,
+    ),
+    PinnedCitation(
+        path="examples/cp-04-corporate-family-tree/deployment.py",
+        line=2821,
+        citation="worker.py::SpecDrivenEntityResolution.identity",
+        sha256="9845c70febd83d69a5161995cedb988b5f481e8cf26d72916f91b5805eff10f7",
+        reason=_CP04_REASON,
+    ),
+    PinnedCitation(
+        path="examples/cp-04-corporate-family-tree/projection.py",
+        line=169,
+        citation="src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
+        sha256="25aef57fe515f0b2b4076e303e6b794a849426928e6d1c69310641a5ec728430",
+        reason=_CP04_REASON,
+    ),
+)
 
 #: Suffixes of files this checker reads citations *out of*.
 SCANNED_SUFFIXES: frozenset[str] = frozenset({".py", ".md", ".yaml", ".yml"})
@@ -427,6 +495,7 @@ class Scan(NamedTuple):
     exempt_files: int
     scanned_files: int
     unfollowable_member: int
+    pinned_historical: int
 
 
 def exemption_reason(rel: str) -> str | None:
@@ -848,6 +917,19 @@ def checkable_anchor(
     return anchor
 
 
+def _pinned(path: pathlib.Path, lineno: int, citation: str, source: str) -> bool:
+    """True when this ``cite03`` finding is a pin of ``PINNED_HISTORICAL_CITATIONS``.
+
+    All four must match: the file, the line, the exact citation text, and the
+    sha256 of `source` — so a pinned file whose bytes changed keeps nothing.
+    """
+    site = (path.as_posix(), lineno, citation)
+    for pin in PINNED_HISTORICAL_CITATIONS:
+        if (pin.path, pin.line, pin.citation) == site:
+            return hashlib.sha256(source.encode("utf-8")).hexdigest() == pin.sha256
+    return False
+
+
 def check_source(
     source: str,
     path: pathlib.Path,
@@ -886,6 +968,9 @@ def check_source(
                 bump("ambiguous_path" if ambiguous else "unresolved_path")
                 continue
             if symbol not in cache.spans(target):
+                if _pinned(path, lineno, f"{cited}::{symbol}", source):
+                    bump("pinned_historical")
+                    continue
                 findings.append(
                     format_finding(
                         path,
@@ -907,6 +992,8 @@ def check_source(
                 bump("unfollowable_member")
             elif verdict:
                 bump("checked")
+            elif _pinned(path, lineno, f"{cited}::{'.'.join(qualified)}", source):
+                bump("pinned_historical")
             else:
                 findings.append(
                     format_finding(
@@ -1007,6 +1094,7 @@ def scan_tree(base: pathlib.Path) -> Scan:
         exempt_files=exempt,
         scanned_files=scanned,
         unfollowable_member=tally.get("unfollowable_member", 0),
+        pinned_historical=tally.get("pinned_historical", 0),
     )
 
 
