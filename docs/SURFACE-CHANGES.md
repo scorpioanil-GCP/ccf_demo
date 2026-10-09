@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2538 entries**, of which **2261** name a public Python surface.
+**2539 entries**, of which **2262** name a public Python surface.
 
 ## Added
 
@@ -30923,7 +30923,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-501 entries — 462 public Python surface, 39 not public Python API.
+502 entries — 463 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38066,6 +38066,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none in code; as for `ccf.deployment.manifest.load_and_boot`.
 
 *Recorded by `378-68-a-a-claimed-refusal-at-promotion-leaves-the-store-the-boot-created.md`.*
+
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: behavior
+- Before: its docstring quoted repair 2.4 (b) ("Refuse when the shared-owner walk reaches a limit before completing.") as read with repair 1.8, and did not say that 2.4 (b) is not built.
+- After: unchanged behavior; its docstring says repair 2.4 (b) is not built: a walk cut off at either bound (`SHARED_OWNER_WALK_DEPTH`, `SHARED_OWNER_WALK_OBJECTS`) raises no refusal and admits the two phases, and the walk reaches its reference bound sooner as a service runs.
+- Why: `D-IMPL-378`, the "j" batch panel's J-WALK-DOC-24B. Measured by `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_one_step_past_the_depth_bound_is_not_seen`, `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_reached_after_the_object_bound_is_spent_is_not_seen` and `tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py`.
+- Migration: none. Keep the population phase free of anything the subject-keyed phase writes; the walk does not stand in for that past its bounds.
+
+*Recorded by `378-68-b-shared-owner-walk-incomplete-says-repair-2-4-b-is-not-built.md`.*
 
 ### Not public Python API
 

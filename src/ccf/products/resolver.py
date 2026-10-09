@@ -774,6 +774,20 @@ class SharedOwnerWalkIncomplete(PopulationPhaseSharesAnOwner):
     shared-owner walk reaches a limit before completing."* SDK-defined,
     CLAUDE.md §11. SEC-020 stays OPEN.
 
+    Repair 2.4 (b) itself is not built. A walk cut off at either of its
+    bounds, :data:`SHARED_OWNER_WALK_DEPTH` or
+    :data:`SHARED_OWNER_WALK_OBJECTS`, raises neither this refusal nor any
+    other: it admits the two phases, and what lies past the bound is not
+    checked (measured by
+    ``tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_one_step_past_the_depth_bound_is_not_seen``
+    and
+    ``tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_reached_after_the_object_bound_is_spent_is_not_seen``).
+    The walk also reads the SDK's own state a phase holds, which grows as a
+    service runs, so it reaches its reference bound sooner the longer a
+    service runs (measured by
+    ``tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py``;
+    the security how-to, section 4.12).
+
     Raised where :class:`PopulationPhaseSharesAnOwner` is (at construction,
     and on the paved road when the product is opened) when reading what an
     object the walk reached holds raises — such as a slotted class whose
