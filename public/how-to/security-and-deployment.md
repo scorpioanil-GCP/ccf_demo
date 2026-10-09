@@ -1032,16 +1032,21 @@ Two behaviors follow from the design and are stated rather than changed:
   appended (an ES256 signature is not deterministic, and the index takes only
   an identical entry again), after verifying it.
 - Over the MCP-backed store, a names read that the server refuses reaches the
-  door looking like an outage. The server refuses it for a governed address
-  the door may not read and for an address the door's tenant never filed
-  (F1-1, D-IMPL-378). An address nobody filed and a governed address that
-  holds no record, a query pin above all, get the same answer, the governed
-  read's `nonexistent` shell
+  door as a typed refusal, never as an outage: the client raises
+  `ArtifactReadRefused`, carrying the server's refusal shell
+  (`src/ccf/artifacts/protocol.py::ArtifactReadRefused`; decision 1 (A),
+  D-IMPL-378). The server refuses it for a governed address the door may not
+  read and for an address the door's tenant never filed (F1-1, D-IMPL-378).
+  An address nobody filed and a governed address that holds no record, a
+  query pin above all, get the same answer, the governed read's `nonexistent`
+  shell
   (`tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike`).
-  The door refuses `class-unverifiable` either way, so it fails closed, but
-  the causes are not told apart: over the MCP-backed store an address the
-  tenant never filed is refused `class-unverifiable`, where the door in
-  process refuses it `address-not-in-tenant`
+  The door refuses all of them `class-unverifiable` ("cannot verify"), with
+  the typed refusal as the cause
+  (`tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_the_erasure_door_over_the_mcp_store_refuses_class_unverifiable_because_of_the_typed_refusal`),
+  so it fails closed, but the causes are not told apart: over the MCP-backed
+  store an address the tenant never filed is refused `class-unverifiable`,
+  where the door in process refuses it `address-not-in-tenant`
   (`tests/mcp/test_erasure_subject_match.py::test_the_mcp_backed_door_reaches_the_in_process_doors_outcome`).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):

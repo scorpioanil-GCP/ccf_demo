@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2457 entries**, of which **2180** name a public Python surface.
+**2458 entries**, of which **2181** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1350 entries — 1304 public Python surface, 46 not public Python API.
+1351 entries — 1305 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19724,6 +19724,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
+#### ccf.artifacts.protocol.ArtifactReadRefused
+
+- Surface: ccf.artifacts.protocol.ArtifactReadRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the read side's `ArtifactWriteRefused`: an `ArtifactStoreError`, and not an `ArtifactNotFound`, raised where a store's server answered a read with its governed refusal shell. It carries the shell, parsed, as `envelope` (a `ccf.products.refusal.RefusalEnvelope`). It says the address cannot be verified through this credential, never whether anything is filed there.
+- Why: decision 1 (A), `D-IMPL-378`: "Do not mislabel that access refusal “server unreachable.” Preserve a typed refusal through the MCP client."
+- Migration: none.
+
+*Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -37077,23 +37089,23 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: the names resource (`ccf-artifact-names://`) took the governed dereference only for an address the caller's tenant had filed under a class declared under `ReplayMint`; an address the caller's tenant never filed (another tenant's, nobody's, or a string that is not an address) answered `[]`. A governed address holding no record, an executed-query pin above all, therefore answered the governed read's `nonexistent` shell while an address nobody filed answered `[]`, which told an unentitled caller that the pin exists.
-- After: an address the caller's tenant never filed takes the governed dereference the blob and presence resources take for it and answers its `nonexistent` shell, the same answer a governed address holding no record gets. A principal the governed dereference admits, and the caller's own client-lane filings, get their names as before. Another tenant's filing still takes no part in the decision (C8): without an own filing the answer is the same shell whatever any other tenant filed.
-- Why: the `D-IMPL-378` final panel's F1-1: the names resource was a present-or-absent oracle for governed addresses that hold no record, readable with the asker's own credential. Red tests: `tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike` (both parametrizations) and `::test_names_does_not_tell_the_withheld_deployment_from_the_nonexistent_one`.
-- Migration: an erasure door built over the MCP-backed store now refuses an address its tenant never filed `class-unverifiable` (another tenant's address and nobody's alike, so I6 still refuses both), where it refused `address-not-in-tenant`; the door over a store handed to it in process still refuses `address-not-in-tenant`. A client that read `[]` from the names resource as "my tenant filed nothing at this address" now receives the refusal shell, as it already did for a governed address it may not read.
+- After: an address the caller's tenant never filed takes the governed dereference the blob and presence resources take for it and answers its `nonexistent` shell, the same answer a governed address holding no record gets: a refusal, not an empty names list. A principal the governed dereference admits, and the caller's own client-lane filings, get their names as before. Another tenant's filing still takes no part in the decision (C8): without an own filing the answer is the same shell whatever any other tenant filed.
+- Why: decision 1 (A), `D-IMPL-378` (Dave, 2026-10-09 06:21 MST): "approve the uniform “cannot verify” erasure refusal and refusal instead of an empty names list." The finding is the final panel's F1-1. Red tests: `tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike` (both parametrizations) and `::test_names_does_not_tell_the_withheld_deployment_from_the_nonexistent_one`.
+- Migration: an erasure door built over the MCP-backed store now refuses an address its tenant never filed `class-unverifiable` ("cannot verify"; another tenant's address and nobody's alike, so I6 still refuses both), where it refused `address-not-in-tenant`; the door over a store handed to it in process still refuses `address-not-in-tenant`. A client that read `[]` from the names resource as "my tenant filed nothing at this address" now receives the refusal shell, as it already did for a governed address it may not read. Two pinned expectations changed with it: `tests/mcp/test_erasure_subject_match.py::test_the_mcp_backed_door_reaches_the_in_process_doors_outcome` (its `OVER_MCP` rows) and `tests/mcp/test_c8_governed_judged_per_tenant.py::test_the_owners_answers_do_not_depend_on_any_other_tenants_filing` (`owner-never-filed`).
 
-*Recorded by `378-46-proposal-names-decides-an-address-its-tenant-never-filed.md`.*
+*Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
 
 #### ccf.artifacts.mcp_store.McpArtifactStore
 
 - Surface: ccf.artifacts.mcp_store.McpArtifactStore
 - Public surface: true
 - Change type: behavior
-- Before: against the shipped artifact server, `names_at` returned `()` for an address the credential's tenant never filed (another tenant's, or nobody's), and raised `McpServerUnreachable` (a non-naming answer) for a governed address the credential may not read. A string that is not a content address returns `()` with no round trip, before and after.
-- After: `names_at` raises `McpServerUnreachable` for both. The class's code is unchanged; the server's names resource answers both with the governed read's refusal shell, which `names_at` reads as a non-naming answer, as before. `ccf.replay.provenance.filed_by_record_writer` over this store raises it too, where it returned `False`.
-- Why: the `D-IMPL-378` final panel's F1-1 (the entry above).
-- Migration: a caller of `names_at` over the MCP-backed store cannot tell an address its tenant never filed from a governed address it may not read, or either from an outage. The SDK's own consumers fail closed or never ask: the erasure door refuses `class-unverifiable`, and `resolve_artifact`, child admission and `OpenedProduct.record_of` ask the provenance check only after the store returned bytes that hash to the address and parse as a record, which over this store means the server already served that record to the same credential (measured for `resolve_artifact` by the lane's consumers probe, not by a test in this tree: it stops at `get` with `ReplayUnresolvable`, before and after).
+- Before: against the shipped artifact server with the names resource above, `names_at` raised `McpServerUnreachable` ("a non-naming answer") for a governed address the credential may not read and for an address the credential's tenant never filed, because it parsed the refusal shell as a malformed answer. `ccf.replay.provenance.filed_by_record_writer` and `require_filed_by_record_writer` over this store raised it too. A string that is not a content address returns `()` with no round trip, before and after.
+- After: `names_at` raises `ccf.artifacts.protocol.ArtifactReadRefused`, carrying the server's shell, for all of those addresses: a typed refusal, never an outage and never an absence. `McpServerUnreachable` remains for an unreachable substrate and for an answer that is neither a list of names nor a refusal envelope. `filed_by_record_writer` and `require_filed_by_record_writer` over this store propagate the typed refusal: never `False`, never `RecordNotFiledByRecordWriter`.
+- Why: decision 1 (A), `D-IMPL-378`: "Preserve a typed refusal through the MCP client." Red tests: `tests/mcp/test_f1_names_refusal_typed_through_the_client.py::test_names_at_raises_the_typed_refusal_for_a_query_pin_and_for_addresses_its_tenant_never_filed` (both parametrizations), `::test_record_provenance_over_the_mcp_store_propagates_the_typed_refusal` and `::test_the_erasure_door_over_the_mcp_store_refuses_class_unverifiable_because_of_the_typed_refusal` (three rows); control `::test_an_answer_that_is_neither_names_nor_a_refusal_is_still_an_outage`.
+- Migration: a caller that caught `McpServerUnreachable` around `names_at` to retry it no longer receives a refusal that way; catch `ArtifactReadRefused`, or `ArtifactStoreError`, and treat it as "cannot verify". The SDK's own consumers keep their outcomes: the erasure door still refuses `class-unverifiable`, now with the typed refusal as the cause, and the in-process door is unchanged. Measured by lane `378i-names`'s consumer probe, not by a test in this tree: where the bytes of a record were served to one credential and the naming read of the same address was refused, which stands for the server's decision changing between the two reads, `ccf.replay.engine.resolve_artifact` over such a store raises the typed refusal where it raised `McpServerUnreachable`, and the governed evidence read (`ccf_runtime.authz.delivery_boundary.govern_dereference`) over the erasure-consulting composition of it answers its `nonexistent` shell where `McpServerUnreachable` escaped it.
 
-*Recorded by `378-46-proposal-names-decides-an-address-its-tenant-never-filed.md`.*
+*Recorded by `378-46-names-refuses-an-address-its-tenant-never-filed-typed-through-the-client.md`.*
 
 ### Not public Python API
 

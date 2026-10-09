@@ -660,6 +660,7 @@
       "ARTIFACT_URI_SCHEME",
       "ArtifactName",
       "ArtifactNotFound",
+      "ArtifactReadRefused",
       "ArtifactRef",
       "ArtifactStoreError",
       "ArtifactStoreProtocol",
@@ -697,6 +698,10 @@
       "ArtifactNotFound": {
         "kind": "class",
         "shape": "type"
+      },
+      "ArtifactReadRefused": {
+        "kind": "class",
+        "shape": "(message: 'str', *, envelope: 'RefusalEnvelope') -> 'None'"
       },
       "ArtifactRef": {
         "kind": "contract",
