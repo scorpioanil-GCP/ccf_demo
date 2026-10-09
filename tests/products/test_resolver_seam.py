@@ -107,7 +107,6 @@ from ccf.halflife.assessment import (
     SourceRefreshWindow,
 )
 from ccf.products.resolver import (
-    UNHELD_SUBJECT_PROBE,
     GovernedResolver,
     build_governed_resolver,
     ProductNotResolvable,
@@ -2991,12 +2990,12 @@ def _declare_temporal_bound(
     return pinned
 
 
-def _counting_acquisition() -> tuple[list[str], Any]:
-    """An acquisition seam that records every invocation, by the subject it was handed. E5's instrument."""
-    calls: list[str] = []
+def _counting_acquisition() -> tuple[list[int], Any]:
+    """An acquisition seam that records every invocation. E5's instrument."""
+    calls: list[int] = []
 
     def seam(*, request: ProductRequest, perspective: Perspective) -> None:
-        calls.append(request.subject)
+        calls.append(1)
 
     return calls, seam
 
@@ -3109,8 +3108,9 @@ def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
     assert isinstance(served, ServedProduct), served
     # `D-IMPL-378` ruling P6 (a): the fixture class is at the SDK's default
     # stance (may withhold) and declares no early policy, so the in-bounds
-    # question first hands the seam the probe identifier, then its subject.
-    assert calls == [UNHELD_SUBJECT_PROBE, "acct-1"], (
+    # question invokes the seam twice — the probe identifier, then its subject
+    # (the order is held by tests/products/test_sec020_p6_population_read_in_subject_keyed_phase.py).
+    assert calls == [1, 1], (
         "THE POSITIVE CONTROL: the seam must count when a request is in bounds,"
         " or the zero above is the count of a seam nobody wired"
     )
