@@ -15,7 +15,8 @@ The two halves:
   request: validate the declaration, VERIFY every requester-named address
   (fix round 1 — not already erased; filed under this tenant (I6); its STORED
   class, from the store's ``names_at``, is not the erasure record's and equals
-  the requester's label (C2); a value at a subject key path hashes to
+  the requester's label (C2); its stored bytes hash to the address (E1 (a),
+  ``D-IMPL-378``); a value at a subject key path hashes to
   ``subject_ref`` (iv); no subject in a replay-input field of a record the
   fabric's record writer filed (§7; ``D-IMPL-378``)), judge
   retention and holds against the STORED class and the PINNED policy, then
@@ -762,13 +763,15 @@ class ErasureDoor:
         erased within the tenant; the store's naming (``names_at``) files it
         under THIS tenant (I6); its stored class is not a mechanism class an
         erasure may never reach (the erasure record — C2) and equals the
-        requester's label (C2); a value at one of the subject's key paths
-        hashes to the request's ``subject_ref`` (iv); and, for a Decision
-        Replay record the fabric's record writer filed, no replay-input path of
-        the stored document carries the subject (design §7, ``replay-input``;
-        :meth:`_filed_by_record_writer`, ``D-IMPL-378``). The stored bytes are
-        read through the UNCONSULTED inner store for this check only and never
-        leave the door.
+        requester's label (C2); its stored bytes hash to the address, read
+        before anything is judged from them (``subject-unverifiable``
+        otherwise; Dave's E1 (a), ``D-IMPL-378``); a value at one of the
+        subject's key paths hashes to the request's ``subject_ref`` (iv); and,
+        for a Decision Replay record the fabric's record writer filed, no
+        replay-input path of the stored document carries the subject (design
+        §7, ``replay-input``; :meth:`_filed_by_record_writer`, ``D-IMPL-378``).
+        The stored bytes are read through the UNCONSULTED inner store for this
+        check only and never leave the door.
         """
         names_at = getattr(self._store, "names_at", None)
         if not callable(names_at):
@@ -828,8 +831,29 @@ class ErasureDoor:
                     reason_code="class-label-mismatch",
                 )
             try:
-                document = json.loads(reader.get(content_address=where))
+                payload = reader.get(content_address=where)
             except (ArtifactStoreError, KeyError, ValueError) as unreadable:
+                raise ErasureRefused(
+                    "a requested address could not be read to verify its subject (SEC-009)",
+                    reason_code="subject-unverifiable",
+                ) from unreadable
+            # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+            # integrity." Byte fidelity FIRST, as the replay engine holds it
+            # (`D-IMPL-89`): the address is the sha256 of the stored canonical
+            # bytes, so bytes that hash to anything else are not the artifact
+            # the request names. The subject and the replay-input rule are
+            # never judged from them, and nothing reaches approval.
+            if hashlib.sha256(payload).hexdigest() != where:
+                raise ErasureRefused(
+                    "the bytes stored at a requested address do not hash to that"
+                    " address, so they are not the artifact the request names and"
+                    " its subject cannot be verified from them (SEC-009; D-IMPL-89;"
+                    " D-IMPL-378 E1 (a))",
+                    reason_code="subject-unverifiable",
+                )
+            try:
+                document = json.loads(payload)
+            except ValueError as unreadable:
                 raise ErasureRefused(
                     "a requested address could not be read to verify its subject (SEC-009)",
                     reason_code="subject-unverifiable",

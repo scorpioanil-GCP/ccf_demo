@@ -109,8 +109,13 @@ in this order:
    capability's tenant in an undeclared (client-lane) class — or the workflow
    engine's trace class, declared under ``Execute | Resume`` — is served: the
    exact stored bytes, with one ``authz_decision`` audit event naming the read.
-   The answer does not say which lane served it, so bytes that validate as a
-   Decision Replay record (``DecisionReplayRecord.model_validate_json``, the
+   Only bytes that hash to the address are served (Dave's E1 (a),
+   ``D-IMPL-378``): the address is the sha256 of the stored canonical bytes,
+   so bytes altered under it are not the artifact it names, and the governed
+   dereference decides them; its re-hash on arrival answers them exactly as
+   a missing address. The answer does not say which lane served it, so
+   bytes that validate as a Decision Replay record
+   (``DecisionReplayRecord.model_validate_json``, the
    validator every SDK reader of a record applies) are not served this way
    (the client-lane ruling, ``D-IMPL-378``): the governed dereference decides
    them, and it serves a record only where the store's naming shows the
@@ -153,6 +158,7 @@ Algorithmic module (CINV-03).
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from typing import Protocol, runtime_checkable
 
@@ -543,6 +549,15 @@ def build_artifact_server(
             )
             assert isinstance(decided, RefusalEnvelope)  # an erased read only refuses
             return decided
+        # Dave's E1 (a) (`D-IMPL-378`): "Preserve record content-address
+        # integrity." Byte fidelity FIRST (`D-IMPL-89`): the address is the
+        # sha256 of the stored canonical bytes, so client-lane bytes that hash
+        # to anything else are not the artifact the address names. They never
+        # cross as it and decide nothing below: the governed dereference
+        # decides them, and its re-hash on arrival answers them exactly as a
+        # missing address.
+        if hashlib.sha256(payload).hexdigest() != content_address:
+            return governed_read()
         if _record_shaped(payload):
             # (5) Bytes on the client lane that validate as a Decision Replay
             # record are not served as a client artifact (the client-lane

@@ -1043,8 +1043,12 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   artifact server serves a tenant's own client-lane filings to every principal
   of that tenant as the exact stored bytes
   (`runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server`), and
-  the answer does not say which lane served it. So it does not serve bytes
-  that validate as a Decision Replay record that way. "Validate" means
+  the answer does not say which lane served it. It serves them only while
+  they hash to their address: bytes altered under it answer as a missing
+  address, decided by the governed read (Dave's E1 (a), D-IMPL-378;
+  `tests/replay/test_record_content_address_integrity.py::test_the_artifact_servers_client_lane_never_serves_bytes_altered_under_their_address`).
+  It does not serve bytes that validate as a Decision Replay record that way
+  either. "Validate" means
   `DecisionReplayRecord.model_validate_json`, the parse the replay engine
   (`src/ccf/replay/engine.py::resolve_artifact`) and every SDK reader of a
   record make. The governed read decides those bytes, and on the blob and
@@ -1072,7 +1076,12 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   record retention, the `replay-input` refusal, only to a record the fabric's
   record writer filed under the requesting tenant, decided by the same
   provenance check (`src/ccf/replay/provenance.py::filed_by_record_writer`;
-  D-IMPL-378). A door over the store in process reads such a filing directly
+  D-IMPL-378). It judges the subject and that rule from the bytes at each
+  requested address only after re-hashing them against the address: bytes
+  altered under it are refused `subject-unverifiable`, and no approval starts
+  (Dave's E1 (a), D-IMPL-378;
+  `tests/replay/test_record_content_address_integrity.py::test_the_erasure_door_refuses_to_judge_a_record_from_bytes_altered_under_its_address`).
+  A door over the store in process reads such a filing directly
   and erases it like any client artifact, even with the subject in a
   replay-input field; a record the writer filed, with the subject in the same
   field, is still refused `replay-input`. A store that cannot say who filed an
@@ -1396,11 +1405,20 @@ a nonexistent one. Each was measured on test fixtures.
   pass a two-sample test pooled over every cell of a comparison
   (`tests/products/test_sec020_combined_proof.py::test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`,
   which states the test's power). A reference names a record by the hash of
-  its stored bytes, so its integrity is arithmetic, and every SDK reader of a
-  record by its reference now re-hashes what it hands back:
-  `OpenedProduct.record_of` and the governed evidence read refuse bytes
-  altered under a reference, as replay already did
-  (`tests/replay/test_record_content_address_integrity.py`).
+  its stored bytes, so its integrity is arithmetic. These SDK readers of a
+  record by its reference re-hash the bytes before anything uses them, and
+  refuse bytes altered under it: the replay engine's reads
+  (`resolve_artifact`, `resolve_artifact_at_uri`, `replay`,
+  `replay_refusal`), `OpenedProduct.record_of`, the governed evidence read,
+  child admission's read of a child's record
+  (`src/ccf/products/child_resolver.py::GrantBoundChildResolver._touched_entities`,
+  which raises `ChildRecordAltered` before the admission gate sees anything),
+  and the erasure door's read of each requested address, refused
+  `subject-unverifiable` before an approval starts
+  (`tests/replay/test_record_content_address_integrity.py`). A store's own
+  `get` returns whatever it holds and checks nothing: code that reads a
+  record straight from a store, rather than through one of those readers,
+  must re-hash it itself.
 - **The record behind it (D-IMPL-378, Q12; Dave ruled its three details on
   2026-10-08 as E2: (i) and (iii) approved, (ii) rejected).**
   Dimension 1 of a withheld decision's record lists what the plan actually
