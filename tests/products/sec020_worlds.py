@@ -4009,3 +4009,19 @@ class HeldRefusalRunCache:
                 self._factory(f"{HELD_REFUSAL}-{anchor}-{door}"), anchor=anchor, door=door
             )
         return self._runs[key]
+
+
+def held_refusal_is_the_property(run: Run, position: str, raised: str) -> bool:
+    """Whether a side raising ``raised`` at ``position`` is item 4 (b)'s refusal, held as the property.
+
+    ``D-IMPL-378``, a coordinator integration of two of Dave's 2026-10-09 06:21 rulings: the floor check ("A failed
+    spare answer cannot excuse differences.") and item 4 (b)'s closing-test case ("4(b), plus the closing-test case
+    and a supported working twin"). In the held-refusal deployment every side is refused alike, so its floor copy
+    raises item 4 (b)'s refusal because that refusal IS the property, as :func:`p6_refusal_is_the_property` holds P6
+    (a)'s. Only in that deployment (:data:`HELD_REFUSAL`), only at the question's own position (a raise inside a record
+    read never is), only that refusal by type name, and only where EVERY side of the run raised it with ONE message.
+    """
+    if run.shape != HELD_REFUSAL or position != ONLY or not raised.startswith(f"{HELD_REFUSAL_REFUSAL}:"):
+        return False
+    refusals = {run.raised(side).get(ONLY, "") for side in HELD_REFUSAL_SIDES}
+    return len(refusals) == 1
