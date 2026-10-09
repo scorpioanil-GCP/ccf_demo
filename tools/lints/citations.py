@@ -34,15 +34,16 @@ Three rules
 
 ``cite03-node-id``
     A ``file.py::symbol`` citation must resolve to something of that name in
-    that file — a ``def``, a ``class`` or an assignment in its module body or
-    in a class body, never a function's local (``D-IMPL-378`` repair 1.7:
-    *"take bindings only from the cited file's module and class bodies"*;
-    until then the whole file was read, so a name bound only inside a function
-    resolved, and a local sharing a cited class's name hid its members, Fable
-    G2 F-G2-3). This is the form plan 15.1-19 migrated *to*, because it does
-    not rot silently under a line shift; but an unchecked symbol citation rots
-    silently under a *rename*, and checking it is what makes the preferred
-    form the enforced form rather than the trusted one. See
+    that file — a ``def``, a ``class``, an assignment, or a tuple, ``for`` or
+    ``with`` target in its module body or in a class body, never a function's
+    local (``D-IMPL-378`` repair 1.7: *"take bindings only from the cited
+    file's module and class bodies"*; until then the whole file was read, so a
+    name bound only inside a function resolved, and a local sharing a cited
+    class's name hid its members, Fable G2 F-G2-3). This is the form plan
+    15.1-19 migrated *to*, because it does not rot silently under a line
+    shift; but an unchecked symbol citation rots silently under a *rename*,
+    and checking it is what makes the preferred form the enforced form rather
+    than the trusted one. See
     ``tools/lints/citations.py::symbol_spans`` for what "resolve" means.
     A qualified citation, ``file.py::A.b.c``, is checked name by name
     (``D-IMPL-378``, OWED-RULINGS-3 item 7 (a); until then only ``A`` was
@@ -606,10 +607,30 @@ def symbol_spans(source: str, path: pathlib.Path) -> dict[str, list[tuple[int, i
     return spans
 
 
+def _target_names(target: ast.expr) -> list[str]:
+    """The names an assignment, ``for`` or ``with`` target binds.
+
+    A plain name, or every name a tuple or list target unpacks to, nested and
+    starred ones included. An attribute or subscript target binds no name in
+    the scope it sits in.
+    """
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for element in target.elts for name in _target_names(element)]
+    if isinstance(target, ast.Starred):
+        return _target_names(target.value)
+    return []
+
+
 def _binds(node: ast.AST) -> list[str]:
     """The names `node` binds, of the kinds ``cite03`` resolves.
 
-    A ``def``, a ``class``, or a plain-name assignment or annotation target.
+    A ``def`` or a ``class``; and every name an assignment, an annotation, a
+    ``for`` loop or a ``with ... as`` binds, a tuple or list target unpacked
+    (``D-IMPL-378`` repair 1.7, *"let tuple, `for` and `with` targets bind"*;
+    until then only a plain-name assignment or annotation target bound, so a
+    member bound any other way was reported missing, Fable G2 F-G2-3 (b)).
     :func:`_definitions` (and so :func:`symbol_spans`) and
     :func:`scope_bindings` both read these kinds from here, so what a first
     name and a member may resolve to cannot drift apart.
@@ -617,10 +638,16 @@ def _binds(node: ast.AST) -> list[str]:
     if isinstance(node, _SCOPES):
         return [node.name]
     if isinstance(node, ast.Assign):
-        return [target.id for target in node.targets if isinstance(target, ast.Name)]
-    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-        return [node.target.id]
-    return []
+        targets = list(node.targets)
+    elif isinstance(node, (ast.AnnAssign, ast.For, ast.AsyncFor)):
+        targets = [node.target]
+    elif isinstance(node, (ast.With, ast.AsyncWith)):
+        targets = [
+            item.optional_vars for item in node.items if item.optional_vars is not None
+        ]
+    else:
+        return []
+    return [name for target in targets for name in _target_names(target)]
 
 
 def _own_statements(scope: ast.AST) -> Iterator[ast.stmt]:
