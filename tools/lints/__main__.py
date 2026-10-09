@@ -458,6 +458,7 @@ def citation_coverage(base: pathlib.Path) -> list[str]:
         f"  UNCHECKED — path ambiguous:        {scan.ambiguous_path}",
         f"  UNCHECKED — path unresolvable:     {scan.unresolved_path}",
         f"  UNCHECKED — member not followable: {scan.unfollowable_member}",
+        f"  KEPT — pinned historical citation: {scan.pinned_historical}",
     ]
 
 
