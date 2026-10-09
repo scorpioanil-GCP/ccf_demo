@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2455 entries**, of which **2178** name a public Python surface.
+**2456 entries**, of which **2179** name a public Python surface.
 
 ## Added
 
@@ -30731,7 +30731,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-434 entries — 395 public Python surface, 39 not public Python API.
+435 entries — 396 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37070,6 +37070,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
 
 *Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: an execution left `suspended` with no pending approval request could never move. `execute` refused the starter's retry "already exists", `resume` refused with "no approval for this suspension has returned through the HITL authority path", and a verdict recorded meanwhile was recorded `missing` and never counted
+- After: `execute`, for the execution's own starter under the definition it was started with, and `resume`, when it finds no approval, restore that one request when the HITL transport holds no pending request, no closure and no verdict for the suspension other than ones recorded while no request was pending. The restore re-files the trace artifact from the record's own trace, at the same content address; re-writes the record unchanged, conditionally on the version read, which adds one `workflow_suspended` row, and of two recoveries that read the same version one write lands and the other raises `ExecutionFenced`; enqueues the request the suspension would have filed (the same event key and class, the record's own content hash, the gate's pinned approval policy, the starter as requester); and returns the suspension as `WorkflowSuspended`. No step runs, no verdict is recorded and no gate is closed, and a verdict recorded while the request was missing is never authority. With the request pending, a later `execute` or `resume` is refused as before. The erasure door's retried request reaches this path
+- Why: `D-IMPL-378`, Dave's decision 8 (a). Red tests: `tests/workflow/test_restore_missing_approval_request.py::test_a_suspension_whose_request_never_reached_the_queue_gets_exactly_that_request_back`, `::test_a_suspension_a_passage_left_without_its_request_gets_it_back_from_the_resumers_retry`, `::test_two_processes_recovering_one_suspension_at_once_file_one_request`, `tests/erasure/test_erasure_request_restored.py::test_an_erasure_request_whose_approval_request_never_reached_the_queue_is_restored_by_its_retry`
+- Migration: a caller that treated "already exists", or the no-approval refusal, of such an execution as final may present it again and receive the suspension. An operator reading the audit log finds a second `workflow_suspended` row for a restored suspension, with the record and its trace unchanged
+
+*Recorded by `378-51-a-suspension-missing-its-approval-request-gets-it-back.md`.*
 
 ### Not public Python API
 

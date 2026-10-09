@@ -2224,7 +2224,8 @@ class WorkflowEngine:
           primitive's verdict is recorded against the restored request,
           ``pending`` and unstamped, and it carries the run past the gate once.
         * **The request is filed on this engine's own transport.** Deployed with
-          one HITL transport per Control Plane state store (SP §4.13), that is
+          one HITL transport per Control Plane state store, as
+          ``public/how-to/security-and-deployment.md`` §4.13 requires, that is
           the suspension's own. With more than one, a request pending on another
           engine's transport is filed again on this one, whose verdicts this
           engine judges.
