@@ -22,12 +22,21 @@ with one of the two boots read-only, 15 of 40.
 
 What is asserted, by mechanism:
 
-1. **Stale is refused by name and left for an operator.** A deployment marker
-   that reads ``verified`` with no store beside it (reason ``no-store``), a
-   store-creation lock that cannot be taken (``lock-unavailable``), and a marker
-   that appeared at the path after the boot looked (``claimed``) are each
-   refused (``DeploymentStoreNotVerified``) before any store is created there,
-   and nothing beside the path is cleared.
+1. **Where safe verification cannot be established, refused by name and left
+   for an operator.** A store-creation lock that cannot be taken
+   (``lock-unavailable``) and a marker that appeared at the path after the boot
+   looked (``claimed``) are each refused (``DeploymentStoreNotVerified``) before
+   any store is created there, and nothing beside the path is cleared.
+1b. **A stale marker with no store beside it is replaced and verified afresh**
+   (built as the lane's proposal P-1 (B), the no-store case only). Under the
+   store-creation lock no live boot owns a marker the boot finds, so a marker of
+   any state (``pending``, ``verified``, or not in the SDK's form) with no store
+   beside it is replaced by the boot's own, which takes the one read a fresh
+   creation takes: a store planted before the store opens is refused
+   (``DeploymentStoreNotEmpty``), and of two racing boots one creates and
+   verifies while the other waits and reopens. Until this, such a boot was
+   refused (``no-store``, ``pending`` or ``unreadable``) until an operator
+   removed the marker.
 2. **The read runs whenever a plain boot creates a store**, whoever made the
    marker beside the path: a store created at a path a question marker had
    reserved is read, and a plant there is refused (``DeploymentStoreNotEmpty``).
@@ -48,6 +57,7 @@ import json
 import os
 import pathlib
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -127,37 +137,7 @@ def _planting(monkeypatch: pytest.MonkeyPatch, used: pathlib.Path) -> list[str]:
     return planted
 
 
-# --- 1. stale: refused by name, nothing cleared ------------------------------------------------------------------
-
-
-def test_1_2_a_verified_marker_with_no_store_beside_it_is_refused_by_name_and_left_for_an_operator(
-    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The small lane's P-B, as a test: the store deleted, its marker kept; the next boot is refused before it creates one.
-
-    Measured on ``fe25536c`` (``probe_stale_deployment_marker.py``): the next
-    plain boot created the store with no read, a used store planted inside that
-    boot was booted ``"verified"`` holding 3 entities, and a governed call over
-    it was answered.
-    """
-    manifest, registry, records = p4e._deployment(tmp_path)
-    used = p4e._used_question_store(tmp_path, manifest, registry, records)
-    target = tmp_path / "plain" / _STORE
-    target.parent.mkdir()
-    first = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
-    first.handle.close()
-    for suffix in ("", "-wal", "-shm"):
-        pathlib.Path(f"{target}{suffix}").unlink(missing_ok=True)
-    marker = _marker(target)
-    assert marker.exists() and not target.exists(), "the stale marker was not constructed"
-    left = marker.read_bytes()
-    planted = _planting(monkeypatch, used)
-    for read_only in (False, True):
-        outcome = _boot(manifest, registry, target, read_only=read_only)
-        _assert_refused_not_verified(outcome, marker=marker, reason="no-store", case=f"read_only={read_only}")
-    assert planted == [], f"the refusal must come before the boot creates or opens a store there: {planted}"
-    assert not target.exists(), "a refused boot created a store at the path"
-    assert marker.read_bytes() == left, "the refused boots changed the stale marker; it is the operator's to resolve"
+# --- 1. where safe verification cannot be established: refused by name, nothing cleared -------------------------
 
 
 def test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name(tmp_path: pathlib.Path) -> None:
@@ -228,6 +208,205 @@ def test_1_2_measure_a_marker_replaced_before_promotion_is_refused_as_claimed_an
     outcome = _boot(manifest, registry, target)
     _assert_refused_not_verified(outcome, marker=_marker(target), reason="claimed", case="replaced before promotion")
     assert _marker(target).read_bytes() == foreign, "the refused boot removed or changed a marker it did not own"
+
+
+# --- 1b. a stale marker with no store beside it: replaced under the lock, and the new store read -------------------
+
+#: The first line of every deployment marker the SDK writes (fragment 378-34), and the whole of one written before
+#: repair 1.1.
+_MARKER_HEAD = "created by a boot not for a question; no acquisition phase writes into it (SEC-020, D-IMPL-378)\n"
+
+#: A boot token no boot of these tests wrote: a stale marker's, written as text.
+_FOREIGN_TOKEN = "0123456789abcdef0123456789abcdef"
+
+#: The states a deployment marker can be left in with no store beside it.
+STALE_WITH_NO_STORE = (
+    "pending, left by a boot killed before its store existed",
+    "verified, its store deleted",
+    "the single-line marker of fe25536c",
+    "text that is not the SDK's",
+    "a symbolic link",
+)
+
+
+def _token(marker: pathlib.Path) -> str | None:
+    """The ``boot:`` token a deployment marker records, or ``None`` when it records none."""
+    for line in marker.read_text(encoding="utf-8").splitlines():
+        if line.startswith("boot: "):
+            return line.removeprefix("boot: ")
+    return None
+
+
+def _stale_with_no_store(tmp_path: pathlib.Path, manifest: pathlib.Path, registry: Any, target: pathlib.Path, state: str) -> None:
+    """Leave a deployment marker in ``state`` beside ``target``, and no store there."""
+    marker = _marker(target)
+    if state == "pending, left by a boot killed before its store existed":
+        signals = tmp_path / f"signals-{target.parent.name}"
+        signals.mkdir()
+        killed = _another_process("crash-before-boot", str(manifest), str(signals), str(target))
+        _out, err = killed.communicate(timeout=300)
+        assert killed.returncode == -signal.SIGKILL, (
+            f"the boot was not killed as constructed: rc {killed.returncode} {err[-2000:]}"
+        )
+    elif state == "verified, its store deleted":
+        load_and_boot(manifest, registry=registry, connection={"database_path": str(target)}).handle.close()
+        for suffix in ("", "-wal", "-shm"):
+            pathlib.Path(f"{target}{suffix}").unlink(missing_ok=True)
+    elif state == "the single-line marker of fe25536c":
+        marker.write_text(_MARKER_HEAD, encoding="utf-8")
+    elif state == "text that is not the SDK's":
+        marker.write_text("booted, trust me\n", encoding="utf-8")
+    else:
+        elsewhere = tmp_path / f"elsewhere-{target.parent.name}.ccf-deployment-store"
+        elsewhere.write_text(f"{_MARKER_HEAD}state: verified\nboot: {_FOREIGN_TOKEN}\n", encoding="utf-8")
+        marker.symlink_to(elsewhere)
+    assert os.path.lexists(marker) and not target.exists(), f"[{state}] the stale marker with no store was not constructed"
+    if state.startswith(("pending", "verified")):
+        assert _state(marker) == state.split(",")[0], f"[{state}] the marker reads {_state(marker)!r}"
+
+
+@pytest.mark.parametrize("state", STALE_WITH_NO_STORE)
+def test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    """A deployment marker of any state with no store beside it: the boot creates a new store, so it verifies it afresh.
+
+    Repair 1.2 (*"Run the emptiness check whenever a plain boot creates a new
+    store"*), built as the lane's proposal P-1 (B) for this case only: under the
+    store-creation lock no live boot owns a marker it finds, so the boot
+    replaces the stale marker with its own, reading ``pending``, takes the one
+    read a fresh creation takes, and marks it ``verified``. Measured on
+    ``3119297a`` (where each was refused until an operator removed the marker:
+    ``pending``, ``no-store`` or ``unreadable``) and on ``fe25536c`` (where the
+    verified one was booted with no read, the small lane's P-B).
+    """
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "stale" / _STORE
+    target.parent.mkdir()
+    _stale_with_no_store(tmp_path, manifest, registry, target, state)
+    marker = _marker(target)
+    linked = marker.resolve() if marker.is_symlink() else None
+    linked_bytes = linked.read_bytes() if linked is not None else None
+    stale_token = None if linked is not None else _token(marker)
+    events: list[tuple[str, ...]] = []
+    p4e._record_reads(monkeypatch, events)
+    outcome = _boot(manifest, registry, target)
+    if isinstance(outcome, Exception):
+        pytest.fail(
+            f"[{state}] a boot at a path with a stale marker and no store was refused ({outcome!r}); with no store"
+            " beside the marker the boot creates a new store, which it can verify as any fresh creation"
+        )
+    try:
+        reads = tp._latest_reads(events)
+        creation, held = outcome.store_creation, p4e._held(outcome)
+    finally:
+        outcome.handle.close()
+    assert reads == 1, f"[{state}] the boot that created the store must read it exactly once: {reads}"
+    assert creation == "verified" and held == 0, f"[{state}] store_creation {creation!r}, {held} entities held"
+    assert not marker.is_symlink() and _state(marker) == "verified", f"[{state}] the marker must now be this boot's, verified"
+    assert _token(marker) not in (None, stale_token), f"[{state}] the stale marker was not replaced by this boot's own"
+    if linked is not None:
+        assert linked.read_bytes() == linked_bytes, f"[{state}] the file the stale link named was changed"
+
+
+@pytest.mark.parametrize(
+    "state",
+    ["pending, left by a boot killed before its store existed", "verified, its store deleted", "the single-line marker of fe25536c"],
+)
+def test_1_2_b_a_store_planted_after_the_look_beside_a_stale_marker_is_refused_by_the_read_and_the_marker_removed(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    """The re-verified path is as safe as a fresh one: a used store planted after the look is refused by the read.
+
+    The plant lands inside the boot, after the stale marker was replaced and
+    before the adapter opens the store. The boot's read refuses it
+    (``DeploymentStoreNotEmpty``) and removes the marker it put there, so the
+    path is left holding the plant with no marker beside it: a later boot opens
+    it ``"unmarked"`` and a governed call over it is refused. Measured on
+    ``3119297a``: refused at the look, before any read (the plant never
+    happened); on ``fe25536c`` (verified marker): booted ``"verified"`` with no
+    read and answered (``probe_stale_deployment_marker.py``).
+    """
+    manifest, registry, records = p4e._deployment(tmp_path)
+    used = p4e._used_question_store(tmp_path, manifest, registry, records)
+    target = tmp_path / "stale" / _STORE
+    target.parent.mkdir()
+    _stale_with_no_store(tmp_path, manifest, registry, target, state)
+    planted = _planting(monkeypatch, used)
+    outcome = _boot(manifest, registry, target)
+    if not m._named(outcome, "DeploymentStoreNotEmpty"):
+        what = repr(outcome)
+        if not isinstance(outcome, Exception):
+            what = f"it booted (store_creation {outcome.store_creation!r}, {p4e._held(outcome)} entities held)"
+            outcome.handle.close()
+        pytest.fail(f"[{state}] a store planted after the look must be refused by the boot's read: {what}")
+    assert planted == [_STORE], f"[{state}] the store was not planted; the case was not constructed: {planted}"
+    assert p4e._sdk_markers(target) == [], (
+        f"[{state}] the refused boot must leave no marker beside the plant: {[p.name for p in p4e._sdk_markers(target)]}"
+    )
+    again = _boot(manifest, registry, target)
+    assert not isinstance(again, Exception), f"[{state}] the retry must boot the unmarked store: {again!r}"
+    try:
+        assert again.store_creation == "unmarked", f"[{state}] the retry vouched for the plant: {again.store_creation!r}"
+        later = tp._later_governed_call(again, registry, records)
+        assert m._named(later, "UnmarkedStoreNotPresumedFresh"), f"[{state}] the retry's governed call met {type(later).__name__}"
+    finally:
+        again.handle.close()
+
+
+@pytest.mark.parametrize("roles", [("writer", "writer"), ("writer", "read-only")])
+def test_1_2_b_two_plain_boots_racing_on_stale_no_store_paths_never_serve_a_store_they_did_not_verify(
+    tmp_path: pathlib.Path, roles: tuple[str, str]
+) -> None:
+    """Free-running, two processes, twelve trials: each path holds a stale marker (four states in turn) and no store.
+
+    Per trial: exactly one boot's adapter created the store; that boot read it
+    once and booted ``"verified"``; the other read nothing, did not create it,
+    and either reopened it ``"verified"`` or, as a second writer while the
+    first still held the store, was refused ``SingleWriterViolation``; neither
+    was refused as stale; the stale marker was replaced, and reads
+    ``verified``. Measured on ``3119297a``: every boot was refused at the look.
+    """
+    trials = 12
+    stale_texts = (
+        f"{_MARKER_HEAD}state: pending\nboot: {_FOREIGN_TOKEN}\n",
+        f"{_MARKER_HEAD}state: verified\nboot: {_FOREIGN_TOKEN}\n",
+        _MARKER_HEAD,
+        "booted, trust me\n",
+    )
+    manifest, _registry, _records = p4e._deployment(tmp_path)
+    signals, stores = tmp_path / "signals", tmp_path / "stores"
+    signals.mkdir()
+    stores.mkdir()
+    for trial in range(trials):
+        target = stores / str(trial) / _STORE
+        target.parent.mkdir()
+        _marker(target).write_text(stale_texts[trial % len(stale_texts)], encoding="utf-8")
+    racing = [
+        _another_process("race", str(manifest), str(signals), str(stores), str(role_id), role, str(trials))
+        for role_id, role in enumerate(roles)
+    ]
+    reports = [_report(process, timeout=600) for process in racing]
+    for trial in range(trials):
+        pair = [report["trials"][trial] for report in reports]
+        assert all(each.get("outcome") in ("booted", "raised") for each in pair), pair
+        created = [each for each in pair if each["created_the_store"]]
+        assert len(created) == 1, f"[trial {trial}] exactly one boot must create the store: {pair}"
+        creator = created[0]
+        other = pair[1 - pair.index(creator)]
+        assert creator["outcome"] == "booted" and creator["store_creation"] == "verified", f"[trial {trial}] {creator}"
+        assert creator["emptiness_reads"] == 1, f"[trial {trial}] the boot that created the store must read it once: {creator}"
+        assert other["emptiness_reads"] == 0, f"[trial {trial}] the boot that did not create the store must not read: {other}"
+        if other["outcome"] == "booted":
+            assert other["store_creation"] == "verified", f"[trial {trial}] {other}"
+        else:
+            assert other["raised"][0] == "SingleWriterViolation", (
+                f"[trial {trial}] the other boot may only be refused as a second writer, never as stale: {other}"
+            )
+        marker = _marker(stores / str(trial) / _STORE)
+        assert _state(marker) == "verified" and _token(marker) not in (None, _FOREIGN_TOKEN), (
+            f"[trial {trial}] the stale marker must be replaced by the creating boot's own, verified"
+        )
 
 
 # --- 2. the read runs whenever a plain boot creates a store ---------------------------------------------------------

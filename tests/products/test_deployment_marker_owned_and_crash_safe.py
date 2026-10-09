@@ -31,10 +31,14 @@ What is asserted, by mechanism:
    is.
 3. **Crash-safe.** A marker reads ``pending`` until the boot's emptiness read has
    completed and ``verified`` only after; a boot killed (``SIGKILL``, in another
-   process) before its read completes leaves a ``pending`` marker, and every
-   later boot of the path, writer or read-only, is refused by name
-   (``DeploymentStoreNotVerified``, reason ``pending``) and leaves the marker
-   for an operator.
+   process) after its store exists and before its read completes leaves a
+   ``pending`` marker beside that store, and every later boot of the path,
+   writer or read-only, is refused by name (``DeploymentStoreNotVerified``,
+   reason ``pending``) and leaves the marker for an operator. A boot killed
+   before its store existed leaves a ``pending`` marker with no store beside
+   it, which the next boot replaces and verifies afresh (repair 1.2, built as
+   the lane's proposal P-1 (B);
+   ``tests/products/test_deployment_marker_serialized_and_stale_refused.py``).
 4. **A marker that cannot show a completed verification is never read as one**:
    the single-line marker this tree wrote before the repair, a marker whose text
    is not the SDK's, and a symbolic link at the marker's path are each refused by
@@ -412,19 +416,22 @@ def _assert_refused_not_verified(outcome: Any, *, marker: pathlib.Path, reason: 
     assert "operator" in str(outcome), f"[{case}] the refusal's text must say an operator resolves it: {outcome}"
 
 
-@pytest.mark.parametrize("killed", ["crash-before-boot", "crash-after-boot", "crash-during-read"])
+@pytest.mark.parametrize("killed", ["crash-after-boot", "crash-during-read"])
 def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified(
     tmp_path: pathlib.Path, killed: str
 ) -> None:
-    """A plain boot SIGKILLed after its marker and before its read completes; every later boot is refused by name.
+    """A plain boot SIGKILLed after its store exists and before its read completes; every later boot is refused by name.
 
-    ``crash-before-boot``: killed before the adapter opens the store (none is
-    created). ``crash-after-boot``: killed after the adapter created and opened
-    the store, before the read. ``crash-during-read``: killed inside the read
+    ``crash-after-boot``: killed after the adapter created and opened the
+    store, before the read. ``crash-during-read``: killed inside the read
     itself, the latest instant before it completes (added after the fix commit;
     its red is measured against ``fe25536c``'s ``manifest.py``). Measured on
     ``fe25536c``: the marker the killed boot left was read as ``"verified"`` by
-    the next boot, which booted.
+    the next boot, which booted. A boot killed before its store existed
+    (``crash-before-boot``, this test's first case until repair 1.2's no-store
+    re-verification) leaves no store beside its marker, and the next boot
+    replaces the marker and verifies a new store
+    (``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified``).
     """
     manifest, registry, _records = p4e._deployment(tmp_path)
     target = tmp_path / "crashed" / _STORE
@@ -438,7 +445,7 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
     )
     marker = _marker(target)
     assert marker.exists(), f"[{killed}] the killed boot left no marker; the case was not constructed"
-    assert target.exists() == (killed != "crash-before-boot"), f"[{killed}] the store's presence is not as constructed"
+    assert target.exists(), f"[{killed}] the killed boot left no store; the case was not constructed"
     left = marker.read_bytes()
     for read_only in (False, True):
         try:
@@ -452,7 +459,7 @@ def test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_bo
     assert _state(marker) == "pending", (
         f"[{killed}] the marker a boot killed before its read completed must read pending: {left!r}"
     )
-    assert target.exists() == (killed != "crash-before-boot"), f"[{killed}] a refused boot created or removed the store"
+    assert target.exists(), f"[{killed}] a refused boot removed the store"
 
 
 # --- 4. a marker that cannot show a completed verification ---------------------------------------------------------
