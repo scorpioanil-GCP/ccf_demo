@@ -10,21 +10,38 @@ the reference a caller holds is ``ccf-artifact://{tenant}/{class}/{address}@{add
 (``src/ccf/replay/serve.py::ReplayWriter``) — so the whole integrity claim is
 arithmetic: the address is the sha256 of the stored canonical bytes. The store
 is untrusted infrastructure (``src/ccf/artifacts/file_store.py``: *"A reader
-with the file and the canonical serializer can verify the address itself"*), so
-the claim holds only where every SDK reader of a record by its reference
-re-hashes the bytes it hands back. Held here:
+with the file and the canonical serializer can verify the address itself"*),
+and a store's own ``get`` hands back whatever it holds, so the claim holds only
+for a reader that re-hashes the bytes before anything uses them. Held here, for
+the readers item 3 names:
 
 1. **Name = version = the content address of the stored canonical bytes**, for
    a served answer and for a refusal.
 2. **Altered content is filed under its own new name**: the record writer names
    a record by its content, so an altered record cannot take the old reference,
    and the old reference still names the original bytes.
-3. **Bytes altered under the old reference are refused by every reader**: the
-   replay engine's read (``src/ccf/replay/engine.py::resolve_artifact``, which
-   re-hashes on arrival, ``D-IMPL-89``), ``OpenedProduct.record_of``, and the
-   governed evidence read (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``)
-   — the last both for bytes altered before it reads and for bytes that change
-   between its authorizing read and the read it serves.
+3. **Bytes altered under the old reference are refused, before anything uses
+   them, by each of these readers**: the replay engine's read
+   (``src/ccf/replay/engine.py::resolve_artifact``, which re-hashes on arrival,
+   ``D-IMPL-89``); ``OpenedProduct.record_of``; the governed evidence read
+   (``runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference``), both
+   for bytes altered before it reads and for bytes that change between its
+   authorizing read and the read it serves; child admission's read of a child's
+   record (``src/ccf/products/child_resolver.py::GrantBoundChildResolver._touched_entities``),
+   which raises ``ChildRecordAltered`` before the admission gate receives
+   anything; and the erasure door's read of each requested address
+   (``runtime/ccf_runtime/erasure/door.py::ErasureDoor._verify_addresses``),
+   refused ``subject-unverifiable`` before any approval starts. Each test
+   changes what the file-backed store returns under the address (the stored
+   file, altered in place; for the governed read's between-reads case, the
+   store's second answer), and that store's ``get`` returns what it holds, so
+   the reader's own re-hash is what refuses. For child admission and
+   the erasure door a control also runs over the MCP-backed store
+   (``src/ccf/artifacts/mcp_store.py::McpArtifactStore``), whose ``get``
+   re-hashes first and reads altered bytes as absent. The MCP artifact server's
+   client lane, which serves artifacts that are not records by address, serves
+   only bytes that hash to the address. Not held here, because it is not a
+   check: a store's own ``get``, which returns whatever it holds.
 
 Existing golden records still replay to their own addresses: that is
 ``tests/replay/test_golden_13bd250.py::test_the_record_resolves_byte_first_under_d_impl_89``
