@@ -17,6 +17,11 @@ Each refusal is asserted by its mechanism, never by a missing word: the second p
 lease is enforced, the rename boots and the hard link is refused only by option (B)'s name count, whose message
 names no lock file in the directory.
 
+**Since P2 (b)** (``D-IMPL-378``, lane ``378i-p2b``) a hard link never reaches the file lease: the second process's
+store refuses a file with more than one name when it opens, before its setup and its mint
+(``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py``). The file lease's refusal is measured
+through the renamed file's new name, and the hard-link test here asserts the earlier refusal by name.
+
 The second process is ``tests/graph/test_single_writer_across_processes.py::_run_child`` (spawn; outcome reported by
 exception class NAME and message), the holder boots with
 ``tests/graph/test_single_writer_across_processes.py::_boot``, and every file lives in ``tmp_path``.
@@ -111,9 +116,11 @@ def test_a_second_process_is_refused_through_the_new_name_of_the_renamed_live_fi
     assert f"flock on {str(held_locks[0])!r} is held" in outcome[2], outcome
 
 
-def test_a_second_process_is_refused_through_a_hard_link_by_the_file_lease_before_the_name_count(
+def test_a_second_process_through_a_hard_link_is_refused_when_its_store_opens_before_the_file_lease(
     tmp_path: Path,
 ) -> None:
+    """P2 (b): with the holder's file lease in force, a writer through a hard link is refused earlier, when its store
+    opens, by the store's own count of the file's names, before its setup and before its mint reaches the lease."""
     locks = _locks(tmp_path)
     held, linked = _two_names(tmp_path)
     holder = _boot("sqlite", _declared(held, locks))
@@ -125,9 +132,10 @@ def test_a_second_process_is_refused_through_a_hard_link_by_the_file_lease_befor
     finally:
         holder.close()
 
-    assert outcome[:2] == ("REFUSED", "SingleWriterViolation"), outcome
+    assert outcome[:2] == ("REFUSED", "WriterLeaseHeld"), outcome
+    assert f"{str(linked)!r} has 2 names (hard links)" in outcome[2], outcome
+    assert "the store refuses to open it, readers included, before any connection or setup" in outcome[2], outcome
     assert len(held_locks) == 1, f"the holder holds no lock in the declared directory: {held_locks!r}; {outcome!r}"
-    assert f"flock on {str(held_locks[0])!r} is held" in outcome[2], outcome
 
 
 # --- Controls: what the file lease must NOT refuse ------------------------------------------------------------------

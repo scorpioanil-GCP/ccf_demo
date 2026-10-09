@@ -6,9 +6,15 @@ path, so those are one graph to the lease
 (``tests/graph/test_single_writer_across_processes.py::test_one_file_spelled_two_ways_is_still_one_graph``). A hard
 link is not folded: it resolves to itself, and the sidecar beside it is another file, so a lock beside one name cannot
 exclude a writer through another. Under option B, ``src/ccf/graph/backends/sqlite.py::SqliteGraphStore`` refuses, in
-``writer_lease``, a database file with more than one name, through either name: a second process is refused with
-``SingleWriterViolation``, and the lease itself raises ``WriterLeaseHeld`` naming the file's names. The refusal goes
-when the second name goes.
+``writer_lease``, a database file with more than one name, through either name: the lease raises ``WriterLeaseHeld``
+naming the file's names. The refusal goes when the second name goes.
+
+**Since P2 (b)** (``D-IMPL-378``, lane ``378i-p2b``) the store refuses such a file earlier, when it is opened, before
+any connection or setup, readers included
+(``tests/graph/test_sqlite_open_refuses_a_file_with_more_than_one_name.py``). A second process through either name of
+a held graph is therefore refused when its store opens, with ``WriterLeaseHeld`` and before its mint (until P2 (b) it
+was refused at the mint, as ``SingleWriterViolation``), and option B's count at the lease is reached only by a store
+opened before the second name was made: that is how it is exercised below.
 
 **What option B does not close, measured here too:** a live file moved to a new name keeps one name, so a writer booted
 through the new name in a second process is not refused while the first process's writer is live.
@@ -33,6 +39,12 @@ import pytest
 from ccf.graph.backends.sqlite import SqliteGraphStore
 from ccf.graph.protocols import WriterLeaseHeld
 from tests.graph.test_single_writer_across_processes import _boot, _run_child
+
+#: The store's own words when it refuses to open a file with more than one name (P2 (b)).
+_REFUSED_AT_OPEN = "the store refuses to open it, readers included, before any connection or setup"
+
+#: Option (B)'s own words at the writer lease, for a second name made after the store opened.
+_REFUSED_AT_THE_LEASE = r"has 2 names \(hard links\); its writer lease is a lock beside one name"
 
 
 def _two_names(tmp_path: Path) -> tuple[Path, Path]:
@@ -108,27 +120,30 @@ def test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_gra
     finally:
         holder.close()
 
-    assert same_name[:2] == ("REFUSED", "SingleWriterViolation"), same_name
-    assert other_name[:2] == ("REFUSED", "SingleWriterViolation"), other_name
-    assert "has 2 names (hard links)" in other_name[2], other_name
+    # P2 (b): refused when the second process's store opens, through either name, before its setup and its mint.
+    for outcome, name in ((same_name, held), (other_name, linked)):
+        assert outcome[:2] == ("REFUSED", "WriterLeaseHeld"), outcome
+        assert f"{str(name)!r} has 2 names (hard links)" in outcome[2], outcome
+        assert _REFUSED_AT_OPEN in outcome[2], outcome
 
 
 def test_the_lease_refuses_a_database_file_with_a_second_name_through_either_name(tmp_path: Path) -> None:
+    """Option B's count at the lease, through each name, for a store opened while that name was the file's only one.
+
+    Since P2 (b) a store over a file that already has two names is refused when it opens, so the lease's count is
+    reached only for a second name made after the store opened.
+    """
     held, linked = _two_names(tmp_path)
     with SqliteGraphStore(database_path=held) as store:
-        lease = store.writer_lease()  # control: a file with one name is leased
-    try:
-        os.link(held, linked)
-        with SqliteGraphStore(database_path=linked) as store, pytest.raises(
-            WriterLeaseHeld, match=r"has 2 names \(hard links\)"
-        ):
+        store.writer_lease().release()  # control: a file with one name is leased
+        os.link(held, linked)  # a second name, made after this store opened through the first
+        with pytest.raises(WriterLeaseHeld, match=_REFUSED_AT_THE_LEASE):
             store.writer_lease()
-    finally:
-        lease.release()
-    with SqliteGraphStore(database_path=held) as store, pytest.raises(
-        WriterLeaseHeld, match=r"has 2 names \(hard links\)"
-    ):
-        store.writer_lease()
-    os.unlink(linked)
-    with SqliteGraphStore(database_path=held) as store:
+    os.unlink(held)  # the file's only name is now the other one
+    with SqliteGraphStore(database_path=linked) as store:
+        store.writer_lease().release()  # control: one name again, leased through the other name
+        os.link(linked, held)
+        with pytest.raises(WriterLeaseHeld, match=_REFUSED_AT_THE_LEASE):
+            store.writer_lease()
+        os.unlink(held)
         store.writer_lease().release()  # control: the refusal goes with the second name
