@@ -188,6 +188,11 @@ class SqliteConnection(CCFContract):
             (``src/ccf/graph/leases.py::AbsoluteLockDirectory``). Optional; a
             read-only boot sets it aside unvalidated (N-2). Hash-transparent:
             a connection that declares no directory canonicalizes as it did.
+            Without it the lease is the sidecar beside the resolved path and
+            the name count, and a writer through the new name of a renamed
+            live file is not excluded (measured by
+            ``tests/graph/test_sqlite_writer_lease_file_identity_limits.py::test_limit_a_writer_that_declares_no_lock_directory_is_not_excluded_through_a_renamed_file``);
+            with it, see ``src/ccf/graph/backends/sqlite.py::SqliteGraphStore``.
     """
 
     database_path: Path
