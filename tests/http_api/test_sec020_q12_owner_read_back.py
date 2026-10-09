@@ -393,18 +393,42 @@ def test_q12_the_boot_check_rejects_every_listed_class_that_may_withhold_composi
     _refuse_a_listed_class_that_may_withhold(control_plane=registry, tenant=tenant, declaration=affirmed)
 
 
+class _FalselyDeclaringWithholdingProject:
+    """A BROKEN deployment's factory: it positively declares that it never withholds, and its projection withholds.
+
+    Dave's E2 (ii) (d) (2026-10-08 16:40 MST): a class affirming ``never`` is
+    built only over a factory declaring that, so a projection that withholds
+    under the affirmation is reached only through a FALSE declaration — trusted
+    deployment code. The declaration below is false on purpose:
+    ``_paved_withholding_project`` withholds the paved fixture's withheld subject.
+    """
+
+    def __call__(self, *, required: tuple[str, ...], request: Any) -> Any:
+        from tests.products.test_withheld_is_indistinguishable_from_absent import (  # noqa: PLC0415
+            _paved_withholding_project,
+        )
+
+        return _paved_withholding_project(required=required, request=request)
+
+    def withholds_no_subject(self) -> bool:
+        return True
+
+
 def test_q12_a_class_that_affirms_never_cannot_withhold_its_subject(tmp_path: pathlib.Path) -> None:
     """The affirmation is enforced: a projection that withholds the subject under a
     class affirming ``never`` is refused as a broken deployment before anything is
-    recorded or served; the same class answers a subject it does not withhold."""
+    recorded or served; the same class answers a subject it does not withhold.
+
+    Since Dave's E2 (ii) (d) the broken deployment's factory must also declare,
+    falsely, that it never withholds, or the class is refused where its resolver
+    is built; the serve-time defense held here is what remains for that falsehood."""
     from ccf.products.resolver import NeverWithholdingContradicted  # noqa: PLC0415
     from ccf.replay.serve import ServedProduct  # noqa: PLC0415
-    from tests.products.test_withheld_is_indistinguishable_from_absent import (  # noqa: PLC0415
-        PAVED_ABSENT,
-        _paved_withholding_project,
-    )
+    from tests.products.test_withheld_is_indistinguishable_from_absent import PAVED_ABSENT  # noqa: PLC0415
 
-    with _paved_open(tmp_path, "never-withholds", never=True, project=_paved_withholding_project) as opened:
+    with _paved_open(
+        tmp_path, "never-withholds", never=True, project=_FalselyDeclaringWithholdingProject()
+    ) as opened:
         with pytest.raises(NeverWithholdingContradicted, match="subject_withholding"):
             opened.answer(_question(opened, PAVED_WITHHELD))
         served = opened.answer(_question(opened, PAVED_ABSENT))

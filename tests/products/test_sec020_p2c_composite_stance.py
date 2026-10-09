@@ -19,7 +19,8 @@ stance when its resolver is built: an early policy
 (``SubjectDisclosingPlanFactoryProtocol.subject_disclosure()`` returning a
 ``SubjectDisclosurePolicy``) or its class's affirmation that its answers never
 withhold their subject (``subject_withholding: never``, Dave's Q12, enforced
-at serve). A composite declaring neither is refused by name at construction,
+at serve, and built only over a plan factory positively declaring it — Dave's
+E2 (ii) (d)). A composite declaring neither is refused by name at construction,
 before any question, so the refusal is the same whatever subject is asked.
 
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
@@ -56,6 +57,13 @@ class _DeclaresAnEarlyPolicy(_DeclaresNothing):
 
     def subject_disclosure(self) -> Any:
         return _policy(frozenset())
+
+
+class _DeclaresNeverWithholding(_DeclaresNothing):
+    """The same factory, positively declaring that it never withholds (Dave's E2 (ii) (d)) — true of its projection."""
+
+    def withholds_no_subject(self) -> bool:
+        return True
 
 
 @pytest.fixture()
@@ -97,5 +105,12 @@ def test_p2c_a_composite_declaring_an_early_policy_constructs(composite: _Booted
 
 
 def test_p2c_a_composite_whose_class_affirms_never_constructs(composite_affirming_never: _Booted) -> None:
-    """Control: the never-withholds stance (Q12) is a declaration; the composite constructs."""
-    assert isinstance(_construct(composite_affirming_never, plan_factory=_DeclaresNothing()), GovernedResolver)
+    """Control: the never-withholds stance (Q12) is a declaration; the composite constructs.
+
+    Under Dave's E2 (ii) (d) the affirmation is built only over a plan factory
+    positively declaring that it never withholds, so this control's factory
+    declares it — truly: its projection never sets the withheld signal.
+    """
+    assert isinstance(
+        _construct(composite_affirming_never, plan_factory=_DeclaresNeverWithholding()), GovernedResolver
+    )
