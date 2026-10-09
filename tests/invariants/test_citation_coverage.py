@@ -63,8 +63,9 @@ Everything is derived from the shipped checker
 predicate it applies — ``CITATION`` and ``NODE_ID`` for the two citation forms,
 ``prose_lines`` for the comments-and-docstrings-only rule inside ``.py`` files,
 ``exemption_reason`` for the ``HISTORICAL_RECORDS``-minus-``MAINTAINED_RECORDS``
-policy, ``is_historical`` for the historicity markers, and ``resolve_cited``
-plus ``parse_line_spec`` for target resolution. There is **no citation regex in
+policy, ``is_historical`` for the historicity markers, ``resolve_cited``
+plus ``parse_line_spec`` for target resolution, and ``checkable_anchor`` for
+whether ``cite02`` checks the citation at all. There is **no citation regex in
 this module**. A bespoke rule here would re-litigate a scope that
 ``tools/lints/citations.py`` says outright was *"written after scanning every
 top-level tracked directory for citations, not before"*, and would drift from
@@ -99,8 +100,8 @@ from tools.lints.citations import (
     CITATION,
     NODE_ID,
     RULE_NODE_ID,
-    anchor_before,
     check_source,
+    checkable_anchor,
     exemption_reason,
     is_historical,
     iter_scanned_files,
@@ -309,11 +310,20 @@ def citations_read() -> list[str]:
 def citation_sites() -> list[Site]:
     """Every unanchored citation whose target is a Python file.
 
-    Reproduces the branch of ``tools.lints.citations.check_source`` that lands
-    a citation in ``Scan.no_anchor`` — not historical, target resolves, every
-    cited line inside the target, and no backticked anchor immediately before
-    it — then keeps only the ones citing a ``.py`` target. Every predicate is
-    the checker's own.
+    Reproduces the branches of ``tools.lints.citations.check_source`` that
+    land a citation in ``Scan.no_anchor`` or ``Scan.unusable_anchor`` — not
+    historical, target resolves, every cited line inside the target, and no
+    anchor ``cite02`` can check it against — then keeps only the ones citing a
+    ``.py`` target. Every predicate is the checker's own.
+
+    Until ``D-IMPL-378`` C6 this reproduced ``no_anchor`` alone, and dropped a
+    citation with *any* backticked span before it: another citation, a name
+    the cited file defines twice, an expression. Lane ``378e-c6`` measured 86
+    line citations of Python files hidden that way in the three remediation
+    documents. ``D-IMPL-123`` defines this population as *"citations the
+    checker declines to check because they carry no anchor to check
+    against"*, and those are such citations; see
+    ``tools/lints/citations.py::checkable_anchor``.
     """
     index = repo_index(REPO_ROOT)
     found: list[Site] = []
@@ -339,9 +349,10 @@ def citation_sites() -> list[Site]:
                 target_lines = target.read_text(
                     encoding="utf-8", errors="replace"
                 ).splitlines()
-                if max(parse_line_spec(match.group("lines"))) > len(target_lines):
+                numbers = parse_line_spec(match.group("lines"))
+                if max(numbers) > len(target_lines):
                     continue
-                if anchor_before(line, match.start()) is not None:
+                if checkable_anchor(line, match.start(), target, numbers) is not None:
                     continue
                 found.append(
                     Site(
