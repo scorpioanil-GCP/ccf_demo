@@ -438,6 +438,17 @@ every caller of the process, and the door composes none of its own
 > remains single-principal by construction; a multi-principal deployment uses
 > `serve_loopback` or composes its own transport.
 
+The identity lasts as long as the call and no longer (`D-IMPL-378`, item 9
+(b)). `serve_stdio` sets it just before the server starts and, in a `finally`,
+restores the login identity the caller's context held before the call,
+whichever way the call ends: a normal return, an exception raised inside the
+transport, or cancellation
+(`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_a_normal_return_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_an_exception_inside_the_transport_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_cancellation_while_serving_the_previous_identity_is_restored`).
+So whatever the calling code does after the call no longer runs as the stdio
+identity.
+
 Two bounds hold on an identity composed with `ambient_stdio_identity`, and
 both are mechanism rather than convention. It is scoped to exactly the one
 tenant it names — pass the tenant the door was opened to serve — and it is
