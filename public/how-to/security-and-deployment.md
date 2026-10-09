@@ -1940,6 +1940,26 @@ a nonexistent one. Each was measured on test fixtures.
   `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
   its withheld question still raises where a nonexistent subject's is
   answered, the residual the bullet on the record behind an answer names.
+- **A composite child's own decision record, under an early policy (disclosed
+  by Dave's decision 18 (A), `D-IMPL-378`, 2026-10-09).** The parent's early
+  policy asks its children about the stand-in in place of a withheld subject,
+  and each child's own door files the child's own decision record, under the
+  child's product class, in the deployment's store. That record keeps the
+  question the child was asked: for a withheld subject it names the stand-in,
+  whatever the child's source answers, and for a nonexistent subject the
+  identifier asked. A child source that refuses an identifier it does not
+  hold with text that names it (`no record for <identifier>`) puts it in that
+  record's refusal text too: repair 2.2 (a)'s constant applies to the
+  parent's subject-keyed acquisition, not to a child's, and is not extended to
+  children in this batch. The parent's answers to the two were alike at every
+  door by the closing test's own rules, the answers name neither the child's
+  record nor the stand-in, and the parent's records do not name the child's
+  record, so no door shows it; whatever reads the deployment's store, as the
+  operator's and the auditor's handles above do, tells the two apart at rest
+  (`tests/products/test_sec020_composite_child_record_names_the_stand_in.py`).
+  Whether a governed read hands a child's record to a principal, where the
+  child's class affirms `never` and is listed in `evidence_readable_classes`,
+  is not measured here.
 - **A question's store the markers do not reach.** The withheld subject's
   acquisition stays in the store its question wrote, and the paved road leaves
   that store on disk when it closes the fabric (the replay road reopens it).
