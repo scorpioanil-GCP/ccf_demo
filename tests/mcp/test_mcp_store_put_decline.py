@@ -14,7 +14,9 @@ fabric-written under ``ReplayMint``. This client declares no fabric-written clas
 client-lane write to that class before anything is sent, and the server's identical check declines it. The decline
 is the server's, and nothing is patched. The second runs the same runner with its transport and session replaced, so
 that the other two answers ``put`` judges can be written exactly: no structured reference (a decline), and a
-structured answer that is not a reference (unreachability, as before: the write's outcome is unknown).
+structured answer that is not a reference (unreachability, as before: the write's outcome is unknown). The third
+asks the built server as a caller its authorizer refuses: the tenant guard's refusal reaches the client as a tool
+error, and is a decline too.
 """
 
 from __future__ import annotations
@@ -154,3 +156,54 @@ def test_each_answer_put_judges_keeps_its_own_type_through_the_session_runner(
         _write(store, CLIENT_CLASS, {"label": "malformed", "ordinal": 5})
     assert not isinstance(malformed.value, ArtifactStoreError)
     assert answers == []
+
+
+class _InThread:
+    """The bridge's contract, run on a thread of its own, as ``SyncMcpBridge`` runs it."""
+
+    def run(self, coroutine: Any) -> Any:
+        import asyncio  # noqa: PLC0415
+        from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coroutine).result()
+
+
+def test_a_write_the_servers_authorizer_refuses_is_a_decline_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tenant guard refuses before the store is handed anything, and the client still reads a decline.
+
+    The built artifact server (``tests/mcp/test_artifact_server_authorized.py::_world``), its authorizer's one mapping
+    granting another tenant only, reached over an in-memory MCP session
+    (``tests/mcp/wire_capture.py::route_store_through``) by a verified caller of this tenant.
+    """
+    from ccf.authz.actions import ACTION_ARTIFACT_WRITE  # noqa: PLC0415
+    from ccf_runtime.http_api.errors import ERROR_TENANT_UNAUTHORIZED  # noqa: PLC0415
+    from tests.mcp import test_artifact_server_authorized as authorized  # noqa: PLC0415
+    from tests.mcp import wire_capture  # noqa: PLC0415
+    from tests.mcp.guarded_servers import FOREIGN, authorizer_granting  # noqa: PLC0415
+    from tests.mcp.guarded_servers import TENANT as GUARDED_TENANT  # noqa: PLC0415
+
+    world = authorized._world(tmp_path, authorizer=authorizer_granting(tenants=(FOREIGN,)))
+    wire = wire_capture.Wire()
+    wire_capture.route_store_through(monkeypatch, world.server, authorized._grant(GUARDED_TENANT), wire)
+    store = McpArtifactStore(
+        url="http://artifact.invalid/mcp",
+        bridge=_InThread(),  # type: ignore[arg-type]
+        write_kinds=WriteKinds({}),
+    )
+
+    with pytest.raises(ArtifactStoreError) as declined:
+        store.put(
+            capability(ArtifactWrite, tenant=GUARDED_TENANT, resource=f"{CLIENT_CLASS}/{NAME}"),
+            {"label": "refused", "ordinal": 6},
+        )
+    assert type(declined.value) is ArtifactStoreError
+    assert str(declined.value) == f"the artifact server declined to store {NAME!r}"
+    # Refused by the deployment's authorizer, asked about exactly this write, and nothing reached the store.
+    assert [entry["action_id"] for entry in world.authorizer.asked] == [ACTION_ARTIFACT_WRITE]
+    assert world.authorizer.asked[0]["resource"] == f"{CLIENT_CLASS}/{NAME}"
+    assert world.store.puts == []
+    (answer,) = wire.answers("tools/call")
+    assert ERROR_TENANT_UNAUTHORIZED in answer
