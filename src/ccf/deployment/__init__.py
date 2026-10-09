@@ -136,6 +136,7 @@ from ccf.deployment.manifest import (
     BootedFabric,
     ManifestKeysPlaceToOneKey,
     QuestionFabricNotFresh,
+    QuestionStoreNotEmpty,
     load_and_boot,
     register_manifest_entries,
 )
@@ -160,6 +161,7 @@ __all__ = [
     "ManifestEntry",
     "ManifestKeysPlaceToOneKey",
     "QuestionFabricNotFresh",
+    "QuestionStoreNotEmpty",
     "ResolvedPins",
     "SeamRefusalWidening",
     "SimilarityCorpusAttributeError",
