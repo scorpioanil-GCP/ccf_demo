@@ -3482,7 +3482,10 @@ class NeverRunCache:
 # and a surface that answers a present address differently from an absent one tells the two deployments apart. The
 # closing test reads every pin filed in exactly one of the counterfactual's two deployments,
 # as the asker, in both and in the noise floor's copy, and compares the readings with the gate's own rules
-# (``test_sec020_combined_proof.test_a_pin_filed_in_one_deployment_reads_alike_in_both``).
+# (``test_sec020_combined_proof.test_a_pin_filed_in_one_deployment_reads_alike_in_both``). Dave, 2026-10-09 10:54 MST,
+# 2.6 (a), verbatim: "Add both coverage cases to the closure gate." — the write-then-read read back by a second
+# principal (:func:`read_back_as_another_principal`), and every pin filed in BOTH deployments, read and judged the
+# same way (``test_sec020_combined_proof.test_a_pin_filed_in_both_deployments_reads_alike_in_both``).
 
 #: The pin channel's name in the per-pin runs the closing test compares.
 PIN = "pin"
@@ -3509,8 +3512,20 @@ PIN_WRITE_THEN_READ_SURFACES: dict[str, str] = {
     "write-then-read-names": "names",
 }
 
+#: Write-then-read READ BACK BY A SECOND PRINCIPAL (Dave, 2026-10-09 10:54 MST, D-IMPL-378, 2.6 (a), verbatim: "Add
+#: both coverage cases to the closure gate."; the first case, verbatim from the "i" panel's findings brief: "Write-then-
+#: read read back by a second principal"): after the asker's put, another principal of the tenant reads the pin's
+#: address through blob, presence and names.
+PIN_WRITE_THEN_READ_OTHER_SURFACES: dict[str, str] = {
+    "write-then-read-blob-other-principal": "blob",
+    "write-then-read-presence-other-principal": "meta",
+    "write-then-read-names-other-principal": "names",
+}
+
 #: Every surface of the pin channel, one closing-test cell each per shape and anchor.
-PIN_SURFACES: tuple[str, ...] = (*PIN_READ_SURFACES, *PIN_WRITE_THEN_READ_SURFACES)
+PIN_SURFACES: tuple[str, ...] = (
+    *PIN_READ_SURFACES, *PIN_WRITE_THEN_READ_SURFACES, *PIN_WRITE_THEN_READ_OTHER_SURFACES
+)
 
 #: The asker's own client lane: a class no deployment here declares, and the name it files a pin's bytes under.
 PIN_CLIENT_CLASS = "fixture.pin-client-lane"
@@ -3673,9 +3688,44 @@ def write_then_read_pin(
             failures[surface] = put_failure
 
 
+def read_back_as_another_principal(
+    deployment: Deployment,
+    address: str,
+    presented: tuple[str, ...],
+    readings: dict[str, Any],
+    failures: dict[str, str],
+) -> None:
+    """After the asker's write-then-read, ANOTHER principal of the tenant reads blob, presence and names at ``address``.
+
+    Called only after :func:`write_then_read_pin` (its put is the write these reads follow; a read with no write before
+    it is not a write-then-read, and the call refuses to run). A put that filed nothing is a failure of every reading
+    here too, as it is of the asker's own. ``presented`` is normalized as :func:`write_then_read_pin` normalizes it.
+    """
+    from ccf_runtime.mcp.artifact_server import (  # noqa: PLC0415
+        artifact_blob_uri,
+        artifact_meta_uri,
+        artifact_names_uri,
+    )
+
+    if "write-then-read-put" not in readings:
+        raise AssertionError(f"read_back_as_another_principal: no write-then-read put of {address} came first")
+    put_failure = failures.get("write-then-read-put")
+    resources = {"blob": artifact_blob_uri, "meta": artifact_meta_uri, "names": artifact_names_uri}
+    for surface, read in PIN_WRITE_THEN_READ_OTHER_SURFACES.items():
+        answered = _normalize_presented(
+            jsonable(_mcp_resource_read(deployment, resources[read](content_address=address), token=OTHER_TOKEN)),
+            presented,
+        )
+        readings[surface] = answered
+        if _mcp_read_failed(answered):
+            failures[surface] = f"{surface} read failed: {render(answered, limit=300)}"
+        elif put_failure:
+            failures[surface] = put_failure
+
+
 @dataclass
 class PinRun:
-    """One (shape, anchor)'s pin channel: the three deployments' questions, their pins, and every one-sided pin's readings."""
+    """One (shape, anchor)'s pin channel: the three deployments' questions, their pins, and every one-sided and two-sided pin's readings."""
 
     shape: str
     anchor: str
@@ -3687,12 +3737,16 @@ class PinRun:
     filed: dict[str, dict[str, bool]]
     #: The pins filed in exactly one of the withholding and the not-holding deployment.
     one_sided: tuple[str, ...]
-    #: Per one-sided pin, the versioned URIs the deployment that filed it filed it under.
+    #: Per one-sided pin, the versioned URIs the deployment that filed it filed it under; per two-sided pin, every
+    #: versioned URI either compared deployment filed it under.
     uris: dict[str, tuple[str, ...]]
-    #: Per one-sided pin and side, every surface's reading.
+    #: Per one-sided or two-sided pin and side, every surface's reading.
     readings: dict[str, dict[str, dict[str, Any]]]
-    #: Per one-sided pin and side, every surface whose read failed, and how.
+    #: Per one-sided or two-sided pin and side, every surface whose read failed, and how.
     failures: dict[str, dict[str, dict[str, str]]]
+    #: The pins filed in BOTH the withholding and the not-holding deployment (2.6 (a): "readings for pins filed in
+    #: both deployments").
+    two_sided: tuple[str, ...] = ()
 
     def surface_run(self, pin: str, surface: str) -> Run:
         """One pin at one surface as a :class:`Run` of the counterfactual's three sides, for the gate's own comparison."""
@@ -3713,7 +3767,10 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
     Filing is read off each deployment's own store before anything is written, because write-then-read files the
     pin's bytes itself. Every plain read of every pin happens before the first write. The canonical bytes the asker
     writes are read from the deployment that filed the pin, as an auditor would: the stand-in for an outsider
-    recomputing them, which is unreproduced (the closing test's pin channel says so).
+    recomputing them, which is unreproduced (the closing test's pin channel says so). After every write-then-read of
+    the asker, each pin is read back by a second principal (:func:`read_back_as_another_principal`, 2.6 (a)). Every
+    pin filed in BOTH compared deployments is read the same way, after the one-sided pins' reads of the same kind,
+    under every name either deployment filed it under (2.6 (a), case two); its plain reads too precede the first write.
     """
     from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
 
@@ -3742,24 +3799,66 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
             canonical[pin] = filer.store.get(content_address=pin)
             if hashlib.sha256(canonical[pin]).hexdigest() != pin:
                 raise AssertionError(f"the bytes filed at pin {pin} do not hash to it: not the pin's canonical bytes")
-        readings: dict[str, dict[str, dict[str, Any]]] = {pin: {side: {} for side in deployments} for pin in one_sided}
+        # 2.6 (a), case two: every pin filed in BOTH compared deployments, under every name either filed it under.
+        two_sided = tuple(pin for pin in candidates if filed[CF_WITHHELD][pin] and filed[CF_NONEXISTENT][pin])
+        for address in two_sided:
+            uris[address] = tuple(
+                sorted(
+                    {
+                        artifact_uri(
+                            tenant_id=named.tenant_id, artifact_class=named.artifact_class, name=named.name,
+                            artifact_version=address,
+                        )
+                        for side in (CF_WITHHELD, CF_NONEXISTENT)
+                        for named in filed_names(deployments[side], address)
+                    }
+                )
+            )
+            canonical[address] = deployments[CF_WITHHELD].store.get(content_address=address)
+            if hashlib.sha256(canonical[address]).hexdigest() != address:
+                raise AssertionError(
+                    f"the bytes filed at pin {address} do not hash to it: not the pin's canonical bytes"
+                )
+        readings: dict[str, dict[str, dict[str, Any]]] = {
+            pin: {side: {} for side in deployments} for pin in (*one_sided, *two_sided)
+        }
         failures: dict[str, dict[str, dict[str, str]]] = {
-            pin: {side: {} for side in deployments} for pin in one_sided
+            pin: {side: {} for side in deployments} for pin in (*one_sided, *two_sided)
         }
         for pin in one_sided:
             for side, built in deployments.items():
                 read_pin(built, pin, uris[pin], readings[pin][side], failures[pin][side])
+        # 2.6 (a), case two: the two-sided pins' plain reads, still before the first write.
+        for address in two_sided:
+            for side, built in deployments.items():
+                read_pin(built, address, uris[address], readings[address][side], failures[address][side])
         for pin in one_sided:
             for side, built in deployments.items():
                 write_then_read_pin(
                     built, pin, canonical[pin], (*uris[pin], pin), readings[pin][side], failures[pin][side]
+                )
+        # 2.6 (a): after every write-then-read of the asker, a second principal reads each one back.
+        for pin in one_sided:
+            for side, built in deployments.items():
+                read_back_as_another_principal(built, pin, (*uris[pin], pin), readings[pin][side], failures[pin][side])
+        # 2.6 (a), case two: the two-sided pins' write-then-read, then their read-back by a second principal.
+        for address in two_sided:
+            for side, built in deployments.items():
+                write_then_read_pin(
+                    built, address, canonical[address], (*uris[address], address), readings[address][side],
+                    failures[address][side],
+                )
+        for address in two_sided:
+            for side, built in deployments.items():
+                read_back_as_another_principal(
+                    built, address, (*uris[address], address), readings[address][side], failures[address][side]
                 )
     finally:
         for built in deployments.values():
             built.close()
     return PinRun(
         shape=shape, anchor=anchor, questions=questions, pins=pins, filed=filed, one_sided=one_sided, uris=uris,
-        readings=readings, failures=failures,
+        readings=readings, failures=failures, two_sided=two_sided,
     )
 
 
@@ -3816,7 +3915,8 @@ def pin_instrument(base: pathlib.Path) -> PinInstrument:
     that record's class. Write-then-read: the asker's own client-lane filing, read after its put, against the same
     reads at the two addresses nobody filed; and the put itself, against a put of other bytes (and that put again,
     its floor). Nothing presented is normalized in the put's pair: the instrument asks whether the comparison sees
-    the put's answer at all.
+    the put's answer at all. Read back by a second principal (2.6 (a)): the same three addresses, after the asker's
+    puts, read by another principal of the tenant.
     """
     from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
     from ccf_runtime.mcp.artifact_server import (  # noqa: PLC0415
@@ -3873,6 +3973,22 @@ def pin_instrument(base: pathlib.Path) -> PinInstrument:
                 answered = _normalize_presented(
                     jsonable(
                         _mcp_resource_read(deployment, resources[read](content_address=address), token=ASKER_TOKEN)
+                    ),
+                    (address,),
+                )
+                readings[surface][side] = answered
+                if _mcp_read_failed(answered):
+                    failures[surface][side] = f"{surface} read failed: {render(answered, limit=300)}"
+        # 2.6 (a): the same three addresses, read back after the asker's puts by another principal of the tenant.
+        for side, address in (
+            (SERVED, own_address),
+            (CF_NONEXISTENT, PIN_INSTRUMENT_NOBODY),
+            (CF_FLOOR, PIN_INSTRUMENT_NOBODY_2),
+        ):
+            for surface, read in PIN_WRITE_THEN_READ_OTHER_SURFACES.items():
+                answered = _normalize_presented(
+                    jsonable(
+                        _mcp_resource_read(deployment, resources[read](content_address=address), token=OTHER_TOKEN)
                     ),
                     (address,),
                 )
@@ -3952,7 +4068,15 @@ def build_held_refusal(base: pathlib.Path, *, anchor: str, holds: bool, active: 
     )
 
 
-def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str) -> Run:
+#: Where a run of a constant-refusal world keeps its declared working twin: a :class:`Run` of the same questions,
+#: through the same door, asked of the supported deployment the world declares (``Run.notes``). Kept ON the run, so
+#: whatever judges the run reads the twin from the run itself, never from a caller's word that one answered
+#: (``D-IMPL-378``, Dave, 2026-10-09 10:54 MST, 2.1 (b): *"plus a working declared twin. Enforce these conditions
+#: inside the acceptance helper."*).
+DECLARED_WORKING_TWIN = "declared_working_twin"
+
+
+def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str, twin: Run) -> Run:
     """Every side of :data:`HELD_REFUSAL_SIDES`, asked of :func:`build_held_refusal`'s deployments through ``door``.
 
     The deployment that holds the subject and withholds it from the asker is
@@ -3964,6 +4088,9 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str) -> Run:
     :func:`run_sides` reads them for a subject-keyed shape. ``notes["asked"]``
     keeps, per deployment, every identifier its source was handed: the evidence
     the case was constructed, and of what the phase saw.
+    ``notes[DECLARED_WORKING_TWIN]`` is ``twin``: the gate's own run of
+    :data:`HELD_REFUSAL_TWIN` at the same anchor and door, the supported working
+    twin the run is judged against (:data:`DECLARED_WORKING_TWIN`).
     """
     opened: list[tuple[str, Deployment]] = []
 
@@ -3992,40 +4119,277 @@ def held_refusal_run(base: pathlib.Path, *, anchor: str, door: str) -> Run:
     finally:
         for _name, built in opened:
             built.close()
-    return Run(shape=HELD_REFUSAL, anchor=anchor, door=door, sides=sides, notes={"asked": asked})
+    return Run(
+        shape=HELD_REFUSAL, anchor=anchor, door=door, sides=sides,
+        notes={"asked": asked, DECLARED_WORKING_TWIN: twin},
+    )
 
 
 class HeldRefusalRunCache:
-    """One held-refusal run per (anchor, door) for the whole session."""
+    """One held-refusal run per (anchor, door) for the whole session, each carrying the gate's own twin run."""
 
-    def __init__(self, factory: Callable[[str], pathlib.Path]) -> None:
+    def __init__(self, factory: Callable[[str], pathlib.Path], *, twins: RunCache) -> None:
         self._factory = factory
+        self._twins = twins
         self._runs: dict[tuple[str, str], Run] = {}
 
     def get(self, *, anchor: str, door: str) -> Run:
         key = (anchor, door)
         if key not in self._runs:
             self._runs[key] = held_refusal_run(
-                self._factory(f"{HELD_REFUSAL}-{anchor}-{door}"), anchor=anchor, door=door
+                self._factory(f"{HELD_REFUSAL}-{anchor}-{door}"), anchor=anchor, door=door,
+                twin=self._twins.get(shape=HELD_REFUSAL_TWIN, anchor=anchor, door=door),
             )
         return self._runs[key]
 
 
-#: The two refusals Dave's 2026-10-09 06:21 MST rulings made constant across every subject (``D-IMPL-378``): item 4
-#: (b)'s held refusal at the P6 probe ("4(b), plus the closing-test case and a supported working twin") and decision 4
-#: (a)'s refused stand-in ("A failed check refuses without exposing subject-dependent differences.").
-CONSTANT_REFUSALS: tuple[str, ...] = (HELD_REFUSAL_REFUSAL, "UndisclosedSubjectSubstituteIsHeld")
+# =============================================================================
+# Decision 4 (a): the stand-in world — a declared early policy whose stand-in names something here
+# =============================================================================
+#
+# Dave, 2026-10-09 06:06 MST, confirmed at 06:21 MST (D-IMPL-378), item 4, verbatim (kept as a comment, CINV-01a):
+#   "(a). Verify the stand-in is absent before and after acquisition. A failed
+#   check refuses without exposing subject-dependent differences."
+# Built by lane 378i-probe in tests/products/test_sec020_stand_in_is_verified_absent.py, which judges it with this
+# proof's own rules; moved here, unchanged, so the world and its declared working twin are built where every other
+# world of the proof is (D-IMPL-378, Dave, 2026-10-09 10:54 MST, 2.1 (b): "Limit the closing-test exception to the
+# held-refusal and stand-in worlds.").
+
+#: The label a stand-in run carries: every question of a deployment whose declared early policy's stand-in names
+#: something here is refused by :data:`STAND_IN_REFUSAL`, whatever subject was asked.
+STAND_IN_HELD = "stand_in_held"
+#: Its declared working twin: the same deployments with the stand-in held nowhere, asked the same questions.
+STAND_IN_TWIN = "stand_in_held_nowhere"
+#: Decision 4 (a)'s refusal (``ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld``).
+STAND_IN_REFUSAL = "UndisclosedSubjectSubstituteIsHeld"
+#: How a deployment's source holds the declared stand-in. ``itself``: a record whose resolution the fabric names by
+#: the stand-in. ``another-uri``: a record for the stand-in that the fabric names otherwise (an account whose identity
+#: mints another URI), which only a comparison of what the phase acquired can see. ``population-phase``: the declared
+#: population phase writes the stand-in's own record before the subject-keyed phase runs.
+STAND_IN_ITSELF = "itself"
+STAND_IN_ANOTHER_URI = "another-uri"
+STAND_IN_POPULATION_PHASE = "population-phase"
+STAND_IN_HELD_AS = (STAND_IN_ITSELF, STAND_IN_ANOTHER_URI, STAND_IN_POPULATION_PHASE)
+#: The account a source returns for the stand-in under ``another-uri``. Fixture vocabulary.
+STAND_IN_SHADOW_REF = "acct-stand-in-shadow"
+#: Every side a stand-in run asks: the same-deployment comparison's three sides (the withheld subject, an identifier
+#: nothing holds and a second one) and an ordinarily served subject (the policy off). Every one is refused alike.
+STAND_IN_SIDES = (CF_WITHHELD, SAME_NONEXISTENT, SAME_FLOOR, SERVED)
+
+
+def stand_in_holding(account_ref: str) -> Holding:
+    """The stand-in's own record, in an open book, observed shortly before the question."""
+    return Holding(
+        account_ref=account_ref, book=OPEN_BOOK, label="stand-in label", observed_at=asked_at() - timedelta(minutes=5)
+    )
+
+
+def build_stand_in(
+    base: pathlib.Path, *, anchor: str, held_as: str | None, active: bool
+) -> tuple[Deployment, SubjectKeyedSource]:
+    """The early-withholding paved deployment holding the subject; ``held_as`` says where the stand-in is held.
+
+    ``held_as=None`` is the twin: the stand-in held nowhere. Returns the deployment and its source (whose ``asked``
+    keeps every identifier the subject-keyed phase was handed).
+    """
+    from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
+
+    holdings = {SUBJECT: subject_holding()}
+    overrides: dict[str, Any] = {}
+    if held_as == STAND_IN_ITSELF:
+        holdings[STAND_IN] = stand_in_holding(STAND_IN_REF)
+    elif held_as == STAND_IN_ANOTHER_URI:
+        holdings[STAND_IN] = stand_in_holding(STAND_IN_SHADOW_REF)
+    elif held_as == STAND_IN_POPULATION_PHASE:
+        overrides["population"] = PopulationHalf({STAND_IN: stand_in_holding(STAND_IN_REF)})
+    source = SubjectKeyedSource(holdings)
+    built = open_paved(
+        base, anchor=anchor, acquire=source,
+        project=plan_factory(early=True, plan_id=PRODUCT_CLASS, asker=ASKER, active=active),
+        **overrides,
+    )
+    return built, source
+
+
+def _stand_in_sides(base: pathlib.Path, *, anchor: str, door: str, held_as: str | None) -> dict[str, Observation]:
+    """:data:`STAND_IN_SIDES`, asked through ``door`` of :func:`build_stand_in`'s deployments, policy on and off."""
+    withholding, _ = build_stand_in(base / "withholding", anchor=anchor, held_as=held_as, active=True)
+    serving, _ = build_stand_in(base / "serving", anchor=anchor, held_as=held_as, active=False)
+    try:
+        return {
+            CF_WITHHELD: observe_side(SUBJECT_KEYED, door, withholding, SUBJECT),
+            SAME_NONEXISTENT: observe_side(SUBJECT_KEYED, door, withholding, NEVER),
+            SAME_FLOOR: observe_side(SUBJECT_KEYED, door, withholding, NEVER_2),
+            SERVED: observe_side(SUBJECT_KEYED, door, serving, SUBJECT),
+        }
+    finally:
+        withholding.close()
+        serving.close()
+
+
+def stand_in_run(base: pathlib.Path, *, anchor: str, door: str, held_as: str) -> Run:
+    """Every side of :data:`STAND_IN_SIDES` with the stand-in held as ``held_as``, carrying its declared working twin.
+
+    The twin (``notes[DECLARED_WORKING_TWIN]``, labeled :data:`STAND_IN_TWIN`) is the same two deployments with the
+    stand-in held nowhere, asked the same questions through the same door.
+    """
+    sides = _stand_in_sides(base / "held", anchor=anchor, door=door, held_as=held_as)
+    twin = Run(
+        shape=STAND_IN_TWIN, anchor=anchor, door=door,
+        sides=_stand_in_sides(base / "twin", anchor=anchor, door=door, held_as=None),
+    )
+    return Run(
+        shape=STAND_IN_HELD, anchor=anchor, door=door, sides=sides,
+        notes={"held_as": held_as, DECLARED_WORKING_TWIN: twin},
+    )
+
+
+# =============================================================================
+# 2.1 (b): the acceptance helper — a raised floor copy is a floor only in the two constant-refusal worlds
+# =============================================================================
+#
+# Dave, 2026-10-09 10:54 MST (D-IMPL-378), 2.1 (b), verbatim (kept as a comment, CINV-01a): "Limit the closing-test
+# exception to the held-refusal and stand-in worlds. Require identical refusal type, code and constant message across
+# all sides, plus a working declared twin. Enforce these conditions inside the acceptance helper." The option ruled
+# (the "i" panel's findings brief, dl-378-record @ 15e79163, section 2.1 (b)), verbatim: "accept with the shape
+# restriction restored, so it applies only in the held-refusal and stand-in worlds". It restricts the coordinator's
+# judging change 09d5c2ba (J5), which admitted any run whose every side raised one of the two refusals.
+
+
+@dataclass(frozen=True)
+class ConstantRefusalWorld:
+    """One of the two worlds whose every question is refused alike by one refusal, and the twin it declares.
+
+    ``refusal`` is the refusal's type name; ``constant`` names the ``GovernedResolver`` static method that returns
+    the SDK's one message for it; ``sides`` is every side the world asks (its census: each must be refused alike);
+    ``twin`` labels the declared working twin's run, which is asked the same ``sides`` and must serve :data:`SERVED`.
+    """
+
+    refusal: str
+    constant: str
+    sides: tuple[str, ...]
+    twin: str
+
+
+#: The two worlds, by the label their runs carry (Dave, 2026-10-09 06:21 MST, D-IMPL-378): item 4 (b)'s held refusal
+#: at the P6 probe ("4(b), plus the closing-test case and a supported working twin"), whose twin is the gate's own
+#: ``subject_keyed`` world; and decision 4 (a)'s refused stand-in ("A failed check refuses without exposing
+#: subject-dependent differences."), whose twin holds the stand-in nowhere.
+CONSTANT_REFUSAL_WORLDS: dict[str, ConstantRefusalWorld] = {
+    HELD_REFUSAL: ConstantRefusalWorld(
+        refusal=HELD_REFUSAL_REFUSAL, constant="_probe_was_refused", sides=HELD_REFUSAL_SIDES, twin=HELD_REFUSAL_TWIN
+    ),
+    STAND_IN_HELD: ConstantRefusalWorld(
+        refusal=STAND_IN_REFUSAL, constant="_stand_in_is_held", sides=STAND_IN_SIDES, twin=STAND_IN_TWIN
+    ),
+}
+#: The two refusals the worlds hold, by type name.
+CONSTANT_REFUSALS: tuple[str, ...] = tuple(world.refusal for world in CONSTANT_REFUSAL_WORLDS.values())
+
+#: Why the acceptance helper admitted no floor, one name per condition of 2.1 (b) (:func:`why_no_constant_refusal`).
+NOT_ONE_OF_THE_TWO_WORLDS = "the run is not of the held-refusal world or the stand-in world"
+REFUSAL_NOT_ON_THIS_TREE = "the world's refusal or its SDK constant is not on this tree"
+NOT_THE_WORLDS_SIDES = "the run does not hold exactly the sides its world asks"
+NOT_THE_WORLDS_REFUSAL = "a side did not raise its world's refusal type, and only that, at its one question"
+NOT_THE_SDKS_CONSTANT = "a side's message is not the SDK's constant message for that refusal"
+REFUSAL_CODES_DIFFER = "the sides were answered with different refusal codes"
+NO_DECLARED_TWIN = "the run carries no declared working twin"
+NOT_THE_DECLARED_TWIN = "the twin is not its world's declared twin: another world, anchor or door, or a question unasked"
+TWIN_RAISED = "the declared twin raised instead of answering"
+TWIN_SERVED_NOTHING = "the declared twin served no product"
+
+
+def constant_refusal_message(world: ConstantRefusalWorld) -> str | None:
+    """The SDK's own constant message for ``world``'s refusal (``GovernedResolver.<constant>()``), or ``None`` if absent."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    if not hasattr(resolver, world.refusal):
+        return None
+    message = getattr(resolver.GovernedResolver, world.constant, None)
+    return message() if callable(message) else None
+
+
+def refusal_code(run: Run, side: str) -> str:
+    """The refusal code ``side`` was answered with: its refusal-code channel (:data:`REFUSAL`), rendered canonically.
+
+    In process, the raise itself (outcome, type, message); behind HTTP, the status, the outcome, the body and the
+    recorded cause; behind MCP, the error flag, the outcome, the text and the recorded cause. One part is replaced:
+    the MCP door's ``ccf-runtime-failure:<id>``, whose id is a fresh ``uuid4().hex`` per call that names an
+    occurrence, not a decision (``ccf_runtime.mcp.egress``), so two calls answered alike carry one code.
+    """
+    from ccf_runtime.mcp.egress import CCF_FAILURE_PREFIX  # noqa: PLC0415
+
+    occurrence = re.compile(rf"{re.escape(CCF_FAILURE_PREFIX)}:[0-9a-f]{{32}}")
+
+    def normalized(value: Any) -> Any:
+        if isinstance(value, str):
+            return occurrence.sub(f"{CCF_FAILURE_PREFIX}:<occurrence>", value)
+        if isinstance(value, dict):
+            return {key: normalized(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [normalized(item) for item in value]
+        return value
+
+    return json.dumps(normalized(jsonable(run.sides[side].channels.get(REFUSAL))), sort_keys=True, default=str)
+
+
+def _constant_refusal_world(run: Run) -> ConstantRefusalWorld | None:
+    """The world ``run`` is a run of, read off its own label: the held-refusal world, the stand-in world, or neither."""
+    return CONSTANT_REFUSAL_WORLDS.get(run.shape)
+
+
+def why_no_constant_refusal(run: Run) -> str | None:
+    """``None`` when ``run``'s refusal is held as the property; otherwise the first condition it fails, by name.
+
+    Every condition of 2.1 (b), read from the run itself and never from a caller: the run is of one of the two worlds
+    (:data:`CONSTANT_REFUSAL_WORLDS`); it holds exactly the sides its world asks; every one of them raised the
+    world's refusal type, only at its one question, with the SDK's constant message (:func:`constant_refusal_message`)
+    — so the same type and message on every side — and with one refusal code (:func:`refusal_code`); and the run
+    carries its world's declared working twin (:data:`DECLARED_WORKING_TWIN`): the world's twin label, at the same
+    anchor and door, asked every one of the same questions, raising nothing at any of them, and SERVING its served
+    subject (:data:`SERVED`).
+    """
+    world = _constant_refusal_world(run)
+    if world is None:
+        return NOT_ONE_OF_THE_TWO_WORLDS
+    constant = constant_refusal_message(world)
+    if constant is None:
+        return REFUSAL_NOT_ON_THIS_TREE
+    if set(run.sides) != set(world.sides):
+        return NOT_THE_WORLDS_SIDES
+    raised = {side: run.raised(side) for side in world.sides}
+    if any(set(found) != {ONLY} or not found[ONLY].startswith(f"{world.refusal}: ") for found in raised.values()):
+        return NOT_THE_WORLDS_REFUSAL
+    if any(found[ONLY] != f"{world.refusal}: {constant}" for found in raised.values()):
+        return NOT_THE_SDKS_CONSTANT
+    if len({refusal_code(run, side) for side in world.sides}) != 1:
+        return REFUSAL_CODES_DIFFER
+    twin = run.notes.get(DECLARED_WORKING_TWIN)
+    if not isinstance(twin, Run):
+        return NO_DECLARED_TWIN
+    if (twin.shape, twin.anchor, twin.door) != (world.twin, run.anchor, run.door) or any(
+        side not in twin.sides for side in world.sides
+    ):
+        return NOT_THE_DECLARED_TWIN
+    if any(twin.raised(side) for side in world.sides):
+        return TWIN_RAISED
+    served = jsonable(twin.sides[SERVED].channels.get(REFUSAL))
+    if not isinstance(served, dict) or served.get("outcome") != "served":
+        return TWIN_SERVED_NOTHING
+    return None
 
 
 def a_constant_refusal_is_the_property(run: Run, position: str, raised: str) -> bool:
-    """Whether a side raising ``raised`` at ``position`` is one of :data:`CONSTANT_REFUSALS`, held as the property.
+    """The acceptance helper: whether a side raising ``raised`` at ``position`` raised the refusal ``run`` holds as the property.
 
-    ``D-IMPL-378``, a coordinator integration of Dave's 2026-10-09 06:21 rulings: the floor check ("A failed spare
-    answer cannot excuse differences.") and the two refusals the same rulings made constant across every subject. Where
-    every side of a run is refused alike by one of them, the floor copy raises it because that refusal IS the property,
-    as :func:`p6_refusal_is_the_property` holds P6 (a)'s. Only at the question's own position (a raise inside a record
-    read never is), only those refusals by type name, and only where EVERY side of the run raised exactly this message.
+    ``D-IMPL-378``, Dave, 2026-10-09 10:54 MST, 2.1 (b) (verbatim above). Read where every noise floor is read
+    (``test_sec020_combined_proof._floor_copy_did_not_answer``): a floor copy that RAISED is a floor only where its
+    raise is the property the cell holds. True only at the question's own position (a raise inside a record read never
+    is), only where :func:`why_no_constant_refusal` finds every condition met for the whole run, and only for exactly
+    the raise every side of its world raised: the world's refusal type with the SDK's constant message. Anything else
+    is False, and the cell is judged as it would be without this exception: its floor copy excuses nothing.
     """
-    if position != ONLY or not any(raised.startswith(f"{name}:") for name in CONSTANT_REFUSALS):
+    world = _constant_refusal_world(run)
+    if position != ONLY or world is None or why_no_constant_refusal(run) is not None:
         return False
-    return {run.raised(side).get(ONLY, "") for side in run.sides} == {raised}
+    return raised == f"{world.refusal}: {constant_refusal_message(world)}"

@@ -59,7 +59,6 @@ from __future__ import annotations
 
 import pathlib
 import re
-from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -75,25 +74,15 @@ from tests.products.test_sec020_combined_proof import _compare, _vacuous
 #: ``DID NOT RAISE`` rather than by an import error.
 REFUSAL = "UndisclosedSubjectSubstituteIsHeld"
 
-#: How the deployment's source holds the declared stand-in. ``itself``: a record
-#: whose resolution the fabric names by the stand-in (the panel's probe).
-#: ``another-uri``: a record for the stand-in that the fabric names otherwise —
-#: an account whose identity mints another URI — which only a comparison of what
-#: the phase acquired can see. ``population-phase``: the declared population
-#: phase writes the stand-in's own record before the subject-keyed phase runs.
-ITSELF = "itself"
-ANOTHER_URI = "another-uri"
-POPULATION_PHASE = "population-phase"
-HELD_AS = (ITSELF, ANOTHER_URI, POPULATION_PHASE)
+#: How the deployment's source holds the declared stand-in — the stand-in world's vocabulary, defined with the world in
+#: ``sec020_worlds`` (``STAND_IN_HELD_AS``): ``itself``, ``another-uri``, ``population-phase``.
+ITSELF = w.STAND_IN_ITSELF
+ANOTHER_URI = w.STAND_IN_ANOTHER_URI
+POPULATION_PHASE = w.STAND_IN_POPULATION_PHASE
+HELD_AS = w.STAND_IN_HELD_AS
 #: The account a source returns for the stand-in under ``another-uri``. Fixture vocabulary.
-SHADOW_REF = "acct-stand-in-shadow"
-
-
-def _stand_in_holding(account_ref: str) -> w.Holding:
-    return w.Holding(
-        account_ref=account_ref, book=w.OPEN_BOOK, label="stand-in label",
-        observed_at=w.asked_at() - timedelta(minutes=5),
-    )
+SHADOW_REF = w.STAND_IN_SHADOW_REF
+_stand_in_holding = w.stand_in_holding
 
 
 def _records(store: Any) -> frozenset[str]:
@@ -105,23 +94,10 @@ def _records(store: Any) -> frozenset[str]:
 def _early(base: pathlib.Path, anchor: str, *, held_as: str | None, active: bool) -> tuple[w.Deployment, Any]:
     """SEC-020's early-withholding paved deployment holding the subject; ``held_as`` says where the stand-in is held.
 
-    ``held_as=None`` is the twin: the stand-in held nowhere.
+    ``held_as=None`` is the twin: the stand-in held nowhere. The stand-in world's own builder
+    (``sec020_worlds.build_stand_in``).
     """
-    holdings = {w.SUBJECT: w.subject_holding()}
-    overrides: dict[str, Any] = {}
-    if held_as == ITSELF:
-        holdings[w.STAND_IN] = _stand_in_holding(w.STAND_IN_REF)
-    elif held_as == ANOTHER_URI:
-        holdings[w.STAND_IN] = _stand_in_holding(SHADOW_REF)
-    elif held_as == POPULATION_PHASE:
-        overrides["population"] = w.PopulationHalf({w.STAND_IN: _stand_in_holding(w.STAND_IN_REF)})
-    source = w.SubjectKeyedSource(holdings)
-    built = w.open_paved(
-        base, anchor=anchor, acquire=source,
-        project=w.plan_factory(early=True, plan_id=PRODUCT_CLASS, asker=w.ASKER, active=active),
-        **overrides,
-    )
-    return built, source
+    return w.build_stand_in(base, anchor=anchor, held_as=held_as, active=active)
 
 
 def _refused_by_name(asks: dict[str, Any]) -> dict[str, UnsupportedComposition]:
@@ -244,23 +220,19 @@ def test_a_stand_in_a_preloaded_fabric_names_is_refused_with_no_acquisition_on_t
 _SIDES = ((w.CF_WITHHELD, w.SUBJECT), (w.SAME_NONEXISTENT, w.NEVER), (w.SAME_FLOOR, w.NEVER_2))
 
 
-def _same_deployment_run(base: pathlib.Path, anchor: str, door: str, *, held_as: str | None) -> w.Run:
-    built, _ = _early(base, anchor, held_as=held_as, active=True)
-    try:
-        sides = {side: w.observe_side(w.SUBJECT_KEYED, door, built, subject) for side, subject in _SIDES}
-    finally:
-        built.close()
-    return w.Run(shape=f"early-stand-in-{held_as}", anchor=anchor, door=door, sides=sides)
-
-
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize("held_as", (ITSELF, ANOTHER_URI))
 @pytest.mark.parametrize("anchor", w.ANCHORS)
 def test_a_stand_in_the_source_holds_leaves_withheld_and_nonexistent_indistinguishable(
     tmp_path: pathlib.Path, anchor: str, held_as: str, door: str
 ) -> None:
-    """The panel's probe as a test: the withheld and nonexistent answers must not differ, by the closing test's rules."""
-    run = _same_deployment_run(tmp_path / "held", anchor, door, held_as=held_as)
+    """The panel's probe as a test: the withheld and nonexistent answers must not differ, by the closing test's rules.
+
+    The run is the stand-in world (``sec020_worlds.stand_in_run``): the withholding deployment asked about the
+    subject and two identifiers nothing holds, the same deployment with its policy off asked about the subject, and,
+    on the run itself, its declared working twin, the stand-in held nowhere (``sec020_worlds.DECLARED_WORKING_TWIN``).
+    """
+    run = w.stand_in_run(tmp_path, anchor=anchor, door=door, held_as=held_as)
     channels = w.channels_for(comparison=w.SAME_DEPLOYMENT, shape=w.SUBJECT_KEYED, door=door)
     raised = {side: run.raised(side).get(w.ONLY, "") for side, _ in _SIDES}
     if not any(raised.values()):
@@ -283,7 +255,7 @@ def test_a_stand_in_the_source_holds_leaves_withheld_and_nonexistent_indistingui
             f" nonexistent subject at {sorted(differing)}\n  withheld: {w.render(withheld)}\n"
             f"  nonexistent: {w.render(nonexistent)}"
         )
-    twin = _same_deployment_run(tmp_path / "twin", anchor, door, held_as=None)
+    twin = run.notes[w.DECLARED_WORKING_TWIN]
     vacuous = _vacuous(twin, w.CF_WITHHELD, w.SAME_NONEXISTENT, either=True)
     assert not vacuous, f"[{anchor}, {door}] the twin did not answer, so the refusal is not evidence: {vacuous}"
     for channel in channels:
