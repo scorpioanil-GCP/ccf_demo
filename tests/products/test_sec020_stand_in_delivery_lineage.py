@@ -502,3 +502,54 @@ def test_r3_a_difference_that_is_not_delivery_lineage_refuses_every_question_on_
         return question, booted[2]
 
     _refused_by_name({"withheld": ask("withheld", low.WITHHELD), "nonexistent": ask("nonexistent", low.MISSING)})
+
+
+# --- what a failed check refuses: every question alike before acquisition, not after ------------------
+
+
+class _WritesTheStandInWhenAskedTheSubject(w.SubjectKeyedSource):
+    """A source that, asked about the subject it holds, also returns the stand-in's own record (and nothing else differs)."""
+
+    def __call__(self, context: Any) -> Any:
+        found = super().__call__(context)
+        if context.request.subject != w.SUBJECT:
+            return found
+        extra = w.envelope_for(
+            w.Holding(account_ref=w.STAND_IN_REF, book=w.OPEN_BOOK, label="stand-in label",
+                      observed_at=w.asked_at() - timedelta(minutes=5)),
+            tenant=context.tenant_id, ingested_at=context.instant, envelope_id="envelope-stand-in-beside-the-subject",
+        )
+        return (*found, extra)
+
+
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_the_check_after_acquisition_refuses_only_a_question_whose_own_acquisition_wrote_the_stand_in(
+    tmp_path: pathlib.Path, anchor: str
+) -> None:
+    """Measured for the controls register: the after-acquisition refusal depends on the question; the checks before do not.
+
+    The source writes the stand-in only when it is handed the subject itself, so
+    the check after acquisition refuses that question by name — the served
+    deployment's, where the subject is disclosed — while every other question of
+    the same deployment is answered as data, and under the policy the withheld
+    subject (asked as the stand-in, never handed to the source) is answered as a
+    nonexistent subject is.
+    """
+    holdings = {w.SUBJECT: w.subject_holding()}
+    serving = _early(tmp_path / "serving", anchor, _WritesTheStandInWhenAskedTheSubject(holdings), active=False)
+    withholding = _early(tmp_path / "withholding", anchor, _WritesTheStandInWhenAskedTheSubject(holdings))
+    try:
+        before = _records(serving.store)
+        with pytest.raises(UnsupportedComposition) as refused:
+            serving.ask(w.SUBJECT, None)
+        assert type(refused.value).__name__ == REFUSAL, refused.value
+        assert _records(serving.store) == before, "the refused question recorded something"
+        answered = {
+            "served deployment, an identifier nothing holds": _ask(serving, w.NEVER),
+            "withholding deployment, the withheld subject": _ask(withholding, w.SUBJECT),
+            "withholding deployment, an identifier nothing holds": _ask(withholding, w.NEVER),
+        }
+    finally:
+        serving.close()
+        withholding.close()
+    _answered(answered)
