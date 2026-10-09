@@ -171,9 +171,24 @@ judges it by this module's own rules, one ``configuration`` per way the class
 and its projection can meet (``sec020_worlds.NEVER_CONFIGURATIONS``), with an
 instrument per channel (``test_the_never_instrument_sees_a_difference``). Its
 cells stay in the gate, unmarked, until no configuration leaves the two
-distinguishable. The listed-class cell below holds only the record channel of
-that configuration (the runtime defense writes no record); it is not evidence
-of indistinguishability.
+distinguishable.
+
+Dave's option (d), 2026-10-08 16:40 MST (``D-IMPL-378``), verbatim: *"Require a
+positive declaration, default silence to refusal, and explicitly limit the
+trusted-code assumption to deployment code callers cannot influence. Keep the
+false-declaration counterexample visible."* A class affirming ``never`` is now
+built only over a plan factory that positively declares it never withholds, so
+every configuration here — its factory declaring that it withholds, or declaring
+nothing — is refused where its resolver is built, on every side. Under CT-A (a)
+a cell holds that refusal as the property only when the withheld, nonexistent
+and noise-floor sides ALL observed the SAME construction refusal, by name
+(``sec020_worlds.NEVER_CONSTRUCTION_REFUSALS``: ``NeverWithholdingProjectionCanWithhold``,
+or since (d) ``NeverWithholdingNeedsAPositiveDeclaration``), and the declared
+twin — the policy off, positively declaring that it never withholds — answers.
+
+The listed-class cell below holds only the record channel of that
+configuration (the runtime defense writes no record); it is not evidence of
+indistinguishability.
 
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
@@ -1134,8 +1149,8 @@ def _both_raised(run: w.Run, *sides: str, either: bool = False, excused: tuple[s
 
     Nothing is excused here by the shape a configuration follows: a raise is
     "not evidence" unless the side is named in ``excused`` and what it raised
-    is :data:`~tests.products.sec020_worlds.NEVER_CAPABILITY_REFUSAL` at its
-    one question (the instrument's refused side, CT-A (a)).
+    is one of :data:`~tests.products.sec020_worlds.NEVER_CONSTRUCTION_REFUSALS`
+    at its one question (the instrument's refused side, CT-A (a)).
     """
     raised = {side: run.raised(side) for side in sides}
     positions = set().union(*(set(r) for r in raised.values()))
@@ -1148,7 +1163,7 @@ def _both_raised(run: w.Run, *sides: str, either: bool = False, excused: tuple[s
             and not (
                 side in excused
                 and position == w.ONLY
-                and r[position].startswith(f"{w.NEVER_CAPABILITY_REFUSAL}:")
+                and any(r[position].startswith(f"{name}:") for name in w.NEVER_CONSTRUCTION_REFUSALS)
             )
         }
         if (either and hit) or (hit and all(position in r for r in raised.values())):
@@ -1167,15 +1182,17 @@ def test_a_withheld_subject_under_a_never_class_is_indistinguishable(
     (``sec020_worlds.NEVER_CONFIGURATIONS``). Judged by this module's own rules:
     the same pairs, noise floor and kind rule as
     :func:`test_withheld_is_indistinguishable`, and two sides that both raised
-    are "not evidence". The one refusal this cell holds as the property is the
+    are "not evidence". The refusals this cell holds as the property are the
     composition's own, raised where its resolver is built
-    (``sec020_worlds.NEVER_CAPABILITY_REFUSAL``) — and only when the withheld,
-    nonexistent and noise-floor sides ALL observe it, by name, and the same
-    configuration without its withholding capability answers rather than
-    raising (``sec020_worlds.NEVER_TWIN``): Dave's CT-A (a), "Construction refusal
-    counts, paired with a declared twin that successfully answers." A refusal
-    raised when the projection withholds — for the withheld subject only — is
-    the oracle Dave ruled, and this cell fails on it.
+    (``sec020_worlds.NEVER_CONSTRUCTION_REFUSALS``: the declared capability,
+    and since Dave's E2 (ii) (d) the missing positive declaration) — and only
+    when the withheld, nonexistent and noise-floor sides ALL observe the SAME
+    one, by name, and the same configuration without its withholding
+    capability — the policy off, positively declaring that it never withholds —
+    answers rather than raising (``sec020_worlds.NEVER_TWIN``): Dave's CT-A (a),
+    "Construction refusal counts, paired with a declared twin that successfully
+    answers." A refusal raised when the projection withholds — for the withheld
+    subject only — is the oracle Dave ruled, and this cell fails on it.
     """
     run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
     withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
@@ -1226,9 +1243,10 @@ def test_the_never_instrument_sees_a_difference(
     configuration without its withholding capability,
     ``sec020_worlds.NEVER_TWIN``) against the nonexistent side; for refusal
     codes, the question its class refuses by contract; for references, Dave's
-    Q11 properties. Where the nonexistent side observed the construction
-    refusal by name, every channel is instrumented by the twin answering
-    against it — the structural pair of :func:`test_an_undeclared_composite_is_refused_where_its_resolver_is_built`.
+    Q11 properties. Where the nonexistent side observed a construction
+    refusal by name (``sec020_worlds.NEVER_CONSTRUCTION_REFUSALS``), every
+    channel is instrumented by the twin answering against it — the structural
+    pair of :func:`test_an_undeclared_composite_is_refused_where_its_resolver_is_built`.
     """
     run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
     refused = w.never_refused_at_construction(run, (w.CF_NONEXISTENT,))

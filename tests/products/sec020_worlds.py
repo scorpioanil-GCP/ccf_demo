@@ -3069,6 +3069,18 @@ NEVER_CONFIGURATIONS: dict[str, str] = {
 #: twin that successfully answers."
 NEVER_CAPABILITY_REFUSAL = "NeverWithholdingProjectionCanWithhold"
 
+#: The refusal, by name, of a class affirming ``never`` whose plan factory does
+#: NOT positively declare that it never withholds — silence included (Dave's
+#: E2 (ii), option (d), 2026-10-08 16:40 MST) — raised where its resolver is
+#: built, after the refusal above. A subclass of it, read by NAME for the same
+#: reason.
+NEVER_DECLARATION_REFUSAL = "NeverWithholdingNeedsAPositiveDeclaration"
+
+#: The construction refusals an E2 (ii) cell may hold as the property under
+#: test — under CT-A (a), and only when EVERY compared side observed the SAME
+#: one (:func:`never_refused_at_construction`) and :data:`NEVER_TWIN` answers.
+NEVER_CONSTRUCTION_REFUSALS = (NEVER_CAPABILITY_REFUSAL, NEVER_DECLARATION_REFUSAL)
+
 #: The configuration with its withholding capability removed — the policy off,
 #: positively declaring that it never withholds (Dave's E2 (ii) (d),
 #: :meth:`PolicyPlanFactory.withholds_no_subject`), and for the early
@@ -3197,8 +3209,15 @@ def never_run(base: pathlib.Path, *, configuration: str, anchor: str, door: str)
 
 
 def never_refused_at_construction(run: Run, sides: tuple[str, ...]) -> bool:
-    """Whether every one of ``sides`` observed exactly :data:`NEVER_CAPABILITY_REFUSAL`, and nothing else."""
-    return all(run.raised(side).get(ONLY, "").startswith(f"{NEVER_CAPABILITY_REFUSAL}:") for side in sides)
+    """Whether every one of ``sides`` observed the SAME one of :data:`NEVER_CONSTRUCTION_REFUSALS`, by name.
+
+    The same one: two sides refused by two different construction refusals
+    would be told apart by the refusal's name.
+    """
+    return any(
+        all(run.raised(side).get(ONLY, "").startswith(f"{name}:") for side in sides)
+        for name in NEVER_CONSTRUCTION_REFUSALS
+    )
 
 
 class NeverRunCache:
