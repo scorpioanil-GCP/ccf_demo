@@ -23,31 +23,37 @@ Three rules
     before it, separated by nothing but whitespace, opening punctuation and at
     most a locator word (``at``, ``in``, ``line``) — the cited lines must still
     hold what the anchor names. A Python-name anchor resolving to exactly one
-    ``def`` / ``class`` / module-level binding in the cited file is checked
-    against that symbol's own line span; a dot- or kebab-namespaced literal id
-    anchor (an artifact class id, say) is checked by looking for the token in
-    the cited lines. A span that is itself a citation — a line citation, a
-    ``::`` symbol citation, or a bare ``:NNN`` continuation — names a
-    location, not what the cited lines hold, so it is never an anchor and the
-    citation after it is unanchored (``D-IMPL-378`` C6; see
-    ``tools/lints/citations.py::anchor_before``).
+    binding in the cited file's module body or a class body (as ``cite03``
+    resolves a name) is checked against that symbol's own line span; a dot- or
+    kebab-namespaced literal id anchor (an artifact class id, say) is checked
+    by looking for the token in the cited lines. A span that is itself a
+    citation — a line citation, a ``::`` symbol citation, or a bare ``:NNN``
+    continuation — names a location, not what the cited lines hold, so it is
+    never an anchor and the citation after it is unanchored (``D-IMPL-378``
+    C6; see ``tools/lints/citations.py::anchor_before``).
 
 ``cite03-node-id``
     A ``file.py::symbol`` citation must resolve to something of that name in
-    that file — a ``def``, a ``class``, or a module-level binding. This is the
-    form plan 15.1-19 migrated *to*, because it does not rot silently under a
-    line shift; but an unchecked symbol citation rots silently under a
-    *rename*, and checking it is what makes the preferred form the enforced
-    form rather than the trusted one. See
+    that file — a ``def``, a ``class``, an assignment, or a tuple, ``for`` or
+    ``with`` target in its module body or in a class body, never a function's
+    local (``D-IMPL-378`` repair 1.7: *"take bindings only from the cited
+    file's module and class bodies"*; until then the whole file was read, so a
+    name bound only inside a function resolved, and a local sharing a cited
+    class's name hid its members, Fable G2 F-G2-3). This is the form plan
+    15.1-19 migrated *to*, because it does not rot silently under a line
+    shift; but an unchecked symbol citation rots silently under a *rename*,
+    and checking it is what makes the preferred form the enforced form rather
+    than the trusted one. See
     ``tools/lints/citations.py::symbol_spans`` for what "resolve" means.
     A qualified citation, ``file.py::A.b.c``, is checked name by name
     (``D-IMPL-378``, OWED-RULINGS-3 item 7 (a); until then only ``A`` was
     read, so ``A.no_such_member`` passed): ``A`` resolves as above, and each
     later name must be bound in the body of a ``def`` or ``class`` the name
     before it resolved to, which is the name Python's ``__qualname__`` gives a
-    definition, with ``<locals>`` dropped. An inherited member is therefore a
-    finding: cite it at the class that defines it. See
-    ``tools/lints/citations.py::member_verdict``.
+    definition, with ``<locals>`` dropped. In a class body any binding counts;
+    in a function's body only a ``def`` or ``class`` nested in it does, never a
+    local variable. An inherited member is therefore a finding: cite it at the
+    class that defines it. See ``tools/lints/citations.py::member_verdict``.
 
 What this checker cannot see
 ----------------------------
@@ -76,8 +82,18 @@ reviews.
 * **A member reached through an assignment.** In ``file.py::A.b`` where
   ``A`` is bound only by an assignment — an instance, or an alias such as
   Hypothesis's ``TestX = Machine.TestCase`` — what ``b`` names depends on a
-  value only runtime knows. The citation is counted unchecked (``--report``'s
-  "member not followable") and is never a finding.
+  value only runtime knows. So does ``A`` when another binding in the module
+  body or a class body shares its name (``A = A``; ``A = 1`` in another
+  class), because which binding is meant is unknown (the panel's K68). The
+  citation is counted unchecked (``--report``'s "member not followable") and
+  is never a finding; the count is capped at 0 by a test,
+  ``tools/lints/tests/test_citations.py::test_the_unfollowable_member_count_is_capped_at_zero``
+  (``D-IMPL-378`` repair 1.7), so such a citation fails the build until it is
+  re-cited.
+* **A homonym in a class body that defines the member.** The first name is
+  looked up in the module body and in every class body together, so where a
+  class ``B`` nests its own class ``A`` that defines ``b``, ``file.py::A.b``
+  resolves even if the module-level ``A`` defines no ``b``.
 * **Extensionless and non-source targets.** ``Makefile:NNN`` and
   ``README:NNN`` are not matched at all — ``CITED_SUFFIXES`` is the whole list
   of what a citation may name.
@@ -319,6 +335,11 @@ _MEMBER_TAIL = re.compile(r"(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
 
 #: What a qualified name can step into: a definition with a body of its own.
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+#: A function. The names its body binds are its locals: a citation never
+#: resolves through one, and a definition nested in it is reached only by
+#: naming the function first (``D-IMPL-378`` repair 1.7).
+_FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 #: A backticked span: RST ``x`` and Markdown `x` alike. Newline-free, so a
 #: span never straddles two lines.
@@ -569,11 +590,12 @@ def anchor_before(line: str, start: int) -> str | None:
 
 
 def symbol_spans(source: str, path: pathlib.Path) -> dict[str, list[tuple[int, int]]]:
-    """Line spans of every ``def`` / ``class`` / module-level binding, by name.
+    """Line spans of every binding :func:`_definitions` takes, by name.
 
-    A ``def``'s span runs from its first decorator (or its ``def`` line) to its
-    last line, so a citation of any line inside the body is "inside the
-    symbol". A binding's span is the assignment statement.
+    That is, of the module body and every class body; never a function's
+    local. A ``def``'s span runs from its first decorator (or its ``def``
+    line) to its last line, so a citation of any line inside the body is
+    "inside the symbol". A binding's span is the statement that binds it.
     """
     spans: dict[str, list[tuple[int, int]]] = {}
     for name, nodes in _definitions(source, path).items():
@@ -585,52 +607,61 @@ def symbol_spans(source: str, path: pathlib.Path) -> dict[str, list[tuple[int, i
     return spans
 
 
+def _target_names(target: ast.expr) -> list[str]:
+    """The names an assignment, ``for`` or ``with`` target binds.
+
+    A plain name, or every name a tuple or list target unpacks to, nested and
+    starred ones included. An attribute or subscript target binds no name in
+    the scope it sits in.
+    """
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [name for element in target.elts for name in _target_names(element)]
+    if isinstance(target, ast.Starred):
+        return _target_names(target.value)
+    return []
+
+
 def _binds(node: ast.AST) -> list[str]:
     """The names `node` binds, of the kinds ``cite03`` resolves.
 
-    A ``def``, a ``class``, or a plain-name assignment or annotation target.
-    :func:`symbol_spans` and :func:`scope_bindings` both read these kinds from
-    here, so what a first name and a member may resolve to cannot drift apart.
+    A ``def`` or a ``class``; and every name an assignment, an annotation, a
+    ``for`` loop or a ``with ... as`` binds, a tuple or list target unpacked
+    (``D-IMPL-378`` repair 1.7, *"let tuple, `for` and `with` targets bind"*;
+    until then only a plain-name assignment or annotation target bound, so a
+    member bound any other way was reported missing, Fable G2 F-G2-3 (b)).
+    :func:`_definitions` (and so :func:`symbol_spans`) and
+    :func:`scope_bindings` both read these kinds from here, so what a first
+    name and a member may resolve to cannot drift apart.
     """
     if isinstance(node, _SCOPES):
         return [node.name]
     if isinstance(node, ast.Assign):
-        return [target.id for target in node.targets if isinstance(target, ast.Name)]
-    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-        return [node.target.id]
-    return []
+        targets = list(node.targets)
+    elif isinstance(node, (ast.AnnAssign, ast.For, ast.AsyncFor)):
+        targets = [node.target]
+    elif isinstance(node, (ast.With, ast.AsyncWith)):
+        targets = [
+            item.optional_vars for item in node.items if item.optional_vars is not None
+        ]
+    else:
+        return []
+    return [name for target in targets for name in _target_names(target)]
 
 
-def _definitions(source: str, path: pathlib.Path) -> dict[str, list[ast.stmt]]:
-    """Every statement binding a name anywhere in `source`, by name."""
-    found: dict[str, list[ast.stmt]] = {}
-    try:
-        tree = ast.parse(source, filename=str(path))
-    except SyntaxError:
-        return found
-    for node in ast.walk(tree):
-        if isinstance(node, ast.stmt):
-            for name in _binds(node):
-                found.setdefault(name, []).append(node)
-    return found
+def _own_statements(scope: ast.AST) -> Iterator[ast.stmt]:
+    """Every statement in `scope`'s own body.
 
-
-def scope_bindings(scope: ast.stmt) -> dict[str, list[ast.stmt]]:
-    """The names bound in `scope`'s own body, by name.
-
-    Of the kinds :func:`_binds` names, at any depth of the compound statements
-    in the body (an ``if TYPE_CHECKING:`` block, a ``try``), and never inside a
-    nested ``def`` or ``class``, whose body is its own scope. A name set on an
-    instance (``self.x = ...``) is not bound in a class body, and an inherited
-    member is bound in its base's body, not here.
+    At any depth of the compound statements in the body (an ``if
+    TYPE_CHECKING:`` block, a ``try``, a loop or ``with`` body), and never
+    inside a nested ``def`` or ``class``, whose body is its own scope.
     """
-    bound: dict[str, list[ast.stmt]] = {}
     pending: list[ast.AST] = list(getattr(scope, "body", []))
     while pending:
         node = pending.pop()
         if isinstance(node, ast.stmt):
-            for name in _binds(node):
-                bound.setdefault(name, []).append(node)
+            yield node
         if isinstance(node, _SCOPES):
             continue
         pending.extend(
@@ -638,6 +669,53 @@ def scope_bindings(scope: ast.stmt) -> dict[str, list[ast.stmt]]:
             for child in ast.iter_child_nodes(node)
             if isinstance(child, (ast.stmt, ast.ExceptHandler, ast.match_case))
         )
+
+
+def _definitions(source: str, path: pathlib.Path) -> dict[str, list[ast.stmt]]:
+    """Every statement binding a name in `source`'s module or class bodies.
+
+    By name: the module body, and the body of every class reached from it
+    through class bodies alone — never a function's body, whose names are its
+    locals (``D-IMPL-378`` repair 1.7, *"take bindings only from the cited
+    file's module and class bodies"*). Until the repair this walked the whole
+    file: a local sharing a cited class's name made the class's members
+    unfollowable (Fable G2 F-G2-3 (a)), and a name bound only inside a
+    function resolved as a first name.
+    """
+    found: dict[str, list[ast.stmt]] = {}
+    try:
+        tree = ast.parse(source, filename=str(path))
+    except SyntaxError:
+        return found
+    pending: list[ast.AST] = [tree]
+    while pending:
+        scope = pending.pop()
+        for node in _own_statements(scope):
+            for name in _binds(node):
+                found.setdefault(name, []).append(node)
+            if isinstance(node, ast.ClassDef):  # a function's body is never read
+                pending.append(node)
+    return found
+
+
+def scope_bindings(scope: ast.AST) -> dict[str, list[ast.stmt]]:
+    """The names bound in `scope`'s own body, by name.
+
+    In the statements :func:`_own_statements` yields. In a module or class
+    body, every kind :func:`_binds` names. In a function's body, only the
+    ``def`` and ``class`` statements nested in it — what Python's
+    ``__qualname__`` names, with ``<locals>`` dropped — and never a local
+    variable, which no citation resolves through (``D-IMPL-378`` repair 1.7,
+    *"never a function's local"*). A name set on an instance (``self.x =
+    ...``) is not bound in a class body, and an inherited member is bound in
+    its base's body, not here.
+    """
+    bound: dict[str, list[ast.stmt]] = {}
+    for node in _own_statements(scope):
+        if isinstance(scope, _FUNCTIONS) and not isinstance(node, _SCOPES):
+            continue  # a function's local variable
+        for name in _binds(node):
+            bound.setdefault(name, []).append(node)
     return bound
 
 
@@ -646,11 +724,13 @@ def member_verdict(
 ) -> tuple[bool | None, int]:
     """Whether a qualified name resolves, name by name, and where it stopped.
 
-    `definitions` maps each name to every node binding it anywhere in the
-    cited file; `qualified` is ``["A", "b", "c"]`` for ``file.py::A.b.c``. The
-    first name resolves as ``cite03`` has always resolved it. Each later name
-    must be bound (:func:`scope_bindings`) in the body of a ``def`` or
-    ``class`` the name before it resolved to.
+    `definitions` maps each name to every node binding it in the cited file's
+    module body or a class body (:func:`_definitions`); `qualified` is ``["A",
+    "b", "c"]`` for ``file.py::A.b.c``. The first name resolves through those
+    bindings. Each later name must be bound (:func:`scope_bindings`) in the
+    body of a ``def`` or ``class`` the name before it resolved to — in a
+    function's body, as a ``def`` or ``class`` nested in it, never a local
+    variable.
 
     Returns ``(True, len(qualified))`` when every name resolves; ``(False,
     i)`` when ``qualified[i]`` is bound in none of the bodies it was looked

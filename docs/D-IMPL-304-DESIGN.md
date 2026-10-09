@@ -36,7 +36,7 @@ Every hop, on `main @ c5aaba0d`, for the wrapper reproduction:
 1. The consumer's child resolver calls the producer's MCP tool with the wire question.
 2. The egress tool handler builds the typed `ProductRequest` verbatim from the wire and
    calls the resolver it was built with — `resolver(...)` at
-   `runtime/ccf_runtime/mcp/egress.py::_answer_question`.
+   `runtime/ccf_runtime/mcp/egress.py::build_egress_server._answer_question`.
 3. The resolver is the wrapper adapter's `resolve`
    (`examples/door-cp-05-credit-exposure-rollup/adapter.py::ExposureProducer.resolve`), which, after its own
    two recorded pre-assembly refusals and the instant guard, calls the frozen specimen's
@@ -127,7 +127,7 @@ layer manufactures the marker from omission. `ResolutionNotApplicable` already e
 ### 3.2 The door converts exactly that type, before its failure clause
 
 In the egress tool handler, immediately before the generic clause at
-`runtime/ccf_runtime/mcp/egress.py::_answer_question`:
+`runtime/ccf_runtime/mcp/egress.py::build_egress_server._answer_question`:
 
 ```
 except GovernedRefusalRaised as raised:

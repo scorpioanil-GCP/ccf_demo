@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2526 entries**, of which **2249** name a public Python surface.
+**2530 entries**, of which **2253** name a public Python surface.
 
 ## Added
 
@@ -30899,7 +30899,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-491 entries — 452 public Python surface, 39 not public Python API.
+495 entries — 456 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37862,6 +37862,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none in code. An operator reading the audit log for a suspension restored by a resumption finds, after the suspension's own `workflow_suspended` row, the refused resumption's `workflow_resumed` row (`resolved=False`, no actor) and then the restore's `workflow_suspended` row, which is the suspension's own row but for its sequence and time. A suspension restored by the starter's retried start shows the restore's row alone
 
 *Recorded by `378-64-a-resumption-that-restores-is-recorded-as-refused-first.md`.*
+
+#### ccf.products.bind
+
+- Surface: ccf.products.bind
+- Public surface: true
+- Change type: behavior
+- Before: the module docstring cited the shipped call site of `refuse_bound_payload` as the archived cross-process example's `resolve`, by its bare name, though `resolve` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/04-cross-process/producer_child.py::main.resolve`; the example path is the same.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf_runtime.mcp.egress.ProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.egress.ProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the docstring's "Where a working example is" paragraph cited the payload bind's shipped call site as the archived cross-process example's `resolve`, by its bare name, though `resolve` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/04-cross-process/producer_child.py::main.resolve`; the example path is the same, and the request refusal's citation is untouched.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+
+- Surface: ccf_runtime.mcp.experience.ExperienceProductResolverProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the docstring's "Where a working example is" paragraph cited the payload bind's shipped call site as the archived cross-process example's `resolve`, by its bare name, though `resolve` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/04-cross-process/producer_child.py::main.resolve`; the example path is the same, and the request refusal's citation is untouched.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
+
+#### ccf_runtime.mcp.experience.ContextProviderProtocol
+
+- Surface: ccf_runtime.mcp.experience.ContextProviderProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the docstring cited the shipped example that compares the product it is handed with the one it assembled as the archived hello-context example's `context_provider`, by its bare name, though `context_provider` is defined inside that example's `main`.
+- After: documentation only; the behavior is unchanged. The citation is `archive/examples/external/00-hello-context/serve.py::main.context_provider`; the example path is the same.
+- Why: `D-IMPL-378` repair 1.7 (Dave, 2026-10-09): the citation checker takes bindings only from the cited file's module and class bodies, so a bare name bound inside a function no longer resolves.
+- Migration: none.
+
+*Recorded by `378-66-four-public-docstrings-cite-the-examples-nested-functions-by-qualified-name.md`.*
 
 #### ccf.artifacts.mcp_store.McpArtifactStore
 

@@ -11,7 +11,7 @@ adapters' rule: filter by the roster, skip the rest, never raise, and still
 list the exposable sibling.
 
 The exposed agent is built the way the experience child server builds it
-(``tests/crossproc/servers/mcp_experience_child.py::directory``): the bound
+(``tests/crossproc/servers/mcp_experience_child.py::build_server.directory``): the bound
 view off the grant ledger, for an agent constructed by the Agent Factory from
 the banking fixture artifacts. Mechanism only (CLAUDE.md §6.4).
 """

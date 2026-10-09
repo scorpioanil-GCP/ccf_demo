@@ -68,7 +68,7 @@ The flow, unchanged in shape and now real end to end:
    with the tenant matched and the requirement corrected → `AdmittedChild`.
 
 What already exists and is reused unchanged: the producer's parameterized
-door (`runtime/ccf_runtime/mcp/egress.py::request_context_product`, with
+door (`runtime/ccf_runtime/mcp/egress.py::build_egress_server.request_context_product`, with
 `verified_grant` → `govern_entitlement` → `door_answer`), `DoorOutcome`,
 `McpSkillRegistry`'s *name-not-address* posture, `McpResourceClient` and its
 bridge, `ResolvedProducer` / `ChildInvocation` minting, `CompositeAdmissionGate`

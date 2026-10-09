@@ -101,7 +101,7 @@ versus *mention*:
 
 | Function | Defined at | Invocations outside its own tests | Invocations in `runtime/` |
 |---|---|---|---|
-| `refuse_bound_payload` | `src/ccf/products/bind.py::refuse_bound_payload` | **one** — `examples/04-cross-process/producer_child.py::resolve` | **zero** |
+| `refuse_bound_payload` | `src/ccf/products/bind.py::refuse_bound_payload` | **one** — `examples/04-cross-process/producer_child.py::main.resolve` | **zero** |
 | `refuse_request` | `src/ccf/products/request.py::refuse_request` | **one** — `examples/s1-01-hello-context-product/spine.py::assemble_and_serve` | **zero** |
 
 The correct statement is narrower than the original table and narrower than

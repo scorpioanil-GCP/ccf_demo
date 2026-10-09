@@ -2036,7 +2036,7 @@ class FlureeGraphReader(BaseGraphReader):
             starts |= set(q.seeds) & survivor_uris
         # Seeds are IN the answer. `*1..N` starts at one hop, so this
         # correction transfers verbatim from the Neo4j template
-        # (``src/ccf/graph/backends/neo4j.py::answer_whole_query``, which seeds
+        # (``src/ccf/graph/backends/neo4j.py::Neo4jGraphReader._translate_query.answer_whole_query``, which seeds
         # `reached` the same way) — it is really Neo4j's correction, not
         # Mongo's `$graphLookup` seed exclusion.
         reached = set(starts)
