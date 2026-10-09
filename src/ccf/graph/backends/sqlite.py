@@ -448,7 +448,13 @@ class SqliteGraphStore:
         then the name count below; the lease returned holds both locks. A
         writer of the same file through another name, a hard link or the new
         name of a renamed file, that declared the same directory is refused by
-        the file lease, before the name count is read.
+        the file lease, before the name count is read. **Not before the
+        store's own setup:** the mint takes this lease after the store has
+        opened the database and run its setup, so a process refused here has
+        already written that setup through its own name, and through a hard
+        link the log it leaves later rolls back what the holder committed
+        (measured by
+        ``tests/graph/test_sqlite_writer_lease_file_identity_limits.py::test_limit_a_process_refused_through_a_hard_link_has_already_written_setup_that_later_rolls_back_the_holder``).
 
         Raises:
             WriterLeaseHeld: another holder — in any process — has the lease
