@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2455 entries**, of which **2178** name a public Python surface.
+**2460 entries**, of which **2183** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1350 entries — 1304 public Python surface, 46 not public Python API.
+1352 entries — 1306 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19724,6 +19724,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
+#### ccf.products.resolver.SHARED_OWNER_WALK_DEPTH
+
+- Surface: ccf.products.resolver.SHARED_OWNER_WALK_DEPTH
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `12`, the most steps the shared-owner walk follows from a phase. One step is one reference followed. An object more steps than this from each phase is not seen. Everything the phases the SDK's own tests compose hold was read within 10 steps.
+- Why: SEC-020 Q7, decision 3 (a): the walk's depth bound, stated.
+- Migration: none; additive.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.products.resolver.SHARED_OWNER_WALK_OBJECTS
+
+- Surface: ccf.products.resolver.SHARED_OWNER_WALK_OBJECTS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `5000`, the most references the shared-owner walk reads from one phase, an object counted once for every reference to it that the walk reads, nearest first. What the walk would have reached after that is not seen. The most any phase the SDK's own tests compose holds is 3,989 references.
+- Why: SEC-020 Q7, decision 3 (a): the walk's object bound, stated, which also caps its cost.
+- Migration: none; additive.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30731,7 +30755,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-434 entries — 395 public Python surface, 39 not public Python API.
+437 entries — 398 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37070,6 +37094,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
 
 *Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: behavior
+- Before: raised when the two phases were one callable or were bound to one object, or when one phase's closure cells, read one level deep, held the other phase or the object it is bound to.
+- After: also raised when either phase reaches the other phase, or the object the other is bound to, by a breadth-first walk of what it stores: the object a method is bound to and its function; a function's closure cells, default arguments and attributes; an object's declared slots and instance attributes; the members of a list, tuple, set or frozenset and the keys and values of a dict, subclasses included. The walk calls nothing an object defines and stops after `SHARED_OWNER_WALK_DEPTH` steps or `SHARED_OWNER_WALK_OBJECTS` references from a phase. Its docstring states what the walk cannot detect: anything past either bound; state shared through a third object; state reached only through a property, another descriptor, `__getattr__`, `__getattribute__` or a replaced `__dict__`; a C-extension object's own fields; module globals and class attributes; weak references and external stores.
+- Why: SEC-020 Q7, decision 3 (a): the guard admitted a population phase holding the subject-keyed phase's object as an attribute, or in a container in a closure.
+- Migration: declare the two phases on separate objects that hold nothing of each other. A composition where either phase holds the other's object through an attribute, a container, a default argument or a deeper closure is now refused at construction and at open.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction refused a population phase sharing an owner with the subject-keyed phase as `PopulationPhaseSharesAnOwner` described it before this entry.
+- After: construction, and so `build_governed_resolver`, refuses with `PopulationPhaseSharesAnOwner` the compositions its walk finds; the walk runs at every construction, so on the paved road at every question with a declared population phase.
+- Why: SEC-020 Q7, decision 3 (a).
+- Migration: as for `PopulationPhaseSharesAnOwner`.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
+
+#### ccf.products.product.open_product
+
+- Surface: ccf.products.product.open_product
+- Public surface: true
+- Change type: behavior
+- Before: refused at open a `population` sharing an owner with `acquire` as `PopulationPhaseSharesAnOwner` described it before this entry.
+- After: refuses at open, with `PopulationPhaseSharesAnOwner`, a `population` and an `acquire` either of which the walk finds holding the other or the object it is bound to.
+- Why: SEC-020 Q7, decision 3 (a).
+- Migration: as for `PopulationPhaseSharesAnOwner`.
+
+*Recorded by `378-49-q7-shared-owner-bounded-walk.md`.*
 
 ### Not public Python API
 
