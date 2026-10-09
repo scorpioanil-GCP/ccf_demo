@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2502 entries**, of which **2225** name a public Python surface.
+**2508 entries**, of which **2231** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1359 entries — 1313 public Python surface, 46 not public Python API.
+1361 entries — 1315 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19832,6 +19832,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
 
+#### ccf.deployment.manifest.DeploymentMarkerUnresolved
+
+- Surface: ccf.deployment.manifest.DeploymentMarkerUnresolved
+- Public surface: true
+- Change type: added
+- Before: absent; a deployment marker vouched for its store by existing, whatever its boot did after creating it.
+- After: a `ValueError` raised by `load_and_boot` and `load_config_and_boot`, for a boot not for a question, after registration and before anything is created at the path, where safe verification cannot be established. `marker` names the deployment marker, `reason` the check (`"pending"`, `"unreadable"`, `"no-store"`, `"claimed"`, `"lock-unavailable"`), and `lock` the store-creation lock for `"lock-unavailable"`. The marker is left as it stands; the text names its path and what an operator does.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2. Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_verified_marker_with_no_store_beside_it_is_refused_by_name_and_left_for_an_operator`.
+- Migration: a store whose marker an earlier build wrote (one line, no state) is refused (`"unreadable"`) until an operator resolves it as section 4.12 describes; delete or copy a store together with its marker.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.DeploymentMarkerUnresolved
+
+- Surface: ccf.deployment.DeploymentMarkerUnresolved
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.DeploymentMarkerUnresolved`.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2.
+- Migration: none; additive.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30839,7 +30863,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-472 entries — 433 public Python surface, 39 not public Python API.
+476 entries — 437 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37634,6 +37658,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none in code. An operator who reconciles executions against the audit log reads a `running` execution past its gate with no `workflow_resumed` row as a passage whose row append failed; the approver is named by the gate's closure on the HITL transport (`decided_by`).
 
 *Recorded by `378-54-decision-7-the-passage-and-its-row-are-two-writes.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: behavior
+- Before: raised only by a plain boot that created its deployment marker in this boot.
+- After: raised by every plain boot that creates its store (a path that held no store when the boot looked), whoever made a marker beside it, a store created where a question marker stands included; a boot over a deployment marker with no store beside it is refused first (`DeploymentMarkerUnresolved`). Its text is unchanged.
+- Why: SEC-020, `D-IMPL-378` repair 1.2, restoring OWED-RULINGS-3 item 2A (b) as ruled. Red test: `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_plain_boot_creating_a_store_where_a_question_marker_stands_takes_the_read`.
+- Migration: none for a deployment that boots a new store at a fresh path and writes into it after the boot.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot left a one-line deployment marker beside a store it created, read the store only if it had created that marker, and removed the marker only when that read refused the store; its Raises named neither `WriterLeaseHeld` nor `SingleWriterViolation`.
+- After: a plain boot holds the store-creation lock of every path from its look to the hand-back (a second boot of the path waits); refuses a marker that does not show a completed verification, a verified marker with no store beside it, a marker made outside its lock, or a lock it cannot take (`DeploymentMarkerUnresolved`); creates its marker reading `pending` and makes it `verified` only after its read; reads every store it creates; and on any failure after its marker exists, closes its handle and removes the markers still its own. Its Raises adds `DeploymentMarkerUnresolved`, `UngovernedClassificationAttribute`, `SingleWriterViolation`, `WriterLeaseHeld`, `WriterLeaseRequired` and the adapter's own errors. A boot for a question is unchanged: its marker stays on a refusal, and it takes no store-creation lock.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2; the Raises from the findings brief's item 1.6 (the panel's F-G2-4). Red tests: `tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_that_fails_inside_boot_leaves_no_marker_and_the_retry_over_the_plant_is_refused` and `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens`.
+- Migration: delete or copy a store together with its deployment marker; a store kept with its marker deleted beside it is refused until an operator resolves it. Every plain boot, read-only included, creates `<resolved path>.ccf-store-creation.lock` beside its store, so the store's directory must let the deployment's user create that file.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` repairs 1.1 and 1.2.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `store_creation` was read from the markers before the boot and before its read: a deployment marker's existence alone gave `"verified"`.
+- After: `store_creation` is read when the boot hands the fabric back, after its read; `"verified"` needs a question marker or a deployment marker that records a completed verification beside every path.
+- Why: SEC-020, `D-IMPL-378` repair 1.1 (*"A marker left by a crash must not imply completed verification."*).
+- Migration: none.
+
+*Recorded by `378-61-boot-deployment-marker-owned-two-phase-serialized.md`.*
 
 ### Not public Python API
 
