@@ -1661,12 +1661,18 @@ line naming the boot (`boot: <token>`), and rewrites it to read
 `state: verified` only once its one read has found the store empty for its
 tenant. A boot that fails anywhere after creating the marker removes it, and a
 boot killed before its read completed leaves it reading `pending`. Every plain
-boot, read-only included, holds `<resolved path>.ccf-store-creation.lock`, an
+boot whose store's directory exists, read-only included, holds
+`<resolved path>.ccf-store-creation.lock`, an
 exclusive `flock`, from its look at the path until it hands the fabric back,
 so a second boot of the path waits for the first to finish, with no timeout,
 and then reopens the store the first verified, reading nothing (measured
 across two processes,
 `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens`).
+A boot whose store's directory does not exist takes no lock and creates
+nothing there, not even the directory: it is left to the adapter, and the
+SDK's SQLite adapter refuses it with SQLite's own error
+(`sqlite3.OperationalError`), so there is nothing to serialize
+(`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`).
 Which stale markers a boot verifies again by itself, and which it refuses:
 
 - **Verified again, with no operator step: a deployment marker of any state
