@@ -212,6 +212,68 @@ def test_1_2_measure_a_marker_replaced_before_promotion_is_refused_as_claimed_an
     assert _marker(target).read_bytes() == foreign, "the refused boot removed or changed a marker it did not own"
 
 
+@pytest.mark.parametrize("how", ["replaced by another file", "rewritten in place"])
+def test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, how: str
+) -> None:
+    """What a ``claimed`` refusal AT PROMOTION leaves at the path: the boot's own store, created and read, and the foreign marker.
+
+    The panel's J-CLAIMED-LEAVES-STORE (reproduced by the coordinator on
+    ``6cd6023e``): the security how-to (section 4.12) and ``load_and_boot``'s
+    Raises said that ``DeploymentStoreNotVerified`` creates nothing at the
+    path. The refusals a boot meets at its look do create nothing. This one
+    comes later: ``boot()`` created the store, the boot's one read found it
+    empty, and only then did the promotion meet a marker that is no longer the
+    boot's own, replaced by another file or rewritten in place. Its cleanup
+    closes the store and leaves the marker it does not own, so the store stays.
+    It fails closed: every later boot of the path, writer or read-only, meets
+    that marker beside a store and is refused (``unreadable`` for this marker,
+    whose text the SDK does not write) and changes nothing there, until an
+    operator resolves it. A measurement of behavior as it stands (green from
+    ``6cd6023e``); it pins what the words now say.
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "plain" / _STORE
+    target.parent.mkdir()
+    marker = _marker(target)
+    real_boot = manifest_module.boot
+    foreign = b"a marker this boot did not write\n"
+
+    def take_the_marker_over_then_boot(**kwargs: Any) -> Any:
+        if how == "replaced by another file":
+            marker.unlink()
+            marker.write_bytes(foreign)
+        else:
+            with open(marker, "r+b") as rewritten:
+                rewritten.truncate(0)
+                rewritten.write(foreign)
+        return real_boot(**kwargs)
+
+    events: list[tuple[str, ...]] = []
+    p4e._record_reads(monkeypatch, events)
+    monkeypatch.setattr(manifest_module, "boot", take_the_marker_over_then_boot)
+    outcome = _boot(manifest, registry, target)
+    _assert_refused_not_verified(outcome, marker=marker, reason="claimed", case=f"{how} before promotion")
+    assert tp._latest_reads(events) == 1, (
+        f"[{how}] the refused boot must have read the store it created once, before its promotion:"
+        f" {tp._latest_reads(events)}"
+    )
+    monkeypatch.undo()
+    assert target.is_file() and target.stat().st_size > 0, f"[{how}] the store the refused boot created and read is gone"
+    assert marker.read_bytes() == foreign, f"[{how}] the refused boot removed or changed the marker it did not own"
+    assert not list(target.parent.glob(f"{marker.name}.promoting-*")), f"[{how}] the refused boot left a staging file"
+    left = sorted(path.name for path in target.parent.iterdir())
+    for read_only in (False, True):
+        role = "read-only" if read_only else "writer"
+        again = _boot(manifest, registry, target, read_only=read_only)
+        _assert_refused_not_verified(again, marker=marker, reason="unreadable", case=f"{how}, the next {role} boot")
+        assert sorted(path.name for path in target.parent.iterdir()) == left, (
+            f"[{how}] the refused next {role} boot changed what stands beside the store"
+        )
+
+
 # --- 1b. a stale marker with no store beside it: replaced under the lock, and the new store read -------------------
 
 #: The first line of every deployment marker the SDK writes (fragment 378-34), and the whole of one written before
