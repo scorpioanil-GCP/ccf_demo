@@ -257,10 +257,13 @@ class BootedFabric:
             the tenant (:class:`DeploymentStoreNotEmpty` otherwise, which
             removes it; OWED-RULINGS-3 item 2A (b), ``D-IMPL-378``), and
             ``verified`` only after; a boot meeting a deployment marker that
-            reads anything else is refused
-            (:class:`DeploymentMarkerUnresolved`; repair 1.1, ``D-IMPL-378``).
-            Read when the boot hands the fabric back, after its read, never
-            before it.
+            reads anything else, or one that reads ``verified`` with no store
+            beside it, is refused (:class:`DeploymentMarkerUnresolved`;
+            repairs 1.1 and 1.2, ``D-IMPL-378``). A plain boot holds the
+            store-creation lock of every path from its look at the path to the
+            hand-back, so a boot that finds another creating the store waits
+            for it. Read when the boot hands the fabric back, after its read,
+            never before it.
             ``"unmarked"``: the store existed at boot and carries neither — a
             store booted for a question before the markers existed, a copy
             taken without its marker, a store created outside these doors —
@@ -2140,11 +2143,42 @@ def load_and_boot(
             refusal; or, as :class:`QuestionFabricNotExclusive`,
             ``read_only=True`` beside it, before anything is registered
             (SEC-020, ``D-IMPL-378``). A ``ValueError``.
-        DeploymentStoreNotEmpty: a boot not for a question that created its
-            deployment marker opened a store that held anything for the
-            tenant when the boot returned; its handle is closed and the
-            markers it created are removed before the refusal (SEC-020,
-            ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b)). A ``ValueError``.
+        DeploymentStoreNotEmpty: a boot not for a question that creates its
+            store — a path naming it held no store when the boot looked,
+            whoever made a marker beside it — opened a store that held
+            anything for the tenant when the boot returned; its handle is
+            closed and the markers it created are removed before the refusal
+            (SEC-020, ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b), with the
+            trigger repair 1.2 restores). A ``ValueError``.
+        DeploymentMarkerUnresolved: a boot not for a question where safe
+            verification cannot be established, raised after registration
+            and before anything is created at the path: a deployment marker
+            that reads ``pending`` (the boot that created it never finished
+            its read) or records no state in the form the SDK writes (a
+            marker written before markers recorded their state included),
+            one that reads ``verified`` with no store beside it, one that
+            appeared or changed while this boot held the store-creation lock,
+            or a store-creation lock that cannot be taken; its ``reason`` says
+            which. The marker is left as it stands, for an operator (SEC-020,
+            ``D-IMPL-378`` repairs 1.1 and 1.2). A ``ValueError``.
+        UngovernedClassificationAttribute: a Policy operator the manifest
+            names admits on a source-asserted classification attribute that
+            no declared authority governs (SEC-023, ``D-IMPL-372``); raised
+            before anything is registered or minted. A ``ValueError``.
+        ccf.graph._writer.SingleWriterViolation: a writer boot of a graph that
+            already has a live writer, in this process or, under the store's
+            cross-process writer lease, in another (SEC-013; raised by
+            :func:`ccf.boot.boot`); the markers this boot created are removed
+            before it propagates. A read-only boot is never refused for one.
+            A ``RuntimeError``.
+        ccf.graph.protocols.WriterLeaseHeld: the SQLite store refuses to open
+            a database file that has more than one name (a hard link), for a
+            writer boot and a read-only boot alike, before any setup
+            (SEC-013, P2 (b), ``D-IMPL-378``); the markers this boot created
+            are removed before it propagates. A ``RuntimeError``.
+        ccf.graph.protocols.WriterLeaseRequired: a writer boot of a persistent
+            network store that declares no writer lease (SEC-013; raised by
+            :func:`ccf.boot.boot`). A ``RuntimeError``.
         TypeError: a ``registration: versioned`` entry names a class whose
             documents declare no string ``artifact_version``, so the bump check
             has nothing to verify. This is what an adopter sees when they declare
@@ -2161,6 +2195,11 @@ def load_and_boot(
             every document is parsed, before anything is minted or registered
             (``D-IMPL-378``).
         OSError: the manifest or a named artifact document cannot be read.
+        BaseException: whatever the declared adapter's own store or writer
+            constructor raises, re-raised unchanged after the markers this boot
+            created are removed — for the SQLite adapter, SQLite's own error
+            for a path whose directory does not exist
+            (``sqlite3.OperationalError``).
     """
     manifest_file = Path(manifest_path)
     manifest = load_artifact(
