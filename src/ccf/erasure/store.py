@@ -85,6 +85,7 @@ from pydantic import ValidationError
 
 from ccf.artifacts.protocol import (
     ArtifactName,
+    ArtifactReadUnauthenticated,
     ArtifactRef,
     ArtifactStoreError,
     ArtifactStoreProtocol,
@@ -346,6 +347,12 @@ class ErasureConsultingStore:
                 entry, payload, trust=self._erasure_trust, identity_provider=self._identity_provider
             )
             agrees = self._approved(record, authority)
+        except ArtifactReadUnauthenticated:
+            # `D-IMPL-378`, repair 2.5 (a): the store's server did not
+            # authenticate the credential, so it said nothing about the record.
+            # An unsupported entry, and its audit, would be a finding about the
+            # index that a credential caused; propagated by name instead.
+            raise
         except (ArtifactStoreError, KeyError, OSError, ValidationError, ValueError):
             agrees = False
         if agrees:
@@ -515,6 +522,11 @@ def compose_erasure_consult(
             pinned-read surface; ``erasure_trust`` is not an
             :class:`~ccf.erasure.ErasureTrust`; or ``store`` was already
             composed with a different Control Plane, identity provider or trust.
+        ccf.artifacts.protocol.ArtifactReadUnauthenticated: ``store``'s server
+            did not authenticate its credential (HTTP 401) while an entry's
+            record was read — at composition, or at the first read that meets
+            an entry appended later. Propagated, never an unsupported entry and
+            never audited as one (`D-IMPL-378`, repair 2.5 (a)).
     """
     if control_plane is None or not isinstance(control_plane, PinnedPolicySource):
         raise ErasureCompositionRefused(

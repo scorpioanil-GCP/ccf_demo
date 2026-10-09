@@ -99,6 +99,7 @@ from typing import Final, Protocol, TypeVar, runtime_checkable
 from pydantic import Field
 
 from ccf.artifacts.protocol import (
+    ArtifactReadUnauthenticated,
     ArtifactStoreError,
     ArtifactStoreProtocol,
     MovingTargetRefused,
@@ -729,6 +730,13 @@ def resolve_artifact(
         ReplayDivergence: the stored bytes do not hash to the address asked for.
         ccf.erasure.ErasedContentRefused: the address was erased
             (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
+        ccf.artifacts.protocol.ArtifactReadUnauthenticated: the store's server
+            did not authenticate the store's credential (HTTP 401), so it said
+            nothing about the address — propagated by name, never an absence
+            (`D-IMPL-378`, repair 2.5 (a)).
+        ccf.artifacts.protocol.ArtifactReadRefused: for a
+            ``DecisionReplayRecord``, the store's server refused the naming
+            read the provenance check makes — propagated, never an absence.
         ccf.replay.provenance.UnattributableRecordStore: a
             ``DecisionReplayRecord`` was read through a store that cannot say
             who filed an address.
@@ -739,6 +747,12 @@ def resolve_artifact(
         # SEC-009 (`D-IMPL-374` (4)): an erasure is a recorded decision, never
         # an absence — propagated by name, not softened into "unresolvable"
         # (design `D-IMPL-367` §3, the G5 silent-absence defect).
+        raise
+    except ArtifactReadUnauthenticated:
+        # `D-IMPL-378`, repair 2.5 (a): the store's server did not authenticate
+        # the credential, so it decided nothing about the address. Never an
+        # absence — a replay that wrote it down as one would record a refused
+        # credential as missing history.
         raise
     except (ArtifactStoreError, KeyError) as missing:
         raise ReplayUnresolvable(
@@ -820,12 +834,17 @@ def resolve_artifact_at_uri(
             pointed at.
         ccf.erasure.ErasedContentRefused: the named version was erased
             (SEC-009; `D-IMPL-374` (4)) — propagated by name, never an absence.
+        ccf.artifacts.protocol.ArtifactReadUnauthenticated: as for
+            :func:`resolve_artifact`, at the naming resolution or the read.
+        ccf.artifacts.protocol.ArtifactReadRefused: as for
+            :func:`resolve_artifact`.
         ccf.replay.provenance.UnattributableRecordStore: as for
             :func:`resolve_artifact`.
     """
     try:
         content_address = store.resolve_uri(uri=uri)
-    except (MovingTargetRefused, ErasedContentRefused):
+    except (MovingTargetRefused, ErasedContentRefused, ArtifactReadUnauthenticated):
+        # A 401 is not a missing version (`D-IMPL-378`, repair 2.5 (a)).
         raise
     except (ArtifactStoreError, LookupError) as unresolvable:
         raise ReplayUnresolvable(
