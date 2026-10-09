@@ -1571,3 +1571,231 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
     ]
     with capsys.disabled():
         print("\n".join(lines))
+
+
+# =============================================================================
+# The noise floor's own copy must have ANSWERED (Dave, 2026-10-09; the final panel's BLD-1, G-FLOOR-COPY)
+# =============================================================================
+#
+# Dave, 2026-10-09 06:06 MST (``D-IMPL-378``), verbatim (kept as a comment, CINV-01a): "Also strengthen the closure
+# test's noise-floor control: prove that the control successfully answered before using it to excuse differences.
+# Obtain explicit approval for that test amendment." 06:21 MST: "Floor change approved. A failed spare answer cannot
+# excuse differences. Apply the check to the gate and limitation measurements; rerun and report any changed counts."
+#
+# The gap (the final panel's BLD-1): every comparison reads its noise floor off a second copy of the nonexistent
+# side, but only the two COMPARED sides were checked for having raised. A floor copy that raised while the compared
+# sides answered differs from the nonexistent answer at every path, so its floor excused every value and missing-key
+# difference between the withheld side and the nonexistent one. The tests below hold the closing test's own judging
+# code to the amendment on SYNTHETIC runs (no deployment is built): the compared sides answer with two different
+# refusal codes and the floor's copy RAISED, as ``sec020_worlds.observe_mcp`` records an unreachable door. Every site
+# that reads a noise floor is held: the gate cell, the never-class cell, and the three reported limitation
+# measurements (D1 (a), ruling P6 (a)'s probe, E2 (ii) (d)'s false declaration).
+
+#: The named reason a cell fails by when its floor's copy did not answer: an ``AssertionError`` of this type name.
+FLOOR_COPY_REFUSAL = "FloorCopyDidNotAnswer"
+#: The outcome a limitation measurement reports such a cell under, by name: neither distinguishable nor
+#: indistinguishable, because no noise floor was measured.
+FLOOR_COPY_OUTCOME = "floor copy raised"
+
+_FLOOR_WITHHELD = {"outcome": "refused", "code": "subject-withheld", "detail": "refused"}
+_FLOOR_NONEXISTENT = {"outcome": "refused", "code": "subject-not-found", "detail": "refused"}
+_FLOOR_UNREACHABLE = {"outcome": "unreachable", "detail": "MCP unreachable: session crashed"}
+_FLOOR_RAISED = "MCP unreachable: session crashed"
+
+
+def _floor_observation(value: Any, *, raised: dict[str, str] | None = None) -> w.Observation:
+    """One synthetic side: ``value`` on every channel; ``raised``, what its question ended in instead of answering."""
+    return w.Observation(channels={channel: value for channel in w.CHANNELS}, raw=value, raised=dict(raised or {}))
+
+
+def _floor_world(*, shape: str = w.SUBJECT_KEYED, withheld: Any = None, floor_raised: bool = True) -> w.Run:
+    """A synthetic run: the compared sides answer; both comparisons' floor copies RAISED, or answered like the nonexistent side."""
+    floor = (
+        _floor_observation(_FLOOR_UNREACHABLE, raised={w.ONLY: _FLOOR_RAISED})
+        if floor_raised
+        else _floor_observation(_FLOOR_NONEXISTENT)
+    )
+    return w.Run(
+        shape=shape,
+        anchor=w.FROM_DECISION,
+        door=w.MCP,
+        sides={
+            w.CF_WITHHELD: _floor_observation(_FLOOR_WITHHELD if withheld is None else withheld),
+            w.CF_NONEXISTENT: _floor_observation(_FLOOR_NONEXISTENT),
+            w.SAME_NONEXISTENT: _floor_observation(_FLOOR_NONEXISTENT),
+            w.CF_FLOOR: floor,
+            w.SAME_FLOOR: floor,
+        },
+    )
+
+
+class _OneRun:
+    """A run cache that answers every ``get`` with one synthetic run."""
+
+    def __init__(self, run: w.Run) -> None:
+        self._run = run
+
+    def get(self, **_: str) -> w.Run:
+        return self._run
+
+
+class _Recorded:
+    """``record_testsuite_property``, kept so the test can read the measurement back."""
+
+    def __init__(self) -> None:
+        self.properties: dict[str, Any] = {}
+
+    def __call__(self, name: str, value: object) -> None:
+        self.properties[name] = json.loads(str(value))
+
+
+class _NoCapture:
+    """``capsys`` for a limitation measurement driven directly: its block prints, uncaptured."""
+
+    def disabled(self) -> Any:
+        import contextlib  # noqa: PLC0415
+
+        return contextlib.nullcontext()
+
+
+def _floor_fails_by_name(cell: Callable[[], None]) -> AssertionError:
+    """Run one cell; it must FAIL, by the named floor-copy reason."""
+    with pytest.raises(AssertionError) as failed:
+        cell()
+    assert type(failed.value).__name__ == FLOOR_COPY_REFUSAL, (
+        f"the cell failed, but not because its floor's copy did not answer: {type(failed.value).__name__}: {failed.value}"
+    )
+    return failed.value
+
+
+def _floor_outcomes_by_name(outcomes: dict[str, dict[str, Any]], expected: list[str]) -> None:
+    """Every expected cell was measured, and every one is reported under the floor-copy outcome, by name."""
+    assert sorted(outcomes) == sorted(expected), "a cell of the limitation was not measured"
+    wrong = {cell: found for cell, found in outcomes.items() if found.get("outcome") != FLOOR_COPY_OUTCOME}
+    assert not wrong, (
+        f"{len(wrong)} of {len(outcomes)} cells whose floor copy RAISED were judged off that floor anyway:"
+        f" {dict(list(wrong.items())[:3])}"
+    )
+
+
+def test_a_floor_copy_that_raised_cannot_excuse_a_gate_cell() -> None:
+    """The gap as the panel executed it (BLD-1): ``subject-withheld`` against ``subject-not-found``, the floor's copy raised.
+
+    Before the amendment the floor read off the raised copy differed from the nonexistent side at every path and
+    excused the code difference, so the cell PASSED. After it, the cell fails by name (:data:`FLOOR_COPY_REFUSAL`).
+    """
+    run = _floor_world()
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    )
+
+
+def test_a_floor_copy_raising_the_held_refusal_where_the_copied_side_answered_cannot_excuse() -> None:
+    """A raise that is a held refusal elsewhere is no floor where the side it copies ANSWERED.
+
+    The reused fabric's second question: both compared sides answered it (with different codes) and only the floor's
+    copy raised ``AcquiredFabricReused`` there, the refusal Q9's cells hold as the property when every side raises
+    it. The floor then compares a refusal with an answer, so it cannot excuse anything.
+    """
+    raised = {"second": "AcquiredFabricReused: synthetic"}
+    run = _floor_world(shape=w.REUSED_FABRIC)
+    for side, value in ((w.CF_WITHHELD, _FLOOR_WITHHELD), (w.CF_NONEXISTENT, _FLOOR_NONEXISTENT)):
+        run.sides[side] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": value})
+    run.sides[w.CF_FLOOR] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": _FLOOR_UNREACHABLE}, raised=raised)
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.REUSED_FABRIC, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
+        )
+    )
+
+
+def test_a_floor_copy_that_raised_cannot_excuse_a_never_class_cell() -> None:
+    """E2 (ii)'s gate cells judge by the same floor: the same synthetic run fails there by name too."""
+    run = _floor_world()
+    _floor_fails_by_name(
+        lambda: test_a_withheld_subject_under_a_never_class_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.NEVER_LATE, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    )
+
+
+def test_a_floor_copy_that_raised_is_reported_by_name_in_the_d1a_limitation() -> None:
+    """D1 (a)'s reported limitation: a retired cell whose floor copy raised is reported under its own outcome, by name."""
+    recorded = _Recorded()
+    test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
+        _OneRun(_floor_world()), recorded, _NoCapture()
+    )
+    _floor_outcomes_by_name(recorded.properties["d1a_limitation"]["outcomes"], list(RETIRED_D1A))
+
+
+def test_a_floor_copy_that_raised_is_reported_by_name_in_the_p6_limitation(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ruling P6 (a)'s reported counterexample: a cell whose floor copy raised is reported under its own outcome, by name.
+
+    The counterexample's world is replaced by the synthetic run, its notes saying the probe was asked first and
+    answered nothing each time, so the measurement reaches its comparison.
+    """
+    probe = w.probe_identifier()
+    run = _floor_world(shape=w.PROBE_RECOGNIZING)
+    run.notes = {"asked": [probe, w.SUBJECT, probe, w.NEVER, probe, w.NEVER_2], "answered_nothing_for": [probe] * 3}
+    monkeypatch.setattr(w, "probe_recognizing_run", lambda base, **_: run)
+    recorded = _Recorded()
+    test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
+        tmp_path_factory, recorded, _NoCapture()
+    )
+    expected = [f"{w.SAME_DEPLOYMENT}-{r}-{a}-{d}-{c}" for r, a, d, c in _p6_limitation_cells()]
+    _floor_outcomes_by_name(recorded.properties["p6_probe_limitation"]["outcomes"], expected)
+
+
+def test_a_floor_copy_that_raised_is_reported_by_name_in_the_e2ii_limitation() -> None:
+    """E2 (ii) (d)'s reported false-declaration cells: a cell whose floor copy raised is reported under its own outcome."""
+    recorded = _Recorded()
+    test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
+        _OneRun(_floor_world()), recorded, _NoCapture()
+    )
+    _floor_outcomes_by_name(
+        recorded.properties["e2ii_false_declaration_limitation"]["outcomes"], _false_declaration_cells()
+    )
+
+
+def test_control_an_answering_floor_copy_still_counts_the_difference() -> None:
+    """Control: the floor's copy ANSWERED like the nonexistent side — the cell fails as before, at the code, as distinguishable."""
+    run = _floor_world(floor_raised=False)
+    with pytest.raises(AssertionError) as failed:
+        test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    assert type(failed.value) is AssertionError, f"{type(failed.value).__name__}: {failed.value}"
+    assert "is distinguishable from a nonexistent one at ['code']" in str(failed.value), failed.value
+
+
+def test_control_equal_answers_over_an_answering_floor_copy_pass() -> None:
+    """Control: the compared sides answer alike and the floor's copy answered — the cell passes."""
+    run = _floor_world(withheld=_FLOOR_NONEXISTENT, floor_raised=False)
+    test_withheld_is_indistinguishable(
+        _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+    )
+
+
+def test_control_a_floor_copy_raising_the_held_refusal_with_the_copied_side_still_floors() -> None:
+    """Control: Q9's reused store — every side raised the held refusal at both positions; the cell passes as before.
+
+    The floor's copy raised exactly what the side it copies raised, the refusal the cell holds as its property, so
+    the floor compares a refusal with a refusal and stays a floor: the amendment does not turn the property's cells red.
+    """
+    refusal = "AcquisitionNeedsAQuestionFabric: synthetic"
+    shape_of = {"outcome": "raised", "type": "AcquisitionNeedsAQuestionFabric", "message": "synthetic"}
+    both = {"first": shape_of, "second": shape_of}
+    raised = {"first": refusal, "second": refusal}
+    run = w.Run(
+        shape=w.REUSED_STORE,
+        anchor=w.FROM_DECISION,
+        door=w.IN_PROCESS,
+        sides={side: _floor_observation(both, raised=raised) for side in (w.CF_WITHHELD, w.CF_NONEXISTENT, w.CF_FLOOR)},
+    )
+    test_withheld_is_indistinguishable(
+        _OneRun(run), w.COUNTERFACTUAL, w.REUSED_STORE, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
+    )
