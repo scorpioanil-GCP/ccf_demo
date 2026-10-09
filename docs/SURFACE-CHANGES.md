@@ -19724,9 +19724,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
-#### ccf.products.resolver.UndisclosedSubjectStandInIsHeld
+#### ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
 
-- Surface: ccf.products.resolver.UndisclosedSubjectStandInIsHeld
+- Surface: ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
 - Public surface: true
 - Change type: added
 - Before: absent; the stand-in a declared early policy asks in place of an undisclosed subject was held only to `SUBJECT_FLOOR_V1`, and a source holding it told a withheld subject from a nonexistent one.
@@ -37101,7 +37101,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: a class with a declared early policy asked its subject-keyed acquisition once per question; a held refusal from the P6 probe call was ignored.
-- After: for a class with a declared early policy, before the subject-keyed acquisition is handed the question, the graph is checked not to name the stand-in, the acquisition is asked about `UNHELD_SUBJECT_PROBE` and then the stand-in with one graph read after each, and the graph the plan reads is checked not to name the stand-in; a failed check raises `UndisclosedSubjectStandInIsHeld`. For a class the P6 probe reads, a held refusal from the probe call raises `UnheldSubjectProbeRefused`.
+- After: for a class with a declared early policy, before the subject-keyed acquisition is handed the question, the graph is checked not to name the stand-in, the acquisition is asked about `UNHELD_SUBJECT_PROBE` and then the stand-in with one graph read after each, and the graph the plan reads is checked not to name the stand-in; a failed check raises `UndisclosedSubjectSubstituteIsHeld`. For a class the P6 probe reads, a held refusal from the probe call raises `UnheldSubjectProbeRefused`.
 - Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
 - Migration: as above.
 
@@ -37161,7 +37161,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: called once more for a class the P6 probe reads; a held refusal for the probe identifier counted as nothing returned.
-- After: a held refusal for the probe identifier refuses every question (`UnheldSubjectProbeRefused`); and under a declared early policy `acquire` is called twice more per question, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in, the question refused (`UndisclosedSubjectStandInIsHeld`) if the graph names the stand-in or what `acquire` returned for it added anything to what it returned for the probe identifier.
+- After: a held refusal for the probe identifier refuses every question (`UnheldSubjectProbeRefused`); and under a declared early policy `acquire` is called twice more per question, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in, the question refused (`UndisclosedSubjectSubstituteIsHeld`) if the graph names the stand-in or what `acquire` returned for it added anything to what it returned for the probe identifier.
 - Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
 - Migration: return nothing for an identifier the sources do not hold; hold nothing for the declared stand-in.
 
@@ -37185,7 +37185,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `undisclosed_subject` was the deployment's statement that it names nothing, held only to `SUBJECT_FLOOR_V1` and to naming none of the subjects it stands in for.
-- After: that statement is checked for every question, not assumed: a fabric or a subject-keyed acquisition phase that names it, or that acquires for it what it does not acquire for an identifier that names nothing, is refused (`UndisclosedSubjectStandInIsHeld`).
+- After: that statement is checked for every question, not assumed: a fabric or a subject-keyed acquisition phase that names it, or that acquires for it what it does not acquire for an identifier that names nothing, is refused (`UndisclosedSubjectSubstituteIsHeld`).
 - Why: SEC-020, decision 4 (a) (see above).
 - Migration: declare a stand-in that nothing in the deployment holds.
 

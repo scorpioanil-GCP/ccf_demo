@@ -411,7 +411,7 @@ class AcquireProtocol(Protocol):
     :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` and then with the
     policy's declared stand-in as the subject, immediately before the call for
     the question, and refuses the question,
-    :class:`~ccf.products.resolver.UndisclosedSubjectStandInIsHeld`, if the
+    :class:`~ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld`, if the
     fabric names the stand-in or if what ``acquire`` returned for the stand-in
     added anything to what it returned for the probe identifier. Hold nothing
     for the stand-in you declare.

@@ -29,7 +29,7 @@ path. The deployment's own projection must withhold the same subjects
 (:class:`~ccf.products.resolver.UndisclosedSubjectAnswered` otherwise). That the
 stand-in names nothing is checked for every question, not assumed: the fabric
 before and after acquisition, and what the subject-keyed acquisition phase
-acquires for it (:class:`~ccf.products.resolver.UndisclosedSubjectStandInIsHeld`,
+acquires for it (:class:`~ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld`,
 ``D-IMPL-378`` decision 4 (a)); a source that recognizes the stand-in is not
 detected, nor what a composite's children's sources hold for it.
 
@@ -71,7 +71,7 @@ class SubjectDisclosurePolicy(CCFContract):
             or a subject-keyed acquisition phase that names it, or that
             acquires for it what it does not acquire for an identifier that
             names nothing, is refused
-            (:class:`~ccf.products.resolver.UndisclosedSubjectStandInIsHeld`).
+            (:class:`~ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld`).
         by_principal: Principal identifier to the subjects not disclosed to
             it, read off the resolved :class:`~ccf.projection.plan.Perspective`.
             Stated, never defaulted: an empty mapping is the positive "no

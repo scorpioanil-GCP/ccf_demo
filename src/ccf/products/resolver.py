@@ -352,7 +352,7 @@ __all__ = [
     "ServedProductResolverProtocol",
     "SubjectDisclosingPlanFactoryProtocol",
     "UndisclosedSubjectAnswered",
-    "UndisclosedSubjectStandInIsHeld",
+    "UndisclosedSubjectSubstituteIsHeld",
     "UnheldSubjectProbeIsHeld",
     "UnheldSubjectProbeRefused",
     "UnmarkedStoreNotPresumedFresh",
@@ -723,7 +723,7 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
 #: (:class:`UnheldSubjectProbeIsHeld`). For a class with a declared early policy
 #: it is the baseline the declared stand-in is compared with: the phase is asked
 #: about it and then about the stand-in (``D-IMPL-378`` decision 4 (a),
-#: :class:`UndisclosedSubjectStandInIsHeld`). SEC-020 stays OPEN.
+#: :class:`UndisclosedSubjectSubstituteIsHeld`). SEC-020 stays OPEN.
 UNHELD_SUBJECT_PROBE: Final[str] = "ccf-sdk:unheld-subject-probe"
 
 
@@ -768,7 +768,7 @@ class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
     question of such a class. A class with a declared early policy is not
     refused by this probe — its declared stand-in is verified instead, which
     asks the phase about :data:`UNHELD_SUBJECT_PROBE` as its baseline
-    (:class:`UndisclosedSubjectStandInIsHeld`) — and a class affirming
+    (:class:`UndisclosedSubjectSubstituteIsHeld`) — and a class affirming
     ``subject_withholding: never`` is not probed. To be
     served, declare the read as the population phase
     (``open_product(population=...)``,
@@ -853,7 +853,7 @@ class UnheldSubjectProbeRefused(UnsupportedComposition):
     """
 
 
-class UndisclosedSubjectStandInIsHeld(UnsupportedComposition):
+class UndisclosedSubjectSubstituteIsHeld(UnsupportedComposition):
     """The identifier a declared early policy asks in place of an undisclosed subject names something here.
 
     ``D-IMPL-378`` decision 4 (a) (SDK-defined, CLAUDE.md §11). Dave,
@@ -1883,7 +1883,7 @@ class AcquisitionSeamProtocol(Protocol):
     with the policy's declared stand-in in place of the subject, immediately
     before its call for the question — and the question is refused if the
     stand-in acquired anything the probe identifier did not
-    (:class:`UndisclosedSubjectStandInIsHeld`). It receives the
+    (:class:`UndisclosedSubjectSubstituteIsHeld`). It receives the
     EFFECTIVE request, so what a deployment reads its sources at is the value
     governance resolved, never a second derivation of it: the seven copies of
     ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
@@ -1967,7 +1967,7 @@ class PopulationAcquisitionSeamProtocol(Protocol):
     which amends Q10 to exactly that call). For a class with a declared early
     policy, what the phase acquires for the policy's stand-in is compared with
     what it acquires for :data:`UNHELD_SUBJECT_PROBE`, two extra calls before
-    that one (:class:`UndisclosedSubjectStandInIsHeld`; ``D-IMPL-378`` decision
+    that one (:class:`UndisclosedSubjectSubstituteIsHeld`; ``D-IMPL-378`` decision
     4 (a)). Neither check detects a source that recognizes the identifier it is
     asked about, so for that source, and for any other class, the obligation
     stays a trusted statement (the security how-to, section 4.12). SEC-020
@@ -3263,7 +3263,7 @@ class GovernedResolver:
     #: (:data:`UNHELD_SUBJECT_PROBE`; Q10 as amended by ruling P6 (a)); for a
     #: class with a declared early policy, twice more immediately before that,
     #: with :data:`UNHELD_SUBJECT_PROBE` and then the declared stand-in (Q10 as
-    #: amended by decision 4 (a), :class:`UndisclosedSubjectStandInIsHeld`) — see
+    #: amended by decision 4 (a), :class:`UndisclosedSubjectSubstituteIsHeld`) — see
     #: :class:`AcquisitionSeamProtocol` for what it is and is not. No default
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
@@ -4074,7 +4074,7 @@ class GovernedResolver:
         # question of an early-policy class, before anything is computed or
         # recorded, with the one message the checks before acquisition carry.
         if disclosure is not None and _names(view, disclosure.undisclosed_subject):
-            raise UndisclosedSubjectStandInIsHeld(self._stand_in_is_held())
+            raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
         operators = build_operator_registry(
             parameters=self.operator_parameters(effective_request),
             view=view,
@@ -5277,7 +5277,7 @@ class GovernedResolver:
     ) -> None:
         """Verify the declared stand-in names nothing before acquisition; refuse if it does.
 
-        ``D-IMPL-378`` decision 4 (a) (:class:`UndisclosedSubjectStandInIsHeld`).
+        ``D-IMPL-378`` decision 4 (a) (:class:`UndisclosedSubjectSubstituteIsHeld`).
         Called by :meth:`__call__` for EVERY question of a class with a declared
         early policy, whatever the policy decides for the asked subject, after
         the read route A takes and BEFORE the subject-keyed phase is handed
@@ -5306,13 +5306,13 @@ class GovernedResolver:
         exception propagates, as the phase's own would.
         """
         if _names(before, stand_in):
-            raise UndisclosedSubjectStandInIsHeld(self._stand_in_is_held())
+            raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
         if self.acquisition is None:
             return
         baseline = self._acquired_for(effective_request, UNHELD_SUBJECT_PROBE, perspective=perspective, at=at)
         after = self._acquired_for(effective_request, stand_in, perspective=perspective, at=at)
         if _names(baseline, stand_in) or _names(after, stand_in) or after != baseline:
-            raise UndisclosedSubjectStandInIsHeld(self._stand_in_is_held())
+            raise UndisclosedSubjectSubstituteIsHeld(self._stand_in_is_held())
 
     def _acquired_for(
         self, effective_request: ProductRequest, identifier: str, *, perspective: Perspective, at: datetime
@@ -5337,7 +5337,7 @@ class GovernedResolver:
 
     @staticmethod
     def _stand_in_is_held() -> str:
-        """The one message :class:`UndisclosedSubjectStandInIsHeld` carries, whatever was asked and whichever check failed."""
+        """The one message :class:`UndisclosedSubjectSubstituteIsHeld` carries, whatever was asked and whichever check failed."""
         return (
             "the identifier this class's early policy asks in place of a subject it"
             " does not disclose names something here: the fabric names it, or the"

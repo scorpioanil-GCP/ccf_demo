@@ -9,7 +9,7 @@ every question to a source that refuses unknown identifiers)."* Lane `378i-probe
 **What the tests measure, on test fixtures.**
 `tests/products/test_sec020_stand_in_is_verified_absent.py`: an early-withholding deployment whose stand-in names
 something — its source holds the stand-in under the stand-in's own URI or under another, or a declared population
-phase writes it — refuses every question by name, `UndisclosedSubjectStandInIsHeld`, alike for the withheld subject,
+phase writes it — refuses every question by name, `UndisclosedSubjectSubstituteIsHeld`, alike for the withheld subject,
 two identifiers nothing holds and a served subject, with one message, recording nothing and never handing the
 subject-keyed phase the asked subject; a fabric naming the stand-in after the question's own acquisition, and a
 preloaded fabric naming it with no acquisition at all, are refused the same way; and the final panel's probe, judged by
@@ -35,9 +35,9 @@ it does not hold with a held refusal refuses every question, including a questio
 the question itself (an intent, a parameter, a role), which was refused as data with its record before and now raises
 the refusal and records nothing.
 
-## ccf.products.resolver.UndisclosedSubjectStandInIsHeld
+## ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
 
-- Surface: ccf.products.resolver.UndisclosedSubjectStandInIsHeld
+- Surface: ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld
 - Public surface: true
 - Change type: added
 - Before: absent; the stand-in a declared early policy asks in place of an undisclosed subject was held only to `SUBJECT_FLOOR_V1`, and a source holding it told a withheld subject from a nonexistent one.
@@ -61,7 +61,7 @@ the refusal and records nothing.
 - Public surface: true
 - Change type: behavior
 - Before: a class with a declared early policy asked its subject-keyed acquisition once per question; a held refusal from the P6 probe call was ignored.
-- After: for a class with a declared early policy, before the subject-keyed acquisition is handed the question, the graph is checked not to name the stand-in, the acquisition is asked about `UNHELD_SUBJECT_PROBE` and then the stand-in with one graph read after each, and the graph the plan reads is checked not to name the stand-in; a failed check raises `UndisclosedSubjectStandInIsHeld`. For a class the P6 probe reads, a held refusal from the probe call raises `UnheldSubjectProbeRefused`.
+- After: for a class with a declared early policy, before the subject-keyed acquisition is handed the question, the graph is checked not to name the stand-in, the acquisition is asked about `UNHELD_SUBJECT_PROBE` and then the stand-in with one graph read after each, and the graph the plan reads is checked not to name the stand-in; a failed check raises `UndisclosedSubjectSubstituteIsHeld`. For a class the P6 probe reads, a held refusal from the probe call raises `UnheldSubjectProbeRefused`.
 - Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
 - Migration: as above.
 
@@ -111,7 +111,7 @@ the refusal and records nothing.
 - Public surface: true
 - Change type: behavior
 - Before: called once more for a class the P6 probe reads; a held refusal for the probe identifier counted as nothing returned.
-- After: a held refusal for the probe identifier refuses every question (`UnheldSubjectProbeRefused`); and under a declared early policy `acquire` is called twice more per question, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in, the question refused (`UndisclosedSubjectStandInIsHeld`) if the graph names the stand-in or what `acquire` returned for it added anything to what it returned for the probe identifier.
+- After: a held refusal for the probe identifier refuses every question (`UnheldSubjectProbeRefused`); and under a declared early policy `acquire` is called twice more per question, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in, the question refused (`UndisclosedSubjectSubstituteIsHeld`) if the graph names the stand-in or what `acquire` returned for it added anything to what it returned for the probe identifier.
 - Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
 - Migration: return nothing for an identifier the sources do not hold; hold nothing for the declared stand-in.
 
@@ -131,6 +131,6 @@ the refusal and records nothing.
 - Public surface: true
 - Change type: behavior
 - Before: `undisclosed_subject` was the deployment's statement that it names nothing, held only to `SUBJECT_FLOOR_V1` and to naming none of the subjects it stands in for.
-- After: that statement is checked for every question, not assumed: a fabric or a subject-keyed acquisition phase that names it, or that acquires for it what it does not acquire for an identifier that names nothing, is refused (`UndisclosedSubjectStandInIsHeld`).
+- After: that statement is checked for every question, not assumed: a fabric or a subject-keyed acquisition phase that names it, or that acquires for it what it does not acquire for an identifier that names nothing, is refused (`UndisclosedSubjectSubstituteIsHeld`).
 - Why: SEC-020, decision 4 (a) (see above).
 - Migration: declare a stand-in that nothing in the deployment holds.

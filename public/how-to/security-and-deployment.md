@@ -1468,7 +1468,7 @@ unless another test is named.
   is asked about `UNHELD_SUBJECT_PROBE` and then about the stand-in, and must
   acquire nothing for the stand-in that it does not acquire for the probe
   identifier; and the graph the plan reads must not name it. A failed check
-  refuses the question as `UndisclosedSubjectStandInIsHeld`, with one message
+  refuses the question as `UndisclosedSubjectSubstituteIsHeld`, with one message
   whatever was asked, before your acquisition is handed the question (the
   check after acquisition: before anything is computed or recorded). On test
   fixtures, a source holding the stand-in under its own URI or under another,

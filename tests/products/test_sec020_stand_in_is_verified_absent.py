@@ -21,7 +21,7 @@ kept verbatim as a comment below.
 What these tests hold the SDK to, by mechanism:
 
 * **The refusal.** Every question to a deployment in which the stand-in names
-  something is refused by name, ``UndisclosedSubjectStandInIsHeld`` — the
+  something is refused by name, ``UndisclosedSubjectSubstituteIsHeld`` — the
   withheld subject's, an identifier nothing holds, a second one and an
   ordinarily served subject's alike — with one message, and nothing is
   recorded. Before acquisition: the fabric as read before the subject-keyed
@@ -73,7 +73,7 @@ from tests.products.test_sec020_combined_proof import _compare, _vacuous
 #: The refusal decision 4 (a) raises, named as data so this module collects on a
 #: tree that does not have it yet (the red commit) and fails there by
 #: ``DID NOT RAISE`` rather than by an import error.
-REFUSAL = "UndisclosedSubjectStandInIsHeld"
+REFUSAL = "UndisclosedSubjectSubstituteIsHeld"
 
 #: How the deployment's source holds the declared stand-in. ``itself``: a record
 #: whose resolution the fabric names by the stand-in (the panel's probe).
