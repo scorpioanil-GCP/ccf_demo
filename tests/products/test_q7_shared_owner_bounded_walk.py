@@ -38,14 +38,28 @@ and ``open_product`` on the paved road:
   already read;
 * two phases that share nothing are still admitted.
 
+And, on the walk itself (``src/ccf/products/resolver.py::_refuse_shared_owner``),
+each limit the refusal's docstring and the security how-to, section 4.12,
+state is asserted as the documented behavior — never as an expected failure:
+an object one step past :data:`~ccf.products.resolver.SHARED_OWNER_WALK_DEPTH`,
+or reached only after :data:`~ccf.products.resolver.SHARED_OWNER_WALK_OBJECTS`
+references are spent, is not seen (and the same holding inside the bound is
+refused); nor is state shared through a third object, a C-extension object's
+own fields, a module global, a class attribute, a weak reference's referent, or
+the dictionary of a class that replaces ``__dict__``. The walk calls nothing an
+object defines: hooks that raise when called are never called, and the
+dictionary behind them is still read.
+
 Every domain value here is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
 
 from __future__ import annotations
 
 import collections
+import functools
 import pathlib
 import types
+import weakref
 from collections.abc import Callable
 from typing import Any, NamedTuple
 
@@ -53,7 +67,13 @@ import pytest
 
 from ccf.products.product import AcquisitionContext, OpenedProduct
 from ccf.products.request import ProductRequest
-from ccf.products.resolver import GovernedResolver, PopulationPhaseSharesAnOwner
+from ccf.products.resolver import (
+    SHARED_OWNER_WALK_DEPTH,
+    SHARED_OWNER_WALK_OBJECTS,
+    GovernedResolver,
+    PopulationPhaseSharesAnOwner,
+    _refuse_shared_owner,
+)
 from ccf.projection.plan import Perspective
 from ccf.signal.envelope import SignalEnvelope
 from tests.products import test_withheld_is_indistinguishable_from_absent as sec020
@@ -315,3 +335,246 @@ def test_q7_twin_two_phases_that_share_nothing_are_admitted(tmp_path: pathlib.Pa
     """No false positive: a population phase and a subject-keyed phase on unrelated objects are composed."""
     composed = _compose(site, tmp_path, population=_Population(), peer=_SubjectKeyed())
     assert _admitted(site, composed), repr(composed)
+
+
+# --- the walk's stated limits, each asserted as documented behavior ---------------------
+
+
+def _nested(held: object, holders: int) -> object:
+    """``held`` behind ``holders`` holders, each holding the next as an attribute."""
+    for _ in range(holders):
+        held = _Holder(held)
+    return held
+
+
+def _dig(outer: object, holders: int) -> object:
+    for _ in range(holders):
+        outer = outer.held  # type: ignore[attr-defined]
+    return outer
+
+
+def test_q7_limit_an_object_one_step_past_the_depth_bound_is_not_seen() -> None:
+    """At ``SHARED_OWNER_WALK_DEPTH`` steps the object is seen and refused; one step further it is not.
+
+    The population phase holds a chain of holders as an attribute (one step),
+    each holder the next (one step each), the last the subject-keyed phase's
+    object. A documented limit of the bounded walk Dave ruled, not a defect.
+    """
+    peer = _SubjectKeyed()
+    at_the_bound = _HoldsAsAttribute(_nested(peer, SHARED_OWNER_WALK_DEPTH - 1))
+    assert _dig(at_the_bound.peer, SHARED_OWNER_WALK_DEPTH - 1) is peer
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _refuse_shared_owner(at_the_bound, peer.low_road)
+    past_the_bound = _HoldsAsAttribute(_nested(peer, SHARED_OWNER_WALK_DEPTH))
+    assert _dig(past_the_bound.peer, SHARED_OWNER_WALK_DEPTH) is peer
+    assert _refuse_shared_owner(past_the_bound, peer.low_road) is None
+
+
+class _FilledThenHolding(_Population):
+    """A population phase whose first attribute is a list of ``count`` objects, its second a holder of ``peer``."""
+
+    def __init__(self, count: int, peer: object) -> None:
+        self.filler = [object() for _ in range(count)]
+        self.holder = _Holder(peer)
+
+
+def test_q7_limit_an_object_reached_after_the_object_bound_is_spent_is_not_seen() -> None:
+    """Breadth first: the holder's object is read after the list, so a list that spends the bound hides it."""
+    peer = _SubjectKeyed()
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _refuse_shared_owner(_FilledThenHolding(10, peer), peer.low_road)
+    hidden = _FilledThenHolding(SHARED_OWNER_WALK_OBJECTS, peer)
+    assert hidden.holder.held is peer
+    assert _refuse_shared_owner(hidden, peer.low_road) is None
+
+
+def _module_global_reader(*_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+    """A population phase that reads a module global."""
+    return () if _MODULE_HELD else ()
+
+
+_MODULE_HELD: list[object] = []
+
+
+def _class_holding(peer: object) -> object:
+    """An instance of a class holding ``peer`` as a class attribute, and calling through a class ``__call__`` closing over it."""
+    kind = type("_ClassHolding", (), {"peer": peer, "__call__": _closure_over(peer)})
+    return kind()
+
+
+def _limit_shapes(peer: _SubjectKeyed) -> dict[str, tuple[Any, Any, Callable[[], bool]]]:
+    """Each documented limit: (population phase, subject-keyed phase, whether the holding is real)."""
+    shared: dict[str, object] = {}
+
+    def writer(*, request: ProductRequest, perspective: Perspective) -> None:
+        shared["last"] = request.subject
+
+    def reader(*_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+        return () if shared else ()
+
+    partial = functools.partial(_closure_over(None), peer)
+    deque_holder = _HoldsAsAttribute(collections.deque([peer]))
+    weak_holder = _HoldsAsAttribute(weakref.ref(peer))
+    class_holder = _class_holding(peer)
+    return {
+        # The panel probe's case B: both closures hold one dictionary.
+        "third-object": (reader, writer, lambda: _cell(reader) is _cell(writer) is shared),
+        "functools-partial-arguments": (partial, peer.low_road, lambda: partial.args == (peer,)),
+        "deque-members": (deque_holder, peer.low_road, lambda: deque_holder.peer[0] is peer),
+        "weak-reference": (weak_holder, peer.low_road, lambda: weak_holder.peer() is peer),
+        "class-attribute-and-class-call": (
+            class_holder,
+            peer.low_road,
+            lambda: type(class_holder).peer is peer and _cell(type(class_holder).__call__) is peer,
+        ),
+        "module-global": (_module_global_reader, peer.low_road, lambda: _MODULE_HELD == [peer]),
+    }
+
+
+@pytest.mark.parametrize(
+    "limit",
+    [
+        "third-object",
+        "functools-partial-arguments",
+        "deque-members",
+        "weak-reference",
+        "class-attribute-and-class-call",
+        "module-global",
+    ],
+)
+def test_q7_limit_state_the_walk_does_not_read_is_not_seen(limit: str) -> None:
+    """Each stated limit of the walk: the holding is real, and the two phases are admitted."""
+    peer = _SubjectKeyed()
+    _MODULE_HELD[:] = [peer]
+    try:
+        population, subject_keyed, holds = _limit_shapes(peer)[limit]
+        assert holds(), f"the {limit} fixture does not hold what its name says"
+        assert _refuse_shared_owner(population, subject_keyed) is None
+    finally:
+        _MODULE_HELD.clear()
+
+
+class _Hooked(type):
+    """A metaclass whose hooks raise if anything consults them."""
+
+    calls: list[str] = []
+
+    def __hash__(cls) -> int:
+        _Hooked.calls.append("metaclass __hash__")
+        raise RuntimeError("metaclass __hash__ called")
+
+    def __eq__(cls, other: object) -> bool:
+        _Hooked.calls.append("metaclass __eq__")
+        raise RuntimeError("metaclass __eq__ called")
+
+    def __instancecheck__(cls, instance: object) -> bool:
+        _Hooked.calls.append("metaclass __instancecheck__")
+        raise RuntimeError("metaclass __instancecheck__ called")
+
+    def __subclasscheck__(cls, subclass: type) -> bool:
+        _Hooked.calls.append("metaclass __subclasscheck__")
+        raise RuntimeError("metaclass __subclasscheck__ called")
+
+
+class _HookedPopulation(metaclass=_Hooked):
+    """A population phase whose attribute hooks raise if called; its real dictionary holds ``peer``."""
+
+    def __init__(self, peer: object) -> None:
+        object.__setattr__(self, "peer", peer)
+
+    def __getattribute__(self, name: str) -> Any:
+        _Hooked.calls.append(f"__getattribute__ {name}")
+        raise RuntimeError("__getattribute__ called")
+
+    def __getattr__(self, name: str) -> Any:
+        _Hooked.calls.append(f"__getattr__ {name}")
+        raise RuntimeError("__getattr__ called")
+
+    @property
+    def __class__(self) -> type:  # type: ignore[override]
+        _Hooked.calls.append("__class__ property")
+        raise RuntimeError("__class__ property called")
+
+    @property
+    def watched(self) -> object:
+        _Hooked.calls.append("property")
+        raise RuntimeError("property called")
+
+    def __call__(self, *_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+        return ()
+
+
+class _HookedList(list[object]):
+    """A ``list`` subclass whose own iteration and item access raise if called."""
+
+    def __iter__(self) -> Any:
+        _Hooked.calls.append("list __iter__")
+        raise RuntimeError("list __iter__ called")
+
+    def __getitem__(self, index: Any) -> Any:
+        _Hooked.calls.append("list __getitem__")
+        raise RuntimeError("list __getitem__ called")
+
+
+class _HookedDict(dict[object, object]):
+    """A ``dict`` subclass whose own iteration and views raise if called."""
+
+    def __iter__(self) -> Any:
+        _Hooked.calls.append("dict __iter__")
+        raise RuntimeError("dict __iter__ called")
+
+    def items(self) -> Any:
+        _Hooked.calls.append("dict items")
+        raise RuntimeError("dict items called")
+
+    def keys(self) -> Any:
+        _Hooked.calls.append("dict keys")
+        raise RuntimeError("dict keys called")
+
+    def values(self) -> Any:
+        _Hooked.calls.append("dict values")
+        raise RuntimeError("dict values called")
+
+
+class _ReplacedDict:
+    """A population phase whose class replaces ``__dict__``; the real dictionary holds ``peer``."""
+
+    calls: list[str] = []
+
+    def __init__(self, peer: object) -> None:
+        self.peer = peer
+
+    @property  # type: ignore[misc]
+    def __dict__(self) -> dict[str, object]:  # type: ignore[override]
+        _ReplacedDict.calls.append("__dict__ property")
+        raise RuntimeError("__dict__ property called")
+
+    def __call__(self, *_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+        return ()
+
+
+def test_q7_the_walk_calls_nothing_an_object_defines() -> None:
+    """Hooks that raise when called are never called, and the dictionary behind them is still read and refused."""
+    peer = _SubjectKeyed()
+    _Hooked.calls.clear()
+    population = _HookedPopulation(peer)
+    assert object.__getattribute__(population, "__dict__")["peer"] is peer
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _refuse_shared_owner(population, peer.low_road)
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _refuse_shared_owner(_closure_over([population]), peer.low_road)
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _refuse_shared_owner(_closure_over(_HookedList([peer])), peer.low_road)
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _refuse_shared_owner(_closure_over(_HookedDict({"held": peer})), peer.low_road)
+    assert _Hooked.calls == []
+
+
+def test_q7_limit_the_dictionary_of_a_class_that_replaces_dict_is_not_read() -> None:
+    """A class replacing ``__dict__`` is not read — that would call its descriptor — so what it holds is not seen."""
+    peer = _SubjectKeyed()
+    _ReplacedDict.calls.clear()
+    population = _ReplacedDict(peer)
+    assert object.__getattribute__(population, "peer") is peer
+    assert _refuse_shared_owner(population, peer.low_road) is None
+    assert _ReplacedDict.calls == []
