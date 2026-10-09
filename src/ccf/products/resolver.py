@@ -358,6 +358,7 @@ __all__ = [
     "QuestionStoreReopened",
     "RefusalRecorderProtocol",
     "ReplayRefusalRecorder",
+    "SharedOwnerWalkIncomplete",
     "UndeclaredMechanismClass",
     "UnsupportedComposition",
     "ResolverOutcome",
@@ -729,7 +730,11 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
     ``dict``, subclasses included. It reads what each object stores and calls
     nothing an object defines. It stops after
     :data:`SHARED_OWNER_WALK_DEPTH` steps from a phase, or once it has read
-    :data:`SHARED_OWNER_WALK_OBJECTS` references from it.
+    :data:`SHARED_OWNER_WALK_OBJECTS` references from it. Where reading what
+    an object holds raises (such as another class's member descriptor in a
+    slotted class's namespace), the walk cannot complete and the two phases
+    are refused rather than admitted (:class:`SharedOwnerWalkIncomplete`,
+    ``D-IMPL-378`` repair 1.8).
 
     **What it cannot detect**, stated here and in the security how-to,
     section 4.12:
@@ -740,14 +745,45 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
     * state reached only through a property, another descriptor,
       ``__getattr__`` or ``__getattribute__``, including the dictionary of a
       class that replaces ``__dict__``;
-    * state a C-extension object keeps in its own fields, such as a
-      ``functools.partial``'s arguments or a ``collections.deque``'s members;
+    * state a C-extension object keeps in its own fields, which the walk does
+      not read: a ``functools.partial``'s arguments, a
+      ``collections.deque``'s members, a ``types.MappingProxyType``'s
+      mapping, a generator's frame, an ``operator.methodcaller``'s arguments,
+      and a closure cell's contents where the cell is held anywhere but in a
+      function's closure (each measured by
+      ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_limit_a_holder_the_walk_does_not_read_is_not_seen``);
     * module globals, and class attributes, a class's own ``__call__``
       included;
     * an object reached only through a weak reference or an external store.
 
     Keeping the two phases free of shared state beyond what the walk sees is
     the deployment's statement to keep.
+    """
+
+
+class SharedOwnerWalkIncomplete(PopulationPhaseSharesAnOwner):
+    """The shared-owner walk could not read everything a phase holds, so the two phases are refused rather than admitted.
+
+    ``D-IMPL-378`` repair 1.8 (Dave, 2026-10-09 10:54 MST: *"Implement the
+    specified documentation, citation-checker and shared-owner fixes."*), as
+    the findings brief specified it: *"Handle a foreign member descriptor's
+    ``TypeError`` as the walk handles an unread slot (or refuse, per 2.4)"* —
+    read with repair 2.4 (b), ruled in the same text: *"Refuse when the
+    shared-owner walk reaches a limit before completing."* SDK-defined,
+    CLAUDE.md §11. SEC-020 stays OPEN.
+
+    Raised where :class:`PopulationPhaseSharesAnOwner` is (at construction,
+    and on the paved road when the product is opened) when reading what an
+    object the walk reached holds raises — such as a slotted class whose
+    namespace holds another class's member descriptor, which raises
+    ``TypeError`` for this object. The walk cannot show that the object holds
+    nothing of the other phase, so it does not admit the pair. A declared slot
+    never assigned is not such a member: it holds nothing, and is read so.
+
+    A :class:`PopulationPhaseSharesAnOwner`, so what handles that refusal
+    handles this one. The message names the phase the walk started from, the
+    cause (the type of the error, never its text), the step it was reading and
+    the references it had read: nothing any object holds.
     """
 
 
@@ -1543,7 +1579,22 @@ def _references(held: object, limit: int) -> list[object]:
     return members[:limit]
 
 
-def _reaches(phase: object, owners: frozenset[int]) -> bool:
+def _walk_incomplete(walked: str, cause: str, *, step: int, read: int) -> str:
+    """The message of :class:`SharedOwnerWalkIncomplete`: the phase, the cause, the step and the counts (Q7).
+
+    Built from the walk's own labels and counts alone, so it carries nothing
+    any object the walk reached holds.
+    """
+    return (
+        f"the shared-owner walk from the {walked} phase {cause} at step {step} of at most"
+        f" {SHARED_OWNER_WALK_DEPTH} (SHARED_OWNER_WALK_DEPTH), having read {read} of at most"
+        f" {SHARED_OWNER_WALK_OBJECTS} references (SHARED_OWNER_WALK_OBJECTS), so it cannot show"
+        " that the population phase and the subject-keyed phase hold nothing of each other;"
+        " refused rather than admitted (SEC-020, Q7; D-IMPL-378)"
+    )
+
+
+def _reaches(phase: object, owners: frozenset[int], *, walked: str) -> bool:
     """Whether ``phase`` holds an object whose identity is in ``owners``, within the walk's bounds (Q7).
 
     Breadth first, so the nearest references are read first. Every object the
@@ -1553,7 +1604,13 @@ def _reaches(phase: object, owners: frozenset[int]) -> bool:
     :data:`SHARED_OWNER_WALK_OBJECTS` references are spent. An object is read
     once however many references reach it, which also ends a cycle, and every
     object reached is held until the walk returns, so no identity it compares
-    can pass to a new object meanwhile.
+    can pass to a new object meanwhile. ``walked`` names the phase the walk
+    starts from, for a refusal's message.
+
+    Raises:
+        SharedOwnerWalkIncomplete: reading what an object the walk reached
+            holds raised, so the walk cannot complete (``D-IMPL-378`` repair
+            1.8); never the raw error.
     """
     if id(phase) in owners:
         return True
@@ -1561,10 +1618,17 @@ def _reaches(phase: object, owners: frozenset[int]) -> bool:
     reached: list[object] = [phase]
     frontier: list[object] = [phase]
     budget = SHARED_OWNER_WALK_OBJECTS
-    for _step in range(SHARED_OWNER_WALK_DEPTH):
+    for step in range(1, SHARED_OWNER_WALK_DEPTH + 1):
         following: list[object] = []
         for holder in frontier:
-            for held in _references(holder, budget):
+            try:
+                references = _references(holder, budget)
+            except Exception as error:  # noqa: BLE001 — refused by name, never admitted or raised raw (repair 1.8)
+                cause = f"could not read what an object it reached holds (the read raised {type(error).__name__})"
+                raise SharedOwnerWalkIncomplete(
+                    _walk_incomplete(walked, cause, step=step, read=SHARED_OWNER_WALK_OBJECTS - budget)
+                ) from None
+            for held in references:
                 budget -= 1
                 if id(held) in owners:
                     return True
@@ -1588,9 +1652,13 @@ def _refuse_shared_owner(population: object, subject_keyed: object) -> None:
     within :data:`SHARED_OWNER_WALK_DEPTH` and :data:`SHARED_OWNER_WALK_OBJECTS`.
     An object both phases hold that is neither phase nor bound by either is not
     an owner, and holding it is not refused; :class:`PopulationPhaseSharesAnOwner`
-    states that and the rest of what the walk does not see.
+    states that and the rest of what the walk does not see. A walk that cannot
+    read what an object it reached holds raises
+    :class:`SharedOwnerWalkIncomplete` (``D-IMPL-378`` repair 1.8).
     """
-    if _reaches(population, _owners(subject_keyed)) or _reaches(subject_keyed, _owners(population)):
+    if _reaches(population, _owners(subject_keyed), walked="population") or _reaches(
+        subject_keyed, _owners(population), walked="subject-keyed"
+    ):
         raise PopulationPhaseSharesAnOwner(
             "the population phase and the subject-keyed phase share an owner: one"
             " is, is bound to or holds the other or the object it is bound to, so"
