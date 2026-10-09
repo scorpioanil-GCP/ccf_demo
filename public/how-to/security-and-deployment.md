@@ -1721,10 +1721,15 @@ Which stale markers a boot verifies again by itself, and which it refuses:
 
 To resolve a refusal:
 
-1. Make sure no process is booting or serving the store: `fuser` or `lsof` on
-   `<resolved path>.ccf-store-creation.lock`, and on the SQLite writer lease
-   `<resolved path>.ccf-writer.lock`, shows a holder. Change nothing while
-   either is held.
+1. Make sure no process is booting or serving the store. `fuser` or `lsof` on
+   `<resolved path>.ccf-store-creation.lock` shows a boot in progress, and on
+   the SQLite writer lease `<resolved path>.ccf-writer.lock` a writer's open
+   fabric, but neither shows a read-only fabric: one that is open and reading
+   holds neither lock. So run them on the store file itself too, `<path>`,
+   and on its `<path>-wal` and `<path>-shm` files: an open fabric, read-only
+   or not, holds its store file open until it is handed back
+   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_file_open`).
+   Change nothing while any of them shows a holder.
 2. Read the marker. `pending` (the boot that created it never finished its
    read), `unreadable` (one line and no `state:`, or text the SDK does not
    write) and `claimed` (a marker that appeared, or was replaced by another
