@@ -1882,16 +1882,19 @@ a nonexistent one. Each was measured on test fixtures.
   class or the SDK declares at the seam, such as `IdentityRefused`) refused an
   identifier nothing holds while a withheld subject was answered, on both
   roads. Since Dave's OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, 2026-10-09),
-  every question to such a class is refused as `UnheldSubjectProbeRefused`,
-  with one message, before your acquisition is handed the question's subject
-  (`tests/products/test_sec020_held_refusal_at_the_probe.py`; held in SEC-020's
-  closing test as the refusal plus a twin that answers: the same deployment
-  with your acquisition answering an unheld identifier with nothing). That
-  includes a held refusal decided by the question rather than the identifier,
-  such as an intent, a parameter or a role your source refuses: such a
-  question, refused as data with its record before, now raises this refusal
-  and records nothing. Answer an identifier your sources do not hold with
-  nothing. To be served, declare the read as the population phase
+  as repaired by his 2.3 (b) the same day, every question to such a class is
+  refused before your acquisition is handed the question's subject, answered
+  and recorded as one constant SDK refusal, `UNHELD_SUBJECT_PROBE_REFUSAL`
+  (`subject-unavailable`, cause `undisclosed`, no code, one SDK sentence), the
+  same for every subject; the decision record files it at the `acquisition`
+  seam beside the caller's question
+  (`tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py` and
+  `tests/products/test_sec020_held_refusal_at_the_probe.py`). That includes a
+  held refusal decided by the question rather than the identifier, such as an
+  intent, a parameter or a role your source refuses: such a question keeps one
+  decision record, but neither the answer nor the record keeps your source's
+  own kind, cause, code or text. Answer an identifier your sources do not hold
+  with nothing. To be served, declare the read as the population phase
   (`open_product(population=...)`), declare an early policy, or affirm `never`
   for a projection that never withholds. **The probe
   is defeated by a source that recognizes it.** A source that answers nothing

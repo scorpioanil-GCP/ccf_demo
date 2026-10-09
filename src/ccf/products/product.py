@@ -398,10 +398,12 @@ class AcquireProtocol(Protocol):
     :class:`~ccf.products.resolver.PopulationReadInSubjectKeyedPhase`, before
     ``acquire`` is handed the question's subject. Return nothing for an
     identifier your sources do not hold: a held refusal for the probe
-    identifier refuses every question,
-    :class:`~ccf.products.resolver.UnheldSubjectProbeRefused` (OWED-RULINGS-3
-    item 4 (b)). Read what does not depend on the subject in ``population``
-    instead (:class:`PopulationAcquireProtocol`).
+    identifier refuses every question (OWED-RULINGS-3 item 4 (b)), answered
+    and recorded as
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL`, the SDK's one
+    constant, with no part of the refusal as ``acquire`` stated it
+    (``D-IMPL-378`` repair 2.3 (b)). Read what does not depend on the subject
+    in ``population`` instead (:class:`PopulationAcquireProtocol`).
     SEC-020 stays OPEN: an ``acquire`` that recognizes the probe identifier is
     not detected.
 

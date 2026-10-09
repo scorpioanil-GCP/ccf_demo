@@ -330,6 +330,7 @@ __all__ = [
     "SHARED_OWNER_WALK_DEPTH",
     "SHARED_OWNER_WALK_OBJECTS",
     "UNHELD_SUBJECT_PROBE",
+    "UNHELD_SUBJECT_PROBE_REFUSAL",
     "AcquiredFabricReused",
     "AcquisitionNeedsAQuestionFabric",
     "AcquisitionOverUnverifiableStore",
@@ -368,7 +369,6 @@ __all__ = [
     "UndisclosedSubjectAnswered",
     "UndisclosedSubjectSubstituteIsHeld",
     "UnheldSubjectProbeIsHeld",
-    "UnheldSubjectProbeRefused",
     "UnmarkedStoreNotPresumedFresh",
     "build_governed_resolver",
     "declared_refusal_recorder",
@@ -808,6 +808,46 @@ EARLY_POLICY_ACQUISITION_REFUSAL: Final[SubjectUnavailableRefusal] = SubjectUnav
 )
 
 
+#: The ONE refusal a question becomes when ruling P6 (a)'s probe call itself
+#: ends in a held refusal (``D-IMPL-378`` OWED-RULINGS-3 item 4 (b), as repaired
+#: by 2.3 (b); SDK-defined, CLAUDE.md §11; SEC-020 stays OPEN). Dave, 2026-10-09
+#: 10:54 MST: *"Use (d) only if “unknown identifier” has a typed, stable cause.
+#: Do not infer it from message text. Otherwise implement (b) with a recorded
+#: constant SDK cause. Role and parameter refusals must retain their decision
+#: records."* The condition for (d) was measured not met: a source's "I do not
+#: hold that identifier" reaches the probe with no typed cause as a refusal
+#: shell or an assembler's refusal, and the SDK declares the typed
+#: ``nonexistent`` for a refusal that is not about the identifier.
+#:
+#: For a class that may withhold its subject and declares no early policy, a
+#: refusal the subject-keyed phase raises when asked about
+#: :data:`UNHELD_SUBJECT_PROBE` — the typed handoff carrying any refusal kind or
+#: a refusal shell, recorded by its raiser or not, or a type the class or the
+#: SDK declares at the seam — refuses the question before the phase is handed
+#: its subject, and the question is answered and recorded as this value at the
+#: ``acquisition`` seam, beside the caller's question: one kind, cause, code and
+#: text for every subject, and nothing the source said. So a refusal the
+#: question decided (a role, a parameter) keeps its decision record, and an
+#: identifier nothing holds is refused as a withheld subject is (measured by
+#: ``tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py``).
+#: Its own value rather than :data:`EARLY_POLICY_ACQUISITION_REFUSAL`, whose
+#: sentence says the class declares an early policy, which a class the probe
+#: reads does not; no class takes both paths, so the two never meet in one
+#: class's answers.
+UNHELD_SUBJECT_PROBE_REFUSAL: Final[SubjectUnavailableRefusal] = SubjectUnavailableRefusal(
+    cause="undisclosed",
+    detail=(
+        "the subject-keyed acquisition phase refused"
+        f" {UNHELD_SUBJECT_PROBE!r}, an identifier that names nothing, so this"
+        " class refuses the question before that phase is handed its subject;"
+        " the SDK keeps no statement of the source's, so every such refusal"
+        " reads alike (SEC-020; D-IMPL-378 OWED-RULINGS-3 item 4 (b), repair"
+        " 2.3 (b))"
+    ),
+    error_code=None,
+)
+
+
 class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
     """The subject-keyed acquisition phase acquired something for an identifier that names nothing.
 
@@ -831,8 +871,9 @@ class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
     raised, before the phase is asked about the question's subject. The
     decision reads nothing about the asked subject, so a withheld subject and
     an identifier nothing holds are refused alike. A held refusal from the
-    probe refuses the question by its own name instead
-    (:class:`UnheldSubjectProbeRefused`; OWED-RULINGS-3 item 4 (b)). Q10's *"each
+    probe refuses the question instead, answered and recorded as
+    :data:`UNHELD_SUBJECT_PROBE_REFUSAL` (OWED-RULINGS-3 item 4 (b), as
+    repaired by ``D-IMPL-378`` 2.3 (b)). Q10's *"each
     once"* is amended by the ruling to exactly this one extra call to the
     subject-keyed phase per question of such a class, and nothing more.
 
@@ -894,43 +935,6 @@ class UnheldSubjectProbeIsHeld(UnsupportedComposition):
     source holding a record FOR the probe identifier therefore writes a node
     with another URI, and the question is refused as
     :class:`PopulationReadInSubjectKeyedPhase` — also fail closed.
-    """
-
-
-class UnheldSubjectProbeRefused(UnsupportedComposition):
-    """The subject-keyed phase answered ruling P6 (a)'s probe with a held refusal.
-
-    ``D-IMPL-378``, OWED-RULINGS-3 item 4 (b) (SDK-defined, CLAUDE.md §11).
-    Dave, 2026-10-09 06:21 MST: *"4(b), plus the closing-test case and a
-    supported working twin"*; option (b), verbatim: *"Refuse when the probe
-    call itself returns a held refusal (refuses every question to a source
-    that refuses unknown identifiers)."* SEC-020 stays OPEN.
-
-    For a class the P6 probe reads (it may withhold its subject and declares no
-    early policy), a source that answers an identifier it does not hold with a
-    held refusal — ``GovernedRefusalRaised``, or a type the class or the SDK
-    declares at the seam, such as :class:`~ccf.assembly.worker.IdentityRefused`
-    for a record whose identity value names no entity — refuses an identifier
-    nothing holds as data, while a subject it holds is answered and withheld
-    inside the projection: the two are told apart (measured by lane
-    ``378f-p6a``, on both roads and both anchors). As built under P6 (a), a
-    held refusal from the probe counted as "acquired nothing", and the source
-    passed. Now, when the probe call itself ends in a held refusal,
-    :meth:`GovernedResolver.__call__` raises this before the phase is handed the
-    question's subject, with ONE message whatever subject was asked: every
-    question to such a deployment is refused, a withheld subject's, an
-    identifier nothing holds and a served subject's alike. A broken
-    composition, as every :class:`UnsupportedComposition` is: nothing is
-    recorded, and a door answers with its opaque failure.
-
-    That includes a held refusal decided by the question rather than by the
-    identifier — an intent, a parameter or a role the source refuses, say —
-    which the probe, asked with the question's own parameters and perspective,
-    receives too: such a question, refused as data with its record before, is
-    now this refusal, unrecorded. To be served, answer an identifier your
-    sources do not hold with nothing (the supported shape), declare an early
-    policy, or affirm ``subject_withholding: never`` for a projection that never
-    withholds.
     """
 
 
@@ -2182,8 +2186,9 @@ class AcquisitionSeamProtocol(Protocol):
     for nothing else — with the effective request carrying
     :data:`UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its
     call for the question's subject — and the question is refused if that call
-    changed the fabric (:class:`PopulationReadInSubjectKeyedPhase`) or ended in
-    a held refusal (:class:`UnheldSubjectProbeRefused`). **Q10 as
+    changed the fabric (:class:`PopulationReadInSubjectKeyedPhase`), or
+    answered and recorded as :data:`UNHELD_SUBJECT_PROBE_REFUSAL` if it ended in
+    a held refusal. **Q10 as
     amended by decision 4 (a)** (Dave, 2026-10-09 06:06 MST, confirmed 06:21:
     *"Verify the stand-in is absent before and after acquisition."*): for a
     class with a declared early policy, this seam is called TWICE MORE per
@@ -4328,10 +4333,19 @@ class GovernedResolver:
                 and disclosure is None
                 and declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER
             ):
-                self._refuse_a_population_read_in_the_subject_keyed_phase(
+                held_at_the_probe = self._refuse_a_population_read_in_the_subject_keyed_phase(
                     asked, perspective=perspective, before=before_acquisition,
                     at=request.asked_at,
                 )
+                if held_at_the_probe is not None:
+                    # OWED-RULINGS-3 item 4 (b), as repaired by 2.3 (b): the
+                    # probe's held refusal answers the question as a RECORDED
+                    # refusal, the SDK's one constant, the same for every subject.
+                    return self._refuse_raised_at_seam(
+                        held_at_the_probe, seam="acquisition", request=request,
+                        identity=identity, perspective=perspective, effective=effective,
+                        served_at=served_at,
+                    )
             # `D-IMPL-378` decision 4 (a) (Dave, 2026-10-09 06:06 MST, confirmed
             # 06:21; SEC-020 stays OPEN). Under a declared early policy the
             # stand-in is what every subject-dependent step is asked about in
@@ -5531,7 +5545,7 @@ class GovernedResolver:
         perspective: Perspective,
         before: GraphView,
         at: datetime,
-    ) -> None:
+    ) -> GovernedRefusalRaised | None:
         """Ask the subject-keyed phase about :data:`UNHELD_SUBJECT_PROBE`; refuse if the fabric then reads otherwise.
 
         ``D-IMPL-378`` ruling P6 (a) (:class:`PopulationReadInSubjectKeyedPhase`).
@@ -5542,10 +5556,14 @@ class GovernedResolver:
         same perspective — so what the phase acquires for it is what it acquires
         for an identifier its sources do not hold. A held refusal
         (``GovernedRefusalRaised``, or a type the class or the SDK declares at
-        this seam) refuses the question, :class:`UnheldSubjectProbeRefused`
-        (OWED-RULINGS-3 item 4 (b)): such a source refuses an identifier nothing
-        holds where a subject withheld inside the projection is answered. Any
-        other exception propagates, as the phase's own would. Nothing here
+        this seam) refuses the question (OWED-RULINGS-3 item 4 (b)): such a
+        source refuses an identifier nothing holds where a subject withheld
+        inside the projection is answered. What is returned then is the SDK's
+        one constant, :data:`UNHELD_SUBJECT_PROBE_REFUSAL`, which :meth:`__call__`
+        records at the ``acquisition`` seam and answers with — so a refusal the
+        question decided keeps its decision record, and nothing the source said
+        is kept (``D-IMPL-378`` repair 2.3 (b)); ``None`` when the probe passes.
+        Any other exception propagates, as the phase's own would. Nothing here
         reads the asked subject.
 
         Dave's condition, *"Verify that the fixed identifier is actually
@@ -5561,14 +5579,15 @@ class GovernedResolver:
         probe = asked.model_copy(update={"subject": UNHELD_SUBJECT_PROBE})
         try:
             self.acquisition(request=probe, perspective=perspective)
-        except GovernedRefusalRaised:
-            # OWED-RULINGS-3 item 4 (b) (Dave, 2026-10-09 06:21 MST): a held
-            # refusal from the probe call itself refuses the question.
-            raise UnheldSubjectProbeRefused(self._probe_was_refused()) from None
+        except GovernedRefusalRaised as raised:
+            # OWED-RULINGS-3 item 4 (b) (Dave, 2026-10-09 06:21 MST), as repaired
+            # by 2.3 (b) (10:54 MST): a held refusal from the probe call itself
+            # refuses the question, RECORDED as the SDK's one constant.
+            return self._refused_at_the_probe(raised)
         except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
             if self._declared_seam_refusal(error) is None:
                 raise
-            raise UnheldSubjectProbeRefused(self._probe_was_refused()) from None
+            return self._refused_at_the_probe(None)
         after = self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
         if _names(after, UNHELD_SUBJECT_PROBE):
             raise UnheldSubjectProbeIsHeld(self._probe_identifier_is_held("after the probe"))
@@ -5584,6 +5603,7 @@ class GovernedResolver:
                 " policy, or affirm subject_withholding:"
                 f" {SUBJECT_WITHHOLDING_NEVER!r} (SEC-020; D-IMPL-378 ruling P6 (a))"
             )
+        return None
 
     def _refuse_a_stand_in_that_names_something(
         self,
@@ -5691,18 +5711,20 @@ class GovernedResolver:
         )
 
     @staticmethod
-    def _probe_was_refused() -> str:
-        """The one message :class:`UnheldSubjectProbeRefused` carries, whatever subject was asked."""
-        return (
-            "the subject-keyed acquisition phase answered"
-            f" {UNHELD_SUBJECT_PROBE!r}, an identifier that names nothing, with a"
-            " held refusal, so an identifier nothing holds would be refused where"
-            " a subject withheld inside the projection is answered; answer an"
-            " identifier your sources do not hold with nothing, declare an early"
-            " policy, or affirm subject_withholding:"
-            f" {SUBJECT_WITHHOLDING_NEVER!r} (SEC-020; D-IMPL-378 OWED-RULINGS-3"
-            " item 4 (b))"
-        )
+    def _refused_at_the_probe(raised: GovernedRefusalRaised | None) -> GovernedRefusalRaised:
+        """What a held refusal at the P6 probe becomes: :data:`UNHELD_SUBJECT_PROBE_REFUSAL`, for :meth:`__call__` to record.
+
+        ``D-IMPL-378`` OWED-RULINGS-3 item 4 (b), as repaired by 2.3 (b).
+        Whatever the phase raised for the probe identifier — its kind, cause,
+        code, text, an envelope its raiser recorded — is replaced by the SDK's
+        one constant. A raiser that states
+        :class:`~ccf.replay.record.ResolutionNotApplicable` is kept, so
+        :meth:`_refuse_raised_at_seam` refuses that programming error by its own
+        message, as it does at every other seam.
+        """
+        if raised is not None and isinstance(raised.resolution, ResolutionNotApplicable):
+            return raised
+        return GovernedRefusalRaised(UNHELD_SUBJECT_PROBE_REFUSAL, resolution=RESOLVED_BY_THE_RESOLVER)
 
     @staticmethod
     def _probe_identifier_is_held(when: str) -> str:
