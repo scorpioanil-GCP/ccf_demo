@@ -4324,7 +4324,7 @@
       },
       "SqliteGraphStore": {
         "kind": "class",
-        "shape": "(*, database_path: 'Path | str') -> 'None'"
+        "shape": "(*, database_path: 'Path | str', writer_lease: 'WriterLeaseSource | None' = None) -> 'None'"
       }
     }
   },
@@ -4342,7 +4342,8 @@
       "SqliteConnection": {
         "kind": "contract",
         "shape": {
-          "database_path": "<class 'pathlib.Path'>"
+          "database_path": "<class 'pathlib.Path'>",
+          "writer_lease_lock_dir": "typing.Optional[typing.Annotated[str, AfterValidator(func=<function require_absolute_lock_directory>), AfterValidator(func=<function require_private_lock_directory>)]]"
         }
       },
       "SqliteGraphWriter": {

@@ -529,7 +529,7 @@ boot token records it.
 
 | Store | Lease scope | What enforces it |
 | --- | --- | --- |
-| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path |
+| SQLite (reference) | `cross-process` | An exclusive `flock` on `<database file>.ccf-writer.lock`, beside the resolved database path; with `writer_lease_lock_dir` declared, also one on `<writer_lease_lock_dir>/<sha256(database file identity)>.lock` (below) |
 | Postgres (reference) | `cross-process` | A session `pg_try_advisory_lock`, keyed server-side on the schema |
 | In-memory | `process` | Nothing across processes, and nothing is needed: no second process can reach the graph |
 | Fluree, MongoDB, Neo4j | `cross-process`, declared by the deployment | An exclusive `flock` on `<writer_lease_lock_dir>/<sha256(graph identity)>.lock`; the deployment declares only the absolute directory |
@@ -587,6 +587,46 @@ write a parent directory can rename the lock directory and put another in its
 place between the check and the lock file's open, so keep every ancestor
 writable only by the writers' user or root.
 
+**SQLite: declare a lock directory so the lease follows the database file, not
+its name (SEC-013, option (C), D-IMPL-378).** The sidecar is keyed on the
+database file's resolved path, so a writer that reaches the same file through
+another name is not excluded by it: through a hard link it is refused only
+because the file has two names, and through the new name of a renamed live
+file it boots. A deployment that declares `writer_lease_lock_dir` on the SQLite
+connection settings (the same setting, validation and directory rules as the
+network stores above) makes each writer also hold an exclusive `flock` on
+`<writer_lease_lock_dir>/<sha256(database file identity)>.lock`, where the
+identity is the file's device and inode, read when the store opens the file
+(`src/ccf/graph/backends/sqlite.py::SqliteGraphStore`). A second process's
+writer through a hard link or through the renamed file's new name is then
+refused with `SingleWriterViolation` naming that lock, among writers that
+declare the same directory
+(`tests/graph/test_sqlite_writer_lease_file_identity.py`). An in-memory
+database with a lock directory declared is refused when its store is built: it
+has no file to follow. What the declared lock does not close, each measured in
+`tests/graph/test_sqlite_writer_lease_file_identity_limits.py`:
+
+- **Writers that declare different directories, or none, are not excluded**
+  through another name. Declare one directory for every process that writes the
+  file.
+- **Do not rename or move a live database file; no lock makes it safe.** SQLite
+  keeps the writer's write-ahead log under the name it opened, so commits not
+  yet checkpointed are absent through the new name once the writer closes, and
+  SQLite's `integrity_check` still reports `ok`.
+- **The lease is taken when the writer is minted, after the store has opened
+  the database and run its setup.** A process the lease refuses has already
+  written that setup through its own name. Through a hard link, the log it
+  leaves rolls back what the holder committed once anything opens the file
+  through the link, again with `integrity_check` reporting `ok`. Do not open a
+  live database file through a second name, even to read it, and remove hard
+  links to it.
+- **A lock file stays behind for each database file identity ever leased, and
+  is harmless.** The kernel drops the `flock` when its holder exits or crashes,
+  so a lock file no process holds never blocks a boot, including one a deleted
+  file left whose inode number a new file was given; and while a writer holds
+  its file open, no other file can be given that file's inode number. Measured
+  on Linux (ext4); macOS not measured.
+
 Consequences for a deployment on the stores that do lease:
 
 - **Two processes that each boot the same deployment are mutually exclusive.**
@@ -624,8 +664,9 @@ Consequences for a deployment on the stores that do lease:
   while a writer is live, and the database file keeps one name
   (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name`).
   Keep the database file out of any backup that hard-links.
-- **SQLite: do not move a live database file. The lease does not follow a
-  rename, and `SEC-013` stays open on it.** A database file moved to a new
+- **SQLite: do not move a live database file. Without a declared lock
+  directory the lease does not follow a rename, and `SEC-013` stays open on
+  it.** A database file moved to a new
   name while a writer holds it still has one name, so option (B) does not
   refuse it, and a writer booted through the new name in a second process is
   not refused while the first is live
@@ -639,9 +680,10 @@ Consequences for a deployment on the stores that do lease:
   rename it: a file moved while no process has it open is one graph under
   its new name, and its lease refuses a second writer as usual
   (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_new_name`).
-  Option (C), a lock keyed on the file's device and inode in a declared
-  directory, is being built to close this gap (`D-IMPL-378`, 2026-10-08), and
-  `SEC-013` stays open until then.
+  Option (C) (`D-IMPL-378`, 2026-10-08), the lock that follows the database
+  file when `writer_lease_lock_dir` is declared (above), refuses that second
+  writer among writers that declare the same directory; a deployment that
+  declares none keeps this gap, and `SEC-013` stays open.
 - **Postgres.** Connect directly or through a *session*-pooled connection. A
   transaction- or statement-pooled connection (PgBouncer in those modes)
   cannot carry a session lock. A dropped connection loses the lease silently:

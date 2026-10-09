@@ -36,9 +36,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import ClassVar
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import HASH_TRANSPARENT_KEY
 from ccf.graph._writer import (
     BaseGraphWriter,
     BootToken,
@@ -46,6 +47,7 @@ from ccf.graph._writer import (
     _SqlGraphTxn,
 )
 from ccf.graph.backends.sqlite import SqliteGraphStore
+from ccf.graph.leases import AbsoluteLockDirectory, declared_lock_directory_lease
 from ccf.graph.reader import Row
 from ccf.graph.registry import BackendRegistration, BackendStore
 
@@ -175,9 +177,28 @@ class SqliteConnection(CCFContract):
             fall back. Annotated ``Path`` rather than ``str`` because Pydantic
             coerces a string to a ``Path`` and not the reverse, and callers pass
             both.
+        writer_lease_lock_dir: The ABSOLUTE directory this deployment declares
+            for a second writer lease that follows the database FILE rather
+            than its name (SEC-013, option (C), D-IMPL-378). The setting and
+            its validation are the network stores' precedent
+            (``src/ccf/graph/backends/fluree_write.py::FlureeConnection``):
+            a relative path, a path through a symbolic link, a missing
+            directory, one another user owns, or a group- or world-writable
+            one is refused at validation
+            (``src/ccf/graph/leases.py::AbsoluteLockDirectory``). Optional; a
+            read-only boot sets it aside unvalidated (N-2). Hash-transparent:
+            a connection that declares no directory canonicalizes as it did.
+            Without it the lease is the sidecar beside the resolved path and
+            the name count, and a writer through the new name of a renamed
+            live file is not excluded (measured by
+            ``tests/graph/test_sqlite_writer_lease_file_identity_limits.py::test_limit_a_writer_that_declares_no_lock_directory_is_not_excluded_through_a_renamed_file``);
+            with it, see ``src/ccf/graph/backends/sqlite.py::SqliteGraphStore``.
     """
 
     database_path: Path
+    writer_lease_lock_dir: AbsoluteLockDirectory | None = Field(
+        default=None, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
 
 def _open_store(
@@ -196,7 +217,10 @@ def _open_store(
             f"adapter {ADAPTER_NAME!r} takes a {SqliteConnection.__name__},"
             f" got a {type(config).__name__}"
         )
-    return SqliteGraphStore(database_path=config.database_path)
+    return SqliteGraphStore(
+        database_path=config.database_path,
+        writer_lease=declared_lock_directory_lease(config.writer_lease_lock_dir),
+    )
 
 
 def _make_writer(store: BackendStore, token: BootToken) -> BaseGraphWriter:
