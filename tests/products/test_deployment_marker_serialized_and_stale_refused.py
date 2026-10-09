@@ -737,6 +737,38 @@ def test_1_2_control_a_read_only_boot_beside_a_live_writer_is_not_held_by_the_st
     assert reader["emptiness_reads"] == 0 and reader["created_the_store"] is False, reader
 
 
+
+def test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A path whose directory does not exist: no store-creation lock, nothing created, and the SQLite adapter refuses it.
+
+    The panel's J-NODIR-NOLOCK (measured on ``6cd6023e``): the security how-to
+    (section 4.12) said that every plain boot, read-only included, holds the
+    store-creation lock. A path whose directory does not exist takes no lock
+    and gets no marker: it is left to the adapter
+    (``src/ccf/deployment/manifest.py::_StoreCreationLock``), and the SDK's
+    SQLite adapter refuses it with SQLite's own error, so the boot creates
+    nothing there, not even the directory, and there is nothing to serialize.
+    A measurement of behavior as it stands, writer and read-only.
+    """
+    import sqlite3  # noqa: PLC0415
+
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    for read_only in (False, True):
+        role = "read-only" if read_only else "writer"
+        target = tmp_path / f"missing-{role}" / _STORE
+        outcome = _boot(manifest, registry, target, read_only=read_only)
+        if not isinstance(outcome, Exception):
+            outcome.handle.close()
+            pytest.fail(f"[{role}] a plain boot whose store directory does not exist booted")
+        assert isinstance(outcome, sqlite3.OperationalError), (
+            f"[{role}] the boot was refused by something other than the SQLite adapter: {outcome!r}"
+        )
+        assert not target.parent.exists(), (
+            f"[{role}] the refused boot created the store's directory, and so could have created a lock or a marker there"
+        )
+
 # --- 4. the runbook's first step: what each file shows while a fabric is open ---------------------------------------
 
 
