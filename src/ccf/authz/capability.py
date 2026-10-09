@@ -70,6 +70,7 @@ from ccf.authz.actions import (
     ACTION_AGENT_VERSIONS,
     ACTION_ARTIFACT_READ,
     ACTION_ARTIFACT_ERASE,
+    ACTION_ARTIFACT_SUBJECT_MATCH,
     ACTION_ARTIFACT_WRITE,
     ACTION_BACKENDS_READ,
     ACTION_CONFIG_KEYS_READ,
@@ -108,6 +109,7 @@ __all__ = [
     "AgentVersions",
     "ArtifactErase",
     "ArtifactRead",
+    "ArtifactSubjectMatch",
     "ArtifactWrite",
     "Authorized",
     "BackendsRead",
@@ -283,10 +285,23 @@ class ArtifactErase(ActionKind, action_id=ACTION_ARTIFACT_ERASE):
     """
 
 
+class ArtifactSubjectMatch(ActionKind, action_id=ACTION_ARTIFACT_SUBJECT_MATCH):
+    """The erasure door's server-side subject match (SEC-009; `D-IMPL-378`, Dave's 16:40 MST item 5 — D3b).
+
+    Minted only by :func:`mint` from an authorizer's allow for the action id
+    itself (the tool acts on no addressable resource the caller names) — never
+    at composition. Not a read kind: the MCP guard refuses it to a stated
+    (ambient stdio) identity before any decision is asked for. Holding it is
+    necessary and never sufficient: the tool also requires the erasure door's
+    signature, by the door key the caller's tenant declares, over exactly the
+    query asked.
+    """
+
+
 _KINDS_BY_ACTION: Final[dict[str, type[ActionKind]]] = {
     kind.action_id: kind
     for kind in (
-        ArtifactErase, ArtifactRead, ArtifactWrite, AgentDeclare, AgentList, AgentRead,
+        ArtifactErase, ArtifactRead, ArtifactSubjectMatch, ArtifactWrite, AgentDeclare, AgentList, AgentRead,
         AgentVersions, BackendsRead, ConfigKeysRead, ConfigVersionsRead,
         ConfigResolve, ConfigRegister, DocsRead, HealthRead, HitlQueueRead,
         HitlSubmit, OpenApiRead, ProductRetrieve, ReplayRead, SchemaList,
