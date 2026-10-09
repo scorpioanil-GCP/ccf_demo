@@ -96,6 +96,14 @@ would excuse every difference. Every comparison checks the copy first (``_compar
 fails by name, ``FloorCopyDidNotAnswer``, and a limitation measurement reports the cell under its own outcome,
 ``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured.
 
+**X17 (a): the pin channel** (Dave, 2026-10-09 06:06 MST, confirmed 06:21 MST, ``D-IMPL-378``: *"Cover versioned
+resolution and write-then-read in the closure gate"*).
+``test_a_pin_filed_in_one_deployment_reads_alike_in_both[<shape>-<anchor>-<surface>]`` reads, as the asker, every
+executed-query pin filed in only one of the counterfactual's two deployments, in both, at every surface the asker can
+read it at, write-then-read included. Its instrument is ``test_the_pin_instrument_sees_a_difference``, and its
+population is reported every run by ``test_the_pin_channel_census_is_measured_and_reported``. An outsider recomputing
+a pin's address without the record is unreproduced, and that does not excuse the channel.
+
 Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
 -----------------------------------------------------------------------------------------
 For a product that reads the whole population — the fabric loaded before the
@@ -1991,9 +1999,10 @@ def test_a_pin_filed_in_one_deployment_reads_alike_in_both(
     **Expected on this tree.** The versioned-URI resolution and the three write-then-read reads tell the two
     deployments apart wherever a pin is one-sided (``D-IMPL-378`` F1-1b and F1-1c: open, design-first), so those
     cells are RED, and none is marked, skipped or excluded. At two population-reading shapes a pin is one-sided under
-    ``from_entity_freshness`` too, because there the two deployments answer every identifier differently (one serves
-    where the other refuses ``ttl-bounds``), which is D1 (a)'s confound. D1 (a) retires the other channels'
-    two-deployment cells of those shapes; no ruling retires these, so they are in the gate.
+    ``from_entity_freshness`` too, because there the deployment whose source holds the subject serves where the other
+    refuses: D1 (a)'s confound, which this module's D1 (a) block reports, at the outcome, for those shapes'
+    two-deployment cells. D1 (a) retires the other channels' two-deployment cells of those shapes; no ruling retires
+    these, so they are in the gate.
 
     **Not reached.** A composite's children answer through records that the parent's record does not name in these
     worlds (its ``child_replay_ref`` is empty), so the pins those children file are outside this channel.

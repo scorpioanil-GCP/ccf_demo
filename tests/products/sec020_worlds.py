@@ -3476,10 +3476,11 @@ class NeverRunCache:
 # "Add the channel with every read. The gate goes red on the resolution resource until that is addressed."
 #
 # A record names the executed-query pins its walk issued (``content_generation_path.graph_query_sequence``). A pin is
-# the content hash of its query, and the deployment files it in its store when the answer is served; a refused answer
-# records its pins and files none (measured, lane 378i-gate). Two deployments asked the same question can therefore
-# file different pins, and a surface that answers a present address differently from an absent one tells the two
-# deployments apart. The closing test reads every pin filed in exactly one of the counterfactual's two deployments,
+# the content hash of its query and is filed in the deployment's store; a record can also name a pin that was never
+# filed (at this tree a refused answer's: the closing test's census reports, every run, the pins a run's records name
+# that are filed in neither deployment). Two deployments asked the same question can therefore file different pins,
+# and a surface that answers a present address differently from an absent one tells the two deployments apart. The
+# closing test reads every pin filed in exactly one of the counterfactual's two deployments,
 # as the asker, in both and in the noise floor's copy, and compares the readings with the gate's own rules
 # (``test_sec020_combined_proof.test_a_pin_filed_in_one_deployment_reads_alike_in_both``).
 
