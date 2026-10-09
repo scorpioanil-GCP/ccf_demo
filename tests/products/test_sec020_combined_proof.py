@@ -73,7 +73,19 @@ on 2026-10-08 at 12:29 MST), the two late-composite shapes declare no
 withholding stance and every question of theirs is its construction refusal,
 ``CompositeNeedsAWithholdingStance`` (``sec020_worlds.CONSTRUCTION_REFUSALS``),
 held the same way, with each instrument set against the same composite
-declaring a stance (``sec020_worlds.DECLARED_TWIN``).
+declaring a stance (``sec020_worlds.DECLARED_TWIN``). Where ruling P6 (a) is on
+the tree (``D-IMPL-378``, ruled by Dave on 2026-10-08 at 16:40 MST: *"Extend
+CT-A with the working declared-population twin"*), every question of the
+``population`` shape — a population read left in the subject-keyed phase under
+a late withhold — ends in ``PopulationReadInSubjectKeyedPhase``, decided by the
+P6 probe and never by the subject; that refusal counts as the property its
+cells hold only when every probed side observed it with one message AND the
+declared-population twin (the same source, its read declared through
+``open_product(population=...)``: the ``population_declared`` world) answered
+both its questions (``sec020_worlds.p6_refused``;
+``test_a_population_read_in_the_subject_keyed_phase_is_refused_for_every_question``),
+and each of the shape's instruments is then set against that twin answering.
+Its cells stay in the gate, unretired and unmarked.
 
 Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
 -----------------------------------------------------------------------------------------
@@ -160,7 +172,10 @@ Dave ruled them on 2026-10-08 at 12:29 MST.
 
 SEC-020 is OPEN: Dave approved E1 (a), E2 (i) and (iii), P2 (c), CT-A (a) and
 CT-C (a), and did not approve closure; CT-B is not approved, so the 22
-undeclared-population cells stay in the gate.
+undeclared-population cells stay in the gate — judged, since his ruling P6 (a)
+of 2026-10-08 16:40 MST, by CT-A extended to the P6 refusal (above). He did not
+approve closure on that probe alone: *"Do not declare closure based on this
+probe alone."*
 
 E2 (ii): a class that affirms ``never`` and withholds anyway (Dave, 2026-10-08 12:29 MST)
 ------------------------------------------------------------------------------------------
@@ -389,7 +404,9 @@ def _vacuous(run: w.Run, *sides: str, either: bool = False) -> dict[str, dict[st
         hit = {
             side: r[position]
             for side, r in raised.items()
-            if position in r and not w.raising_is_the_property(run.shape, position, r[position])
+            if position in r
+            and not w.raising_is_the_property(run.shape, position, r[position])
+            and not w.p6_refusal_is_the_property(run, position, r[position])
         }
         if (either and hit) or (hit and all(position in r for r in raised.values())):
             found[position] = hit
@@ -610,7 +627,7 @@ def test_the_instrument_sees_a_difference(
     """
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
-    if channel == w.REFERENCE and shape != w.REUSED_STORE and w.DECLARED_TWIN not in run.sides:
+    if channel == w.REFERENCE and shape != w.REUSED_STORE and w.DECLARED_TWIN not in run.sides and not w.p6_refused(run):
         # Q11: a reference is unique per answer, so no difference survives the
         # noise floor by design; the reference channel is instrumented by
         # Q11's properties instead (``reused_store``: Q9 refuses every
@@ -724,6 +741,54 @@ def test_an_undeclared_composite_is_refused_where_its_resolver_is_built(
     )
 
 
+#: The shapes ruling P6 (a) refuses every question of, on this tree (empty where the refusal does not exist).
+P6_REFUSED_SHAPES = tuple(shape for shape in w.P6_REFUSED_SHAPES if w.probe_refusal_exists())
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+@pytest.mark.parametrize("shape", P6_REFUSED_SHAPES)
+def test_a_population_read_in_the_subject_keyed_phase_is_refused_for_every_question(
+    runs: w.RunCache, shape: str, anchor: str, door: str
+) -> None:
+    """``D-IMPL-378`` ruling P6 (a) — CT-A extended, which Dave ruled on 2026-10-08 at 16:40 MST.
+
+    Dave, verbatim: *"Extend CT-A with the working declared-population twin."*
+    A class that may withhold, declares no early policy and reads its
+    population inside the subject-keyed phase is refused, every question,
+    ``PopulationReadInSubjectKeyedPhase``, decided by the probe and never by
+    the subject: every probed side of every deployment of this shape — the
+    source holding the subject or not, the policy on or off, the withheld
+    subject or an identifier nothing holds — observes that ONE refusal, by
+    name, with one message, at every door (read by type behind HTTP and MCP
+    off the resolver each door was handed). This is the property the shape's
+    cells are held on (``sec020_worlds.p6_refused``). The control: the same
+    source with its read declared as the population phase
+    (``open_product(population=...)``, the ``population_declared`` world),
+    withholding the same subject, ANSWERS both questions — so the refusal is
+    the undeclared read's, not a broken builder's. Not closure: a source that
+    recognizes the probe is not detected.
+    """
+    run = runs.get(shape=shape, anchor=anchor, door=door)
+    refusals = {side: run.raised(side).get(w.ONLY, "") for side in w.P6_PROBED_SIDES}
+    wrong = {
+        side: refusal or w.render(run.channel(side, w.RESPONSE))
+        for side, refusal in refusals.items()
+        if not refusal.startswith(f"{w.P6_REFUSAL}:")
+    }
+    assert not wrong, f"[{shape}, {anchor}, {door}] not refused by {w.P6_REFUSAL}: {wrong}"
+    assert len(set(refusals.values())) == 1, (
+        f"[{shape}, {anchor}, {door}] the refusal must be worded once, whatever was asked: {sorted(set(refusals.values()))}"
+    )
+    for twin in (w.POPULATION_TWIN, w.POPULATION_TWIN_NEVER_HELD):
+        assert not run.raised(twin), (
+            f"[{shape}, {anchor}, {door}] control: the same source with its population read declared raised"
+            f" ({twin}), so the refusal above is not evidence that the undeclared read is what it refuses:"
+            f" {run.raised(twin)}"
+        )
+    assert w.p6_refused(run), f"[{shape}, {anchor}, {door}] CT-A extended does not hold for this run"
+
+
 #: The shapes whose withholding deployment is asked three different questions.
 UNIQUENESS_SHAPES = tuple(shape for shape in ALL_SHAPES if w.SAME_DEPLOYMENT in w.comparisons_for(shape))
 
@@ -756,6 +821,16 @@ def test_a_public_reference_never_names_two_records(runs: w.RunCache, shape: str
         assert all(w.raising_is_the_property(shape, w.ONLY, message) for message in refusals.values()), (
             f"[{shape}, {anchor}, {door}] a question of an undeclared composite was not refused by P2 (c)'s"
             f" construction refusal: {refusals}"
+        )
+        return
+    if shape in w.P6_REFUSED_SHAPES and w.probe_refusal_exists():
+        # CT-A extended to ruling P6 (a) (`D-IMPL-378`, Dave 2026-10-08 16:40 MST):
+        # no question of this shape is answered, so it hands out no reference
+        # to compare — provided each refusal is P6's, held as the property.
+        refusals = {side: run.raised(side).get(w.ONLY, "") for side in answered}
+        assert all(w.p6_refusal_is_the_property(run, w.ONLY, message) for message in refusals.values()), (
+            f"[{shape}, {anchor}, {door}] a question of a population read left in the subject-keyed phase was"
+            f" not refused by ruling P6 (a)'s refusal held as the property (CT-A extended): {refusals}"
         )
         return
     references = {
@@ -1056,9 +1131,11 @@ def test_the_same_deployment_instrument_sees_a_difference(
     """
     _require(shape)
     run = runs.get(shape=shape, anchor=anchor, door=door)
-    if channel == w.REFERENCE:
+    if channel == w.REFERENCE and not w.p6_refused(run):
         # Q11, as in the standing instrument: the reference channel is
-        # instrumented by Q11's properties, never by a difference.
+        # instrumented by Q11's properties, never by a difference (under CT-A
+        # extended to ruling P6 (a), by the twin's answer against the refusal,
+        # below, as every channel of a refused shape is).
         problems = w.reference_properties(run)
         assert not problems, (
             f"same-deployment reference instrument [{shape}, {anchor}, {door}]: Dave's Q11 properties do"
