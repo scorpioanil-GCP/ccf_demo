@@ -33,7 +33,9 @@ and ``open_product`` on the paved road:
 * so is the reverse: the subject-keyed phase's object holding the population
   phase;
 * the probe's two controls (both phases on one object; a closure holding the
-  subject-keyed phase itself) are still refused;
+  subject-keyed phase itself) are still refused, and so is a method whose
+  function's closure holds the subject-keyed phase's object, which the guard
+  already read;
 * two phases that share nothing are still admitted.
 
 Every domain value here is fixture vocabulary (CINV-01, CLAUDE.md §11).
@@ -41,9 +43,11 @@ Every domain value here is fixture vocabulary (CINV-01, CLAUDE.md §11).
 
 from __future__ import annotations
 
+import collections
 import pathlib
+import types
 from collections.abc import Callable
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 
@@ -127,6 +131,13 @@ class _Holder:
         self.held = held
 
 
+class _Pair(NamedTuple):
+    """A ``tuple`` subclass."""
+
+    first: object
+    second: object
+
+
 def _closure_over(held: object) -> Callable[..., tuple[SignalEnvelope, ...]]:
     """A population phase whose closure holds ``held``."""
 
@@ -156,6 +167,33 @@ def _keyword_default(held: object) -> Callable[..., tuple[SignalEnvelope, ...]]:
     return population
 
 
+def _function_attribute(held: object) -> Callable[..., tuple[SignalEnvelope, ...]]:
+    """A population phase, a plain function, holding ``held`` as one of its own attributes."""
+
+    def population(*_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+        return ()
+
+    population.held = held  # type: ignore[attr-defined]
+    return population
+
+
+def _a_cycle_before(held: object) -> list[object]:
+    """A list holding itself, and then a holder of ``held``."""
+    cycle: list[object] = []
+    cycle.append(cycle)
+    cycle.append(_Holder(held))
+    return cycle
+
+
+def _method_closing_over(held: object) -> Callable[..., tuple[SignalEnvelope, ...]]:
+    """A population phase that is a bound method whose function's closure holds ``held``."""
+
+    def population(self: object, *_: object, **__: object) -> tuple[SignalEnvelope, ...]:
+        return () if held is not None else ()
+
+    return types.MethodType(population, _Population())
+
+
 def _cell(phase: Any) -> Any:
     """The one closure cell's contents of ``phase``."""
     (cell,) = phase.__closure__
@@ -182,6 +220,18 @@ _HOLDING_SHAPES: dict[str, tuple[Callable[[_SubjectKeyed], Any], Callable[[Any],
         lambda peer: _closure_over([peer.low_road]),
         lambda phase: _cell(phase)[0].__self__,
     ),
+    "function-attribute": (_function_attribute, lambda phase: phase.held),
+    # A builtin type whose instances keep their attributes in an instance dictionary.
+    "closure-simple-namespace": (
+        lambda peer: _closure_over(types.SimpleNamespace(held=peer)),
+        lambda phase: _cell(phase).held,
+    ),
+    "closure-dict-subclass-value": (
+        lambda peer: _closure_over(collections.defaultdict(list, {"held": peer})),
+        lambda phase: _cell(phase)["held"],
+    ),
+    "closure-tuple-subclass": (lambda peer: _closure_over(_Pair(peer, None)), lambda phase: _cell(phase).first),
+    "closure-cycle-then-holder": (lambda peer: _closure_over(_a_cycle_before(peer)), lambda phase: _cell(phase)[1].held),
 }
 
 
@@ -244,6 +294,18 @@ def test_q7_control_a_closure_holding_the_subject_keyed_phase_is_refused(tmp_pat
     held = peer.low_road if site == "resolver" else peer.paved
     population = _closure_over(held)
     assert _cell(population).__self__ is peer
+    with pytest.raises(PopulationPhaseSharesAnOwner):
+        _compose(site, tmp_path, population=population, peer=peer)
+
+
+@pytest.mark.parametrize("site", SITES)
+def test_q7_control_a_method_whose_function_closes_over_the_subject_keyed_object_is_refused(
+    tmp_path: pathlib.Path, site: str
+) -> None:
+    """A bound method's function closure, which the guard read before the walk, is still read."""
+    peer = _SubjectKeyed()
+    population = _method_closing_over(peer)
+    assert _cell(population.__func__) is peer
     with pytest.raises(PopulationPhaseSharesAnOwner):
         _compose(site, tmp_path, population=population, peer=peer)
 
