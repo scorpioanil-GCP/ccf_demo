@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2502 entries**, of which **2225** name a public Python surface.
+**2503 entries**, of which **2226** name a public Python surface.
 
 ## Added
 
@@ -30839,7 +30839,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-472 entries — 433 public Python surface, 39 not public Python API.
+473 entries — 434 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37634,6 +37634,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none in code. An operator who reconciles executions against the audit log reads a `running` execution past its gate with no `workflow_resumed` row as a passage whose row append failed; the approver is named by the gate's closure on the HITL transport (`decided_by`).
 
 *Recorded by `378-54-decision-7-the-passage-and-its-row-are-two-writes.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: `resume`, finding no approval for a suspension whose request never reached the queue, restored the request and returned the suspension without appending its refusal row. The audit log read the suspension's `workflow_suspended` row and then a second one, and recorded no refused resumption
+- After: `resume` appends its refusal row first (`workflow_resumed`, `resolved=False`, no actor, the row any refused resumption appends), then restores the request as before and returns the suspension. A restore that fails after the row leaves the row and no request. A second refused resumption appends one more refusal row and files no second request. Of two processes resuming at once, each resumption is recorded as refused in its own log, and the one whose restore loses raises `ExecutionFenced` having filed nothing. The docstring of `resume` says so
+- Why: `D-IMPL-378`, Dave's repair 1.4 (a) of 2026-10-09. Red tests: `tests/workflow/test_restore_keeps_the_refused_resumption_row.py::test_a_resumption_that_restores_a_missing_request_is_recorded_as_refused_before_the_restore`, `::test_a_second_refused_resumption_appends_one_refusal_row_and_files_no_second_request`, `::test_a_restore_that_fails_after_the_refusal_row_leaves_that_row_and_the_next_refused_resumption_restores`, `::test_two_processes_recovering_at_once_are_each_recorded_as_refused_and_one_restore_lands`
+- Migration: none in code. An operator reading the audit log for a suspension restored by a resumption finds, after the suspension's own `workflow_suspended` row, the refused resumption's `workflow_resumed` row (`resolved=False`, no actor) and then the restore's `workflow_suspended` row, which is the suspension's own row but for its sequence and time. A suspension restored by the starter's retried start shows the restore's row alone
+
+*Recorded by `378-64-a-resumption-that-restores-is-recorded-as-refused-first.md`.*
 
 ### Not public Python API
 

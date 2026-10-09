@@ -2202,7 +2202,11 @@ class WorkflowEngine:
           version the caller read (:meth:`_fenced_write`). Its content hash,
           which the request, every verdict and the gate's closure are bound to,
           does not change, and the write appends one more ``workflow_suspended``
-          row for the same suspension. Of two recoveries that read the same
+          row for the same suspension. That row is the suspension's own row in
+          every field but its sequence and its time, so nothing in it marks a
+          restore
+          (``tests/workflow/test_restore_keeps_the_refused_resumption_row.py::test_the_restores_row_is_the_suspensions_own_row_but_for_its_sequence_and_time``).
+          Of two recoveries that read the same
           version, one write lands and the other raises
           :class:`ExecutionFenced` having filed no request (a resumption's
           refusal row, appended before, stays);
