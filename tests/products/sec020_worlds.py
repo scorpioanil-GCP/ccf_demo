@@ -4034,6 +4034,36 @@ HELD_REFUSAL_TWIN = SUBJECT_KEYED
 #: and an ordinarily served subject (:data:`SERVED`, the policy off). Every one is
 #: a question the P6 probe reads, so every one is refused alike.
 HELD_REFUSAL_SIDES = (CF_WITHHELD, SAME_NONEXISTENT, SAME_FLOOR, CF_NONEXISTENT, CF_FLOOR, SERVED)
+#: Item 4 (b) as repaired by 2.3 (b) (``D-IMPL-378``, Dave, 2026-10-09 10:54 MST,
+#: verbatim: "Use (d) only if “unknown identifier” has a typed, stable cause. Do
+#: not infer it from message text. Otherwise implement (b) with a recorded
+#: constant SDK cause. Role and parameter refusals must retain their decision
+#: records."): the probe's held refusal is no longer raised. Every question is
+#: ANSWERED and RECORDED as the SDK's one constant, which this names, as data, and
+#: :func:`held_refusal_constant` reads from the SDK at run time.
+HELD_REFUSAL_CONSTANT = "UNHELD_SUBJECT_PROBE_REFUSAL"
+
+
+def held_refusal_constant() -> Any:
+    """The SDK's own :data:`HELD_REFUSAL_CONSTANT` (``ccf.products.resolver``), read at run time; ``None`` if absent."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return getattr(resolver, HELD_REFUSAL_CONSTANT, None)
+
+
+def served_refusal(run: Run, side: str) -> Any:
+    """The refusal ``side`` was SERVED, as its door carried it; ``None`` where it was served no refusal.
+
+    In process, the envelope; over HTTP, the body's ``refusal``; over MCP, the door outcome's ``refusal``. Each door's
+    own replay reference was already set aside where it was observed (``observe_*``).
+    """
+    response = jsonable(run.sides[side].channels.get(RESPONSE))
+    if not isinstance(response, dict):
+        return None
+    if run.door == IN_PROCESS:
+        return response.get("envelope")
+    holder = response.get("body") if run.door == HTTP else response.get("outcome")
+    return holder.get("refusal") if isinstance(holder, dict) else None
 
 
 class HeldRefusalSource(SubjectKeyedSource):

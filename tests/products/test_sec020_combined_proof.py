@@ -273,6 +273,8 @@ from typing import Any
 
 import pytest
 
+from ccf.contracts.canonical import canonical_bytes
+from ccf.products.refusal import REFUSAL_KINDS
 from tests.products import sec020_worlds as w
 
 #: The MCP SDK and its HTTP client log every request at INFO; the proof reads
@@ -2204,7 +2206,8 @@ def test_the_pin_channel_census_is_measured_and_reported(
 
 
 # =============================================================================
-# OWED-RULINGS-3 item 4 (b): a held refusal at the P6 probe — the refusal counts, paired with a working twin
+# OWED-RULINGS-3 item 4 (b), as repaired by 2.3 (b): a held refusal at the P6 probe — answered and recorded as the SDK's
+# one constant, paired with a working twin
 # =============================================================================
 #
 # Dave, 2026-10-09 06:21 MST (``D-IMPL-378``), verbatim: "4(b), plus the
@@ -2213,29 +2216,31 @@ def test_the_pin_channel_census_is_measured_and_reported(
 # call itself returns a held refusal (refuses every question to a source that
 # refuses unknown identifiers)." CT-A (a), Dave, 2026-10-08 12:29 MST, verbatim:
 # "Construction refusal counts, paired with a declared twin that successfully
-# answers."
+# answers." Repair 2.3, Dave, 2026-10-09 10:54 MST, verbatim: "Use (d) only if
+# “unknown identifier” has a typed, stable cause. Do not infer it from message
+# text. Otherwise implement (b) with a recorded constant SDK cause. Role and
+# parameter refusals must retain their decision records."
 #
 # A judging change, appended: the cells below sit beside the matrix and change
 # nothing it judges. The deployment is the ``subject_keyed`` world with its
 # source answering an identifier it does not hold with a HELD refusal
 # (``sec020_worlds.HeldRefusalSource``) — before item 4 (b), the withheld
 # subject was answered while an identifier nothing holds was refused as data,
-# at every door. Every question of it is now refused,
-# ``UnheldSubjectProbeRefused``, decided by the probe and never by the subject.
-# That refusal counts as the property a cell holds only when every side of the
-# run observed it, by name, with ONE message, AND the supported working twin —
-# the same deployment with its source answering an unheld identifier with
-# nothing, the gate's own ``subject_keyed`` world (``HELD_REFUSAL_TWIN``) —
-# answered every one of the same questions
-# (``test_a_held_refusal_at_the_probe_is_refused_for_every_question``).
-# Since repair 2.3 (b) (Dave, 2026-10-09 10:54 MST, D-IMPL-378, 2.3, verbatim:
-# "Otherwise implement (b) with a recorded constant SDK cause. Role and
-# parameter refusals must retain their decision records."; built by lane
-# 378j-resolver) no question of this deployment raises: every one is answered.
-# So the cells comparing the withheld subject with the nonexistent one are
-# judged exactly as a gate cell is, with no exception for a raise:
-# ``_vacuous``, then ``_compare``, over the answered refusals. SEC-020 stays
-# OPEN.
+# at every door. As item 4 (b) was first built, every question of it raised
+# ``UnheldSubjectProbeRefused`` and recorded nothing. Since repair 2.3 (b)
+# (built as (b) by lane 378j-resolver) no question raises: every one is
+# ANSWERED and RECORDED as ``ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL``,
+# decided by the probe and never by the subject.
+# ``test_a_held_refusal_at_the_probe_is_refused_for_every_question`` holds that
+# as the property — every side answered, served the SDK's constant (read from the
+# SDK at run time) identically, and recorded exactly once at the ``acquisition``
+# seam — together with the supported working twin: the same deployment with its
+# source answering an unheld identifier with nothing, the gate's own
+# ``subject_keyed`` world (``HELD_REFUSAL_TWIN``), carried on the run, which
+# answered every one of the same questions and served. The cells comparing the
+# withheld subject with the nonexistent one are judged exactly as a gate cell
+# is, with no exception for a raise: ``_vacuous``, then ``_compare``, over the
+# answered refusals. SEC-020 stays OPEN.
 
 
 @pytest.fixture(scope="module")
@@ -2253,67 +2258,123 @@ def held_refusal_runs(
             logging.getLogger(name).setLevel(level)
 
 
-def _held_refusal_refused(run: w.Run, twin: w.Run) -> bool:
-    """CT-A (a) for item 4 (b): whether the held-refusal run's refusal is the property its cells hold.
+def _question_neutral(value: Any) -> Any:
+    """``value`` with the question's own echo set aside: the asked identifiers, and the identity of its own request.
 
-    True only when every side of the run (``sec020_worlds.HELD_REFUSAL_SIDES``)
-    ended its one question in ``UnheldSubjectProbeRefused``, by type name, with
-    ONE message among them all, and the twin raised nothing for any of the same
-    sides' questions.
+    A served refusal names the question it answers: a parameter's provenance cites the caller's request by its
+    identity, a hash of the question, the asked identifier included. That is the caller's own input, not what the
+    fabric holds, so it is set aside, as :func:`sec020_worlds._subject_neutral` sets the asked identifiers aside,
+    before two sides' served refusals are held to be the same. Every other byte must be equal.
     """
-    refusals = {run.raised(side).get(w.ONLY, "") for side in w.HELD_REFUSAL_SIDES}
-    if len(refusals) != 1 or not next(iter(refusals)).startswith(f"{w.HELD_REFUSAL_REFUSAL}:"):
-        return False
-    return not any(twin.raised(side).get(w.ONLY) for side in w.HELD_REFUSAL_SIDES)
+
+    def requests(item: Any) -> Any:
+        if isinstance(item, dict):
+            if item.get("kind") == "request" and "identity" in item:
+                item = {**item, "identity": "<the question's own request>"}
+            return {key: requests(entry) for key, entry in item.items()}
+        if isinstance(item, list):
+            return [requests(entry) for entry in item]
+        return item
+
+    return requests(w._subject_neutral(value))
 
 
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize("anchor", w.ANCHORS)
 def test_a_held_refusal_at_the_probe_is_refused_for_every_question(
-    held_refusal_runs: w.HeldRefusalRunCache, runs: w.RunCache, anchor: str, door: str
+    held_refusal_runs: w.HeldRefusalRunCache, anchor: str, door: str
 ) -> None:
-    """Item 4 (b), the refusal: every question of the held-refusal deployment refused alike, the twin answering.
+    """Item 4 (b) as repaired by 2.3 (b), the property: every question ANSWERED and RECORDED as the SDK's one constant.
 
-    Every side — the withheld subject, two identifiers nothing holds, the
-    counterfactual pair and an ordinarily served subject — observes
-    ``UnheldSubjectProbeRefused``, by name, with one message, at every door
-    (read by type behind HTTP and MCP off the resolver each door was handed);
-    every source was handed the probe identifier and never an asked subject;
-    and the supported working twin answered every one of the same questions,
-    its served subject SERVED.
+    Dave, 2026-10-09 10:54 MST (``D-IMPL-378``), 2.3, verbatim: *"Use (d) only if “unknown identifier” has a typed,
+    stable cause. Do not infer it from message text. Otherwise implement (b) with a recorded constant SDK cause. Role
+    and parameter refusals must retain their decision records."* Built as (b) by lane ``378j-resolver``: the probe's
+    held refusal is no longer raised, and every question of the held-refusal deployment is answered with
+    ``ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL`` and recorded. Item 4 (b)'s own ruling, verbatim: *"4(b),
+    plus the closing-test case and a supported working twin"*. Held at every door, on every side (the withheld
+    subject, two identifiers nothing holds, the counterfactual pair and an ordinarily served subject):
+
+    * **answered**: the side raised nothing, at its question or inside a record read;
+    * **served the SDK's constant**: the refusal it was served has the constant's kind, its own sentence, its cause
+      and its code, the constant read from the SDK at run time (``sec020_worlds.held_refusal_constant``); every side
+      was served the same refusal, byte for byte, the question's own echo aside (:func:`_question_neutral`); and every
+      side was answered with one refusal code (the refusal-code channel, its recorded cause aside);
+    * **recorded once**: the side's QUESTION wrote exactly one artifact (``notes["written"]``, read between the
+      question and its record reads), a decision record at the ``acquisition`` seam holding the constant, and it is
+      the record the side's answer references.
+
+    And every source was handed the probe identifier and never an asked subject; and the run's declared working twin
+    (the gate's own ``subject_keyed`` world, carried on the run, ``sec020_worlds.DECLARED_WORKING_TWIN``) was asked
+    every one of the same questions at the same anchor through the same door, raised nothing, and SERVED its
+    ordinarily served subject.
     """
     run = held_refusal_runs.get(anchor=anchor, door=door)
-    twin = runs.get(shape=w.HELD_REFUSAL_TWIN, anchor=anchor, door=door)
-    refusals = {side: run.raised(side).get(w.ONLY, "") for side in w.HELD_REFUSAL_SIDES}
-    wrong = {
-        side: refusal or w.render(run.channel(side, w.RESPONSE))
-        for side, refusal in refusals.items()
-        if not refusal.startswith(f"{w.HELD_REFUSAL_REFUSAL}:")
+    cell = f"[{anchor}, {door}]"
+    constant = w.held_refusal_constant()
+    assert constant is not None, f"{cell} the SDK constant {w.HELD_REFUSAL_CONSTANT} is not on this tree"
+    as_served = (
+        REFUSAL_KINDS[type(constant)],
+        constant.detail,
+        {
+            "cause": canonical_bytes(constant.cause).decode("utf-8"),
+            "error_code": canonical_bytes(constant.error_code).decode("utf-8"),
+        },
+    )
+    raised = {side: run.raised(side) for side in w.HELD_REFUSAL_SIDES if run.raised(side)}
+    assert not raised, f"{cell} a side RAISED instead of being answered: {raised}"
+    served = {side: w.served_refusal(run, side) for side in w.HELD_REFUSAL_SIDES}
+    not_the_constant = {
+        side: w.render(refusal)
+        for side, refusal in served.items()
+        if not isinstance(refusal, dict)
+        or (refusal.get("kind"), refusal.get("detail"), refusal.get("fields")) != as_served
     }
-    assert not wrong, f"[{anchor}, {door}] not refused by {w.HELD_REFUSAL_REFUSAL}: {wrong}"
-    assert len(set(refusals.values())) == 1, (
-        f"[{anchor}, {door}] the refusal must be worded once, whatever was asked: {sorted(set(refusals.values()))}"
+    assert not not_the_constant, (
+        f"{cell} a side was not served the SDK's constant ({w.HELD_REFUSAL_CONSTANT}: kind, sentence, cause and"
+        f" code): {not_the_constant}"
+    )
+    alike = {json.dumps(_question_neutral(refusal), sort_keys=True) for refusal in served.values()}
+    assert len(alike) == 1, f"{cell} the sides were served different refusals: {sorted(alike)}"
+    codes = {
+        json.dumps({key: value for key, value in run.channel(side, w.REFUSAL).items() if key != "recorded_cause"},
+                   sort_keys=True)
+        for side in w.HELD_REFUSAL_SIDES
+    }
+    assert len(codes) == 1, f"{cell} the sides were answered with different refusal codes: {sorted(codes)}"
+    not_recorded_once: dict[str, Any] = {}
+    for side in w.HELD_REFUSAL_SIDES:
+        written = run.notes["written"][side]
+        reference = w._reference_of(door, run.sides[side])
+        address = w._reference_parts(reference)["version"] if reference else None
+        recorded = written[0].get("refusal") if len(written) == 1 else None
+        if not (
+            len(written) == 1
+            and written[0]["record"]
+            and written[0]["address"] == address
+            and written[0]["seam"] == "acquisition"
+            and isinstance(recorded, dict)
+            and (recorded.get("kind"), recorded.get("detail"), recorded.get("fields")) == as_served
+        ):
+            not_recorded_once[side] = {"the question wrote": written, "the answer references": address}
+    assert not not_recorded_once, (
+        f"{cell} a question did not write exactly one decision record holding the SDK's constant at the acquisition"
+        f" seam, the one its answer references: {w.render(not_recorded_once, limit=2000)}"
     )
     probe = w.probe_identifier()
     handed = {name: asked for name, asked in run.notes["asked"].items() if set(asked) != {probe}}
-    assert not handed, f"[{anchor}, {door}] a source was handed more than the probe identifier: {handed}"
-    twin_raised = {side: twin.raised(side).get(w.ONLY) for side in w.HELD_REFUSAL_SIDES if twin.raised(side).get(w.ONLY)}
-    assert not twin_raised, (
-        f"[{anchor}, {door}] control: the supported working twin raised, so the refusal above is not"
-        f" evidence that the held refusal is what it refuses: {twin_raised}"
+    assert not handed, f"{cell} a source was handed more than the probe identifier: {handed}"
+    twin = run.notes.get(w.DECLARED_WORKING_TWIN)
+    assert isinstance(twin, w.Run) and (twin.shape, twin.anchor, twin.door) == (w.HELD_REFUSAL_TWIN, anchor, door), (
+        f"{cell} the run does not carry its declared working twin"
     )
-    served = twin.channel(w.SERVED, w.RESPONSE)
-    if door == w.IN_PROCESS:
-        answered = served.get("outcome") == "served"
-    elif door == w.HTTP:
-        answered = served.get("status") == 200
-    else:
-        outcome = served.get("outcome")
-        answered = not served.get("is_error") and isinstance(outcome, dict) and outcome.get("refusal") is None
-    assert answered, (
-        f"[{anchor}, {door}] control: the twin did not serve its ordinarily served subject: {w.render(served)}"
+    unasked = [side for side in w.HELD_REFUSAL_SIDES if side not in twin.sides]
+    assert not unasked, f"{cell} the declared working twin was not asked every one of the same questions: {unasked}"
+    twin_raised = {side: twin.raised(side) for side in w.HELD_REFUSAL_SIDES if twin.raised(side)}
+    assert not twin_raised, f"{cell} the declared working twin RAISED instead of answering: {twin_raised}"
+    twin_served = twin.channel(w.SERVED, w.REFUSAL)
+    assert isinstance(twin_served, dict) and twin_served.get("outcome") == "served", (
+        f"{cell} the declared working twin did not SERVE its ordinarily served subject: {w.render(twin_served)}"
     )
-    assert _held_refusal_refused(run, twin), f"[{anchor}, {door}] CT-A (a) does not hold for this run"
 
 
 def _held_refusal_cells() -> list[Any]:
