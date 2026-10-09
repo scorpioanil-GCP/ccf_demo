@@ -4128,21 +4128,152 @@ def stand_in_run(base: pathlib.Path, *, anchor: str, door: str, held_as: str) ->
     )
 
 
-#: The two refusals Dave's 2026-10-09 06:21 MST rulings made constant across every subject (``D-IMPL-378``): item 4
-#: (b)'s held refusal at the P6 probe ("4(b), plus the closing-test case and a supported working twin") and decision 4
-#: (a)'s refused stand-in ("A failed check refuses without exposing subject-dependent differences.").
-CONSTANT_REFUSALS: tuple[str, ...] = (HELD_REFUSAL_REFUSAL, "UndisclosedSubjectSubstituteIsHeld")
+# =============================================================================
+# 2.1 (b): the acceptance helper — a raised floor copy is a floor only in the two constant-refusal worlds
+# =============================================================================
+#
+# Dave, 2026-10-09 10:54 MST (D-IMPL-378), 2.1 (b), verbatim (kept as a comment, CINV-01a): "Limit the closing-test
+# exception to the held-refusal and stand-in worlds. Require identical refusal type, code and constant message across
+# all sides, plus a working declared twin. Enforce these conditions inside the acceptance helper." The option ruled
+# (the "i" panel's findings brief, dl-378-record @ 15e79163, section 2.1 (b)), verbatim: "accept with the shape
+# restriction restored, so it applies only in the held-refusal and stand-in worlds". It restricts the coordinator's
+# judging change 09d5c2ba (J5), which admitted any run whose every side raised one of the two refusals.
+
+
+@dataclass(frozen=True)
+class ConstantRefusalWorld:
+    """One of the two worlds whose every question is refused alike by one refusal, and the twin it declares.
+
+    ``refusal`` is the refusal's type name; ``constant`` names the ``GovernedResolver`` static method that returns
+    the SDK's one message for it; ``sides`` is every side the world asks (its census: each must be refused alike);
+    ``twin`` labels the declared working twin's run, which is asked the same ``sides`` and must serve :data:`SERVED`.
+    """
+
+    refusal: str
+    constant: str
+    sides: tuple[str, ...]
+    twin: str
+
+
+#: The two worlds, by the label their runs carry (Dave, 2026-10-09 06:21 MST, D-IMPL-378): item 4 (b)'s held refusal
+#: at the P6 probe ("4(b), plus the closing-test case and a supported working twin"), whose twin is the gate's own
+#: ``subject_keyed`` world; and decision 4 (a)'s refused stand-in ("A failed check refuses without exposing
+#: subject-dependent differences."), whose twin holds the stand-in nowhere.
+CONSTANT_REFUSAL_WORLDS: dict[str, ConstantRefusalWorld] = {
+    HELD_REFUSAL: ConstantRefusalWorld(
+        refusal=HELD_REFUSAL_REFUSAL, constant="_probe_was_refused", sides=HELD_REFUSAL_SIDES, twin=HELD_REFUSAL_TWIN
+    ),
+    STAND_IN_HELD: ConstantRefusalWorld(
+        refusal=STAND_IN_REFUSAL, constant="_stand_in_is_held", sides=STAND_IN_SIDES, twin=STAND_IN_TWIN
+    ),
+}
+#: The two refusals the worlds hold, by type name.
+CONSTANT_REFUSALS: tuple[str, ...] = tuple(world.refusal for world in CONSTANT_REFUSAL_WORLDS.values())
+
+#: Why the acceptance helper admitted no floor, one name per condition of 2.1 (b) (:func:`why_no_constant_refusal`).
+NOT_ONE_OF_THE_TWO_WORLDS = "the run is not of the held-refusal world or the stand-in world"
+REFUSAL_NOT_ON_THIS_TREE = "the world's refusal or its SDK constant is not on this tree"
+NOT_THE_WORLDS_SIDES = "the run does not hold exactly the sides its world asks"
+NOT_THE_WORLDS_REFUSAL = "a side did not raise its world's refusal type, and only that, at its one question"
+NOT_THE_SDKS_CONSTANT = "a side's message is not the SDK's constant message for that refusal"
+REFUSAL_CODES_DIFFER = "the sides were answered with different refusal codes"
+NO_DECLARED_TWIN = "the run carries no declared working twin"
+NOT_THE_DECLARED_TWIN = "the twin is not its world's declared twin: another world, anchor or door, or a question unasked"
+TWIN_RAISED = "the declared twin raised instead of answering"
+TWIN_SERVED_NOTHING = "the declared twin served no product"
+
+
+def constant_refusal_message(world: ConstantRefusalWorld) -> str | None:
+    """The SDK's own constant message for ``world``'s refusal (``GovernedResolver.<constant>()``), or ``None`` if absent."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    if not hasattr(resolver, world.refusal):
+        return None
+    message = getattr(resolver.GovernedResolver, world.constant, None)
+    return message() if callable(message) else None
+
+
+def refusal_code(run: Run, side: str) -> str:
+    """The refusal code ``side`` was answered with: its refusal-code channel (:data:`REFUSAL`), rendered canonically.
+
+    In process, the raise itself (outcome, type, message); behind HTTP, the status, the outcome, the body and the
+    recorded cause; behind MCP, the error flag, the outcome, the text and the recorded cause. One part is replaced:
+    the MCP door's ``ccf-runtime-failure:<id>``, whose id is a fresh ``uuid4().hex`` per call that names an
+    occurrence, not a decision (``ccf_runtime.mcp.egress``), so two calls answered alike carry one code.
+    """
+    from ccf_runtime.mcp.egress import CCF_FAILURE_PREFIX  # noqa: PLC0415
+
+    occurrence = re.compile(rf"{re.escape(CCF_FAILURE_PREFIX)}:[0-9a-f]{{32}}")
+
+    def normalized(value: Any) -> Any:
+        if isinstance(value, str):
+            return occurrence.sub(f"{CCF_FAILURE_PREFIX}:<occurrence>", value)
+        if isinstance(value, dict):
+            return {key: normalized(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [normalized(item) for item in value]
+        return value
+
+    return json.dumps(normalized(jsonable(run.sides[side].channels.get(REFUSAL))), sort_keys=True, default=str)
+
+
+def _constant_refusal_world(run: Run) -> ConstantRefusalWorld | None:
+    """The world ``run`` is a run of, read off its own label: the held-refusal world, the stand-in world, or neither."""
+    return CONSTANT_REFUSAL_WORLDS.get(run.shape)
+
+
+def why_no_constant_refusal(run: Run) -> str | None:
+    """``None`` when ``run``'s refusal is held as the property; otherwise the first condition it fails, by name.
+
+    Every condition of 2.1 (b), read from the run itself and never from a caller: the run is of one of the two worlds
+    (:data:`CONSTANT_REFUSAL_WORLDS`); it holds exactly the sides its world asks; every one of them raised the
+    world's refusal type, only at its one question, with the SDK's constant message (:func:`constant_refusal_message`)
+    — so the same type and message on every side — and with one refusal code (:func:`refusal_code`); and the run
+    carries its world's declared working twin (:data:`DECLARED_WORKING_TWIN`): the world's twin label, at the same
+    anchor and door, asked every one of the same questions, raising nothing at any of them, and SERVING its served
+    subject (:data:`SERVED`).
+    """
+    world = _constant_refusal_world(run)
+    if world is None:
+        return NOT_ONE_OF_THE_TWO_WORLDS
+    constant = constant_refusal_message(world)
+    if constant is None:
+        return REFUSAL_NOT_ON_THIS_TREE
+    if set(run.sides) != set(world.sides):
+        return NOT_THE_WORLDS_SIDES
+    raised = {side: run.raised(side) for side in world.sides}
+    if any(set(found) != {ONLY} or not found[ONLY].startswith(f"{world.refusal}: ") for found in raised.values()):
+        return NOT_THE_WORLDS_REFUSAL
+    if any(found[ONLY] != f"{world.refusal}: {constant}" for found in raised.values()):
+        return NOT_THE_SDKS_CONSTANT
+    if len({refusal_code(run, side) for side in world.sides}) != 1:
+        return REFUSAL_CODES_DIFFER
+    twin = run.notes.get(DECLARED_WORKING_TWIN)
+    if not isinstance(twin, Run):
+        return NO_DECLARED_TWIN
+    if (twin.shape, twin.anchor, twin.door) != (world.twin, run.anchor, run.door) or any(
+        side not in twin.sides for side in world.sides
+    ):
+        return NOT_THE_DECLARED_TWIN
+    if any(twin.raised(side) for side in world.sides):
+        return TWIN_RAISED
+    served = jsonable(twin.sides[SERVED].channels.get(REFUSAL))
+    if not isinstance(served, dict) or served.get("outcome") != "served":
+        return TWIN_SERVED_NOTHING
+    return None
 
 
 def a_constant_refusal_is_the_property(run: Run, position: str, raised: str) -> bool:
-    """Whether a side raising ``raised`` at ``position`` is one of :data:`CONSTANT_REFUSALS`, held as the property.
+    """The acceptance helper: whether a side raising ``raised`` at ``position`` raised the refusal ``run`` holds as the property.
 
-    ``D-IMPL-378``, a coordinator integration of Dave's 2026-10-09 06:21 rulings: the floor check ("A failed spare
-    answer cannot excuse differences.") and the two refusals the same rulings made constant across every subject. Where
-    every side of a run is refused alike by one of them, the floor copy raises it because that refusal IS the property,
-    as :func:`p6_refusal_is_the_property` holds P6 (a)'s. Only at the question's own position (a raise inside a record
-    read never is), only those refusals by type name, and only where EVERY side of the run raised exactly this message.
+    ``D-IMPL-378``, Dave, 2026-10-09 10:54 MST, 2.1 (b) (verbatim above). Read where every noise floor is read
+    (``test_sec020_combined_proof._floor_copy_did_not_answer``): a floor copy that RAISED is a floor only where its
+    raise is the property the cell holds. True only at the question's own position (a raise inside a record read never
+    is), only where :func:`why_no_constant_refusal` finds every condition met for the whole run, and only for exactly
+    the raise every side of its world raised: the world's refusal type with the SDK's constant message. Anything else
+    is False, and the cell is judged as it would be without this exception: its floor copy excuses nothing.
     """
-    if position != ONLY or not any(raised.startswith(f"{name}:") for name in CONSTANT_REFUSALS):
+    world = _constant_refusal_world(run)
+    if position != ONLY or world is None or why_no_constant_refusal(run) is not None:
         return False
-    return {run.raised(side).get(ONLY, "") for side in run.sides} == {raised}
+    return raised == f"{world.refusal}: {constant_refusal_message(world)}"
