@@ -1159,7 +1159,13 @@ def test_the_REAL_route_converts_at_the_acquisition_seam_with_the_workers_own_re
             ),
         ),
     )
-    root = _write_tree(tmp_path / f"b3real-{reason}", config=_config())
+    # OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, Dave 2026-10-09 06:21 MST): this
+    # tree's acquire answers EVERY identifier with a record L2 refuses
+    # (`IdentityRefused`), the P6 probe's identifier included, and a held refusal
+    # at the probe now refuses the question at the SDK's default stance. Its
+    # projection is the fixture's own, which never withholds, so the tree states
+    # `never`, as this module's rule above says such a tree does.
+    root = _write_tree(tmp_path / f"b3real-{reason}", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / f"b3real-{reason}" / "scratch"
 
     def _acquire_a_bad_record(context: Any) -> Any:
@@ -1321,7 +1327,13 @@ def test_the_REAL_route_converts_an_empty_identity_declaration_with_the_workers_
             ),
         ),
     )
-    root = _write_tree(tmp_path / "b3real-undeclared", config=_config())
+    # OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, Dave 2026-10-09 06:21 MST): this
+    # tree's acquire answers EVERY identifier with a record L2 refuses
+    # (`IdentityRefused`), the P6 probe's identifier included, and a held refusal
+    # at the probe now refuses the question at the SDK's default stance. Its
+    # projection is the fixture's own, which never withholds, so the tree states
+    # `never`, as this module's rule above says such a tree does.
+    root = _write_tree(tmp_path / "b3real-undeclared", config=_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER))
     scratch = tmp_path / "b3real-undeclared" / "scratch"
 
     def _acquire_under_an_empty_declaration(context: Any) -> Any:
