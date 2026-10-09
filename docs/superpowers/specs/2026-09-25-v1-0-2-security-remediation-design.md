@@ -117,19 +117,19 @@ Three build waves, one decision-only wave, one release:
 
 | Finding | Status | What the tree says |
 |---|---|---|
-| `SEC-005` signed approvals | OPEN | The signed claim set is still the four `D-IMPL-21` fields (`src/ccf/hitl/principal.py::HumanPrincipalBinding`). The one shared verifier compares binding to binding only (`enforce_signed_binding` in `src/ccf/hitl/transport.py` (replaced in bebfa5ad by `src/ccf/hitl/transport.py::enforce_attestation`)) and never receives `authorized`. The verdict travels unsigned at both doors (`src/ccf/hitl/transport.py::HitlActionRequest`, `:394`; `runtime/ccf_runtime/mcp/hitl_server.py:386`). `D-IMPL-353` narrowed the attacker to a bearer-session holder and blocked door replay only through `action_time` equality, which is also why the signed leg cannot work under a wall clock (`docs/surface-changes/353-06-the-approval-record-is-server-attested.md:488-494`, recorded as an unruled follow-up). |
-| `SEC-006` approver eligibility | OPEN | No code reads `PendingHitlEvent.policy_ref`; `HitlPolicy` carries only `signed_binding_required` (`src/ccf/hitl/transport.py:229-230`); the starter principal is recorded nowhere; `InMemoryHitlTransport.submit` (`src/ccf/hitl/transport.py:840-850`) and the four `resolve`s check capability, principal match, hash and signature only; both engine authority joins are first-match `next(...)` (`runtime/ccf_runtime/workflow/engine.py:1037-1054`, `:1141-1152`). |
+| `SEC-005` signed approvals | OPEN | The signed claim set is still the four `D-IMPL-21` fields (`src/ccf/hitl/principal.py::HumanPrincipalBinding`). The one shared verifier compares binding to binding only (`enforce_signed_binding` in `src/ccf/hitl/transport.py` (replaced in bebfa5ad by `src/ccf/hitl/transport.py::enforce_attestation`)) and never receives `authorized`. The verdict travels unsigned at both doors (`src/ccf/hitl/transport.py::HitlActionRequest`, `:394`; `runtime/ccf_runtime/mcp/hitl_server.py::build_hitl_server.submit_hitl_action`). `D-IMPL-353` narrowed the attacker to a bearer-session holder and blocked door replay only through `action_time` equality, which is also why the signed leg cannot work under a wall clock (`docs/surface-changes/353-06-the-approval-record-is-server-attested.md:488-494`, recorded as an unruled follow-up). |
+| `SEC-006` approver eligibility | OPEN | No code reads `PendingHitlEvent.policy_ref`; `HitlPolicy` carries only `signed_binding_required` (`src/ccf/hitl/transport.py::HitlPolicy`); the starter principal is recorded nowhere; `InMemoryHitlTransport.submit` (`src/ccf/hitl/transport.py::InMemoryHitlTransport.submit`) and the four `resolve`s check capability, principal match, hash and signature only; both engine authority joins are first-match `next(...)` (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`, `:1141-1152`). |
 | `SEC-007` blank identity | OPEN | `src/ccf/assembly/worker.py` is byte-identical to v1.0.0: presence-only guard (`:346-348`), bare `str()` identity construction (`:361-363`), URI mint (`:366`), attribute twin (`:369`). `content_hash({"lei": str(None)}) == content_hash({"lei": "None"})` reproduces. Relationship claims are minted from resolved URIs (`:545-587`), so a null endpoint creates a false edge through the phantom node. No test feeds a null identity value. |
-| `SEC-008` caller's clock as observation time | OPEN | `asked_at` is caller-supplied at all three doors with only a naive-offset refusal; the paved road requires `ingestion_timestamp == asked_at` (`src/ccf/signal/envelope.py:112`) and hands the caller's instant to acquisition as "the clock" (`src/ccf/products/product.py::OpenedProduct._acquisition_seam.seam`); L2 writes `observed_at = ingestion_timestamp` (`src/ccf/assembly/worker.py:495`). `envelope.py` and `worker.py` are byte-identical to v1.0.0; `product.py` was changed by `D-IMPL-353` (three commits, all in v1.0.1), but the acquisition context still hands `request.asked_at` as `instant` (`:813`, formerly `:774`), re-read on `a5b0f691`. |
+| `SEC-008` caller's clock as observation time | OPEN | `asked_at` is caller-supplied at all three doors with only a naive-offset refusal; the paved road requires `ingestion_timestamp == asked_at` (`src/ccf/signal/envelope.py::refuse_foreign_envelope`) and hands the caller's instant to acquisition as "the clock" (`src/ccf/products/product.py::OpenedProduct._acquisition_seam.seam`); L2 writes `observed_at = ingestion_timestamp` (`src/ccf/assembly/worker.py::AssemblyWorker._stitch`). `envelope.py` and `worker.py` are byte-identical to v1.0.0; `product.py` was changed by `D-IMPL-353` (three commits, all in v1.0.1), but the acquisition context still hands `request.asked_at` as `instant` (`:813`, formerly `:774`), re-read on `a5b0f691`. |
 | `SEC-009` erasure | OPEN | Immutability rule and four-method Protocol intact (`src/ccf/artifacts/protocol.py` (module docstring), `:573-641`); no delete/remove/erase verb on any served surface; `D-IMPL-50`/`D-IMPL-44` never built; `docs/DECISIONS.md:4641` already says it "needs its own decision entry before code"; the whitepaper commits against physical deletion (`docs/CCF_Whitepaper_1-2.md:2748`, `:3123`, `:3388`) and is silent on erasure. |
-| `SEC-010` one instant, three controls | OPEN | Policy effectivity (`src/ccf/products/constraints.py::_in_window`, `:1524-1536`), Gate 3's `now` (`src/ccf/products/resolver.py:2911` → `src/ccf/products/gates.py::_refuse_ttl`), `expires_at` (`src/ccf/products/resolver.py:2681`/`:2795`), `recorded_at` (`:3106` served, `:3363` refusals), the debt scorer (`:2626-2631`), the composite mixing law (`:2704-2707`) and dimension-1 `graph_snapshot_at` (`:2364-2368`) all key off the caller's `asked_at` or a caller-typed decision instant (`:2064-2071`). |
+| `SEC-010` one instant, three controls | OPEN | Policy effectivity (`src/ccf/products/constraints.py::_in_window`, `:1524-1536`), Gate 3's `now` (`src/ccf/products/resolver.py::GovernedResolver.__call__` → `src/ccf/products/gates.py::_refuse_ttl`), `expires_at` (`src/ccf/products/resolver.py::GovernedResolver.__call__`/`:2795`), `recorded_at` (`:3106` served, `:3363` refusals), the debt scorer (`:2626-2631`), the composite mixing law (`:2704-2707`) and dimension-1 `graph_snapshot_at` (`:2364-2368`) all key off the caller's `asked_at` or a caller-typed decision instant (`:2064-2071`). |
 | `SEC-011` gates that cannot fail | PARTIALLY CLOSED | **Gate 2:** ruled and shipped as assembly-path integrity (`D-IMPL-86` element 4 at `docs/DECISIONS.md:300`; `D-IMPL-300` at `:1843`); the failable pre-execution control is the binder at `src/ccf/products/resolver.py::GovernedResolver.__call__`. Residue: `public/concepts/invariants.md:82-84` still advertises the forgery reading. **Gate 3:** OPEN. For `from_decision` classes `now < expires_at <= now + MAX_TTL` reduces to `0 < ttl <= MAX_TTL`, disclosed at `D-IMPL-340` (`:3829`) and never ruled. |
-| `SEC-001` residual | OPEN | `WorkflowEngine.resume` reads only `authority.principal` (`runtime/ccf_runtime/workflow/engine.py:540`) and routes the caller's `decision` against the verdict-blind transition set (`:541-542`); `WorkflowDefinition` (`src/ccf/workflow/definitions.py:132-135`) carries nothing verdict-shaped. Pinned by `test_a_rejection_authorizes_resumption_but_does_not_bind_the_target` in `tests/workflow/test_engine.py` (replaced in cfd632c7 by `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`) and the Hypothesis rule at `tests/workflow/test_engine_stateful.py::WorkflowEngineMachine.resume_suspended`. |
+| `SEC-001` residual | OPEN | `WorkflowEngine.resume` reads only `authority.principal` (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume`) and routes the caller's `decision` against the verdict-blind transition set (`:541-542`); `WorkflowDefinition` (`src/ccf/workflow/definitions.py:132-135`) carries nothing verdict-shaped. Pinned by `test_a_rejection_authorizes_resumption_but_does_not_bind_the_target` in `tests/workflow/test_engine.py` (replaced in cfd632c7 by `tests/workflow/test_engine.py::test_a_recorded_rejection_cannot_be_routed_down_the_approving_branch`) and the Hypothesis rule at `tests/workflow/test_engine_stateful.py::WorkflowEngineMachine.resume_suspended`. |
 | Subject shape | OPEN | `ProductRequest.subject: str` with no validator (`src/ccf/products/request.py::ProductRequest`); `ArgumentDomain` has two shapes and no `pattern` (`:435-441`); `refuse_request` (`:1920`) never reads `subject`; the docstring at `:281-285` claims a shape validation that does not exist. Reachable splices on `main`: `examples/cp-16-abs-securitization-surveillance/acquisition.py::acquire` (subject → SPARQL IRI position at `:413`, after a parameter-bound relational read at `:403-410` and before the anchor-existence check at `:414`, so the splice fires whether or not the deal exists) and `examples/cp-04-canonical-corporate-family-tree/acquisition.py::acquire` (`lei` parameter → literal). `cp-17`'s splice (`EX-01`) sits behind an exact-match bound lookup (`:237-243`), so its practical reachability is lower than the report graded; the SDK-level finding keeps its HIGH. |
-| `SEC-029` version stamp | OPEN, recurs | `pyproject.toml:7` `version = "0.1.0"`; `src/ccf/graph/registry.py:474-484` reads `importlib.metadata.version("ccf")` into `AdapterPin.version` (`:345`), which lands in **dimension 2** of every replay record as `graph_adapter_version` (`src/ccf/replay/record.py::PolicyBindingsSnapshot`). Every record written from an installed v1.0.x wheel says `0.1.0`. |
+| `SEC-029` version stamp | OPEN, recurs | `pyproject.toml:7` `version = "0.1.0"`; `src/ccf/graph/registry.py::_sdk_version` reads `importlib.metadata.version("ccf")` into `AdapterPin.version` (`:345`), which lands in **dimension 2** of every replay record as `graph_adapter_version` (`src/ccf/replay/record.py::PolicyBindingsSnapshot`). Every record written from an installed v1.0.x wheel says `0.1.0`. |
 | `TP-01`…`TP-05` adapters | OPEN, unrated in the report | Adapters, `src/ccf/skills/dispatch.py` and `runtime/ccf_runtime/peering/typed_http.py` byte-identical to v1.0.0. `TP-01` reproduced socket-free with the vendor's own `_get_can_use_tool_shadowed_warning`; `TP-04` confirmed against google-adk 2.5.0; `TP-05` confirmed (`--system-prompt` on argv). Rated HIGH by ruling (§0, #1). |
 
-**Closed and not re-chased:** `SEC-001` (Tier 0), `SEC-003`, `SEC-002`, `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (Tier 1). `SEC-012`/`016`/`018` were re-verified closed on `main` during this recon (`runtime/ccf_runtime/http_api/routes/skill.py` (module docstring), `:248-249`; `runtime/ccf_runtime/cli/credential.py`; `runtime/ccf_runtime/mcp/experience.py:87-90`).
+**Closed and not re-chased:** `SEC-001` (Tier 0), `SEC-003`, `SEC-002`, `SEC-004`, `SEC-012`, `SEC-016`, `SEC-018` (Tier 1). `SEC-012`/`016`/`018` were re-verified closed on `main` during this recon (`runtime/ccf_runtime/http_api/routes/skill.py` (module docstring), `:248-249`; `runtime/ccf_runtime/cli/credential.py`; `runtime/ccf_runtime/mcp/experience.py` (module docstring)).
 
 **AMENDMENT 2026-10-03 — `SEC-005`'s unsigned-verdict leg is SHUT. THE
 IDENTIFIER IS NOT CLOSED.** The roster above is stamped *verified on `main` @
@@ -234,7 +234,7 @@ rejected}`, `{accepted, declined}` — so the mapping cannot live in code.
 5. **Conflicting verdicts refuse.** `InMemoryHitlTransport.submit` appends every
    verified submission (`src/ccf/hitl/transport.py::InMemoryHitlTransport.submit`), `submissions()` is oldest-first
    (`:868-871`), the submit-only door (`D-IMPL-62`) leaves the event pending, and
-   `_gate_authority` takes `next(...)` (`runtime/ccf_runtime/workflow/engine.py:1037-1054`) — so two officers'
+   `_gate_authority` takes `next(...)` (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`) — so two officers'
    conflicting verdicts on one suspension route first-writer-wins today, and the
    binding makes that load-bearing. `_gate_authority` refuses (typed, through
    `_refuse`, naming no verdict) when the qualifying submissions for one
@@ -344,7 +344,7 @@ relay nulls verbatim to the same mint.
    by SDK mechanism — `ccf.assembly.worker.IdentityRefused` is the first — is
    converted by mechanism regardless of declaration, because the SDK does know
    what it means (a record whose identity cannot be minted names no entity:
-   `RefusalCause` `nonexistent`, `src/ccf/products/contract.py:306`);
+   `RefusalCause` `nonexistent`, `src/ccf/products/contract.py::RefusalCause`);
    deployment-declared types keep B2's posture. Without that, an undeclared
    `IdentityRefused` reaches the HTTP route as a 500
    (`runtime/ccf_runtime/http_api/routes/product.py::build_router.retrieve` catches only the
@@ -352,7 +352,7 @@ relay nulls verbatim to the same mint.
    `src/ccf/deployment/binder.py::refuse_seam_refusal_widening` join wave 1's touched files and payload.
 4. **Partial admission is stated, not fixed.** The paved road ingests every
    acquired envelope in a loop, one transaction per claim
-   (`src/ccf/products/product.py::OpenedProduct._acquisition_seam.seam`; `src/ccf/graph/backends/fluree_write.py:609-610`), so a
+   (`src/ccf/products/product.py::OpenedProduct._acquisition_seam.seam`; `src/ccf/graph/backends/fluree_write.py::_FlureeTxn.insert_entity_claim`), so a
    refused envelope leaves its predecessors written for the next request. That
    is an L2 transaction-boundary question and a named residual (§7.4).
 5. **Document at the rule** that a `*_ref: True` presence-flag match key (the
@@ -375,7 +375,7 @@ relay nulls verbatim to the same mint.
 |---|---|---|---|
 | B1 | Refusal set | `None` only · + empty/whitespace · + bool + float + non-scalar | **widest** |
 | B2 | Coercion of `int`/`Decimal` | positional-string (URIs stable; keeps the `1.5`/`1.50` split) · canonical typed (moves every int-identity URI; crosses `D-IMPL-316`) · positional-string plus trailing-zero normalization for `Decimal` only (zero measured population moves) | **positional-string**; (c) if Dave wants the split closed |
-| B3 | Semantics on the canonical path | raise, undeclared (HTTP 500 today) · record-and-continue (no L2 audit seam) · raise, and the SDK converts its own seam class by mechanism (amends `D-IMPL-347` B2 for SDK-raised seam classes only) · raise, and every deployment declares it (zero do today; 16 paved-road trees 500) | **raise + mechanism conversion**, cause `nonexistent` (`src/ccf/products/contract.py:306`); the B2 amendment named in the entry |
+| B3 | Semantics on the canonical path | raise, undeclared (HTTP 500 today) · record-and-continue (no L2 audit seam) · raise, and the SDK converts its own seam class by mechanism (amends `D-IMPL-347` B2 for SDK-raised seam classes only) · raise, and every deployment declares it (zero do today; 16 paved-road trees 500) | **raise + mechanism conversion**, cause `nonexistent` (`src/ccf/products/contract.py::RefusalCause`); the B2 amendment named in the entry |
 | B4 | Attribute twin (`src/ccf/assembly/worker.py::SpecDrivenEntityResolution.resolve`, null attribute → `"None"`) | omit (absent-not-null, `cp-01`'s posture) · leave · refuse | **omit**, after measuring the null-attribute population (95 `or ""` sites in 32 files across 21 example trees — `grep -rn 'or ""' --include='*.py' examples` — already pre-empt it; CDC rows are the reachable source) |
 | B5 | Write-path generation change vs `docs/DESIGN.md` §2A.5.4 / `D-IMPL-44` re-hydration | dispose under the `D-IMPL-243` precedent | **dispose** |
 
@@ -492,8 +492,8 @@ reuses `ProductRequestViolation` and introduces no class; wave 2's
 `cinv06-hash-transparent-key` until the new fields declare their key;
 `tools/dump_surface.py --check` until regenerated with a fragment. Subject
 forwarding sites (all verbatim, unaffected): `src/ccf/products/child_resolver.py::QuestionBoundChildResolver.resolve_for`,
-`src/ccf/products/composite.py::CompositeAdmissionGate.hold_producer_claims`, `src/ccf/products/door.py:785`, `src/ccf/skills/dispatch.py:356/377/1076`,
-`src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter.ask`, `runtime/ccf_runtime/mcp/egress.py:1748`.
+`src/ccf/products/composite.py::CompositeAdmissionGate.hold_producer_claims`, `src/ccf/products/door.py::door_answer`, `src/ccf/skills/dispatch.py::ProductQuestion.address`, `src/ccf/skills/dispatch.py::ProductQuestion.identity_artifact`, `src/ccf/skills/dispatch.py::_invoke_mcp_product`,
+`src/ccf/client/adapters/mcp_stdio.py::McpStdioAdapter.ask`, `runtime/ccf_runtime/mcp/egress.py::build_egress_server.addressed_context_product`.
 Examples: `cp-16` and `cp-04-canonical` keep their splices (frozen); their
 env-sourced values are measured by the probe.
 
@@ -521,7 +521,7 @@ CVE cannot. v1.0.0 and v1.0.1 both shipped it.
 2. **Belt:** the qualification recipe asserts, in the fresh worktree's venv,
    `importlib.metadata.version(SDK_DISTRIBUTION) == tag.lstrip("v")` before the
    TAG GO, and a CI job on `v*` tags fails when they differ.
-3. **`SEC-027` coupling.** `SDK_DISTRIBUTION = "ccf"` (`src/ccf/graph/registry.py:188`) is
+3. **`SEC-027` coupling.** `SDK_DISTRIBUTION = "ccf"` (`src/ccf/graph/registry.py::SDK_DISTRIBUTION`) is
    the name `importlib.metadata` reads. **Measured 2026-09-25:** `pypi.org/pypi/ccf-sdk/json`
    returns 404 (unclaimed); `pypi.org/pypi/ccf/json` is Microsoft's
    Confidential Consortium Framework tooling at 7.0.17 (`CCF-Sec@microsoft.com`).
@@ -563,9 +563,9 @@ qualification recipe (§8) gains one assertion.
 - **Panel payload** (one stdin bundle, ~54 KB of named ranges):
   `src/ccf/workflow/definitions.py` (whole),
   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.resume` and `:930-1060`,
-  `src/ccf/assembly/worker.py::EntityResolutionStrategy`, `src/ccf/assembly/worker.py::SpecDrivenEntityResolution`, `src/ccf/assembly/worker.py::IngestResult`, `src/ccf/products/request.py:230-520`
-  and `:1900-2000`, `src/ccf/products/resolver.py:2190-2290`,
-  `src/ccf/controlplane/artifacts.py::ProductClassDeclaration`, `src/ccf/deployment/binder.py:325-338`,
+  `src/ccf/assembly/worker.py::EntityResolutionStrategy`, `src/ccf/assembly/worker.py::SpecDrivenEntityResolution`, `src/ccf/assembly/worker.py::IngestResult`, `src/ccf/products/request.py::ProductRequestViolationReason`, `src/ccf/products/request.py::_REASONS`, `src/ccf/products/request.py::ProductRequest`, `src/ccf/products/request.py::ArgumentDomain`
+  and `:1900-2000`, `src/ccf/products/resolver.py::GovernedResolver.__call__`,
+  `src/ccf/controlplane/artifacts.py::ProductClassDeclaration`, `src/ccf/deployment/binder.py::refuse_seam_refusal_widening`,
   the diff, the new tests, and the brief.
 - **Known findings briefed:** the four items above; the escalation sibling;
   the partial-admission residual; `cp-16`/`cp-04-canonical` splices as frozen
@@ -591,7 +591,7 @@ anchor (`:2681`), Gate 3's `now` (`:2911`), the composite mixing law
 refusals). That is what makes two runs of one question record at one instant
 (`tests/products/test_delivery_determinism.py::_assert_same_determination`) — and what makes every
 one of those controls the attacker's. Policy effectivity is evaluated at
-`asked_at` (`src/ccf/products/constraints.py:574-576`, `:1524-1536`) by an explicit ruling
+`asked_at` (`src/ccf/products/constraints.py::_in_window`, `:1524-1536`) by an explicit ruling
 (`D-IMPL-253` Q6: *"asked_at, absolutely — otherwise replay of the same
 historical decision can resolve a different policy"*). For `from_decision`
 classes Gate 3 reduces to `0 < ttl <= MAX_TTL`. Back-dating a question
@@ -609,7 +609,7 @@ component agreed on the caller's clock.
    `GovernedResolver.__call__` is replay-exempt by construction.**
 2. `recorded_at` is overloaded four ways: for a `from_decision` record
    `_hold_ttl_anchor` raises `ReplayDivergence` unless `ttl_anchor_at ==
-   record.recorded_at` (`src/ccf/replay/engine.py:1220-1226`); for `from_entity_freshness` the
+   record.recorded_at` (`src/ccf/replay/engine.py::_hold_ttl_anchor`); for `from_entity_freshness` the
    anchor is re-derived at `decided_at=record.recorded_at` (`:1244`;
    `src/ccf/products/expiry.py::resolve_ttl_anchor`); for every resolver refusal
    (`product=None`) the snapshot `temporal_boundary` **is** `recorded_at`
@@ -621,7 +621,7 @@ component agreed on the caller's clock.
 3. Dimension 5 already carries the request's `asked_at` beside `recorded_at`
    ("the record says both rather than one twice", `src/ccf/products/resolver.py::GovernedResolver.__call__`).
 4. The precedent for a recorded clock reading exists and is ruled: O3's
-   `admitted_at = self.admission_clock()` (`src/ccf/products/resolver.py:2395`; `D-IMPL-336`,
+   `admitted_at = self.admission_clock()` (`src/ccf/products/resolver.py::GovernedResolver.__call__`; `D-IMPL-336`,
    `docs/DECISIONS.md:3391`: *"from the trusted runtime clock boundary … never
    from decided_at, a historical asked_at, or any request-supplied timestamp …
    injectable for deterministic tests … preserve admission time in replay"*),
@@ -638,11 +638,11 @@ component agreed on the caller's clock.
    second-class replay for refusals. The whitepaper's TTL invariant (`:3050`)
    is two-sided at assembly time.
 7. The federated leg is **already** at the fabric clock: a peered composite
-   child runs Gate 3 at `now=admitted_at` (`src/ccf/products/child_resolver.py:467`;
+   child runs Gate 3 at `now=admitted_at` (`src/ccf/products/child_resolver.py::GrantBoundChildResolver._admit`;
    `src/ccf/peering/admission.py::PeeringAdmissionGate.admit` reads no clock). Today one composite
    serve runs Gate 3 at two different clocks (parent at `decided_at`, peered
    child at `admitted_at`). The consumer side already judges expiry at an
-   injected `now` (`src/ccf/agents/agent.py:349`, `ConsumptionRefused`).
+   injected `now` (`src/ccf/agents/agent.py::Agent.consume`, `ConsumptionRefused`).
 
 ### 4.3 Design
 
@@ -653,13 +653,13 @@ component agreed on the caller's clock.
    read-once control (`tests/products/test_resolver_seam.py::test_o3_the_admission_clock_is_read_ONCE_for_a_whole_composition`) stays the
    control. `admission_clock` already exists (`:1957`; default `_utc_now` at
    `:1583`; wired at `build_governed_resolver` `:3958`; `open_product(clock=)` →
-   `"admission_clock": self._clock`, `src/ccf/products/product.py:844`/`:602`). **No second
+   `"admission_clock": self._clock`, `src/ccf/products/product.py::open_product`/`:602`). **No second
    clock anywhere.** Every door — HTTP, MCP tool and resource, the in-process
    door (`src/ccf/products/door.py`, algorithmic, zero `runtime` imports, which
    never crosses the runtime delivery boundary) — and every composite child
    passes through `__call__`.
 2. **Gate 3 is two-sided at `served_at`:** `served_at < expires_at <=
-   served_at + MAX_TTL` (`src/ccf/products/gates.py:1385-1386`; `MAX_TTL` from
+   served_at + MAX_TTL` (`src/ccf/products/gates.py::_refuse_ttl`; `MAX_TTL` from
    `product_class.max_ttl_key`, `:1376-1378`). `expires_at`, `ttl_anchor_at` and
    `temporal_boundary` — the addressed content — are untouched (Q23 is amended
    only in that `served_at` joins addressed content, item 4). A
@@ -734,7 +734,7 @@ component agreed on the caller's clock.
    test (`:793-820`) is unaffected because the bound lives in the resolver,
    not there.
    **Hash-transparent means the sentinel, not the value** (`D-IMPL-243`,
-   `docs/DECISIONS.md:649`; `src/ccf/replay/engine.py:379`: "only the `None`
+   `docs/DECISIONS.md:649`; `src/ccf/replay/engine.py::ReplayEnvironment.rehydrate_product`: "only the `None`
    sentinel is hash-transparent"): every pre-1.0.2 record, whose `served_at` is
    `None`, rehydrates to its recorded address unchanged — Dave's ruling — and
    every new record's populated `served_at` is rendered into the address, so
@@ -750,7 +750,7 @@ component agreed on the caller's clock.
    same address; the entry names both. The rule applies to **every** refusal
    recorder call, including
    the door's own address refusal, which today stamps
-   `recorded_at=self._clock()` (`src/ccf/products/product.py:746-749`) and so
+   `recorded_at=self._clock()` (`src/ccf/products/product.py::OpenedProduct._refuse_address`) and so
    lets a wall clock into that refusal's dimension-1 identity: it passes
    `request.asked_at` as the boundary and carries the clock reading as
    `served_at`.
@@ -766,7 +766,7 @@ component agreed on the caller's clock.
    in-process and every composite child are covered by one check and replay is
    exempt by construction. Coverage of a composition is by inheritance: every
    child — in-process, MCP or peered — is asked at the parent's bounded
-   `asked_at` (`src/ccf/products/child_resolver.py:164`, `:241`, `:277`, `:458`);
+   `asked_at` (`src/ccf/products/child_resolver.py::ChildQuestion`, `:241`, `:277`, `:458`);
    the peered leg's admission and Gate 3 run at the fabric's `admitted_at` as
    today (`:463-468`, `:554-585`); a peer producer applies its own tenant's
    bound to the same instant. A control asserts that a child cannot be asked at
@@ -839,9 +839,9 @@ component agreed on the caller's clock.
    `docs/DECISIONS.md:3391`; the read is injected at composition, not ambient),
    and the entry says so.
 8. **`SEC-008`'s write half is carved out and named.** The acquisition seam
-   stamps `ingestion_timestamp = asked_at` (`src/ccf/products/product.py:813`/`:816`;
-   `src/ccf/signal/envelope.py::refuse_foreign_envelope`; `src/ccf/assembly/worker.py:495`) **because** the as-of reader cuts on
-   `observed_at <= at` (`src/ccf/graph/fallback.py:59`; `src/ccf/graph/reader.py:117`).
+   stamps `ingestion_timestamp = asked_at` (`src/ccf/products/product.py::OpenedProduct._acquisition_seam.seam`/`:816`;
+   `src/ccf/signal/envelope.py::refuse_foreign_envelope`; `src/ccf/assembly/worker.py::AssemblyWorker._stitch`) **because** the as-of reader cuts on
+   `observed_at <= at` (`src/ccf/graph/fallback.py::_survives_as_of`; `src/ccf/graph/reader.py::_lineage_at_boundary`).
    Measured: every stamping example boots a per-run scratch substrate
    (`src/ccf/products/product.py::OpenedProduct._boot` mints a uuid-named fabric per question), so the
    persistent "time bomb" has zero shipped instances on the paved road; it is a
@@ -862,7 +862,7 @@ component agreed on the caller's clock.
    `ingest_admitted` for long-lived fabrics. The exposure, stated
    precisely: the SDK's own ingress adapters stamp from an injected clock that
    defaults to the wall clock (`runtime/ccf_runtime/cdc/adapter.py::CDCSourceAdapter.__init__`;
-   `src/ccf/signal/acquisition.py::FileRecordAcquisitionSource.__init__`; `src/ccf/signal/mcp_source.py:112`), so
+   `src/ccf/signal/acquisition.py::FileRecordAcquisitionSource.__init__`; `src/ccf/signal/mcp_source.py::MCPSourceAdapter.__init__`), so
    the caller-controlled write stamp exists only where a deployment authors
    envelopes itself into a long-lived fabric (32 example files do, on the low
    road) or calls `ingest_admitted(ingested_at=…)`. **Option (d), now
@@ -876,14 +876,14 @@ component agreed on the caller's clock.
    never to stamp. Under (d) the bitemporal read is the one follow-on row;
    under (a) the L2 guard is a second row and the tag text says the write half
    is **open and carried** — never "bounded", because nothing bounds it.
-9. **Context Debt** (`src/ccf/products/resolver.py::GovernedResolver.__call__`; `src/ccf/products/product.py:361-373`) is a fact
+9. **Context Debt** (`src/ccf/products/resolver.py::GovernedResolver.__call__`; `src/ccf/products/product.py::_AssessAdapter.score_at`) is a fact
    about evidence freshness **at the decision instant** and stays there; the
    temporal bound caps how far a caller can move that instant. Named as the
    fourth control on the same instant; recommended under D8, not slipped.
    **The composite mixing law is different**: how much validity a child has
    LEFT "is a fact about now, not about the parent's evidence"
    (`src/ccf/products/resolver.py::GovernedResolver.__call__`, the comment's own words), yet it is
-   evaluated at `decided_at` (`src/ccf/products/composite.py:2120-2124`,
+   evaluated at `decided_at` (`src/ccf/products/composite.py::compose_children`,
    `evaluated_at=decided_at`). With the bound permitting a two-hour look-back, a
    caller asking as-of `served_at − 2h` makes a child with thirty minutes left
    read as having two and a half hours, so a composite that breaches its
@@ -922,7 +922,7 @@ key+version (dimension 2, minted by the record builder). What is held:
 the refusal's `temporal_boundary` — none moves. What replay does: resolves the
 pinned bindings, re-executes the projection at `snapshot.temporal_boundary`,
 rehydrates `expires_at` from the recorded anchor, compares content addresses
-(`src/ccf/replay/engine.py::replay`; `src/ccf/replay/environment.py:156-190`). What replay does not do: read
+(`src/ccf/replay/engine.py::replay`; `src/ccf/replay/environment.py::RecordedEnvironment.rehydrate_product`). What replay does not do: read
 a clock, run a gate, evaluate effectivity, or cross `GovernedResolver`. A
 `served_at` that is **carried** is therefore reproducible; a `served_at` that
 were **re-derived** would not be, which is why the sabotage that proves the
@@ -985,7 +985,7 @@ parameter is a refusal, not a skip. This amends the realization of
 `asked_at` through a door with a default or arbitrary door clock — 17 files /
 315 test functions by `grep -rln 'asked_at.*20[0-9][0-9]-[0-9][0-9]\|ASKED_AT\s*=.*datetime(20\|asked_at=datetime(20' tests/http_api tests/mcp tests/client tests/products tests/authz tests/replay`
 (files) and those files' `def test_` count (functions), re-run at the wave
-open (e.g. `tests/mcp/test_egress_parameters.py::ASKED_AT`, `tests/products/paved_fixture.py:92`);
+open (e.g. `tests/mcp/test_egress_parameters.py::ASKED_AT`, `tests/products/paved_fixture.py::ASKED_AT`);
 each declares the bound in its fixture registry and pins the door clock inside
 the window — rewrite, never delete. 49 test files construct governed resolvers
 (`build_governed_resolver` / `GovernedResolver(` / `open_product(`); at least
@@ -997,7 +997,7 @@ clock-independent today only because the non-composite path reads no clock.
 (`tests/gates/test_product_gates.py` has 11 calling tests, `test_federated_gates.py`
 8; the four product-gates tests at `:304/:320/:340/:352` and the federated
 signature test at `:257-261` stay green); 3 in `src/`, rewritten with the gate
-(`src/ccf/products/resolver.py::GovernedResolver.__call__`, `src/ccf/projection/engine.py:396`,
+(`src/ccf/products/resolver.py::GovernedResolver.__call__`, `src/ccf/projection/engine.py::ProjectionEngine.check_source_attestation`,
 `src/ccf/peering/admission.py::PeeringAdmissionGate._run_federated_gates`) plus the docstring example at
 `src/ccf/deployment/__init__.py` (module docstring); the 5 frozen `produce.py` runners under `examples/cp-00…cp-04*`; 9
 `archive/` callers (no fixes, `D-IMPL-351`); and `perf/suites/replay/conftest.py::recorded_decision`
@@ -1070,9 +1070,9 @@ admitting window reddens.
 **Panel payload** (two stdin bundles): (1) `src/ccf/products/resolver.py`
 (`__call__` region, `_decision_instant`, the record builders), `gates.py`,
 `src/ccf/products/constraints.py::applicable`, `src/ccf/products/constraints.py::_in_window`, `src/ccf/products/constraints.py::_fold` and `:1380-1545`, the new artifact class and refusal
-contract (`src/ccf/products/refusal.py::RefusalEnvelope`, `src/ccf/products/refusal.py::REFUSAL_KINDS`, `:780-800`; `src/ccf/products/disclosure.py:180-200`, `:320-335`;
+contract (`src/ccf/products/refusal.py::RefusalEnvelope`, `src/ccf/products/refusal.py::REFUSAL_KINDS`, `:780-800`; `src/ccf/products/disclosure.py::EXTERNAL_STATEMENTS`, `:320-335`;
 `runtime/ccf_runtime/http_api/refusal_status.py`), the diff and new tests; (2) `src/ccf/replay/engine.py::_hold_ttl_anchor` and `:1400-1445`,
-`src/ccf/replay/record.py::ContentGenerationPath`, `src/ccf/replay/record.py::DecisionReplayRecord`, `:1995-2030`, `:500-515`, `src/ccf/products/child_resolver.py:440-480`,
+`src/ccf/replay/record.py::ContentGenerationPath`, `src/ccf/replay/record.py::DecisionReplayRecord`, `:1995-2030`, `:500-515`, `src/ccf/products/child_resolver.py::GrantBoundChildResolver._admit`,
 `runtime/ccf_runtime/authz/delivery_boundary.py::recorded_boundary`, `runtime/ccf_runtime/authz/delivery_boundary.py::_determined_at` and `:490-520`, `expiry.py`, plus the brief.
 **Known findings briefed:** the four uses of `recorded_at` in §4.2; the
 carve-out in §4.3 item 8; the refuse-when-undeclared example reds as rows;
@@ -1095,10 +1095,10 @@ sequenced after wave 2 for panel load, not as a prerequisite.
 ### 5.1 `SEC-005` — the signature binds the gate, the tenant, the verdict, the subject and the time
 
 **Defect.** The signed payload is `canonical_bytes(binding)` over the
-four-field `HumanPrincipalBinding` (`src/ccf/hitl/principal.py:177-180`; `src/ccf/hitl/identity_binding.py:113`),
+four-field `HumanPrincipalBinding` (`src/ccf/hitl/principal.py:177-180`; `sign_principal_binding` in `src/ccf/hitl/identity_binding.py` (replaced in bebfa5ad by `src/ccf/hitl/identity_binding.py::sign_hitl_action`)),
 with no protected-header assertions; the one verifier's only post-signature
-check is `verified != submission.principal` (`src/ccf/hitl/transport.py:321`) and it does not
-receive `authorized`; the verdict (`HitlActionRequest.action`, `src/ccf/hitl/transport.py:352`;
+check is `verified != submission.principal` (`enforce_signed_binding` in `src/ccf/hitl/transport.py` (replaced in bebfa5ad by `src/ccf/hitl/transport.py::enforce_attestation`)) and it does not
+receive `authorized`; the verdict (`HitlActionRequest.action`, `src/ccf/hitl/transport.py::HitlActionRequest`;
 `HitlActionSubmission.action`, `:394`) sits beside the signature, outside it.
 One signature verifies identically for `approve` and `reject`, on any event
 with the same product hash, in any tenant the presenter holds a capability
@@ -1107,7 +1107,7 @@ for. **Wider than the report:** `trusted_keys` is a flat `kid → JWK` map and
 binds a key to `approver.subject_id`, so any trusted HITL key signs as any
 approver. What `D-IMPL-353` closed is the subject axis at submit
 (`src/ccf/hitl/transport.py::InMemoryHitlTransport.submit`, `PrincipalMismatchRefused`); what it created is *the
-limit*: the doors mint `action_time=clock()` (`runtime/ccf_runtime/http_api/routes/hitl.py:163`;
+limit*: the doors mint `action_time=clock()` (`runtime/ccf_runtime/http_api/routes/hitl.py::build_router.act`;
 `runtime/ccf_runtime/mcp/hitl_server.py::build_hitl_server.submit_hitl_action`) and the signature must equal the door-minted binding, so
 a production signer must predict the server's clock reading — the signed leg
 works only under a deterministic injected clock, which is exactly the posture
@@ -1148,7 +1148,7 @@ every door test uses (`tests/http_api/test_signed_binding_door.py::_CLOCK_TIME`;
    `deps.clock` / the MCP clock), so the check is a pure function of the
    recorded submission plus the pinned policy: `D-IMPL-69` idempotent double
    verification holds at all five sites (`src/ccf/hitl/transport.py::InMemoryHitlTransport.submit`;
-   `src/ccf/hitl/approval_gate.py::ApprovalGate.resolve`; `src/ccf/hitl/escalation.py:479`; `src/ccf/hitl/override.py:351`;
+   `src/ccf/hitl/approval_gate.py::ApprovalGate.resolve`; `src/ccf/hitl/escalation.py::ExceptionEscalation.resolve`; `src/ccf/hitl/override.py::OverrideBoundary.resolve`;
    `src/ccf/hitl/review_queue.py::ReviewQueue._resolve`), the transport site — which has no clock — verifies
    identically, and replay can re-verify. A verifier-side clock read would be
    an unrecorded input and is refused by design.
@@ -1183,7 +1183,7 @@ every door test uses (`tests/http_api/test_signed_binding_door.py::_CLOCK_TIME`;
 5. **Nonce.** A **seen-nonce set** keyed `(tenant, event_key, nonce)` beside
    the claim table on `InMemoryHitlTransport`, retained for the transport's
    lifetime. The claim table itself cannot carry it: `_claims` is written only
-   by `remove` (`src/ccf/hitl/transport.py:765`), consumed by the first
+   by `remove` (`src/ccf/hitl/transport.py::InMemoryHitlTransport.remove`), consumed by the first
    `submit` for the pair (`:852-853`), and never sees the submit-only door,
    which calls `submit` with no `remove`
    (`runtime/ccf_runtime/http_api/routes/hitl.py::build_router.act`). Because the submit-only door (`D-IMPL-62`) leaves
@@ -1294,7 +1294,7 @@ transport-site test redden.
 
 **Defect.** `PendingHitlEvent.policy_ref` is carried (`src/ccf/hitl/transport.py::PendingHitlEvent`,
 validator `:151-158`), set by four enqueue writers (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend`;
-`src/ccf/hitl/escalation.py::ExceptionEscalation.escalate`; `src/ccf/hitl/override.py:218`; `src/ccf/hitl/review_queue.py:245`) and read by no
+`src/ccf/hitl/escalation.py::ExceptionEscalation.escalate`; `src/ccf/hitl/override.py::OverrideBoundary.propose`; `src/ccf/hitl/review_queue.py::ReviewQueue.submit_for_review`) and read by no
 code. The per-gate `approval-policy` the public how-to promises ("who may
 approve … the approver role and the quorum") is an uninterpreted
 `DeclaredArtifact` envelope. Nothing records who started an execution. Any
@@ -1356,7 +1356,7 @@ approve and resume an execution alone.
    (`runtime/ccf_runtime/workflow/state.py::WorkflowStateRecord`; hash-transparent), stamped
    from the `Execute` principal, copied to `requested_by` on
    `PendingHitlEvent` at every suspension (the four enqueue sites:
-   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend`; `src/ccf/hitl/override.py:212`; `src/ccf/hitl/review_queue.py:239`;
+   `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend`; `src/ccf/hitl/override.py::OverrideBoundary.propose`; `src/ccf/hitl/review_queue.py::ReviewQueue.submit_for_review`;
    `src/ccf/hitl/escalation.py::ExceptionEscalation.escalate`). The **resumer** is a third identity — on a second
    gate `authorized.principal` at `_suspend` is the `Resume` holder
    (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend`) — named in the entry but not constrained in 1.0.2.
@@ -1364,13 +1364,13 @@ approve and resume an execution alone.
    eligible principal; the audit event carries the reason, the wire does not.
 6. **Quorum is 1 and says so.** N-of-M cannot be reached through any
    primitive: every `resolve` atomically claims and removes the event under the
-   ruled WR-02 contract (`src/ccf/hitl/approval_gate.py::ApprovalGate.resolve`; `src/ccf/hitl/escalation.py:484`;
-   `src/ccf/hitl/override.py::OverrideBoundary.resolve`; `src/ccf/hitl/review_queue.py:423`; `src/ccf/hitl/transport.py:546-570`), the engine
+   ruled WR-02 contract (`src/ccf/hitl/approval_gate.py::ApprovalGate.resolve`; `src/ccf/hitl/escalation.py::ExceptionEscalation.resolve`;
+   `src/ccf/hitl/override.py::OverrideBoundary.resolve`; `src/ccf/hitl/review_queue.py::ReviewQueue._resolve`; `src/ccf/hitl/transport.py::HITLTransportProtocol.remove`), the engine
    assigns the change to a `D-IMPL-62` amendment (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`), and a
    quorum met only via the submit-only door would open a gate with no
    dimension-2 record of any approval. **1.0.3** (§0, #8).
 7. **Roles are deferred to their own entry.** The role-source precedent
-   (`ProductEntitlementSource`, `runtime/ccf_runtime/authz/product_entitlement.py:385`)
+   (`ProductEntitlementSource`, `runtime/ccf_runtime/authz/product_entitlement.py::ControlPlaneProductEntitlementSource.authorize`)
    resolves latest per call and the record pins no role-source version, so
    replay could not state the membership in force. Either a hash-transparent
    role-source pin lands with roles, or roles wait; they wait.
@@ -1396,7 +1396,7 @@ primitive suites, `test_signed_binding_authority.py`,
 `test_transport_concurrency.py`, `tests/http_api/test_signed_binding_door.py`)
 and go red at the transport helper: the primitive suites' events carry an
 unregistered `acme-bank/approval-policy/credit-officer@1.0.0` ref
-(`tests/fixtures/banking/hitl.yaml:41`; `tests/hitl/test_approval_gate.py:262-276`),
+(`tests/fixtures/banking/hitl.yaml:41`; `tests/hitl/test_approval_gate.py::_required_policy_plane`),
 while `tests/hitl/test_signed_binding_authority.py::test_approval_gate_double_verification_is_idempotent` and the door file build
 events with no `policy_ref` at all — the "no policy_ref" negatives. 6 more
 (the two door-identity files, four workflow files, `test_trace_class_declared`)
@@ -1445,8 +1445,8 @@ authority conditions on the merged tree: the join's per-submission predicate
   (1) `src/ccf/hitl/{principal,identity_binding,transport,approval_gate}.py`,
   the new claims/policy contracts, `runtime/ccf_runtime/http_api/routes/hitl.py`,
   `runtime/ccf_runtime/mcp/hitl_server.py`; (2) `escalation.py`, `override.py`,
-  `review_queue.py`, `runtime/ccf_runtime/workflow/engine.py:740-800` and
-  `:930-1160`, `src/ccf/workflow/factory.py:330-370`, `tests/crossproc/servers/mcp_hitl_child.py`,
+  `review_queue.py`, `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._advance`, `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend` and
+  `:930-1160`, `src/ccf/workflow/factory.py::WorkflowFactory.construct`, `tests/crossproc/servers/mcp_hitl_child.py`,
   the record-builder diff, the new tests, the brief.
 - **Known findings briefed:** the seven consumption points; the wider
   subject↔key hole; the submit-only door's N submissions; the resumer as a
@@ -1478,13 +1478,13 @@ design document.**
 | # | Axis | Recommendation (from the verified recon) |
 |---|---|---|
 | G1 | What a "subject" is | **Deployment-declared** subject classes and key paths beside `WriteKinds` (`src/ccf/artifacts/protocol.py:252-358`; mechanism only, no SDK roster — a fixed roster is the No-Hardcoding defect). |
-| G2 | Replay inputs vs retained content | **Split them.** `principal_id`/`role` (`src/ccf/replay/engine.py:1425-1428` rebuilds `Perspective` from them), the request (`src/ccf/replay/engine.py::_re_execute`; erasing it would *silently replay a different question under the decision's id*, `D-IMPL-111`), `touched_entities` (`src/ccf/replay/record.py::ContextFabricSnapshot`) and the approver's `subject_id` are **replay inputs** — retention-exempt or pseudonymized at write (GDPR Art. 17(3)(b) for audit actors). Admitted child contracts, child questions and annotations are **retained content** — erasable. |
+| G2 | Replay inputs vs retained content | **Split them.** `principal_id`/`role` (`src/ccf/replay/engine.py::_re_execute` rebuilds `Perspective` from them), the request (`src/ccf/replay/engine.py::_re_execute`; erasing it would *silently replay a different question under the decision's id*, `D-IMPL-111`), `touched_entities` (`src/ccf/replay/record.py::ContextFabricSnapshot`) and the approver's `subject_id` are **replay inputs** — retention-exempt or pseudonymized at write (GDPR Art. 17(3)(b) for audit actors). Admitted child contracts, child questions and annotations are **retained content** — erasable. |
 | G3 | The erasure fact | An **immutable `ccf.erasure-record`** artifact class declared under `WriteKinds`, written by mechanism through `put` (the `DerivedWrite` shape, `src/ccf/replay/serve.py::ReplayWriter.write_replay_record`): retention reason — the structural field `D-IMPL-50` ruled and never built (§1.3; nothing of it is in the tree), so the erasure record's reason vocabulary is `D-IMPL-360`'s to declare as a deployment-declared closed set under G1's rule, or `D-IMPL-50`'s lifecycle lands first under G10 — actor, `erased_at` from the injected clock, legal basis, addresses. **Never** a state-store register as authority — `ControlPlaneStateStore` is "deliberately not append-only" (`src/ccf/controlplane/state.py::ControlPlaneStateStore`) with an in-memory audit log, so erasure there is reversible and replay would read an unversioned mutable input. |
-| G4 | Where the consult sits | **At the substrate read**, not the doors: eight in-process `store.get` sites bypass a door-only consult (`src/ccf/replay/engine.py::resolve_artifact`, `:677`, `:831`, `:1311`; `src/ccf/products/product.py:551`; `src/ccf/products/child_resolver.py:519`; `runtime/ccf_runtime/authz/delivery_boundary.py:1182`; `runtime/ccf_runtime/mcp/artifact_server.py:421`). |
+| G4 | Where the consult sits | **At the substrate read**, not the doors: eight in-process `store.get` sites bypass a door-only consult (`src/ccf/replay/engine.py::resolve_artifact`, `:677`, `:831`, `:1311`; `src/ccf/products/product.py::OpenedProduct.record_of`; `src/ccf/products/child_resolver.py::GrantBoundChildResolver._touched_entities`; `runtime/ccf_runtime/authz/delivery_boundary.py::govern_dereference`; `runtime/ccf_runtime/mcp/artifact_server.py::build_artifact_server.dereference`). |
 | G5 | The served reading | **Disclosure-governed** through the existing `Disclosure` layer and `govern_dereference`: absent at minimal, erased-with-reason at higher levels, **always positive in replay** — at the child-question site and the request-seeds site (`src/ccf/replay/engine.py::_re_execute`) as a refusal distinct from "never carried a request". |
-| G6 | Authority | A new door kind `artifact.erase` (beside `artifact.write`, `src/ccf/authz/actions.py:64`) minted at gate/wrapper only, **behind a policy-configurable `ApprovalGate`** with the approver in the record — an irreversible Control Plane action of a revoke's weight. Never composition-minted. |
+| G6 | Authority | A new door kind `artifact.erase` (beside `artifact.write`, `src/ccf/authz/actions.py::ACTION_ARTIFACT_WRITE`) minted at gate/wrapper only, **behind a policy-configurable `ApprovalGate`** with the approver in the record — an irreversible Control Plane action of a revoke's weight. Never composition-minted. |
 | G7 | Legal hold and severity-exempt records | **Per-class Control Plane policy, default refuse**, with a structural retention-reason field (INV-CH7-89) — the refusal is the audit answer a regulator asks for. |
-| G8 | The graph | **Outside the 1.0.2 contract, named** (the `D-IMPL-355` form): six backends, five persistent, only Fluree append-only (`src/ccf/graph/backends/fluree_write.py::_FlureeTxn._replace` emits retracts that remain in history); `PolicyFilter` reads attribute plaintext (`src/ccf/operators/categories.py::PolicyFilter._admits`), so attribute-level encryption would fail it closed; `cp-15` puts natural-person KYC data in the graph. CDC turns an upstream DELETE into a permanently retained before-image (`runtime/ccf_runtime/cdc/envelope_map.py` (module docstring), `:158-161`): a retention event, not an erasure signal — recommended, to be ruled at G8. The file store's append-only `.artifact-names.json` (`src/ccf/artifacts/file_store.py:66`, `:140-150`) is inventoried. |
+| G8 | The graph | **Outside the 1.0.2 contract, named** (the `D-IMPL-355` form): six backends, five persistent, only Fluree append-only (`src/ccf/graph/backends/fluree_write.py::_FlureeTxn._replace` emits retracts that remain in history); `PolicyFilter` reads attribute plaintext (`src/ccf/operators/categories.py::PolicyFilter._admits`), so attribute-level encryption would fail it closed; `cp-15` puts natural-person KYC data in the graph. CDC turns an upstream DELETE into a permanently retained before-image (`runtime/ccf_runtime/cdc/envelope_map.py` (module docstring), `:158-161`): a retention event, not an erasure signal — recommended, to be ruled at G8. The file store's append-only `.artifact-names.json` (`src/ccf/artifacts/file_store.py::_INDEX_FILENAME`, `:140-150`) is inventoried. |
 | G9 | Rulings this amends | `D-IMPL-27`'s explicit class list (`docs/DECISIONS.md:37` routes replay records and Context Products at rest through the ArtifactStore) for whatever leaves the store; key custody, if crypto-shredding is ever ruled for the graph, on the existing `SigningKeySource` / `FileBackedKeySource` seam (`src/ccf/peering/identity.py::SigningKeySource`, `:410`), never a second key provider; a durable state store is a `D-IMPL-18` deliverable, not a side effect. |
 | G10 | Sequencing | The entry and the design in 1.0.2; the substrate (erasure record class, the door kind, the substrate consult, the ApprovalGate) as its own panelled phase after 1.0.2; payload separation for artifacts and any graph erasure as later phases; and the honest statement that until bytes are destroyed nothing here satisfies Art. 17 destruction. |
 
@@ -1528,10 +1528,10 @@ Claude leg is inside the in-process handler**
 (`runtime/ccf_runtime/adapters/claude_agent/adapter.py::ClaudeAgentAdapter._skill_tool.handler`); CLI-side
 gates are defense in depth. (b) The conformance suite is green on `TP-01` and
 `TP-04` only because the refusal drivers call the gate function directly with
-`args={}` (`tests/conformance/test_harness_adapter.py:483-495`) — a false green
+`args={}` (`tests/conformance/test_harness_adapter.py::build_harness_leg.refusal`) — a false green
 that becomes the red-when-fixed inversion. (c) Refusing a `peering` tool-style
 call in `Agent.invoke_skill` is **foreclosed** by Dave's 2026-07-27 ruling
-(`src/ccf/agents/agent.py::Agent.invoke_skill`; `src/ccf/agents/factory.py:276-286`; PHASE_I3_GATE row 19)
+(`src/ccf/agents/agent.py::Agent.invoke_skill`; `src/ccf/agents/factory.py::AgentFactory`; PHASE_I3_GATE row 19)
 and would redden `tests/integration/test_agent_slice.py::test_a_granted_peering_skill_is_invocable_through_the_agent_seam`, `tests/integration/test_agent_slice.py::test_an_unwired_deployment_still_refuses_a_peering_skill_by_name`, `tests/integration/test_agent_slice.py::test_a_peering_skill_invocation_writes_no_admission_record`; the
 seam is `render_tool_surface` (`src/ccf/skills/toolsurface.py::render_tool_surface`), which
 already refuses `procedure` by type (`D-IMPL-56`) — widening it to `peering`
@@ -1544,7 +1544,7 @@ private vendor module (`SubprocessCLITransport`) and is a ruling — one the
 in-tree precedent cuts against: `hw1`'s three clients pass `env=dict(os.environ)`
 deliberately with a recorded reason (`examples/hw1-harness-clients/client_anthropic.py::session_options`:
 "a child handed a trimmed environment has already cost this repository one
-defect"; `examples/hw1-harness-clients/client_adk.py::main`; `examples/hw1-harness-clients/client_langgraph.py:131`). (e) `TP-04`
+defect"; `examples/hw1-harness-clients/client_adk.py::main`; `examples/hw1-harness-clients/client_langgraph.py::connect`). (e) `TP-04`
 and `D-IMPL-353` residual R4 (`SEC353-J-01`, FastMCP drops unknown wire
 arguments) are one defect class and get one rule. (f) `TP-05`'s file-form
 prompt (`--system-prompt-file`, present in the bundled CLI) changes what the
