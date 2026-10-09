@@ -135,6 +135,7 @@ from ccf.deployment.config import (
 from ccf.deployment.manifest import (
     BootedFabric,
     ManifestKeysPlaceToOneKey,
+    QuestionFabricNotExclusive,
     QuestionFabricNotFresh,
     QuestionStoreNotEmpty,
     load_and_boot,
@@ -160,6 +161,7 @@ __all__ = [
     "EnvironmentDocument",
     "ManifestEntry",
     "ManifestKeysPlaceToOneKey",
+    "QuestionFabricNotExclusive",
     "QuestionFabricNotFresh",
     "QuestionStoreNotEmpty",
     "ResolvedPins",
