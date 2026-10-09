@@ -304,7 +304,7 @@ These are two different things and the design keeps them apart.
 ### 8.1 Runtime perspective
 
 Derived from the caller's grant at the door — `entitled_perspective(grant=...)`
-at `runtime/ccf_runtime/mcp/egress.py::context_product`. A principal's grant carries a
+at `runtime/ccf_runtime/mcp/egress.py::build_egress_server.context_product`. A principal's grant carries a
 **set** of `permitted_roles` (`src/ccf/products/entitlement.py::ProductEntitlementGrant`) and asserts
 one per call. No file is required.
 
