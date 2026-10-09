@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2393 entries**, of which **2116** name a public Python surface.
+**2422 entries**, of which **2145** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1315 entries — 1269 public Python surface, 46 not public Python API.
+1340 entries — 1294 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19304,6 +19304,306 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-37-stored-bytes-verified-before-use.md`.*
 
+#### ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH
+
+- Surface: ccf.authz.actions.ACTION_ARTIFACT_SUBJECT_MATCH
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"artifact.subject.match"`: the action the MCP artifact server's `match_artifact_subject` tool declares; its resource is the action id itself. Distinct from every read, write and erase, so a scope mapping reaches the tool only by naming it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. A deployment whose erasure door files through the MCP-backed store grants `artifact.subject.match` to the door's MCP credential, and to nothing else, or the door refuses record-shaped client filings `subject-unverifiable` as before.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.authz.capability.ArtifactSubjectMatch
+
+- Surface: ccf.authz.capability.ArtifactSubjectMatch
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The capability kind for `artifact.subject.match`, minted only by `mint()` from an authorizer's allow, never at composition, and outside the MCP guard's read kinds, so a stated (ambient stdio) identity is refused it before any decision.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SUBJECT_MATCH_CLASS
+
+- Surface: ccf.erasure.subject_match.SUBJECT_MATCH_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf.erasure-subject-match"`: what a subject-match query's door signature asserts in its protected header under `DOOR_SIGNATURE_ASSERTION`. A door-key signature made for an erasure record or for the door's composition probe does not verify as a query, and a query's does not verify as a record's.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SUBJECT_MATCH_CLASS
+
+- Surface: ccf.erasure.SUBJECT_MATCH_CLASS
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SUBJECT_MATCH_CLASS`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectJudgment
+
+- Surface: ccf.erasure.subject_match.SubjectJudgment
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The judgment over stored bytes, in its order: `bytes-not-at-address`, `bytes-unparseable`, `subject-not-found`, `subject-in-replay-input`, `subject-found`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectJudgment
+
+- Surface: ccf.erasure.SubjectJudgment
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectJudgment`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchAnswer
+
+- Surface: ccf.erasure.subject_match.SubjectMatchAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A contract carrying one `verdict` (a `SubjectMatchVerdict`): the whole answer of the subject match. No bytes, no document, no value read out of it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchAnswer
+
+- Surface: ccf.erasure.SubjectMatchAnswer
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchAnswer`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchQuery
+
+- Surface: ccf.erasure.subject_match.SubjectMatchQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A contract: what the erasure door asks about one requested address — `tenant_id`, `content_address`, `subject_ref` (both sha256 hex), the subject class's `key_paths` and `subject_ref_salt`. On the server the tenant is the caller's verified tenant, never a wire value.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchQuery
+
+- Surface: ccf.erasure.SubjectMatchQuery
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchQuery`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchSignatureInvalid
+
+- Surface: ccf.erasure.subject_match.SubjectMatchSignatureInvalid
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A `ValueError` raised by `verify_subject_match_query`: no signature by the declared door key of the query's tenant verifies over exactly the query.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchSignatureInvalid
+
+- Surface: ccf.erasure.SubjectMatchSignatureInvalid
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchSignatureInvalid`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.SubjectMatchVerdict
+
+- Surface: ccf.erasure.subject_match.SubjectMatchVerdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The wire verdict: `subject-unverifiable` (bytes not at the address, unparseable, or an address the server does not judge), `subject-not-found`, `subject-in-replay-input`, `subject-found`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.SubjectMatchVerdict
+
+- Surface: ccf.erasure.SubjectMatchVerdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.SubjectMatchVerdict`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.judge_subject
+
+- Surface: ccf.erasure.subject_match.judge_subject
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `judge_subject(payload, query)`: the erasure door's judgment over stored bytes, once — re-hash against the address FIRST, then parse, then a value at a declared key path hashing to the salted reference, then whether the subject also sits in a replay-input field. The in-process door and the MCP artifact server both apply it.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.judge_subject
+
+- Surface: ccf.erasure.judge_subject
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.judge_subject`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.sign_subject_match_query
+
+- Surface: ccf.erasure.subject_match.sign_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `sign_subject_match_query(query, *, signer, key_id)`: the erasure door's detached signature over the query's canonical bytes, asserting `SUBJECT_MATCH_CLASS`; returns `protected..signature`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.sign_subject_match_query
+
+- Surface: ccf.erasure.sign_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.sign_subject_match_query`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.subject_match_verdict
+
+- Surface: ccf.erasure.subject_match.subject_match_verdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `subject_match_verdict(judgment)`: the wire verdict for a judgment; anything but a found or not-found subject is `subject-unverifiable`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match_verdict
+
+- Surface: ccf.erasure.subject_match_verdict
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.subject_match_verdict`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.subject_match.verify_subject_match_query
+
+- Surface: ccf.erasure.subject_match.verify_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `verify_subject_match_query(query, *, door_signature, authority, identity_provider)`: refuses, `SubjectMatchSignatureInvalid`, unless the authority is the query's tenant's and the signature verifies over exactly the query against its declared door keys and asserts `SUBJECT_MATCH_CLASS`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.erasure.verify_subject_match_query
+
+- Surface: ccf.erasure.verify_subject_match_query
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: Re-export of `ccf.erasure.subject_match.verify_subject_match_query`.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_TOOL
+
+- Surface: ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_TOOL
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"match_artifact_subject"`: the name of the artifact server's subject-match tool.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_REFUSED
+
+- Surface: ccf_runtime.mcp.artifact_server.SUBJECT_MATCH_REFUSED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: The one message every caller the subject match does not answer receives, whichever check refused it (no erasure authority for the caller's tenant, a query that is not one, or no door-key signature over exactly it). It names no address, subject or store.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.mcp.artifact_server.SubjectMatchRefused
+
+- Surface: ccf_runtime.mcp.artifact_server.SubjectMatchRefused
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: A `PermissionError` the subject-match tool raises, always with `SUBJECT_MATCH_REFUSED`, before the substrate is read; it crosses MCP as the tool's error result.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30287,7 +30587,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-409 entries — 370 public Python surface, 39 not public Python API.
+413 entries — 374 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36326,6 +36626,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a store that returns what was written.
 
 *Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the server registered five surfaces: the blob, presence, names and naming resources and `put_artifact`.
+- After: it also registers the tool `match_artifact_subject` (action `artifact.subject.match`, resource the action id, the grant's sole tenant, registered mutating so a stated identity is refused). Past the guard it requires an `ErasureAuthority` for the caller's tenant and that authority's door-key signature over the query rebuilt under the caller's tenant, else raises `SubjectMatchRefused`; it then judges only an address the caller's tenant filed on its client lane (no own name under a class the substrate declares under `ReplayMint`), reading the bytes from the substrate as the in-process door reads them, and answers `SubjectMatchAnswer`; governed evidence, another tenant's address and an empty one answer `subject-unverifiable` without a byte read. Every answer and every refusal past the guard appends one `authz_decision` audit event.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none for a deployment that does not grant `artifact.subject.match`: every call is refused by the authorizer. Grant it to the erasure door's credential only.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: the store read, wrote and resolved artifacts and answered naming; it asked the server for nothing else.
+- After: it also offers `match_subject(*, query, door_signature)`, which calls the server's `match_artifact_subject` tool (the tenant does not cross the wire) and returns the verdict; a refusal, a server without the tool, or an answer that is not a verdict raises `ArtifactStoreError`, judged after the session closes so it is never reported as an outage.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store, a request naming a client-lane filing the artifact server answers as absent — a record-shaped one, the residual — was refused `subject-unverifiable`, because the door could not read the bytes to verify the subject.
+- After: where its store answers a requested address as absent (`ArtifactNotFound`) and offers `match_subject`, the door signs the query with its door key and asks; the verdict is judged exactly as bytes it reads are (`judge_subject`, the same function), so it reaches the in-process door's outcome. A store with no `match_subject`, a match that does not answer, and any answer that is not a verdict refuse `subject-unverifiable`, as before. Bytes the door reads are judged with `judge_subject` too, with the same refusal codes and messages.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: over the MCP-backed store, a request naming a client-lane filing the artifact server answers as absent — a record-shaped one, the residual — was refused `subject-unverifiable`, because the door could not read the bytes to verify the subject.
+- After: where its store answers a requested address as absent (`ArtifactNotFound`) and offers `match_subject`, the door signs the query with its door key and asks; the verdict is judged exactly as bytes it reads are (`judge_subject`, the same function), so it reaches the in-process door's outcome. A store with no `match_subject`, a match that does not answer, and any answer that is not a verdict refuse `subject-unverifiable`, as before. Bytes the door reads are judged with `judge_subject` too, with the same refusal codes and messages.
+- Why: Dave's 16:40 MST item 5, D3b (`D-IMPL-378`): "Build the narrowly authorized server-side subject-match path without serving the bytes."
+- Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
+
+*Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
 ### Not public Python API
 

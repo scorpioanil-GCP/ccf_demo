@@ -900,6 +900,7 @@
       "ACTION_AGENT_VERSIONS",
       "ACTION_ARTIFACT_ERASE",
       "ACTION_ARTIFACT_READ",
+      "ACTION_ARTIFACT_SUBJECT_MATCH",
       "ACTION_ARTIFACT_WRITE",
       "ACTION_BACKENDS_READ",
       "ACTION_CONFIG_KEYS_READ",
@@ -945,6 +946,10 @@
         "shape": "str"
       },
       "ACTION_ARTIFACT_READ": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ACTION_ARTIFACT_SUBJECT_MATCH": {
         "kind": "constant",
         "shape": "str"
       },
@@ -1047,6 +1052,7 @@
       "AgentVersions",
       "ArtifactErase",
       "ArtifactRead",
+      "ArtifactSubjectMatch",
       "ArtifactWrite",
       "Authorized",
       "BackendsRead",
@@ -1109,6 +1115,10 @@
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
       "ArtifactRead": {
+        "kind": "class",
+        "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
+      },
+      "ArtifactSubjectMatch": {
         "kind": "class",
         "shape": "(*_: 'Any', **__: 'Any') -> \"'ActionKind'\""
       },
@@ -3162,17 +3172,27 @@
       "RetentionDecision",
       "RetentionHoldPolicy",
       "RetentionReasonCode",
+      "SUBJECT_MATCH_CLASS",
+      "SubjectJudgment",
+      "SubjectMatchAnswer",
+      "SubjectMatchQuery",
+      "SubjectMatchSignatureInvalid",
+      "SubjectMatchVerdict",
       "compose_erasure_consult",
       "erasure_index_at",
       "judge_retention",
+      "judge_subject",
       "policy_head",
       "reference_approval_verifier",
       "require_append_authority",
       "sign_erasure_record",
+      "sign_subject_match_query",
+      "subject_match_verdict",
       "subject_ref_for",
       "verify_door_signature",
       "verify_erasure_approval",
-      "verify_erasure_entry"
+      "verify_erasure_entry",
+      "verify_subject_match_query"
     ],
     "exports": {
       "APPROVING_VERDICT": {
@@ -3436,6 +3456,38 @@
         "kind": "function",
         "shape": "typing.Literal['admitted', 'class-absent', 'not-erasable', 'severity-exempt', 'legal-hold', 'reason-unknown', 'under-minimum-age', 'policy-unresolvable', 'replay-input']"
       },
+      "SUBJECT_MATCH_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SubjectJudgment": {
+        "kind": "function",
+        "shape": "typing.Literal['bytes-not-at-address', 'bytes-unparseable', 'subject-not-found', 'subject-in-replay-input', 'subject-found']"
+      },
+      "SubjectMatchAnswer": {
+        "kind": "contract",
+        "shape": {
+          "verdict": "typing.Literal['subject-unverifiable', 'subject-not-found', 'subject-in-replay-input', 'subject-found']"
+        }
+      },
+      "SubjectMatchQuery": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "<class 'str'>",
+          "key_paths": "tuple[str, ...]",
+          "subject_ref": "<class 'str'>",
+          "subject_ref_salt": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "SubjectMatchSignatureInvalid": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "SubjectMatchVerdict": {
+        "kind": "function",
+        "shape": "typing.Literal['subject-unverifiable', 'subject-not-found', 'subject-in-replay-input', 'subject-found']"
+      },
       "compose_erasure_consult": {
         "kind": "function",
         "shape": "(store: 'ArtifactStoreProtocol', *, index: 'ErasureIndexProtocol', audit_log: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust', tenant_id: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'ErasureConsultingStore'"
@@ -3447,6 +3499,10 @@
       "judge_retention": {
         "kind": "function",
         "shape": "(policy: 'RetentionHoldPolicy', *, policy_ref: 'str', request: 'ErasureRequest', now: 'datetime') -> 'RetentionDecision'"
+      },
+      "judge_subject": {
+        "kind": "function",
+        "shape": "(payload: 'bytes', query: 'SubjectMatchQuery') -> 'SubjectJudgment'"
       },
       "policy_head": {
         "kind": "function",
@@ -3464,6 +3520,14 @@
         "kind": "function",
         "shape": "(record: 'ErasureRecord', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
       },
+      "sign_subject_match_query": {
+        "kind": "function",
+        "shape": "(query: 'SubjectMatchQuery', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
+      },
+      "subject_match_verdict": {
+        "kind": "function",
+        "shape": "(judgment: 'SubjectJudgment') -> 'SubjectMatchVerdict'"
+      },
       "subject_ref_for": {
         "kind": "function",
         "shape": "(declaration: 'ErasureSubjectDeclaration', subject_class: 'str', identifier: 'str') -> 'str'"
@@ -3479,6 +3543,10 @@
       "verify_erasure_entry": {
         "kind": "function",
         "shape": "(entry: 'ErasureIndexEntry', payload: 'bytes', *, trust: 'ErasureTrust', identity_provider: 'IdentityProvider') -> 'tuple[ErasureRecord, ErasureAuthority]'"
+      },
+      "verify_subject_match_query": {
+        "kind": "function",
+        "shape": "(query: 'SubjectMatchQuery', *, door_signature: 'str', authority: 'ErasureAuthority', identity_provider: 'IdentityProvider') -> 'None'"
       }
     }
   },
@@ -3834,6 +3902,70 @@
       "compose_erasure_consult": {
         "kind": "function",
         "shape": "(store: 'ArtifactStoreProtocol', *, index: 'ErasureIndexProtocol', audit_log: 'AuditLog', clock: 'Callable[[], datetime]', control_plane: 'PinnedPolicySource', erasure_trust: 'ErasureTrust', tenant_id: 'str | None' = None, identity_provider: 'IdentityProvider | None' = None) -> 'ErasureConsultingStore'"
+      }
+    }
+  },
+  "ccf.erasure.subject_match": {
+    "__all__": [
+      "SUBJECT_MATCH_CLASS",
+      "SubjectJudgment",
+      "SubjectMatchAnswer",
+      "SubjectMatchQuery",
+      "SubjectMatchSignatureInvalid",
+      "SubjectMatchVerdict",
+      "judge_subject",
+      "sign_subject_match_query",
+      "subject_match_verdict",
+      "verify_subject_match_query"
+    ],
+    "exports": {
+      "SUBJECT_MATCH_CLASS": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SubjectJudgment": {
+        "kind": "function",
+        "shape": "typing.Literal['bytes-not-at-address', 'bytes-unparseable', 'subject-not-found', 'subject-in-replay-input', 'subject-found']"
+      },
+      "SubjectMatchAnswer": {
+        "kind": "contract",
+        "shape": {
+          "verdict": "typing.Literal['subject-unverifiable', 'subject-not-found', 'subject-in-replay-input', 'subject-found']"
+        }
+      },
+      "SubjectMatchQuery": {
+        "kind": "contract",
+        "shape": {
+          "content_address": "<class 'str'>",
+          "key_paths": "tuple[str, ...]",
+          "subject_ref": "<class 'str'>",
+          "subject_ref_salt": "<class 'str'>",
+          "tenant_id": "<class 'str'>"
+        }
+      },
+      "SubjectMatchSignatureInvalid": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "SubjectMatchVerdict": {
+        "kind": "function",
+        "shape": "typing.Literal['subject-unverifiable', 'subject-not-found', 'subject-in-replay-input', 'subject-found']"
+      },
+      "judge_subject": {
+        "kind": "function",
+        "shape": "(payload: 'bytes', query: 'SubjectMatchQuery') -> 'SubjectJudgment'"
+      },
+      "sign_subject_match_query": {
+        "kind": "function",
+        "shape": "(query: 'SubjectMatchQuery', *, signer: 'IdentityProvider', key_id: 'str') -> 'str'"
+      },
+      "subject_match_verdict": {
+        "kind": "function",
+        "shape": "(judgment: 'SubjectJudgment') -> 'SubjectMatchVerdict'"
+      },
+      "verify_subject_match_query": {
+        "kind": "function",
+        "shape": "(query: 'SubjectMatchQuery', *, door_signature: 'str', authority: 'ErasureAuthority', identity_provider: 'IdentityProvider') -> 'None'"
       }
     }
   },
@@ -12701,6 +12833,9 @@
       "NAME_URI_TEMPLATE",
       "NonCanonicalPayload",
       "PUT_ARTIFACT_TOOL",
+      "SUBJECT_MATCH_REFUSED",
+      "SUBJECT_MATCH_TOOL",
+      "SubjectMatchRefused",
       "artifact_blob_uri",
       "artifact_meta_uri",
       "build_artifact_server"
@@ -12758,6 +12893,18 @@
       "PUT_ARTIFACT_TOOL": {
         "kind": "constant",
         "shape": "str"
+      },
+      "SUBJECT_MATCH_REFUSED": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SUBJECT_MATCH_TOOL": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "SubjectMatchRefused": {
+        "kind": "class",
+        "shape": "type"
       },
       "artifact_blob_uri": {
         "kind": "function",

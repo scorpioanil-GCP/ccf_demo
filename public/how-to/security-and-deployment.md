@@ -1090,13 +1090,36 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   a replay-input field, and an erasure-consulting composition over a store
   that answers no `names_at`, for any address
   (`tests/erasure/test_replay_input_retention_provenance.py`). An erasure door
-  built over the MCP-backed store reads each named address's bytes to verify
-  its subject, so it still refuses a request naming such a filing
-  `subject-unverifiable`: through that door, a principal can keep a client
-  file out of reach of erasure by shaping it as a record (measured, and kept
-  as a strict expected failure in the same module). A request naming client
-  bytes the record validator refuses is verified and admitted through it like
-  any other.
+  built over the MCP-backed store cannot read such a filing's bytes, and does
+  not need them (D3b, D-IMPL-378): where the blob resource answers a requested
+  address as absent, the door asks the artifact server's
+  `match_artifact_subject` tool, which judges the bytes where they are with
+  the in-process door's own judgment
+  (`src/ccf/erasure/subject_match.py::judge_subject`) and answers one verdict,
+  never the bytes. Measured: a request naming such a filing reaches the
+  in-process door's outcome (admitted, or `subject-not-found`), and no message
+  of the exchange, in either direction, carries the document
+  (`tests/mcp/test_erasure_subject_match.py`). The tool answers the erasure
+  door of the caller's tenant alone, decided before the substrate is read: the
+  deployment must grant `artifact.subject.match` by name to the door's MCP
+  credential; the caller's tenant must have an `ErasureAuthority` in the
+  server's `ErasureTrust`; and the query, rebuilt under the caller's tenant,
+  must carry a signature by that authority's declared door key, made for this
+  purpose (`src/ccf/erasure/subject_match.py::verify_subject_match_query`).
+  Every other caller gets one constant refusal — measured for a caller with no
+  identity, another tenant's bearer, this tenant's reader without the grant,
+  and a principal holding the grant but not the door key: the same bytes
+  whether the address exists, whether the filing is record-shaped, whether the
+  subject matches, and no read of the substrate. The tool judges only an
+  address the caller's tenant filed on its client lane: governed evidence and
+  addresses the tenant never filed answer `subject-unverifiable` without a
+  byte read. Not closed by this: the door key is the trust root here as for
+  the door's records, so a party holding it and a credential granted
+  `artifact.subject.match` can ask about any of that tenant's client-lane
+  addresses, as the door does; over the MCP-backed store a record the fabric's
+  record writer filed is still refused `class-unverifiable` before any
+  subject match (in process: `replay-input`); and the erasure claim this
+  bullet qualifies (SEC-009) stays open until the final panel verifies it.
 - **A read-refusal record names who asked; one minted before its marker
   reads as missing for everyone, its owner included (forged-record re-review,
   D-IMPL-376; D-IMPL-378).** The governed read records each refusal through
