@@ -43,7 +43,10 @@ asserts, by name, the mechanism that refuses the limit.
 * **(d) An attributed row for a passage that never committed.** A resumption
   whose commit failed, or that was cancelled, left an attributed
   ``workflow_resumed`` row while the record still said suspended at the gate.
-  Now the row and the passage are one audited write.
+  Now the row is appended only after the passage commits, so a commit that
+  fails leaves no row. The two are separate writes: a row append that fails
+  after the commit landed leaves the passage without its row
+  (``tests/workflow/test_passage_commit_two_writes_limits.py``).
 
 **How these tests assert.** Each asserts the hole's own end state first — the
 measures the close-out recorded — and then the mechanism that refuses it, by
@@ -884,10 +887,10 @@ def test_a_resumption_that_never_commits_leaves_no_attributed_passage_row(
     the shape SEC-001 named (*"asserts a resolution that never happened"*), and
     a retry added a second attributed row for the one approval.
 
-    Since ``D-IMPL-378`` the row and the passage are one audited write, made
-    before the step after the gate: a failed commit writes neither
-    (``commit-fails``), and a cancelled step leaves a committed passage with
-    its one row (``cancelled``), which is never retried
+    Since ``D-IMPL-378`` the passage commits before the step after the gate,
+    and its row is appended only after the commit lands: a failed commit
+    writes neither (``commit-fails``), and a cancelled step leaves a committed
+    passage with its one row (``cancelled``), which is never retried
     (``tests/workflow/test_approval_gate_limits.py::test_an_interrupted_passage_is_never_retried_by_any_process``)."""
     records = StandInRecords()
     registry = plane(SharedBackingStore(records, scope="process"))

@@ -1810,12 +1810,29 @@ measured going red when it was removed:
   (HTTP 409) and nothing is recorded, and the HITL queue no longer lists the
   closed gate's event.
 - **The conditional passage commit** (`D-IMPL-378`). The execution leaving its
-  gate, and the attributed `workflow_resumed` row that names the approver, are
-  one write, conditional on the version of the record the resumption read
-  (`src/ccf/controlplane/state.py::ConditionalStateStore`), committed before
-  the step after the gate runs. Of two resumptions in two processes, or through
-  two state-store objects over one durable store, exactly one commit lands; the
-  other is refused before it runs anything.
+  gate is a state write, conditional on the version of the record the
+  resumption read (`src/ccf/controlplane/state.py::ConditionalStateStore`),
+  committed before the step after the gate runs. Of two resumptions in two
+  processes, or through two state-store objects over one durable store,
+  exactly one commit lands; the other is refused before it runs anything. The
+  attributed `workflow_resumed` row that names the approver is a second write,
+  appended to the audit log only after that commit lands
+  (`src/ccf/controlplane/state.py::AuditedStateWriter.write_if`), so a refused
+  commit leaves no row. The two writes are not atomic. If the append fails
+  after the commit landed, the resumption fails with the audit log's error and
+  the execution has left its gate with no `workflow_resumed` row. An operator
+  then finds its record `running` at the state after the gate, the gate's
+  closure on the HITL transport still naming the approver (`decided_by`), the
+  gate gone from the queue, and nothing in the audit log naming who approved
+  the passage. When that state is a step, the step has not run and every later
+  resumption is refused as an interrupted passage; when it is a terminal
+  state, a later resumption completes the execution, and the completed record
+  still has no `workflow_resumed` row
+  (`tests/controlplane/test_audited_write_is_two_writes.py`,
+  `tests/workflow/test_passage_commit_two_writes_limits.py`). The SDK does not
+  yet detect or repair a passage left without its row: Dave ruled on
+  2026-10-09 that such a transition be made detectable and recoverable
+  (decision 7 (b), `D-IMPL-378`), and that design is in progress, not built.
 
 Before these mechanisms, the following were measured on 2026-10-07:
 
