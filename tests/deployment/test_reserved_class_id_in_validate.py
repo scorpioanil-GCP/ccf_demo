@@ -648,14 +648,16 @@ def test_control_the_config_door_and_the_paved_road_refuse_nothing_an_sdk_class_
 
 #: ``(manifest entry class, the class the document states, registration)`` -> the door's own refusal:
 #: ``(refusal name, the SDK function that raises it)``.
+#: The reservation's refusal in ``resolve_artifact_class`` is ``ReservedArtifactClassId``, one rule with one
+#: name (OWED-RULINGS-3 3P2 (b), Dave, 2026-10-09 06:21 MST; it was a plain ``ValueError``).
 MANIFEST_SHAPES = {
     "reserved-entry-not-shipped": (
         ("ccf.made-up-class", "ccf.made-up-class", "typed"),
-        ("ValueError", "classes.py::resolve_artifact_class"),
+        ("ReservedArtifactClassId", "classes.py::resolve_artifact_class"),
     ),
     "reserved-entry-not-addressable": (
         ("ccf.hitl-policy", "ccf.hitl-policy", "typed"),
-        ("ValueError", "classes.py::resolve_artifact_class"),
+        ("ReservedArtifactClassId", "classes.py::resolve_artifact_class"),
     ),
     "sdk-entry-envelope-document": (
         ("ccf.workflow-definition", "ccf.workflow-definition", "versioned"),
@@ -694,11 +696,11 @@ def test_control_the_manifest_door_refuses_an_envelope_stating_a_reserved_id_by_
 CONFIG_SHAPES = {
     "reserved-class-not-shipped": (
         {"class_id": "ccf.made-up-class"},
-        ("ValueError", "classes.py::resolve_artifact_class"),
+        ("ReservedArtifactClassId", "classes.py::resolve_artifact_class"),
     ),
     "reserved-class-not-addressable": (
         {"class_id": "ccf.hitl-policy"},
-        ("ValueError", "classes.py::resolve_artifact_class"),
+        ("ReservedArtifactClassId", "classes.py::resolve_artifact_class"),
     ),
     "sdk-class-versioned": (
         {"class_id": "ccf.workflow-definition", "registration": "versioned"},

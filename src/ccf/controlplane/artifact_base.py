@@ -184,18 +184,30 @@ class ReservedArtifactClassId(ValueError):
     adopter's contract that declares ``class_id`` — is therefore an adopter's
     content. Admitted under a ``ccf.`` id, it would register under an SDK class
     name, the registry would bind the key to that name, and the boot would pin
-    it into Decision Replay dimension 2. Two places refuse it, by this name:
+    it into Decision Replay dimension 2. Three places refuse it, by this name:
 
     * :func:`~ccf.controlplane.artifacts.declared_artifact_class`, before any
       class exists (``D-IMPL-378`` K1 (b), Dave, 2026-10-08 12:29 MST);
     * :meth:`ArtifactClass.validate`, for a class built directly with the
       public constructor, before anything is registered or audited
       (``D-IMPL-378`` K1 follow-up (b), Dave, 2026-10-08 16:40 MST: *"Close the
-      direct-construction bypass while preserving legitimate SDK classes."*).
+      direct-construction bypass while preserving legitimate SDK classes."*);
+    * :func:`~ccf.deployment.classes.resolve_artifact_class`, the manifest
+      door's resolver, for a ``ccf.`` id the SDK does not ship, before the
+      envelope is reached (``D-IMPL-84``; it raised a plain ``ValueError``
+      until OWED-RULINGS-3 item 3P2 (b), Dave, 2026-10-09 06:21 MST: one rule,
+      one name).
 
-    A ``ValueError``, as the manifest door's refusal of the same reservation
-    (:func:`~ccf.deployment.classes.resolve_artifact_class`) is, so a caller
-    that catches ``ValueError`` around any of them keeps catching it.
+    A ``ValueError``, so a caller that catches ``ValueError`` around any of
+    them keeps catching it.
+
+    **Not refused, by ruling** (``D-IMPL-378`` OWED-RULINGS-3 item 3P1 (a),
+    Dave, 2026-10-09 06:21 MST: disclose and leave it): a class built directly
+    under a ``ccf.`` id over a contract with no ``class_id`` field. Its
+    documents state no class, so there is nothing for this refusal to read,
+    and they register under the SDK's class name. It is deliberate code, and
+    no document, manifest, config or envelope reaches it. Measured:
+    ``tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers``.
 
     Attributes:
         class_id: The id that was refused.
@@ -222,6 +234,18 @@ class ArtifactClass:
     Kept as a plain frozen dataclass rather than a contract because it is
     *about* artifacts rather than being one: it carries a Python type, which
     has no canonical serialization and never belongs in a content hash.
+
+    **What the reserved ``ccf.`` namespace does not stop** (``D-IMPL-378``
+    OWED-RULINGS-3 item 3P1 (a), Dave, 2026-10-09 06:21 MST: disclose and
+    leave it). :meth:`validate` refuses a document that states its own class
+    under a ``ccf.`` id (:class:`ReservedArtifactClassId`), but a contract with
+    no ``class_id`` field states nothing to refuse: code that writes such a
+    contract and builds this class directly under a ``ccf.`` id registers its
+    documents under the SDK's class name, the key bound to that id and the
+    registration audited under it. That is deliberate code, not a document;
+    the reservation holds on every document, manifest, config and envelope
+    route. Measured:
+    ``tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers``.
 
     Attributes:
         class_id: Stable identifier recorded on audit events, so the audit

@@ -1710,16 +1710,29 @@ a nonexistent one. Each was measured on test fixtures.
   `probe_emptiness_limits.py`). A marker binds to its store by path, beside
   it rather than inside it, and the SDK checks and reserves a path while the
   adapter creates the store at the boot. So a copy of a used question store with a deployment marker forged
-  beside it, and a used question store written at a path after a plain boot
-  left its marker there, each answered a later question: after a question
+  beside it answered a later question: after a question
   about a withheld subject the source holds, that later answer about an
   identifier that names nothing moved at `debt.debt` and
   `debt.factors.freshness`, and under `from_entity_freshness` also at
   `expires_at` and `ttl_anchor_at`, against the same store after a question
-  that acquired nothing. A store written at a question boot's path after the
-  SDK's last check was booted as that question's fabric; it is now refused
-  when the boot reads it (`QuestionStoreNotEmpty`, above), and that one read
-  does not reach three things. A store whose every claim was superseded
+  that acquired nothing. A used question store written at a path after a
+  plain boot left its marker there answered too, until OWED-RULINGS-3 item 2A
+  (b) (`D-IMPL-378`, Dave, 2026-10-09): a plain boot that created its
+  deployment marker now reads the store it opened once, the read a question
+  boot takes, and refuses one holding anything for its tenant
+  (`DeploymentStoreNotEmpty`), removing the marker it created, so a later
+  boot of that path answers no governed call
+  (`tests/products/test_plain_boot_creating_its_store_finds_it_empty.py`). A
+  plain boot whose path already carried a deployment marker with no store
+  beside it (the store deleted, its marker kept) created its store without
+  that read, and a used store written there was booted and answered, its
+  later answers moving at the same fields as the forged marker's (lane probes
+  `probe_stale_deployment_marker.py` and
+  `probe_unreached_stores_distinguish_l4b.py`). A store written at a question
+  boot's path after the SDK's last check was booted as that question's
+  fabric; it is now refused when the boot reads it (`QuestionStoreNotEmpty`,
+  above), and that one read does not reach three things. A store whose
+  every claim was superseded
   before the latest instant with no current successor, which no SDK writer
   leaves, written there by raw SQL, was booted, and its question read its
   rows. A raw SQLite connection, outside the SDK's writer lease, wrote into a

@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2462 entries**, of which **2185** name a public Python surface.
+**2481 entries**, of which **2204** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1352 entries — 1306 public Python surface, 46 not public Python API.
+1355 entries — 1309 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19748,6 +19748,42 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
 
+#### ccf.replay.serve.ReplayReferenceMismatch
+
+- Surface: ccf.replay.serve.ReplayReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the record writer handed out whatever reference the store answered.
+- After: an `ArtifactStoreError` raised by `ReplayWriter.write_replay_record` when any field of the reference the store's `put` answered (content address, URI, tenant, class, name) is not, as an exact string, the record's own. It carries `fields`, the names of the differing fields; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_a_store_answering_another_records_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent; a store written at a plain boot's path after its deployment marker was booted as the deployment's own, the marker vouching for it.
+- After: a `ValueError` raised by `load_and_boot` and `load_config_and_boot` when a boot not for a question that created its deployment marker in this boot opens a store holding any entity or relationship for the tenant at its one read, taken through the governed reader at the latest instant a timestamp can name, before the fabric is handed back. The handle is closed and the markers that boot created are removed first. Its text states no count.
+- Why: SEC-020, `D-IMPL-378` OWED-RULINGS-3 item 2A (b). Red test: `tests/products/test_plain_boot_creating_its_store_finds_it_empty.py::test_2a_b_a_plain_boot_creating_its_store_refuses_a_store_planted_at_its_path_by_name`.
+- Migration: none; additive. Boot a new store at a path that holds nothing, and write into it after the boot returns.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.DeploymentStoreNotEmpty`.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b).
+- Migration: none; additive.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30755,7 +30791,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-439 entries — 400 public Python surface, 39 not public Python API.
+455 entries — 416 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37154,6 +37190,198 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
 
 *Recorded by `378-50-decision-6b-demonstration-time-on-the-sdks-own-development-backends.md`.*
+
+#### ccf.replay.serve.ReplayWriter
+
+- Surface: ccf.replay.serve.ReplayWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_replay_record` returned a `DeliveryCapability` over whatever reference the store's `put` answered.
+- After: `write_replay_record` derives the record's own reference and raises `ReplayReferenceMismatch` unless the store's answer equals it field for field; the capability carries the derived reference.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_the_served_path_refuses_a_reference_with_any_field_not_the_records_own`.
+- Migration: none for a store conforming to `D-IMPL-26` (the URI's version is the content address); a store answering any other reference for a record is refused.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.replay.serve.record_refusal
+
+- Surface: ccf.replay.serve.record_refusal
+- Public surface: true
+- Change type: behavior
+- Before: returned whatever reference the store answered for the refusal's record, whose URI the resolver hands to the caller.
+- After: raises `ReplayReferenceMismatch`, through the writer, when that answer is not the record's own reference; returns the record's own reference otherwise.
+- Why: `D-IMPL-378` decision 5 (a). Red test: `tests/replay/test_replay_writer_checks_the_returned_reference.py::test_the_refusal_path_refuses_a_reference_with_any_field_not_the_records_own`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.replay.serve.serve
+
+- Surface: ccf.replay.serve.serve
+- Public surface: true
+- Change type: behavior
+- Before: delivered the product with whatever reference the store answered for its record.
+- After: raises `ReplayReferenceMismatch`, through the writer, when that answer is not the record's own reference, so nothing is delivered.
+- Why: `D-IMPL-378` decision 5 (a).
+- Migration: none for a conforming store.
+
+*Recorded by `378-53-a-replay-writer-checks-the-returned-reference.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a boot not for a question created its deployment marker and booted whatever store the adapter opened at the path, unread.
+- After: such a boot, when it created its marker in this boot, reads the store once before returning and raises `DeploymentStoreNotEmpty` if it holds anything for the tenant; a boot that reopens a store (the path held a store or a marker before the boot) takes no read.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b): a boot creating a new store must find it empty, as a boot for a question must.
+- Migration: none for a deployment that boots a new store at a fresh path and writes into it after the boot.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b). Red test: `tests/products/test_plain_boot_creating_its_store_finds_it_empty.py::test_2a_b_the_config_door_refuses_a_store_planted_at_a_plain_boots_path_by_name`.
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `store_creation` `"verified"` said every path naming the store carried a marker.
+- After: it also says that a plain boot that wrote its deployment marker in this boot read the store once and found nothing for the tenant.
+- Why: SEC-020, OWED-RULINGS-3 item 2A (b).
+- Migration: none.
+
+*Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.classes.resolve_artifact_class
+
+- Surface: ccf.deployment.classes.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: a `ccf.` id the SDK does not ship raised a plain `ValueError` saying it is not a class the SDK ships.
+- After: it raises `ccf.controlplane.artifact_base.ReservedArtifactClassId` (a `ValueError`) carrying `class_id`, with that class's message; an empty id still raises a plain `ValueError`.
+- Why: `D-IMPL-378` OWED-RULINGS-3 item 3P2 (b): one rule, one name. Red test: `tests/deployment/test_resolve_artifact_class_names_the_reservation.py::test_3p2_b_the_resolver_refuses_a_reserved_id_as_reserved_artifact_class_id`.
+- Migration: none for a caller catching `ValueError`; a caller matching the old message text reads the new one, or catches `ReservedArtifactClassId` by name.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.resolve_artifact_class
+
+- Surface: ccf.deployment.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.classes.resolve_artifact_class`.
+- After: the package-level spelling of the same change.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: as `ccf.deployment.classes.resolve_artifact_class`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: raised by `declared_artifact_class` and `ArtifactClass.validate`.
+- After: also raised by `resolve_artifact_class`, for a `ccf.` id the SDK does not ship, before the open envelope is reached. Unchanged class, attribute and message.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: none.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ReservedArtifactClassId`, which this name re-exports.
+- After: the same change.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: none.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: an entry naming a `ccf.` class id the SDK does not ship raised a plain `ValueError`.
+- After: it raises `ReservedArtifactClassId` (a `ValueError`), before anything is registered or audited, as before.
+- Why: OWED-RULINGS-3 item 3P2 (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_control_the_manifest_door_refuses_an_envelope_stating_a_reserved_id_by_its_own_mechanism`.
+- Migration: none for a caller catching `ValueError`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a section naming a `ccf.` class id the SDK does not ship raised a plain `ValueError`.
+- After: it raises `ReservedArtifactClassId` (a `ValueError`); the paved road (`ccf.products.product.open_product`) refuses the same section the same way.
+- Why: OWED-RULINGS-3 item 3P2 (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_control_the_config_door_and_the_paved_road_refuse_a_reserved_policy_class_by_their_own_mechanism`.
+- Migration: none for a caller catching `ValueError`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: its docstring did not say what the reserved `ccf.` namespace does not stop.
+- After: unchanged behavior; its docstring states R3: a class built directly under a `ccf.` id over a contract with no `class_id` field registers that contract's documents under the SDK's class name, key bound and audited, while the reservation holds on every document, manifest, config and envelope route.
+- Why: `D-IMPL-378` OWED-RULINGS-3 item 3P1 (a). Measured by `tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers`.
+- Migration: none. Register an SDK class with the SDK's own `ArtifactClass` constant, and give your own classes ids in your own namespace.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports.
+- After: the same docstring.
+- Why: OWED-RULINGS-3 item 3P1 (a).
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: its docstring listed where the reservation is refused and not what it leaves unrefused.
+- After: unchanged behavior; its docstring states R3 as not refused, by ruling.
+- Why: OWED-RULINGS-3 item 3P1 (a). Measured as for `ccf.controlplane.artifact_base.ArtifactClass`.
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ReservedArtifactClassId`, which this name re-exports.
+- After: the same docstring.
+- Why: OWED-RULINGS-3 item 3P1 (a).
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
 
 ### Not public Python API
 

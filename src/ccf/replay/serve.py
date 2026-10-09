@@ -56,7 +56,13 @@ Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWrite
+from ccf.artifacts.protocol import (
+    ArtifactRef,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    DerivedWrite,
+    artifact_uri,
+)
 from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import content_hash
@@ -71,6 +77,7 @@ __all__ = [
     "CapabilityForgeryError",
     "DeliveryCapability",
     "ProductRecordMismatch",
+    "ReplayReferenceMismatch",
     "ReplayTenantMismatch",
     "QueryPinMismatch",
     "QueryPinWriter",
@@ -144,6 +151,63 @@ class QueryPinMismatch(ValueError):
     """
 
 
+class ReplayReferenceMismatch(ArtifactStoreError):
+    """The store answered a record's append with a reference that is not that record's own.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-378``
+    decision 5 (a) (Dave, 2026-10-09 06:06 MST, confirmed at 06:21 MST):
+    *"Verify the returned record address against the record actually
+    written."* The resolver holds the store's answer for an admitted child
+    contract to that contract's own address
+    (``src/ccf/products/resolver.py::GovernedResolver._retain_child_contracts``);
+    :meth:`ReplayWriter.write_replay_record` now holds the store's answer for
+    a record the same way.
+
+    **What the writer knows before the store answers.** Under ``D-IMPL-26``
+    and Q11 the whole reference of a record it files is fixed by the record
+    and the writer's capability: the content address is
+    :func:`~ccf.contracts.canonical.content_hash` of the record, the name is
+    that address, the tenant and class are the capability's, and the versioned
+    URI is ``ccf-artifact://{tenant}/{class}/{address}@{address}``. Every field
+    of the store's answer is held to that, not the address alone, because the
+    refusal path hands its caller the URI
+    (``src/ccf/products/resolver.py::ReplayRefusalRecorder`` copies it into the
+    shell's ``replay_reference``). Measured before this check, on
+    ``dl-378-integ`` @ ``a539c215``: a store that filed record A faithfully and
+    answered record B's reference had B's reference handed out for A, and one
+    field of A's reference answered as another record's was handed out the same
+    way (``tests/replay/test_replay_writer_checks_the_returned_reference.py``).
+
+    **Raised after the store's ``put`` returns, so nothing is delivered and no
+    reference leaves**: no :class:`DeliveryCapability` is minted on the served
+    path, and :func:`record_refusal` returns nothing on the refusal path. The
+    store may already hold the bytes; a failure to record is a failure to
+    serve. An :class:`~ccf.artifacts.protocol.ArtifactStoreError`, because the
+    store's answer is what failed. The text names the fields that differ and
+    no value the store answered.
+
+    **What it does not check:** the bytes the store holds. It reads the store's
+    answer, not the store; a store that answers the record's own reference
+    while holding other bytes under it is found by the readers, which re-hash
+    what they read before using it
+    (``tests/replay/test_record_content_address_integrity.py``).
+
+    Attributes:
+        fields: The names of the reference's fields that differ from the
+            record's own, in :class:`~ccf.artifacts.protocol.ArtifactRef`'s
+            field order.
+    """
+
+    def __init__(self, *, fields: tuple[str, ...]) -> None:
+        self.fields = fields
+        super().__init__(
+            f"the artifact store answered this replay record's append with a"
+            f" reference whose {', '.join(fields)} are not the record's own;"
+            " the record writer hands out only the reference of the record it"
+            " wrote, so nothing is delivered (D-IMPL-378 decision 5 (a))"
+        )
+
+
 class ServedProduct(CCFContract):
     """What a caller receives: the product, and where its record landed.
 
@@ -187,6 +251,15 @@ class DeliveryCapability:
         """
         product = verify_gate_provenance(product)
         return ServedProduct(product=product.product, replay_ref=self._replay_ref)
+
+
+def _same_string(answered: object, own: str) -> bool:
+    """Whether ``answered`` is exactly the string ``own``: a plain ``str``, character for character.
+
+    The type is read first, so a ``str`` subclass that answers equality for
+    itself is a different value here (``D-IMPL-378`` decision 5 (a)).
+    """
+    return type(answered) is str and answered == own
 
 
 class ReplayWriter:
@@ -257,9 +330,20 @@ class ReplayWriter:
         artifact. Records filed before this rule keep the names they were filed
         under; replay resolves by content address and never reads a name.
 
+        **The store's answer is held to the record written** (``D-IMPL-378``
+        decision 5 (a)): every field of the reference ``put`` returns must be
+        the record's own — its content address, the URI naming it under this
+        writer's tenant and class with that address as name and version, and
+        the tenant, class and name — or nothing is handed out. The reference
+        handed out is the one the writer derived from the record, which the
+        store's answer equals field for field.
+
         Raises:
             ReplayTenantMismatch: the record's ``tenant_id`` is not the
                 capability's tenant. Raised before the store is touched.
+            ReplayReferenceMismatch: the store's answer is not the record's
+                own reference. Raised after the store returns and before any
+                capability exists.
             Exception: whatever the store raises. Deliberately not caught: a
                 failure to record is a failure to serve, and translating it
                 into a softer outcome here would be the exact hole this design
@@ -272,17 +356,37 @@ class ReplayWriter:
                 " record is filed under the capability's tenant and nothing"
                 " else may name one (D-IMPL-353 §1.3)"
             )
-        ref = self._store.put(
+        # Q11 (`D-IMPL-378`): the record's own content address — the store's
+        # identity of these bytes — so one name, one content.
+        address = content_hash(record)
+        answered = self._store.put(
             self._authorized,
-            DerivedWrite(
-                artifact_class=self._authorized.resource,
-                # Q11 (`D-IMPL-378`): the record's own content address — the
-                # store's identity of these bytes — so one name, one content.
-                name=content_hash(record),
-                artifact=record,
-            ),
+            DerivedWrite(artifact_class=self._authorized.resource, name=address, artifact=record),
         )
-        return DeliveryCapability(ref, _DELIVERY_TOKEN)
+        # Decision 5 (a) (`D-IMPL-378`): the reference of the record actually
+        # written, derived here (`D-IMPL-26`: the version IS the address), and
+        # the store's answer held to it field for field. Compared as exact
+        # strings, so a value that only claims equality does not pass.
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=self._authorized.tenant,
+                artifact_class=self._authorized.resource,
+                name=address,
+                artifact_version=address,
+            ),
+            tenant_id=self._authorized.tenant,
+            artifact_class=self._authorized.resource,
+            name=address,
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(answered, field, None), getattr(own, field))
+        )
+        if differing:
+            raise ReplayReferenceMismatch(fields=differing)
+        return DeliveryCapability(own, _DELIVERY_TOKEN)
 
 
 class QueryPinWriter:

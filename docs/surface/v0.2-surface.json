@@ -2731,6 +2731,7 @@
       "ArtifactPin",
       "BootedFabric",
       "DeploymentManifest",
+      "DeploymentStoreNotEmpty",
       "DerivedDeployment",
       "EnvironmentDocument",
       "ManifestEntry",
@@ -2783,6 +2784,10 @@
           "survivor_cap": "int | None",
           "tenant_id": "str | None"
         }
+      },
+      "DeploymentStoreNotEmpty": {
+        "kind": "class",
+        "shape": "type"
       },
       "DerivedDeployment": {
         "kind": "class",
@@ -3062,6 +3067,7 @@
   "ccf.deployment.manifest": {
     "__all__": [
       "BootedFabric",
+      "DeploymentStoreNotEmpty",
       "ManifestKeysPlaceToOneKey",
       "QuestionFabricNotExclusive",
       "QuestionFabricNotFresh",
@@ -3076,6 +3082,10 @@
       "BootedFabric": {
         "kind": "class",
         "shape": "(handle: 'FabricHandle', pins: 'ResolvedPins', tenant_id: 'str', artifacts: 'Mapping[str, CCFContract]', survivor_cap: 'int | None', keys: 'DeploymentKeys | None' = None, for_question: 'bool' = False, question_store: 'bool' = False, store_creation: \"Literal['verified', 'unmarked', 'unverifiable']\" = 'unmarked') -> None"
+      },
+      "DeploymentStoreNotEmpty": {
+        "kind": "class",
+        "shape": "type"
       },
       "ManifestKeysPlaceToOneKey": {
         "kind": "class",
@@ -9768,6 +9778,7 @@
       "ProductRecordMismatch",
       "QueryPinMismatch",
       "QueryPinWriter",
+      "ReplayReferenceMismatch",
       "ReplayTenantMismatch",
       "ReplayWriter",
       "ServedProduct",
@@ -9794,6 +9805,10 @@
       "QueryPinWriter": {
         "kind": "class",
         "shape": "(*, authorized: 'Authorized[ReplayMint]', store: 'ArtifactStoreProtocol') -> 'None'"
+      },
+      "ReplayReferenceMismatch": {
+        "kind": "class",
+        "shape": "(*, fields: 'tuple[str, ...]') -> 'None'"
       },
       "ReplayTenantMismatch": {
         "kind": "class",

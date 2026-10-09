@@ -127,7 +127,7 @@ from ccf.graph.registry import (
 
 __ccf_mode__ = "algorithmic"
 
-__all__ = ["BootedFabric", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
+__all__ = ["BootedFabric", "DeploymentStoreNotEmpty", "ManifestKeysPlaceToOneKey", "QuestionFabricNotExclusive", "QuestionFabricNotFresh", "QuestionStoreNotEmpty", "UngovernedClassificationAttribute", "load_and_boot", "register_manifest_entries", "manifest_under_tenant", "keys_under_tenant"]
 
 
 @dataclass(frozen=True)
@@ -244,7 +244,11 @@ class BootedFabric:
             created exclusively before the store exists: the question marker
             on a boot for one question, ``<resolved path>.ccf-deployment-store``
             on any other boot. ``"verified"``: every path naming the store
-            carries one of the two, written by this boot or an earlier one.
+            carries one of the two, written by this boot or an earlier one. A
+            plain boot that wrote its deployment marker in this boot also read
+            the store once before handing it back and found nothing for the
+            tenant (:class:`DeploymentStoreNotEmpty` otherwise, which removes
+            that marker; OWED-RULINGS-3 item 2A (b), ``D-IMPL-378``).
             ``"unmarked"``: the store existed at boot and carries neither — a
             store booted for a question before the markers existed, a copy
             taken without its marker, a store created outside these doors —
@@ -350,6 +354,40 @@ class QuestionFabricNotExclusive(QuestionFabricNotFresh):
     is registered or created at its path. Decision Replay reads a question's
     store through a read-only boot that is not for a question, which is
     unaffected.
+    """
+
+
+class DeploymentStoreNotEmpty(ValueError):
+    """A plain boot that created its store opened a store that already holds claims for its tenant.
+
+    SEC-020, ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b) (Dave, 2026-10-09 06:21
+    MST: *"2A(b)"*). The option he ruled: *"A plain boot that created its
+    deployment marker in this boot is creating a new store, so it must also
+    find it empty. One read per store creation, no Protocol change. Reopening
+    an existing store is unaffected."* A boot not for a question leaves its
+    deployment marker beside a path that holds no store and no marker, and the
+    adapter creates the store at the boot, so a store written at the path after
+    the marker and before the adapter opened it was booted as the deployment's
+    own, with the marker vouching for it (measured: a used question store
+    written there was booted with ``store_creation`` ``"verified"``, and a later
+    governed call over it was answered). Now the boot that created the marker
+    reads the store once, through the governed reader at the latest instant a
+    timestamp can name, after the adapter opens it and before the fabric is
+    handed back — the read a boot for a question takes
+    (:class:`QuestionStoreNotEmpty`) — and a store holding any entity or
+    relationship for the tenant is closed and refused here. The markers this
+    boot created are removed first, as a refused question reservation removes
+    its own, so the path is left holding a store with no marker beside it, over
+    which no governed call is answered
+    (``src/ccf/products/resolver.py::UnmarkedStoreNotPresumedFresh``). A boot
+    that reopens a store (the path held a store, or a marker, before the boot)
+    takes no read.
+
+    The read sees what a question boot's read sees and has the same limits
+    (the security how-to, section 4.12). It is taken only by the boot that
+    created the marker: a boot whose path carries a deployment marker it did
+    not create, with no store beside it, creates the store without the read.
+    The refusal states no count and nothing the store holds.
     """
 
 
@@ -510,8 +548,8 @@ def _reserve_question_store(paths: Sequence[Path]) -> None:
         raise
 
 
-def _mark_deployment_store(paths: Sequence[Path]) -> None:
-    """Leave the deployment marker beside every path whose store this boot is about to create.
+def _mark_deployment_store(paths: Sequence[Path]) -> tuple[Path, ...]:
+    """Leave the deployment marker beside every path whose store this boot is about to create; return those created.
 
     SEC-020 P4 (a) made strict. A path with no store and no marker of either
     kind names a store this boot creates, so the marker goes first, created
@@ -521,7 +559,12 @@ def _mark_deployment_store(paths: Sequence[Path]) -> None:
     a marker already, is read as it stands: never marked after the fact,
     because a marker written beside a store that already exists would vouch
     for contents this boot did not create.
+
+    The markers this call created are returned: a boot that created one is
+    creating a new store, which it must find empty (OWED-RULINGS-3 item 2A
+    (b), :class:`DeploymentStoreNotEmpty`).
     """
+    created: list[Path] = []
     for path in paths:
         if path.exists() or not path.resolve().parent.is_dir():
             continue
@@ -531,6 +574,8 @@ def _mark_deployment_store(paths: Sequence[Path]) -> None:
             _create_marker_exclusively(_deployment_store_marker(path), _DEPLOYMENT_STORE_MARKER_TEXT)
         except FileExistsError:
             continue
+        created.append(_deployment_store_marker(path))
+    return tuple(created)
 
 
 def _marked_for_a_question(paths: Sequence[Path]) -> bool:
@@ -603,25 +648,37 @@ def _refuse_unless_fresh(backend: str, paths: Sequence[Path]) -> None:
 _EMPTINESS_READ_AT = datetime.max.replace(tzinfo=UTC)
 
 
-def _refuse_unless_empty(reader: GraphReader, *, tenant_id: str) -> None:
-    """Read a question's store once, through the governed reader, and refuse it unless it holds nothing for ``tenant_id``.
+def _refuse_unless_empty(reader: GraphReader, *, tenant_id: str, for_question: bool) -> None:
+    """Read a store this boot created once, through the governed reader, and refuse it unless it holds nothing for ``tenant_id``.
 
-    SEC-020 P4s-A (b) (``D-IMPL-378``; Dave, 2026-10-08 16:40 MST). One
-    ``as_of`` read at :data:`_EMPTINESS_READ_AT`, through the Protocol every
-    adapter answers: no Protocol change and no adapter-specific query. The
-    refusal states no count and nothing the store holds.
+    SEC-020 P4s-A (b) (``D-IMPL-378``; Dave, 2026-10-08 16:40 MST) for a boot
+    for a question, and OWED-RULINGS-3 item 2A (b) (Dave, 2026-10-09 06:21 MST)
+    for a plain boot that created its deployment marker. One ``as_of`` read at
+    :data:`_EMPTINESS_READ_AT`, through the Protocol every adapter answers: no
+    Protocol change and no adapter-specific query. The refusal states no count
+    and nothing the store holds.
 
     Raises:
-        QuestionStoreNotEmpty: the view holds an entity or a relationship.
+        QuestionStoreNotEmpty: ``for_question``, and the view holds an entity
+            or a relationship.
+        DeploymentStoreNotEmpty: a plain boot, and the view holds one.
     """
     view = reader.as_of(tenant_id=tenant_id, at=_EMPTINESS_READ_AT)
-    if view.entities or view.relationships:
+    if not (view.entities or view.relationships):
+        return
+    if for_question:
         raise QuestionStoreNotEmpty(
             "a fabric booted for one question must be a fresh one, and the"
             " store it opened already holds claims for its tenant: something"
             " other than this question wrote into it at its path before the"
             " boot returned (SEC-020, P4)"
         )
+    raise DeploymentStoreNotEmpty(
+        "a boot that creates its store must find it empty, and the store it"
+        " opened already holds claims for its tenant: something other than"
+        " this boot wrote into it at its path before the boot returned, so"
+        " nothing vouches for it (SEC-020, OWED-RULINGS-3 2A (b))"
+    )
 
 
 def _resolve_tenant(manifest: DeploymentManifest, supplied: str | None) -> str:
@@ -1125,10 +1182,11 @@ def _register_and_boot(
     # exclusive reservation of the path, and any other boot that creates its
     # store marks it too, so an existing store with neither marker is unmarked
     # and never presumed fresh (`BootedFabric.store_creation`).
+    created: tuple[Path, ...] = ()
     if for_question:
         _reserve_question_store(paths)
     else:
-        _mark_deployment_store(paths)
+        created = _mark_deployment_store(paths)
     question_store = _marked_for_a_question(paths)
     store_creation = _store_creation(paths)
     handle = boot(
@@ -1146,7 +1204,7 @@ def _register_and_boot(
         tenant_ids=(resolved_tenant,),
         read_only=read_only,
     )
-    if for_question:
+    if for_question or created:
         # SEC-020 P4s-A (b) (`D-IMPL-378`; Dave, 2026-10-08 16:40 MST: *"Add
         # the emptiness check ... The check must precede acquisition and
         # remain protected by exclusive ownership through use."*): the store
@@ -1155,10 +1213,17 @@ def _register_and_boot(
         # acquisition phase or governed call can run over it. A store holding
         # anything for the tenant is closed and refused; its question marker
         # stays, so the path keeps refusing.
+        # OWED-RULINGS-3 item 2A (b) (Dave, 2026-10-09 06:21 MST): a plain boot
+        # that created its deployment marker is creating a new store, so it
+        # takes the same one read. Refused, it removes the markers it created,
+        # as a refused reservation removes its own, so no marker vouches for
+        # the store; a boot that reopens a store takes no read.
         try:
-            _refuse_unless_empty(handle.reader, tenant_id=resolved_tenant)
+            _refuse_unless_empty(handle.reader, tenant_id=resolved_tenant, for_question=for_question)
         except BaseException:
             handle.close()
+            for marker in created:
+                marker.unlink(missing_ok=True)
             raise
     return BootedFabric(
         handle=handle,
@@ -1544,7 +1609,9 @@ def load_and_boot(
             ``versioned``); an entry names a ``ccf.``-prefixed class id the SDK
             does not ship, which is refused rather than resolved to the open
             envelope because the envelope would let arbitrary content register
-            and pin under an SDK class name (D-IMPL-84); or a
+            and pin under an SDK class name (D-IMPL-84), as
+            :class:`~ccf.controlplane.artifact_base.ReservedArtifactClassId`
+            (OWED-RULINGS-3 item 3P2 (b)); or a
             ``registration: versioned`` entry was
             refused by the D-05 hash-verified bump check. That last one is a
             **returned** refusal from :meth:`register_versioned
@@ -1565,6 +1632,11 @@ def load_and_boot(
             refusal; or, as :class:`QuestionFabricNotExclusive`,
             ``read_only=True`` beside it, before anything is registered
             (SEC-020, ``D-IMPL-378``). A ``ValueError``.
+        DeploymentStoreNotEmpty: a boot not for a question that created its
+            deployment marker opened a store that held anything for the
+            tenant when the boot returned; its handle is closed and the
+            markers it created are removed before the refusal (SEC-020,
+            ``D-IMPL-378`` OWED-RULINGS-3 item 2A (b)). A ``ValueError``.
         TypeError: a ``registration: versioned`` entry names a class whose
             documents declare no string ``artifact_version``, so the bump check
             has nothing to verify. This is what an adopter sees when they declare
