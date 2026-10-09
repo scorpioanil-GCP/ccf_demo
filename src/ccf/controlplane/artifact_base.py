@@ -201,6 +201,14 @@ class ReservedArtifactClassId(ValueError):
     A ``ValueError``, so a caller that catches ``ValueError`` around any of
     them keeps catching it.
 
+    **Not refused, by ruling** (``D-IMPL-378`` OWED-RULINGS-3 item 3P1 (a),
+    Dave, 2026-10-09 06:21 MST: disclose and leave it): a class built directly
+    under a ``ccf.`` id over a contract with no ``class_id`` field. Its
+    documents state no class, so there is nothing for this refusal to read,
+    and they register under the SDK's class name. It is deliberate code, and
+    no document, manifest, config or envelope reaches it. Measured:
+    ``tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers``.
+
     Attributes:
         class_id: The id that was refused.
     """
@@ -226,6 +234,18 @@ class ArtifactClass:
     Kept as a plain frozen dataclass rather than a contract because it is
     *about* artifacts rather than being one: it carries a Python type, which
     has no canonical serialization and never belongs in a content hash.
+
+    **What the reserved ``ccf.`` namespace does not stop** (``D-IMPL-378``
+    OWED-RULINGS-3 item 3P1 (a), Dave, 2026-10-09 06:21 MST: disclose and
+    leave it). :meth:`validate` refuses a document that states its own class
+    under a ``ccf.`` id (:class:`ReservedArtifactClassId`), but a contract with
+    no ``class_id`` field states nothing to refuse: code that writes such a
+    contract and builds this class directly under a ``ccf.`` id registers its
+    documents under the SDK's class name, the key bound to that id and the
+    registration audited under it. That is deliberate code, not a document;
+    the reservation holds on every document, manifest, config and envelope
+    route. Measured:
+    ``tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers``.
 
     Attributes:
         class_id: Stable identifier recorded on audit events, so the audit

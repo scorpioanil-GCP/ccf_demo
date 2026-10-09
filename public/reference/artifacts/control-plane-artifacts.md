@@ -45,3 +45,21 @@ registered (`D-IMPL-378`):
 ```yaml
 --8<-- "archive/examples/00-quickstart/artifacts/policy-bundle.yaml"
 ```
+
+The `ccf.` class ids are the SDK's (`D-IMPL-84`), and no document, manifest
+entry, config section or envelope files adopter content under one. The
+manifest door, the single-file config door and the paved road refuse a `ccf.`
+class id the SDK does not ship; `ccf.controlplane.artifacts.declared_artifact_class`
+refuses every `ccf.` id; and a class built directly under a `ccf.` id refuses a
+document that states its own class (the `DeclaredArtifact` envelope, or any
+contract with a `class_id` field) when it is parsed, loaded or registered.
+Each is refused as `ccf.controlplane.artifact_base.ReservedArtifactClassId`
+before anything is registered or audited. Code is not refused: a program that
+writes its own contract with no `class_id` field and builds
+`ArtifactClass(class_id="ccf.<name>", contract=<that contract>)` over it
+registers that contract's documents under the SDK's class name, with the key
+bound to that id and the registration audited (`D-IMPL-378` OWED-RULINGS-3
+item 3P1 (a): disclosed, not refused; measured by
+`tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers`).
+Register an SDK class with the SDK's own `ArtifactClass` constant, and give
+your own classes ids in your own namespace.
