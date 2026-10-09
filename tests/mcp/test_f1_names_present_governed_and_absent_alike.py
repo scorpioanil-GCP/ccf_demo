@@ -23,8 +23,9 @@ Asserted by mechanism, as the asker, through the real MCP artifact server
 to the address the caller presented and the refusal's own record reference, and
 each is the governed dereference's ``nonexistent`` shell — kind
 ``subject-unavailable``, cause ``nonexistent``, error code ``evidence-absent``,
-under the dereference's own request identity. A control holds the other side:
-the caller's own client-lane filing still answers its names.
+under the dereference's own request identity. Two controls hold the other side:
+the caller's own client-lane filing still answers its names, and so does a
+governed record the governed dereference admits the caller to.
 
 Fixture vocabulary only (CINV-01).
 """
@@ -46,7 +47,7 @@ from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.products.refusal import RefusalEnvelope
 from ccf_runtime.authz.delivery_boundary import DEREFERENCE_PRODUCT_ID
 from ccf_runtime.http_api.errors import ERROR_EVIDENCE_ABSENT
-from ccf_runtime.mcp.artifact_server import artifact_names_uri
+from ccf_runtime.mcp.artifact_server import artifact_meta_uri, artifact_names_uri
 from tests.controlplane.capabilities import capability
 from tests.products import sec020_worlds as w
 
@@ -61,14 +62,14 @@ NONEXISTENT = canonical_bytes("nonexistent").decode("utf-8")
 EVIDENCE_ABSENT = canonical_bytes(ERROR_EVIDENCE_ABSENT).decode("utf-8")
 
 
-def _names(deployment: w.Deployment, address: str) -> Any:
-    """The names resource's answer at ``address``, read as the asker through the real MCP artifact server."""
+def _names(deployment: w.Deployment, address: str, *, token: str = w.ASKER_TOKEN) -> Any:
+    """The names resource's answer at ``address``, read as ``token`` (the asker) through the real MCP artifact server."""
 
     async def operation(session: Any) -> Any:
         result = await session.read_resource(AnyUrl(artifact_names_uri(content_address=address)))
         return [c.text if isinstance(c, TextResourceContents) else repr(c) for c in result.contents]
 
-    read = w.mcp_drive(w.mcp_artifact_server(deployment), operation, token=w.ASKER_TOKEN)
+    read = w.mcp_drive(w.mcp_artifact_server(deployment), operation, token=token)
     assert isinstance(read, list) and len(read) == 1, f"the names read did not answer one text part: {read!r}"
     return json.loads(read[0])
 
@@ -187,5 +188,33 @@ def test_the_callers_own_client_lane_filing_still_answers_its_names(tmp_path: pa
                 artifact_version=filed.content_address,
             )
         ]
+    finally:
+        deployment.close()
+
+
+def test_a_principal_the_governed_read_admits_still_reads_the_names_of_a_governed_record(tmp_path: pathlib.Path) -> None:
+    """The other side, held for a governed address: the asker's own read-refusal record — a record the governed
+    dereference reads back to the principal it names (``D-IMPL-345`` C20, Dave's Q3) — answers its names to the asker,
+    while another principal of the tenant is refused at the same address. So the names above are withheld by the
+    governed decision, not by a names resource that answers nothing for a governed class."""
+    deployment = w.BUILDERS[w.SIMILARITY](tmp_path / "admitted", anchor=w.FROM_DECISION, holds=True, active=True)
+    try:
+
+        async def presence(session: Any) -> Any:
+            result = await session.read_resource(AnyUrl(artifact_meta_uri(content_address=NOBODYS)))
+            return [c.text for c in result.contents if isinstance(c, TextResourceContents)]
+
+        # A read of an address nobody filed mints the asker's read-refusal record; its shell names it.
+        (refused,) = w.mcp_drive(w.mcp_artifact_server(deployment), presence, token=w.ASKER_TOKEN)
+        record = w._reference_parts(RefusalEnvelope.model_validate_json(refused).replay_reference)["version"]
+        filed = deployment.store.names_at(content_address=record)
+        assert _filed_governed(deployment, record), filed
+        assert [ArtifactName.model_validate(item) for item in _names(deployment, record)] == [
+            named for named in filed if named.tenant_id == deployment.tenant
+        ]
+        other = _names(deployment, record, token=w.OTHER_TOKEN)
+        assert isinstance(other, dict), f"another principal read the names of the asker's record: {other!r}"
+        shell = RefusalEnvelope.model_validate(other)
+        assert (shell.kind, shell.request.product_id) == ("subject-unavailable", DEREFERENCE_PRODUCT_ID), shell
     finally:
         deployment.close()
