@@ -3060,6 +3060,35 @@ NEVER_CONFIGURATIONS: dict[str, str] = {
     NEVER_COMPOSITE_EARLY: EARLY_COMPOSITE_SUBJECT_CHILD,
 }
 
+# Dave's E2 (ii), option (d), 2026-10-08 16:40 MST (``D-IMPL-378``), verbatim:
+# "Require a positive declaration, default silence to refusal, and explicitly
+# limit the trusted-code assumption to deployment code callers cannot
+# influence. Keep the false-declaration counterexample visible." The positive
+# declaration is trusted deployment code, so a FALSE one is the residual: the
+# class is built, and its withheld subject meets the serve-time defense. These
+# configurations are that residual. They are NOT in NEVER_CONFIGURATIONS and
+# generate no gate cell: the closing test measures them on every run and
+# reports them in their own block, never as passing evidence.
+
+#: The plan factory positively declares that its projection never withholds,
+#: and the projection withholds late, by content (:class:`FalselyDeclaringPolicyPlanFactory`).
+NEVER_FALSE_DECLARATION = "never_false_declaration"
+#: A composite over the same false declaration.
+NEVER_COMPOSITE_FALSE_DECLARATION = "never_composite_false_declaration"
+
+#: E2 (ii) (d)'s residual configurations and the matrix shape each follows — reported, never gated.
+NEVER_FALSE_DECLARATION_CONFIGURATIONS: dict[str, str] = {
+    NEVER_FALSE_DECLARATION: SUBJECT_KEYED,
+    NEVER_COMPOSITE_FALSE_DECLARATION: COMPOSITE_SUBJECT_CHILD,
+}
+
+
+def never_shape(configuration: str) -> str:
+    """The matrix shape an E2 (ii) configuration follows, gated or reported."""
+    if configuration in NEVER_FALSE_DECLARATION_CONFIGURATIONS:
+        return NEVER_FALSE_DECLARATION_CONFIGURATIONS[configuration]
+    return NEVER_CONFIGURATIONS[configuration]
+
 #: The refusal, by name, of a class affirming ``never`` whose projection the SDK
 #: knows can withhold, raised where its resolver is built (E2 (ii)). Read by
 #: NAME so this module imports on a tree without it. Where every side of a
@@ -3106,6 +3135,17 @@ class SilentPolicyPlanFactory:
         return self._policy(required=required, request=request)
 
 
+class FalselyDeclaringPolicyPlanFactory(PolicyPlanFactory):
+    """The policy's factory declaring that it never withholds WHATEVER ``active`` says: FALSE with the policy on.
+
+    A broken deployment, on purpose — the residual of the trusted-code
+    assumption Dave's E2 (ii) (d) makes explicit, kept visible.
+    """
+
+    def withholds_no_subject(self) -> bool:
+        return True
+
+
 class LateDeclaringPlanFactory(PolicyPlanFactory):
     """A plan factory DECLARING that its projection withholds late (``SubjectDisclosingPlanFactoryProtocol``).
 
@@ -3127,17 +3167,22 @@ def build_never(
     its :data:`NEVER_TWIN`: the policy off, positively declaring that it never
     withholds, and, for the early configurations, an early policy that
     withholds nobody. The two late configurations are built over
-    :class:`SilentPolicyPlanFactory` — silence, not a declaration.
+    :class:`SilentPolicyPlanFactory` — silence, not a declaration — and the two
+    false-declaration configurations over :class:`FalselyDeclaringPolicyPlanFactory`.
     """
-    shape = NEVER_CONFIGURATIONS[configuration]
+    shape = never_shape(configuration)
     silent = capable and configuration in (NEVER_LATE, NEVER_COMPOSITE_LATE)
+    false = capable and configuration in NEVER_FALSE_DECLARATION_CONFIGURATIONS
     if shape in COMPOSITE_SHAPES:
         from tests.products.test_resolver_seam import PERSPECTIVE, PRODUCT_CLASS  # noqa: PLC0415
 
-        project = (
-            SilentPolicyPlanFactory(plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=capable)
-            if silent else None
-        )
+        project: Any = None
+        if silent:
+            project = SilentPolicyPlanFactory(plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=capable)
+        elif false:
+            project = FalselyDeclaringPolicyPlanFactory(
+                plan_id=PRODUCT_CLASS, asker=PERSPECTIVE.principal_id, active=capable
+            )
         return BUILDERS[shape](
             base, anchor=anchor, holds=holds, active=capable, readable=True, never=True, project=project
         )
@@ -3150,6 +3195,8 @@ def build_never(
         kind = LateDeclaringPlanFactory
     elif silent:
         kind = SilentPolicyPlanFactory
+    elif false:
+        kind = FalselyDeclaringPolicyPlanFactory
     holdings = {SUBJECT: subject_holding()} if holds else {}
     return open_paved(
         base, anchor=anchor, acquire=SubjectKeyedSource(holdings),
@@ -3169,7 +3216,7 @@ def never_run(base: pathlib.Path, *, configuration: str, anchor: str, door: str)
     refuses by contract (the refusal channel's instrument). A deployment the
     SDK refuses while it is being built is an observation, as in :func:`run_sides`.
     """
-    shape = NEVER_CONFIGURATIONS[configuration]
+    shape = never_shape(configuration)
     sides: dict[str, Observation] = {}
     opened: list[Deployment] = []
 

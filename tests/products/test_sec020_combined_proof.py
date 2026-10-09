@@ -186,6 +186,19 @@ and noise-floor sides ALL observed the SAME construction refusal, by name
 or since (d) ``NeverWithholdingNeedsAPositiveDeclaration``), and the declared
 twin — the policy off, positively declaring that it never withholds — answers.
 
+**A separately reported limitation, not a gate cell** (the same (d), *"Keep the
+false-declaration counterexample visible"*). A plan factory that positively
+declares it never withholds while its projection withholds is built: the
+declaration is trusted deployment code, an assumption (d) limits to code no
+caller can influence. Its configurations
+(``sec020_worlds.NEVER_FALSE_DECLARATION_CONFIGURATIONS``) generate no gate
+cell; every run executes all of their cells through the gate's own rules in
+:func:`test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`,
+which prints them in their own block (``SEC-020 E2 (ii) FALSE-DECLARATION
+LIMITATION``) and records them in the JUnit record
+(``e2ii_false_declaration_limitation``). They never count as passing evidence,
+and no mark hides them.
+
 The listed-class cell below holds only the record channel of that
 configuration (the runtime defense writes no record); it is not evidence of
 indistinguishability.
@@ -1273,3 +1286,93 @@ def test_the_never_instrument_sees_a_difference(
         f" {right_side} are indistinguishable on this channel, so a PASS of its comparison would prove"
         f" nothing\n  {left_side}: {w.render(left)}\n  {right_side}: {w.render(right)}"
     )
+
+
+# =============================================================================
+# E2 (ii) (d): the FALSE-declaration counterexample — measured, reported, never gated
+# =============================================================================
+
+
+def _false_declaration_cells() -> list[str]:
+    """Every cell the residual configurations would have, by the gate's own channel rule (never generated as gate cells)."""
+    return [
+        f"{comparison}-{configuration}-{anchor}-{door}-{channel}"
+        for configuration, shape in w.NEVER_FALSE_DECLARATION_CONFIGURATIONS.items()
+        for comparison in w.COMPARISONS
+        for anchor in w.ANCHORS
+        for door in w.DOORS
+        for channel in w.channels_for(comparison=comparison, shape=shape, door=door)
+    ]
+
+
+def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
+    never_runs: w.NeverRunCache, record_testsuite_property: Callable[[str, object], None], capsys: Any
+) -> None:
+    """Dave's E2 (ii) (d): the false-declaration counterexample, executed and reported every run, never gated.
+
+    Dave, 2026-10-08 16:40 MST (``D-IMPL-378``), verbatim: *"Require a positive
+    declaration, default silence to refusal, and explicitly limit the
+    trusted-code assumption to deployment code callers cannot influence. Keep
+    the false-declaration counterexample visible."* A plan factory that
+    positively declares it never withholds while its projection withholds
+    (``sec020_worlds.NEVER_FALSE_DECLARATION_CONFIGURATIONS``) is built — the
+    declaration is trusted deployment code — and its withheld subject's
+    question meets the serve-time defense alone. Every cell those
+    configurations would have is run here through exactly what a gate cell
+    runs — :func:`never_refused_at_construction`'s CT-A (a) test, then
+    :func:`_both_raised`, then :func:`_compare` — and classified:
+    ``distinguishable``, ``indistinguishable``, ``not evidence`` (both sides
+    raised) or ``refused at construction`` (the configuration was not the
+    residual at all).
+
+    **What this asserts, and what it does not.** That every cell was MEASURED,
+    and nothing about the outcome: the cells are the reported residual of a
+    trusted-code assumption, not evidence for SEC-020, so how many are
+    distinguishable never moves the gate. The measurement is printed past the
+    output capture in its own block, headed
+    ``SEC-020 E2 (ii) FALSE-DECLARATION LIMITATION``, and recorded in the JUnit
+    record as ``e2ii_false_declaration_limitation`` — the same treatment as
+    :func:`test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated`.
+    No skip and no expected-failure mark hides it. The counterexample's own
+    test, which asserts it still holds, is
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``.
+    """
+    outcomes: dict[str, dict[str, Any]] = {}
+    for cell in _false_declaration_cells():
+        comparison, configuration, anchor, door, channel = cell.split("-")
+        run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
+        withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
+        if w.never_refused_at_construction(run, (withheld_side, nonexistent_side, floor_side)):
+            outcomes[cell] = {"outcome": "refused at construction", "raised": run.raised(withheld_side).get(w.ONLY, "")}
+            continue
+        vacuous = _both_raised(run, withheld_side, nonexistent_side)
+        if vacuous:
+            outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        differing, _floor, _, _ = _compare(run, comparison=comparison, channel=channel)
+        found: dict[str, Any] = (
+            {"outcome": "distinguishable", "at": sorted(differing)} if differing else {"outcome": "indistinguishable"}
+        )
+        withheld_raised = run.raised(withheld_side).get(w.ONLY, "")
+        if withheld_raised:
+            found["withheld_raised"] = withheld_raised.split(":", 1)[0]
+        outcomes[cell] = found
+    assert sorted(outcomes) == sorted(_false_declaration_cells()), "a false-declaration cell was not measured"
+    counts: dict[str, int] = {}
+    for found in outcomes.values():
+        counts[found["outcome"]] = counts.get(found["outcome"], 0) + 1
+    record_testsuite_property("e2ii_false_declaration_limitation", json.dumps(
+        {"cells": len(outcomes), "counts": counts, "outcomes": outcomes}, sort_keys=True
+    ))
+    lines = [
+        "",
+        "=" * 25 + " SEC-020 E2 (ii) FALSE-DECLARATION LIMITATION (reported, NOT in the gate) " + "=" * 25,
+        f"the {len(outcomes)} cells of a never class over a plan factory that falsely declares it never"
+        f" withholds, measured on this run: {json.dumps(counts, sort_keys=True)}",
+        *(f"  {cell}: {found['outcome']}" + (f" at {found['at']}" if "at" in found else "")
+          + (f" (withheld side raised {found['withheld_raised']})" if "withheld_raised" in found else "")
+          for cell, found in sorted(outcomes.items())),
+        "=" * 124,
+    ]
+    with capsys.disabled():
+        print("\n".join(lines))
