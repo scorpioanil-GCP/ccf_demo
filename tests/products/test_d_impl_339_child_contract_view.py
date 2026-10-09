@@ -151,6 +151,10 @@ class _ChildReadingFactory:
         self.calls.append("children")
         return _ChildReadingPlan(required=required, request=request, children=children)
 
+    def withholds_no_subject(self) -> bool:
+        """Dave's E2 (ii) (d): true of both seams — ``_ThresholdProjection`` and ``_ChildReadingPlan`` never set the withheld signal."""
+        return True
+
 
 class _LegacyFactorySpy:
     """A factory implementing ONLY the original seam, recording exactly what it got."""
@@ -161,6 +165,10 @@ class _LegacyFactorySpy:
     def __call__(self, **kw: Any) -> Any:
         self.calls.append(dict(kw))
         return _ThresholdProjection(required=kw["required"], request=kw["request"])
+
+    def withholds_no_subject(self) -> bool:
+        """Dave's E2 (ii) (d): true — ``_ThresholdProjection`` never sets the withheld signal. Not a seam call: ``calls`` records seams only."""
+        return True
 
 
 def _assessment(freshness: Decimal, completeness: Decimal) -> DebtAssessment:

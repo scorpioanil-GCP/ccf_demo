@@ -324,7 +324,9 @@ __all__ = [
     "IncompatibleRefusalRecorder",
     "InstantAwareDebtScorerProtocol",
     "NeverWithholdingContradicted",
+    "NeverWithholdingNeedsAPositiveDeclaration",
     "NeverWithholdingProjectionCanWithhold",
+    "NonWithholdingPlanFactoryProtocol",
     "ProductGateProtocol",
     "ProductNotResolvable",
     "WithholdingClassListedReadable",
@@ -734,9 +736,11 @@ class CompositeNeedsAWithholdingStance(UnsupportedComposition):
     declares ``requires`` — states its stance when its resolver is constructed:
     an early policy, through :class:`SubjectDisclosingPlanFactoryProtocol`, or
     its class's affirmation ``subject_withholding: never`` (Dave's Q12), which
-    :meth:`GovernedResolver.__call__` enforces when the projection withholds
-    anyway. One that declares neither is refused here, before any question —
-    the same refusal whatever subject would have been asked.
+    is built only over a plan factory positively declaring that it never
+    withholds (:class:`NonWithholdingPlanFactoryProtocol`, Dave's E2 (ii) (d))
+    and which :meth:`GovernedResolver.__call__` enforces when the projection
+    withholds anyway. One that declares neither is refused here, before any
+    question — the same refusal whatever subject would have been asked.
     """
 
 
@@ -928,13 +932,20 @@ class NeverWithholdingContradicted(ProductNotResolvable):
     **The defense, not the control** (Dave, 2026-10-08 12:29 MST, E2 (ii):
     *"retain the runtime check as defense"*). A plan factory that declares it
     withholds is refused where the resolver is built
-    (:class:`NeverWithholdingProjectionCanWithhold`); this check is what remains
-    for a factory that declares nothing and whose projection withholds anyway.
+    (:class:`NeverWithholdingProjectionCanWithhold`), and so is one that does
+    not positively declare that it never withholds
+    (:class:`NeverWithholdingNeedsAPositiveDeclaration`, Dave's option (d),
+    16:40 MST); this check is what remains for a factory whose positive
+    declaration is FALSE — trusted deployment code — and whose projection
+    withholds anyway
+    (``tests/products/test_sec020_never_capability.py::test_e2ii_the_serve_time_check_remains_the_defense_for_a_false_positive_declaration``).
     Raised for the withheld subject only, it still tells that subject from one
     nothing holds — measured, as an exception (an HTTP 500) against an answer,
     by
-    ``tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable``
-    (configurations ``never_late`` and ``never_composite_late``). SEC-020 is OPEN.
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``
+    and reported outside the closure gate on every run of
+    ``tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated``.
+    SEC-020 is OPEN.
     """
 
 
@@ -960,12 +971,39 @@ class NeverWithholdingProjectionCanWithhold(UnsupportedComposition):
 
     **What it cannot see.** Whether a projection withholds is otherwise
     decided inside the deployment's ``invoke()``, which sets the withheld signal
-    on its own output; no operator and no declared plan step sets it. A plan
-    factory that declares nothing therefore constructs under ``never``, and a
-    projection of it that withholds anyway meets the serve-time defense
-    (:class:`NeverWithholdingContradicted`) — measured as still telling a
-    withheld subject from a nonexistent one. An early policy that withholds
-    nobody is no capability and constructs.
+    on its own output; no operator and no declared plan step sets it. So a plan
+    factory that states no capability must state the opposite: Dave's E2 (ii)
+    option (d) (2026-10-08 16:40 MST) refuses one that does not positively
+    declare that its projection never withholds
+    (:class:`NeverWithholdingNeedsAPositiveDeclaration`, a subclass of this
+    refusal, checked after it). A positive declaration is trusted deployment
+    code; one that is false constructs, and a projection of it that withholds
+    anyway meets the serve-time defense (:class:`NeverWithholdingContradicted`)
+    — measured as still telling a withheld subject from a nonexistent one. An
+    early policy that withholds nobody is no capability.
+    """
+
+
+class NeverWithholdingNeedsAPositiveDeclaration(NeverWithholdingProjectionCanWithhold):
+    """A class affirming its answers never withhold their subject, over a plan factory that does not positively declare it.
+
+    Dave, 2026-10-08 16:40 MST (``D-IMPL-378``, E2 (ii), option (d);
+    SDK-defined, CLAUDE.md §11): *"Require a positive declaration, default
+    silence to refusal, and explicitly limit the trusted-code assumption to
+    deployment code callers cannot influence. Keep the false-declaration
+    counterexample visible."* Raised by :class:`GovernedResolver` at
+    construction — before anything is read for a question, the same refusal
+    whatever subject would have been asked — when the class declaration
+    affirms :data:`~ccf.products.contract.SUBJECT_WITHHOLDING_NEVER` and its
+    plan factory does not implement :class:`NonWithholdingPlanFactoryProtocol`
+    (silence), or its ``withholds_no_subject()`` returns anything but ``True``.
+
+    Silence counts as able to withhold, so this is a
+    :class:`NeverWithholdingProjectionCanWithhold`: what handles that refusal
+    handles this one. A factory that declares it withholds is named by that
+    refusal first, whatever else it declares. The remedy is in the deployment:
+    declare ``withholds_no_subject()`` returning ``True`` only over a projection
+    that never sets the withheld signal, or leave the class at the default.
     """
 
 
@@ -1001,6 +1039,37 @@ def _refuse_a_never_class_whose_projection_can_withhold(
             " Affirm 'never' only over a projection that never withholds (Dave's"
             " E2 (ii), D-IMPL-378)"
         )
+
+
+def _refuse_a_never_class_without_a_positive_declaration(
+    *, declaration: ProductClassDeclaration, plan_factory: object
+) -> None:
+    """Refuse to construct a class affirming ``never`` whose plan factory does not positively declare it never withholds.
+
+    Dave's E2 (ii), option (d) (``D-IMPL-378``, 2026-10-08 16:40 MST). Reads
+    the declaration, and the factory's own statement
+    (:meth:`NonWithholdingPlanFactoryProtocol.withholds_no_subject`), called
+    ONCE with no argument: no subject, no request, no fabric, no clock. Anything
+    but exactly ``True`` — silence included — is refused, with a message that
+    names the class and never the subject.
+    """
+    if declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER:
+        return
+    if isinstance(plan_factory, NonWithholdingPlanFactoryProtocol):
+        if plan_factory.withholds_no_subject() is True:
+            return
+        stated = "its withholds_no_subject() does not return True"
+    else:
+        stated = "it does not implement NonWithholdingPlanFactoryProtocol"
+    raise NeverWithholdingNeedsAPositiveDeclaration(
+        f"class {declaration.schema_name!r} affirms subject_withholding:"
+        f" {SUBJECT_WITHHOLDING_NEVER!r}, and its plan factory does not positively"
+        f" declare that its projection never withholds ({stated}); silence counts"
+        " as able to withhold, and a withheld answer under the affirmation would"
+        " be refused for the withheld subject only, which tells it from a subject"
+        " nothing holds. Declare withholds_no_subject() returning True only over a"
+        " projection that never withholds (Dave's E2 (ii) (d), D-IMPL-378)"
+    )
 
 
 def _refuse_a_listed_class_that_may_withhold(
@@ -1290,6 +1359,53 @@ class SubjectDisclosingPlanFactoryProtocol(Protocol):
 
     def subject_disclosure(self) -> SubjectDisclosurePolicy | None:
         """The declared early policy, or ``None`` for a projection that withholds only late."""
+        ...
+
+
+@runtime_checkable
+class NonWithholdingPlanFactoryProtocol(Protocol):
+    """A plan factory's positive declaration that no projection it builds withholds its subject.
+
+    Dave, 2026-10-08 16:40 MST (``D-IMPL-378``, E2 (ii), option (d);
+    SDK-defined, CLAUDE.md §11): *"Require a positive declaration, default
+    silence to refusal, and explicitly limit the trusted-code assumption to
+    deployment code callers cannot influence. Keep the false-declaration
+    counterexample visible."* An **optional companion** to
+    :class:`ProjectionPlanFactoryProtocol`, on the
+    :class:`SubjectDisclosingPlanFactoryProtocol` precedent: declared
+    structurally, never inferred, and read ONCE, when the resolver is
+    constructed. A class affirming ``subject_withholding: never`` is built only
+    over a factory implementing it whose :meth:`withholds_no_subject` returns
+    exactly ``True``; a factory that does not implement it (silence), or that
+    returns anything else, counts as able to withhold and is refused
+    (:class:`NeverWithholdingNeedsAPositiveDeclaration`). Classes at the
+    default never read it.
+
+    **Trusted deployment code, and only that.** The SDK cannot see inside a
+    projection's ``invoke()`` before running it, so it cannot verify the
+    statement; it trusts it as deployment code, and the assumption is limited
+    to code no caller can influence. The resolver calls
+    :meth:`withholds_no_subject` with no argument, at construction, on the
+    factory the deployment composed it with; no request, parameter, door
+    payload, harness or agent input, or caller-supplied document reaches that
+    call or selects the factory it is made on (measured, statically and at the
+    in-process, HTTP and MCP doors, by
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_no_caller_input_supplies_selects_or_alters_the_positive_declaration``).
+    A deployment's factory that reads caller input into its own declaration is
+    outside the assumption.
+
+    **The residual, kept visible.** A FALSE declaration — ``True`` over a
+    projection that withholds — constructs, and the serve-time defense
+    (:class:`NeverWithholdingContradicted`) refuses the withheld subject's
+    question alone, which still tells it from a subject nothing holds
+    (``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``);
+    every run of the closing test reports it outside its gate
+    (``tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated``).
+    SEC-020 is OPEN.
+    """
+
+    def withholds_no_subject(self) -> bool:
+        """``True`` only if no projection this factory builds sets the withheld signal, for any subject or principal."""
         ...
 
 
@@ -2967,7 +3083,9 @@ class GovernedResolver:
         # SEC-020 Q8 (`D-IMPL-378`): the early policy, read ONCE here, and the
         # composite combinations it cannot support, refused here.
         disclosure: SubjectDisclosurePolicy | None = None
+        discloses = False
         if isinstance(self.plan_factory, SubjectDisclosingPlanFactoryProtocol):
+            discloses = True
             disclosure = self.plan_factory.subject_disclosure()
             if disclosure is not None and not isinstance(disclosure, SubjectDisclosurePolicy):
                 raise TypeError(
@@ -2981,6 +3099,14 @@ class GovernedResolver:
             _refuse_a_never_class_whose_projection_can_withhold(
                 declaration=declaration, disclosure=disclosure
             )
+        # Dave's E2 (ii), option (d) (`D-IMPL-378`, 2026-10-08 16:40 MST): a
+        # class affirming `never` over a factory that does not positively
+        # declare it never withholds — silence included — is refused here, after
+        # a declared capability is named and before Q8's composite rules.
+        _refuse_a_never_class_without_a_positive_declaration(
+            declaration=declaration, plan_factory=self.plan_factory
+        )
+        if discloses:
             if declaration.requires and disclosure is None:
                 raise CompositeNeedsAnEarlyPolicy(
                     f"class {declaration.schema_name!r} composes children and its"

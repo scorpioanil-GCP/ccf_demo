@@ -181,6 +181,22 @@ def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> _Proj
     return _Projection(plan_id=request.schema_name, required=required, request=request)
 
 
+def _withholds_no_subject() -> bool:
+    """``plan_factory``'s positive declaration (Dave's E2 (ii) (d), ``NonWithholdingPlanFactoryProtocol``).
+
+    True of what the factory builds: ``_Projection.invoke`` returns a
+    ``ProjectionOutput`` with no withheld signal, for every subject and
+    principal. A consumer class that affirms ``never`` over this shared factory
+    is therefore built.
+    """
+    return True
+
+
+#: A NAMED ``def`` carries the declaration as an attribute — the structural form
+#: of the companion protocol for a function.
+plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
+
+
 def assess(context: AssessmentContext) -> DebtAssessment:
     assert context.profile is not None
     return assess_debt(

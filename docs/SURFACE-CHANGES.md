@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2393 entries**, of which **2116** name a public Python surface.
+**2396 entries**, of which **2119** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1315 entries — 1269 public Python surface, 46 not public Python API.
+1317 entries — 1271 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19304,6 +19304,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-37-stored-bytes-verified-before-use.md`.*
 
+#### ccf.products.resolver.NonWithholdingPlanFactoryProtocol
+
+- Surface: ccf.products.resolver.NonWithholdingPlanFactoryProtocol
+- Public surface: true
+- Change type: added
+- Before: absent; nothing let a plan factory state that its projection never withholds.
+- After: a `runtime_checkable` Protocol with one method, `withholds_no_subject() -> bool`, an optional companion to `ProjectionPlanFactoryProtocol` on the `SubjectDisclosingPlanFactoryProtocol` precedent: `True` only if no projection the factory builds sets the withheld signal, for any subject or principal. Read once, with no argument, when a `GovernedResolver` is built over a class affirming `never`; classes at the default never read it.
+- Why: SEC-020, E2 (ii) (d) (Dave, 2026-10-08 16:40 MST): require a positive declaration. A method rather than an attribute so a configurable or wrapping factory can state truthfully what it builds.
+- Migration: a deployment whose class affirms `never` implements `withholds_no_subject()` returning `True` on its plan factory, only if its projection never sets the withheld signal. A plain function factory may carry it as an attribute.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration
+
+- Surface: ccf.products.resolver.NeverWithholdingNeedsAPositiveDeclaration
+- Public surface: true
+- Change type: added
+- Before: absent; a class affirming `never` over a plan factory that declared nothing constructed, and a projection of it that withheld anyway raised `NeverWithholdingContradicted` at serve for the withheld subject alone.
+- After: a `NeverWithholdingProjectionCanWithhold` (so an `UnsupportedComposition`) raised by `GovernedResolver` construction when the class declaration affirms `subject_withholding: never` and the plan factory does not implement `NonWithholdingPlanFactoryProtocol`, or its `withholds_no_subject()` returns anything but `True`. The message names the class, never the subject.
+- Why: SEC-020, E2 (ii) (d): default silence to refusal. A refusal where the resolver is built is the same whatever subject would have been asked.
+- Migration: declare the factory's `withholds_no_subject()` (see above) or leave the class at the default `may-withhold`. Code catching `NeverWithholdingProjectionCanWithhold` catches this too.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30287,7 +30311,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-409 entries — 370 public Python surface, 39 not public Python API.
+410 entries — 371 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36326,6 +36350,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a store that returns what was written.
 
 *Recorded by `378-37-stored-bytes-verified-before-use.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: construction refused a class affirming `never` only when its plan factory declared, through `SubjectDisclosingPlanFactoryProtocol`, that it withholds; `never` alone was a composite's withholding stance under P2 (c).
+- After: construction also refuses a class affirming `never` whose plan factory does not positively declare that it never withholds, with `NeverWithholdingNeedsAPositiveDeclaration` — after the declared-capability check, before Q8's composite refusals (`CompositeNeedsAnEarlyPolicy`, `EarlyPolicyNeedsRequestAwareChildren`) and before Q12's listing check. A composite's `never` stance therefore needs the declaration as well. On the paved road the refusal arrives when the resolver is built for a question.
+- Why: as above.
+- Migration: as above; a class at the default `may-withhold` is unaffected.
+
+*Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
 
 ### Not public Python API
 

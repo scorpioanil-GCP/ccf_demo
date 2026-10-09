@@ -171,8 +171,37 @@ judges it by this module's own rules, one ``configuration`` per way the class
 and its projection can meet (``sec020_worlds.NEVER_CONFIGURATIONS``), with an
 instrument per channel (``test_the_never_instrument_sees_a_difference``). Its
 cells stay in the gate, unmarked, until no configuration leaves the two
-distinguishable. The listed-class cell below holds only the record channel of
-that configuration (the runtime defense writes no record); it is not evidence
+distinguishable.
+
+Dave's option (d), 2026-10-08 16:40 MST (``D-IMPL-378``), verbatim: *"Require a
+positive declaration, default silence to refusal, and explicitly limit the
+trusted-code assumption to deployment code callers cannot influence. Keep the
+false-declaration counterexample visible."* A class affirming ``never`` is now
+built only over a plan factory that positively declares it never withholds, so
+every configuration here — its factory declaring that it withholds, or declaring
+nothing — is refused where its resolver is built, on every side. Under CT-A (a)
+a cell holds that refusal as the property only when the withheld, nonexistent
+and noise-floor sides ALL observed the SAME construction refusal, by name
+(``sec020_worlds.NEVER_CONSTRUCTION_REFUSALS``: ``NeverWithholdingProjectionCanWithhold``,
+or since (d) ``NeverWithholdingNeedsAPositiveDeclaration``), and the declared
+twin — the policy off, positively declaring that it never withholds — answers.
+
+**A separately reported limitation, not a gate cell** (the same (d), *"Keep the
+false-declaration counterexample visible"*). A plan factory that positively
+declares it never withholds while its projection withholds is built: the
+declaration is trusted deployment code, an assumption (d) limits to code no
+caller can influence. Its configurations
+(``sec020_worlds.NEVER_FALSE_DECLARATION_CONFIGURATIONS``) generate no gate
+cell; every run executes all of their cells through the gate's own rules in
+:func:`test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`,
+which prints them in their own block (``SEC-020 E2 (ii) FALSE-DECLARATION
+LIMITATION``) and records them in the JUnit record
+(``e2ii_false_declaration_limitation``). They never count as passing evidence,
+and no mark hides them.
+
+The listed-class cell below holds only the record channel of a listed
+``never`` class whose policy withholds; under (d) that class is refused where
+its resolver is built, so nothing is recorded to read back. It is not evidence
 of indistinguishability.
 
 Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
@@ -780,22 +809,21 @@ LISTED_SHAPES = w.LISTED_SHAPES
 #: ``378b-s020record`` PROPOSAL section 7, item 1). A class that does not affirm
 #: ``never``, listed: refused where its resolver is built, in the deployment that
 #: holds the subject and in the one that does not. The withheld subject under a
-#: class that affirms ``never``: refused before anything is recorded, as
-#: ``NeverWithholdingContradicted`` — for a composite too, named before Q8's
-#: ``CompositeWithheldLate`` (Dave's CT-D (a), 2026-10-08 12:29 MST: "for
-#: diagnostic precedence; this does not resolve E2(ii)'s oracle").
-#: That second expectation names the runtime DEFENSE Dave retained (E2 (ii),
-#: 2026-10-08 12:29 MST), held here for the record channel only: the raise
-#: itself, against the nonexistent subject's answer, is the oracle he ruled, and
-#: :func:`test_a_withheld_subject_under_a_never_class_is_indistinguishable`
-#: fails on it.
+#: class that affirms ``never`` and whose policy withholds it: since Dave's
+#: E2 (ii) (d) (2026-10-08 16:40 MST) that deployment's plan factory does not
+#: positively declare that it never withholds — its policy is on, and it says
+#: so — so the class is refused where its resolver is built, before anything is
+#: read or recorded, by ``sec020_worlds.NEVER_DECLARATION_REFUSAL``; for a
+#: composite too. Until (d) this arm expected the runtime DEFENSE,
+#: ``NeverWithholdingContradicted``; under (d) the defense is reached only through
+#: a FALSE positive declaration — trusted deployment code — which this module
+#: never counts as passing evidence and reports outside the gate instead
+#: (:func:`test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`,
+#: whose record-channel cells measure exactly that case).
 LISTED_REFUSALS: dict[str, dict[str, str]] = {
     w.WITHHELD_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
     w.NONEXISTENT_LISTED_MAY: {shape: "WithholdingClassListedReadable" for shape in w.LISTED_SHAPES},
-    w.WITHHELD_READABLE: {
-        w.SUBJECT_KEYED: "NeverWithholdingContradicted",
-        w.COMPOSITE_SUBJECT_CHILD: "NeverWithholdingContradicted",
-    },
+    w.WITHHELD_READABLE: {shape: w.NEVER_DECLARATION_REFUSAL for shape in w.LISTED_SHAPES},
 }
 
 
@@ -827,22 +855,22 @@ def test_a_withholding_class_listed_evidence_readable_does_not_reopen_the_record
       side. Equal by that NAMED refusal, which is the property here — as Q9's
       refusals are for the reused shapes — and never by an arbitrary exception.
     * **A class that affirms ``never``, LISTED, whose policy withholds the
-      subject** — the withheld question is refused by name before anything is
-      recorded, so no record of it exists to read back. The control: the
-      nonexistent subject under the same listing is answered, and its owner
-      reads its record back — the listing is live.
+      subject** — since Dave's E2 (ii) (d) its plan factory, whose policy is on,
+      does not positively declare that it never withholds, so the class is
+      refused where its resolver is built, by name, before anything is read or
+      recorded; no record of the question exists to read back. The control:
+      the nonexistent subject under the same listing — the policy off, truly
+      declaring — is answered, and its owner reads its record back — the
+      listing is live.
 
-    The second arm holds the RECORD CHANNEL only: the runtime defense refuses
-    the withheld question by name before anything is recorded, so no record of
-    it exists to read back. It is not evidence that the two subjects are
-    indistinguishable. The withheld subject's question raises where the
-    nonexistent subject's is answered, and Dave ruled that difference a
-    measured oracle (E2 (ii), 2026-10-08 12:29 MST, "REJECTED as
-    disclosure-only"; it was OWED when this cell was written).
-    :func:`test_a_withheld_subject_under_a_never_class_is_indistinguishable`
-    judges it, and fails while it stands, for the two configurations this
-    arm's deployments are built as (``never_late`` on the paved road,
-    ``never_composite_late`` for the composite).
+    The second arm holds the RECORD CHANNEL only. Until (d) it expected the
+    runtime defense, raised for the withheld subject alone — the oracle Dave
+    ruled (E2 (ii), 2026-10-08 12:29 MST, "REJECTED as disclosure-only"). That
+    defense is now reached only through a FALSE positive declaration, the
+    residual (d) leaves to trusted deployment code; it is measured, every run,
+    outside the gate by
+    :func:`test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`,
+    and is never counted here.
     """
     if not w.evidence_allowlist_exists():
         pytest.skip(f"pending API: {w.EVIDENCE_ALLOWLIST_FIELD} (ProductEntitlementPolicy)")
@@ -1134,8 +1162,8 @@ def _both_raised(run: w.Run, *sides: str, either: bool = False, excused: tuple[s
 
     Nothing is excused here by the shape a configuration follows: a raise is
     "not evidence" unless the side is named in ``excused`` and what it raised
-    is :data:`~tests.products.sec020_worlds.NEVER_CAPABILITY_REFUSAL` at its
-    one question (the instrument's refused side, CT-A (a)).
+    is one of :data:`~tests.products.sec020_worlds.NEVER_CONSTRUCTION_REFUSALS`
+    at its one question (the instrument's refused side, CT-A (a)).
     """
     raised = {side: run.raised(side) for side in sides}
     positions = set().union(*(set(r) for r in raised.values()))
@@ -1148,7 +1176,7 @@ def _both_raised(run: w.Run, *sides: str, either: bool = False, excused: tuple[s
             and not (
                 side in excused
                 and position == w.ONLY
-                and r[position].startswith(f"{w.NEVER_CAPABILITY_REFUSAL}:")
+                and any(r[position].startswith(f"{name}:") for name in w.NEVER_CONSTRUCTION_REFUSALS)
             )
         }
         if (either and hit) or (hit and all(position in r for r in raised.values())):
@@ -1167,15 +1195,17 @@ def test_a_withheld_subject_under_a_never_class_is_indistinguishable(
     (``sec020_worlds.NEVER_CONFIGURATIONS``). Judged by this module's own rules:
     the same pairs, noise floor and kind rule as
     :func:`test_withheld_is_indistinguishable`, and two sides that both raised
-    are "not evidence". The one refusal this cell holds as the property is the
+    are "not evidence". The refusals this cell holds as the property are the
     composition's own, raised where its resolver is built
-    (``sec020_worlds.NEVER_CAPABILITY_REFUSAL``) — and only when the withheld,
-    nonexistent and noise-floor sides ALL observe it, by name, and the same
-    configuration without its withholding capability answers rather than
-    raising (``sec020_worlds.NEVER_TWIN``): Dave's CT-A (a), "Construction refusal
-    counts, paired with a declared twin that successfully answers." A refusal
-    raised when the projection withholds — for the withheld subject only — is
-    the oracle Dave ruled, and this cell fails on it.
+    (``sec020_worlds.NEVER_CONSTRUCTION_REFUSALS``: the declared capability,
+    and since Dave's E2 (ii) (d) the missing positive declaration) — and only
+    when the withheld, nonexistent and noise-floor sides ALL observe the SAME
+    one, by name, and the same configuration without its withholding
+    capability — the policy off, positively declaring that it never withholds —
+    answers rather than raising (``sec020_worlds.NEVER_TWIN``): Dave's CT-A (a),
+    "Construction refusal counts, paired with a declared twin that successfully
+    answers." A refusal raised when the projection withholds — for the withheld
+    subject only — is the oracle Dave ruled, and this cell fails on it.
     """
     run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
     withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
@@ -1226,9 +1256,10 @@ def test_the_never_instrument_sees_a_difference(
     configuration without its withholding capability,
     ``sec020_worlds.NEVER_TWIN``) against the nonexistent side; for refusal
     codes, the question its class refuses by contract; for references, Dave's
-    Q11 properties. Where the nonexistent side observed the construction
-    refusal by name, every channel is instrumented by the twin answering
-    against it — the structural pair of :func:`test_an_undeclared_composite_is_refused_where_its_resolver_is_built`.
+    Q11 properties. Where the nonexistent side observed a construction
+    refusal by name (``sec020_worlds.NEVER_CONSTRUCTION_REFUSALS``), every
+    channel is instrumented by the twin answering against it — the structural
+    pair of :func:`test_an_undeclared_composite_is_refused_where_its_resolver_is_built`.
     """
     run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
     refused = w.never_refused_at_construction(run, (w.CF_NONEXISTENT,))
@@ -1255,3 +1286,93 @@ def test_the_never_instrument_sees_a_difference(
         f" {right_side} are indistinguishable on this channel, so a PASS of its comparison would prove"
         f" nothing\n  {left_side}: {w.render(left)}\n  {right_side}: {w.render(right)}"
     )
+
+
+# =============================================================================
+# E2 (ii) (d): the FALSE-declaration counterexample — measured, reported, never gated
+# =============================================================================
+
+
+def _false_declaration_cells() -> list[str]:
+    """Every cell the residual configurations would have, by the gate's own channel rule (never generated as gate cells)."""
+    return [
+        f"{comparison}-{configuration}-{anchor}-{door}-{channel}"
+        for configuration, shape in w.NEVER_FALSE_DECLARATION_CONFIGURATIONS.items()
+        for comparison in w.COMPARISONS
+        for anchor in w.ANCHORS
+        for door in w.DOORS
+        for channel in w.channels_for(comparison=comparison, shape=shape, door=door)
+    ]
+
+
+def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
+    never_runs: w.NeverRunCache, record_testsuite_property: Callable[[str, object], None], capsys: Any
+) -> None:
+    """Dave's E2 (ii) (d): the false-declaration counterexample, executed and reported every run, never gated.
+
+    Dave, 2026-10-08 16:40 MST (``D-IMPL-378``), verbatim: *"Require a positive
+    declaration, default silence to refusal, and explicitly limit the
+    trusted-code assumption to deployment code callers cannot influence. Keep
+    the false-declaration counterexample visible."* A plan factory that
+    positively declares it never withholds while its projection withholds
+    (``sec020_worlds.NEVER_FALSE_DECLARATION_CONFIGURATIONS``) is built — the
+    declaration is trusted deployment code — and its withheld subject's
+    question meets the serve-time defense alone. Every cell those
+    configurations would have is run here through exactly what a gate cell
+    runs — :func:`never_refused_at_construction`'s CT-A (a) test, then
+    :func:`_both_raised`, then :func:`_compare` — and classified:
+    ``distinguishable``, ``indistinguishable``, ``not evidence`` (both sides
+    raised) or ``refused at construction`` (the configuration was not the
+    residual at all).
+
+    **What this asserts, and what it does not.** That every cell was MEASURED,
+    and nothing about the outcome: the cells are the reported residual of a
+    trusted-code assumption, not evidence for SEC-020, so how many are
+    distinguishable never moves the gate. The measurement is printed past the
+    output capture in its own block, headed
+    ``SEC-020 E2 (ii) FALSE-DECLARATION LIMITATION``, and recorded in the JUnit
+    record as ``e2ii_false_declaration_limitation`` — the same treatment as
+    :func:`test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated`.
+    No skip and no expected-failure mark hides it. The counterexample's own
+    test, which asserts it still holds, is
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``.
+    """
+    outcomes: dict[str, dict[str, Any]] = {}
+    for cell in _false_declaration_cells():
+        comparison, configuration, anchor, door, channel = cell.split("-")
+        run = never_runs.get(configuration=configuration, anchor=anchor, door=door)
+        withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
+        if w.never_refused_at_construction(run, (withheld_side, nonexistent_side, floor_side)):
+            outcomes[cell] = {"outcome": "refused at construction", "raised": run.raised(withheld_side).get(w.ONLY, "")}
+            continue
+        vacuous = _both_raised(run, withheld_side, nonexistent_side)
+        if vacuous:
+            outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        differing, _floor, _, _ = _compare(run, comparison=comparison, channel=channel)
+        found: dict[str, Any] = (
+            {"outcome": "distinguishable", "at": sorted(differing)} if differing else {"outcome": "indistinguishable"}
+        )
+        withheld_raised = run.raised(withheld_side).get(w.ONLY, "")
+        if withheld_raised:
+            found["withheld_raised"] = withheld_raised.split(":", 1)[0]
+        outcomes[cell] = found
+    assert sorted(outcomes) == sorted(_false_declaration_cells()), "a false-declaration cell was not measured"
+    counts: dict[str, int] = {}
+    for found in outcomes.values():
+        counts[found["outcome"]] = counts.get(found["outcome"], 0) + 1
+    record_testsuite_property("e2ii_false_declaration_limitation", json.dumps(
+        {"cells": len(outcomes), "counts": counts, "outcomes": outcomes}, sort_keys=True
+    ))
+    lines = [
+        "",
+        "=" * 25 + " SEC-020 E2 (ii) FALSE-DECLARATION LIMITATION (reported, NOT in the gate) " + "=" * 25,
+        f"the {len(outcomes)} cells of a never class over a plan factory that falsely declares it never"
+        f" withholds, measured on this run: {json.dumps(counts, sort_keys=True)}",
+        *(f"  {cell}: {found['outcome']}" + (f" at {found['at']}" if "at" in found else "")
+          + (f" (withheld side raised {found['withheld_raised']})" if "withheld_raised" in found else "")
+          for cell, found in sorted(outcomes.items())),
+        "=" * 124,
+    ]
+    with capsys.disabled():
+        print("\n".join(lines))

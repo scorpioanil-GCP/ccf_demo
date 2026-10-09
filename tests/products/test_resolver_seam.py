@@ -298,6 +298,22 @@ def _plan_factory(
     return _ThresholdProjection(required=required, request=request)
 
 
+def _withholds_no_subject() -> bool:
+    """``_plan_factory``'s positive declaration (Dave's E2 (ii) (d), ``NonWithholdingPlanFactoryProtocol``).
+
+    True of what the factory builds: ``_ThresholdProjection.invoke`` returns a
+    ``ProjectionOutput`` with no withheld signal, for every subject and
+    principal. Every class affirming ``never`` that this fixture and the
+    composite fixture build is built over this factory.
+    """
+    return True
+
+
+#: A NAMED ``def`` (``D-IMPL-137``) carries the declaration as an attribute — the
+#: structural form of the companion protocol for a function.
+_plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
+
+
 def _debt_scorer(
     *, view: GraphView, evidence: ExecutionEvidence | None = None
 ) -> DebtAssessment:
