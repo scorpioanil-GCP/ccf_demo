@@ -3509,8 +3509,20 @@ PIN_WRITE_THEN_READ_SURFACES: dict[str, str] = {
     "write-then-read-names": "names",
 }
 
+#: Write-then-read READ BACK BY A SECOND PRINCIPAL (Dave, 2026-10-09 10:54 MST, D-IMPL-378, 2.6 (a), verbatim: "Add
+#: both coverage cases to the closure gate."; the first case, verbatim from the "i" panel's findings brief: "Write-then-
+#: read read back by a second principal"): after the asker's put, another principal of the tenant reads the pin's
+#: address through blob, presence and names.
+PIN_WRITE_THEN_READ_OTHER_SURFACES: dict[str, str] = {
+    "write-then-read-blob-other-principal": "blob",
+    "write-then-read-presence-other-principal": "meta",
+    "write-then-read-names-other-principal": "names",
+}
+
 #: Every surface of the pin channel, one closing-test cell each per shape and anchor.
-PIN_SURFACES: tuple[str, ...] = (*PIN_READ_SURFACES, *PIN_WRITE_THEN_READ_SURFACES)
+PIN_SURFACES: tuple[str, ...] = (
+    *PIN_READ_SURFACES, *PIN_WRITE_THEN_READ_SURFACES, *PIN_WRITE_THEN_READ_OTHER_SURFACES
+)
 
 #: The asker's own client lane: a class no deployment here declares, and the name it files a pin's bytes under.
 PIN_CLIENT_CLASS = "fixture.pin-client-lane"
@@ -3673,6 +3685,41 @@ def write_then_read_pin(
             failures[surface] = put_failure
 
 
+def read_back_as_another_principal(
+    deployment: Deployment,
+    address: str,
+    presented: tuple[str, ...],
+    readings: dict[str, Any],
+    failures: dict[str, str],
+) -> None:
+    """After the asker's write-then-read, ANOTHER principal of the tenant reads blob, presence and names at ``address``.
+
+    Called only after :func:`write_then_read_pin` (its put is the write these reads follow; a read with no write before
+    it is not a write-then-read, and the call refuses to run). A put that filed nothing is a failure of every reading
+    here too, as it is of the asker's own. ``presented`` is normalized as :func:`write_then_read_pin` normalizes it.
+    """
+    from ccf_runtime.mcp.artifact_server import (  # noqa: PLC0415
+        artifact_blob_uri,
+        artifact_meta_uri,
+        artifact_names_uri,
+    )
+
+    if "write-then-read-put" not in readings:
+        raise AssertionError(f"read_back_as_another_principal: no write-then-read put of {address} came first")
+    put_failure = failures.get("write-then-read-put")
+    resources = {"blob": artifact_blob_uri, "meta": artifact_meta_uri, "names": artifact_names_uri}
+    for surface, read in PIN_WRITE_THEN_READ_OTHER_SURFACES.items():
+        answered = _normalize_presented(
+            jsonable(_mcp_resource_read(deployment, resources[read](content_address=address), token=OTHER_TOKEN)),
+            presented,
+        )
+        readings[surface] = answered
+        if _mcp_read_failed(answered):
+            failures[surface] = f"{surface} read failed: {render(answered, limit=300)}"
+        elif put_failure:
+            failures[surface] = put_failure
+
+
 @dataclass
 class PinRun:
     """One (shape, anchor)'s pin channel: the three deployments' questions, their pins, and every one-sided pin's readings."""
@@ -3713,7 +3760,8 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
     Filing is read off each deployment's own store before anything is written, because write-then-read files the
     pin's bytes itself. Every plain read of every pin happens before the first write. The canonical bytes the asker
     writes are read from the deployment that filed the pin, as an auditor would: the stand-in for an outsider
-    recomputing them, which is unreproduced (the closing test's pin channel says so).
+    recomputing them, which is unreproduced (the closing test's pin channel says so). After every write-then-read of
+    the asker, each pin is read back by a second principal (:func:`read_back_as_another_principal`, 2.6 (a)).
     """
     from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
 
@@ -3754,6 +3802,10 @@ def pin_run(base: pathlib.Path, *, shape: str, anchor: str) -> PinRun:
                 write_then_read_pin(
                     built, pin, canonical[pin], (*uris[pin], pin), readings[pin][side], failures[pin][side]
                 )
+        # 2.6 (a): after every write-then-read of the asker, a second principal reads each one back.
+        for pin in one_sided:
+            for side, built in deployments.items():
+                read_back_as_another_principal(built, pin, (*uris[pin], pin), readings[pin][side], failures[pin][side])
     finally:
         for built in deployments.values():
             built.close()
@@ -3816,7 +3868,8 @@ def pin_instrument(base: pathlib.Path) -> PinInstrument:
     that record's class. Write-then-read: the asker's own client-lane filing, read after its put, against the same
     reads at the two addresses nobody filed; and the put itself, against a put of other bytes (and that put again,
     its floor). Nothing presented is normalized in the put's pair: the instrument asks whether the comparison sees
-    the put's answer at all.
+    the put's answer at all. Read back by a second principal (2.6 (a)): the same three addresses, after the asker's
+    puts, read by another principal of the tenant.
     """
     from ccf.artifacts.protocol import artifact_uri  # noqa: PLC0415
     from ccf_runtime.mcp.artifact_server import (  # noqa: PLC0415
@@ -3873,6 +3926,22 @@ def pin_instrument(base: pathlib.Path) -> PinInstrument:
                 answered = _normalize_presented(
                     jsonable(
                         _mcp_resource_read(deployment, resources[read](content_address=address), token=ASKER_TOKEN)
+                    ),
+                    (address,),
+                )
+                readings[surface][side] = answered
+                if _mcp_read_failed(answered):
+                    failures[surface][side] = f"{surface} read failed: {render(answered, limit=300)}"
+        # 2.6 (a): the same three addresses, read back after the asker's puts by another principal of the tenant.
+        for side, address in (
+            (SERVED, own_address),
+            (CF_NONEXISTENT, PIN_INSTRUMENT_NOBODY),
+            (CF_FLOOR, PIN_INSTRUMENT_NOBODY_2),
+        ):
+            for surface, read in PIN_WRITE_THEN_READ_OTHER_SURFACES.items():
+                answered = _normalize_presented(
+                    jsonable(
+                        _mcp_resource_read(deployment, resources[read](content_address=address), token=OTHER_TOKEN)
                     ),
                     (address,),
                 )

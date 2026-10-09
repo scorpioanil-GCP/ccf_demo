@@ -106,7 +106,9 @@ helper."*; ``sec020_worlds.a_constant_refusal_is_the_property``).
 resolution and write-then-read in the closure gate"*).
 ``test_a_pin_filed_in_one_deployment_reads_alike_in_both[<shape>-<anchor>-<surface>]`` reads, as the asker, every
 executed-query pin filed in only one of the counterfactual's two deployments, in both, at every surface the asker can
-read it at, write-then-read included. Its instrument is ``test_the_pin_instrument_sees_a_difference``, and its
+read it at, write-then-read included, and reads the write-then-read back as a second principal of the tenant too
+(Dave, 2026-10-09 10:54 MST, 2.6 (a): *"Add both coverage cases to the closure gate."*). Its instrument is
+``test_the_pin_instrument_sees_a_difference``, and its
 population is reported every run by ``test_the_pin_channel_census_is_measured_and_reported``. An outsider recomputing
 a pin's address without the record is unreproduced, and that does not excuse the channel.
 
@@ -1992,8 +1994,11 @@ def test_a_pin_filed_in_one_deployment_reads_alike_in_both(
     name the filing deployment filed it), and the HTTP door's ``/artifact/{content_address}``, ``/replay/decisions``
     and ``/replay/resolutions``, through the record channel's own reads (the asker, and another principal of the
     tenant). Then WRITE-THEN-READ: the asker files the pin's canonical bytes on its own client lane
-    (``put_artifact``) and reads them back through blob, presence and names. One cell per shape, anchor and surface;
-    each cell holds every one-sided pin of its run, in both directions.
+    (``put_artifact``) and reads them back through blob, presence and names; and, after every such write, another
+    principal of the tenant reads them back through the same three (``sec020_worlds.read_back_as_another_principal``;
+    Dave, 2026-10-09 10:54 MST, 2.6 (a): *"Add both coverage cases to the closure gate."*, the first being
+    "Write-then-read read back by a second principal"). One cell per shape, anchor and surface; each cell holds every
+    one-sided pin of its run, in both directions.
 
     **Judged by the gate's own rules.** The questions first: two compared sides that raised, other than as the
     refusal the gate holds as the property for this shape, are not evidence (:func:`_vacuous`, over
@@ -2008,9 +2013,10 @@ def test_a_pin_filed_in_one_deployment_reads_alike_in_both(
     unproven until demonstrated. That does not excuse the channel. These cells count regardless, and a cell that is
     red here is red in the gate.
 
-    **Expected on this tree.** The versioned-URI resolution and the three write-then-read reads tell the two
-    deployments apart wherever a pin is one-sided (``D-IMPL-378`` F1-1b and F1-1c: open, design-first), so those
-    cells are RED, and none is marked, skipped or excluded. At two population-reading shapes a pin is one-sided under
+    **Expected on this tree.** The versioned-URI resolution and the write-then-read reads, the asker's three and the
+    second principal's three, tell the two deployments apart wherever a pin is one-sided (``D-IMPL-378`` F1-1b and
+    F1-1c: open, design-first), so those cells are RED, and none is marked, skipped or excluded. At two
+    population-reading shapes a pin is one-sided under
     ``from_entity_freshness`` too, because there the deployment whose source holds the subject serves where the other
     refuses: D1 (a)'s confound, which this module's D1 (a) block reports, at the outcome, for those shapes'
     two-deployment cells. D1 (a) retires the other channels' two-deployment cells of those shapes; no ruling retires
