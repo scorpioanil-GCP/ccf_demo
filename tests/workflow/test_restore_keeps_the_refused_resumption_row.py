@@ -39,10 +39,10 @@ for the execution's state key, oldest first:
   recorded as refused, and one restore's row lands.
 
 RED FIRST: the four tests above the residual section were committed before
-the fix, when the restore returned before the refusal row. The residual
-measurement after them was added with the fix; it passes before and after it,
-and goes red if a later design marks the restore's row, when it must be
-rewritten to assert that mark. Test vocabulary only (CINV-01).
+the fix, when the restore returned before the refusal row. The two residual
+measurements after them were added later; each passes before and after the
+fix, and goes red if a later design or ruling changes what it pins, when it
+must be rewritten to assert the change. Test vocabulary only (CINV-01).
 """
 
 from __future__ import annotations
@@ -272,3 +272,25 @@ def test_the_restores_row_is_the_suspensions_own_row_but_for_its_sequence_and_ti
     assert type(restored) is type(original) is AuditEvent
     assert comparable(restored) == comparable(original)
     assert restored.sequence > original.sequence
+
+
+def test_the_starters_retried_start_that_restores_appends_the_restores_row_alone(
+    tmp_path: Path,
+) -> None:
+    """RESIDUAL, and outside repair 1.4 (a)'s words. The ruling names the
+    refused RESUMPTION's row. The other trigger, the starter's retried start
+    (``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine.execute``), is a
+    recovery of the start, as Dave's D2 finish of an interrupted start is, and
+    appends the restore's row alone. At ``a539c215``, before the restore existed,
+    that retry was refused "already exists" with the engine's refusal row
+    (``workflow_resumed``, ``resolved=False``). Goes red if a ruling extends the
+    refusal row to this trigger; rewrite it then to assert that row."""
+    run = compose(tmp_path)
+    stuck = stuck_at_the_first_gate(run)
+    before = rows_of(run)
+
+    outcome = start(run)
+
+    assert isinstance(outcome, WorkflowSuspended) and outcome.gate == FIRST_GATE, outcome
+    assert shapes(appended_since(run, before)) == [RESTORE]
+    assert requests(run, FIRST_GATE) == [the_request_a_suspension_files(run, stuck)]
