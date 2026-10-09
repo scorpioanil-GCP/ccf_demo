@@ -90,7 +90,10 @@ from __future__ import annotations
 
 import fnmatch
 import pathlib
+import sys
 from typing import NamedTuple
+
+import pytest
 
 from tools.lints.citations import (
     CITATION,
@@ -402,6 +405,74 @@ def test_the_unanchored_python_citation_population_cannot_regrow() -> None:
         f" moves. {CEILING_RAISE_INSTRUCTION} Found:"
         + "".join(f"\n  - {site}" for site in found)
     )
+
+
+#: The cited module of the fixture below: ``go`` is defined twice and
+#: ``refuse`` once, so a citation of ``refuse`` can be checked and a citation of
+#: ``go`` cannot.
+_FIXTURE_MODULE = (
+    '"""A module."""\n'
+    "class A:\n"
+    "    def go(self) -> None:\n"
+    "        return None\n"
+    "\n"
+    "\n"
+    "class B:\n"
+    "    def go(self) -> None:\n"
+    "        return None\n"
+    "\n"
+    "\n"
+    "def refuse(x: int) -> None:\n"
+    "    raise ValueError(x)\n"
+)
+
+#: One citation shape per line of the fixture document, and whether the
+#: ceiling's population must contain it. Line 1 is the negative control: an
+#: anchor ``cite02`` checks keeps its citation out of the population. Line 2
+#: opens with the positive control the ratchet has always seen, then the case
+#: lane ``378e-c6`` found: a citation whose "anchor" is the citation before it.
+_FIXTURE_DOCUMENT = (
+    "The refusal `refuse` (`src/pkg/mod.py:12-13`) is checked.\n"
+    "See `src/pkg/mod.py:1`, `src/pkg/mod.py:12-13`.\n"
+    "See `src/pkg/mod.py::refuse`, `src/pkg/mod.py:12-13`.\n"
+    "The method `go` (`src/pkg/mod.py:3-4`) names two definitions.\n"
+    "The expression `x == 1` (`src/pkg/mod.py:13`) names no definition.\n"
+)
+
+
+def test_only_an_anchor_cite02_can_check_takes_a_citation_out_of_the_population(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-IMPL-378 C6: the population is every citation the checker declines.
+
+    ``D-IMPL-123`` defines this ceiling's subject as *"citations the checker
+    declines to check because they carry no anchor to check against"*. A
+    backticked span ``cite02`` cannot check the cited lines against -- another
+    citation, a name defined twice, an expression -- leaves its citation exactly
+    as unchecked as no span at all, and a line shift in the cited file is as
+    invisible. Before this test, ``citation_sites`` dropped any citation with
+    *some* span before it, which hid 86 line citations of Python files in the
+    three remediation documents (lane ``378e-c6``). Dave (2026-10-08 16:40
+    MST): *"zero findings from a blind checker is insufficient evidence."*
+
+    Run against a five-line fixture tree by pointing this module's own
+    ``REPO_ROOT`` at it, so the function under test is the ratchet's own
+    ``citation_sites``, unchanged.
+    """
+    (tmp_path / "src/pkg").mkdir(parents=True)
+    (tmp_path / "src/pkg/mod.py").write_text(_FIXTURE_MODULE, encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/note.md").write_text(_FIXTURE_DOCUMENT, encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "REPO_ROOT", tmp_path)
+
+    found = sorted((site.host, site.line, site.lines) for site in citation_sites())
+    assert found == [
+        ("docs/note.md", 2, "1"),
+        ("docs/note.md", 2, "12-13"),
+        ("docs/note.md", 3, "12-13"),
+        ("docs/note.md", 4, "3-4"),
+        ("docs/note.md", 5, "13"),
+    ], found
 
 
 def test_the_held_back_thirteen_are_out_of_scope_by_ruling_not_by_accident() -> None:
