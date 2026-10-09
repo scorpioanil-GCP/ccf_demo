@@ -67,10 +67,11 @@ door:
     from_env: CCF_CP_13C_DOOR_ISSUER_URL
     remedy: >-
       export CCF_CP_13C_DOOR_ISSUER_URL with the OAuth issuer this door's auth
-      settings advertise (any https URL for a development stdio door).
+      settings advertise (resolved only by your own code mounting this door's HTTP app;
+      no SDK transport reads either address name).
   resource_server_url:
     from_env: CCF_CP_13C_DOOR_RESOURCE_URL
     remedy: >-
       export CCF_CP_13C_DOOR_RESOURCE_URL with the resource-server address
-      this door's auth settings advertise (any https URL for a development
-      stdio door).
+      this door's auth settings advertise (resolved only by your own code mounting this door's HTTP app;
+      no SDK transport reads either address name).
