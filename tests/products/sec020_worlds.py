@@ -1843,6 +1843,73 @@ def build_population(
     )
 
 
+# --- ruling P6 (a)'s retained counterexample: a source that recognizes the probe ------------
+#
+# Dave, 2026-10-08 16:40 MST (D-IMPL-378), item 2, verbatim (kept as a comment, CINV-01a):
+#   "Do not declare closure based on this probe alone: prove it runs before
+#   real-subject acquisition, and retain the counterexample where a source treats
+#   the probe identifier differently."
+#
+#: How a source recognizes the identifier the P6 probe asks about: EXACTLY, or by
+#: its SHAPE — it is no ``account://`` URI, the form this fixture's entity
+#: resolution mints for every account (:func:`entity_uri`).
+PROBE_RECOGNIZED_BY_IDENTIFIER = "by_identifier"
+PROBE_RECOGNIZED_BY_SHAPE = "by_shape"
+PROBE_RECOGNITIONS = (PROBE_RECOGNIZED_BY_IDENTIFIER, PROBE_RECOGNIZED_BY_SHAPE)
+#: The label a probe-recognizing run carries. Deliberately outside :data:`SHAPES`
+#: and :data:`PENDING_SHAPES`: it is never a cell of the closure gate.
+PROBE_RECOGNIZING = "population_probe_recognized"
+
+
+def probe_identifier() -> str | None:
+    """The identifier ruling P6 (a)'s probe asks about, read where it is used (``None`` on a tree without it)."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return getattr(resolver, "UNHELD_SUBJECT_PROBE", None)
+
+
+class ProbeRecognizingPopulationSource(PopulationSource):
+    """``acquire`` that answers NOTHING for the probe identifier and the whole population for any other.
+
+    The counterexample ruling P6 (a) keeps: the probe sees a phase that acquires
+    nothing for an identifier it does not hold, and admits the product, while
+    every real question — the withheld subject's and an identifier nothing
+    holds alike — reads the whole population.
+    """
+
+    def __init__(self, holdings: Mapping[str, Holding], *, recognition: str) -> None:
+        super().__init__(holdings)
+        self._recognition = recognition
+        #: Every identifier this source recognized as the probe, and answered nothing for.
+        self.answered_nothing_for: list[str] = []
+
+    def recognizes(self, subject: str) -> bool:
+        if self._recognition == PROBE_RECOGNIZED_BY_IDENTIFIER:
+            return subject == probe_identifier()
+        return not subject.startswith("account://")
+
+    def __call__(self, context: Any) -> tuple[SignalEnvelope, ...]:
+        subject = context.request.subject
+        if not self.recognizes(subject):
+            return super().__call__(context)
+        self.asked.append(subject)
+        self.answered_nothing_for.append(subject)
+        return ()
+
+
+def build_probe_recognizing(
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, recognition: str
+) -> Deployment:
+    """:func:`build_population`'s deployment with a source that recognizes the probe (ruling P6 (a)'s counterexample)."""
+    from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
+
+    holdings = {SIBLING: sibling_holding(), **({SUBJECT: subject_holding()} if holds else {})}
+    return open_paved(
+        base, anchor=anchor, acquire=ProbeRecognizingPopulationSource(holdings, recognition=recognition),
+        project=plan_factory(early=False, plan_id=PRODUCT_CLASS, asker=ASKER, active=active),
+    )
+
+
 def _required_policy_traversal() -> list[str]:
     from tests.products.test_withheld_is_indistinguishable_from_absent import REQUIRED_OPERATORS  # noqa: PLC0415
 
