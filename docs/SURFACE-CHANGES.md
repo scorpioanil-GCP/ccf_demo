@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2455 entries**, of which **2178** name a public Python surface.
+**2458 entries**, of which **2181** name a public Python surface.
 
 ## Added
 
@@ -30731,7 +30731,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-434 entries — 395 public Python surface, 39 not public Python API.
+437 entries — 398 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37070,6 +37070,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
 
 *Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: the store ran its setup (the write-ahead-log pragma and the schema) when it was opened, whatever the database file's number of names. A file with more than one name was refused only at the boot mint, after that setup had written: by `writer_lease()`'s name count (option (B)) or, with a lock directory declared, by the file lease (option (C)), reported as `SingleWriterViolation`. A read-only boot of such a file was not refused at all.
+- After: the constructor counts the names of the regular file the path names before `sqlite3.connect` and again after it, before the setup's first statement, and refuses a file with more than one name with `WriterLeaseHeld`, whose message names the file and its number of names and says the store refuses to open it, readers included, before any connection or setup; a connection opened between the two counts is closed unused, and nothing is written through any name. A writer boot through such a file therefore raises `WriterLeaseHeld` from the store's open, before the mint, and so does a read-only boot. A path that names no file, `":memory:"` and `""` open as before. `writer_lease()`'s name count is unchanged and now refuses a second name made after the store opened.
+- Why: SEC-013, P2 (b) (Dave, 2026-10-09): "reject multi-name files before any setup writes, including reader setup."
+- Migration: every open of a SQLite database file that has more than one name, to write or to read, is refused until the other names are removed, so an examiner cannot open a file that has a hard-link backup; back the file up with a copy SQLite writes itself instead. A caller that caught `SingleWriterViolation` for a boot through a hard link catches `WriterLeaseHeld` instead. What the two counts do not see is stated on the class: a name made in the instant between the second count and the setup, a file swapped in under the path between SQLite's open and the second count, and an open made with SQLite directly.
+
+*Recorded by `378-52-p2b-sqlite-store-refuses-a-file-with-more-than-one-name-at-open.md`.*
+
+#### ccf.graph.protocols.WriterLeaseHeld
+
+- Surface: ccf.graph.protocols.WriterLeaseHeld
+- Public surface: true
+- Change type: behavior
+- Before: raised by a store's `writer_lease()` and translated by the boot mint into `SingleWriterViolation`.
+- After: also raised by `ccf.graph.backends.sqlite.SqliteGraphStore`'s constructor for a database file with more than one name, for every open, readers included. That refusal comes before any lease and before the mint, so no mint translates it: `ccf.boot.boot` re-raises it unchanged for a writer boot and a read-only boot alike. The type is unchanged.
+- Why: SEC-013, P2 (b): the refusal has to come before the store's setup writes, and the setup runs when the store opens.
+- Migration: none beyond the store's entry above.
+
+*Recorded by `378-52-p2b-sqlite-store-refuses-a-file-with-more-than-one-name-at-open.md`.*
+
+#### ccf.boot.boot
+
+- Surface: ccf.boot.boot
+- Public surface: true
+- Change type: behavior
+- Before: the `read_only` argument's N-6 statement said a read-only boot still runs the store's own open-time setup, as a writer boot's open does.
+- After: documentation only; the function re-raises what the adapter's store constructor raises, as before. The N-6 statement now adds that the SQLite store refuses a database file with more than one name before that setup, for a read-only boot as for a writer boot, with `WriterLeaseHeld`, so an examiner cannot open a SQLite file that has a hard-link backup.
+- Why: the option ruled says it "changes N-6 for that case".
+- Migration: none.
+
+*Recorded by `378-52-p2b-sqlite-store-refuses-a-file-with-more-than-one-name-at-open.md`.*
 
 ### Not public Python API
 
