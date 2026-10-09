@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2455 entries**, of which **2178** name a public Python surface.
+**2465 entries**, of which **2188** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1350 entries — 1304 public Python surface, 46 not public Python API.
+1352 entries — 1306 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19724,6 +19724,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
+#### ccf.products.resolver.UndisclosedSubjectStandInIsHeld
+
+- Surface: ccf.products.resolver.UndisclosedSubjectStandInIsHeld
+- Public surface: true
+- Change type: added
+- Before: absent; the stand-in a declared early policy asks in place of an undisclosed subject was held only to `SUBJECT_FLOOR_V1`, and a source holding it told a withheld subject from a nonexistent one.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for every question of a class with a declared early policy, when the graph read before the subject-keyed acquisition names the stand-in, when that acquisition acquires for the stand-in what it does not acquire for `UNHELD_SUBJECT_PROBE`, or when the graph the plan reads names it; with one message whatever was asked and whichever check failed.
+- Why: SEC-020, decision 4 (a) (`D-IMPL-378`, 2026-10-09): the checks read nothing about the asked subject, so the refusal is the same for a withheld subject and a nonexistent one. Not detected: a source that recognizes the stand-in and answers nothing for it, and what a composite's children's sources hold for it.
+- Migration: declare a stand-in that no source, child or fabric of the deployment holds.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.UnheldSubjectProbeRefused
+
+- Surface: ccf.products.resolver.UnheldSubjectProbeRefused
+- Public surface: true
+- Change type: added
+- Before: absent; a held refusal from the P6 probe call counted as "acquired nothing", and a source refusing an identifier it does not hold told a withheld subject from a nonexistent one.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, for a class the P6 probe reads, when the probe call ends in a held refusal (`GovernedRefusalRaised`, or a type the class or the SDK declares at the seam), before the subject-keyed phase is handed the question's subject, with one message whatever subject was asked.
+- Why: SEC-020, OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, 2026-10-09): refuse every question to a source that refuses unknown identifiers.
+- Migration: answer an identifier the sources do not hold with nothing; or declare an early policy; or affirm `subject_withholding: never` when the projection never withholds.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30731,7 +30755,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-434 entries — 395 public Python surface, 39 not public Python API.
+442 entries — 403 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37070,6 +37094,102 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
 
 *Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a class with a declared early policy asked its subject-keyed acquisition once per question; a held refusal from the P6 probe call was ignored.
+- After: for a class with a declared early policy, before the subject-keyed acquisition is handed the question, the graph is checked not to name the stand-in, the acquisition is asked about `UNHELD_SUBJECT_PROBE` and then the stand-in with one graph read after each, and the graph the plan reads is checked not to name the stand-in; a failed check raises `UndisclosedSubjectStandInIsHeld`. For a class the P6 probe reads, a held refusal from the probe call raises `UnheldSubjectProbeRefused`.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: as above.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: invoked once per question, and once more with `UNHELD_SUBJECT_PROBE` for a class the P6 probe reads.
+- After: also invoked twice more per question for a class with a declared early policy, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in in place of the subject, immediately before its call for the question; and a held refusal from the P6 probe's call refuses the question.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: none for a seam that holds no record for the stand-in and answers an unheld identifier with nothing; a seam that counts its calls sees two more under an early policy.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.PopulationAcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.PopulationAcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the subject-keyed phase's obligation is checked by the P6 probe only, and stays a trusted statement for any other class.
+- After: says that for a class with a declared early policy, what the subject-keyed phase acquires for the stand-in is compared with what it acquires for `UNHELD_SUBJECT_PROBE`, and that neither check detects a source recognizing the identifier it is asked about. The population phase itself is still invoked once per question, first.
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: behavior
+- Before: said a held refusal from the probe acquires nothing, and that a class with a declared early policy is not probed.
+- After: says a held refusal from the probe refuses the question by its own name (`UnheldSubjectProbeRefused`), and that a class with a declared early policy is not refused by this probe but has its stand-in verified, with `UNHELD_SUBJECT_PROBE` as the baseline.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: none.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
+- Public surface: true
+- Change type: behavior
+- Before: the identifier the P6 probe asks about, for a class that may withhold and declares no early policy.
+- After: also the baseline a declared early policy's stand-in is compared with: the subject-keyed acquisition is asked about it, and then about the stand-in, for every question of such a class.
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: none; a source must treat it as any identifier it does not hold.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: called once more for a class the P6 probe reads; a held refusal for the probe identifier counted as nothing returned.
+- After: a held refusal for the probe identifier refuses every question (`UnheldSubjectProbeRefused`); and under a declared early policy `acquire` is called twice more per question, with `UNHELD_SUBJECT_PROBE` and then the declared stand-in, the question refused (`UndisclosedSubjectStandInIsHeld`) if the graph names the stand-in or what `acquire` returned for it added anything to what it returned for the probe identifier.
+- Why: SEC-020, decision 4 (a) and OWED-RULINGS-3 item 4 (b) (see above).
+- Migration: return nothing for an identifier the sources do not hold; hold nothing for the declared stand-in.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.product.PopulationAcquireProtocol
+
+- Surface: ccf.products.product.PopulationAcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said `acquire` is called once for the question's subject, plus once for the P6 probe for a class that may withhold and declares no early policy.
+- After: also says that for a class with a declared early policy `acquire` is called twice to verify its stand-in. The population phase itself is unchanged.
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
+
+#### ccf.products.subject_disclosure.SubjectDisclosurePolicy
+
+- Surface: ccf.products.subject_disclosure.SubjectDisclosurePolicy
+- Public surface: true
+- Change type: behavior
+- Before: `undisclosed_subject` was the deployment's statement that it names nothing, held only to `SUBJECT_FLOOR_V1` and to naming none of the subjects it stands in for.
+- After: that statement is checked for every question, not assumed: a fabric or a subject-keyed acquisition phase that names it, or that acquires for it what it does not acquire for an identifier that names nothing, is refused (`UndisclosedSubjectStandInIsHeld`).
+- Why: SEC-020, decision 4 (a) (see above).
+- Migration: declare a stand-in that nothing in the deployment holds.
+
+*Recorded by `378-48-sec-020-stand-in-verified-and-held-refusal-at-the-probe.md`.*
 
 ### Not public Python API
 
