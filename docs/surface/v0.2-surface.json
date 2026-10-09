@@ -8820,6 +8820,7 @@
       "CompositePlanFactoryProtocol",
       "CompositeWithheldLate",
       "DEBT_SCORER_INPUTS",
+      "EARLY_POLICY_ACQUISITION_REFUSAL",
       "EarlyPolicyNeedsRequestAwareChildren",
       "GovernedResolver",
       "IncompatibleRefusalRecorder",
@@ -8901,6 +8902,10 @@
       "DEBT_SCORER_INPUTS": {
         "kind": "constant",
         "shape": "tuple"
+      },
+      "EARLY_POLICY_ACQUISITION_REFUSAL": {
+        "kind": "constant",
+        "shape": "SubjectUnavailableRefusal"
       },
       "EarlyPolicyNeedsRequestAwareChildren": {
         "kind": "class",
