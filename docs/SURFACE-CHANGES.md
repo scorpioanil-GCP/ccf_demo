@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2449 entries**, of which **2172** name a public Python surface.
+**2450 entries**, of which **2173** name a public Python surface.
 
 ## Added
 
@@ -30707,7 +30707,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-430 entries — 391 public Python surface, 39 not public Python API.
+431 entries — 392 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36998,6 +36998,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `put` raised `McpServerUnreachable` for a write the server declined (a tool answer with `isError`, or one with no structured reference), because the decline was raised inside the session operation and the session runner reports what an operation raises as unreachability; an answer that was not an artifact reference was also `McpServerUnreachable`.
+- After: `put` judges the answer after the session closes. A decline raises `ArtifactStoreError` (exactly that type, "the artifact server declined to store '<name>'"), including a refusal by the server's tenant guard or authorizer, which reaches the client as a tool error. An answer that is not an artifact reference still raises `McpServerUnreachable`, because it says nothing about whether the write happened. Transport, handshake and credential failures are unchanged (a rejected bearer token is still `McpServerUnreachable`).
+- Why: `put`'s own docstring promised `ArtifactStoreError` for a declined write; a decline is an answer, not an outage to retry.
+- Migration: code that caught `McpServerUnreachable` around `put` to handle a server's refusal catches `ArtifactStoreError` instead.
+
+*Recorded by `378-43-small2-store-decline-lease-name-withholding-doc.md`.*
 
 ### Not public Python API
 
