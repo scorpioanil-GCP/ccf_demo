@@ -80,10 +80,14 @@ def _classification_config() -> dict[str, Any]:
     the resolution spec governs (SEC-023) — so only the fixture's own source
     may assert it. Fixture vocabulary (CINV-01).
     """
+    from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
     from tests.deployment.test_replay_binding import OPERATOR_ID
     from tests.products import test_paved_road as paved
 
-    document = paved._config()
+    # Opened with the paved fixture's own projection, which never sets the
+    # withheld signal, and its constant `_Acquire`: it states `never`
+    # (`D-IMPL-378` ruling P6 (a); `test_paved_road._write_tree`).
+    document = paved._config(subject_withholding=SUBJECT_WITHHOLDING_NEVER)
     document["product_class"]["required_operator_keys"] = [POLICY_OPERATOR, OPERATOR_ID]
     document["operators"][POLICY_OPERATOR] = {
         "classification_attribute_by_class": {CLASSIFIED_CLASS: CLASSIFICATION_ATTRIBUTE},

@@ -57,6 +57,7 @@ from ccf.controlplane.artifacts import (
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.deployment import classes as class_lookup
 from ccf.deployment import load_and_boot, load_config_and_boot
+from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
 from ccf.deployment.classes import (
     SDK_ARTIFACT_CLASSES,
     SDK_VERSIONED_ARTIFACT_CLASSES,
@@ -201,7 +202,7 @@ def test_control_the_config_boot_and_the_paved_road_register_the_sdks_own_classe
     """``open_product`` serves, and ``load_config_and_boot`` pins the SDK's classes, over one paved tree."""
     root = fixture.write_tree(
         tmp_path / "deployment",
-        config=fixture.producer_config(),
+        config=fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER),
         environment=fixture.producer_environment_text(),
     )
     control_plane = ControlPlaneRegistry()

@@ -1856,6 +1856,73 @@ def build_population(
     )
 
 
+# --- ruling P6 (a)'s retained counterexample: a source that recognizes the probe ------------
+#
+# Dave, 2026-10-08 16:40 MST (D-IMPL-378), item 2, verbatim (kept as a comment, CINV-01a):
+#   "Do not declare closure based on this probe alone: prove it runs before
+#   real-subject acquisition, and retain the counterexample where a source treats
+#   the probe identifier differently."
+#
+#: How a source recognizes the identifier the P6 probe asks about: EXACTLY, or by
+#: its SHAPE — it is no ``account://`` URI, the form this fixture's entity
+#: resolution mints for every account (:func:`entity_uri`).
+PROBE_RECOGNIZED_BY_IDENTIFIER = "by_identifier"
+PROBE_RECOGNIZED_BY_SHAPE = "by_shape"
+PROBE_RECOGNITIONS = (PROBE_RECOGNIZED_BY_IDENTIFIER, PROBE_RECOGNIZED_BY_SHAPE)
+#: The label a probe-recognizing run carries. Deliberately outside :data:`SHAPES`
+#: and :data:`PENDING_SHAPES`: it is never a cell of the closure gate.
+PROBE_RECOGNIZING = "population_probe_recognized"
+
+
+def probe_identifier() -> str | None:
+    """The identifier ruling P6 (a)'s probe asks about, read where it is used (``None`` on a tree without it)."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return getattr(resolver, "UNHELD_SUBJECT_PROBE", None)
+
+
+class ProbeRecognizingPopulationSource(PopulationSource):
+    """``acquire`` that answers NOTHING for the probe identifier and the whole population for any other.
+
+    The counterexample ruling P6 (a) keeps: the probe sees a phase that acquires
+    nothing for an identifier it does not hold, and admits the product, while
+    every real question — the withheld subject's and an identifier nothing
+    holds alike — reads the whole population.
+    """
+
+    def __init__(self, holdings: Mapping[str, Holding], *, recognition: str) -> None:
+        super().__init__(holdings)
+        self._recognition = recognition
+        #: Every identifier this source recognized as the probe, and answered nothing for.
+        self.answered_nothing_for: list[str] = []
+
+    def recognizes(self, subject: str) -> bool:
+        if self._recognition == PROBE_RECOGNIZED_BY_IDENTIFIER:
+            return subject == probe_identifier()
+        return not subject.startswith("account://")
+
+    def __call__(self, context: Any) -> tuple[SignalEnvelope, ...]:
+        subject = context.request.subject
+        if not self.recognizes(subject):
+            return super().__call__(context)
+        self.asked.append(subject)
+        self.answered_nothing_for.append(subject)
+        return ()
+
+
+def build_probe_recognizing(
+    base: pathlib.Path, *, anchor: str, holds: bool, active: bool, recognition: str
+) -> Deployment:
+    """:func:`build_population`'s deployment with a source that recognizes the probe (ruling P6 (a)'s counterexample)."""
+    from tests.deployment.test_replay_binding import PRODUCT_CLASS  # noqa: PLC0415
+
+    holdings = {SIBLING: sibling_holding(), **({SUBJECT: subject_holding()} if holds else {})}
+    return open_paved(
+        base, anchor=anchor, acquire=ProbeRecognizingPopulationSource(holdings, recognition=recognition),
+        project=plan_factory(early=False, plan_id=PRODUCT_CLASS, asker=ASKER, active=active),
+    )
+
+
 def _required_policy_traversal() -> list[str]:
     from tests.products.test_withheld_is_indistinguishable_from_absent import REQUIRED_OPERATORS  # noqa: PLC0415
 
@@ -2463,6 +2530,10 @@ def instrument_pair(channel: str, run: Run) -> tuple[str, str]:
         # P2 (c): no side of an undeclared composite answers; the refusal every
         # side observes is set against the same composite declaring a stance.
         return DECLARED_TWIN, CF_NONEXISTENT
+    if p6_refused(run):
+        # CT-A extended to ruling P6 (a): no probed side answers; the refusal
+        # every one observes is set against the declared-population twin answering.
+        return POPULATION_TWIN, CF_NONEXISTENT
     return INSTRUMENT_PAIRS[channel]
 
 
@@ -2487,6 +2558,11 @@ def same_instrument_sides(channel: str, run: Run) -> tuple[str, str, str, str]:
     """
     if channel == RECORD and SERVED_READABLE_NEVER_HELD in run.sides:
         return SERVED_READABLE, SERVED_READABLE_NEVER_HELD, SERVED_READABLE_NEVER_HELD, SERVED_READABLE_NEVER_HELD_2
+    if p6_refused(run):
+        # CT-A extended to ruling P6 (a): every question of the deployment is
+        # the one refusal, so the comparison is shown it can see the twin's
+        # answer (its never-held question) against that refusal.
+        return POPULATION_TWIN_NEVER_HELD, SAME_NONEXISTENT, SAME_NONEXISTENT, SAME_FLOOR
     left, right = SAME_INSTRUMENT_PAIRS[channel]
     return left, right, SAME_NONEXISTENT, SAME_FLOOR
 
@@ -2575,6 +2651,75 @@ def stance_refusal_exists() -> bool:
 def refused_at_construction(shape: str) -> bool:
     """Whether every question of ``shape`` is P2 (c)'s construction refusal on this tree."""
     return shape in CONSTRUCTION_REFUSALS and stance_refusal_exists()
+
+
+# --- CT-A extended to ruling P6 (a) ---------------------------------------------------------
+#
+# Dave, 2026-10-08 16:40 MST (D-IMPL-378), item 2, verbatim (kept as a comment, CINV-01a):
+#   "P6: (a), conditional implementation GO. Amend Q10 to permit the probe.
+#   Extend CT-A with the working declared-population twin. Do not declare
+#   closure based on this probe alone: ..."
+# CT-A (a), Dave, 2026-10-08 12:29 MST: "Construction refusal counts, paired
+# with a declared twin that successfully answers."
+
+#: Ruling P6 (a)'s refusal (``ccf.products.resolver.PopulationReadInSubjectKeyedPhase``),
+#: raised for every question of a class that may withhold, declares no early
+#: policy and reads its population inside the subject-keyed phase — decided by
+#: the probe, never by the subject. Every deployment of the ``population`` shape
+#: reads that way.
+P6_REFUSAL = "PopulationReadInSubjectKeyedPhase"
+P6_REFUSED_SHAPES = (POPULATION,)
+#: The sides of such a run whose deployment the probe reads: every side but the
+#: questions their request contract refuses before acquisition
+#: (:data:`REFUSED_QUESTION`, :data:`REFUSED_NEVER_HELD`) and the readable
+#: worlds, whose class affirms ``never``.
+P6_PROBED_SIDES = (CF_WITHHELD, SAME_NONEXISTENT, SAME_FLOOR, CF_NONEXISTENT, CF_FLOOR, SERVED, SERVED_NEVER_HELD)
+#: The declared-population twin: the same source, its whole-population read
+#: declared as the population phase through ``open_product(population=...)`` —
+#: the ``population_declared`` world (:data:`BUILDERS`) — holding the subject and
+#: withholding it from the asker exactly as the shape's withholding deployment
+#: does, asked about the subject and about an identifier nothing holds.
+POPULATION_TWIN = "declared-population-twin"
+POPULATION_TWIN_NEVER_HELD = "declared-population-twin-never-held"
+
+
+def probe_refusal_exists() -> bool:
+    """Whether ruling P6 (a)'s refusal exists under its name."""
+    import ccf.products.resolver as resolver  # noqa: PLC0415
+
+    return hasattr(resolver, P6_REFUSAL)
+
+
+def p6_refused(run: Run) -> bool:
+    """CT-A extended to ruling P6 (a): whether this run's P6 refusal is the property its cells hold.
+
+    True only when ALL of these hold: the run is of a shape in
+    :data:`P6_REFUSED_SHAPES` on a tree that has the refusal; every probed side
+    (:data:`P6_PROBED_SIDES`) ended its one question in that refusal, by type
+    name, with ONE message among them all (so the refusal is the same whatever
+    subject was asked, and whether or not the source holds it); and the
+    declared-population twin ANSWERED both its questions — served, or refused
+    as data — raising nothing. Anything less and every raise in the run stays
+    "not evidence", as everywhere in this proof.
+    """
+    if run.shape not in P6_REFUSED_SHAPES or not probe_refusal_exists():
+        return False
+    if POPULATION_TWIN not in run.sides or POPULATION_TWIN_NEVER_HELD not in run.sides:
+        return False
+    refusals = {run.raised(side).get(ONLY, "") for side in P6_PROBED_SIDES}
+    if len(refusals) != 1 or not next(iter(refusals)).startswith(f"{P6_REFUSAL}:"):
+        return False
+    return not run.raised(POPULATION_TWIN) and not run.raised(POPULATION_TWIN_NEVER_HELD)
+
+
+def p6_refusal_is_the_property(run: Run, position: str, raised: str) -> bool:
+    """Whether a side raising ``raised`` at ``position`` is ruling P6 (a)'s refusal, held as the property.
+
+    Only at the question's own position (a raise inside a record read never
+    is), only that refusal by type name, and only where :func:`p6_refused`
+    holds for the whole run.
+    """
+    return position == ONLY and raised.startswith(f"{P6_REFUSAL}:") and p6_refused(run)
 
 
 def raising_is_the_property(shape: str, position: str, raised: str) -> bool:
@@ -2946,6 +3091,15 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
             twin = build(base / "declared-twin", anchor=anchor, holds=False, active=False, early=True)
             opened.append(twin)
             sides[DECLARED_TWIN] = observe_side(shape, door, twin, SUBJECT, reads=True)
+        if shape in P6_REFUSED_SHAPES and probe_refusal_exists():
+            # CT-A extended to ruling P6 (a): the declared-population twin, the
+            # same source and the same withholding, its read declared.
+            population_twin = BUILDERS[POPULATION_DECLARED](
+                base / "declared-population-twin", anchor=anchor, holds=True, active=True
+            )
+            opened.append(population_twin)
+            sides[POPULATION_TWIN] = observe_side(shape, door, population_twin, SUBJECT, reads=True)
+            sides[POPULATION_TWIN_NEVER_HELD] = observe_side(shape, door, population_twin, NEVER, reads=True)
         if door in (HTTP, MCP) and evidence_allowlist_exists():
             # Dave's Q12 as built: the record instrument's worlds list the class
             # AND the class affirms ``never``, policy off — served and nonexistent
@@ -2977,6 +3131,34 @@ def run_sides(base: pathlib.Path, *, shape: str, anchor: str, door: str) -> Run:
         for built in opened:
             built.close()
     return Run(shape=shape, anchor=anchor, door=door, sides=sides)
+
+
+def probe_recognizing_run(base: pathlib.Path, *, recognition: str, anchor: str, door: str) -> Run:
+    """Ruling P6 (a)'s counterexample deployment, asked what the same-deployment comparison asks.
+
+    One deployment holding the subject and withholding it from the asker, its
+    source recognizing the probe (:class:`ProbeRecognizingPopulationSource`):
+    the withheld subject, an identifier nothing holds, and a second one (the
+    noise floor), through ``door``, records read back where that door reads
+    them — the sides :data:`PAIRS` names for the same-deployment comparison.
+    ``notes`` keeps what the source was asked and what it answered nothing
+    for: the evidence the case was constructed. Labeled
+    :data:`PROBE_RECOGNIZING`, outside every gate shape.
+    """
+    built = build_probe_recognizing(
+        base / "withholding", anchor=anchor, holds=True, active=True, recognition=recognition
+    )
+    try:
+        sides = {
+            CF_WITHHELD: observe_side(POPULATION, door, built, SUBJECT, reads=True),
+            SAME_NONEXISTENT: observe_side(POPULATION, door, built, NEVER, reads=True),
+            SAME_FLOOR: observe_side(POPULATION, door, built, NEVER_2, reads=True),
+        }
+        source = built.notes["opened"]._acquire
+        notes = {"asked": list(source.asked), "answered_nothing_for": list(source.answered_nothing_for)}
+    finally:
+        built.close()
+    return Run(shape=PROBE_RECOGNIZING, anchor=anchor, door=door, sides=sides, notes=notes)
 
 
 def refused_at_build(shape: str, refused: Exception, subject: str) -> Observation:

@@ -1607,15 +1607,45 @@ a nonexistent one. Each was measured on test fixtures.
   governed call over a plain boot there refuse: it fails closed. Ask new
   questions only of fabrics booted for them, and protect a question's store,
   and the directory it sits in, as you would its decision record.
-- **A population read left inside your `acquire`.** Declared as the
-  population phase, or under an early policy, such a read matched (above).
-  Left inside your ordinary `acquire`, with the withhold decided inside the
-  projection, a nonexistent subject's question walks that content and the
-  withheld rendering does not. The two differ at the empty finding under
-  `from_decision`, and as `ttl-refusal` against `ttl-anchor-refusal` under
-  `from_entity_freshness`. The SDK cannot see which shape your `acquire` has:
-  that it acquires nothing for an identifier the source does not hold is your
-  statement, not a check the SDK makes.
+- **A population read left inside your `acquire` (ruling P6 (a); not
+  closure).** Declared as the population phase, or under an early policy, such
+  a read matched (above). Left inside your ordinary `acquire`, with the
+  withhold decided inside the projection, a nonexistent subject's question
+  walks that content and the withheld rendering does not; the two differed at
+  the empty finding under `from_decision`, and as `ttl-refusal` against
+  `ttl-anchor-refusal` under `from_entity_freshness`. Dave's ruling P6 (a)
+  (`D-IMPL-378`, 2026-10-08, a conditional implementation go) refuses that
+  configuration with a probe. For a class that may withhold and declares no
+  early policy, the governed call first asks your subject-keyed acquisition
+  about `UNHELD_SUBJECT_PROBE` (`ccf-sdk:unheld-subject-probe`), reads the
+  graph again, and refuses the question with
+  `PopulationReadInSubjectKeyedPhase` if anything was written. It does so
+  before your acquisition is handed the question's subject, and decides by
+  nothing about the asked subject, so on test fixtures a withheld subject and
+  a nonexistent one were refused alike, with one message, on the paved road
+  and the low road: `tests/products/test_sec020_p6_population_read_in_subject_keyed_phase.py`,
+  whose order tests log your acquisition's calls and every graph read in one
+  sequence. That the probe identifier names nothing is checked, not assumed:
+  a graph that names it (an entity, or a relationship end) before the probe,
+  or after it, is refused as `UnheldSubjectProbeIsHeld` instead
+  (`tests/products/test_sec020_p6_unheld_subject_probe_is_verified_absent.py`).
+  The ruling amends Q10's "each phase once" to exactly this one extra call. It
+  costs one more call to your acquisition and one more graph read per question
+  of such a class (measured on one test fixture: two calls and three reads,
+  against one and two). A class with a declared early policy, or affirming
+  `subject_withholding: never`, is not probed. To be served, declare the read
+  as the population phase (`open_product(population=...)`), declare an early
+  policy, or affirm `never` for a projection that never withholds. **The probe
+  is defeated by a source that recognizes it.** A source that answers nothing
+  for the probe identifier, matched exactly or by its shape, and reads the
+  population for every other identifier passes the probe, and the withheld
+  subject and a nonexistent one are then still told apart
+  (`tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py`;
+  reported every run of SEC-020's closing test in its own block,
+  `SEC-020 P6 PROBE LIMITATION`). The closing test holds the refused cells as
+  the refusal plus a twin that answers: the same source with its read declared
+  as the population phase. That is Dave's CT-A rule extended to this refusal,
+  not closure.
 
 **Until SEC-020 closes,** do not rely on `withheld=True` alone to keep a
 subject's existence from a caller. The composite-child, reopened-store and

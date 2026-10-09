@@ -53,6 +53,7 @@ def main() -> None:
 
     Loopback, announcing ``READY {port}``, unless ``--stdio`` is the argument.
     """
+    from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER  # noqa: PLC0415
     from ccf.products.product import open_product  # noqa: PLC0415
     from ccf_runtime.mcp.product_door import open_door  # noqa: PLC0415
 
@@ -65,7 +66,7 @@ def main() -> None:
     workspace = Path(tempfile.mkdtemp(prefix="paved-producer-"))
     root = fixture.write_tree(
         workspace / "deployment",
-        config=fixture.producer_config(),
+        config=fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER),
         environment=fixture.producer_environment_text(
             addresses="--without-address-names" not in arguments
         ),

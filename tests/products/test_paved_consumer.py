@@ -328,7 +328,7 @@ def test_the_door_refuses_a_floor_its_lane_does_not_satisfy_with_both_lanes_in_i
     recorder; a floor the lane satisfies is answered at the served lane."""
     from ccf.projection.plan import Perspective  # noqa: PLC0415
 
-    root = fixture.write_tree(tmp_path / "producer", config=fixture.producer_config(), environment=fixture.producer_environment_text())
+    root = fixture.write_tree(tmp_path / "producer", config=fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER), environment=fixture.producer_environment_text())
     with open_product(
         erasure_trust=declared_erasure_trust(fixture.PRODUCER_TENANT),
         control_plane=ControlPlaneRegistry(),

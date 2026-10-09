@@ -372,14 +372,18 @@ def test_the_paved_road_refuses_a_declaration_registered_after_open_at_the_next_
         demonstration_serve_instant_key,
     )
     from ccf.controlplane.registry import ControlPlaneRegistry
+    from ccf.products.contract import SUBJECT_WITHHOLDING_NEVER
     from ccf.products.demonstration_clock import DemonstrationServeInstantConflict
     from ccf.products.product import open_product
     from ccf.replay.serve import ServedProduct
     from tests.composition import declare_wide_temporal_boundary, declared_erasure_trust
     from tests.products import paved_fixture as fixture
 
+    # Opened with the fixture's projection, which never withholds: it states `never` (D-IMPL-378 ruling P6 (a)).
     root = fixture.write_tree(
-        tmp_path / "deployment", config=fixture.producer_config(), environment=fixture.producer_environment_text()
+        tmp_path / "deployment",
+        config=fixture.producer_config(subject_withholding=SUBJECT_WITHHOLDING_NEVER),
+        environment=fixture.producer_environment_text(),
     )
     control_plane = ControlPlaneRegistry()
     declare_wide_temporal_boundary(control_plane, tenant_id=fixture.PRODUCER_TENANT)

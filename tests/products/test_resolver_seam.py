@@ -3122,7 +3122,11 @@ def test_E5_an_out_of_bound_request_invokes_acquisition_zero_times(
 
     served = _ask(resolver, _request(asked_at=ADMITTED_AT))
     assert isinstance(served, ServedProduct), served
-    assert calls == [1], (
+    # `D-IMPL-378` ruling P6 (a): the fixture class is at the SDK's default
+    # stance (may withhold) and declares no early policy, so the in-bounds
+    # question invokes the seam twice — the probe identifier, then its subject
+    # (the order is held by tests/products/test_sec020_p6_population_read_in_subject_keyed_phase.py).
+    assert calls == [1, 1], (
         "THE POSITIVE CONTROL: the seam must count when a request is in bounds,"
         " or the zero above is the count of a seam nobody wired"
     )
