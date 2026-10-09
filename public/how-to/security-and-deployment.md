@@ -1085,6 +1085,11 @@ Two behaviors follow from the design and are stated rather than changed:
   403) and the tenancy guard's denials, still reach the client as
   `McpServerUnreachable`, an outage
   (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
+  So does a write: a `put` whose credential the guard does not authenticate
+  (HTTP 401) still raises `McpServerUnreachable`, an outage
+  (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`).
+  Whether a write's 401 is typed too is not yet ruled (question 10 of the
+  378j findings brief, lane `378j-auth`'s P-1).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 
