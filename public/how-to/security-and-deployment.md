@@ -2237,9 +2237,21 @@ the same id is refused "already exists".
     (`tests/erasure/test_interrupted_erasure_passage.py`).
 
   A resumption whose commit never landed (the write itself failed) left the
-  execution `suspended` with no step run. Presented again from any process,
-  it re-takes the same closure and runs the step after the gate once
+  execution `suspended` with no step run. Where its approval was resolved
+  through the gate primitive (`ApprovalGate`, a stamped verdict), presented
+  again from any process, it re-takes the same closure and runs the step
+  after the gate once
   (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
+  Where the approval was recorded through the submit-only action door
+  instead (`POST /hitl/actions`, which records no stamp), the execution stays
+  stuck: the failed passage's closure retired the request, the engine counts
+  an unstamped approval only while its request is pending (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`),
+  so every resumption, from any process, is refused for want of an approval
+  and the step after the gate never runs
+  (`tests/workflow/test_door_approved_gate_whose_commit_failed_stays_stuck.py`;
+  disclosed by Dave's decision 3, `D-IMPL-378`, 2026-10-09). Reconcile such
+  an execution outside the fabric.
 
   A suspension whose approval request never reached the queue left the
   execution `suspended` with no request: its suspension write landed, and its
