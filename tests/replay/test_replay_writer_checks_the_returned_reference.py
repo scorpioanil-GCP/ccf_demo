@@ -30,7 +30,8 @@ What is asserted, by mechanism:
    nothing is handed out.
 2. **Every field of the reference.** A store answering record A's reference with
    one field changed — the address, the URI, the tenant, the class or the name
-   — is refused by name, on the served path and on the refusal path.
+   — is refused by name, on the served path and on the refusal path; so is one
+   whose changed field is a ``str`` subclass claiming to equal record A's.
 3. **Control.** An honest store's reference is handed out, and it is exactly the
    reference of the record written.
 
@@ -258,6 +259,38 @@ def test_the_refusal_path_refuses_a_reference_with_any_field_not_the_records_own
 
     assert len(lying.filed) == 1, "the case was not constructed: the store must have filed record A"
     _assert_refused_by_name(outcome, written=content_hash(record_a), case=f"refusal path, {field}")
+
+
+class _ClaimsEquality(str):
+    """A ``str`` whose equality answers for itself: equal to anything, unequal to nothing."""
+
+    def __eq__(self, other: object) -> bool:
+        return True
+
+    def __ne__(self, other: object) -> bool:
+        return False
+
+    __hash__ = str.__hash__
+
+
+@pytest.mark.parametrize("field", sorted(FIELDS))
+def test_a_reference_field_that_only_claims_equality_is_refused_by_name(store: FileArtifactStore, field: str) -> None:
+    """Record B's value in one field, carried in a ``str`` subclass that says it equals record A's.
+
+    The comparison reads the type first, so the claim is not taken: the field
+    differs, and the writer refuses by name rather than handing anything out.
+    """
+    record_a, record_b = _record("plan-a"), _record("plan-b")
+    foreign = _expected(record_b, tenant=TENANT, artifact_class=RECORD_CLASS)
+    value = FIELDS[field]
+    disguised = _ClaimsEquality(getattr(foreign, field) if value is None else value)
+    lying = _AnswersWith(store, lambda honest: honest.model_construct(**{**dict(honest), field: disguised}))
+    writer = ReplayWriter(authorized=replay_mint(tenant=TENANT, artifact_class=RECORD_CLASS), store=lying)
+
+    outcome = _outcome(lambda: writer.write_replay_record(record=record_a).replay_ref)
+
+    assert disguised == getattr(lying.filed[0], field), "the case was not constructed: the value must claim equality"
+    _assert_refused_by_name(outcome, written=content_hash(record_a), case=f"claimed equality, {field}")
 
 
 # --- 3. control: an honest store's reference is handed out ------------------------------------
