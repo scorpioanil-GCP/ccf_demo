@@ -8647,6 +8647,7 @@
       "PopulationAcquisitionSeamProtocol",
       "PopulationPhaseSharesAnOwner",
       "PopulationQuestion",
+      "PopulationReadInSubjectKeyedPhase",
       "ProductGateProtocol",
       "ProductNotResolvable",
       "ProjectionPlanFactoryProtocol",
@@ -8656,6 +8657,7 @@
       "ResolverOutcome",
       "ServedProductResolverProtocol",
       "SubjectDisclosingPlanFactoryProtocol",
+      "UNHELD_SUBJECT_PROBE",
       "UndeclaredMechanismClass",
       "UndisclosedSubjectAnswered",
       "UnmarkedStoreNotPresumedFresh",
@@ -8757,6 +8759,10 @@
           "schema_version": "<class 'str'>"
         }
       },
+      "PopulationReadInSubjectKeyedPhase": {
+        "kind": "class",
+        "shape": "type"
+      },
       "ProductGateProtocol": {
         "kind": "class",
         "shape": "(*, candidate: 'ContextProductContract', evidence: 'ExecutionEvidence | None' = None) -> 'str | None'"
@@ -8792,6 +8798,10 @@
       "SubjectDisclosingPlanFactoryProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "UNHELD_SUBJECT_PROBE": {
+        "kind": "constant",
+        "shape": "str"
       },
       "UndeclaredMechanismClass": {
         "kind": "class",

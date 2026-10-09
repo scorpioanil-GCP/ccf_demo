@@ -315,6 +315,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "UNHELD_SUBJECT_PROBE",
     "AcquiredFabricReused",
     "AcquisitionNeedsAQuestionFabric",
     "AcquisitionOverUnverifiableStore",
@@ -338,6 +339,7 @@ __all__ = [
     "PopulationAcquisitionSeamProtocol",
     "PopulationPhaseSharesAnOwner",
     "PopulationQuestion",
+    "PopulationReadInSubjectKeyedPhase",
     "ProjectionPlanFactoryProtocol",
     "QuestionStoreReopened",
     "RefusalRecorderProtocol",
@@ -702,6 +704,61 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
     cannot see state two separate objects share through a third; that is the
     deployment's statement to keep, and the security how-to, section 4.12,
     says so.
+    """
+
+
+#: SEC-020, ``D-IMPL-378`` ruling P6 (a) (Dave, 2026-10-08 16:40 MST, a
+#: conditional implementation go; SDK-defined, CLAUDE.md §11). The identifier
+#: the subject-keyed acquisition phase is asked about, in place of the
+#: question's subject, before it is asked about that subject
+#: (:class:`PopulationReadInSubjectKeyedPhase`). It lies inside
+#: :data:`~ccf.products.request.SUBJECT_FLOOR_V1`; a source sees it as one more
+#: identifier it does not hold. SEC-020 stays OPEN.
+UNHELD_SUBJECT_PROBE: Final[str] = "ccf-sdk:unheld-subject-probe"
+
+
+class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
+    """The subject-keyed acquisition phase acquired something for an identifier that names nothing.
+
+    ``D-IMPL-378`` ruling P6 (a) (SDK-defined, CLAUDE.md §11). Dave,
+    2026-10-08 16:40 MST, a conditional implementation go: *"Do not declare
+    closure based on this probe alone"*. SEC-020 stays OPEN.
+
+    A class that may withhold its subject and declares no early policy
+    withholds inside its projection, after acquisition; the withheld subject is
+    then rendered over the fabric as it stood immediately before the
+    subject-keyed phase (``D-IMPL-376`` (3), route A). That is the state an
+    identifier that names nothing is rendered over only when the subject-keyed
+    phase acquires nothing for such an identifier. A read that acquires the
+    same content whatever is asked — a population read left in the
+    subject-keyed phase instead of declared as the population phase (Q7) —
+    gives a nonexistent subject that content, and the two answers differ. So,
+    for such a class, :meth:`GovernedResolver.__call__` first asks the
+    subject-keyed phase about :data:`UNHELD_SUBJECT_PROBE` — the question's
+    effective request with that identifier in place of the subject — and reads
+    the fabric again; if the read differs from the one taken before, this is
+    raised, before the phase is asked about the question's subject. The
+    decision reads nothing about the asked subject, so a withheld subject and
+    an identifier nothing holds are refused alike. A held refusal from the
+    probe acquires nothing and is not the question's answer. Q10's *"each
+    once"* is amended by the ruling to exactly this one extra call to the
+    subject-keyed phase per question of such a class, and nothing more.
+
+    What it relies on, stated: the phase treats :data:`UNHELD_SUBJECT_PROBE`
+    as it treats any identifier its sources do not hold — the assumption Q8
+    already makes of a declared stand-in. **A source that recognizes the probe**
+    — its exact identifier, or its shape, outside the URI form the fabric's
+    entity resolution mints — and answers nothing for it while it reads the
+    population for any other identifier **is not detected**, and a withheld
+    subject and a nonexistent one are then still told apart. It costs one
+    more call to the subject-keyed phase and one more read of the fabric per
+    question of such a class. A class with a declared early policy is not
+    probed, nor is a class affirming ``subject_withholding: never``. To be
+    served, declare the read as the population phase
+    (``open_product(population=...)``,
+    :attr:`GovernedResolver.population_acquisition`), declare an early policy
+    (:class:`SubjectDisclosingPlanFactoryProtocol`), or affirm
+    ``subject_withholding: never`` for a projection that never withholds.
     """
 
 
@@ -1527,15 +1584,23 @@ class AcquisitionSeamProtocol(Protocol):
 
     **What the seam is.** One callable a deployment (or the paved road's
     facade on its behalf) hands :class:`GovernedResolver`, invoked by
-    :meth:`GovernedResolver.__call__` exactly once per question, **after** the
-    effective request has been resolved — defaults applied, the constraints
+    :meth:`GovernedResolver.__call__` exactly once per question for the
+    question's subject (and once more, for the P6 probe only, as below),
+    **after** the effective request has been resolved — defaults applied, the constraints
     in force folded, the technical capabilities held, the intent judged — and
     **before** the graph is read at the question's boundary. A declared
     :class:`PopulationAcquisitionSeamProtocol` is the second declared phase,
     also invoked exactly once per question, immediately BEFORE this one and
     without the subject (SEC-020, ``D-IMPL-378`` Q7 and Q10: *"Two declared
     acquisition phases are permitted, each once."*): the effective request is
-    still derived once, and each phase consumes that one outcome. It receives the
+    still derived once, and each phase consumes that one outcome. **Q10 as
+    amended by ruling P6 (a)** (Dave, 2026-10-08 16:40 MST: *"Amend Q10 to
+    permit the probe."*): for a class that may withhold its subject and
+    declares no early policy, this seam is called ONCE MORE per question, and
+    for nothing else — with the effective request carrying
+    :data:`UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its
+    call for the question's subject — and the question is refused if that call
+    changed the fabric (:class:`PopulationReadInSubjectKeyedPhase`). It receives the
     EFFECTIVE request, so what a deployment reads its sources at is the value
     governance resolved, never a second derivation of it: the seven copies of
     ``ReferencePolicyConstraintResolver`` the canonical trees carried to guess
@@ -1611,10 +1676,15 @@ class PopulationAcquisitionSeamProtocol(Protocol):
     for the question and before anything in the question is fetched for the
     subject — with a :class:`PopulationQuestion`; it then reads the fabric, the
     state a subject Π withholds is rendered over, and invokes the subject-keyed
-    seam, also once. The subject-keyed phase's obligation stays a trusted
-    statement: it acquires nothing for an identifier its source does not hold.
-    A population read left inside the subject-keyed phase is not helped by this
-    mode (the security how-to, section 4.12).
+    seam, also once for the question's subject. The subject-keyed phase's
+    obligation — it acquires nothing for an identifier its source does not hold
+    — is checked for a class that may withhold and declares no early policy, by
+    one extra call with :data:`UNHELD_SUBJECT_PROBE` before that one
+    (:class:`PopulationReadInSubjectKeyedPhase`; ``D-IMPL-378`` ruling P6 (a),
+    which amends Q10 to exactly that call). The check does not detect a source
+    that recognizes the probe, so for that source, and for any other class,
+    the obligation stays a trusted statement (the security how-to, section
+    4.12). SEC-020 stays OPEN.
     """
 
     def __call__(self, *, question: PopulationQuestion, perspective: Perspective) -> None:
@@ -2899,8 +2969,11 @@ class GovernedResolver:
     #: `D-IMPL-343` R-4 — the declared acquisition boundary, or ``None`` for a
     #: deployment whose fabric is populated before this resolver is reached
     #: (every deployment shipped before the seam existed, and every hw1-shaped
-    #: long-lived fabric). When present it is called ONCE per question, with
-    #: the EFFECTIVE request, between resolution and the graph read — see
+    #: long-lived fabric). When present it is called ONCE per question for the
+    #: question's subject, with the EFFECTIVE request, between resolution and
+    #: the graph read — and, for a class that may withhold and declares no early
+    #: policy, once more immediately before that, for the P6 probe only
+    #: (:data:`UNHELD_SUBJECT_PROBE`; Q10 as amended by ruling P6 (a)) — see
     #: :class:`AcquisitionSeamProtocol` for what it is and is not. No default
     #: here for the class's own reason; :func:`build_governed_resolver`
     #: defaults it to ``None``.
@@ -3571,8 +3644,11 @@ class GovernedResolver:
         # is rendered from it below. (An acquisition that ingests the same
         # content whatever the subject gives a nonexistent subject that content
         # too, which this state lacks: measured, and disclosed in the security
-        # how-to, section 4.12.) Read only when a seam is declared: with none,
-        # nothing is acquired, and the state the plan reads below is this one.
+        # how-to, section 4.12; for a class whose projection may withhold late,
+        # such an acquisition is refused below, before the seam is handed the
+        # subject — `D-IMPL-378` ruling P6 (a).) Read only when a seam is
+        # declared: with none, nothing is acquired, and the state the plan
+        # reads below is this one.
         before_acquisition: GraphView | None = None
         acquires = self.acquisition is not None or self.population_acquisition is not None
         if acquires or self.fabric.for_question:
@@ -3628,6 +3704,26 @@ class GovernedResolver:
             before_acquisition = self.fabric.handle.reader.as_of(
                 tenant_id=self.fabric.tenant_id, at=request.asked_at
             )
+            # `D-IMPL-378` ruling P6 (a) (Dave, 2026-10-08 16:40 MST; SEC-020
+            # stays OPEN). The read above is what route A renders a
+            # late-withheld subject over, and it equals what an identifier
+            # that names nothing is rendered over only if the subject-keyed
+            # phase acquires nothing for such an identifier. For a class whose
+            # projection may withhold late — it may withhold, and it declares
+            # no early policy — the phase is asked about `UNHELD_SUBJECT_PROBE`
+            # HERE, before it is ever handed the question's subject, and the
+            # question is refused if that changed the fabric; decided by
+            # nothing about the asked subject. Q10 is amended to exactly this
+            # one extra call.
+            if (
+                self.acquisition is not None
+                and disclosure is None
+                and declaration.subject_withholding != SUBJECT_WITHHOLDING_NEVER
+            ):
+                self._refuse_a_population_read_in_the_subject_keyed_phase(
+                    asked, perspective=perspective, before=before_acquisition,
+                    at=request.asked_at,
+                )
         if self.acquisition is not None:
             try:
                 self.acquisition(request=asked, perspective=perspective)
@@ -4787,6 +4883,51 @@ class GovernedResolver:
                 served_at=served_at,
             )
         return None
+
+    def _refuse_a_population_read_in_the_subject_keyed_phase(
+        self,
+        asked: ProductRequest,
+        *,
+        perspective: Perspective,
+        before: GraphView,
+        at: datetime,
+    ) -> None:
+        """Ask the subject-keyed phase about :data:`UNHELD_SUBJECT_PROBE`; refuse if the fabric then reads otherwise.
+
+        ``D-IMPL-378`` ruling P6 (a) (:class:`PopulationReadInSubjectKeyedPhase`).
+        Called by :meth:`__call__` after the read route A renders over and
+        BEFORE the phase is handed the question's subject. The probe is
+        ``asked`` with :data:`UNHELD_SUBJECT_PROBE` in place of its subject —
+        every parameter and the instant as the question carries them, under the
+        same perspective — so what the phase acquires for it is what it acquires
+        for an identifier its sources do not hold. A held refusal
+        (``GovernedRefusalRaised``, or a type the class or the SDK declares at
+        this seam) acquires nothing and is not this question's answer: the read
+        decides. Any other exception propagates, as the phase's own would.
+        Nothing here reads the asked subject.
+        """
+        assert self.acquisition is not None  # the caller tested it
+        probe = asked.model_copy(update={"subject": UNHELD_SUBJECT_PROBE})
+        try:
+            self.acquisition(request=probe, perspective=perspective)
+        except GovernedRefusalRaised:
+            pass
+        except Exception as error:  # noqa: BLE001 — re-raised unless DECLARED
+            if self._declared_seam_refusal(error) is None:
+                raise
+        after = self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
+        if after != before:
+            raise PopulationReadInSubjectKeyedPhase(
+                "the subject-keyed acquisition phase acquired content when asked"
+                f" about {UNHELD_SUBJECT_PROBE!r}, an identifier that names"
+                " nothing, so a subject withheld inside the projection would be"
+                " rendered over a fabric a nonexistent subject's question is not"
+                " answered over; declare that read as the population phase"
+                " (open_product(population=...), or"
+                " GovernedResolver(population_acquisition=...)), declare an early"
+                " policy, or affirm subject_withholding:"
+                f" {SUBJECT_WITHHOLDING_NEVER!r} (SEC-020; D-IMPL-378 ruling P6 (a))"
+            )
 
     def _declared_seam_refusal(
         self,

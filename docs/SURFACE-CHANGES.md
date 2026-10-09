@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2387 entries**, of which **2110** name a public Python surface.
+**2393 entries**, of which **2116** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1314 entries — 1268 public Python surface, 46 not public Python API.
+1316 entries — 1270 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19292,6 +19292,30 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-35-k1-a-reserved-ccf-id-is-refused-by-the-declaration-function.md`.*
 
+#### ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+
+- Surface: ccf.products.resolver.PopulationReadInSubjectKeyedPhase
+- Public surface: true
+- Change type: added
+- Before: absent; a population read left in the subject-keyed phase ran, and a subject withheld inside the projection was rendered over a fabric a nonexistent subject's question is not answered over.
+- After: an `UnsupportedComposition` raised by `GovernedResolver.__call__`, before the subject-keyed phase is asked about the question's subject, when asking that phase about `UNHELD_SUBJECT_PROBE` changed the fabric, for a class that may withhold and declares no early policy.
+- Why: SEC-020, ruling P6 (a) (`D-IMPL-378`, 2026-10-08 16:40 MST): the refusal is decided by the phase's answer for an identifier that names nothing, never by the asked subject, so it is the same for a withheld subject and a nonexistent one. Not closure: a source that recognizes the probe is not detected.
+- Migration: declare a subject-independent read as the population phase (`open_product(population=...)` or `GovernedResolver(population_acquisition=...)`), declare an early policy, or affirm `subject_withholding: never` when the projection never withholds.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.UNHELD_SUBJECT_PROBE
+
+- Surface: ccf.products.resolver.UNHELD_SUBJECT_PROBE
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"ccf-sdk:unheld-subject-probe"`, the identifier the subject-keyed phase is asked about first, inside `SUBJECT_FLOOR_V1`; a deployment's source sees it as an identifier it does not hold.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none; a source must treat it as any identifier it does not hold.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30275,7 +30299,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-404 entries — 365 public Python surface, 39 not public Python API.
+408 entries — 369 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36254,6 +36278,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none, unless code matched the end of the message text; match the refusal by its type instead.
 
 *Recorded by `378-36-prose-p2c-p4a-stated-as-ruled.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: the declared subject-keyed acquisition seam was called once per question, with the question's effective request.
+- After: for a class that may withhold and declares no early policy, the seam is first called with the effective request carrying `UNHELD_SUBJECT_PROBE` as its subject, the fabric is read once more, and the question is refused with `PopulationReadInSubjectKeyedPhase` if that read differs; otherwise the question proceeds as before. A class affirming `never`, or declaring an early policy, is not probed.
+- Why: SEC-020, ruling P6 (a) (see above); Q10 amended to exactly this one extra call.
+- Migration: as above.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.AcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.AcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: invoked once per question.
+- After: for a class that may withhold and declares no early policy, also invoked once with `UNHELD_SUBJECT_PROBE` in place of the subject, immediately before its call for the question's subject.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none for a seam keyed on the subject; a seam that counts its calls sees one more.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.resolver.PopulationAcquisitionSeamProtocol
+
+- Surface: ccf.products.resolver.PopulationAcquisitionSeamProtocol
+- Public surface: true
+- Change type: behavior
+- Before: said the subject-keyed phase's obligation to acquire nothing for an identifier its source does not hold stays a trusted statement.
+- After: says that obligation is checked by the probe for a class that may withhold and declares no early policy, that the check does not detect a source recognizing the probe, and that for that source and any other class it stays a trusted statement. The population phase itself is still invoked once per question, first.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: none.
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
+
+#### ccf.products.product.AcquireProtocol
+
+- Surface: ccf.products.product.AcquireProtocol
+- Public surface: true
+- Change type: behavior
+- Before: the paved road called the deployment's `acquire` once per question, for the question's subject.
+- After: for a class that may withhold and declares no early policy, the paved road first calls `acquire` with a context whose request carries `UNHELD_SUBJECT_PROBE` as its subject; what it returns is ingested, and if it changed the fabric the question is refused with `PopulationReadInSubjectKeyedPhase` before `acquire` is handed the question's subject.
+- Why: SEC-020, ruling P6 (a) (see above).
+- Migration: return nothing for an identifier the sources do not hold; read what does not depend on the subject in `population` (`PopulationAcquireProtocol`).
+
+*Recorded by `378-39-sec-020-p6a-unheld-subject-probe.md`.*
 
 ### Not public Python API
 
