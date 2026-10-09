@@ -94,13 +94,15 @@ off a second copy of the nonexistent side. Where that copy RAISED, other than th
 raised by the side it copies as well, the floor compares an exception with an answer, differs at every path, and
 would excuse every difference. Every comparison checks the copy first (``_compare``): a gate or never-class cell
 fails by name, ``FloorCopyDidNotAnswer``, and a limitation measurement reports the cell under its own outcome,
-``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured. The two refusals
-the 06:21 rulings made constant across every subject (item 4 (b)'s ``UnheldSubjectProbeRefused``, decision 4 (a)'s
-``UndisclosedSubjectSubstituteIsHeld``) are held as the property only in their own two worlds, the held-refusal world
-and the stand-in world, and only where the acceptance helper finds, from the run itself, every side of the world
-refused with the SDK's constant message and one refusal code, and the world's declared working twin on the run,
-answering and serving (Dave, 2026-10-09 10:54 MST, 2.1 (b): *"Enforce these conditions inside the acceptance
-helper."*; ``sec020_worlds.a_constant_refusal_is_the_property``).
+``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured. Decision 4 (a)'s
+refused stand-in (``UndisclosedSubjectSubstituteIsHeld``), raised alike for every subject, is held as the property only
+in its own world, the stand-in world, and only where the acceptance helper finds, from the run itself, every side of
+the world refused with the SDK's constant message and one refusal code, and the world's declared working twin on the
+run, answering and serving (Dave, 2026-10-09 10:54 MST, 2.1 (b): *"Limit the closing-test exception to the
+held-refusal and stand-in worlds."* and *"Enforce these conditions inside the acceptance helper."*;
+``sec020_worlds.a_constant_refusal_is_the_property``). Item 4 (b)'s held refusal, raised as first built, is answered
+and recorded as the SDK's one constant since repair 2.3 (b), so the held-refusal world is out of the exception: its
+cells compare answers.
 
 **X17 (a): the pin channel** (Dave, 2026-10-09 06:06 MST, confirmed 06:21 MST, ``D-IMPL-378``: *"Cover versioned
 resolution and write-then-read in the closure gate"*).
@@ -1887,10 +1889,11 @@ def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
     own variation only where the copy did what the side does. Where the copy raised, that holds only if the
     nonexistent side raised at the same position too, and both raised the refusal this proof holds as the property
     there: Q9's reuse refusals and P2 (c)'s construction refusal (``sec020_worlds.raising_is_the_property``), ruling
-    P6 (a)'s refusal (``sec020_worlds.p6_refusal_is_the_property``), and, in their two worlds only, item 4 (b)'s and
-    decision 4 (a)'s constant refusals (the acceptance helper, ``sec020_worlds.a_constant_refusal_is_the_property``:
-    Dave's 2.1 (b), every side of the world refused with the SDK's constant message and one refusal code, the run
-    carrying its declared working twin, which answered and served). The floor then compares a refusal with a refusal.
+    P6 (a)'s refusal (``sec020_worlds.p6_refusal_is_the_property``), and, in its own world only, decision 4 (a)'s
+    constant refusal (the acceptance helper, ``sec020_worlds.a_constant_refusal_is_the_property``: Dave's 2.1 (b),
+    every side of the stand-in world refused with the SDK's constant message and one refusal code, the run carrying its
+    declared working twin, which answered and served; item 4 (b)'s refusal is answered, not raised, since repair 2.3
+    (b)). The floor then compares a refusal with a refusal.
     Every other raise of the copy, at its question or inside one of its record reads (``<position>/record:<read>``,
     never the property), leaves the floor comparing an exception with an answer, which differs at every path and
     would excuse every difference. Those are returned, and while any is, the floor may excuse nothing.
@@ -2431,16 +2434,26 @@ def test_a_held_refusal_at_the_probe_leaves_withheld_and_nonexistent_indistingui
 # one message: no world, no census and no twin (the "i" panel's G-J5-BREADTH). Dave ruled it on 2026-10-09 at 10:54 MST,
 # 2.1 (b), verbatim: "Limit the closing-test exception to the held-refusal and stand-in worlds. Require identical
 # refusal type, code and constant message across all sides, plus a working declared twin. Enforce these conditions
-# inside the acceptance helper." The acceptance helper, ``sec020_worlds.a_constant_refusal_is_the_property``, now checks
+# inside the acceptance helper." The acceptance helper, ``sec020_worlds.a_constant_refusal_is_the_property``, checks
 # every one of them from the run itself (``sec020_worlds.why_no_constant_refusal``, one named reason per condition): the
-# run is of the held-refusal world or the stand-in world (``sec020_worlds.CONSTANT_REFUSAL_WORLDS``); it holds exactly
-# the sides that world asks; every side raised the world's refusal, only at its one question, with the SDK's constant
-# message (``GovernedResolver._probe_was_refused`` / ``_stand_in_is_held``) and one refusal code (the refusal-code
-# channel, the MCP door's per-call failure id aside: ``sec020_worlds.refusal_code``); and the run carries its world's
-# declared working twin (``sec020_worlds.DECLARED_WORKING_TWIN``), which was asked the same questions at the same
-# anchor through the same door, raised nothing and served its served subject. Anything less is judged as it would be
-# without the exception: the floor copy excuses nothing. The tests below, and the ``test_j5_*`` tests that follow them,
+# run is of a world the exception holds (``sec020_worlds.CONSTANT_REFUSAL_WORLDS``); it holds exactly the sides that
+# world asks; every side raised the world's refusal, only at its one question, with the SDK's constant message
+# (``GovernedResolver._stand_in_is_held``) and one refusal code (the refusal-code channel, the MCP door's per-call
+# failure id aside: ``sec020_worlds.refusal_code``); and the run carries its world's declared working twin
+# (``sec020_worlds.DECLARED_WORKING_TWIN``), which was asked the same questions at the same anchor through the same
+# door, raised nothing and served its served subject. Anything less is judged as it would be without the exception: the
+# floor copy excuses nothing.
+#
+# Since repair 2.3 (b) (Dave, 2026-10-09 10:54 MST, 2.3, verbatim: "Otherwise implement (b) with a recorded constant SDK
+# cause. Role and parameter refusals must retain their decision records."; built by lane 378j-resolver) item 4 (b)'s
+# refusal is no longer raised: the held-refusal world's questions are answered and recorded, so it is OUT of the
+# exception, which holds one world, the stand-in world: within Dave's limit ("the held-refusal and stand-in worlds"),
+# under every one of 2.1 (b)'s conditions, unchanged. The tests below, and the ``test_j5_*`` tests that follow them,
 # hold it to that. JUDGING CHANGES, each in its own commit. SEC-020 stays OPEN.
+
+#: The two refusal names 09d5c2ba (J5) admitted as floors, whatever world raised them: kept as data, so the tests that
+#: probe J5's breadth keep probing both names, the one 2.3 (b) removed from the SDK included.
+_J5_ADMITTED: tuple[str, ...] = ("UnheldSubjectProbeRefused", "UndisclosedSubjectSubstituteIsHeld")
 
 
 def _refused_world(refusal: str, *, every_side_refused: bool, shape: str = w.HELD_REFUSAL) -> w.Run:
@@ -2454,7 +2467,7 @@ def _refused_world(refusal: str, *, every_side_refused: bool, shape: str = w.HEL
     return w.Run(shape=shape, anchor=w.FROM_DECISION, door=w.MCP, sides=sides)
 
 
-@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+@pytest.mark.parametrize("refusal", _J5_ADMITTED)
 def test_a_constant_refusal_floor_copy_excuses_nothing_where_a_side_answered(refusal: str) -> None:
     """A side answered: the refusal is not what the run holds, so the raised floor copy excuses nothing, by name."""
     with pytest.raises(FloorCopyDidNotAnswer):
@@ -2469,33 +2482,30 @@ def test_a_refusal_not_ruled_constant_excuses_nothing_even_where_every_side_rais
 
 
 # =============================================================================
-# 2.1 (b): the constant-refusal exception, restricted to its two worlds and enforced inside the acceptance helper
+# 2.1 (b): the constant-refusal exception, restricted to its world and enforced inside the acceptance helper
 # =============================================================================
 #
 # Dave, 2026-10-09 10:54 MST (``D-IMPL-378``), 2.1 (b), verbatim (kept as a comment, CINV-01a): "Limit the
 # closing-test exception to the held-refusal and stand-in worlds. Require identical refusal type, code and constant
 # message across all sides, plus a working declared twin. Enforce these conditions inside the acceptance helper." The
 # option ruled (the "i" panel's findings brief, dl-378-record @ 15e79163, section 2.1 (b)), verbatim: "accept with the
-# shape restriction restored, so it applies only in the held-refusal and stand-in worlds".
+# shape restriction restored, so it applies only in the held-refusal and stand-in worlds". Since repair 2.3 (b) the
+# held-refusal world raises nothing, so the exception holds the stand-in world alone.
 #
 # The acceptance helper is ``sec020_worlds.a_constant_refusal_is_the_property``: the one place where a noise floor whose
-# copy RAISED one of the two constant refusals is admitted as a floor (``_floor_copy_did_not_answer``). The tests below
-# drive the floor rule itself and assert its own named failure, ``FloorCopyDidNotAnswer``. Each run is a full run of
-# one of the two worlds, with exactly ONE condition broken. A full run means: every side the world asks raised the
-# world's refusal with the SDK's own constant message and one refusal code, and the run carries its declared working
-# twin, which raised nothing and served its served subject. The control, ``test_j5_control_a_full_world_run_is_a_floor``,
-# is a floor both before and after the change. In each broken run, the side the floor copies raised exactly what the
-# copy raised, so the only way the copy could be admitted is through the acceptance helper. The first two tests are
-# the "i" panel builder's own runs (``records/2026-10-09-d-impl-378i-panel/panel/probes/p_c_j5_predicate.py``). SEC-020
-# stays OPEN.
+# copy RAISED a constant refusal is admitted as a floor (``_floor_copy_did_not_answer``). The tests below drive the floor
+# rule itself and assert its own named failure, ``FloorCopyDidNotAnswer``. Each run is a full run of the stand-in world,
+# with exactly ONE condition broken. A full run means: every side the world asks raised the world's refusal with the
+# SDK's own constant message and one refusal code, and the run carries its declared working twin, which raised nothing
+# and served its served subject. The control, ``test_j5_control_a_full_world_run_is_a_floor``, is a floor. In each
+# broken run, the side the floor copies raised exactly what the copy raised, so the only way the copy could be admitted
+# is through the acceptance helper. The builder tests are the "i" panel builder's own runs
+# (``records/2026-10-09-d-impl-378i-panel/panel/probes/p_c_j5_predicate.py``). A run of the held-refusal world, raising
+# as item 4 (b) was first built, twin and all, is no floor either: that world is out. SEC-020 stays OPEN.
 
-#: The two worlds, each with a comparison its sides support. The held-refusal world asks both comparisons' sides; the
-#: stand-in world asks the same-deployment comparison's sides and a served subject (``sec020_worlds.STAND_IN_SIDES``).
-_J5_WORLDS: tuple[tuple[str, str], ...] = (
-    (w.HELD_REFUSAL, w.COUNTERFACTUAL),
-    (w.HELD_REFUSAL, w.SAME_DEPLOYMENT),
-    (w.STAND_IN_HELD, w.SAME_DEPLOYMENT),
-)
+#: The one world, with the comparison its sides support: the stand-in world asks the same-deployment comparison's sides
+#: and a served subject (``sec020_worlds.STAND_IN_SIDES``).
+_J5_WORLDS: tuple[tuple[str, str], ...] = ((w.STAND_IN_HELD, w.SAME_DEPLOYMENT),)
 _J5_WORLD_IDS = [f"{shape}-{comparison}" for shape, comparison in _J5_WORLDS]
 
 
@@ -2503,8 +2513,8 @@ def _j5_world(shape: str) -> tuple[str, tuple[str, ...], str, str]:
     """``shape``'s refusal type, every side it asks, its declared twin's label, and the SDK's own constant message."""
     from ccf.products.resolver import GovernedResolver  # noqa: PLC0415
 
-    if shape == w.HELD_REFUSAL:
-        return w.HELD_REFUSAL_REFUSAL, w.HELD_REFUSAL_SIDES, w.HELD_REFUSAL_TWIN, GovernedResolver._probe_was_refused()
+    if shape != w.STAND_IN_HELD:
+        raise ValueError(f"no constant-refusal world is labeled {shape!r}: the exception holds {w.STAND_IN_HELD!r}")
     return w.STAND_IN_REFUSAL, w.STAND_IN_SIDES, w.STAND_IN_TWIN, GovernedResolver._stand_in_is_held()
 
 
@@ -2574,14 +2584,24 @@ def _j5_no_floor(run: w.Run, comparison: str) -> None:
         _require_the_floor_copy_answered(run, comparison)
 
 
+def test_j5_the_exception_holds_the_stand_in_world_alone() -> None:
+    """Since repair 2.3 (b) the exception holds one world, the stand-in world: the held-refusal world raises nothing.
+
+    Dave limited it to "the held-refusal and stand-in worlds" (2.1 (b)); one of the two is within that limit. Pinned so
+    a world cannot rejoin, or join, without a ruling and a judging change of its own.
+    """
+    assert set(w.CONSTANT_REFUSAL_WORLDS) == {w.STAND_IN_HELD}, sorted(w.CONSTANT_REFUSAL_WORLDS)
+    assert w.CONSTANT_REFUSALS == (w.STAND_IN_REFUSAL,), w.CONSTANT_REFUSALS
+
+
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
 def test_j5_control_a_full_world_run_is_a_floor(shape: str, comparison: str, door: str) -> None:
-    """Control, before and after: a full run of either world is a floor (its raised floor copy IS the property)."""
+    """Control: a full run of the stand-in world is a floor (its raised floor copy IS the property)."""
     assert _floor_copy_did_not_answer(_j5_full_run(shape, door), comparison) == {}
 
 
-@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+@pytest.mark.parametrize("refusal", _J5_ADMITTED)
 def test_j5_the_builders_all_refused_run_with_no_twin_is_no_floor(refusal: str) -> None:
     """The "i" panel builder's case (1): a subject_keyed run, every side refused alike, no twin anywhere."""
     message = f"{refusal}: refused alike, whatever was asked"
@@ -2596,7 +2616,7 @@ def test_j5_the_builders_all_refused_run_with_no_twin_is_no_floor(refusal: str) 
     _j5_no_floor(run, w.COUNTERFACTUAL)
 
 
-@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+@pytest.mark.parametrize("refusal", _J5_ADMITTED)
 def test_j5_the_builders_three_side_run_of_any_shape_is_no_floor(refusal: str) -> None:
     """The "i" panel builder's case (3): only the three compared sides, all refused alike, a shape of no world."""
     message = f"{refusal}: refused alike, whatever was asked"
@@ -2611,6 +2631,34 @@ def test_j5_the_builders_three_side_run_of_any_shape_is_no_floor(refusal: str) -
     _j5_no_floor(run, w.SAME_DEPLOYMENT)
 
 
+def _j5_held_world_raising(door: str) -> w.Run:
+    """A run labeled the held-refusal world whose every side RAISED one refusal alike, as item 4 (b) was first built.
+
+    It carries everything else the exception asks of a world: every side the world asks, one message, one code, and a
+    twin labeled the world's declared twin that answered every question and served. The refusal's name is data: the
+    SDK no longer has it (repair 2.3 (b)).
+    """
+    raised = f"{_J5_ADMITTED[0]}: refused alike, whatever was asked"
+    twin = w.Run(
+        shape=w.HELD_REFUSAL_TWIN, anchor=w.FROM_DECISION, door=door,
+        sides={side: _j5_answered(served=side == w.SERVED) for side in w.HELD_REFUSAL_SIDES},
+    )
+    return w.Run(
+        shape=w.HELD_REFUSAL, anchor=w.FROM_DECISION, door=door,
+        sides={side: _j5_refused(door, raised, side=side) for side in w.HELD_REFUSAL_SIDES},
+        notes={w.DECLARED_WORKING_TWIN: twin},
+    )
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+def test_j5_a_raise_in_the_held_refusal_world_is_no_floor(door: str) -> None:
+    """Out of the exception since repair 2.3 (b): a held-refusal-world run raising alike, with its twin, is no floor."""
+    run = _j5_held_world_raising(door)
+    assert w.why_no_constant_refusal(run) == w.NOT_A_CONSTANT_REFUSAL_WORLD
+    for comparison in w.COMPARISONS:
+        _j5_no_floor(run, comparison)
+
+
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
 def test_j5_a_world_run_without_its_declared_working_twin_is_no_floor(shape: str, comparison: str, door: str) -> None:
@@ -2620,12 +2668,13 @@ def test_j5_a_world_run_without_its_declared_working_twin_is_no_floor(shape: str
     _j5_no_floor(run, comparison)
 
 
+@pytest.mark.parametrize("label", (w.SUBJECT_KEYED, w.HELD_REFUSAL))
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
-def test_j5_a_run_outside_the_two_worlds_is_no_floor(shape: str, comparison: str, door: str) -> None:
-    """Broken: a full run labeled as another world (the gate's subject_keyed). "Limit ... to the held-refusal and stand-in worlds"."""
+def test_j5_a_run_outside_the_stand_in_world_is_no_floor(shape: str, comparison: str, door: str, label: str) -> None:
+    """Broken: a full stand-in run labeled as another world: the gate's subject_keyed, or the held-refusal world (out)."""
     run = _j5_full_run(shape, door)
-    run.shape = w.SUBJECT_KEYED
+    run.shape = label
     _j5_no_floor(run, comparison)
 
 
@@ -2656,14 +2705,14 @@ def test_j5_sides_answered_with_differing_refusal_codes_are_no_floor(shape: str,
     _j5_no_floor(run, comparison)
 
 
+@pytest.mark.parametrize("other", (w.P6_REFUSAL, _J5_ADMITTED[0]))
 @pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
-def test_j5_the_other_worlds_refusal_is_no_floor(shape: str, comparison: str) -> None:
-    """Broken: every side raised the OTHER world's refusal (with its SDK constant). "identical refusal type"."""
-    other = w.STAND_IN_HELD if shape == w.HELD_REFUSAL else w.HELD_REFUSAL
-    other_refusal, _other_sides, _other_twin, other_constant = _j5_world(other)
-    _refusal, sides, _twin_shape, _constant = _j5_world(shape)
+def test_j5_a_refusal_not_the_worlds_is_no_floor(shape: str, comparison: str, other: str) -> None:
+    """Broken: every side raised ANOTHER refusal type (ruling P6 (a)'s, or the one 2.3 (b) removed), the SDK's constant
+    message kept. "identical refusal type"."""
+    _refusal, sides, _twin_shape, constant = _j5_world(shape)
     run = _j5_full_run(shape, w.IN_PROCESS)
-    run.sides = {side: _j5_refused(w.IN_PROCESS, f"{other_refusal}: {other_constant}", side=side) for side in sides}
+    run.sides = {side: _j5_refused(w.IN_PROCESS, f"{other}: {constant}", side=side) for side in sides}
     _j5_no_floor(run, comparison)
 
 
@@ -2728,12 +2777,12 @@ def test_j5_a_twin_missing_a_question_is_not_the_declared_twin(shape: str, compa
     _j5_no_floor(run, comparison)
 
 
-@pytest.mark.parametrize("comparison", w.COMPARISONS)
+@pytest.mark.parametrize("comparison", (w.SAME_DEPLOYMENT,))
 def test_j5_control_differing_messages_across_sides_are_no_floor(comparison: str) -> None:
-    """Control, before and after: one side worded the held refusal otherwise; no floor."""
-    run = _j5_full_run(w.HELD_REFUSAL, w.IN_PROCESS)
+    """Control: one side worded the stand-in refusal otherwise; no floor."""
+    run = _j5_full_run(w.STAND_IN_HELD, w.IN_PROCESS)
     _withheld, nonexistent, _floor = w.PAIRS[comparison]
-    run.sides[nonexistent] = _j5_refused(w.IN_PROCESS, f"{w.HELD_REFUSAL_REFUSAL}: worded otherwise", side=nonexistent)
+    run.sides[nonexistent] = _j5_refused(w.IN_PROCESS, f"{w.STAND_IN_REFUSAL}: worded otherwise", side=nonexistent)
     _j5_no_floor(run, comparison)
 
 
@@ -2761,11 +2810,14 @@ def stand_in_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Callable
 
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize("anchor", w.ANCHORS)
-def test_j5_control_the_real_held_refusal_runs_are_floors_through_the_property(
+def test_j5_the_real_held_refusal_runs_raise_nothing_and_are_out_of_the_exception(
     held_refusal_runs: w.HeldRefusalRunCache, anchor: str, door: str
 ) -> None:
-    """Positive control, before and after: the real held-refusal run's raised floor copies are floors, both comparisons."""
+    """Since repair 2.3 (b): the real held-refusal run raises nothing, its floors are answers, and the helper names it out."""
     run = held_refusal_runs.get(anchor=anchor, door=door)
+    raised = {side: run.raised(side) for side in run.sides if run.raised(side)}
+    assert not raised, f"[{anchor}, {door}] a side of the held-refusal run RAISED: {raised}"
+    assert w.why_no_constant_refusal(run) == w.NOT_A_CONSTANT_REFUSAL_WORLD
     for comparison in w.COMPARISONS:
         assert _floor_copy_did_not_answer(run, comparison) == {}, (anchor, door, comparison)
 
@@ -2776,24 +2828,9 @@ def test_j5_control_the_real_held_refusal_runs_are_floors_through_the_property(
 def test_j5_control_the_real_stand_in_runs_are_floors_through_the_property(
     stand_in_runs: Callable[..., w.Run], anchor: str, door: str, held_as: str
 ) -> None:
-    """Positive control, before and after: the real stand-in run's raised floor copy is a floor."""
+    """Positive control: the real stand-in run's raised floor copy is a floor."""
     run = stand_in_runs(anchor=anchor, door=door, held_as=held_as)
     assert _floor_copy_did_not_answer(run, w.SAME_DEPLOYMENT) == {}, (anchor, door, held_as)
-
-
-@pytest.mark.parametrize("door", w.DOORS)
-@pytest.mark.parametrize("anchor", w.ANCHORS)
-def test_j5_the_real_held_refusal_run_without_its_twin_is_no_floor(
-    held_refusal_runs: w.HeldRefusalRunCache, anchor: str, door: str
-) -> None:
-    """Broken, on the real run: the held-refusal run, its declared working twin taken off it."""
-    run = held_refusal_runs.get(anchor=anchor, door=door)
-    stripped = w.Run(
-        shape=run.shape, anchor=run.anchor, door=run.door, sides=run.sides,
-        notes={key: value for key, value in run.notes.items() if key != w.DECLARED_WORKING_TWIN},
-    )
-    for comparison in w.COMPARISONS:
-        _j5_no_floor(stripped, comparison)
 
 
 @pytest.mark.parametrize("door", w.DOORS)
@@ -2812,13 +2849,14 @@ def test_j5_the_real_stand_in_run_without_its_twin_is_no_floor(
 
 # --- 2.1 (b), by name: the acceptance helper names the one condition each broken run fails ---------------------------
 
-#: Each way of breaking a full run of a world, and the condition the acceptance helper must name for it
+#: Each way of breaking a full run of the stand-in world, and the condition the acceptance helper must name for it
 #: (``sec020_worlds.why_no_constant_refusal``).
 _J5_BROKEN: dict[str, str] = {
-    "outside the two worlds": w.NOT_ONE_OF_THE_TWO_WORLDS,
+    "outside the stand-in world": w.NOT_A_CONSTANT_REFUSAL_WORLD,
+    "labeled the held-refusal world": w.NOT_A_CONSTANT_REFUSAL_WORLD,
     "a side of the world missing": w.NOT_THE_WORLDS_SIDES,
     "a side the world does not ask": w.NOT_THE_WORLDS_SIDES,
-    "the other world's refusal": w.NOT_THE_WORLDS_REFUSAL,
+    "another refusal type": w.NOT_THE_WORLDS_REFUSAL,
     "a second raise inside a record read": w.NOT_THE_WORLDS_REFUSAL,
     "one message, not the SDK's constant": w.NOT_THE_SDKS_CONSTANT,
     "another refusal code": w.REFUSAL_CODES_DIFFER,
@@ -2833,20 +2871,19 @@ _J5_BROKEN: dict[str, str] = {
 
 
 def _j5_break(run: w.Run, broken: str) -> None:
-    """Break exactly the condition ``broken`` names in a full HTTP run of either world."""
-    refusal, sides, _twin_shape, _constant = _j5_world(run.shape)
+    """Break exactly the condition ``broken`` names in a full HTTP run of the stand-in world."""
+    refusal, sides, _twin_shape, constant = _j5_world(run.shape)
     twin = _j5_twin(run)
-    if broken == "outside the two worlds":
+    if broken == "outside the stand-in world":
         run.shape = w.SUBJECT_KEYED
+    elif broken == "labeled the held-refusal world":
+        run.shape = w.HELD_REFUSAL
     elif broken == "a side of the world missing":
         del run.sides[w.SERVED]
     elif broken == "a side the world does not ask":
         run.sides[w.REFUSED_QUESTION] = run.sides[w.CF_WITHHELD]
-    elif broken == "the other world's refusal":
-        other_refusal, _s, _t, other_constant = _j5_world(
-            w.STAND_IN_HELD if run.shape == w.HELD_REFUSAL else w.HELD_REFUSAL
-        )
-        run.sides = {side: _j5_refused(w.HTTP, f"{other_refusal}: {other_constant}", side=side) for side in sides}
+    elif broken == "another refusal type":
+        run.sides = {side: _j5_refused(w.HTTP, f"{w.P6_REFUSAL}: {constant}", side=side) for side in sides}
     elif broken == "a second raise inside a record read":
         run.sides[w.CF_WITHHELD].raised[f"{w.ONLY}/record:blob"] = "HTTP 500: a record read broke"
     elif broken == "one message, not the SDK's constant":
@@ -2873,7 +2910,7 @@ def _j5_break(run: w.Run, broken: str) -> None:
 
 
 @pytest.mark.parametrize("broken", sorted(_J5_BROKEN))
-@pytest.mark.parametrize("shape", (w.HELD_REFUSAL, w.STAND_IN_HELD))
+@pytest.mark.parametrize("shape", (w.STAND_IN_HELD,))
 def test_j5_each_broken_condition_is_refused_by_its_own_name(shape: str, broken: str) -> None:
     """2.1 (b), by mechanism: a full run meets every condition; each broken run fails exactly the condition it breaks."""
     assert w.why_no_constant_refusal(_j5_full_run(shape, w.HTTP)) is None
@@ -2887,15 +2924,16 @@ def test_j5_each_broken_condition_is_refused_by_its_own_name(shape: str, broken:
 @pytest.mark.parametrize("door", w.DOORS)
 @pytest.mark.parametrize("anchor", w.ANCHORS)
 def test_j5_the_real_runs_meet_every_condition_by_name(
-    held_refusal_runs: w.HeldRefusalRunCache, stand_in_runs: Callable[..., w.Run], anchor: str, door: str
+    stand_in_runs: Callable[..., w.Run], anchor: str, door: str
 ) -> None:
-    """Positive control, by name: the real held-refusal run and both real stand-in runs meet every condition of 2.1 (b)."""
+    """Positive control, by name: both real stand-in runs meet every condition of 2.1 (b).
+
+    The real held-refusal run is no longer a run of a world the exception holds since repair 2.3 (b)
+    (:func:`test_j5_the_real_held_refusal_runs_raise_nothing_and_are_out_of_the_exception`).
+    """
     runs = {
-        w.HELD_REFUSAL: held_refusal_runs.get(anchor=anchor, door=door),
-        **{
-            f"{w.STAND_IN_HELD}-{held_as}": stand_in_runs(anchor=anchor, door=door, held_as=held_as)
-            for held_as in (w.STAND_IN_ITSELF, w.STAND_IN_ANOTHER_URI)
-        },
+        f"{w.STAND_IN_HELD}-{held_as}": stand_in_runs(anchor=anchor, door=door, held_as=held_as)
+        for held_as in (w.STAND_IN_ITSELF, w.STAND_IN_ANOTHER_URI)
     }
     failing = {name: w.why_no_constant_refusal(run) for name, run in runs.items() if w.why_no_constant_refusal(run)}
     assert not failing, f"[{anchor}, {door}] a real run of a constant-refusal world fails a condition: {failing}"
