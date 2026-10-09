@@ -358,20 +358,24 @@ def test_the_door_verifies_a_record_shaped_filing_and_the_document_never_crosses
     wire_capture.route_store_through(monkeypatch, server, DOOR, wire)
     client = McpArtifactStore(url="http://artifact.invalid/mcp", bridge=names_world._Run(), write_kinds=store.write_kinds)  # type: ignore[arg-type]
 
-    outcome = _ask(h.door(plane, store=client), plane, _request(plane, filed.content_address, h.DOC_CLASS))
-    assert isinstance(outcome, WorkflowSuspended), outcome
+    try:
+        outcome: Any = _ask(h.door(plane, store=client), plane, _request(plane, filed.content_address, h.DOC_CLASS))
+    except ErasureRefused as refused:
+        outcome = refused
 
+    # The wire first: whatever the door concluded, the document must not have crossed.
+    haystack = wire.haystack()
+    assert canary.encode() not in haystack, "the record-shaped document crossed the MCP boundary"
+    assert document not in haystack
+    assert base64.b64encode(document) not in haystack
+
+    assert isinstance(outcome, WorkflowSuspended), outcome
     calls = wire.requests("tools/call")
     assert [call["params"]["name"] for call in calls] == [_subject_match_tool()], calls
     (answer,) = wire.answers("tools/call")
     assert json.loads(answer)["result"]["structuredContent"] == {"verdict": "subject-in-replay-input"}, answer
     blob_reads = [r for r in wire.requests("resources/read") if r["params"]["uri"].startswith("ccf-artifact-blob://")]
     assert [r["params"]["uri"] for r in blob_reads] == [f"ccf-artifact-blob://{filed.content_address}"], blob_reads
-
-    haystack = wire.haystack()
-    assert canary.encode() not in haystack, "the record-shaped document crossed the MCP boundary"
-    assert document not in haystack
-    assert base64.b64encode(document) not in haystack
 
     control_canary = "d3b-transport-control-9a2e"
     plain = h.client_put(store, name="plain", document={"note": control_canary})
