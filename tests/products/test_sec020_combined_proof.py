@@ -254,6 +254,7 @@ Every domain value is fixture vocabulary (CINV-01, CLAUDE.md §11).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import pathlib
@@ -2326,3 +2327,345 @@ def test_a_refusal_not_ruled_constant_excuses_nothing_even_where_every_side_rais
     run = _refused_world("SomeOtherRefusal", every_side_refused=True, shape=w.SUBJECT_KEYED)
     with pytest.raises(FloorCopyDidNotAnswer):
         _require_the_floor_copy_answered(run, w.COUNTERFACTUAL)
+
+
+# =============================================================================
+# 2.1 (b): the constant-refusal exception, restricted to its two worlds and enforced inside the acceptance helper
+# =============================================================================
+#
+# Dave, 2026-10-09 10:54 MST (``D-IMPL-378``), 2.1 (b), verbatim (kept as a comment, CINV-01a): "Limit the
+# closing-test exception to the held-refusal and stand-in worlds. Require identical refusal type, code and constant
+# message across all sides, plus a working declared twin. Enforce these conditions inside the acceptance helper." The
+# option ruled (the "i" panel's findings brief, dl-378-record @ 15e79163, section 2.1 (b)), verbatim: "accept with the
+# shape restriction restored, so it applies only in the held-refusal and stand-in worlds".
+#
+# The acceptance helper is ``sec020_worlds.a_constant_refusal_is_the_property``: the one place where a noise floor whose
+# copy RAISED one of the two constant refusals is admitted as a floor (``_floor_copy_did_not_answer``). The tests below
+# drive the floor rule itself and assert its own named failure, ``FloorCopyDidNotAnswer``. Each run is a full run of
+# one of the two worlds, with exactly ONE condition broken. A full run means: every side the world asks raised the
+# world's refusal with the SDK's own constant message and one refusal code, and the run carries its declared working
+# twin, which raised nothing and served its served subject. The control, ``test_j5_control_a_full_world_run_is_a_floor``,
+# is a floor both before and after the change. In each broken run, the side the floor copies raised exactly what the
+# copy raised, so the only way the copy could be admitted is through the acceptance helper. The first two tests are
+# the "i" panel builder's own runs (``records/2026-10-09-d-impl-378i-panel/panel/probes/p_c_j5_predicate.py``). SEC-020
+# stays OPEN.
+
+#: The two worlds, each with a comparison its sides support. The held-refusal world asks both comparisons' sides; the
+#: stand-in world asks the same-deployment comparison's sides and a served subject (``sec020_worlds.STAND_IN_SIDES``).
+_J5_WORLDS: tuple[tuple[str, str], ...] = (
+    (w.HELD_REFUSAL, w.COUNTERFACTUAL),
+    (w.HELD_REFUSAL, w.SAME_DEPLOYMENT),
+    (w.STAND_IN_HELD, w.SAME_DEPLOYMENT),
+)
+_J5_WORLD_IDS = [f"{shape}-{comparison}" for shape, comparison in _J5_WORLDS]
+
+
+def _j5_world(shape: str) -> tuple[str, tuple[str, ...], str, str]:
+    """``shape``'s refusal type, every side it asks, its declared twin's label, and the SDK's own constant message."""
+    from ccf.products.resolver import GovernedResolver  # noqa: PLC0415
+
+    if shape == w.HELD_REFUSAL:
+        return w.HELD_REFUSAL_REFUSAL, w.HELD_REFUSAL_SIDES, w.HELD_REFUSAL_TWIN, GovernedResolver._probe_was_refused()
+    return w.STAND_IN_REFUSAL, w.STAND_IN_SIDES, w.STAND_IN_TWIN, GovernedResolver._stand_in_is_held()
+
+
+def _j5_occurrence(side: str) -> str:
+    """A per-side stand-in for the MCP door's per-call failure id (``uuid4().hex``): 32 hex characters, one per side."""
+    return hashlib.sha256(f"sec020 j5 occurrence: {side}".encode()).hexdigest()[:32]
+
+
+def _j5_refused(door: str, raised: str, *, side: str, http_status: int = 500, mcp_text: str | None = None) -> w.Observation:
+    """One side whose question RAISED ``raised`` (``"<type>: <message>"``), as ``door`` observes such a raise.
+
+    In process, the exception itself; behind HTTP, a 500 with the opaque body; behind MCP, a tool error carrying
+    ``ccf-runtime-failure:<id>``, its id fresh per call. ``sec020_worlds.observe_*`` records exactly these shapes.
+    """
+    type_name, _, message = raised.partition(": ")
+    if door == w.IN_PROCESS:
+        shape = {"outcome": "raised", "type": type_name, "message": message}
+        channels: dict[str, Any] = {w.RESPONSE: shape, w.REFUSAL: shape, w.REFERENCE: shape}
+    elif door == w.HTTP:
+        body = "Internal Server Error"
+        channels = {
+            w.RESPONSE: {"status": http_status, "headers": {"content-type": "text/plain; charset=utf-8"}, "body": body,
+                         "echo": None},
+            w.REFUSAL: {"status": http_status, "outcome": "error", "body": body, "recorded_cause": None},
+            w.REFERENCE: {"x-ccf-replay-ref": None, "refusal.replay_reference": None},
+        }
+    else:
+        text = mcp_text or f"Error executing tool request_context_product: ccf-runtime-failure:{_j5_occurrence(side)}"
+        channels = {
+            w.RESPONSE: {"is_error": True, "outcome": text},
+            w.REFUSAL: {"is_error": True, "outcome": "error", "text": text, "recorded_cause": None},
+            w.REFERENCE: {"door_outcome.replay_ref": None, "refusal.replay_reference": None},
+        }
+    return w.Observation(channels=channels, raw=channels[w.RESPONSE], raised={w.ONLY: raised})
+
+
+def _j5_answered(*, served: bool) -> w.Observation:
+    """One twin side that ANSWERED: served, or refused as data; nothing raised."""
+    value = {"outcome": "served" if served else "refused"}
+    return w.Observation(channels={w.RESPONSE: value, w.REFUSAL: value, w.REFERENCE: {"replay_reference": None}}, raw=value)
+
+
+def _j5_full_run(shape: str, door: str) -> w.Run:
+    """A full run of ``shape``'s world through ``door``: every side refused alike by the SDK's constant, its twin on it."""
+    refusal, sides, twin_shape, constant = _j5_world(shape)
+    raised = f"{refusal}: {constant}"
+    twin = w.Run(
+        shape=twin_shape, anchor=w.FROM_DECISION, door=door,
+        sides={side: _j5_answered(served=side == w.SERVED) for side in sides},
+    )
+    return w.Run(
+        shape=shape, anchor=w.FROM_DECISION, door=door,
+        sides={side: _j5_refused(door, raised, side=side) for side in sides},
+        notes={w.DECLARED_WORKING_TWIN: twin},
+    )
+
+
+def _j5_twin(run: w.Run) -> w.Run:
+    twin = run.notes[w.DECLARED_WORKING_TWIN]
+    assert isinstance(twin, w.Run)
+    return twin
+
+
+def _j5_no_floor(run: w.Run, comparison: str) -> None:
+    """The floor rule refuses the run's raised floor copy by its own name: the acceptance helper did not admit it."""
+    with pytest.raises(FloorCopyDidNotAnswer):
+        _require_the_floor_copy_answered(run, comparison)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_control_a_full_world_run_is_a_floor(shape: str, comparison: str, door: str) -> None:
+    """Control, before and after: a full run of either world is a floor (its raised floor copy IS the property)."""
+    assert _floor_copy_did_not_answer(_j5_full_run(shape, door), comparison) == {}
+
+
+@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+def test_j5_the_builders_all_refused_run_with_no_twin_is_no_floor(refusal: str) -> None:
+    """The "i" panel builder's case (1): a subject_keyed run, every side refused alike, no twin anywhere."""
+    message = f"{refusal}: refused alike, whatever was asked"
+    refused = w.Observation(
+        channels={c: {"outcome": "refused", "detail": message} for c in w.CHANNELS},
+        raw={"outcome": "refused", "detail": message}, raised={w.ONLY: message},
+    )
+    sides = (w.CF_WITHHELD, w.CF_NONEXISTENT, w.CF_FLOOR, w.SAME_NONEXISTENT, w.SAME_FLOOR, w.SERVED)
+    run = w.Run(
+        shape=w.SUBJECT_KEYED, anchor=w.FROM_DECISION, door=w.IN_PROCESS, sides=dict.fromkeys(sides, refused)
+    )
+    _j5_no_floor(run, w.COUNTERFACTUAL)
+
+
+@pytest.mark.parametrize("refusal", w.CONSTANT_REFUSALS)
+def test_j5_the_builders_three_side_run_of_any_shape_is_no_floor(refusal: str) -> None:
+    """The "i" panel builder's case (3): only the three compared sides, all refused alike, a shape of no world."""
+    message = f"{refusal}: refused alike, whatever was asked"
+    refused = w.Observation(
+        channels={c: {"outcome": "refused", "detail": message} for c in w.CHANNELS},
+        raw={"outcome": "refused", "detail": message}, raised={w.ONLY: message},
+    )
+    run = w.Run(
+        shape="anything", anchor=w.FROM_DECISION, door=w.IN_PROCESS,
+        sides=dict.fromkeys((w.CF_WITHHELD, w.SAME_NONEXISTENT, w.SAME_FLOOR), refused),
+    )
+    _j5_no_floor(run, w.SAME_DEPLOYMENT)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_world_run_without_its_declared_working_twin_is_no_floor(shape: str, comparison: str, door: str) -> None:
+    """Broken: the run carries no declared working twin. "plus a working declared twin"."""
+    run = _j5_full_run(shape, door)
+    run.notes = {}
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_run_outside_the_two_worlds_is_no_floor(shape: str, comparison: str, door: str) -> None:
+    """Broken: a full run labeled as another world (the gate's subject_keyed). "Limit ... to the held-refusal and stand-in worlds"."""
+    run = _j5_full_run(shape, door)
+    run.shape = w.SUBJECT_KEYED
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_message_alike_on_every_side_but_not_the_sdks_constant_is_no_floor(
+    shape: str, comparison: str, door: str
+) -> None:
+    """Broken: every side raised the world's refusal with ONE message, but not the SDK's constant. "constant message"."""
+    refusal, sides, _twin_shape, _constant = _j5_world(shape)
+    run = _j5_full_run(shape, door)
+    raised = f"{refusal}: refused alike, whatever was asked"
+    run.sides = {side: _j5_refused(door, raised, side=side) for side in sides}
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize("door", (w.HTTP, w.MCP))
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_sides_answered_with_differing_refusal_codes_are_no_floor(shape: str, comparison: str, door: str) -> None:
+    """Broken: every side raised the SDK's constant, but the floor's copy was answered with another code. "code"."""
+    refusal, _sides, _twin_shape, constant = _j5_world(shape)
+    _withheld, _nonexistent, floor_side = w.PAIRS[comparison]
+    run = _j5_full_run(shape, door)
+    run.sides[floor_side] = _j5_refused(
+        door, f"{refusal}: {constant}", side=floor_side, http_status=503,
+        mcp_text="Error executing tool request_context_product: the door failed another way",
+    )
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_the_other_worlds_refusal_is_no_floor(shape: str, comparison: str) -> None:
+    """Broken: every side raised the OTHER world's refusal (with its SDK constant). "identical refusal type"."""
+    other = w.STAND_IN_HELD if shape == w.HELD_REFUSAL else w.HELD_REFUSAL
+    other_refusal, _other_sides, _other_twin, other_constant = _j5_world(other)
+    _refusal, sides, _twin_shape, _constant = _j5_world(shape)
+    run = _j5_full_run(shape, w.IN_PROCESS)
+    run.sides = {side: _j5_refused(w.IN_PROCESS, f"{other_refusal}: {other_constant}", side=side) for side in sides}
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_run_missing_sides_its_world_asks_is_no_floor(shape: str, comparison: str) -> None:
+    """Broken: only the comparison's three sides are on the run. "across all sides" (the world's, not the run's)."""
+    run = _j5_full_run(shape, w.IN_PROCESS)
+    run.sides = {side: run.sides[side] for side in w.PAIRS[comparison]}
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_run_holding_a_side_its_world_does_not_ask_is_no_floor(shape: str, comparison: str) -> None:
+    """Broken: an extra side, refused alike, that the world does not ask: the run is not that world's run."""
+    run = _j5_full_run(shape, w.IN_PROCESS)
+    run.sides[w.REFUSED_QUESTION] = run.sides[w.CF_WITHHELD]
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_twin_that_raised_is_no_working_twin(shape: str, comparison: str) -> None:
+    """Broken: the twin's withheld question RAISED. "a working declared twin"."""
+    run = _j5_full_run(shape, w.MCP)
+    twin = _j5_twin(run)
+    twin.sides[w.CF_WITHHELD] = w.Observation(
+        channels={c: {"outcome": "unreachable"} for c in w.CHANNELS}, raw=None,
+        raised={w.ONLY: "MCP unreachable: session crashed"},
+    )
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_twin_that_served_nothing_is_no_working_twin(shape: str, comparison: str) -> None:
+    """Broken: the twin answered every question, but its served subject was refused as data: it served no product."""
+    run = _j5_full_run(shape, w.HTTP)
+    _j5_twin(run).sides[w.SERVED] = _j5_answered(served=False)
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize("wrong", ("shape", "anchor", "door"))
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_twin_of_another_world_anchor_or_door_is_not_the_declared_twin(
+    shape: str, comparison: str, wrong: str
+) -> None:
+    """Broken: the twin is another world's (the population world), or asked at another anchor or through another door."""
+    run = _j5_full_run(shape, w.IN_PROCESS)
+    twin = _j5_twin(run)
+    if wrong == "shape":
+        twin.shape = w.POPULATION
+    elif wrong == "anchor":
+        twin.anchor = w.FROM_ENTITY_FRESHNESS
+    else:
+        twin.door = w.HTTP
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize(("shape", "comparison"), _J5_WORLDS, ids=_J5_WORLD_IDS)
+def test_j5_a_twin_missing_a_question_is_not_the_declared_twin(shape: str, comparison: str) -> None:
+    """Broken: the twin was not asked one of the world's questions (the noise floor's), so it did not answer them all."""
+    run = _j5_full_run(shape, w.IN_PROCESS)
+    del _j5_twin(run).sides[w.SAME_FLOOR]
+    _j5_no_floor(run, comparison)
+
+
+@pytest.mark.parametrize("comparison", w.COMPARISONS)
+def test_j5_control_differing_messages_across_sides_are_no_floor(comparison: str) -> None:
+    """Control, before and after: one side worded the held refusal otherwise; no floor."""
+    run = _j5_full_run(w.HELD_REFUSAL, w.IN_PROCESS)
+    _withheld, nonexistent, _floor = w.PAIRS[comparison]
+    run.sides[nonexistent] = _j5_refused(w.IN_PROCESS, f"{w.HELD_REFUSAL_REFUSAL}: worded otherwise", side=nonexistent)
+    _j5_no_floor(run, comparison)
+
+
+@pytest.fixture(scope="module")
+def stand_in_runs(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Callable[..., w.Run]]:
+    """The stand-in world's runs (``sec020_worlds.stand_in_run``), one per (anchor, door, held_as) for this module."""
+    levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
+    for name in _QUIETED_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+    cache: dict[tuple[str, str, str], w.Run] = {}
+
+    def get(*, anchor: str, door: str, held_as: str = w.STAND_IN_ITSELF) -> w.Run:
+        key = (anchor, door, held_as)
+        if key not in cache:
+            base = pathlib.Path(tmp_path_factory.mktemp(f"{w.STAND_IN_HELD}-{anchor}-{door}-{held_as}"))
+            cache[key] = w.stand_in_run(base, anchor=anchor, door=door, held_as=held_as)
+        return cache[key]
+
+    try:
+        yield get
+    finally:
+        for name, level in levels.items():
+            logging.getLogger(name).setLevel(level)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_j5_control_the_real_held_refusal_runs_are_floors_through_the_property(
+    held_refusal_runs: w.HeldRefusalRunCache, anchor: str, door: str
+) -> None:
+    """Positive control, before and after: the real held-refusal run's raised floor copies are floors, both comparisons."""
+    run = held_refusal_runs.get(anchor=anchor, door=door)
+    for comparison in w.COMPARISONS:
+        assert _floor_copy_did_not_answer(run, comparison) == {}, (anchor, door, comparison)
+
+
+@pytest.mark.parametrize("held_as", (w.STAND_IN_ITSELF, w.STAND_IN_ANOTHER_URI))
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_j5_control_the_real_stand_in_runs_are_floors_through_the_property(
+    stand_in_runs: Callable[..., w.Run], anchor: str, door: str, held_as: str
+) -> None:
+    """Positive control, before and after: the real stand-in run's raised floor copy is a floor."""
+    run = stand_in_runs(anchor=anchor, door=door, held_as=held_as)
+    assert _floor_copy_did_not_answer(run, w.SAME_DEPLOYMENT) == {}, (anchor, door, held_as)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_j5_the_real_held_refusal_run_without_its_twin_is_no_floor(
+    held_refusal_runs: w.HeldRefusalRunCache, anchor: str, door: str
+) -> None:
+    """Broken, on the real run: the held-refusal run, its declared working twin taken off it."""
+    run = held_refusal_runs.get(anchor=anchor, door=door)
+    stripped = w.Run(
+        shape=run.shape, anchor=run.anchor, door=run.door, sides=run.sides,
+        notes={key: value for key, value in run.notes.items() if key != w.DECLARED_WORKING_TWIN},
+    )
+    for comparison in w.COMPARISONS:
+        _j5_no_floor(stripped, comparison)
+
+
+@pytest.mark.parametrize("door", w.DOORS)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_j5_the_real_stand_in_run_without_its_twin_is_no_floor(
+    stand_in_runs: Callable[..., w.Run], anchor: str, door: str
+) -> None:
+    """Broken, on the real run: the stand-in run, its declared working twin taken off it."""
+    run = stand_in_runs(anchor=anchor, door=door)
+    stripped = w.Run(
+        shape=run.shape, anchor=run.anchor, door=run.door, sides=run.sides,
+        notes={key: value for key, value in run.notes.items() if key != w.DECLARED_WORKING_TWIN},
+    )
+    _j5_no_floor(stripped, w.SAME_DEPLOYMENT)
