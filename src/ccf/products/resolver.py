@@ -940,7 +940,11 @@ class NeverWithholdingContradicted(ProductNotResolvable):
     withholds anyway
     (``tests/products/test_sec020_never_capability.py::test_e2ii_the_serve_time_check_remains_the_defense_for_a_false_positive_declaration``).
     Raised for the withheld subject only, it still tells that subject from one
-    nothing holds — an exception (an HTTP 500 at the door) against an answer.
+    nothing holds — measured, as an exception (an HTTP 500) against an answer,
+    by
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``
+    and reported outside the closure gate on every run of
+    ``tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated``.
     SEC-020 is OPEN.
     """
 
@@ -1382,14 +1386,21 @@ class NonWithholdingPlanFactoryProtocol(Protocol):
     statement; it trusts it as deployment code, and the assumption is limited
     to code no caller can influence. The resolver calls
     :meth:`withholds_no_subject` with no argument, at construction, on the
-    factory the deployment composed it with. A deployment's factory that reads
-    caller input into its own declaration is outside the assumption.
+    factory the deployment composed it with; no request, parameter, door
+    payload, harness or agent input, or caller-supplied document reaches that
+    call or selects the factory it is made on (measured, statically and at the
+    in-process, HTTP and MCP doors, by
+    ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_no_caller_input_supplies_selects_or_alters_the_positive_declaration``).
+    A deployment's factory that reads caller input into its own declaration is
+    outside the assumption.
 
     **The residual, kept visible.** A FALSE declaration — ``True`` over a
     projection that withholds — constructs, and the serve-time defense
     (:class:`NeverWithholdingContradicted`) refuses the withheld subject's
     question alone, which still tells it from a subject nothing holds
-    (``tests/products/test_sec020_never_capability.py::test_e2ii_the_serve_time_check_remains_the_defense_for_a_false_positive_declaration``).
+    (``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``);
+    every run of the closing test reports it outside its gate
+    (``tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated``).
     SEC-020 is OPEN.
     """
 

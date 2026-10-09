@@ -1321,7 +1321,9 @@ unless another test is named.
   early policy nor `subject_withholding: never` on its class
   (`CompositeNeedsAWithholdingStance`, measured by
   `tests/products/test_sec020_p2c_composite_stance.py`): Dave's ruling P2 (c),
-  2026-10-08.
+  2026-10-08. Since his E2 (ii) (d), later that day, `never` is a stance only
+  over a plan factory that positively declares it never withholds (the bullet
+  on the record behind an answer, below).
   With the early policy, a withheld composite matched a nonexistent subject's
   on both child anchors.
 - **Each phase once, and one computation (Q10).** Each declared phase runs
@@ -1402,7 +1404,8 @@ a nonexistent one. Each was measured on test fixtures.
   altered under a reference, as replay already did
   (`tests/replay/test_record_content_address_integrity.py`).
 - **The record behind it (D-IMPL-378, Q12; Dave ruled its three details on
-  2026-10-08 as E2: (i) and (iii) approved, (ii) rejected).**
+  2026-10-08 as E2: (i) and (iii) approved, (ii) rejected at 12:29 and ruled
+  option (d) at 16:40).**
   Dimension 1 of a withheld decision's record lists what the plan actually
   read, the acquired subject included. Before this change, read end to end
   through the governed dereference by their owner at full disclosure, the
@@ -1433,13 +1436,36 @@ a nonexistent one. Each was measured on test fixtures.
   resolver is built, the same for every subject
   (`src/ccf/products/resolver.py::NeverWithholdingProjectionCanWithhold`;
   `tests/products/test_sec020_never_capability.py`). The SDK cannot see a
-  withhold that the plan factory does not declare: a class that affirms `never`
-  while such a projection withholds is a broken deployment, and its withheld
-  question raises where a nonexistent subject's is served (an HTTP 500 against
-  a 200). Dave rejected treating that as a disclosed obligation (E2 (ii)); it is
-  measured, and kept failing in the closing test until a treatment removes it
+  withhold that the plan factory does not declare, so under Dave's E2 (ii)
+  option (d) a class that affirms `never` is built only over a plan factory
+  that positively declares that its projection never withholds:
+  `withholds_no_subject()` returning `True`
+  (`src/ccf/products/resolver.py::NonWithholdingPlanFactoryProtocol`). Silence,
+  or any other value, counts as able to withhold and is refused when the
+  resolver is built, before anything is fetched, the same for every subject
+  (`src/ccf/products/resolver.py::NeverWithholdingNeedsAPositiveDeclaration`;
+  `tests/products/test_sec020_never_capability.py::test_e2ii_d_the_paved_road_refuses_every_subject_alike_before_anything_is_fetched`).
+  In the closing test every configuration whose plan factory declares that it
+  withholds, or declares nothing, is now refused that way on every side, held
+  against a positively declaring twin that answers
   (`tests/products/test_sec020_combined_proof.py::test_a_withheld_subject_under_a_never_class_is_indistinguishable`).
-  Do not affirm `never` for a class whose projection can withhold.
+  **The positive declaration is trusted deployment code, an explicit
+  assumption limited to code no caller can influence.** The SDK reads it once,
+  with no argument, where the resolver is built, from the plan factory you
+  composed it with; no request, parameter, door payload, harness or agent
+  input, or caller-supplied document supplies, selects or alters it (measured
+  statically and at the in-process, HTTP and MCP doors, with a control in which
+  deployment code lets a caller in:
+  `tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_no_caller_input_supplies_selects_or_alters_the_positive_declaration`).
+  A FALSE declaration is the residual and stays visible: the class is built,
+  and its withheld question raises where a nonexistent subject's is served (an
+  HTTP 500 against a 200)
+  (`tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart`),
+  and every run of the closing test reports it outside its gate
+  (`tests/products/test_sec020_combined_proof.py::test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated`).
+  Declare `withholds_no_subject()` only over a projection that never sets the
+  withheld signal, never let it read anything a caller sends, and do not
+  affirm `never` for a class whose projection can withhold.
   **Where default-deny applies, and where it does not (E2 (i)).** Every read
   an agent can reach holds it: the governed evidence reads above, and the
   Experience door, which refuses. In process, what an agent, a harness
@@ -1491,12 +1517,14 @@ a nonexistent one. Each was measured on test fixtures.
   (P2 (c), above), and `CompositeWithheldLate` remains for a composite whose
   early policy does not cover a subject its projection withholds
   (`tests/products/test_sec020_never_capability.py::test_ct_d_control_composite_withheld_late_remains_for_a_composite_whose_early_policy_misses_the_subject`).
-  A composite whose class affirms `never` and withholds anyway is refused as
+  A composite whose class affirms `never` is built only over a plan factory
+  positively declaring that it never withholds (E2 (ii) (d)); one whose
+  declaration is false and that withholds anyway is refused as
   `NeverWithholdingContradicted`, which is checked first (`D-IMPL-378` CT-D
   (a), diagnostic precedence only;
   `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
   its withheld question still raises where a nonexistent subject's is
-  answered, the limit the bullet on the record behind an answer names.
+  answered, the residual the bullet on the record behind an answer names.
 - **A question's store the markers do not reach.** The withheld subject's
   acquisition stays in the store its question wrote, and the paved road leaves
   that store on disk when it closes the fabric (the replay road reopens it).

@@ -8642,7 +8642,9 @@
       "IncompatibleRefusalRecorder",
       "InstantAwareDebtScorerProtocol",
       "NeverWithholdingContradicted",
+      "NeverWithholdingNeedsAPositiveDeclaration",
       "NeverWithholdingProjectionCanWithhold",
+      "NonWithholdingPlanFactoryProtocol",
       "PackagingTraceProtocol",
       "PopulationAcquisitionSeamProtocol",
       "PopulationPhaseSharesAnOwner",
@@ -8730,9 +8732,17 @@
         "kind": "class",
         "shape": "type"
       },
+      "NeverWithholdingNeedsAPositiveDeclaration": {
+        "kind": "class",
+        "shape": "type"
+      },
       "NeverWithholdingProjectionCanWithhold": {
         "kind": "class",
         "shape": "type"
+      },
+      "NonWithholdingPlanFactoryProtocol": {
+        "kind": "class",
+        "shape": "(*args, **kwargs)"
       },
       "PackagingTraceProtocol": {
         "kind": "class",
