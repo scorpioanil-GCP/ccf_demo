@@ -464,7 +464,7 @@ class ExperienceProductResolverProtocol(Protocol):
     **Where a working example is.** The request refusal is called at
     ``examples/s1-01-hello-context-product/spine.py::assemble_and_serve``;
     the payload bind is called at
-    ``archive/examples/04-cross-process/producer_child.py::resolve``. Both are
+    ``archive/examples/04-cross-process/producer_child.py::main.resolve``. Both are
     shipped, both run in CI, and both are this obligation discharged rather
     than described. ``CPS-03`` is recorded **Pending by design** under those
     two rulings for exactly this reason.
@@ -681,7 +681,7 @@ class ContextProviderProtocol(Protocol):
     further down. This product was assembled under some capacity; compare it
     with the one you are handed and refuse a mismatch. The shipped example
     performs exactly that comparison in
-    ``archive/examples/external/00-hello-context/serve.py::context_provider``, beside a
+    ``archive/examples/external/00-hello-context/serve.py::main.context_provider``, beside a
     resolver doing the same thing for the resource leg.
     """
 
