@@ -24,9 +24,11 @@ What is asserted, by mechanism:
 
 1. **Where safe verification cannot be established, refused by name and left
    for an operator.** A store-creation lock that cannot be taken
-   (``lock-unavailable``) and a marker that appeared at the path after the boot
-   looked (``claimed``) are each refused (``DeploymentStoreNotVerified``) before
-   any store is created there, and nothing beside the path is cleared.
+   (``lock-unavailable``), a marker that appeared at the path after the boot
+   looked, and a stale marker replaced by another file between the boot's look
+   and its replacement (both ``claimed``) are each refused
+   (``DeploymentStoreNotVerified``) before any store is created there, and
+   nothing beside the path is cleared.
 1b. **A stale marker with no store beside it is replaced and verified afresh**
    (built as the lane's proposal P-1 (B), the no-store case only). Under the
    store-creation lock no live boot owns a marker the boot finds, so a marker of

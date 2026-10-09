@@ -1625,11 +1625,20 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified`)
   or is `unreadable`, which includes the one-line marker written before repair
   1.1 (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for_an_operator`);
-  a marker that appeared or changed while the boot held the lock, `claimed`
-  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed`);
+  a marker that appeared at a fresh path while the boot held the lock
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed`),
+  or a stale marker replaced by another file between the boot's look and its
+  replacement of it (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left`), `claimed`;
   and a store-creation lock that cannot be taken, `lock-unavailable`
   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name`).
-  The SDK never clears a marker that stands beside a store.
+  The SDK never clears a marker that stands beside a store. A stale marker
+  rewritten in place between the boot's look and its replacement keeps its
+  file (device and inode) and is not told apart from the one the boot looked
+  at, nor is one deleted and created again where the filesystem gives the new
+  file the same inode number: the boot replaces it like any stale marker and
+  verifies the new store itself, so it serves nothing it did not read, but it
+  does not report that something outside the SDK wrote there (lane
+  `378j-boot`'s probe `probe_claimed_window.py`).
 
 To resolve a refusal:
 
@@ -1639,8 +1648,9 @@ To resolve a refusal:
    either is held.
 2. Read the marker. `pending` (the boot that created it never finished its
    read), `unreadable` (one line and no `state:`, or text the SDK does not
-   write) and `claimed` (a marker that appeared or changed while a boot held
-   the lock; find what writes into the store's directory first) all mean that
+   write) and `claimed` (a marker that appeared, or was replaced by another
+   file, while a boot held the lock; find what writes into the store's
+   directory first) all mean that
    nothing shows the store beside it was read. Move the store (`<path>`,
    `<path>-wal`, `<path>-shm`) aside, with the marker if you want to keep it
    as evidence, and boot again: with no store beside it, any marker is

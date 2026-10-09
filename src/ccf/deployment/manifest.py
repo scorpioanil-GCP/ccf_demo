@@ -426,9 +426,9 @@ _NOT_VERIFIED_WHY = {
         " state, text the SDK did not write, or not a regular file this process can read)"
     ),
     "claimed": (
-        "appeared at the path after the boot looked, changed between the boot's look and its replacement"
-        " of it, or was replaced or rewritten while the boot that created it was verifying its store, so"
-        " something outside the SDK's boots writes beside the store"
+        "appeared at the path after the boot looked, was replaced by another file between the boot's look"
+        " and its replacement of it, or was replaced or rewritten while the boot that created it was"
+        " verifying its store, so something outside the SDK's boots writes beside the store"
     ),
     "lock-unavailable": "cannot be checked, because the store-creation lock beside it cannot be taken",
 }
@@ -505,10 +505,13 @@ class DeploymentStoreNotVerified(ValueError):
               boot cannot replace;
             * ``"claimed"`` — a marker appeared at the path after this boot
               looked and before it created its own, the stale marker it found
-              changed before it could replace it, or the marker this boot
-              created was replaced or rewritten before the boot could make it
-              read ``verified``: something outside the SDK's boots writes
-              beside the store;
+              was replaced by another file (another device or inode) before it
+              could replace it, or the marker this boot created was replaced or
+              rewritten before the boot could make it read ``verified``:
+              something outside the SDK's boots writes beside the store. A
+              stale marker rewritten in place before the boot replaces it keeps
+              its file and is not told apart (see
+              :func:`_replace_stale_deployment_marker`);
             * ``"lock-unavailable"`` — the store-creation lock beside the marker
               cannot be opened or locked (no ``flock`` on this platform or
               filesystem, something other than a regular file at its path, or
@@ -809,10 +812,20 @@ def _replace_stale_deployment_marker(path: Path, found: tuple[int, int]) -> _Own
     creates no deployment marker. So no live boot's creation is in progress at
     the path, and the marker found was left by a boot that is no longer
     running — killed, or one whose store was since deleted — or by a writer
-    outside the SDK. The marker is checked to be the same file found at the
-    look (device and inode) immediately before it is replaced, so one that
-    changed since was put there by a writer outside the SDK's boots, and the
-    boot is refused (:class:`DeploymentStoreNotVerified`, ``"claimed"``).
+    outside the SDK. The marker's file identity (device and inode) is read
+    again immediately before it is replaced: another file put at the path since
+    the look — renamed over it — was put there by a writer outside the SDK's
+    boots, and the boot is refused (:class:`DeploymentStoreNotVerified`,
+    ``"claimed"``; measured by
+    ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left``).
+    **What this check does not see:** a change that keeps the file's identity.
+    The same file rewritten in place, or deleted and created again where the
+    filesystem hands the new file the same inode number (measured by lane
+    ``378j-boot`` on ext4: an immediate recreation kept it in 200 of 200 tries),
+    is not told apart, and is replaced like any stale marker. The boot then
+    verifies the store it opens itself either way, so what it serves does not
+    rest on this check: it is a tripwire for a writer outside the SDK's boots,
+    not the store's verification.
 
     The replacement is atomic: this boot's marker is written to a staging file
     beside it, synced, and renamed over whatever stands at the marker's path (a
@@ -2227,9 +2240,10 @@ def load_and_boot(
             beside a store that reads ``pending`` (the boot that created it
             never finished its read) or records no state in the form the SDK
             writes (a marker written before markers recorded their state
-            included), a marker that appeared or changed while this boot held
-            the store-creation lock, or a store-creation lock that cannot be
-            taken; its ``reason`` says which. The marker is left as it stands,
+            included), a marker that appeared, or was replaced by another
+            file, while this boot held the store-creation lock, or a
+            store-creation lock that cannot be taken; its ``reason`` says
+            which. The marker is left as it stands,
             for an operator (SEC-020, ``D-IMPL-378`` repairs 1.1 and 1.2). A
             deployment marker of any state with no store beside it is not
             refused: the boot replaces it with its own and creates and
