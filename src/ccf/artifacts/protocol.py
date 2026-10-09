@@ -71,7 +71,7 @@ __all__ = [
     "LATEST_VERSION_TOKEN",
     "NAME_SEGMENT_SEPARATOR",
     "ArtifactName",
-    "ArtifactNotFound", "ArtifactReadRefused",  # same line: committed specs cite this module by line range
+    "ArtifactNotFound", "ArtifactReadRefused", "ArtifactReadUnauthenticated",  # same line: committed specs cite this module by line range
     "ArtifactRef",
     "ArtifactStoreError",
     "ArtifactStoreProtocol",
@@ -396,6 +396,47 @@ class ArtifactReadRefused(ArtifactStoreError):
     def __init__(self, message: str, *, envelope: RefusalEnvelope) -> None:
         super().__init__(message)
         self.envelope = envelope
+
+
+class ArtifactReadUnauthenticated(ArtifactStoreError):
+    """A read the store's server refused because it did not authenticate the credential (``D-IMPL-378``, repair 2.5 (a)).
+
+    Dave, 2026-10-09 10:54 MST: *"Return a typed authentication refusal for
+    401, preserving its distinction from authorization denial and transport
+    outage."* Raised by every read of
+    :class:`~ccf.artifacts.mcp_store.McpArtifactStore` — ``get``, ``exists``,
+    ``names_at``, ``resolve_uri`` and ``match_subject`` — where the artifact
+    server's guard answered the call HTTP 401: the store presented no
+    credential, one that is not a bearer token, or a bearer token the server's
+    verifier does not know
+    (``tests/mcp/test_auth_401_typed_through_the_client.py``). Chained from
+    that 401 response. The guard answers before the server's handlers run, so
+    nothing about what was asked was decided.
+
+    **Not** :class:`~ccf.mcp.errors.McpServerUnreachable`: the server
+    answered, so it is no outage, and a caller that catches the outage to
+    retry does not catch this. **Not** :class:`ArtifactReadRefused`: that is
+    an access decision the server made about an address for a credential it
+    authenticated, and it carries the server's refusal; this carries none.
+    **Not an** :class:`ArtifactNotFound`: it says nothing about what is
+    stored, and a reader that wrote it down as absence would record a refused
+    credential as missing history.
+
+    An :class:`ArtifactStoreError`, so a handler that refuses on any store
+    failure still refuses. The SDK's handlers that read a store failure as
+    absence let this one through by name: the replay engine's resolvers, the
+    governed evidence read and the erasure consult's record check
+    (``tests/mcp/test_auth_401_never_read_as_absence.py``,
+    ``tests/http_api/test_auth_401_never_a_recorded_absence.py``).
+
+    Not covered: a write, which still reports a credential the guard refused
+    as :class:`~ccf.mcp.errors.McpServerUnreachable`
+    (``tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage``);
+    and the guard's other refusals — a credential without a required scope
+    (HTTP 403) and the tenancy guard's denials — which still reach the client
+    as :class:`~ccf.mcp.errors.McpServerUnreachable`
+    (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal``).
+    """
 
 
 class DerivedWrite:
