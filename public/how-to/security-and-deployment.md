@@ -438,6 +438,17 @@ every caller of the process, and the door composes none of its own
 > remains single-principal by construction; a multi-principal deployment uses
 > `serve_loopback` or composes its own transport.
 
+The identity lasts as long as the call and no longer (`D-IMPL-378`, item 9
+(b)). `serve_stdio` sets it just before the server starts and, in a `finally`,
+restores the login identity the caller's context held before the call,
+whichever way the call ends: a normal return, an exception raised inside the
+transport, or cancellation
+(`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_a_normal_return_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_an_exception_inside_the_transport_the_previous_identity_is_restored`,
+`tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_cancellation_while_serving_the_previous_identity_is_restored`).
+So whatever the calling code does after the call no longer runs as the stdio
+identity.
+
 Two bounds hold on an identity composed with `ambient_stdio_identity`, and
 both are mechanism rather than convention. It is scoped to exactly the one
 tenant it names — pass the tenant the door was opened to serve — and it is
@@ -595,6 +606,42 @@ Consequences for a deployment on the stores that do lease:
   lease to a file of its choosing. Keep that directory writable only by the
   account the SDK runs as (disclosed 2026-10-07, `D-IMPL-377`; `D-IMPL-375`
   recorded this residual as disclosed here before it was).
+- **SQLite: one name per database file, so no hard-link backups (`D-IMPL-378`,
+  option (B)).** The lease refuses a database file that has more than one
+  name, a hard link, through any of its names; the boot is refused with
+  `SingleWriterViolation`, whose message gives the file's number of names
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph`).
+  A backup that links the database file instead of copying it, as a
+  hard-link backup does inside the same filesystem, gives the file a second
+  name. While that name exists, every writer boot of the graph is refused, in
+  any process and through either name, even with no writer live; the
+  message then opens "a GraphWriter already exists", although none is, and
+  names the file's two names after it. Removing the backup's name ends the
+  refusal
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_hard_link_backup_refuses_every_writer_boot_until_it_is_removed`).
+  Back a SQLite graph up with a copy SQLite writes itself instead: its online
+  backup API (`sqlite3.Connection.backup`) or `VACUUM INTO`. Either can run
+  while a writer is live, and the database file keeps one name
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_copy_sqlite_makes_while_the_writer_is_live_leaves_the_file_one_name`).
+  Keep the database file out of any backup that hard-links.
+- **SQLite: do not move a live database file. The lease does not follow a
+  rename, and `SEC-013` stays open on it.** A database file moved to a new
+  name while a writer holds it still has one name, so option (B) does not
+  refuse it, and a writer booted through the new name in a second process is
+  not refused while the first is live
+  (`tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file`).
+  SQLite leaves the live write-ahead log beside the old name, so the new name
+  does not see what the writer committed; once both names have been written
+  through and closed, what was committed through the old name is gone, and
+  SQLite's integrity check still reports `ok`
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_moved_live_file_leaves_its_write_ahead_log_behind_and_its_commits_are_lost`).
+  Stop every process that has the database file open before you move or
+  rename it: a file moved while no process has it open is one graph under
+  its new name, and its lease refuses a second writer as usual
+  (`tests/graph/test_sqlite_writer_lease_disclosed_limits.py::test_a_database_file_moved_while_no_process_has_it_open_is_leased_under_its_new_name`).
+  Option (C), a lock keyed on the file's device and inode in a declared
+  directory, is being built to close this gap (`D-IMPL-378`, 2026-10-08), and
+  `SEC-013` stays open until then.
 - **Postgres.** Connect directly or through a *session*-pooled connection. A
   transaction- or statement-pooled connection (PgBouncer in those modes)
   cannot carry a session lock. A dropped connection loses the lease silently:

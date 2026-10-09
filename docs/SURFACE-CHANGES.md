@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2450 entries**, of which **2173** name a public Python surface.
+**2453 entries**, of which **2176** name a public Python surface.
 
 ## Added
 
@@ -30707,7 +30707,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-431 entries — 392 public Python surface, 39 not public Python API.
+434 entries — 395 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36999,6 +36999,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
 
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: `writer_lease()` took the `flock` beside the resolved path and returned it, whatever other names the database file had, so a writer through a hard link took a different lock and was not refused.
+- After: `writer_lease()` refuses a database file with more than one name (a hard link), through any of its names, with `WriterLeaseHeld`, after releasing the lock it took; a boot through either name is refused with `SingleWriterViolation`. A file with one name, and an in-memory database, are leased as before.
+- Why: SEC-013 (CLAUDE.md §10): a lock beside one name cannot exclude a writer through another, and SQLite names its write-ahead log after the path too, so a second name reads another log and misses what the first committed.
+- Migration: keep one name for a live database file. A hard link to it, including one a hard-link backup makes inside the same filesystem, refuses every writer boot until it is removed.
+
+*Recorded by `378-43-proposal-sqlite-lease-refuses-a-second-name.md`.*
+
 #### ccf.artifacts.mcp_store.McpArtifactStore
 
 - Surface: ccf.artifacts.mcp_store.McpArtifactStore
@@ -37010,6 +37022,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: code that caught `McpServerUnreachable` around `put` to handle a server's refusal catches `ArtifactStoreError` instead.
 
 *Recorded by `378-43-small2-store-decline-lease-name-withholding-doc.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: the docstrings of `writer_lease` and of `SqliteWriterLease` stated option (B)'s refusal of a second name and noted that a live file moved to a new name escapes it, but neither said what the refusal costs a deployment that takes hard-link backups, what a move of a live file loses, or how to move or back up a database file safely.
+- After: documentation only; the behavior is option (B)'s, unchanged. Both docstrings and the security page's §4.6 disclose the rename gap (a live database file moved to a new name escapes the lease; SQLite's write-ahead log stays beside the old name, so what was committed through it can be lost with no integrity error; stop every process that has the file open before moving it; `SEC-013` stays open pending option (C)) and the hard-link backup restriction (a hard link to the database file refuses every writer boot until it is removed, even with no writer live; back up with SQLite's online backup API or `VACUUM INTO` instead).
+- Why: Dave's ruling on item 8 (`D-IMPL-378`, 2026-10-08 21:24 MST): "B now, with the rename gap and hard-link backup restriction explicitly disclosed."
+- Migration: a deployment that backs up a SQLite graph by hard-linking its database file, or that moves a live database file, changes how it does both, as above.
+
+*Recorded by `378-44-b8-sqlite-lease-option-b-ruled-and-its-two-limits-disclosed.md`.*
+
+#### ccf_runtime.mcp.product_door.ProductDoor
+
+- Surface: ccf_runtime.mcp.product_door.ProductDoor
+- Public surface: true
+- Change type: behavior
+- Before: `serve_stdio` set `auth_context_var` to the identity it was handed and left it set after it returned, raised or was cancelled, so after the call the caller's context still held the stdio identity.
+- After: `serve_stdio` restores, in a `finally`, the login identity the caller's context held before the call, a prior identity or none, whichever way the call ends: a normal return, an exception raised inside the transport (it still propagates, unchanged), or cancellation (`asyncio.CancelledError` still propagates). While the server runs, the identity it was handed answers for every caller, as before, and a call without an identity is still refused with `StdioIdentityRequired` before anything is set.
+- Why: Dave's ruling on item 9 (b) (`D-IMPL-378`, 2026-10-08 21:24 MST): "Restore the previous login identity in finally; verify normal return, exception and cancellation."
+- Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
+
+*Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
 
 ### Not public Python API
 

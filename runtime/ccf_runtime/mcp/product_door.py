@@ -285,6 +285,19 @@ class ProductDoor:
         naming the ruling, rather than by an anonymous ``TypeError``; the
         refusal happens before the server is built or anything is set.
 
+        **The identity lasts as long as the call, and no longer** (item 9 (b),
+        ``D-IMPL-378``). It is set in the caller's context just before the
+        server starts, so it answers for every caller while the server runs.
+        When ``serve_stdio`` leaves, whether by returning, by an exception
+        raised inside the transport or by cancellation, a ``finally``
+        restores the login identity the context held before the call, none
+        included; the exception or the cancellation still propagates
+        (measured by
+        ``tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_a_normal_return_the_previous_identity_is_restored``,
+        ``tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_an_exception_inside_the_transport_the_previous_identity_is_restored``
+        and
+        ``tests/mcp/test_stdio_door_restores_the_previous_identity.py::test_after_cancellation_while_serving_the_previous_identity_is_restored``).
+
         **This transport reads neither advertised address** (C2-A (b),
         ``D-IMPL-378``). The issuer and resource-server addresses are OAuth
         discovery metadata for an HTTP application, and stdio builds none;
@@ -314,8 +327,11 @@ class ProductDoor:
             issuer_url=_STDIO_ISSUER_URL,
             resource_server_url=_STDIO_RESOURCE_SERVER_URL,
         )
-        auth_context_var.set(identity)
-        server.run(transport="stdio")
+        previous = auth_context_var.set(identity)
+        try:
+            server.run(transport="stdio")
+        finally:
+            auth_context_var.reset(previous)
 
     def serve_loopback(self, *, announce: Callable[[int], None]) -> None:
         """Bind an ephemeral loopback port, announce it once up, serve streamable HTTP.
