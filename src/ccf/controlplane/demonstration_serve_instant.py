@@ -83,8 +83,10 @@ class DemonstrationServeInstant(CCFContract):
     A deployment value, and the SDK supplies none. Declaring it does not make a
     deployment a demonstration by itself: the composition that honors it
     (`ccf.products.demonstration_clock.compose_serve_clock`) refuses it outside
-    the SDK's development substrates, and every record made under it pins this
-    artifact's exact version in Decision Replay dimension 2.
+    the SDK's own approved development backends (`D-IMPL-378` decision 6 (b):
+    a third-party graph adapter is refused whatever its registration declares),
+    and every record made under it pins this artifact's exact version in
+    Decision Replay dimension 2.
 
     Attributes:
         serve_instant: The instant ``served_at`` reads, zone-bearing. A

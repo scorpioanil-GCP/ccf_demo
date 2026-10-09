@@ -217,7 +217,7 @@ SDK_ARTIFACT_CLASSES: dict[str, ArtifactClass] = {
     # manifest deployment can register the same class at the same derived key.
     # TYPED, with no author lanes, like the temporal boundary above. Registering
     # it does not by itself move any clock: the composition admits it only on the
-    # SDK's development substrates (`ccf.products.demonstration_clock`).
+    # SDK's own approved development backends (`ccf.products.demonstration_clock`).
     DEMONSTRATION_SERVE_INSTANT.class_id: DEMONSTRATION_SERVE_INSTANT,
 }
 

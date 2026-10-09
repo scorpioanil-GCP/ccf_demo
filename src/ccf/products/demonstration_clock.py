@@ -10,8 +10,13 @@ module is where a composition turns it into the fabric's serve clock.
 **RULED: option (b)** — Dave, 2026-10-08 10:50 MST, *"Option b on C1 and
 C2-A"* (the `D-IMPL-378` dated amendment of that time). How "never usable in
 production" is enforced: the declaration is refused unless the fabric runs on the
-SDK's development substrates, and every record made under it pins it. The options
-it was chosen among are lane ``378d-democlock``'s ``PROPOSAL-C1.md`` §4.
+SDK's own approved development backends, and every record made under it pins it.
+The options it was chosen among are lane ``378d-democlock``'s ``PROPOSAL-C1.md``
+§4. **Decision 6 (b)** — Dave, 2026-10-09 (confirmed at 06:21 MST): *"Restrict
+demonstration time to the SDK's own approved development backends. Explicitly
+amend the broader “declares itself” wording."* Option (b) there reads *"tighten
+the code to the SDK's own SQLite / in-memory classes"*; rule 4 below is that
+tightening.
 **C1-late, RULED (a)** — Dave, 2026-10-08 12:29 MST: *"Running services retain
 their startup snapshot. Document that later registration takes effect only after
 rebuilding."* Rule 2 below is that snapshot, and says what rebuilding is on each
@@ -43,14 +48,20 @@ The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
 3. **One authority.** A composition that supplies its own clock while the
    deployment declares an instant is refused by name
    (:class:`DemonstrationServeInstantConflict`) rather than letting either win.
-4. **Development substrates only** (option (b)). Refused
-   (:class:`DemonstrationServeInstantRefused`) unless the graph adapter's own
-   registration declares itself a development reference
-   (`ccf.graph.registry.BackendRegistration.development_reference`, set only by
-   the SDK's SQLite and in-memory adapters) and the artifact store is the SDK's
-   file-backed store — the implementations CLAUDE.md §7.4 and §9 name as
-   development references (``D-IMPL-02``). The adapter is asked through the
-   registry, so core names none (``D-IMPL-93`` property (2)).
+4. **The SDK's own approved development backends only** (option (b), narrowed
+   by decision 6 (b)). Refused (:class:`DemonstrationServeInstantRefused`)
+   unless the graph adapter is one the SDK ships whose own registration is a
+   development reference (`ccf.graph.registry.is_sdk_development_reference`:
+   the SDK's SQLite and in-memory adapters) and the artifact store is an
+   instance of the SDK's file-backed store class — the implementations
+   CLAUDE.md §7.4 and §9 name as development references (``D-IMPL-02``). An
+   adapter's declaration about itself does not count: a third-party
+   registration that sets
+   `ccf.graph.registry.BackendRegistration.development_reference` is refused,
+   since that field is read only on the SDK's own records. The store check is
+   ``isinstance``, so a subclass of the SDK's file-backed store passes it. The
+   adapter is asked about through the registry, so core names none
+   (``D-IMPL-93`` property (2)).
 5. **Confined to the serve clock.** Only ``served_at`` moves. The Control Plane
    audit log, the erasure consult's audit stamp, the door's authentication and
    entitlement clocks keep their own; Context Debt keeps the decision instant
@@ -85,7 +96,7 @@ from ccf.controlplane.demonstration_serve_instant import (
 )
 from ccf.controlplane.registry import ControlPlaneProtocol
 from ccf.erasure.approval import PinnedPolicySource
-from ccf.graph.registry import resolve as resolve_graph_adapter
+from ccf.graph.registry import is_sdk_development_reference
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from ccf.artifacts.protocol import ArtifactStoreProtocol
@@ -106,12 +117,14 @@ RefusalReason = Literal["graph-substrate-not-development", "artifact-store-not-d
 
 
 class DemonstrationServeInstantRefused(ValueError):
-    """A declared demonstration serve instant outside the SDK's development substrates.
+    """A declared demonstration serve instant outside the SDK's own approved development backends.
 
     Raised at composition, before any question is answered. Ruled option
     (b) (Dave, 2026-10-08): a frozen serve clock keeps expired answers servable and judges
     policy and admission at a stale instant, so it is refused on any substrate a
-    production deployment would run on.
+    production deployment would run on. Narrowed by decision 6 (b) (Dave,
+    2026-10-09) to the SDK's own approved development backends: a third-party
+    graph adapter is refused whatever its registration declares.
 
     Attributes:
         reason: Which substrate refused it.
@@ -167,18 +180,22 @@ class DeclaredServeClock:
 def _refuse_outside_development_substrates(
     *, pinned: PinnedDemonstrationServeInstant, graph_adapter: str, artifact_store: object
 ) -> None:
-    """Raise unless the graph and the artifact store are the SDK's development references."""
-    # Asked of the adapter the fabric booted, through the registry — the
-    # adapter's own declaration, never a name list in core (`D-IMPL-93`).
-    if not resolve_graph_adapter(graph_adapter).registration.development_reference:
+    """Raise unless the graph and the artifact store are the SDK's own development backends."""
+    # Decision 6 (b): asked of the registry about the adapter the fabric booted,
+    # and answered from the SDK's own adapter package and the SDK's own record,
+    # never from the adapter's declaration about itself, and never from a name
+    # list in core (`D-IMPL-93`).
+    if not is_sdk_development_reference(graph_adapter):
         raise DemonstrationServeInstantRefused(
             f"{pinned.key!r} declares a demonstration serve instant"
             f" ({pinned.instant.isoformat()}), and this fabric's graph adapter"
-            f" {graph_adapter!r} does not declare itself a development reference"
-            " (`BackendRegistration.development_reference`). A fixed serve clock"
-            " keeps expired answers servable and judges policy and admission at a"
-            " stale instant, so it is refused on any substrate a production"
-            " deployment runs on (D-IMPL-378 C1)",
+            f" {graph_adapter!r} is not one of the SDK's own approved development"
+            " backends. An adapter's declaration about itself does not make it"
+            " one: `BackendRegistration.development_reference` is read only on"
+            " the SDK's own registrations. A fixed serve clock keeps expired"
+            " answers servable and judges policy and admission at a stale"
+            " instant, so it is refused on any substrate a production deployment"
+            " runs on (D-IMPL-378 C1, decision 6 (b))",
             reason="graph-substrate-not-development",
             key=pinned.key,
         )
@@ -233,8 +250,11 @@ def compose_serve_clock(
             declaration, so whichever was registered last would silently win.
         DemonstrationServeInstantConflict: the caller composed its own clock and
             the deployment declares an instant.
-        DemonstrationServeInstantRefused: the declaration sits on a substrate
-            that is not a development reference.
+        DemonstrationServeInstantRefused: the declaration sits on a graph
+            adapter that is not one of the SDK's own approved development
+            backends, whatever that adapter's registration declares, or on an
+            artifact store that is not an instance of the SDK's file-backed
+            store class.
     """
     key = demonstration_serve_instant_key(tenant_id=fabric.tenant_id)
     if isinstance(control_plane, PinnedPolicySource):

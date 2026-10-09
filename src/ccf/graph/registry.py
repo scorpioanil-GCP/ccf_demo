@@ -149,6 +149,7 @@ __all__ = [
     "ResolvedSecret",
     "UnknownBackend",
     "declared_names",
+    "is_sdk_development_reference",
     "resolve",
     "validate_connection",
 ]
@@ -344,15 +345,22 @@ class BackendRegistration:
             token. The registry never calls this — the composition root does,
             and a test asserts it is the only caller under ``src/`` and
             ``runtime/``.
-        development_reference: Whether this adapter is one of the SDK's
-            DEVELOPMENT reference substrates (`D-IMPL-378` C1; SDK-defined,
-            CLAUDE.md §11). A composition admits a declared demonstration serve
-            instant only over an adapter that declares this
-            (`ccf.products.demonstration_clock.compose_serve_clock`). It is a
-            fact the adapter states about itself, so core names no adapter to
-            ask it (``D-IMPL-93`` property (2)). Defaults to ``False``: an
-            adapter that says nothing — every third-party adapter written before
-            this field — is never a development reference.
+        development_reference: Whether this adapter is one of the SDK's own
+            approved DEVELOPMENT backends (`D-IMPL-378` C1, narrowed by
+            decision 6 (b); SDK-defined, CLAUDE.md §11). **Read only on the
+            SDK's own registrations**: :func:`is_sdk_development_reference`
+            reads it off the record an adapter this SDK ships carries, and a
+            composition admits a declared demonstration serve instant only over
+            such an adapter
+            (`ccf.products.demonstration_clock.compose_serve_clock`). On a
+            third-party registration it is never read, so a third-party adapter
+            that sets it is still refused demonstration time (Dave, 2026-10-09:
+            *"Restrict demonstration time to the SDK's own approved development
+            backends. Explicitly amend the broader “declares itself”
+            wording."*). It stays on the SDK's own records because core names no
+            adapter (``D-IMPL-93`` property (2)): the SDK's own adapter states
+            the fact, and only the SDK's own statement counts. Defaults to
+            ``False``.
     """
 
     name: str
@@ -794,6 +802,63 @@ def resolve(name: str) -> ResolvedBackend:
         version=version,
         distribution=distribution,
     )
+
+
+def is_sdk_development_reference(name: str) -> bool:
+    """Whether ``name`` selects one of the SDK's OWN approved development backends.
+
+    SDK-defined (CLAUDE.md §11). ``D-IMPL-378`` decision 6 (b), Dave,
+    2026-10-09: *"Restrict demonstration time to the SDK's own approved
+    development backends. Explicitly amend the broader “declares itself”
+    wording."* It narrows C1 (b), under which an adapter whose registration
+    declared itself a development reference was admitted, third-party adapters
+    included. `ccf.products.demonstration_clock.compose_serve_clock` asks this
+    before it admits a declared demonstration serve instant.
+
+    True only when both of these hold, and a third party can produce neither by
+    declaring it:
+
+    * ``name`` is an adapter this SDK ships: found in the SDK's own adapter
+      package directory, the built-in discovery source, never through the
+      :data:`BACKEND_ENTRY_POINT_GROUP` group. An installed distribution cannot
+      add a name to that directory, and cannot claim one of its names through
+      the group: discovery refuses that as :class:`ReservedBackendName`, and
+      :func:`resolve` refuses a record that answers to a name it does not carry;
+    * the registration record that the SDK's own module for that adapter
+      carries, which :func:`resolve` returns for a built-in name, declares
+      :attr:`BackendRegistration.development_reference`.
+
+    A third-party registration's own ``development_reference`` is never read
+    here. Whatever it declares, a third-party adapter is not one of the SDK's
+    own development backends, including one that re-registers the constructors
+    of an SDK store under its own name.
+
+    **What this does not decide: which adapter a fabric actually booted.** The
+    composition passes the name on the booted handle's adapter pin
+    (``ccf.boot.FabricHandle.adapter``), which :func:`ccf.boot.boot` builds from
+    the resolved record's own name. Deployment code that rewrites that pin, or
+    constructs a handle directly, can name an SDK adapter over another store.
+    That is deployment code acting inside the trusted-code assumption, not an
+    adapter declaring itself.
+
+    Imports nothing for a name the SDK does not ship. For a built-in name it
+    calls :func:`resolve`, which imports that one adapter module (a booted
+    fabric already did).
+
+    Args:
+        name: An adapter name, as a manifest or a booted handle's pin carries it.
+
+    Raises:
+        RuntimeError: the SDK's own adapter package is not readable, as for
+            :func:`resolve`.
+        ValueError: for a built-in name, a discovery refusal :func:`resolve`
+            raises (:class:`ReservedBackendName`,
+            :class:`DuplicateBackendName`, a malformed declared name), or the
+            SDK's own module carries no registration record.
+    """
+    if name not in _builtin_names():
+        return False
+    return resolve(name).registration.development_reference
 
 
 def _load_builtin(module_path: str) -> object | None:

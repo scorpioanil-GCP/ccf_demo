@@ -371,7 +371,10 @@ REGISTRATION = BackendRegistration(
     secret_fields=frozenset(),
     open_store=_open_store,
     make_writer=_make_writer,
-    # `D-IMPL-378` C1: one of the SDK's development reference substrates, so a
-    # declared demonstration serve instant may compose over it.
+    # `D-IMPL-378` C1, decision 6 (b): one of the SDK's own approved development
+    # backends. Read only on the SDK's own records
+    # (`ccf.graph.registry.is_sdk_development_reference`), so a declared
+    # demonstration serve instant may compose over this adapter and over no
+    # third-party one, whatever that one declares.
     development_reference=True,
 )

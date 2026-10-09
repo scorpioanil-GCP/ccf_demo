@@ -3,9 +3,11 @@
 **SDK-defined** (CLAUDE.md §11; ruling C1 (a), Dave, 2026-10-07/08): *"an SDK way
 for a deployment to declare a fixed demonstration serve instant, honored by both
 transports, never usable in production (security review required)"*. How it is
-kept out of production was ruled option (b) (Dave, 2026-10-08 10:50 MST); these
-tests hold it: the declaration is refused outside the SDK's development
-substrates, and every record made under it pins it.
+kept out of production was ruled option (b) (Dave, 2026-10-08 10:50 MST), and
+narrowed by decision 6 (b) (Dave, 2026-10-09) to the SDK's own approved
+development backends; these tests hold it: the declaration is refused outside
+the SDK's own approved development backends, and every record made under it
+pins it.
 
 What each test asserts, by mechanism:
 
@@ -468,7 +470,8 @@ def test_a_refusal_record_pins_the_declaration(seeded: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Never usable in production (option (b), ruled): development substrates only.
+# Never usable in production (option (b), ruled): the SDK's own development
+# backends only.
 # ---------------------------------------------------------------------------
 
 
@@ -694,6 +697,43 @@ def test_the_sdks_own_development_backends_are_still_admitted_at_composition(
         booted.handle.close()
 
 
+def test_a_subclass_of_the_sdks_file_store_passes_the_store_check(
+    deployment_root: Path, tmp_path: Path
+) -> None:
+    """A DISCLOSED LIMIT, not a guarantee: the store half of the guard is an ``isinstance`` test.
+
+    Decision 6 (b) tightened the graph half to the adapters the SDK ships. The
+    store half admits an instance of the SDK's ``FileArtifactStore`` class, and
+    an instance of a subclass is one, so a store class declared by subclassing
+    passes it. SP §4.14 says so, and this measures it. It goes red if the store
+    half is tightened, so the page is corrected with the code. Lane
+    ``378i-devref`` reports it for a ruling rather than changing it.
+    """
+    from ccf.products.demonstration_clock import DeclaredServeClock, compose_serve_clock
+    from ccf.products.resolver import _utc_now
+
+    class _SubclassStore(FileArtifactStore):
+        """A store class someone else declares, by inheriting the SDK's."""
+
+    booted, control_plane = boot_declared(
+        deployment_root, backend="sqlite", connection=connection_for("sqlite", deployment_root)
+    )
+    try:
+        clock = compose_serve_clock(
+            control_plane=control_plane,
+            fabric=booted,
+            artifact_store=_SubclassStore(
+                root=tmp_path / "store", write_kinds=WriteKinds.declare({})
+            ),
+            admission_clock=_utc_now,
+            sdk_clock=_utc_now,
+        )
+        assert isinstance(clock, DeclaredServeClock), type(clock).__name__
+        assert clock() == DECLARED
+    finally:
+        booted.handle.close()
+
+
 def test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door(
     seeded: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -748,10 +788,13 @@ def test_the_erasure_consult_keeps_the_composition_clock(seeded: Path) -> None:
 def test_only_the_sdks_sqlite_and_in_memory_adapters_are_development_references() -> None:
     """Exactly two built-in adapters declare ``development_reference``.
 
-    The guard asks the booted adapter's own registration, so this holds the
-    declarations: the SQLite and in-memory reference adapters say yes, and every
-    networked adapter the SDK ships says no. An adapter that newly claims the
-    flag — or a development reference that loses it — is red here.
+    The guard reads that flag only on the SDK's own registration of the booted
+    adapter (`ccf.graph.registry.is_sdk_development_reference`; decision 6 (b)),
+    so this holds the SDK's own declarations: the SQLite and in-memory reference
+    adapters say yes, and every networked adapter the SDK ships says no. An SDK
+    adapter that newly claims the flag — or a development reference that loses
+    it — is red here. A third-party registration's flag is never read; the
+    decision 6 (b) tests above hold that.
     """
     from ccf.graph.registry import _builtin_names, resolve
 
