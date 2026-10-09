@@ -1953,6 +1953,28 @@ the same id is refused "already exists".
   execution `suspended` with no step run. Presented again from any process,
   it re-takes the same closure and runs the step after the gate once
   (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
+
+  A suspension whose approval request never reached the queue left the
+  execution `suspended` with no request: its suspension write landed, and its
+  process died, or its artifact store failed, before the enqueue. No verdict on
+  it could count. Dave's decision 8 (a) extends D2 to this shape. The starter's
+  retried start, or a resumption that finds no approval, restores that one
+  request: the request the suspension would have filed, bound to the
+  suspension's unchanged content hash. The recovery runs no step, records no
+  verdict and closes no gate, a verdict recorded while the request was missing
+  still never opens the gate, and a second recovery files nothing more. The
+  erasure door's retried request reaches this path
+  (`tests/workflow/test_restore_missing_approval_request.py`,
+  `tests/erasure/test_erasure_request_restored.py`). Three limits are
+  measured in the first file. When the suspension's own passage, or another
+  recovery, has written the record and not yet queued the request, a recovery
+  that runs in that window files a second identical request; the gate still
+  opens once on one approval, and its closure retires both. A request that a
+  gate primitive has claimed and not yet answered is filed again, and that
+  verdict is then recorded without the primitive's stamp and still opens the
+  gate once. The recovery files the request on its own engine's HITL
+  transport, so run one HITL transport per Control Plane state store: with
+  two, a request pending on one is filed again on the other.
 - **A passage fenced by another writer is refused `execution-fenced`**
   (`D-IMPL-378`). Every write that ends a passage is conditional on the
   version the passage wrote
