@@ -436,6 +436,14 @@ _MARKED_IN_THE_TREE = frozenset(
         "ccf.graph.backends.fluree_write.FlureeConnection.writer_lease_lock_dir",
         "ccf.graph.backends.mongo_write.MongoConnection.writer_lease_lock_dir",
         "ccf.graph.backends.neo4j_write.Neo4jConnection.writer_lease_lock_dir",
+        # `D-IMPL-378` (SEC-013, option (C), Dave 2026-10-08 21:24 MST) — one
+        # mark, ticked deliberately, on the same reasoning as the three above:
+        # the SQLite connection's declared lock directory
+        # (`src/ccf/graph/backends/sqlite_write.py::SqliteConnection`) is
+        # deployment placement, `None` on every connection written before the
+        # field existed, so such a connection canonicalizes byte-for-byte as
+        # it did; a declared directory is a real claim and is rendered.
+        "ccf.graph.backends.sqlite_write.SqliteConnection.writer_lease_lock_dir",
         # `D-IMPL-363` (SEC-005, the signed-claims / time-window repair) —
         # six marks, ticked deliberately. `attestation` REPLACES
         # `signed_binding` on both contracts (E1; the submission's old name is

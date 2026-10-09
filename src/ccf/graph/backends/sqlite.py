@@ -70,6 +70,7 @@ from ccf.graph.protocols import (
     WriterLease,
     WriterLeaseHeld,
     WriterLeaseScope,
+    WriterLeaseSource,
 )
 
 try:
@@ -258,14 +259,23 @@ class SqliteGraphStore:
     Args:
         database_path: File to open. A distinct path per fabric is what makes
             "one writer per graph" a checkable statement at boot.
+        writer_lease: A deployment-declared writer lease
+            (``src/ccf/graph/protocols.py::WriterLeaseSource``), accepted and
+            kept; not yet acquired.
 
     The store is *not* a ``GraphStore`` in the sense of offering both halves of
     the Protocol: it offers :attr:`reader` and, to the writer module alone, the
     connection. See the module docstring.
     """
 
-    def __init__(self, *, database_path: Path | str) -> None:
+    def __init__(
+        self,
+        *,
+        database_path: Path | str,
+        writer_lease: WriterLeaseSource | None = None,
+    ) -> None:
         self._database_path = str(database_path)
+        self._writer_lease = writer_lease
         self._connection = sqlite3.connect(self._database_path)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode = WAL")
