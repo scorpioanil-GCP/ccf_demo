@@ -400,14 +400,22 @@ def test_p6_control_a_source_keyed_on_the_subject_answers(tmp_path: pathlib.Path
 def test_p6_control_an_early_policy_over_the_same_read_answers_and_is_not_probed(
     tmp_path: pathlib.Path, anchor: str
 ) -> None:
-    """Q8: a declared early policy is outside the restriction; the read is asked about the stand-in, never the probe."""
+    """Q8: a declared early policy is outside the restriction; the read is asked about the stand-in in place of the withheld subject.
+
+    Not probed in P6 (a)'s sense: the class is answered, never refused by the
+    restriction. ``D-IMPL-378`` decision 4 (a) (Dave, 2026-10-09 06:06 MST,
+    confirmed 06:21) verifies its stand-in instead, so before each question the
+    read is asked about the probe identifier (the baseline) and then the
+    stand-in; a read that acquires the same content whatever is asked adds
+    nothing for the stand-in, and the question is answered.
+    """
     built = w.build_population(tmp_path / "early", anchor=anchor, holds=True, active=True, early=True)
     try:
         _answers(built.ask, (w.SUBJECT, w.NEVER))
         source = built.notes["opened"]._acquire
     finally:
         built.close()
-    assert source.asked == [w.STAND_IN, w.NEVER], source.asked
+    assert source.asked == [_probe(), w.STAND_IN, w.STAND_IN, _probe(), w.STAND_IN, w.NEVER], source.asked
 
 
 @pytest.mark.parametrize("anchor", w.ANCHORS)

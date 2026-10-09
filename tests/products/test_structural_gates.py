@@ -560,7 +560,16 @@ def test_the_resolver_resolves_then_gates_then_withholds_and_hands_no_principal(
     # `_refuse_a_population_read_in_the_subject_keyed_phase` — the probe's call
     # with UNHELD_SUBJECT_PROBE, then the read it is compared by — and `__call__`
     # calls that helper between the read before acquisition and the seam's call
-    # for the question's subject. No other read or seam call exists in the module.
+    # for the question's subject.
+    #
+    # And decision 4 (a) (`D-IMPL-378`, Dave 2026-10-09 06:06 MST, confirmed
+    # 06:21: "Verify the stand-in is absent before and after acquisition"): ONE
+    # more read and ONE more seam call site, both inside `_acquired_for`, which
+    # `_refuse_a_stand_in_that_names_something` calls twice — first with
+    # UNHELD_SUBJECT_PROBE, the baseline, then with the declared stand-in — and
+    # `__call__` calls that helper between the read before acquisition and the
+    # seam's call for the question's subject. No other read or seam call exists
+    # in the module.
     def _calls_in(node: ast.AST) -> list[ast.Call]:
         return [found for found in ast.walk(node) if isinstance(found, ast.Call)]
 
@@ -577,11 +586,17 @@ def test_the_resolver_resolves_then_gates_then_withholds_and_hands_no_principal(
     methods = {n.name: n for n in governed.body if isinstance(n, ast.FunctionDef)}
     call_method = methods["__call__"]
     probe_method = methods["_refuse_a_population_read_in_the_subject_keyed_phase"]
-    assert len(_reads_in(tree)) == 3, "three graph reads in the module: two in __call__, one in the P6 probe"
+    stand_in_method = methods["_refuse_a_stand_in_that_names_something"]
+    acquired_for = methods["_acquired_for"]
+    assert len(_reads_in(tree)) == 4, (
+        "four graph reads in the module: two in __call__, one in the P6 probe, one in the stand-in verification's call"
+    )
     reads = _reads_in(call_method)
     assert len(reads) == 2
     before_acquisition, plan_read = reads
-    assert len(_seams_in(tree)) == 2, "the declared acquisition seam is invoked in two places: the question's, the probe's"
+    assert len(_seams_in(tree)) == 3, (
+        "the declared acquisition seam is invoked in three places: the question's, the probe's, the stand-in verification's"
+    )
     seams = _seams_in(call_method)
     assert len(seams) == 1, "the declared acquisition seam is invoked in one place in __call__"
     (seam,) = seams
@@ -595,6 +610,23 @@ def test_the_resolver_resolves_then_gates_then_withholds_and_hands_no_principal(
     (probe_seam,) = _seams_in(probe_method)
     (probe_read,) = _reads_in(probe_method)
     assert probe_seam.lineno < probe_read.lineno, "the probe's comparison read follows the probe's own call"
+    stand_ins = [
+        c for c in _calls_in(call_method)
+        if ast.unparse(c.func) == "self._refuse_a_stand_in_that_names_something"
+    ]
+    assert len(stand_ins) == 1, "the stand-in is verified in one place"
+    (stand_in,) = stand_ins
+    assert before_acquisition.lineno < stand_in.lineno < seam.lineno < plan_read.lineno
+    verified = sorted(
+        (c for c in _calls_in(stand_in_method) if ast.unparse(c.func) == "self._acquired_for"),
+        key=lambda call: call.lineno,
+    )
+    assert [ast.unparse(call.args[1]) for call in verified] == ["UNHELD_SUBJECT_PROBE", "stand_in"], (
+        "the stand-in's phase call is compared with the probe identifier's, asked first"
+    )
+    (verifying_seam,) = _seams_in(acquired_for)
+    (verifying_read,) = _reads_in(acquired_for)
+    assert verifying_seam.lineno < verifying_read.lineno, "each verification read follows its own call"
     gate_calls = [c for c in calls if _named(c) == "run_gates"]
     assert len(gate_calls) == 1
     (gate_call,) = gate_calls
