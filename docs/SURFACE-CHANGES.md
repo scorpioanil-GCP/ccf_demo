@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2470 entries**, of which **2193** name a public Python surface.
+**2474 entries**, of which **2197** name a public Python surface.
 
 ## Added
 
@@ -30767,7 +30767,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-446 entries — 407 public Python surface, 39 not public Python API.
+450 entries — 411 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37250,6 +37250,54 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller catching `ValueError`.
 
 *Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifact_base.ArtifactClass
+
+- Surface: ccf.controlplane.artifact_base.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: its docstring did not say what the reserved `ccf.` namespace does not stop.
+- After: unchanged behavior; its docstring states R3: a class built directly under a `ccf.` id over a contract with no `class_id` field registers that contract's documents under the SDK's class name, key bound and audited, while the reservation holds on every document, manifest, config and envelope route.
+- Why: `D-IMPL-378` OWED-RULINGS-3 item 3P1 (a). Measured by `tests/controlplane/test_reserved_namespace_disclosed_residual.py::test_3p1_a_r3_a_ccf_class_built_over_an_adopter_contract_stating_no_class_id_registers`.
+- Migration: none. Register an SDK class with the SDK's own `ArtifactClass` constant, and give your own classes ids in your own namespace.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifacts.ArtifactClass
+
+- Surface: ccf.controlplane.artifacts.ArtifactClass
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ArtifactClass`, which this name re-exports.
+- After: the same docstring.
+- Why: OWED-RULINGS-3 item 3P1 (a).
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: its docstring listed where the reservation is refused and not what it leaves unrefused.
+- After: unchanged behavior; its docstring states R3 as not refused, by ruling.
+- Why: OWED-RULINGS-3 item 3P1 (a). Measured as for `ccf.controlplane.artifact_base.ArtifactClass`.
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ReservedArtifactClassId`, which this name re-exports.
+- After: the same docstring.
+- Why: OWED-RULINGS-3 item 3P1 (a).
+- Migration: none.
+
+*Recorded by `378-53-d-reserved-namespace-residual-disclosed.md`.*
 
 ### Not public Python API
 
