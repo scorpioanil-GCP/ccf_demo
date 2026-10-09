@@ -643,18 +643,24 @@ class WorkflowEngine:
         **A suspension whose approval request never reached the queue** (its
         suspension write landed and its engine stopped, or its artifact store
         failed, before the enqueue) has no approval to find. A resumption that
-        finds none RESTORES that one request, built as the suspension built it
-        and bound to its unchanged content hash, and returns the suspension:
-        nothing passes the gate, and a verdict recorded while the request was
-        missing is never authority (Dave's decision 8 (a);
-        :meth:`_restore_request`, which also states what a recovery cannot
-        see).
+        finds none is refused, and its refusal row (``workflow_resumed``,
+        ``resolved=False``) is appended first, as for any refused resumption
+        (Dave's repair 1.4 (a)). It then RESTORES that one request, built as
+        the suspension built it and bound to its unchanged content hash, and
+        returns the suspension: nothing passes the gate, and a verdict
+        recorded while the request was missing is never authority (Dave's
+        decision 8 (a); :meth:`_restore_request`, which also states what a
+        recovery cannot see). The row and the restore are separate writes: a
+        restore that fails after the row leaves the row and no request, and
+        the next resumption that finds no approval is refused and restores in
+        the same way.
 
         Measured by ``tests/workflow/test_approval_gate_limits.py``,
         ``tests/http_api/test_approval_gate_limits_door.py``,
         ``tests/workflow/test_resume_single_flight.py``,
-        ``tests/workflow/test_finish_interrupted_passage.py`` and
-        ``tests/workflow/test_restore_missing_approval_request.py``.
+        ``tests/workflow/test_finish_interrupted_passage.py``,
+        ``tests/workflow/test_restore_missing_approval_request.py`` and
+        ``tests/workflow/test_restore_keeps_the_refused_resumption_row.py``.
 
         Raises:
             WorkflowExecutionTypeError: ``workflow`` is not a factory-built
@@ -858,21 +864,15 @@ class WorkflowEngine:
                 snapshot=snapshot,
             )
             if not qualifying:
-                # D-IMPL-378, Dave's decision 8 (a): a suspension whose approval
-                # request never reached the queue has no approval to find; it
-                # gets that one request back, and nothing passes the gate.
-                restored = self._restore_request(
-                    authorized,
-                    workflow,
-                    execution_id=execution_id,
-                    key=key,
-                    record=record,
-                    version=version,
-                    snapshot=snapshot,
-                )
-                if restored is not None:
-                    return restored
-                return self._refuse(
+                # D-IMPL-378, Dave's repair 1.4 (a) of 2026-10-09: "Preserve the
+                # refused-resumption audit row, then restore the missing approval
+                # request idempotently." No approval qualifies, so this
+                # resumption is refused, and its refusal row is appended FIRST,
+                # whatever follows. THEN, by his decision 8 (a), a suspension
+                # whose approval request never reached the queue gets that one
+                # request back, and nothing passes the gate. Two separate acts: a
+                # restore that fails after the row leaves the row standing.
+                refused = self._refuse(
                     authorized,
                     workflow,
                     execution_id=execution_id,
@@ -885,6 +885,18 @@ class WorkflowEngine:
                         " (CLAUDE.md §8.2; D-IMPL-20)"
                     ),
                 )
+                restored = self._restore_request(
+                    authorized,
+                    workflow,
+                    execution_id=execution_id,
+                    key=key,
+                    record=record,
+                    version=version,
+                    snapshot=snapshot,
+                )
+                if restored is not None:
+                    return restored
+                return refused
             # Selection is UNCHANGED (D-IMPL-357 A4): the head of the
             # eligible tuple is the submission the single-submission form
             # returned, because ``submissions`` is oldest-first. What changed
@@ -2179,7 +2191,8 @@ class WorkflowEngine:
         ``record`` suspended at its gate with no request, so no verdict on it
         could ever count. D2's two triggers reach it, the starter's retried
         start (:meth:`_finish_start`) and a resumption that finds no approval
-        (:meth:`resume`), and this files what is left of the suspension, in this
+        (:meth:`resume`, which appends its refusal row first, Dave's repair
+        1.4 (a)), and this files what is left of the suspension, in this
         order:
 
         * the trace artifact, from the record's own trace. It is
@@ -2189,9 +2202,14 @@ class WorkflowEngine:
           version the caller read (:meth:`_fenced_write`). Its content hash,
           which the request, every verdict and the gate's closure are bound to,
           does not change, and the write appends one more ``workflow_suspended``
-          row for the same suspension. Of two recoveries that read the same
+          row for the same suspension. That row is the suspension's own row in
+          every field but its sequence and its time, so nothing in it marks a
+          restore
+          (``tests/workflow/test_restore_keeps_the_refused_resumption_row.py::test_the_restores_row_is_the_suspensions_own_row_but_for_its_sequence_and_time``).
+          Of two recoveries that read the same
           version, one write lands and the other raises
-          :class:`ExecutionFenced` having filed no request;
+          :class:`ExecutionFenced` having filed no request (a resumption's
+          refusal row, appended before, stays);
         * the one request, built by :meth:`_gate_event` exactly as the
           suspension built it, so its key, class, content hash, pinned approval
           policy and requester are the suspension's, whoever recovers it.
