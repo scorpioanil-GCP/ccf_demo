@@ -39,6 +39,24 @@ def plan_factory(*, required: tuple[str, ...], request: ProductRequest) -> Proje
     )
 
 
+def _withholds_no_subject() -> bool:
+    """``plan_factory``'s positive declaration (`D-IMPL-378` E2 (ii) (d)).
+
+    ``NonWithholdingPlanFactoryProtocol``: ``ccf_config.yaml`` affirms
+    ``subject_withholding: never``, and the SDK builds this class only over a
+    factory that says so. True of what ``plan_factory`` builds:
+    ``projection.PackagedMemoProjection.invoke`` returns ``ProjectionOutput``
+    with a plan id and a payload and never the withheld signal, for any
+    subject or principal.
+    """
+    return True
+
+
+#: A NAMED ``def`` carries the declaration as an attribute: the structural form
+#: of the companion protocol for a function.
+plan_factory.withholds_no_subject = _withholds_no_subject  # type: ignore[attr-defined]
+
+
 def product(scratch: Path, *, environ: Mapping[str, str] | None = None) -> OpenedProduct:
     """Open the product: one call binds this deployment's callables to its documents.
 

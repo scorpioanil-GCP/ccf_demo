@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **350** across **113** files
+- Coupling rows: **348** across **111** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **190** across **67** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
@@ -18,18 +18,18 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 12 |
 | 17-08 | 121 |
-| 23-04 | 198 |
+| 23-04 | 196 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
 
 | Shape | Rows |
 | --- | --- |
-| `comment` | 15 |
+| `comment` | 14 |
 | `config-token` | 7 |
 | `count-constant` | 5 |
 | `count-scan-function` | 5 |
-| `docstring` | 81 |
+| `docstring` | 80 |
 | `indirect-execution` | 1 |
 | `literal-set-member` | 8 |
 | `makefile-recipe` | 2 |
@@ -161,8 +161,6 @@ Rows by coupling shape:
 | `examples/external/README.md` | 62 | `archive/examples/external/00-hello-context` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/external/README.md` | 73 | `archive/examples/03-harness-portability` | `prose` | documentary | - | - | 23-04 |  |
 | `examples/hw1-companies-over-revenue/deployment/ccf_config.yaml` | 9 | `examples/s1-00-companies-over-revenue` | `comment` | documentary | - | - | 17-08 |  |
-| `examples/hw1-companies-over-revenue/server/egress-door.yaml` | 7 | `examples/04-cross-process` | `comment` | documentary | - | - | 23-04 |  |
-| `examples/hw1-companies-over-revenue/server/serve.py` | 31 | `examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/drive.py` | 941 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/model_stub.py` | 10 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |
 | `examples/hw1-harness-clients/runner/model_stub.py` | 33 | `examples/external/00-hello-context` | `docstring` | documentary | - | - | 23-04 |  |

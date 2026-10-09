@@ -52,6 +52,14 @@ product_class:
       - credit-memo-context
     audiences:
       - credit-officer
+  # THE WITHHOLDING STANCE (`D-IMPL-378` P2 (c), Dave, 2026-10-08): a composite
+  # states, before any question, whether its answers may withhold their subject.
+  # This memo's Π (`projection.py::CreditMemoContextProjection`) never raises the
+  # withheld signal: a child its own producer withholds REFUSES its required slot,
+  # and the memo refuses with it; the memo never answers in the subject's place.
+  # So the class states `never`, and the resolver refuses by name any answer that
+  # withholds under it.
+  subject_withholding: never
   # WHAT THIS COMPOSITE REQUIRES — the five children of spec §B.7, as declared
   # requirements: a CLASS and a FLOOR each, never a producer, a skill, a tenant
   # or a transport. Every slot is required; a required slot carries no absence

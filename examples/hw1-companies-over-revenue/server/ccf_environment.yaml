@@ -1,0 +1,44 @@
+# THE DOOR'S ENVIRONMENT: the name the SDK's standard door (`open_door`) reads
+# its credential from (`D-IMPL-343`). No value appears here. A URL or a token in a document is what Dave's `D-IMPL-343` lock
+# refuses ("Do not put URLs or tokens in configuration."), and the SDK's reader
+# refuses anything in a `from_env` position that is not a variable NAME.
+#
+# Where this sits, and why. The SDK's reader expects this document beside a
+# `ccf_config.yaml`. HW-1's door is the only program that reads it, so it sits
+# beside the door, in `server/`, the directory every copy of this example
+# carries along with the deployment.
+#
+# Two members are inert here, and both are stated so their presence is not
+# read as wiring:
+#
+# * `substrate` is REQUIRED by the document's contract. The paved road mints a
+#   per-question fabric from it; HW-1 does not. Its graph is
+#   `../deployment/binding.yaml`'s `connection:`, booted once per door process,
+#   and nothing reads this block.
+# * `config` is left at its default, `ccf_config.yaml` beside this document,
+#   which does not exist. The document HW-1's door serves is
+#   `../deployment/ccf_config.yaml`, which the field cannot name (it refuses a
+#   path above this directory), and nothing reads the field here.
+
+substrate:
+  setting: database_path
+  prefix: hw1_door_inert
+  suffix: .sqlite3
+
+# The standard door's one name: the credential. When UNSET the door mints one
+# per boot. The stdio caller is the process that spawned this door, so nobody
+# has to know it; a parent that wants to know it sets the variable.
+#
+# No address is named. The two OAuth addresses (`issuer_url`,
+# `resource_server_url`) are optional (`D-IMPL-378` C2-A2 (a)) and no SDK
+# transport reads either name (C2-A (b)): stdio serves no HTTP, so the SDK's
+# stdio transport supplies its own reserved values, and this door starts with
+# no variable set at all. Only a deployment that mounts the door's HTTP app
+# under its own host declares them, for its own code to resolve and pass to the
+# door as values. This one does not.
+door:
+  credential:
+    from_env: CCF_HW1_DOOR_TOKEN
+    remedy: >-
+      export CCF_HW1_DOOR_TOKEN with the bearer credential this door is to be
+      reached with, or leave it unset to have one minted per boot.

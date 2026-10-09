@@ -51,6 +51,17 @@ the product and disagreed on the debt it was assembled under or on the decision
 record that authorized it — and those are two of the four things the example
 exists to show a ``SELECT`` cannot give you.
 
+**One value on those lines is issued per answer, and is compared by its shape.**
+Since Dave's Q11 (2026-10-07) and ``D-IMPL-378`` E1 (a) (2026-10-08 12:29 MST:
+*"Random references must have indistinguishable distributions; equality is no
+longer the criterion"*), every governed answer's record carries a fresh issuance
+and is named by its own content address, so the replay reference's address is
+different for every answer — for two transports, and for two runs of one.
+:func:`with_reference_shape` reads that one address as its shape; the tenant and
+the record class the reference names stay in the byte comparison, and
+:func:`per_answer_reference_violations` holds each leg to printing exactly one
+well-formed reference and no two legs to sharing one.
+
 The child server's own ``INFO`` lines arrive on **stderr** and are not part of
 the comparison. That is not a convenience: stdout is the answer and stderr is the
 server talking, and a comparison that mixed them would fail on a logging format
@@ -75,6 +86,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping
 
 import pytest
 
@@ -100,6 +112,26 @@ NOT_COPIED = shutil.ignore_patterns(
 #: The content address line, for the non-vacuity check. A run that printed
 #: nothing at all would otherwise "agree" with another run that printed nothing.
 ADDRESS = re.compile(r"^\s*content address\s+([0-9a-f]{64})$", re.MULTILINE)
+
+#: The replay-record line ``consume.py`` prints, read as its parts.
+#:
+#: **Its address is issued per answer.** Dave's Q11 (2026-10-07) and
+#: ``D-IMPL-378`` E1 (a) (2026-10-08 12:29 MST): *"Approve random per-answer
+#: issuance [...] Random references must have indistinguishable distributions;
+#: equality is no longer the criterion."* Every governed answer's record carries
+#: a fresh issuance (``src/ccf/replay/record.py::new_issuance``) and is named by
+#: its own content address in both segments
+#: (``src/ccf/replay/serve.py::ReplayWriter.write_replay_record``), so no two
+#: answers print the same address and no caller can compute one. The tenant and
+#: the record class are not issued: two legs of one deployment name the same pair.
+REPLAY_REFERENCE = re.compile(
+    r"^(?P<lead>\s*replay record\s+)ccf-artifact://(?P<tenant>[^/\s]+)/"
+    r"(?P<record_class>[^/\s]+)/(?P<address>[0-9a-f]{64})@(?P=address)$",
+    re.MULTILINE,
+)
+
+#: What a per-answer address is compared as: its shape, never its value.
+PER_ANSWER = "<issued per answer>"
 
 #: How long one leg may take. Generous — the MCP leg spawns an interpreter and
 #: boots a fabric in it — but bounded, because a hung stdio child that never
@@ -170,6 +202,56 @@ def run_leg(command: str, *, example: pathlib.Path) -> str:
     return completed.stdout
 
 
+def with_reference_shape(answer: str) -> str:
+    """``answer`` with the address on its replay line read as :data:`PER_ANSWER`.
+
+    Only the address — the one value the SDK issues afresh for every answer —
+    is replaced. The tenant and the record class stay, so two answers filed by
+    different deployments or under different classes still differ after this.
+    A replay line that is not well formed is left as printed.
+    """
+    return REPLAY_REFERENCE.sub(
+        lambda match: (
+            f"{match.group('lead')}ccf-artifact://{match.group('tenant')}/"
+            f"{match.group('record_class')}/{PER_ANSWER}@{PER_ANSWER}"
+        ),
+        answer,
+    )
+
+
+def per_answer_reference_violations(answers: Mapping[str, str]) -> list[str]:
+    """Every way a set of answers fails to carry one per-answer reference each.
+
+    Two named classes: an answer printing anything but exactly one well-formed
+    reference (none, a malformed one, or two); and two answers printing the
+    SAME reference, which a per-answer issuance never gives two answers.
+    """
+    violations: list[str] = []
+    first_seen: dict[str, str] = {}
+    for binding in sorted(answers):
+        addresses = [
+            match.group("address") for match in REPLAY_REFERENCE.finditer(answers[binding])
+        ]
+        if len(addresses) != 1:
+            violations.append(
+                f"`{binding}` printed {len(addresses)} well-formed replay"
+                " references, not one — a governed answer names the record that"
+                " authorized it, by one address in both segments:\n"
+                + answers[binding]
+            )
+            continue
+        (address,) = addresses
+        if address in first_seen:
+            violations.append(
+                f"`{first_seen[address]}` and `{binding}` printed one replay"
+                f" reference ({address}) for two answers — the reference is issued"
+                " per answer (Dave's Q11; D-IMPL-378 E1 (a)), so two answers never"
+                " share one"
+            )
+        first_seen.setdefault(address, binding)
+    return violations
+
+
 def parity_violations(answers: dict[str, str]) -> list[str]:
     """Every way a set of per-binding answers fails to be the same answer.
 
@@ -177,6 +259,10 @@ def parity_violations(answers: dict[str, str]) -> list[str]:
     feed the **shipped** comparison a divergent pair and be watched failing. A
     comparison that can only ever be handed the passing pair is a comparison
     nobody has watched fail.
+
+    Every printed byte is compared except the replay reference's per-answer
+    address, which is compared by its shape (:func:`with_reference_shape`,
+    :func:`per_answer_reference_violations`).
     """
     violations: list[str] = []
     if len(answers) < 2:
@@ -193,7 +279,8 @@ def parity_violations(answers: dict[str, str]) -> list[str]:
     if violations:
         return violations
 
-    distinct = set(answers.values())
+    violations.extend(per_answer_reference_violations(answers))
+    distinct = {with_reference_shape(answer) for answer in answers.values()}
     if len(distinct) != 1:
         left, right = sorted(answers)
         violations.append(
@@ -259,7 +346,9 @@ def test_both_documented_transports_return_the_same_answer(
     """``D-IMPL-150``. The same ``consume.py``, a different ``CCF_BINDING``.
 
     Both legs are run in the README's order — in-process first, then the child
-    process — against one seeded deployment, and every printed line must match.
+    process — against one seeded deployment, and every printed line must match:
+    byte for byte, but for the replay reference's per-answer address, which each
+    leg must print once, well formed, and never the other leg's.
     """
     answers = {
         shlex.split(command)[0].partition("=")[2]: run_leg(
@@ -384,6 +473,58 @@ def test_the_comparison_refuses_a_single_transport() -> None:
     violations = parity_violations({"inprocess:x": "   content address    " + "a" * 64})
     assert violations, "one answer was reported as a parity result"
     assert any("nothing was compared" in entry for entry in violations), violations
+
+
+def _answer(address: str, reference: str, *, record_class: str = "hw1.replay-record") -> str:
+    """A two-line answer a control states: a content address and a replay reference."""
+    return (
+        f"   content address    {address}\n"
+        f"   replay record      ccf-artifact://hw1-demo/{record_class}/{reference}@{reference}\n"
+    )
+
+
+def test_two_answers_differing_only_in_their_per_answer_reference_agree() -> None:
+    """The per-answer address is read as its shape — and nothing else is.
+
+    The judging change itself, watched: the same product under two issued
+    references is one answer (Dave's E1 (a): *"equality is no longer the
+    criterion"*).
+    """
+    violations = parity_violations(
+        {"inprocess:x": _answer("a" * 64, "1" * 64), "mcp+stdio:y": _answer("a" * 64, "2" * 64)}
+    )
+    assert violations == [], violations
+
+
+def test_the_comparison_refuses_two_answers_sharing_one_reference() -> None:
+    """Two answers printing one reference: the reference stopped being per answer."""
+    violations = parity_violations(
+        {"inprocess:x": _answer("a" * 64, "1" * 64), "mcp+stdio:y": _answer("a" * 64, "1" * 64)}
+    )
+    assert any("one replay reference" in entry for entry in violations), violations
+
+
+def test_the_comparison_still_reads_the_reference_class() -> None:
+    """Only the address is a shape: a reference under another record class disagrees."""
+    violations = parity_violations(
+        {
+            "inprocess:x": _answer("a" * 64, "1" * 64),
+            "mcp+stdio:y": _answer("a" * 64, "2" * 64, record_class="other.replay-record"),
+        }
+    )
+    assert any("disagree" in entry for entry in violations), violations
+
+
+def test_the_comparison_refuses_a_reference_naming_two_contents() -> None:
+    """A reference whose two segments differ is not the well-formed per-answer shape."""
+    malformed = (
+        f"   content address    {'a' * 64}\n"
+        f"   replay record      ccf-artifact://hw1-demo/hw1.replay-record/{'1' * 64}@{'2' * 64}\n"
+    )
+    violations = parity_violations(
+        {"inprocess:x": _answer("a" * 64, "3" * 64), "mcp+stdio:y": malformed}
+    )
+    assert any("well-formed replay references" in entry for entry in violations), violations
 
 
 # ---------------------------------------------------------------------------

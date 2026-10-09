@@ -68,7 +68,10 @@ sources:
 # reached with (unset → minted per boot; a parent that spawns this process
 # sets it to learn it without a side channel), and the two OAuth addresses the
 # door advertises. `run.py --door` binds a loopback port and advertises ITS OWN
-# address, so it reads neither URL; the stdio door reads both.
+# address, so it reads neither URL — and neither does the stdio door, which
+# supplies its own reserved addresses (`D-IMPL-378` C2-A (b)). Both address
+# names are optional (C2-A2 (a)): only a deployment mounting this door's HTTP
+# app under its own host resolves them.
 door:
   credential:
     from_env: CCF_CP_04C_DOOR_TOKEN
@@ -79,10 +82,11 @@ door:
     from_env: CCF_CP_04C_DOOR_ISSUER_URL
     remedy: >-
       export CCF_CP_04C_DOOR_ISSUER_URL with the OAuth issuer this door's auth
-      settings advertise (any https URL for a development stdio door).
+      settings advertise (resolved only by your own code mounting this door's HTTP app;
+      no SDK transport reads either address name).
   resource_server_url:
     from_env: CCF_CP_04C_DOOR_RESOURCE_URL
     remedy: >-
       export CCF_CP_04C_DOOR_RESOURCE_URL with the resource-server address
-      this door's auth settings advertise (any https URL for a development
-      stdio door).
+      this door's auth settings advertise (resolved only by your own code mounting this door's HTTP app;
+      no SDK transport reads either address name).
