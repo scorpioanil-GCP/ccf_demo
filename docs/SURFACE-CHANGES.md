@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2455 entries**, of which **2178** name a public Python surface.
+**2457 entries**, of which **2180** name a public Python surface.
 
 ## Added
 
@@ -30731,7 +30731,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-434 entries — 395 public Python surface, 39 not public Python API.
+436 entries — 397 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37070,6 +37070,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a process that serves stdio as its last act, which is every SDK example. Code that relied on the stdio identity still being set after `serve_stdio` returned sets it itself.
 
 *Recorded by `378-44-s9-stdio-door-restores-the-previous-login-identity.md`.*
+
+#### ccf_runtime.mcp.artifact_server.build_artifact_server
+
+- Surface: ccf_runtime.mcp.artifact_server.build_artifact_server
+- Public surface: true
+- Change type: behavior
+- Before: the names resource (`ccf-artifact-names://`) took the governed dereference only for an address the caller's tenant had filed under a class declared under `ReplayMint`; an address the caller's tenant never filed (another tenant's, nobody's, or a string that is not an address) answered `[]`. A governed address holding no record, an executed-query pin above all, therefore answered the governed read's `nonexistent` shell while an address nobody filed answered `[]`, which told an unentitled caller that the pin exists.
+- After: an address the caller's tenant never filed takes the governed dereference the blob and presence resources take for it and answers its `nonexistent` shell, the same answer a governed address holding no record gets. A principal the governed dereference admits, and the caller's own client-lane filings, get their names as before. Another tenant's filing still takes no part in the decision (C8): without an own filing the answer is the same shell whatever any other tenant filed.
+- Why: the `D-IMPL-378` final panel's F1-1: the names resource was a present-or-absent oracle for governed addresses that hold no record, readable with the asker's own credential. Red tests: `tests/mcp/test_f1_names_present_governed_and_absent_alike.py::test_a_present_governed_pin_and_an_address_nobody_filed_answer_alike` (both parametrizations) and `::test_names_does_not_tell_the_withheld_deployment_from_the_nonexistent_one`.
+- Migration: an erasure door built over the MCP-backed store now refuses an address its tenant never filed `class-unverifiable` (another tenant's address and nobody's alike, so I6 still refuses both), where it refused `address-not-in-tenant`; the door over a store handed to it in process still refuses `address-not-in-tenant`. A client that read `[]` from the names resource as "my tenant filed nothing at this address" now receives the refusal shell, as it already did for a governed address it may not read.
+
+*Recorded by `378-46-proposal-names-decides-an-address-its-tenant-never-filed.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: against the shipped artifact server, `names_at` returned `()` for an address the credential's tenant never filed (another tenant's, or nobody's), and raised `McpServerUnreachable` (a non-naming answer) for a governed address the credential may not read. A string that is not a content address returns `()` with no round trip, before and after.
+- After: `names_at` raises `McpServerUnreachable` for both. The class's code is unchanged; the server's names resource answers both with the governed read's refusal shell, which `names_at` reads as a non-naming answer, as before. `ccf.replay.provenance.filed_by_record_writer` over this store raises it too, where it returned `False`.
+- Why: the `D-IMPL-378` final panel's F1-1 (the entry above).
+- Migration: a caller of `names_at` over the MCP-backed store cannot tell an address its tenant never filed from a governed address it may not read, or either from an outage. The SDK's own consumers fail closed or never ask: the erasure door refuses `class-unverifiable`, and `resolve_artifact`, child admission and `OpenedProduct.record_of` ask the provenance check only after the store returned bytes that hash to the address and parse as a record, which over this store means the server already served that record to the same credential (measured for `resolve_artifact` by the lane's consumers probe, not by a test in this tree: it stops at `get` with `ReplayUnresolvable`, before and after).
+
+*Recorded by `378-46-proposal-names-decides-an-address-its-tenant-never-filed.md`.*
 
 ### Not public Python API
 
