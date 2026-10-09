@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2451 entries**, of which **2174** name a public Python surface.
+**2453 entries**, of which **2176** name a public Python surface.
 
 ## Added
 
@@ -20459,7 +20459,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-622 entries — 430 public Python surface, 192 not public Python API.
+624 entries — 432 public Python surface, 192 not public Python API.
 
 ### Public Python surface
 
@@ -27690,6 +27690,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Migration: none; a document declaring both names loads unchanged. A deployment may drop the two names unless its own code reads them; code that read `door.issuer_url` or `door.resource_server_url` must now handle `None`
 
 *Recorded by `378-35-c2a2-the-door-address-names-are-optional.md`.*
+
+#### ccf.graph.backends.sqlite_write.SqliteConnection
+
+- Surface: ccf.graph.backends.sqlite_write.SqliteConnection
+- Public surface: true
+- Change type: reshaped
+- Before: one setting, `database_path`.
+- After: an optional `writer_lease_lock_dir: AbsoluteLockDirectory | None` (hash-transparent, so a connection without it hashes as before), validated exactly as the network stores' setting: a relative path, a path through a symbolic link, a missing directory, one another user owns, or a group- or world-writable one is refused by name. When set, the boot hands the store the lock-directory lease over it; a read-only boot sets it aside unvalidated (N-2).
+- Why: SEC-013, option (C). The sidecar lease is keyed on the resolved path, so a writer through another name of the same file, a hard link or the new name of a renamed live file, takes another lock.
+- Migration: none required: a connection that declares no directory boots exactly as before (the sidecar and the name count; a renamed live file's new name is not excluded). To have the lease follow the file, declare the same absolute, private directory for every process that writes it.
+
+*Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: reshaped
+- Before: `SqliteGraphStore(*, database_path)`; `writer_lease()` took the sidecar `flock` and refused a file with more than one name.
+- After: `SqliteGraphStore(*, database_path, writer_lease: WriterLeaseSource | None = None)`. With a lease declared, the store reads the database file's device and inode right after SQLite opens it, and refuses with `ValueError` when there is no file (`":memory:"`, `""`); `writer_lease()` then takes the sidecar, the declared lease for that identity (through `acquire_declared_writer_lease`, so a lease that does not exclude other processes is refused with `WriterLeaseRequired`), and the name count, and returns both locks held together, its `mechanism` naming both. Another holder of the file's lease is refused with `WriterLeaseHeld` naming the file, its identity and the held lock, which the boot mint reports as `SingleWriterViolation`. Without `writer_lease=` nothing changes, the `mechanism` text included.
+- Why: SEC-013, option (C): every name of one file has the same device and inode, so every writer of the file that declares the same directory asks for the same lock.
+- Migration: none for a store built without `writer_lease=`. Never rename or move a live database file, and never open one through a second name, even read-only: neither is made safe by any lock.
+
+*Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
 
 ### Not public Python API
 
