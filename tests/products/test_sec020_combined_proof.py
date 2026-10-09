@@ -87,6 +87,15 @@ both its questions (``sec020_worlds.p6_refused``;
 and each of the shape's instruments is then set against that twin answering.
 Its cells stay in the gate, unretired and unmarked.
 
+**Nor on a noise floor whose copy failed** (Dave, 2026-10-09 06:06 MST, ``D-IMPL-378``: *"prove that the
+control successfully answered before using it to excuse differences"*; approved at 06:21 MST: *"A failed spare
+answer cannot excuse differences. Apply the check to the gate and limitation measurements"*). A noise floor is read
+off a second copy of the nonexistent side. Where that copy RAISED, other than the refusal held as the property and
+raised by the side it copies as well, the floor compares an exception with an answer, differs at every path, and
+would excuse every difference. Every comparison checks the copy first (``_compare``): a gate or never-class cell
+fails by name, ``FloorCopyDidNotAnswer``, and a limitation measurement reports the cell under its own outcome,
+``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured.
+
 Dave's ruling D1 = (a) (2026-10-07 21:15 MST; verbatim beside ``sec020_worlds.D1A_RULING``)
 -----------------------------------------------------------------------------------------
 For a product that reads the whole population — the fabric loaded before the
@@ -404,7 +413,14 @@ def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], se
     judged together, over the whole comparison, by
     :func:`test_withheld_and_nonexistent_references_are_drawn_from_one_distribution`.
     Every other path is judged exactly as before.
+
+    **The floor's copy must have answered** (Dave, 2026-10-09 06:06/06:21 MST, ``D-IMPL-378``: *"A failed
+    spare answer cannot excuse differences"*). Before anything is judged, :func:`_require_the_floor_copy_answered`
+    fails the cell by name, :class:`FloorCopyDidNotAnswer`, where the floor's copy raised other than as the refusal
+    held as the property together with the side it copies (:func:`_floor_copy_did_not_answer`).
     """
+    # Dave, 2026-10-09: before the floor excuses anything, its copy must have answered (BLD-1, G-FLOOR-COPY).
+    _require_the_floor_copy_answered(run, comparison)
     withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
     withheld = run.channel(withheld_side, channel, comparison=comparison)
     nonexistent = run.channel(nonexistent_side, channel, comparison=comparison)
@@ -1110,6 +1126,12 @@ def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
     in every run), and recorded in the JUnit record as ``d1a_limitation``. A
     cell that cannot be measured — its run fails to build, a channel is missing
     — fails this test, because an unmeasured limitation is not reported.
+
+    **A floor copy that did not answer** (Dave, 2026-10-09, ``D-IMPL-378``: *"A failed spare answer cannot excuse
+    differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
+    (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
+    raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
+    nor indistinguishable, in the same block and the same JUnit record.
     """
     outcomes: dict[str, dict[str, Any]] = {}
     for cell in RETIRED_D1A:
@@ -1119,6 +1141,10 @@ def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
         vacuous = _vacuous(run, withheld_side, nonexistent_side)
         if vacuous:
             outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        unanswered = _floor_copy_did_not_answer(run, comparison)
+        if unanswered:
+            outcomes[cell] = {"outcome": FLOOR_COPY_OUTCOME, "raised": sorted(unanswered)}
             continue
         differing, floor, _, _ = _compare(run, comparison=comparison, channel=channel)
         outcomes[cell] = (
@@ -1195,6 +1221,12 @@ def test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
     cells and never count toward the gate's pass;
     ``tests/products/test_sec020_p6_probe_recognizing_source_counterexample.py``
     is where the counterexample is held to still hold.
+
+    **A floor copy that did not answer** (Dave, 2026-10-09, ``D-IMPL-378``: *"A failed spare answer cannot excuse
+    differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
+    (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
+    raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
+    nor indistinguishable, in the same block and the same JUnit record.
     """
     levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
     for name in _QUIETED_LOGGERS:
@@ -1219,6 +1251,10 @@ def test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
                         vacuous = _vacuous(run, w.CF_WITHHELD, w.SAME_NONEXISTENT)
                         if vacuous:
                             outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+                            continue
+                        unanswered = _floor_copy_did_not_answer(run, w.SAME_DEPLOYMENT)
+                        if unanswered:
+                            outcomes[cell] = {"outcome": FLOOR_COPY_OUTCOME, "raised": sorted(unanswered)}
                             continue
                         differing, _floor, _, _ = _compare(run, comparison=w.SAME_DEPLOYMENT, channel=channel)
                         outcomes[cell] = (
@@ -1531,6 +1567,12 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
     No skip and no expected-failure mark hides it. The counterexample's own
     test, which asserts it still holds, is
     ``tests/products/test_sec020_e2ii_trusted_declaration.py::test_e2ii_d_counterexample_a_false_positive_declaration_still_tells_the_withheld_subject_apart``.
+
+    **A floor copy that did not answer** (Dave, 2026-10-09, ``D-IMPL-378``: *"A failed spare answer cannot excuse
+    differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
+    (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
+    raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
+    nor indistinguishable, in the same block and the same JUnit record.
     """
     outcomes: dict[str, dict[str, Any]] = {}
     for cell in _false_declaration_cells():
@@ -1543,6 +1585,10 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
         vacuous = _both_raised(run, withheld_side, nonexistent_side)
         if vacuous:
             outcomes[cell] = {"outcome": "not evidence", "raised": sorted(vacuous)}
+            continue
+        unanswered = _floor_copy_did_not_answer(run, comparison)
+        if unanswered:
+            outcomes[cell] = {"outcome": FLOOR_COPY_OUTCOME, "raised": sorted(unanswered)}
             continue
         differing, _floor, _, _ = _compare(run, comparison=comparison, channel=channel)
         found: dict[str, Any] = (
@@ -1799,3 +1845,54 @@ def test_control_a_floor_copy_raising_the_held_refusal_with_the_copied_side_stil
     test_withheld_is_indistinguishable(
         _OneRun(run), w.COUNTERFACTUAL, w.REUSED_STORE, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
     )
+
+
+# --- the amendment itself (Dave, 2026-10-09 06:06 MST, approved 06:21 MST, D-IMPL-378) ---------------------------
+
+
+class FloorCopyDidNotAnswer(AssertionError):
+    """A cell's noise floor was read off a copy that RAISED: not evidence, by name, and the floor excuses nothing.
+
+    Dave, 2026-10-09 (``D-IMPL-378``), approved at 06:21 MST: *"A failed spare answer cannot excuse differences."*
+    An ``AssertionError``, so a gate or never-class cell that meets it FAILS. A limitation measurement asks
+    :func:`_floor_copy_did_not_answer` before it compares and reports the cell by :data:`FLOOR_COPY_OUTCOME`.
+    """
+
+
+def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
+    """Where the noise floor's copy RAISED in a way that leaves it nothing to measure: position, and what it raised.
+
+    The floor is read off a second copy of the nonexistent side (``sec020_worlds.PAIRS``), and measures that side's
+    own variation only where the copy did what the side does. Where the copy raised, that holds only if the
+    nonexistent side raised at the same position too, and both raised the refusal this proof holds as the property
+    there: Q9's reuse refusals and P2 (c)'s construction refusal (``sec020_worlds.raising_is_the_property``), ruling
+    P6 (a)'s refusal (``sec020_worlds.p6_refusal_is_the_property``). The floor then compares a refusal with a refusal.
+    Every other raise of the copy, at its question or inside one of its record reads (``<position>/record:<read>``,
+    never the property), leaves the floor comparing an exception with an answer, which differs at every path and
+    would excuse every difference. Those are returned, and while any is, the floor may excuse nothing.
+    """
+    _withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
+    copied = run.raised(nonexistent_side)
+
+    def held(position: str, raised: str) -> bool:
+        return w.raising_is_the_property(run.shape, position, raised) or w.p6_refusal_is_the_property(
+            run, position, raised
+        )
+
+    unanswered: dict[str, str] = {}
+    for position, raised in sorted(run.raised(floor_side).items()):
+        if not (position in copied and held(position, raised) and held(position, copied[position])):
+            unanswered[position] = raised
+    return unanswered
+
+
+def _require_the_floor_copy_answered(run: w.Run, comparison: str) -> None:
+    """The amendment where every noise floor of this module is read (:func:`_compare`): fail by name, before any excuse."""
+    unanswered = _floor_copy_did_not_answer(run, comparison)
+    if unanswered:
+        _withheld_side, _nonexistent_side, floor_side = w.PAIRS[comparison]
+        raise FloorCopyDidNotAnswer(
+            f"SEC-020 [{comparison}, {run.shape}, {run.anchor}, {run.door}]: not evidence, the noise floor's copy"
+            f" ({floor_side}) RAISED instead of answering, and a failed spare answer cannot excuse a difference:"
+            f" {unanswered}"
+        )
