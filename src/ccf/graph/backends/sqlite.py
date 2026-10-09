@@ -175,22 +175,25 @@ class SqliteWriterLease:
     * **An OS lock, never a file-existence check.** The kernel drops the lock
       when the holder dies, however it dies; the sidecar file persists and is
       harmless. A crashed holder therefore never wedges a later boot.
-    * **Keyed on the resolved path, not on the file.** A relative and an
-      absolute spelling of one path, or a symbolic link to it, resolve to one
-      sidecar, so they are one graph to the lease. Another name for the same
-      file is not: a hard link resolves to itself, and a live file moved to a
-      new name leaves its old name's sidecar behind, so the sidecar beside
-      the new name is another file, and a writer booted through it in a
-      second process is not refused while the first process's writer is
-      live (measured by
-      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_a_hard_link_to_a_held_graph``
+    * **Keyed on the resolved path, and on a file with one name.** A
+      relative and an absolute spelling of one path, or a symbolic link to
+      it, resolve to one sidecar, so they are one graph to the lease. A hard
+      link resolves to itself and the sidecar beside it is another file, so a
+      lock beside one name cannot exclude a writer through another:
+      :meth:`SqliteGraphStore.writer_lease` therefore refuses a database file
+      with more than one name, through either name, as ``WriterLeaseHeld``
+      (measured by
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_cannot_boot_a_writer_through_a_hard_link_to_a_held_graph``
       and
+      ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_the_lease_refuses_a_database_file_with_a_second_name_through_either_name``).
+      **Not closed:** a live file moved to a new name keeps one name, and a
+      writer booted through the new name in a second process is not refused
+      while the first process's writer is live (measured by
       ``tests/graph/test_sqlite_writer_lease_hard_link.py::test_a_second_process_boots_a_writer_through_the_new_name_of_a_moved_live_file``).
       SQLite names its write-ahead log after the path too, so a second name
       reads another log and misses what the first committed
       (``tests/graph/test_sqlite_writer_lease_hard_link.py::test_sqlite_keeps_a_write_ahead_log_per_name_so_a_second_name_misses_what_the_first_committed``):
-      give a live database file exactly one name, and do not move it while
-      a writer holds it.
+      do not move a live database file while a writer holds it.
     * **Never blocks.** A held lease raises
       ``src/ccf/graph/protocols.py::WriterLeaseHeld`` at once.
 
@@ -289,10 +292,28 @@ class SqliteGraphStore:
         a live fabric's file is legitimate and takes no lease.
 
         Raises:
-            WriterLeaseHeld: another holder — in any process — has the lease.
+            WriterLeaseHeld: another holder — in any process — has the lease,
+                or the database file has more than one name (a hard link), so
+                a lock beside this name could not exclude a writer through
+                another.
         """
         resolved = Path(self._database_path).resolve()
-        return SqliteWriterLease(sidecar=Path(f"{resolved}{WRITER_LEASE_SUFFIX}"))
+        lease = SqliteWriterLease(sidecar=Path(f"{resolved}{WRITER_LEASE_SUFFIX}"))
+        try:
+            names = os.stat(resolved).st_nlink
+        except FileNotFoundError:
+            names = 1  # no file at the path (an in-memory database): no other name
+        except BaseException:
+            lease.release()
+            raise
+        if names > 1:
+            lease.release()
+            raise WriterLeaseHeld(
+                f"the database file {str(resolved)!r} has {names} names (hard"
+                " links); its writer lease is a lock beside one name and cannot"
+                " exclude a writer through another, so it is refused (SEC-013)"
+            )
+        return lease
 
     @property
     def reader(self) -> SqliteGraphReader:
