@@ -67,8 +67,10 @@ would close roughly a third of the hole and leave the identical shape reachable
 under every other spelling — a refusal that does not close the shape does not
 close the defect.
 
-So a ``ccf.``-prefixed id in neither mapping is refused rather than enveloped.
-Two kinds of id land there and both are refusals for the same reason: an SDK
+So a ``ccf.``-prefixed id in neither mapping is refused rather than enveloped,
+as :class:`~ccf.controlplane.artifact_base.ReservedArtifactClassId` — the one
+name the reservation has wherever it is refused (OWED-RULINGS-3 item 3P2 (b),
+``D-IMPL-378``, Dave, 2026-10-09 06:21 MST). Two kinds of id land there and both are refusals for the same reason: an SDK
 class that is not manifest-addressable (``ccf.hitl-policy``,
 ``ccf.scope-mapping`` — registered by adopter code against their real contracts,
 never through a manifest), and an id the SDK does not own at all. In both cases
@@ -110,7 +112,7 @@ from ccf.controlplane.artifacts import (
     RegistrationMode,
     declared_artifact_class,
 )
-from ccf.controlplane.artifact_base import _RESERVED_CLASS_ID_PREFIX
+from ccf.controlplane.artifact_base import _RESERVED_CLASS_ID_PREFIX, ReservedArtifactClassId
 from ccf.controlplane.demonstration_serve_instant import DEMONSTRATION_SERVE_INSTANT
 from ccf.controlplane.temporal_boundary import TEMPORAL_BOUNDARY_POLICY
 from ccf.skills.catalog import SKILL_CATALOG_ENTRY
@@ -409,8 +411,15 @@ def resolve_artifact_class(class_id: str) -> ArtifactClass:
         ValueError: ``class_id`` is empty or whitespace-only. Refused rather
             than defaulted: an unnamed class is a manifest the audit plane
             cannot read back, and only the manifest's author knows what it
-            should have said. Or ``class_id`` claims the SDK's reserved
-            ``ccf.`` prefix without being a class the SDK ships (D-IMPL-84).
+            should have said.
+        ReservedArtifactClassId: ``class_id`` claims the SDK's reserved
+            ``ccf.`` prefix without being a class the SDK ships (D-IMPL-84) —
+            the reservation's one name, as
+            :func:`~ccf.controlplane.artifacts.declared_artifact_class` and
+            :meth:`~ccf.controlplane.artifact_base.ArtifactClass.validate`
+            raise it (OWED-RULINGS-3 item 3P2 (b), ``D-IMPL-378``). A
+            ``ValueError``, so a caller catching ``ValueError`` keeps catching
+            it; it carries ``class_id``.
     """
     if not class_id.strip():
         raise ValueError(
@@ -425,13 +434,6 @@ def resolve_artifact_class(class_id: str) -> ArtifactClass:
     if versioned_class is not None:
         return versioned_class
     if class_id.startswith(_CCF_NAMESPACE):
-        raise ValueError(
-            f"artifact class id {class_id!r} claims the SDK's reserved"
-            f" {_CCF_NAMESPACE!r} prefix but is not a class the SDK ships"
-            " (D-IMPL-84); the open DeclaredArtifact envelope is refused here"
-            " because a document that satisfies it would register, pin and"
-            " enter Decision Replay dimension 2 under an SDK class name with"
-            " arbitrary content — choose a class id in your own namespace, or"
-            " correct the spelling of the SDK class you meant"
-        )
+        # OWED-RULINGS-3 item 3P2 (b) (`D-IMPL-378`): one rule, one name.
+        raise ReservedArtifactClassId(class_id)
     return declared_artifact_class(class_id)

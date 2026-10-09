@@ -184,18 +184,22 @@ class ReservedArtifactClassId(ValueError):
     adopter's contract that declares ``class_id`` — is therefore an adopter's
     content. Admitted under a ``ccf.`` id, it would register under an SDK class
     name, the registry would bind the key to that name, and the boot would pin
-    it into Decision Replay dimension 2. Two places refuse it, by this name:
+    it into Decision Replay dimension 2. Three places refuse it, by this name:
 
     * :func:`~ccf.controlplane.artifacts.declared_artifact_class`, before any
       class exists (``D-IMPL-378`` K1 (b), Dave, 2026-10-08 12:29 MST);
     * :meth:`ArtifactClass.validate`, for a class built directly with the
       public constructor, before anything is registered or audited
       (``D-IMPL-378`` K1 follow-up (b), Dave, 2026-10-08 16:40 MST: *"Close the
-      direct-construction bypass while preserving legitimate SDK classes."*).
+      direct-construction bypass while preserving legitimate SDK classes."*);
+    * :func:`~ccf.deployment.classes.resolve_artifact_class`, the manifest
+      door's resolver, for a ``ccf.`` id the SDK does not ship, before the
+      envelope is reached (``D-IMPL-84``; it raised a plain ``ValueError``
+      until OWED-RULINGS-3 item 3P2 (b), Dave, 2026-10-09 06:21 MST: one rule,
+      one name).
 
-    A ``ValueError``, as the manifest door's refusal of the same reservation
-    (:func:`~ccf.deployment.classes.resolve_artifact_class`) is, so a caller
-    that catches ``ValueError`` around any of them keeps catching it.
+    A ``ValueError``, so a caller that catches ``ValueError`` around any of
+    them keeps catching it.
 
     Attributes:
         class_id: The id that was refused.

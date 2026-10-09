@@ -1609,7 +1609,9 @@ def load_and_boot(
             ``versioned``); an entry names a ``ccf.``-prefixed class id the SDK
             does not ship, which is refused rather than resolved to the open
             envelope because the envelope would let arbitrary content register
-            and pin under an SDK class name (D-IMPL-84); or a
+            and pin under an SDK class name (D-IMPL-84), as
+            :class:`~ccf.controlplane.artifact_base.ReservedArtifactClassId`
+            (OWED-RULINGS-3 item 3P2 (b)); or a
             ``registration: versioned`` entry was
             refused by the D-05 hash-verified bump check. That last one is a
             **returned** refusal from :meth:`register_versioned
