@@ -398,10 +398,12 @@ class AcquireProtocol(Protocol):
     :class:`~ccf.products.resolver.PopulationReadInSubjectKeyedPhase`, before
     ``acquire`` is handed the question's subject. Return nothing for an
     identifier your sources do not hold: a held refusal for the probe
-    identifier refuses every question,
-    :class:`~ccf.products.resolver.UnheldSubjectProbeRefused` (OWED-RULINGS-3
-    item 4 (b)). Read what does not depend on the subject in ``population``
-    instead (:class:`PopulationAcquireProtocol`).
+    identifier refuses every question (OWED-RULINGS-3 item 4 (b)), answered
+    and recorded as
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL`, the SDK's one
+    constant, with no part of the refusal as ``acquire`` stated it
+    (``D-IMPL-378`` repair 2.3 (b)). Read what does not depend on the subject
+    in ``population`` instead (:class:`PopulationAcquireProtocol`).
     SEC-020 stays OPEN: an ``acquire`` that recognizes the probe identifier is
     not detected.
 
@@ -413,8 +415,14 @@ class AcquireProtocol(Protocol):
     the question, and refuses the question,
     :class:`~ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld`, if the
     fabric names the stand-in or if what ``acquire`` returned for the stand-in
-    added anything to what it returned for the probe identifier. Hold nothing
-    for the stand-in you declare.
+    added anything to what it returned for the probe identifier — an entity, a
+    relationship, a claim value, or evidence from another source or passage; the
+    envelope id and the receipt instant each delivery carries are set aside
+    (``D-IMPL-378`` repair 1.3). Hold nothing for the stand-in you declare.
+    Under such a policy, a refusal ``acquire`` raises, for any question of the
+    class, is served and recorded as
+    :data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL`: its own
+    kind, cause, code and text are not kept (``D-IMPL-378`` repair 2.2 (a)).
     """
 
     def __call__(self, context: AcquisitionContext) -> Iterable[SignalEnvelope]: ...
@@ -995,16 +1003,16 @@ class OpenedProduct:
         """The declared acquisition boundary for one question (`D-IMPL-343` R-4).
 
         Called by the resolver ONCE for the question's subject, with the
-        EFFECTIVE request, after resolution and before the graph read — and,
-        for a class the P6 probe reads, once more immediately before that with
-        :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as the subject, and,
-        for a class with a declared early policy, twice more immediately before
-        that, with the probe identifier and then the declared stand-in
-        (``D-IMPL-378`` decision 4 (a))
-        (``D-IMPL-378`` ruling P6 (a); :class:`AcquireProtocol`). The
-        deployment's ``acquire`` runs at the values governance resolved; every
-        envelope is held to the tenant and the instant before L2's one writer
-        sees it.
+        EFFECTIVE request, after resolution and before the graph read. Before
+        that call, and only one of the two, as :class:`AcquireProtocol` states:
+        for a class the P6 probe reads, once more, with
+        :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE` as the subject
+        (``D-IMPL-378`` ruling P6 (a)); for a class with a declared early
+        policy, which the probe does not read, twice more, with the probe
+        identifier and then the declared stand-in (``D-IMPL-378`` decision
+        4 (a)). The deployment's ``acquire`` runs at the values governance
+        resolved; every envelope is held to the tenant and the instant before
+        L2's one writer sees it.
 
         With ``population_phase`` (SEC-020 Q7, ``D-IMPL-378``; see
         :meth:`_population_seam`) it returns the declared population phase

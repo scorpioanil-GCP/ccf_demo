@@ -31,7 +31,12 @@ stand-in names nothing is checked for every question, not assumed: the fabric
 before and after acquisition, and what the subject-keyed acquisition phase
 acquires for it (:class:`~ccf.products.resolver.UndisclosedSubjectSubstituteIsHeld`,
 ``D-IMPL-378`` decision 4 (a)); a source that recognizes the stand-in is not
-detected, nor what a composite's children's sources hold for it.
+detected, nor what a composite's children's sources hold for it. For every
+question of a class with such a policy, a refusal the subject-keyed acquisition
+phase raises is served and recorded as one constant,
+:data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL` (``D-IMPL-378``
+repair 2.2 (a)): no part of the refusal as the source stated it reaches the
+caller or the record.
 
 Values stay out of code (CINV-01, CLAUDE.md §11): this module declares shape
 only — no principal, no role, no subject and no stand-in is named here.

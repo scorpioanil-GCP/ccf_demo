@@ -8825,6 +8825,7 @@
       "CompositePlanFactoryProtocol",
       "CompositeWithheldLate",
       "DEBT_SCORER_INPUTS",
+      "EARLY_POLICY_ACQUISITION_REFUSAL",
       "EarlyPolicyNeedsRequestAwareChildren",
       "GovernedResolver",
       "IncompatibleRefusalRecorder",
@@ -8850,11 +8851,11 @@
       "ServedProductResolverProtocol",
       "SubjectDisclosingPlanFactoryProtocol",
       "UNHELD_SUBJECT_PROBE",
+      "UNHELD_SUBJECT_PROBE_REFUSAL",
       "UndeclaredMechanismClass",
       "UndisclosedSubjectAnswered",
       "UndisclosedSubjectSubstituteIsHeld",
       "UnheldSubjectProbeIsHeld",
-      "UnheldSubjectProbeRefused",
       "UnmarkedStoreNotPresumedFresh",
       "UnsupportedComposition",
       "WithholdingClassListedReadable",
@@ -8906,6 +8907,10 @@
       "DEBT_SCORER_INPUTS": {
         "kind": "constant",
         "shape": "tuple"
+      },
+      "EARLY_POLICY_ACQUISITION_REFUSAL": {
+        "kind": "constant",
+        "shape": "SubjectUnavailableRefusal"
       },
       "EarlyPolicyNeedsRequestAwareChildren": {
         "kind": "class",
@@ -9014,6 +9019,10 @@
         "kind": "constant",
         "shape": "str"
       },
+      "UNHELD_SUBJECT_PROBE_REFUSAL": {
+        "kind": "constant",
+        "shape": "SubjectUnavailableRefusal"
+      },
       "UndeclaredMechanismClass": {
         "kind": "class",
         "shape": "type"
@@ -9027,10 +9036,6 @@
         "shape": "type"
       },
       "UnheldSubjectProbeIsHeld": {
-        "kind": "class",
-        "shape": "type"
-      },
-      "UnheldSubjectProbeRefused": {
         "kind": "class",
         "shape": "type"
       },

@@ -1545,8 +1545,18 @@ unless another test is named.
   (`tests/products/test_sec020_stand_in_is_verified_absent.py`); before the
   check, a source holding the stand-in told them apart, at the empty finding
   and the debt under `from_decision` and by the refusal kind under
-  `from_entity_freshness`. A read that acquires the same content whatever is
-  asked is not refused. It costs two more calls to your acquisition and two more graph
+  `from_entity_freshness`. What the two calls leave is compared as entities,
+  relationships and claim values, with each lineage entry's source and passage
+  anchor; the envelope id and the receipt instant a delivery carries are set
+  aside (Dave's repair 1.3, `D-IMPL-378`, 2026-10-09). So a read that acquires
+  the same content whatever is asked is not refused, also when your adapter
+  gives each delivery its own envelope id or receipt instant, while a claim
+  value, a relationship, a source or a passage anchor that only the stand-in's
+  call brings is still refused, for every question alike
+  (`tests/products/test_sec020_stand_in_delivery_lineage.py`; on that fixture
+  an envelope id reached neither an answer nor any artifact in the
+  deployment's store, only the question's own graph store). It costs two more
+  calls to your acquisition and two more graph
   reads per question of such a class (measured on the paved road's test
   fixture: three calls and five reads, against one and three for a class
   affirming `never`). Not detected: a source that recognizes the stand-in and
@@ -1555,9 +1565,34 @@ unless another test is named.
   the check after acquisition reads what the question's own acquisition wrote,
   so a source that writes the stand-in for some subjects only is refused for
   those questions only. Declare a stand-in that nothing in your deployment
-  holds.
-- **Each phase once, and one computation (Q10).** Each declared phase runs
-  once per question. Under the early decision the stand-in replaces the
+  holds. For every question of a class with an early policy, a refusal your
+  subject-keyed acquisition raises (a `GovernedRefusalRaised`, whatever it
+  carries, or a type your class or the SDK declares at the seam) is served and
+  recorded as one constant, `EARLY_POLICY_ACQUISITION_REFUSAL`:
+  `subject-unavailable`, cause `undisclosed`, no code, and one SDK sentence
+  (Dave's 2.2 (a), `D-IMPL-378`, 2026-10-09). Before it, a source answering
+  "no record for" the identifier it was asked put the stand-in's identifier in
+  the withheld subject's answer and record, and a source could choose a
+  refusal's code, cause or kind by what it was asked. On test fixtures the
+  withheld and nonexistent refusals now differ, in process, only at the hash of
+  each caller's own question, and the closing test's own rules find no other
+  difference at any door
+  (`tests/products/test_sec020_early_policy_acquisition_refusal.py`). Neither
+  the answer nor the record keeps your source's own text, code, cause or kind
+  for such a refusal; a declared population phase's refusal is kept as your
+  source stated it.
+- **Each phase once for the question, and one computation (Q10, as
+  amended).** Each declared phase runs once per question for the question
+  itself. Before that call, a class that may withhold and declares no early
+  policy asks your subject-keyed acquisition once more, about
+  `UNHELD_SUBJECT_PROBE` (ruling P6 (a)), and a class with an early policy asks
+  it twice more, about `UNHELD_SUBJECT_PROBE` and then its stand-in (decision
+  4 (a)); a class affirming `never` asks it nothing more. On the paved road's
+  test fixture that is three calls and five graph reads per question with an
+  early policy, two and four with the probe, and one and three for `never`
+  (the early sequence is pinned by
+  `tests/products/test_withheld_subject_population_composite_and_fabric.py::test_q10_each_phase_is_called_once_and_the_stand_in_replaces_the_subject`).
+  Under the early decision the stand-in replaces the
   subject; the subject is never fetched as well. The product is computed once
   on that path, counted at the projection, including when the fabric already
   held the withheld subject, and the decision replays to its own address. The
@@ -1860,16 +1895,19 @@ a nonexistent one. Each was measured on test fixtures.
   class or the SDK declares at the seam, such as `IdentityRefused`) refused an
   identifier nothing holds while a withheld subject was answered, on both
   roads. Since Dave's OWED-RULINGS-3 item 4 (b) (`D-IMPL-378`, 2026-10-09),
-  every question to such a class is refused as `UnheldSubjectProbeRefused`,
-  with one message, before your acquisition is handed the question's subject
-  (`tests/products/test_sec020_held_refusal_at_the_probe.py`; held in SEC-020's
-  closing test as the refusal plus a twin that answers: the same deployment
-  with your acquisition answering an unheld identifier with nothing). That
-  includes a held refusal decided by the question rather than the identifier,
-  such as an intent, a parameter or a role your source refuses: such a
-  question, refused as data with its record before, now raises this refusal
-  and records nothing. Answer an identifier your sources do not hold with
-  nothing. To be served, declare the read as the population phase
+  as repaired by his 2.3 (b) the same day, every question to such a class is
+  refused before your acquisition is handed the question's subject, answered
+  and recorded as one constant SDK refusal, `UNHELD_SUBJECT_PROBE_REFUSAL`
+  (`subject-unavailable`, cause `undisclosed`, no code, one SDK sentence), the
+  same for every subject; the decision record files it at the `acquisition`
+  seam beside the caller's question
+  (`tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py` and
+  `tests/products/test_sec020_held_refusal_at_the_probe.py`). That includes a
+  held refusal decided by the question rather than the identifier, such as an
+  intent, a parameter or a role your source refuses: such a question keeps one
+  decision record, but neither the answer nor the record keeps your source's
+  own kind, cause, code or text. Answer an identifier your sources do not hold
+  with nothing. To be served, declare the read as the population phase
   (`open_product(population=...)`), declare an early policy, or affirm `never`
   for a projection that never withholds. **The probe
   is defeated by a source that recognizes it.** A source that answers nothing

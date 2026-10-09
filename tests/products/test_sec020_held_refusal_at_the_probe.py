@@ -1,4 +1,4 @@
-"""SEC-020, OWED-RULINGS-3 item 4 (b): a held refusal at ruling P6 (a)'s probe refuses the question. SEC-020 is OPEN.
+"""SEC-020, OWED-RULINGS-3 item 4 (b) as repaired by 2.3 (b): a held refusal at ruling P6 (a)'s probe refuses the question, recorded. SEC-020 is OPEN.
 
 ``D-IMPL-378`` (SDK-defined, CLAUDE.md §11). The configuration: a class that
 may withhold its subject and declares no early policy, so ruling P6 (a) asks
@@ -15,17 +15,24 @@ both roads and both anchors (lane ``378f-p6a`` section 6 finding 1, measured
 again on this branch's base).
 
 Dave's ruling, 2026-10-09 06:21 MST, on OWED-RULINGS-3 item 4, is kept verbatim
-as a comment below; option (b) as the sheet worded it, too.
+as a comment below; option (b) as the sheet worded it, too; and his ruling 2.3,
+10:54 MST the same day, which repaired it. As first built, the refusal was the
+raised ``UnheldSubjectProbeRefused``, recording nothing, so a refusal the
+question decided lost its decision record (the "i" panel's F-G1-2). Under 2.3
+(b) it is answered and recorded instead (lane ``378j-resolver``, which migrated
+this module by behavior; every route is measured by
+``tests/products/test_sec020_held_refusal_at_the_probe_is_recorded.py``).
 
 What these tests hold the SDK to, by mechanism:
 
-* **The refusal.** Every question to such a deployment is refused by name,
-  ``UnheldSubjectProbeRefused``, a withheld subject's, an identifier nothing
-  holds and an ordinarily served subject's alike, with one message, when the
-  probe call itself ends in a held refusal; the subject-keyed phase is handed
-  the probe identifier and never the asked subject; and nothing is recorded.
-  On the paved road (``open_product``) and the low road (``GovernedResolver``
-  composed by hand).
+* **The refusal.** Every question to such a deployment is refused, a withheld
+  subject's, an identifier nothing holds and an ordinarily served subject's
+  alike, when the probe call itself ends in a held refusal: answered as the
+  SDK's one constant refusal (``ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL``)
+  and recorded, one decision record per question, at the ``acquisition`` seam;
+  the subject-keyed phase is handed the probe identifier and never the asked
+  subject. On the paved road (``open_product``) and the low road
+  (``GovernedResolver`` composed by hand).
 
 The controls are green before and after: the same deployment with a source
 that answers an identifier it does not hold with "acquired nothing" (the
@@ -44,9 +51,13 @@ and its withheld and nonexistent questions are both refused as data.
 #   question to a source that refuses unknown identifiers)."
 # Dave, 2026-10-08 12:29 MST, CT-A (a), verbatim: "Construction refusal counts,
 # paired with a declared twin that successfully answers."
+# Dave, 2026-10-09 10:54 MST, decision 2.3, verbatim: "Use (d) only if "unknown identifier"
+# has a typed, stable cause. Do not infer it from message text. Otherwise implement (b) with a
+# recorded constant SDK cause. Role and parameter refusals must retain their decision records."
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 from typing import Any
@@ -54,21 +65,20 @@ from typing import Any
 import pytest
 
 import ccf.products.resolver as resolver_module
+from ccf.contracts.canonical import canonical_bytes
 from ccf.products.refusal import (
     RESOLVED_BY_THE_RESOLVER,
     GovernedRefusalRaised,
     RefusalEnvelope,
     SubjectUnavailableRefusal,
 )
-from ccf.products.resolver import UnsupportedComposition
 from tests.deployment.test_replay_binding import PRODUCT_CLASS
 from tests.products import sec020_worlds as w
 from tests.products import test_withheld_similarity_registry as low
 
-#: The refusal item 4 (b) raises, named as data so this module collects on a
-#: tree that does not have it yet (the red commit) and fails there by
-#: ``DID NOT RAISE`` rather than by an import error.
-REFUSAL = "UnheldSubjectProbeRefused"
+#: The constant item 4 (b), as repaired by 2.3 (b), answers and records every
+#: such question with, named as data (the convention this module was built on).
+CONSTANT = "UNHELD_SUBJECT_PROBE_REFUSAL"
 #: The two held refusals a source can answer an unheld identifier with: the
 #: typed handoff, and the SDK-declared seam refusal L2 raises for a record whose
 #: identity value names no entity.
@@ -134,19 +144,33 @@ def _paved(base: pathlib.Path, anchor: str, *, how: str | None, active: bool, ne
     return built, source
 
 
-def _refused_by_name(asks: dict[str, Any]) -> dict[str, UnsupportedComposition]:
-    """Ask each side; every question must raise item 4 (b)'s refusal, by type name, worded once."""
-    refused: dict[str, UnsupportedComposition] = {}
+def _refused_by_name(asks: dict[str, Any]) -> dict[str, RefusalEnvelope]:
+    """Ask each side; every question must be answered as a refusal recording the SDK's one constant, one record each.
+
+    The record holds the constant itself, at the ``acquisition`` seam. The served
+    shell is what the disclosure level in force makes of it — the constant's own
+    sentence at ``full``, the one external sentence at ``minimal`` — so it is held
+    to the constant's kind and cause, and to one sentence for every subject.
+    """
+    constant = getattr(resolver_module, CONSTANT)
+    cause = canonical_bytes(constant.cause).decode("utf-8")
+    refused: dict[str, RefusalEnvelope] = {}
     for side, (ask, store) in asks.items():
         before = _records(store)
-        with pytest.raises(UnsupportedComposition) as raised:
-            ask()
-        refused[side] = raised.value
-        assert _records(store) == before, f"[{side}] a refused question recorded something"
-    names = {side: type(error).__name__ for side, error in refused.items()}
-    assert set(names.values()) == {REFUSAL}, names
-    messages = {str(error) for error in refused.values()}
-    assert len(messages) == 1, f"one refusal for every subject, worded once: {sorted(messages)}"
+        outcome = ask()
+        assert isinstance(outcome, RefusalEnvelope), f"[{side}] not answered as a recorded refusal: {outcome!r}"
+        refused[side] = outcome
+        assert len(_records(store) - before) == 1, f"[{side}] one decision record per refused question"
+        path = w._record_at(store, outcome.replay_reference).content_generation_path
+        recorded = json.loads(path.assembly_refusal)
+        assert (recorded["kind"], recorded["detail"], recorded["fields"]["cause"], path.refusal_seam) == (
+            "subject-unavailable", constant.detail, cause, "acquisition"
+        ), f"[{side}] the record does not hold the SDK's one constant at the acquisition seam: {recorded!r}"
+        assert (outcome.kind, outcome.fields["cause"]) == ("subject-unavailable", cause), (
+            f"[{side}] the served shell is not the constant's kind and cause: {outcome!r}"
+        )
+    sentences = {outcome.detail for outcome in refused.values()}
+    assert len(sentences) == 1, f"one served sentence for every subject: {sorted(sentences)}"
     return refused
 
 

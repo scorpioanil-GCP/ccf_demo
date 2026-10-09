@@ -245,7 +245,14 @@ class SubjectUnavailableRefusal(CCFContract):
     it crosses a consumer boundary is :func:`~ccf.products.disclosure.disclose`'s
     decision and nobody else's; at the safe default that function replaces
     :attr:`cause` with ``"undisclosed"`` while the record keeps what the fabric
-    actually determined.
+    actually determined. Two exceptions are ruled, and in each the record keeps
+    no statement of the source's: for a class with a declared early policy, a
+    refusal its subject-keyed acquisition phase raises is recorded as
+    :data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL`
+    (``D-IMPL-378`` repair 2.2 (a)); and for a class ruling P6 (a)'s probe
+    reads, a refusal that phase raises for the probe identifier is recorded as
+    :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL` (repair
+    2.3 (b)).
 
     **There is deliberately no ``subject`` field.** Naming the subject on the
     shell is itself a leak channel — telling a caller *which* entity it may not
@@ -259,10 +266,15 @@ class SubjectUnavailableRefusal(CCFContract):
         cause: What the fabric actually determined. ``"nonexistent"`` — no such
             subject resolved; ``"unauthorized"`` — a subject the principal may
             not receive; ``"undisclosed"`` — the disclosure step withheld which
-            of the two it was. The third is not a determination the fabric ever
-            reaches; it is the value a **disclosed** shell carries, so that the
-            withheld case has a positive spelling rather than an absence a
-            reader must interpret.
+            of the two it was. The third is the value a **disclosed** shell
+            carries, so that the withheld case has a positive spelling rather
+            than an absence a reader must interpret; the fabric records it as a
+            determination in two places only,
+            :data:`~ccf.products.resolver.EARLY_POLICY_ACQUISITION_REFUSAL`
+            (``D-IMPL-378`` repair 2.2 (a)) and
+            :data:`~ccf.products.resolver.UNHELD_SUBJECT_PROBE_REFUSAL` (repair
+            2.3 (b)), where the SDK does not state which of the other two
+            applied.
         detail: The human-readable statement. Internally this is the fabric's
             own sentence; at ``minimal`` the disclosure step replaces it with
             the one external sentence
