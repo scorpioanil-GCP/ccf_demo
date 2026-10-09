@@ -94,7 +94,7 @@ from collections.abc import Coroutine
 from typing import Any, TypeVar
 
 from mcp import ClientSession
-from mcp.types import BlobResourceContents, TextResourceContents
+from mcp.types import BlobResourceContents, CallToolResult, TextResourceContents
 from pydantic import AnyUrl
 
 from ccf.artifacts.protocol import (
@@ -384,8 +384,8 @@ class McpArtifactStore:
         """
         address = held_content_address(query.content_address)
 
-        async def operation(session: ClientSession) -> SubjectMatchVerdict:
-            result = await session.call_tool(
+        async def operation(session: ClientSession) -> CallToolResult:
+            return await session.call_tool(
                 _SUBJECT_MATCH_TOOL,
                 {
                     "content_address": address,
@@ -395,16 +395,20 @@ class McpArtifactStore:
                     "door_signature": door_signature,
                 },
             )
-            if result.isError or result.structuredContent is None:
-                raise ArtifactStoreError("the artifact server declined the erasure door's subject match")
-            try:
-                return SubjectMatchAnswer.model_validate(result.structuredContent).verdict
-            except ValueError as malformed:
-                raise ArtifactStoreError(
-                    "the artifact server's answer to the subject match is not a verdict"
-                ) from malformed
 
-        return self._bridge.run(self._session(operation))
+        # Judged here, after the session closed, never inside the operation: the
+        # session runner reports anything the operation raises as unreachability
+        # (`ccf.mcp.client.run_with_session`), and a refusal is an answer, not an
+        # outage to retry.
+        result = self._bridge.run(self._session(operation))
+        if result.isError or result.structuredContent is None:
+            raise ArtifactStoreError("the artifact server declined the erasure door's subject match")
+        try:
+            return SubjectMatchAnswer.model_validate(result.structuredContent).verdict
+        except ValueError as malformed:
+            raise ArtifactStoreError(
+                "the artifact server's answer to the subject match is not a verdict"
+            ) from malformed
 
     def resolve_uri(self, *, uri: str) -> str:
         """Return the content address ``uri`` names, exactly.
