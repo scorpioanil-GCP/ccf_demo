@@ -55,6 +55,7 @@ domain value here is fixture vocabulary (CINV-01, CLAUDE.md §11).
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import pathlib
@@ -734,3 +735,72 @@ def test_1_2_control_a_read_only_boot_beside_a_live_writer_is_not_held_by_the_st
         writer.handle.close()
     assert reader["outcome"] == "booted" and reader["store_creation"] == "verified", reader
     assert reader["emptiness_reads"] == 0 and reader["created_the_store"] is False, reader
+
+
+# --- 4. the runbook's first step: what each file shows while a fabric is open ---------------------------------------
+
+
+def _held_by_another(lock: pathlib.Path) -> bool:
+    """Whether an open file description holds an exclusive ``flock`` on ``lock``: tried with ``LOCK_NB``, then released."""
+    descriptor = os.open(lock, os.O_RDONLY | os.O_CLOEXEC)
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        return False
+    finally:
+        os.close(descriptor)
+
+
+def _descriptors_open_on(path: pathlib.Path) -> int:
+    """How many of this process's open descriptors name ``path``, by device and inode: what ``fuser`` and ``lsof`` read."""
+    wanted = os.stat(path)
+    found = 0
+    for entry in os.listdir("/dev/fd"):
+        try:
+            status = os.fstat(int(entry))
+        except OSError:
+            continue  # the descriptor that listed the directory, closed by now
+        if (status.st_dev, status.st_ino) == (wanted.st_dev, wanted.st_ino):
+            found += 1
+    return found
+
+
+def test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_file_open(tmp_path: pathlib.Path) -> None:
+    """The runbook's step 1 (security how-to, section 4.12): a read-only server shows on its store file, not on a lock file.
+
+    The panel's J-RUNBOOK-READONLY (measured on ``6cd6023e``): before an
+    operator moves a store aside, the runbook asked the store-creation lock
+    and the SQLite writer lease for a holder. A boot holds the creation lock
+    only until it hands its fabric back, and only a writer's open fabric holds
+    the lease, so a read-only fabric, open and reading, holds neither: that
+    look sees no read-only server. What does see one: an open fabric holds its
+    store file open, which is what ``fuser`` and ``lsof`` on the store file
+    report (lane ``378j-fixup``'s probe ``probe_abc.py`` ran both, with the
+    same result). Controls: a writer's open fabric holds the lease, and a
+    fabric handed back holds the store file open no longer.
+    """
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "served" / _STORE
+    target.parent.mkdir()
+    creation_lock = pathlib.Path(f"{target.resolve()}{_STORE_CREATION_LOCK_SUFFIX}")
+    writer_lease = pathlib.Path(f"{target.resolve()}.ccf-writer.lock")
+    writer = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    try:
+        assert writer.store_creation == "verified", writer.store_creation
+        assert _held_by_another(writer_lease), "control: a writer's open fabric must hold the SQLite writer lease"
+        assert not _held_by_another(creation_lock), "the store-creation lock is held past the writer's boot"
+        assert _descriptors_open_on(target) >= 1, "a writer's open fabric must hold its store file open"
+    finally:
+        writer.handle.close()
+    reader = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)}, read_only=True)
+    try:
+        assert p4e._held(reader) == 0, "the read-only fabric must read its (empty) store"
+        assert not _held_by_another(creation_lock), "a read-only fabric's open server holds the store-creation lock"
+        assert not _held_by_another(writer_lease), "a read-only fabric holds the SQLite writer lease"
+        assert _descriptors_open_on(target) >= 1, "a read-only fabric, open and reading, must hold its store file open"
+    finally:
+        reader.handle.close()
+    assert _descriptors_open_on(target) == 0, "a fabric handed back still holds the store file open"
