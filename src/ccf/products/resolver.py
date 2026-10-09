@@ -326,6 +326,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "DEBT_SCORER_INPUTS",
+    "EARLY_POLICY_ACQUISITION_REFUSAL",
     "SHARED_OWNER_WALK_DEPTH",
     "SHARED_OWNER_WALK_OBJECTS",
     "UNHELD_SUBJECT_PROBE",
@@ -765,6 +766,46 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
 #: about it and then about the stand-in (``D-IMPL-378`` decision 4 (a),
 #: :class:`UndisclosedSubjectSubstituteIsHeld`). SEC-020 stays OPEN.
 UNHELD_SUBJECT_PROBE: Final[str] = "ccf-sdk:unheld-subject-probe"
+
+
+#: The ONE refusal every refusal the subject-keyed acquisition phase raises becomes
+#: for a class with a declared early policy (``D-IMPL-378`` repair 2.2 (a),
+#: SDK-defined, CLAUDE.md §11; SEC-020 stays OPEN). Dave, 2026-10-09 10:54 MST:
+#: *"Replace acquisition-refusal free text under early withholding with constant
+#: SDK text in responses and records. Verify that neither the stand-in identifier
+#: nor another distinguishing value survives."*
+#:
+#: Under the early policy that phase is asked about the policy's stand-in in place
+#: of a subject the policy does not disclose, and about the asked subject
+#: otherwise. What a source says back can carry what it was asked: a refusal's
+#: text or its ``error_code`` naming the stand-in for the withheld subject and the
+#: asked identifier for a nonexistent one, and a source that answers the stand-in
+#: otherwise than another identifier it does not hold choosing another cause or
+#: another refusal kind (measured by
+#: ``tests/products/test_sec020_early_policy_acquisition_refusal.py``). So, for
+#: every question of such a class, whatever the policy decides for the asked
+#: subject, a refusal that phase raises — the typed handoff
+#: (:class:`~ccf.products.refusal.GovernedRefusalRaised`) carrying any refusal
+#: kind or a refusal shell, recorded by its raiser or not, or a type the class or
+#: the SDK declares at the seam — is served and recorded as this value, with
+#: nothing the source said: one kind (``subject-unavailable``), one cause, one
+#: code and one text. The cause is ``undisclosed``, the positive statement that
+#: which of the other two applies is not stated, and no code is carried. The
+#: record still files it at the ``acquisition`` seam, with the caller's question.
+#: A declared population phase is handed no subject, so its refusal carries
+#: nothing of the asked subject or the stand-in, and it is kept as its source
+#: stated it (measured alike for a withheld and a nonexistent subject by the same
+#: module); a class with no early policy keeps its source's refusal as before.
+EARLY_POLICY_ACQUISITION_REFUSAL: Final[SubjectUnavailableRefusal] = SubjectUnavailableRefusal(
+    cause="undisclosed",
+    detail=(
+        "the subject-keyed acquisition phase refused this question; under this"
+        " class's declared early policy the SDK keeps no statement of the"
+        " source's, so every such refusal reads alike (SEC-020; D-IMPL-378"
+        " repair 2.2 (a))"
+    ),
+    error_code=None,
+)
 
 
 class PopulationReadInSubjectKeyedPhase(UnsupportedComposition):
@@ -4314,9 +4355,12 @@ class GovernedResolver:
                 # not return — recorded through this composition's ONE minting
                 # seam with the resolution THIS resolver established, and
                 # returned as data. Only this type; any other exception the
-                # seam raises propagates exactly as before.
+                # seam raises propagates exactly as before. `D-IMPL-378` repair
+                # 2.2 (a): under a declared early policy it is served and
+                # recorded as the SDK's one constant refusal instead.
                 return self._refuse_raised_at_seam(
-                    raised, seam="acquisition", request=request, identity=identity,
+                    raised if disclosure is None else self._under_the_early_policy(raised),
+                    seam="acquisition", request=request, identity=identity,
                     perspective=perspective, effective=effective,
                     served_at=served_at,
                 )
@@ -4327,6 +4371,14 @@ class GovernedResolver:
                 binding = self._declared_seam_refusal(error)
                 if binding is None:
                     raise
+                if disclosure is not None:
+                    # `D-IMPL-378` repair 2.2 (a): the declared cause, code and
+                    # the exception's own text give way to the one constant.
+                    return self._refuse_raised_at_seam(
+                        self._under_the_early_policy(None), seam="acquisition",
+                        request=request, identity=identity, perspective=perspective,
+                        effective=effective, served_at=served_at,
+                    )
                 return self._refuse_declared_at_seam(
                     error, binding, seam="acquisition", request=request,
                     identity=identity, perspective=perspective, effective=effective,
@@ -5609,6 +5661,22 @@ class GovernedResolver:
             if self._declared_seam_refusal(error) is None:
                 raise
         return self.fabric.handle.reader.as_of(tenant_id=self.fabric.tenant_id, at=at)
+
+    @staticmethod
+    def _under_the_early_policy(raised: GovernedRefusalRaised | None) -> GovernedRefusalRaised:
+        """What the subject-keyed phase's refusal becomes under a declared early policy: :data:`EARLY_POLICY_ACQUISITION_REFUSAL`.
+
+        ``D-IMPL-378`` repair 2.2 (a). Whatever the phase raised — its kind,
+        cause, code, text, an envelope its raiser recorded — is replaced by the
+        SDK's one constant refusal, which this resolver records as it records
+        any refusal raised at the seam. A raiser that states
+        :class:`~ccf.replay.record.ResolutionNotApplicable` is kept, so
+        :meth:`_refuse_raised_at_seam` refuses that programming error by its own
+        message as it does under every other policy.
+        """
+        if raised is not None and isinstance(raised.resolution, ResolutionNotApplicable):
+            return raised
+        return GovernedRefusalRaised(EARLY_POLICY_ACQUISITION_REFUSAL, resolution=RESOLVED_BY_THE_RESOLVER)
 
     @staticmethod
     def _stand_in_is_held() -> str:
