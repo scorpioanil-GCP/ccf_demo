@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2464 entries**, of which **2187** name a public Python surface.
+**2470 entries**, of which **2193** name a public Python surface.
 
 ## Added
 
@@ -30767,7 +30767,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-440 entries — 401 public Python surface, 39 not public Python API.
+446 entries — 407 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -37178,6 +37178,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-53-b-plain-boot-creating-its-store-finds-it-empty.md`.*
+
+#### ccf.deployment.classes.resolve_artifact_class
+
+- Surface: ccf.deployment.classes.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: a `ccf.` id the SDK does not ship raised a plain `ValueError` saying it is not a class the SDK ships.
+- After: it raises `ccf.controlplane.artifact_base.ReservedArtifactClassId` (a `ValueError`) carrying `class_id`, with that class's message; an empty id still raises a plain `ValueError`.
+- Why: `D-IMPL-378` OWED-RULINGS-3 item 3P2 (b): one rule, one name. Red test: `tests/deployment/test_resolve_artifact_class_names_the_reservation.py::test_3p2_b_the_resolver_refuses_a_reserved_id_as_reserved_artifact_class_id`.
+- Migration: none for a caller catching `ValueError`; a caller matching the old message text reads the new one, or catches `ReservedArtifactClassId` by name.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.resolve_artifact_class
+
+- Surface: ccf.deployment.resolve_artifact_class
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.classes.resolve_artifact_class`.
+- After: the package-level spelling of the same change.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: as `ccf.deployment.classes.resolve_artifact_class`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifact_base.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifact_base.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: raised by `declared_artifact_class` and `ArtifactClass.validate`.
+- After: also raised by `resolve_artifact_class`, for a `ccf.` id the SDK does not ship, before the open envelope is reached. Unchanged class, attribute and message.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: none.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.controlplane.artifacts.ReservedArtifactClassId
+
+- Surface: ccf.controlplane.artifacts.ReservedArtifactClassId
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.controlplane.artifact_base.ReservedArtifactClassId`, which this name re-exports.
+- After: the same change.
+- Why: OWED-RULINGS-3 item 3P2 (b).
+- Migration: none.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: an entry naming a `ccf.` class id the SDK does not ship raised a plain `ValueError`.
+- After: it raises `ReservedArtifactClassId` (a `ValueError`), before anything is registered or audited, as before.
+- Why: OWED-RULINGS-3 item 3P2 (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_control_the_manifest_door_refuses_an_envelope_stating_a_reserved_id_by_its_own_mechanism`.
+- Migration: none for a caller catching `ValueError`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a section naming a `ccf.` class id the SDK does not ship raised a plain `ValueError`.
+- After: it raises `ReservedArtifactClassId` (a `ValueError`); the paved road (`ccf.products.product.open_product`) refuses the same section the same way.
+- Why: OWED-RULINGS-3 item 3P2 (b). Red test: `tests/deployment/test_reserved_class_id_in_validate.py::test_control_the_config_door_and_the_paved_road_refuse_a_reserved_policy_class_by_their_own_mechanism`.
+- Migration: none for a caller catching `ValueError`.
+
+*Recorded by `378-53-c-one-reservation-one-refusal-name.md`.*
 
 ### Not public Python API
 
