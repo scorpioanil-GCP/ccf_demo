@@ -41,8 +41,11 @@ still judged. Then the recovery runs, and the test asserts the ruling's words:
 The two-gate release workflow is used because the step after its first gate
 (``archive-certificates``) is a real node, so a passage can be counted.
 
-RED FIRST: committed before the recovery existed, when every retry met the
-refusals above. Test vocabulary only (CINV-01).
+RED FIRST: the tests above the guard section were committed before the
+recovery existed, when every retry met the refusals above. The guard and the
+residual measurements after them were added with the recovery; each of the
+recovery's terms was severed once to show which of these tests it reddens.
+Test vocabulary only (CINV-01).
 """
 
 from __future__ import annotations
