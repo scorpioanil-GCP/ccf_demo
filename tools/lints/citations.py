@@ -40,6 +40,14 @@ Three rules
     *rename*, and checking it is what makes the preferred form the enforced
     form rather than the trusted one. See
     ``tools/lints/citations.py::symbol_spans`` for what "resolve" means.
+    A qualified citation, ``file.py::A.b.c``, is checked name by name
+    (``D-IMPL-378``, OWED-RULINGS-3 item 7 (a); until then only ``A`` was
+    read, so ``A.no_such_member`` passed): ``A`` resolves as above, and each
+    later name must be bound in the body of a ``def`` or ``class`` the name
+    before it resolved to, which is the name Python's ``__qualname__`` gives a
+    definition, with ``<locals>`` dropped. An inherited member is therefore a
+    finding: cite it at the class that defines it. See
+    ``tools/lints/citations.py::member_verdict``.
 
 What this checker cannot see
 ----------------------------
@@ -65,6 +73,11 @@ reviews.
   or an anchor matching two ``def``\\ s in the cited file, is counted as
   *unchecked* and is never a finding. Guessing which one was meant is how a
   lint goes red on correct code.
+* **A member reached through an assignment.** In ``file.py::A.b`` where
+  ``A`` is bound only by an assignment — an instance, or an alias such as
+  Hypothesis's ``TestX = Machine.TestCase`` — what ``b`` names depends on a
+  value only runtime knows. The citation is counted unchecked (``--report``'s
+  "member not followable") and is never a finding.
 * **Extensionless and non-source targets.** ``Makefile:NNN`` and
   ``README:NNN`` are not matched at all — ``CITED_SUFFIXES`` is the whole list
   of what a citation may name.
@@ -147,7 +160,9 @@ __all__ = [
     "checkable_anchor",
     "check_tree",
     "exemption_reason",
+    "member_verdict",
     "scan_tree",
+    "scope_bindings",
 ]
 
 RULE_RESOLVES = "cite01-resolves"
@@ -296,6 +311,15 @@ NODE_ID = re.compile(
     r"(?P<path>[A-Za-z0-9_][A-Za-z0-9_./+-]*\.py)::(?P<symbol>[A-Za-z_][A-Za-z0-9_]*)"
 )
 
+#: The dotted member path after a symbol citation's first name: the ``.b.c``
+#: of ``file.py::A.b.c``. Matched where ``NODE_ID`` ends rather than folded
+#: into it, so ``NODE_ID``'s span and groups, which other modules read, are
+#: unchanged.
+_MEMBER_TAIL = re.compile(r"(?:\.[A-Za-z_][A-Za-z0-9_]*)+")
+
+#: What a qualified name can step into: a definition with a body of its own.
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
 #: A backticked span: RST ``x`` and Markdown `x` alike. Newline-free, so a
 #: span never straddles two lines.
 _BACKTICKED = re.compile(r"(?P<ticks>`+)(?P<body>[^`\n]+)(?P=ticks)")
@@ -381,6 +405,7 @@ class Scan(NamedTuple):
     unusable_anchor: int
     exempt_files: int
     scanned_files: int
+    unfollowable_member: int
 
 
 def exemption_reason(rel: str) -> str | None:
@@ -551,27 +576,99 @@ def symbol_spans(source: str, path: pathlib.Path) -> dict[str, list[tuple[int, i
     symbol". A binding's span is the assignment statement.
     """
     spans: dict[str, list[tuple[int, int]]] = {}
+    for name, nodes in _definitions(source, path).items():
+        for node in nodes:
+            first = node.lineno
+            if isinstance(node, _SCOPES):
+                first = min([node.lineno] + [d.lineno for d in node.decorator_list])
+            spans.setdefault(name, []).append((first, node.end_lineno or node.lineno))
+    return spans
+
+
+def _binds(node: ast.AST) -> list[str]:
+    """The names `node` binds, of the kinds ``cite03`` resolves.
+
+    A ``def``, a ``class``, or a plain-name assignment or annotation target.
+    :func:`symbol_spans` and :func:`scope_bindings` both read these kinds from
+    here, so what a first name and a member may resolve to cannot drift apart.
+    """
+    if isinstance(node, _SCOPES):
+        return [node.name]
+    if isinstance(node, ast.Assign):
+        return [target.id for target in node.targets if isinstance(target, ast.Name)]
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return [node.target.id]
+    return []
+
+
+def _definitions(source: str, path: pathlib.Path) -> dict[str, list[ast.stmt]]:
+    """Every statement binding a name anywhere in `source`, by name."""
+    found: dict[str, list[ast.stmt]] = {}
     try:
         tree = ast.parse(source, filename=str(path))
     except SyntaxError:
-        return spans
+        return found
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            first = min([node.lineno] + [d.lineno for d in node.decorator_list])
-            spans.setdefault(node.name, []).append(
-                (first, node.end_lineno or node.lineno)
-            )
-        elif isinstance(node, ast.Assign):
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    spans.setdefault(target.id, []).append(
-                        (node.lineno, node.end_lineno or node.lineno)
-                    )
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            spans.setdefault(node.target.id, []).append(
-                (node.lineno, node.end_lineno or node.lineno)
-            )
-    return spans
+        if isinstance(node, ast.stmt):
+            for name in _binds(node):
+                found.setdefault(name, []).append(node)
+    return found
+
+
+def scope_bindings(scope: ast.stmt) -> dict[str, list[ast.stmt]]:
+    """The names bound in `scope`'s own body, by name.
+
+    Of the kinds :func:`_binds` names, at any depth of the compound statements
+    in the body (an ``if TYPE_CHECKING:`` block, a ``try``), and never inside a
+    nested ``def`` or ``class``, whose body is its own scope. A name set on an
+    instance (``self.x = ...``) is not bound in a class body, and an inherited
+    member is bound in its base's body, not here.
+    """
+    bound: dict[str, list[ast.stmt]] = {}
+    pending: list[ast.AST] = list(getattr(scope, "body", []))
+    while pending:
+        node = pending.pop()
+        if isinstance(node, ast.stmt):
+            for name in _binds(node):
+                bound.setdefault(name, []).append(node)
+        if isinstance(node, _SCOPES):
+            continue
+        pending.extend(
+            child
+            for child in ast.iter_child_nodes(node)
+            if isinstance(child, (ast.stmt, ast.ExceptHandler, ast.match_case))
+        )
+    return bound
+
+
+def member_verdict(
+    definitions: dict[str, list[ast.stmt]], qualified: list[str]
+) -> tuple[bool | None, int]:
+    """Whether a qualified name resolves, name by name, and where it stopped.
+
+    `definitions` maps each name to every node binding it anywhere in the
+    cited file; `qualified` is ``["A", "b", "c"]`` for ``file.py::A.b.c``. The
+    first name resolves as ``cite03`` has always resolved it. Each later name
+    must be bound (:func:`scope_bindings`) in the body of a ``def`` or
+    ``class`` the name before it resolved to.
+
+    Returns ``(True, len(qualified))`` when every name resolves; ``(False,
+    i)`` when ``qualified[i]`` is bound in none of the bodies it was looked
+    for in, which is a finding; and ``(None, i)`` when it could not be looked
+    for, because the name before it is bound by an assignment, whose value
+    only runtime knows. ``(False, 0)`` means the first name is not bound at
+    all.
+    """
+    current = definitions.get(qualified[0], [])
+    if not current:
+        return False, 0
+    for i, name in enumerate(qualified[1:], 1):
+        scopes = [node for node in current if isinstance(node, _SCOPES)]
+        found = [hit for scope in scopes for hit in scope_bindings(scope).get(name, [])]
+        if not found:
+            return (None if len(scopes) < len(current) else False), i
+        current = found
+    return True, len(qualified)
 
 
 def citation_sentence(lines: list[str], lineno: int, column: int) -> str:
@@ -601,6 +698,7 @@ class _Tree:
     def __init__(self) -> None:
         self._source: dict[str, str] = {}
         self._spans: dict[str, dict[str, list[tuple[int, int]]]] = {}
+        self._definitions: dict[str, dict[str, list[ast.stmt]]] = {}
 
     def source(self, path: pathlib.Path) -> str:
         key = str(path)
@@ -613,6 +711,12 @@ class _Tree:
         if key not in self._spans:
             self._spans[key] = symbol_spans(self.source(path), path)
         return self._spans[key]
+
+    def definitions(self, path: pathlib.Path) -> dict[str, list[ast.stmt]]:
+        key = str(path)
+        if key not in self._definitions:
+            self._definitions[key] = _definitions(self.source(path), path)
+        return self._definitions[key]
 
 
 def _anchor_verdict(
@@ -701,19 +805,41 @@ def check_source(
                 # pointer, so it is unchecked rather than a finding.
                 bump("ambiguous_path" if ambiguous else "unresolved_path")
                 continue
-            if symbol in cache.spans(target):
+            if symbol not in cache.spans(target):
+                findings.append(
+                    format_finding(
+                        path,
+                        lineno,
+                        RULE_NODE_ID,
+                        f"cites {cited}::{symbol}, but {cited} defines no"
+                        f" {symbol!r} — the symbol was renamed or removed;"
+                        " re-resolve it before citing it",
+                    )
+                )
+                continue
+            tail = _MEMBER_TAIL.match(line, match.end())
+            if tail is None:
                 bump("checked")
                 continue
-            findings.append(
-                format_finding(
-                    path,
-                    lineno,
-                    RULE_NODE_ID,
-                    f"cites {cited}::{symbol}, but {cited} defines no"
-                    f" {symbol!r} — the symbol was renamed or removed;"
-                    " re-resolve it before citing it",
+            qualified = [symbol, *tail.group(0)[1:].split(".")]
+            verdict, stop = member_verdict(cache.definitions(target), qualified)
+            if verdict is None:
+                bump("unfollowable_member")
+            elif verdict:
+                bump("checked")
+            else:
+                findings.append(
+                    format_finding(
+                        path,
+                        lineno,
+                        RULE_NODE_ID,
+                        f"cites {cited}::{'.'.join(qualified)}, but"
+                        f" {'.'.join(qualified[:stop])} in {cited} defines no"
+                        f" {qualified[stop]!r} — the member was renamed or"
+                        " removed, or is inherited (cite it at the class that"
+                        " defines it); re-resolve it before citing it",
+                    )
                 )
-            )
 
         for match in CITATION.finditer(line):
             bump("total")
@@ -800,6 +926,7 @@ def scan_tree(base: pathlib.Path) -> Scan:
         unusable_anchor=tally.get("unusable_anchor", 0),
         exempt_files=exempt,
         scanned_files=scanned,
+        unfollowable_member=tally.get("unfollowable_member", 0),
     )
 
 
