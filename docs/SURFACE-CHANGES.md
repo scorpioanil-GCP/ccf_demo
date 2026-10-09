@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2450 entries**, of which **2173** name a public Python surface.
+**2451 entries**, of which **2174** name a public Python surface.
 
 ## Added
 
@@ -30707,7 +30707,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-431 entries — 392 public Python surface, 39 not public Python API.
+432 entries — 393 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36998,6 +36998,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. Over the MCP-backed store the deployment grants `artifact.subject.match` to the door's MCP credential and declares the door's authority in the server's `ErasureTrust`; without them such filings stay `subject-unverifiable`.
 
 *Recorded by `378-42-d3b-erasure-subject-match.md`.*
+
+#### ccf.graph.backends.sqlite.SqliteGraphStore
+
+- Surface: ccf.graph.backends.sqlite.SqliteGraphStore
+- Public surface: true
+- Change type: behavior
+- Before: `writer_lease()` took the `flock` beside the resolved path and returned it, whatever other names the database file had, so a writer through a hard link took a different lock and was not refused.
+- After: `writer_lease()` refuses a database file with more than one name (a hard link), through any of its names, with `WriterLeaseHeld`, after releasing the lock it took; a boot through either name is refused with `SingleWriterViolation`. A file with one name, and an in-memory database, are leased as before.
+- Why: SEC-013 (CLAUDE.md §10): a lock beside one name cannot exclude a writer through another, and SQLite names its write-ahead log after the path too, so a second name reads another log and misses what the first committed.
+- Migration: keep one name for a live database file. A hard link to it, including one a hard-link backup makes inside the same filesystem, refuses every writer boot until it is removed.
+
+*Recorded by `378-43-proposal-sqlite-lease-refuses-a-second-name.md`.*
 
 #### ccf.artifacts.mcp_store.McpArtifactStore
 
