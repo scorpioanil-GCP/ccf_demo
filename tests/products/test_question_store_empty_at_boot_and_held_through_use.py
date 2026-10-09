@@ -1,4 +1,4 @@
-"""SEC-020 P4s-A (b): a question's store is empty when its boot returns, read before acquisition (``D-IMPL-378``).
+"""SEC-020 P4s-A (b) and P4s-B (a): a question's store is empty when its boot returns, and held through its use.
 
 Dave, 2026-10-08 16:40 MST, ``D-IMPL-378`` item 3, verbatim: *"P4s-A: (b);
 P4s-B: (a). Add the emptiness check and keep unverifiable stores free of
@@ -23,6 +23,16 @@ The second section proves the order: the emptiness read happens inside the
 boot, strictly before the population phase, the read before acquisition and
 the subject-keyed acquisition phase, and it is the first read of the store.
 
+The third section proves what protects the check through the question's use.
+From the boot's return to the question's end, a second boot for a question at
+the same path, a plain writer boot, the composition root's own writer boot, a
+plain read-only boot asked a governed question, and a second governed call
+over the question's fabric are each refused by name, and nothing lands in the
+question's store. Measured on ``6942dadc`` (``probe-window-attempts-6942dad.txt``):
+a boot for a question that is also read-only took no writer lease, and a plain
+writer boot then wrote into its store while it was open. That boot is refused
+by name here, before anything is registered.
+
 Every domain value here is fixture vocabulary (CINV-01, CLAUDE.md §11).
 """
 
@@ -39,7 +49,7 @@ import pytest
 
 from ccf.contracts.canonical import content_hash
 from ccf.deployment import load_and_boot, load_config_and_boot
-from ccf.products.resolver import ProductNotResolvable
+from ccf.products.resolver import ProductNotResolvable, build_governed_resolver
 from ccf.replay.engine import replay
 from ccf.replay.environment import RecordedEnvironment
 from ccf.replay.serve import ServedProduct
@@ -403,6 +413,290 @@ def test_p4e_the_emptiness_read_precedes_acquisition_on_the_paved_road(
     ) as opened:
         outcome = m._paved_ask(opened, sec020.PAVED_WITHHELD)
     _assert_the_emptiness_read_came_first(events, outcome, road="the paved road")
+
+
+# --- 3. exclusive ownership from the emptiness check through the question's use ---------------
+
+
+def test_p4e_a_boot_for_a_question_that_would_hold_no_writer_lease_is_refused_by_name_load_and_boot(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A read-only boot for a question takes no writer lease: refused by name, before anything is registered.
+
+    Measured on ``6942dadc`` (``probe-window-attempts-6942dad.txt``): such a
+    boot was accepted, and a plain writer boot of the same path then wrote the
+    deployment's three accounts into the store while the question's fabric was
+    open and read them back. Nothing then held the store for the question
+    between its emptiness check and its end.
+    """
+    manifest, registry, _records = _deployment(tmp_path)
+    path = tmp_path / "read-only-question" / _STORE
+    path.parent.mkdir()
+    audited = len(registry.audit_events())
+    try:
+        fabric = load_and_boot(
+            manifest, registry=registry, connection={"database_path": str(path)}, for_question=True, read_only=True,
+        )
+    except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
+        refused: BaseException = raised
+    else:
+        try:
+            scope = fabric.handle.lease_scope
+            other = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)})
+            try:
+                for envelope in m._base_accounts():
+                    other.handle.worker.ingest(envelope)
+            finally:
+                other.handle.close()
+            held = _held(fabric)
+        finally:
+            fabric.handle.close()
+        pytest.fail(
+            f"a boot for a question that holds no writer lease was booted (lease scope {scope!r}); a plain writer"
+            f" boot of its path then wrote into its store while it was open, and it read back {held} entities. It"
+            " must be refused by name (QuestionFabricNotExclusive) before anything is registered"
+        )
+    assert m._named(refused, "QuestionFabricNotExclusive"), f"refused, but for another reason: {refused!r}"
+    assert len(registry.audit_events()) == audited, "nothing may be registered before the refusal"
+    assert not path.exists() and not _sdk_markers(path), "nothing may be created at the path before the refusal"
+
+
+def test_p4e_a_boot_for_a_question_that_would_hold_no_writer_lease_is_refused_by_name_load_config_and_boot(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The single-file door (the paved road's): the same refusal, before anything is registered."""
+    with _open_paved(_paved_tree(tmp_path), tmp_path / "scratch", acquire=sec020._AcquireForSubject()) as opened:
+        path = tmp_path / "read-only-question.sqlite3"
+        audited = len(opened.control_plane.audit_events())
+        try:
+            fabric = load_config_and_boot(
+                opened.config_path, registry=opened.control_plane, connection={"database_path": str(path)},
+                for_question=True, read_only=True,
+            )
+        except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
+            refused: BaseException = raised
+        else:
+            scope = fabric.handle.lease_scope
+            fabric.handle.close()
+            pytest.fail(
+                f"a boot for a question that holds no writer lease was booted (lease scope {scope!r}); it must be"
+                " refused by name (QuestionFabricNotExclusive) before anything is registered"
+            )
+        assert len(opened.control_plane.audit_events()) == audited, "nothing may be registered before the refusal"
+    assert m._named(refused, "QuestionFabricNotExclusive"), f"refused, but for another reason: {refused!r}"
+    assert not path.exists() and not _sdk_markers(path), "nothing may be created at the path before the refusal"
+
+
+class _Routes:
+    """Every route into a question's store a deployment has, each tried at a named moment of the question's use."""
+
+    def __init__(self, attempts: dict[str, Callable[[], Any]]) -> None:
+        self._attempts = attempts
+        self.outcomes: dict[tuple[str, str], Any] = {}
+
+    def run(self, moment: str, *, skip: tuple[str, ...] = ()) -> None:
+        for route, attempt in self._attempts.items():
+            if route in skip:
+                continue
+            try:
+                self.outcomes[(moment, route)] = attempt()
+            except Exception as raised:  # noqa: BLE001 — the outcome is the measurement
+                self.outcomes[(moment, route)] = raised
+
+
+class _TryingSeam:
+    """A hand-composed acquisition phase that tries every route while the question is using its store."""
+
+    def __init__(self, routes: _Routes) -> None:
+        self._routes = routes
+
+    def __call__(self, *, request: Any, perspective: Any) -> None:
+        self._routes.run("during its acquisition phase")
+
+
+def _governed_call(fabric: Any, registry: Any, records: Any) -> Any:
+    """A governed question with no acquisition phase over ``fabric``: what a door asks of a store it opened."""
+    return m._ask(m._governed((fabric, registry, records), plan_factory=m._late(), acquisition=None), sec020.MISSING)
+
+
+def _assert_every_route_refused_by_name(routes: _Routes, expected: dict[str, str], *, road: str) -> None:
+    tried = {route for _moment, route in routes.outcomes}
+    assert tried == set(expected), f"[{road}] not every route was tried: {sorted(tried)}"
+    for (moment, route), outcome in routes.outcomes.items():
+        assert m._named(outcome, expected[route]), (
+            f"[{road}] {route}, {moment}, was not refused by name ({expected[route]}): {outcome!r}"
+        )
+
+
+def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_check_to_its_end_by_hand(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exclusive ownership through use, the hand-composed road: every other route is refused by name, nothing lands.
+
+    Each route is tried after the boot returned (its emptiness check done)
+    and again while the question's acquisition phase runs. The question's
+    fabric holds the writer lease (cross-process), its path carries the
+    question marker created exclusively, and the fabric is claimed by the
+    question's governed call. A second governed call is tried only once the
+    first has claimed the fabric.
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    manifest, registry, records = _deployment(tmp_path)
+    path = tmp_path / "question" / _STORE
+    path.parent.mkdir()
+    captured: dict[str, Any] = {}
+    real_boot = manifest_module.boot
+
+    def capture(**kwargs: Any) -> Any:
+        captured.setdefault("kwargs", dict(kwargs))
+        return real_boot(**kwargs)
+
+    monkeypatch.setattr(manifest_module, "boot", capture)
+    question = load_and_boot(manifest, registry=registry, connection={"database_path": str(path)}, for_question=True)
+    connection = {"database_path": str(path)}
+
+    def a_question_boot() -> Any:
+        load_and_boot(manifest, registry=registry, connection=connection, for_question=True).handle.close()
+        return "booted"
+
+    def a_plain_writer_boot() -> Any:
+        fabric = load_and_boot(manifest, registry=registry, connection=connection)
+        try:
+            for envelope in m._base_accounts():
+                fabric.handle.worker.ingest(envelope)
+        finally:
+            fabric.handle.close()
+        return "booted and wrote"
+
+    def a_plain_read_only_boot_asked_a_question() -> Any:
+        fabric = load_and_boot(manifest, registry=registry, connection=connection, read_only=True)
+        try:
+            return _governed_call(fabric, registry, records)
+        finally:
+            fabric.handle.close()
+
+    def the_composition_roots_writer_boot() -> Any:
+        real_boot(**{**captured["kwargs"], "connection": connection, "read_only": False}).close()
+        return "booted"
+
+    def a_second_governed_call() -> Any:
+        return _governed_call(question, registry, records)
+
+    routes = _Routes(
+        {
+            "a boot for a question at its path": a_question_boot,
+            "a plain writer boot at its path": a_plain_writer_boot,
+            "a plain read-only boot at its path, asked a governed question": a_plain_read_only_boot_asked_a_question,
+            "ccf.boot.boot booting a writer over its path": the_composition_roots_writer_boot,
+            "a second governed call over the question's fabric": a_second_governed_call,
+        }
+    )
+    try:
+        routes.run("after its boot returned", skip=("a second governed call over the question's fabric",))
+        outcome = m._ask(
+            m._governed((question, registry, records), plan_factory=m._late(), acquisition=_TryingSeam(routes)),
+            sec020.MISSING,
+        )
+        held = _held(question)
+    finally:
+        question.handle.close()
+    assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
+    _assert_every_route_refused_by_name(
+        routes,
+        {
+            "a boot for a question at its path": "QuestionFabricNotFresh",
+            "a plain writer boot at its path": "SingleWriterViolation",
+            "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
+            "ccf.boot.boot booting a writer over its path": "SingleWriterViolation",
+            "a second governed call over the question's fabric": "AcquiredFabricReused",
+        },
+        road="by hand",
+    )
+    assert held == 0, f"nothing any route tried may land in the question's store: it holds {held} entities"
+
+
+def test_p4e_nothing_claims_opens_or_writes_a_question_store_from_its_emptiness_check_to_its_end_on_the_paved_road(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Exclusive ownership through use, the paved road: tried from inside ``acquire``, through the single-file door."""
+    from tests.deployment.test_replay_binding import THRESHOLD_PARAMETER as PAVED_THRESHOLD  # noqa: PLC0415
+    from tests.products.test_paved_road import ASKED_AT as PAVED_ASKED_AT  # noqa: PLC0415
+
+    scratch = tmp_path / "scratch"
+    held: list[int] = []
+    routes_holder: list[_Routes] = []
+
+    class _TryingAcquire:
+        def __init__(self) -> None:
+            self._inner = sec020._AcquireForSubject()
+
+        def __call__(self, context: Any) -> Any:
+            minted = sorted(scratch.glob("paved_fixture*.sqlite3"))
+            assert len(minted) == 1, minted
+            connection = {"database_path": str(minted[0])}
+
+            def a_question_boot() -> Any:
+                load_config_and_boot(
+                    opened.config_path, registry=opened.control_plane, connection=connection, for_question=True,
+                ).handle.close()
+                return "booted"
+
+            def a_plain_writer_boot() -> Any:
+                fabric = load_config_and_boot(opened.config_path, registry=opened.control_plane, connection=connection)
+                fabric.handle.close()
+                return "booted"
+
+            def a_plain_read_only_boot_asked_a_question() -> Any:
+                fabric = load_config_and_boot(
+                    opened.config_path, registry=opened.control_plane, connection=connection, read_only=True,
+                )
+                try:
+                    arguments = opened.build_arguments(fabric)
+                    arguments["acquisition"] = None
+                    return build_governed_resolver(**arguments)(
+                        tenant=opened.tenant_id, product_class=opened.declaration.schema_name,
+                        version=opened.declaration.schema_version, perspective=opened.default_perspective,
+                        request=opened.question(
+                            subject=sec020.PAVED_ABSENT, asked_at=PAVED_ASKED_AT, intent="fixture-intent",
+                            freshness="fixture-freshness", parameters={PAVED_THRESHOLD: 1000},
+                        ),
+                    )
+                finally:
+                    fabric.handle.close()
+
+            routes = _Routes(
+                {
+                    "a boot for a question at its path": a_question_boot,
+                    "a plain writer boot at its path": a_plain_writer_boot,
+                    "a plain read-only boot at its path, asked a governed question": a_plain_read_only_boot_asked_a_question,
+                }
+            )
+            routes.run("during its acquisition phase")
+            routes_holder.append(routes)
+            reader = load_config_and_boot(
+                opened.config_path, registry=opened.control_plane, connection=connection, read_only=True,
+            )
+            try:
+                held.append(_held(reader))
+            finally:
+                reader.handle.close()
+            return self._inner(context)
+
+    with _open_paved(_paved_tree(tmp_path), scratch, acquire=_TryingAcquire()) as opened:
+        outcome = m._paved_ask(opened, sec020.PAVED_WITHHELD)
+    assert isinstance(outcome, ServedProduct), f"the question itself must be answered: {outcome!r}"
+    assert len(routes_holder) == 1, "the routes were not tried; the case was not constructed"
+    _assert_every_route_refused_by_name(
+        routes_holder[0],
+        {
+            "a boot for a question at its path": "QuestionFabricNotFresh",
+            "a plain writer boot at its path": "SingleWriterViolation",
+            "a plain read-only boot at its path, asked a governed question": "QuestionStoreReopened",
+        },
+        road="the paved road",
+    )
+    assert held == [0], f"nothing any route tried may land in the question's store: {held}"
 
 
 # --- controls ----------------------------------------------------------------------------
