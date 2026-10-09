@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2396 entries**, of which **2119** name a public Python surface.
+**2405 entries**, of which **2128** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1317 entries — 1271 public Python surface, 46 not public Python API.
+1321 entries — 1275 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19328,6 +19328,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
 
+#### ccf.deployment.manifest.QuestionStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.QuestionStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent; a store written at a question boot's path after the SDK's last check was booted as the question's fabric.
+- After: a subclass of `QuestionFabricNotFresh` (so a `ValueError`), raised by `load_and_boot` and `load_config_and_boot` with `for_question=True` when the store the adapter opened holds any entity or relationship for the tenant at the boot's one read, taken through the governed reader at the latest instant a timestamp can name, after the writer lease is taken and before the fabric is handed back. The handle is closed first; the question marker stays. Its text states no count.
+- Why: SEC-020 P4s-A (b): the emptiness check precedes acquisition.
+- Migration: none; additive. A handler for `QuestionFabricNotFresh` also catches it.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionStoreNotEmpty
+
+- Surface: ccf.deployment.QuestionStoreNotEmpty
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionStoreNotEmpty`.
+- Why: SEC-020 P4s-A (b).
+- Migration: none; additive.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotExclusive
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotExclusive
+- Public surface: true
+- Change type: added
+- Before: absent; `for_question=True` with `read_only=True` booted a question's fabric that held no writer lease.
+- After: a subclass of `QuestionFabricNotFresh` (so a `ValueError`), raised by `load_and_boot` and `load_config_and_boot` for `for_question=True` with `read_only=True`, before anything is registered or created at the path.
+- Why: SEC-020 P4s-A (b): the check stays protected by exclusive ownership through use, which the question marker and the boot's writer lease provide; a read-only boot takes no lease.
+- Migration: boot a question's fabric as a writer; read a question's store for replay with a read-only boot that is not for a question.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionFabricNotExclusive
+
+- Surface: ccf.deployment.QuestionFabricNotExclusive
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: the package-level spelling of `ccf.deployment.manifest.QuestionFabricNotExclusive`.
+- Why: SEC-020 P4s-A (b).
+- Migration: none; additive.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30311,7 +30359,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-410 entries — 371 public Python surface, 39 not public Python API.
+415 entries — 376 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -36362,6 +36410,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: as above; a class at the default `may-withhold` is unaffected.
 
 *Recorded by `378-38-e2ii-d-a-never-class-needs-a-positive-declaration.md`.*
+
+#### ccf.deployment.manifest.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.manifest.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: raised for a store a boot for a question could not show fresh at its path: none named, one existing, or one reserved or created by another boot.
+- After: also raised, as its subclass `QuestionStoreNotEmpty`, after the boot when the store it opened holds anything for the tenant, and, as its subclass `QuestionFabricNotExclusive`, before anything is registered when the boot is also read-only.
+- Why: SEC-020 P4s-A (b).
+- Migration: none for a handler of this class.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.QuestionFabricNotFresh
+
+- Surface: ccf.deployment.QuestionFabricNotFresh
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.QuestionFabricNotFresh`.
+- After: the package-level spelling of the same change.
+- Why: SEC-020 P4s-A (b).
+- Migration: none.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: `for_question` said the boot verified the store's path did not exist and reserved it.
+- After: `for_question` also says the store held nothing for the tenant when the boot read it, just before handing the fabric back.
+- Why: SEC-020 P4s-A (b).
+- Migration: none.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: `for_question=True` reserved the store's path and booted whatever store the adapter opened at it; `read_only=True` beside it booted a fabric with no writer lease.
+- After: `for_question=True` reads the store the adapter opened once, after the writer lease is taken and before returning, and raises `QuestionStoreNotEmpty` if it holds anything for the tenant; with `read_only=True` it raises `QuestionFabricNotExclusive` before anything is registered.
+- Why: SEC-020 P4s-A (b): the emptiness check precedes acquisition and stays protected by exclusive ownership through use.
+- Migration: boot a question's fabric as a writer, at a path that does not exist, and ingest anything it must start with after the boot returns.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine, and the paved road boots every question's fabric through this one.
+- Why: SEC-020 P4s-A (b).
+- Migration: as `load_and_boot`.
+
+*Recorded by `378-40-sec-020-p4s-a-question-store-empty-at-boot.md`.*
 
 ### Not public Python API
 

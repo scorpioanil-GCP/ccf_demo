@@ -2715,7 +2715,9 @@
       "EnvironmentDocument",
       "ManifestEntry",
       "ManifestKeysPlaceToOneKey",
+      "QuestionFabricNotExclusive",
       "QuestionFabricNotFresh",
+      "QuestionStoreNotEmpty",
       "ResolvedPins",
       "SDK_ARTIFACT_CLASSES",
       "SDK_ARTIFACT_ROLES",
@@ -2790,7 +2792,15 @@
         "kind": "class",
         "shape": "(*, authored_keys: 'tuple[str, str]', placed_key: 'str', tenant: 'str') -> 'None'"
       },
+      "QuestionFabricNotExclusive": {
+        "kind": "class",
+        "shape": "type"
+      },
       "QuestionFabricNotFresh": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "QuestionStoreNotEmpty": {
         "kind": "class",
         "shape": "type"
       },
@@ -3033,7 +3043,9 @@
     "__all__": [
       "BootedFabric",
       "ManifestKeysPlaceToOneKey",
+      "QuestionFabricNotExclusive",
       "QuestionFabricNotFresh",
+      "QuestionStoreNotEmpty",
       "UngovernedClassificationAttribute",
       "keys_under_tenant",
       "load_and_boot",
@@ -3049,7 +3061,15 @@
         "kind": "class",
         "shape": "(*, authored_keys: 'tuple[str, str]', placed_key: 'str', tenant: 'str') -> 'None'"
       },
+      "QuestionFabricNotExclusive": {
+        "kind": "class",
+        "shape": "type"
+      },
       "QuestionFabricNotFresh": {
+        "kind": "class",
+        "shape": "type"
+      },
+      "QuestionStoreNotEmpty": {
         "kind": "class",
         "shape": "type"
       },

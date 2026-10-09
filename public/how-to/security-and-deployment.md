@@ -1271,7 +1271,21 @@ unless another test is named.
   boot for a question at a path another boot holds, and a store that appeared
   at the path after the check, are refused by the same name
   (`tests/products/test_unmarked_and_unverifiable_question_stores.py`, which
-  measures every P4 (a) refusal in this bullet). A store whose settings name
+  measures every P4 (a) refusal in this bullet). Under P4s-A (b), which Dave
+  ruled on 2026-10-08 at 16:40 MST, the store the adapter opened is then read
+  once through the governed reader, at the latest instant a timestamp can
+  name, after the boot takes its writer lease and before the fabric is handed
+  back. A store holding anything for the tenant is refused
+  (`QuestionStoreNotEmpty`), before any acquisition phase runs, with the same
+  refusal whatever the question asks. A boot for a question that is also
+  read-only would hold no writer lease, so it is refused before anything is
+  registered (`QuestionFabricNotExclusive`). From the read to the question's
+  end, a second boot for a question at the path, another writer boot of the
+  path and a read-only boot asked a governed question are each refused by
+  name, in this process and from another process, and so is a second governed
+  call over the question's fabric
+  (`tests/products/test_question_store_empty_at_boot_and_held_through_use.py`,
+  which measures the order too). A store whose settings name
   no path, a network graph store and also the in-memory development store
   although each boot of that one is new, cannot be shown fresh: a boot for a
   question over it is refused (`QuestionFabricNotFresh`, measured for every
@@ -1370,7 +1384,11 @@ marker), so delete or copy a store together with its marker. A store created
 before this change, or outside the doors, still boots, and every governed call
 over it is refused (`UnmarkedStoreNotPresumedFresh`, or
 `AcquisitionNeedsAQuestionFabric` with an acquisition phase) until it is
-recreated through a door.
+recreated through a door. Boot a question's fabric as a writer:
+`for_question=True` with `read_only=True` raises `QuestionFabricNotExclusive`.
+To read a question's store back for replay, boot it read-only and not for a
+question; a record served over a fresh question store still replays to its
+own address that way (P4s-A (b)).
 
 **SEC-020 is open.** Each of the following still tells a withheld subject from
 a nonexistent one. Each was measured on test fixtures.
@@ -1563,10 +1581,10 @@ a nonexistent one. Each was measured on test fixtures.
   still replay to their own addresses (both test modules). What the markers do
   not reach is measured by lane probes, not by a test in this tree
   (`probe_p4_strict_limits.py`, `probe_question_boot_window.py`,
-  `probe_unreached_stores_distinguish.py`, `probe_p4_marker_limits.py`). A
-  marker binds to its store by path, beside it rather than inside it, and the
-  SDK checks and reserves a path while the adapter creates the store at the
-  boot. So a copy of a used question store with a deployment marker forged
+  `probe_unreached_stores_distinguish.py`, `probe_p4_marker_limits.py`,
+  `probe_emptiness_limits.py`). A marker binds to its store by path, beside
+  it rather than inside it, and the SDK checks and reserves a path while the
+  adapter creates the store at the boot. So a copy of a used question store with a deployment marker forged
   beside it, and a used question store written at a path after a plain boot
   left its marker there, each answered a later question: after a question
   about a withheld subject the source holds, that later answer about an
@@ -1574,9 +1592,18 @@ a nonexistent one. Each was measured on test fixtures.
   `debt.factors.freshness`, and under `from_entity_freshness` also at
   `expires_at` and `ttl_anchor_at`, against the same store after a question
   that acquired nothing. A store written at a question boot's path after the
-  SDK's last check was booted as that question's fabric. A deployment's own
-  writes into a reopened store go through. A marker left after its store is
-  deleted makes a later boot for a question at that path refuse, and every
+  SDK's last check was booted as that question's fabric; it is now refused
+  when the boot reads it (`QuestionStoreNotEmpty`, above), and that one read
+  does not reach three things. A store whose every claim was superseded
+  before the latest instant with no current successor, which no SDK writer
+  leaves, written there by raw SQL, was booted, and its question read its
+  rows. A raw SQLite connection, outside the SDK's writer lease, wrote into a
+  question's store while the question ran, and the question read what it
+  wrote. A store holding rows only for another tenant was booted, and the
+  paved fixture's answer over it matched its answer over a fresh store. A
+  deployment's own writes into a reopened store go through. A marker left
+  after its store is deleted makes a later boot for a question at that path
+  refuse, and every
   governed call over a plain boot there refuse: it fails closed. Ask new
   questions only of fabrics booted for them, and protect a question's store,
   and the directory it sits in, as you would its decision record.
