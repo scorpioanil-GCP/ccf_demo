@@ -7,7 +7,8 @@ change is in the one function every state write uses, and the saved-bytes limit 
 
 ``runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._write_state`` is the one function every Control Plane state
 write passes through. At ``7d9d2898`` it handed the state store the engine's own ``WorkflowStateRecord``, whose
-``trace`` holds the engine's own trace entries, and in every passage the state write comes before ``_write_trace``.
+``trace`` holds the engine's own trace entries, and in every passage but ``_restore_request``, which writes the trace
+first (from a record read back from the store), the state write comes before ``_write_trace``.
 A state store that rewrote a trace entry inside ``put_if`` had its rewrite reach the trace artifact, the completed
 outcome's ``step_sequence_block`` and the suspension's approval binding (builder probe
 ``delta-2/probes/test_probe_state_store_alias.py``; reproduced by the coordinator). The artifact store's copy (the

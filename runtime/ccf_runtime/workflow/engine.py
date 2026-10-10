@@ -1416,6 +1416,18 @@ class WorkflowEngine:
         event are all filed under ``authorized.tenant`` (§1.3). A suspension
         whose request never reached the queue, after its persist landed, gets
         that request back from :meth:`_restore_request`.
+
+        **The HITL queue key, disclosed** (``D-IMPL-380``, fourth round, ruling
+        2 (b), 2026-10-10 10:58 MST: *"Record the HITL queue key. The approval
+        binding is unaffected, and this round does not grow to every handoff.
+        Say what the caller can be told, and that the binding does not
+        change."*). Here and in :meth:`_restore_request`, a HITL transport is
+        handed the engine's own pending event, so a transport that alters it
+        can change the ``event_key`` the caller is told in
+        :class:`WorkflowSuspended`; the approval binding (the hash of the
+        suspension record as built) does not change, and resume recomputes the
+        key from the execution's state key and the gate (:meth:`_event_key`),
+        never from the event the transport was handed. The event is not copied.
         """
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
@@ -2410,8 +2422,12 @@ class WorkflowEngine:
         Control Plane. That is the same hole as the artifact store, one writer
         over."*), and the engine keeps its own record. Every state write passes
         through this function (no other ``write_if`` or ``put_if`` exists in
-        ``runtime/ccf_runtime/workflow/``), and in every passage the state
-        write comes before :meth:`_write_trace`, so a state store that altered
+        ``runtime/ccf_runtime/workflow/``), and in every passage but
+        :meth:`_restore_request`, which writes the trace first (from a record
+        read back from the store), the state write comes before
+        :meth:`_write_trace` (``D-IMPL-380``, fourth round, ruling 3 (a);
+        Dave, 2026-10-10 10:58 MST: *"Always comes before"* *"is false on
+        `_restore_request`."*), so a state store that altered
         the record it held — its trace entries are the engine's own — would
         otherwise reach the trace artifact, a completed outcome's
         ``step_sequence_block`` and a suspension's approval binding. They are

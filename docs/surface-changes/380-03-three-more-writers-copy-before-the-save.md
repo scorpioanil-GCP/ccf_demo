@@ -60,7 +60,7 @@ entry of the record it was handed had its rewrite reach the trace artifact and i
 - Surface: ccf_runtime.workflow.engine.WorkflowEngine
 - Public surface: true
 - Change type: behavior
-- Before: every Control Plane state write handed the state store the engine's own state record, whose trace entries are the engine's own, ahead of the trace's save, so a state store that rewrote the record while holding it had its rewrite reach the trace artifact, a completed outcome's `step_sequence_block` and a suspension's approval binding.
+- Before: every Control Plane state write handed the state store the engine's own state record, whose trace entries are the engine's own; in every passage but `_restore_request`, which writes the trace first (from a record read back from the store), the state write comes before `_write_trace`, so a state store that rewrote the record while holding it had its rewrite reach the trace artifact, a completed outcome's `step_sequence_block` and a suspension's approval binding.
 - After: the one function every state write uses hands the state store a deep copy taken before the save; the engine keeps its own record, and the trace artifact, the outcome and the approval binding are built from it. The saved-bytes limit, state-store form: the state store saves its copy, and a later passage that reads the record back (a resume, a retry, the recovery path) reads what the store saved.
 - Why: `D-IMPL-380` third round, ruling 2 (a). Red tests: `tests/workflow/test_state_store_holds_a_copy.py`.
 - Migration: none for a state store that does not change what it is handed.

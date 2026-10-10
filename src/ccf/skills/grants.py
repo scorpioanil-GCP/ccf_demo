@@ -618,11 +618,29 @@ class GrantLedger:
         transition travels with the write (D-IMPL-353 §1.2, the derived-writes
         rule): the store verifies it and files under its tenant; the grant
         hash is the record's identity within that tenant.
+
+        **The state store is handed a deep copy of the record, taken before the
+        save** (``D-IMPL-380``, fourth round, ruling 1 (a), 2026-10-10 10:58
+        MST: *"Copy before the save. The approver sees the grant as built, not
+        as the store rewrote it."*), and the ledger keeps its own ``grant``.
+        Every grant state write passes through this function (it holds the only
+        ``self._writer.write(`` in this module), so the approval sink, and
+        every later use of the grant in the same passage, see the grant as
+        built: a state store that altered the record it held would otherwise
+        alter the ledger's own grant.
+
+        **The saved-bytes limit, state-store form, disclosed.** The record the
+        state store saves is its copy. A state store that alters its copy saves
+        the alteration, and a later reader of the saved record
+        (:meth:`bound_view`, :meth:`effective_hashes` and the folds) reads what
+        the store saved. Nothing here re-reads what the store saved.
         """
         self._writer.write(
             authorized,
             GRANT_STATE,
-            GrantStateRecord(state=state, grant=grant),
+            # A deep copy taken now, before the save; the ledger keeps its own
+            # grant (`D-IMPL-380`, fourth round; Dave, 2026-10-10 10:58 MST).
+            GrantStateRecord(state=state, grant=grant).model_copy(deep=True),
             record_id=grant_hash,
             event=AuditEvent(
                 sequence=0,  # reassigned by the log; sequencing is its own

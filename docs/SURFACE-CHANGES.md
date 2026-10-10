@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2600 entries**, of which **2321** name a public Python surface.
+**2603 entries**, of which **2324** name a public Python surface.
 
 ## Added
 
@@ -31091,7 +31091,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-549 entries — 510 public Python surface, 39 not public Python API.
+552 entries — 513 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38804,12 +38804,48 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Surface: ccf_runtime.workflow.engine.WorkflowEngine
 - Public surface: true
 - Change type: behavior
-- Before: every Control Plane state write handed the state store the engine's own state record, whose trace entries are the engine's own, ahead of the trace's save, so a state store that rewrote the record while holding it had its rewrite reach the trace artifact, a completed outcome's `step_sequence_block` and a suspension's approval binding.
+- Before: every Control Plane state write handed the state store the engine's own state record, whose trace entries are the engine's own; in every passage but `_restore_request`, which writes the trace first (from a record read back from the store), the state write comes before `_write_trace`, so a state store that rewrote the record while holding it had its rewrite reach the trace artifact, a completed outcome's `step_sequence_block` and a suspension's approval binding.
 - After: the one function every state write uses hands the state store a deep copy taken before the save; the engine keeps its own record, and the trace artifact, the outcome and the approval binding are built from it. The saved-bytes limit, state-store form: the state store saves its copy, and a later passage that reads the record back (a resume, a retry, the recovery path) reads what the store saved.
 - Why: `D-IMPL-380` third round, ruling 2 (a). Red tests: `tests/workflow/test_state_store_holds_a_copy.py`.
 - Migration: none for a state store that does not change what it is handed.
 
 *Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf.skills.grants.GrantLedger
+
+- Surface: ccf.skills.grants.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: every grant state write handed the Control Plane state store a `GrantStateRecord` built around the ledger's own `SkillGrant`, and on the approval path the ledger then handed that same grant to the approval sink, so a state store that rewrote the grant while holding it had its rewrite decided on by the approver, and carried by every later use of the grant in the same passage.
+- After: the one function every grant state write uses (`_put_state`, the only `self._writer.write(` in the module) hands the state store a deep copy of the record taken before the save; the ledger keeps its own grant, so the approval sink and every later use in the same passage see the grant as built. The saved-bytes limit, state-store form: the state store saves its copy, and a later reader of the saved record (`bound_view`, `effective_hashes` and the folds) reads what the store saved.
+- Why: `D-IMPL-380` fourth round, ruling 1 (a), 2026-10-10 10:58 MST. Red test: `tests/skills/test_grant_state_store_holds_a_copy.py`.
+- Migration: none for a state store that does not change what it is handed.
+
+*Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
+
+#### ccf.skills.GrantLedger
+
+- Surface: ccf.skills.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.skills.grants.GrantLedger`
+- After: as for `ccf.skills.grants.GrantLedger`
+- Why: as for `ccf.skills.grants.GrantLedger`
+- Migration: as for `ccf.skills.grants.GrantLedger`
+
+*Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the engine's docstrings did not say that the HITL transport is handed the engine's own pending event.
+- After: unchanged behavior; the docstring where the event is enqueued (`_suspend`, which names `_restore_request` too) says: a HITL transport is handed the engine's own pending event, so a transport that alters it can change the `event_key` the caller is told in `WorkflowSuspended`; the approval binding (the hash of the suspension record as built) does not change, and resume recomputes the key from the execution's state key and the gate, never from the event the transport was handed. The event is not copied.
+- Why: `D-IMPL-380` fourth round, ruling 2 (b), 2026-10-10 10:58 MST. The Fable seat's finding F-2 on the third-round delta review, reproduced by the coordinator at `06414dbd`; the binding is the one `tests/workflow/test_state_store_holds_a_copy.py` holds to the record as built.
+- Migration: none.
+
+*Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
 
 ### Not public Python API
 

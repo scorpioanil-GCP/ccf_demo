@@ -22,7 +22,7 @@ completed outcome's `step_sequence_block`, the state record read back after a co
 exception-routed run, and the state record a recovering resumption wrote carry the rewrite. Now each carries the
 object as built. `tests/products/test_deployment_marker_special_file_refused.py` (8 cases, 6 of them red on `87fc9a56`
 and `490b1645`): a FIFO and a socket at the marker's path beside a store were opened once before their type was checked;
-now opened zero times, with the outcomes unchanged.
+zero opens counted by the test, with the outcomes unchanged.
 
 ## ccf.peering.admission.PeeringAdmissionGate
 

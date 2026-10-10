@@ -1158,6 +1158,14 @@ Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
   key, but `HITLTransportProtocol` does not declare it. A transport that
   satisfies the Protocol without the attribute is refused, by name, when the
   door is constructed; the reference `InMemoryHitlTransport` exposes it.
+- **A HITL transport can change the queue key the caller is told, not the
+  approval binding (`D-IMPL-380`, fourth round).** A HITL transport is handed
+  the engine's own pending event, so a transport that alters it can change
+  the `event_key` the caller is told in `WorkflowSuspended`; the approval
+  binding (the hash of the suspension record as built) does not change, and
+  resume recomputes the key from the execution's state key and the gate,
+  never from the event the transport was handed. The engine does not copy the
+  event (`runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._suspend`).
 - **The index assumes a filesystem whose `flock` and `O_APPEND` work.**
   Appends are serialized by an exclusive `flock` on the index file and
   written with `O_APPEND`. On a multi-host shared filesystem where `flock`
