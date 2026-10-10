@@ -780,15 +780,35 @@ def _longest_deployment_marker() -> int:
 def _read_deployment_marker(marker: Path) -> tuple[_MarkerRecord | None, tuple[int, int] | None]:
     """What the deployment marker at ``marker`` records, and which file it is (device and inode), through one descriptor.
 
-    Opened without following a symbolic link and without blocking, and read
-    only if it is a regular file no longer than the longest marker the SDK
-    writes. The record is ``None`` for a marker an earlier tree wrote (one line,
-    no state), text the SDK did not write, a symbolic link, anything that is not
-    a regular file, and a file this process cannot read: none of them shows a
-    completed verification. The identity is ``None`` when nothing could be
-    opened.
+    The path's type is checked from ``os.lstat`` before any open (``D-IMPL-380``
+    second round, ruling 1 (a); Dave, 2026-10-10 07:39 MST: *"`lstat` first in
+    `_read_deployment_marker`, so both beside-store reads and the boot's own
+    re-reads are covered."*): anything that is not a regular file — a FIFO, a
+    socket, a character or block device, a directory, a symbolic link — is
+    answered from that ``lstat`` alone, its record ``None`` and its identity the
+    ``lstat``'s, and is not opened by this call. A regular file is opened
+    without following a symbolic link and without blocking, its descriptor's
+    type is checked again (``fstat``), and it is read only if it is still a
+    regular file no longer than the longest marker the SDK writes. **The swap
+    race, disclosed:** a writer that replaces the regular file with a special
+    file in the instant between the ``lstat`` and the open gets that special
+    file opened — without blocking and without following a link — and then
+    refused from the descriptor's type; the ``lstat`` narrows the window, it
+    does not close it. The record is ``None`` for a marker an earlier tree wrote
+    (one line, no state), text the SDK did not write, a symbolic link, anything
+    that is not a regular file, and a file this process cannot read: none of
+    them shows a completed verification. The identity is ``None`` when nothing
+    stands at the path or nothing could be opened.
     """
     longest = _longest_deployment_marker()
+    try:
+        looked = os.lstat(marker)
+    except OSError:
+        return None, None
+    if not stat.S_ISREG(looked.st_mode):
+        # Not a regular file: answered from the `lstat`, not opened here
+        # (`D-IMPL-380` second round, ruling 1 (a)).
+        return None, (looked.st_dev, looked.st_ino)
     try:
         descriptor = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     except OSError:
