@@ -55,9 +55,11 @@ from datetime import datetime
 
 from ccf.artifacts.protocol import (
     ArtifactNotFound,
+    ArtifactRef,
     ArtifactStoreError,
     ArtifactStoreProtocol,
     DerivedWrite,
+    artifact_uri,
     parse_artifact_uri,
 )
 from ccf.authz.capability import (
@@ -111,6 +113,7 @@ from ccf.hitl.transport import HITLTransportProtocol
 from ccf.mcp.errors import McpServerUnreachable
 from ccf.peering.identity import IdentityError, IdentityProvider
 from ccf.replay.provenance import UnattributableRecordStore, filed_by_record_writer
+from ccf.replay.serve import _same_string
 from ccf.workflow.definitions import WORKFLOW_FAILED_STATE
 from ccf.workflow.factory import Workflow, WorkflowFactory
 from ccf_runtime.workflow.state import WORKFLOW_STATE, WorkflowStateRecord, suspension_left_by
@@ -323,7 +326,15 @@ class ErasureDoor:
                 ``execution-fenced`` in the last passage, which the engine fenced
                 after the write-ahead append (``D-IMPL-378``): no erasure record
                 is filed, and the address stays withheld under the appended
-                entries (``index-unsupported``).
+                entries (``index-unsupported``). And the two answer checks
+                (``D-IMPL-380``, third round; :meth:`_checked_save`):
+                ``approval-reference-mismatch``, raised after the approval's
+                save and before the write-ahead append, so no entry is
+                appended (the store may hold the bytes it filed); and
+                ``record-reference-mismatch``, raised after the record's save,
+                with the address withheld under the appended entries. On
+                success the record returned is the door's own, as built —
+                never the object the store held.
             ccf.erasure.ErasureIndexWriteFailed: a write-ahead index append
                 could not write its whole line (PC1, panel C1; ``D-IMPL-374``).
                 Propagated by name before the workflow resumes: no record is
@@ -539,9 +550,22 @@ class ErasureDoor:
         # engine finishes, D-IMPL-378). A record with no entry cannot exist.
         # The approval FIRST (fix round 3): an entry must never name an
         # approval that is not on the substrate. Idempotent — content-addressed.
-        self._store.put(
+        #
+        # Both saves hand the store a deep copy taken before the save, keep the
+        # door's own object, and hold the store's answer to the reference the
+        # door derived before the save (`D-IMPL-380`, third round, ruling 2 (a);
+        # Dave, 2026-10-10 09:18 MST: *"Copy before the save. The erasure door
+        # also checks the store's answer and does not return the object the
+        # store held."*; 09:23 MST: *"Both saves get the copy and the answer
+        # check."*). A mismatch here is refused before the write-ahead append,
+        # so no entry names an approval the store did not answer for.
+        self._checked_save(
             erase,
-            DerivedWrite(artifact_class=ERASURE_APPROVAL_CLASS, name=approval_ref, artifact=approval),
+            artifact_class=ERASURE_APPROVAL_CLASS,
+            name=approval_ref,
+            address=approval_ref,
+            artifact=approval,
+            reason_code="approval-reference-mismatch",
         )
         for address in addresses:
             self._index.append(
@@ -579,11 +603,93 @@ class ErasureDoor:
                     " stays withheld (index-unsupported) and the audit says so"[:400],
                     reason_code="workflow-refused",
                 )
-        self._store.put(
+        # The record's save: the copy, the answer held to the reference derived
+        # from ``record_address`` (computed before any write), and the door's
+        # OWN record returned — never the object the store held (`D-IMPL-380`,
+        # third round; Dave, 09:23 MST: *"The erasure door checks both answers
+        # and returns its own record."*). A mismatch is refused after the store
+        # returns; the address stays withheld under the entries appended above,
+        # as on every other failed completion.
+        self._checked_save(
             erase,
-            DerivedWrite(artifact_class=ERASURE_RECORD_CLASS, name=record_id, artifact=record),
+            artifact_class=ERASURE_RECORD_CLASS,
+            name=record_id,
+            address=record_address,
+            artifact=record,
+            reason_code="record-reference-mismatch",
         )
         return record
+
+    def _checked_save(
+        self,
+        erase: Authorized[ArtifactErase],
+        *,
+        artifact_class: str,
+        name: str,
+        address: str,
+        artifact: ErasureApproval | ErasureRecord,
+        reason_code: str,
+    ) -> ArtifactRef:
+        """File a deep copy of ``artifact`` and hold the store's answer to the door's own reference (``D-IMPL-380``, third round).
+
+        SDK-defined per CLAUDE.md §8.1/§8.2. Ruling 2 (a) of the third round
+        (Dave, 2026-10-10 09:18 MST): *"Fix all three the same way. Copy before
+        the save. The erasure door also checks the store's answer and does not
+        return the object the store held."* And 09:23 MST: *"The reading
+        stands. Both saves get the copy and the answer check."*
+
+        ``address`` is :func:`~ccf.contracts.canonical.content_hash` of
+        ``artifact``, computed by the caller BEFORE this save. From it the door
+        builds its own :class:`~ccf.artifacts.protocol.ArtifactRef` — the
+        content address, the ``D-IMPL-26`` versioned URI, the capability's
+        tenant, the class and the name — the shape
+        ``src/ccf/peering/admission.py::PeeringAdmissionGate._persist_admission_record``
+        builds as ``own``. The store is handed ``artifact.model_copy(deep=True)``
+        and the door keeps its own object, so a store that alters what it is
+        handed alters only its copy. Every field of the store's answer is then
+        held to the door's reference as an exact string
+        (``src/ccf/replay/serve.py::_same_string``); a mismatch is refused by
+        name, ``reason_code``, after the store returns.
+
+        **The saved-bytes limit, disclosed.** A store that alters its copy and
+        answers the original reference files altered bytes under the original's
+        address, and nothing here re-reads what it filed. The consult re-hashes
+        the bytes it fetches and fails closed on such a record; the door's
+        caller gets the record as the door built it.
+
+        Raises:
+            ErasureRefused: ``reason_code`` — the store's answer is not the
+                artifact's own reference. The store may already hold bytes.
+        """
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=erase.tenant,
+                artifact_class=artifact_class,
+                name=name,
+                artifact_version=address,
+            ),
+            tenant_id=erase.tenant,
+            artifact_class=artifact_class,
+            name=name,
+        )
+        answered = self._store.put(
+            erase,
+            DerivedWrite(artifact_class=artifact_class, name=name, artifact=artifact.model_copy(deep=True)),
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(answered, field, None), getattr(own, field))
+        )
+        if differing:
+            raise ErasureRefused(
+                f"the store answered the {artifact_class} save with a reference that is not"
+                f" the one the door derived before the save (fields: {', '.join(differing)});"
+                " nothing the store held is returned (SEC-009; D-IMPL-380, third round)",
+                reason_code=reason_code,
+            )
+        return own
 
     def _door_signature(
         self, record: ErasureRecord, prior: tuple[ErasureIndexEntry, ...]
