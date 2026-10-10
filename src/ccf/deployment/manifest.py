@@ -541,8 +541,8 @@ class DeploymentStoreNotVerified(ValueError):
     store-creation lock at all (``"lock-unavailable"``). A boot refused for a
     lock another holds (``"lock-held"``) leaves nothing for an operator unless
     the holder has stopped or hung: a later boot proceeds once the holder lets
-    go. Each is refused after registration and before anything is created at
-    the path. A deployment marker of any state with NO
+    go. Each is refused after registration, and no store or marker is created
+    at the path (the store-creation lock file is). A deployment marker of any state with NO
     store beside it is not refused, provided the boot can read it: the boot
     creating the store there replaces it with its own, under the lock, and
     verifies the new store with the read any fresh creation takes (repair 1.2;
@@ -805,7 +805,7 @@ def _read_deployment_marker(marker: Path) -> tuple[_MarkerRecord | None, tuple[i
     (one line, no state), text the SDK did not write, a symbolic link, anything
     that is not a regular file, and a file this process cannot read: none of
     them shows a completed verification. The identity is ``None`` when nothing
-    stands at the path or nothing could be opened.
+    stands at the path, or when a regular file at it could not be opened.
     """
     longest = _longest_deployment_marker()
     try:

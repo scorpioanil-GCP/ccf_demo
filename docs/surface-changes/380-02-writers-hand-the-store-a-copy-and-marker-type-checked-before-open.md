@@ -20,8 +20,8 @@ alters what it is handed (a key written into the admission record's echoed param
 of the object as handed had the crossing admitted with `AdmittedProduct.issuance` carrying the alteration, and had the
 completed outcome's `step_sequence_block`, the state record read back after a completed, suspended or
 exception-routed run, and the state record a recovering resumption wrote carry the rewrite. Now each carries the
-object as built. `tests/products/test_deployment_marker_special_file_refused.py` (8 cases, red on `87fc9a56` and
-`490b1645`): a FIFO and a socket at the marker's path beside a store were opened once before their type was checked;
+object as built. `tests/products/test_deployment_marker_special_file_refused.py` (8 cases, 6 of them red on `87fc9a56`
+and `490b1645`): a FIFO and a socket at the marker's path beside a store were opened once before their type was checked;
 now opened zero times, with the outcomes unchanged.
 
 ## ccf.peering.admission.PeeringAdmissionGate
@@ -49,7 +49,7 @@ now opened zero times, with the outcomes unchanged.
 - Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
 - Public surface: true
 - Change type: behavior
-- Before: beside a store, a FIFO, a socket or a device at the marker's path was opened (without blocking and without following a link) before its type was checked, and then refused `"unreadable"`.
-- After: the marker's type is checked from `lstat` before any open, beside a store too, so such a file is refused `"unreadable"` without being opened. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened and then refused from its descriptor's type.
+- Before: beside a store, a FIFO or a socket at the marker's path was opened (without blocking and without following a link) before its type was checked, and then refused `"unreadable"`.
+- After: beside a store too, such a file has its type checked from `lstat` before any open (type checked first) and is refused `"unreadable"`. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened and then refused from its descriptor's type.
 - Why: `D-IMPL-380` second round, ruling 1 (a). Red test: `tests/products/test_deployment_marker_special_file_refused.py`.
 - Migration: none; the refusals are unchanged.
