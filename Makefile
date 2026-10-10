@@ -140,10 +140,10 @@ test: ## Full pytest suite with harness legs required (CCF_REQUIRE_HARNESSES=1)
 # ---------------------------------------------------------------------------
 
 ci-quick-suite: ## CI: the no-external-substrate suite (mirrors the ci.yml step by calling it)
-	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" -rs
+	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" -rsfE
 
 ci-harness-conformance: ## CI: harness adapter conformance — all three legs must RUN, not skip
-	$(ENV_TESTS) $(PYTHON) -m pytest tests/conformance -q -rs
+	$(ENV_TESTS) $(PYTHON) -m pytest tests/conformance -q -rsfE
 
 ci-coverage: ## CI: informational coverage over the no-substrate suite (D-17 sets no numeric gate)
 	$(ENV_TESTS) $(PYTHON) -m pytest tests -q -m "$(NO_SUBSTRATE)" --cov=ccf --cov-report=term
@@ -316,20 +316,20 @@ legs: leg-postgres leg-neo4j leg-mongo leg-fluree ## Run all four container-gate
 
 leg-postgres: ## Postgres leg against a real server — GraphStore conformance + differential (D-11/D-16)
 	@$(ENV) CCF_REQUIRE_POSTGRES=1 $(PG_DSN_ENV) \
-		$(PYTHON) -m pytest tests -q -m postgres -rs
+		$(PYTHON) -m pytest tests -q -m postgres -rsfE
 
 leg-neo4j: ## Neo4j leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.2-12; needs CCF_TEST_NEO4J_URI)
 	@$(if $(strip $(CCF_TEST_NEO4J_URI)),,$(error leg-neo4j: CCF_TEST_NEO4J_URI is unset; export the Neo4j URI (it carries a credential, so the Makefile bakes no default)))
 	@$(ENV) CCF_REQUIRE_NEO4J=1 CCF_TEST_NEO4J_URI=$(CCF_TEST_NEO4J_URI) \
-		$(PYTHON) -m pytest tests -q -m neo4j -rs
+		$(PYTHON) -m pytest tests -q -m neo4j -rsfE
 
 leg-mongo: ## MongoDB leg against a real server — staged aggregation pushdown (plan 15.2-13)
 	@$(ENV) CCF_REQUIRE_MONGO=1 CCF_TEST_MONGO_URI=$(CCF_TEST_MONGO_URI) \
-		$(PYTHON) -m pytest tests -q -m mongo -rs
+		$(PYTHON) -m pytest tests -q -m mongo -rsfE
 
 leg-fluree: ## Fluree leg against a real server — Cypher pushdown byte-identical to the fallback (plan 15.3)
 	@$(ENV) CCF_REQUIRE_FLUREE=1 CCF_TEST_FLUREE_URL=$(CCF_TEST_FLUREE_URL) \
-		$(PYTHON) -m pytest tests -q -m fluree -rs
+		$(PYTHON) -m pytest tests -q -m fluree -rsfE
 
 # Section 1's reference example, run as a program rather than as a test — which
 # is what a newcomer does first and what the phase's blocking checkpoint reads.
