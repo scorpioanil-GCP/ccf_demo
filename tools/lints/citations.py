@@ -143,9 +143,14 @@ from the check, and asked for *"a narrowly pinned historical citation
 exception"*. ``PINNED_HISTORICAL_CITATIONS`` is that exception, accepted by
 decision 13 (a) (2026-10-09 16:38 MST: *"Accept the cp-04 pins, locked to the
 file’s bytes"*): each entry keeps ONE finding, keyed by the file, the line, the
-exact citation text and the sha256 of the file's text, and only while all four
-still match. Any other dangling citation, in that file or anywhere, is a
-finding; any change to a pinned file's bytes voids every pin on it.
+exact citation text and the sha256 of the file's raw bytes as read from disk,
+and only while all four still match. Any other dangling citation, in that file
+or anywhere, is a finding; any change to a pinned file's bytes voids every pin
+on it. Until Dave's answer at 20:22 MST that day (*"Hash the raw bytes. Windows
+line endings are different bytes, so they fail the pin."*) the digest was of
+the decoded text, so a copy with other line endings still matched. Text alone
+keeps no such pin: ``check_source`` cannot show the bytes, so the pin fails
+closed; the gate reads each file's bytes (``check_file_bytes``).
 
 Decision 14 (b), the same day (*"Exempt the dated records. Pin the rest. Do not
 edit records in place."*), settled nine more findings repair 1.7 made in text
@@ -207,6 +212,7 @@ __all__ = [
     "RULE_RESOLVES",
     "Scan",
     "anchor_before",
+    "check_file_bytes",
     "check_source",
     "checkable_anchor",
     "check_tree",
@@ -330,8 +336,8 @@ class PinnedCitation(NamedTuple):
 
     ``D-IMPL-378`` repair 1.5's three cp-04 pins, accepted by decision 13 (a),
     and four more by decision 14 (b). ``sha256`` is the digest of the file's
-    text as the checker reads it (UTF-8); a change to any byte of the file
-    voids the pin.
+    raw bytes as read from disk (Dave, 2026-10-09 20:22 MST); a change to any
+    byte of the file voids the pin.
     """
 
     path: str
@@ -351,7 +357,7 @@ class PinnedCitation(NamedTuple):
 #: are bare citations of functions nested in other functions, which repair
 #: 1.7 made findings, in text that may not be edited: three in a landed
 #: surface-change fragment, written when it landed on 2026-08-14, and one in
-#: a test of the frozen cp-04 specimen; their hashes are the files' text at
+#: a test of the frozen cp-04 specimen; their hashes are the files' bytes at
 #: ``d128a30d``, unchanged since 2026-09-24 and 2026-09-05.
 _CP04_REASON = (
     "frozen specimen (D-IMPL-261, CFC-G09): cites a member that never existed;"
@@ -1062,12 +1068,18 @@ def checkable_anchor(
     return anchor
 
 
-def _pinned(path: pathlib.Path, lineno: int, citation: str, source: str) -> bool:
+def _pinned(
+    path: pathlib.Path, lineno: int, citation: str, source: str, raw: bytes | None
+) -> bool:
     """True when this ``cite03`` finding is kept by a pin.
 
     A ``PINNED_HISTORICAL_CITATIONS`` pin keeps it when all four match: the
-    file, the line, the exact citation text, and the sha256 of `source` — so a
-    pinned file whose bytes changed keeps nothing. A
+    file, the line, the exact citation text, and the sha256 of `raw`, the
+    file's bytes as read from disk — so a pinned file whose bytes changed keeps
+    nothing, even where its text reads alike (other line endings, an invalid
+    byte replaced by another), and without the bytes (`raw` is ``None``) it
+    keeps nothing: the pin fails closed (``D-IMPL-378``, Dave 2026-10-09 20:22
+    MST: *"Hash the raw bytes."*). A
     ``LINE_TEXT_PINNED_CITATIONS`` pin keeps it when the file, the whole text
     of line `lineno` and the exact citation text match, and that text stands
     on exactly one line of `source` — so the line may move, while an edit to
@@ -1077,7 +1089,7 @@ def _pinned(path: pathlib.Path, lineno: int, citation: str, source: str) -> bool
     site = (rel, lineno, citation)
     for pin in PINNED_HISTORICAL_CITATIONS:
         if (pin.path, pin.line, pin.citation) == site:
-            return hashlib.sha256(source.encode("utf-8")).hexdigest() == pin.sha256
+            return raw is not None and hashlib.sha256(raw).hexdigest() == pin.sha256
     lines = source.splitlines()
     text = lines[lineno - 1]
     for line_pin in LINE_TEXT_PINNED_CITATIONS:
@@ -1097,7 +1109,60 @@ def check_source(
     """Check every citation in `source`, attributed to `path`.
 
     `path` is the repo-relative path the findings are reported against; `base`
-    is the repo root the citations resolve inside.
+    is the repo root the citations resolve inside. Text alone keeps no
+    ``PINNED_HISTORICAL_CITATIONS`` pin: such a pin is the file's raw bytes,
+    which text cannot show, so it fails closed and its site is a finding. The
+    gate reads bytes (:func:`check_file_bytes`). A ``LINE_TEXT_PINNED_CITATIONS``
+    pin keys on the line's text and is kept here as there.
+    """
+    return _check(source, None, path, base, index, trees, tally)
+
+
+def check_file_bytes(
+    raw: bytes,
+    path: pathlib.Path,
+    base: pathlib.Path,
+    index: dict[str, list[str]],
+    trees: _Tree | None = None,
+    tally: dict[str, int] | None = None,
+) -> list[str]:
+    """Check every citation in a file's raw bytes, attributed to `path`.
+
+    The gate's path: :func:`scan_tree` reads each file's bytes once and hands
+    them here. The text is `raw` decoded as ``Path.read_text(encoding="utf-8",
+    errors="replace")`` decodes a file (:func:`_decoded`), so the findings are
+    :func:`check_source`'s on that text, except that a
+    ``PINNED_HISTORICAL_CITATIONS`` pin is checked against the sha256 of `raw`
+    itself (``D-IMPL-378``, Dave 2026-10-09 20:22 MST: *"Hash the raw bytes.
+    Windows line endings are different bytes, so they fail the pin."*).
+    """
+    return _check(_decoded(raw), raw, path, base, index, trees, tally)
+
+
+def _decoded(raw: bytes) -> str:
+    """`raw` decoded exactly as ``Path.read_text(encoding="utf-8", errors="replace")``.
+
+    The same text wrapper over the same bytes: UTF-8 with each invalid byte
+    read as U+FFFD, and universal newlines. Two files can therefore decode to
+    one text, which is why a file-hash pin is checked against the bytes.
+    """
+    with io.TextIOWrapper(io.BytesIO(raw), encoding="utf-8", errors="replace") as stream:
+        return stream.read()
+
+
+def _check(
+    source: str,
+    raw: bytes | None,
+    path: pathlib.Path,
+    base: pathlib.Path,
+    index: dict[str, list[str]],
+    trees: _Tree | None,
+    tally: dict[str, int] | None,
+) -> list[str]:
+    """The checks behind :func:`check_source` and :func:`check_file_bytes`.
+
+    `raw` is the file's bytes when the caller read them, ``None`` when it has
+    text alone; only :func:`_pinned` reads it.
     """
     counts = tally if tally is not None else {}
     cache = trees if trees is not None else _Tree()
@@ -1124,7 +1189,7 @@ def check_source(
                 bump("ambiguous_path" if ambiguous else "unresolved_path")
                 continue
             if symbol not in cache.spans(target):
-                if _pinned(path, lineno, f"{cited}::{symbol}", source):
+                if _pinned(path, lineno, f"{cited}::{symbol}", source, raw):
                     bump("pinned_historical")
                     continue
                 findings.append(
@@ -1148,7 +1213,7 @@ def check_source(
                 bump("unfollowable_member")
             elif verdict:
                 bump("checked")
-            elif _pinned(path, lineno, f"{cited}::{'.'.join(qualified)}", source):
+            elif _pinned(path, lineno, f"{cited}::{'.'.join(qualified)}", source, raw):
                 bump("pinned_historical")
             else:
                 findings.append(
@@ -1229,8 +1294,8 @@ def scan_tree(base: pathlib.Path) -> Scan:
             continue
         scanned += 1
         findings.extend(
-            check_source(
-                path.read_text(encoding="utf-8", errors="replace"),
+            check_file_bytes(
+                path.read_bytes(),
                 path.relative_to(base),
                 base,
                 index,
