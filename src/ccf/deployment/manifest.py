@@ -262,10 +262,14 @@ class BootedFabric:
             ``D-IMPL-378``), and a boot meeting a deployment marker of any
             state with no store beside it replaces it with its own and
             verifies the new store as any boot creating one. A plain boot
-            holds the store-creation lock of every path from its look at the
-            path to the hand-back, so a boot that finds another creating the
-            store waits for it. Read when the boot hands the fabric back,
-            after its read, never before it.
+            holds the store-creation lock of every path whose directory
+            exists from its look at the path to the hand-back, so a boot that
+            finds another creating the store waits for it; a path whose
+            directory does not exist takes no lock and is left to the adapter,
+            which on the SDK's SQLite adapter refuses the boot (measured by
+            ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing``).
+            Read when the boot hands the fabric back, after its read, never
+            before it.
             ``"unmarked"``: the store existed at boot and carries neither — a
             store booted for a question before the markers existed, a copy
             taken without its marker, a store created outside these doors —
@@ -465,9 +469,15 @@ class DeploymentStoreNotVerified(ValueError):
     creation and verification; test competing boots. If safe verification
     cannot be established, refuse until an operator resolves the stale
     marker."*). A plain boot holds the store-creation lock of every path naming
-    its store (``<resolved path>.ccf-store-creation.lock``) from its look at the
-    path through the hand-back, so a boot that finds another creating the store
-    waits for it to finish. A boot that creates its store at a path leaves its
+    its store whose directory exists (``<resolved path>.ccf-store-creation.lock``)
+    from its look at the path through the hand-back, so a boot that finds
+    another creating the store waits for it to finish. A path whose directory
+    does not exist takes no lock and is left to the adapter: the SDK's SQLite
+    adapter refuses such a boot with SQLite's own error
+    (``sqlite3.OperationalError``), not this refusal, having created nothing
+    there, not even the directory (measured by
+    ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing``).
+    A boot that creates its store at a path leaves its
     deployment marker there first, reading ``pending`` and carrying a token of
     its own, and makes it read ``verified`` only once its emptiness read has
     completed (:class:`DeploymentStoreNotEmpty` otherwise), atomically and
@@ -1083,8 +1093,9 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
     """Refuse where safe verification cannot be established; mark ``pending`` every path whose store this boot creates.
 
     SEC-020 P4 (a) made strict, and repairs 1.1 and 1.2 (``D-IMPL-378``).
-    Called with the store-creation lock of every path held
-    (:class:`_StoreCreationLock`), so no other boot of these paths is creating
+    Called with the store-creation lock held for every path whose directory
+    exists (:class:`_StoreCreationLock`; a path whose directory does not exist
+    is left to the adapter, below), so no other boot of these paths is creating
     or verifying a store while it looks. A path holding a store whose deployment
     marker does not record a completed verification — ``pending`` (its boot
     never finished its read: it was killed, or interrupted) or no state in the
@@ -1764,8 +1775,10 @@ def _register_and_boot(
     # whenever a plain boot creates a new store. Serialize creation and
     # verification ... If safe verification cannot be established, refuse until
     # an operator resolves the stale marker."*): a plain boot holds the
-    # store-creation lock of every path from its look through the hand-back, so
-    # a boot that finds another creating the store waits for it; its look
+    # store-creation lock of every path whose directory exists from its look
+    # through the hand-back (a path whose directory does not exist takes no lock
+    # and is left to the adapter), so a boot that finds another creating the
+    # store waits for it; its look
     # refuses what it cannot verify safely; and every plain boot whose path held
     # no store takes the read, whoever made a marker there. A question boot's
     # path is held by its exclusive question marker instead, as before.
