@@ -207,3 +207,173 @@ def test_a_clean_scratch_database_seeds_all_eight(scratch: str) -> None:
         for name in LOCKED_FILES:
             cursor.execute((FIXTURES / name).read_text(encoding="utf-8"))
     assert set(_relations(scratch)) == set(FIXTURE_TABLES)
+
+
+# ---------------------------------------------------------------------------
+# D-IMPL-380 (Dave, 2026-10-10 05:34 MST): "Two separate barriers. The lock
+# refuses an outside dependent. cp-03 drops without CASCADE. Each has its own
+# test and its own severing." The relation-name check above inspects only
+# relations INSIDE `ccf_v2`; an object in another schema that depends on one of
+# the twelve tables passed it, and cp-03's `DROP TABLE ... CASCADE` then dropped
+# that object (reproduced on a throwaway Postgres: views in `other`, 1 -> 0).
+# Example-only: these are the cp-00..03 setup scripts and the harness that
+# applies them, not the SDK.
+# ---------------------------------------------------------------------------
+
+OUTSIDE = "zz_outside_schema"
+DEPENDENT = "zz_depends_on_legal_entity"
+CP03_SCHEMA = "cp_03_census_schema.sql"
+
+
+def test_the_regeneration_tool_drops_without_cascade() -> None:
+    """`tools/dump_cp03_fixture.py::_ddl` emits a plain `DROP TABLE IF EXISTS`,
+    so a drop that something else depends on fails instead of cascading."""
+    from tools import dump_cp03_fixture as dump
+
+    class _Cursor:
+        def execute(self, *_args: object) -> None:
+            return None
+
+        def fetchall(self) -> list[tuple[object, ...]]:
+            return [("id", "integer", None, "NO")]
+
+    ddl = dump._ddl(_Cursor(), SCHEMA, "legal_entity")
+    assert ddl.splitlines()[0] == f"DROP TABLE IF EXISTS {SCHEMA}.legal_entity;", ddl
+
+
+def test_the_cp03_schema_file_drops_without_cascade() -> None:
+    """The committed file carries the bytes the tool now emits: every drop is
+    plain, and nothing in it cascades."""
+    text = (FIXTURES / CP03_SCHEMA).read_text(encoding="utf-8")
+    drops = [line for line in text.splitlines() if line.startswith("DROP TABLE")]
+    assert drops, "the case was not constructed: cp-03's schema file must drop its tables"
+    assert all(re.fullmatch(rf"DROP TABLE IF EXISTS {SCHEMA}\.[a-z_]+;", line) for line in drops), drops
+    assert "CASCADE" not in text.upper(), "cp-03's schema file still cascades"
+
+
+def _seed_all(dsn: str) -> None:
+    import psycopg
+
+    with psycopg.connect(dsn, autocommit=True) as db, db.cursor() as cursor:
+        for name in LOCKED_FILES:
+            cursor.execute((FIXTURES / name).read_text(encoding="utf-8"))
+
+
+def _state(dsn: str) -> dict[str, int | None]:
+    """Every fixture table's row count, and the outside view's (``None`` when it is gone)."""
+    import psycopg
+
+    state: dict[str, int | None] = {}
+    with psycopg.connect(dsn, autocommit=True) as db, db.cursor() as cursor:
+        for table in _relations(dsn):
+            cursor.execute(f"SELECT count(*) FROM {SCHEMA}.{table}")
+            state[f"{SCHEMA}.{table}"] = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT count(*) FROM pg_views WHERE schemaname = %s AND viewname = %s",
+            (OUTSIDE, DEPENDENT),
+        )
+        if cursor.fetchone()[0]:
+            cursor.execute(f"SELECT count(*) FROM {OUTSIDE}.{DEPENDENT}")
+            state[f"{OUTSIDE}.{DEPENDENT}"] = cursor.fetchone()[0]
+        else:
+            state[f"{OUTSIDE}.{DEPENDENT}"] = None
+    return state
+
+
+@pytest.fixture
+def depended_on(scratch: str) -> Iterator[str]:
+    """`ccf_v2` seeded by all eight files, plus a view in ANOTHER schema that
+    depends on `ccf_v2.legal_entity`; the outside schema is dropped afterwards."""
+    import psycopg
+
+    _seed_all(scratch)
+    with psycopg.connect(scratch, autocommit=True) as db:
+        db.execute(f"DROP SCHEMA IF EXISTS {OUTSIDE} CASCADE")
+        db.execute(f"CREATE SCHEMA {OUTSIDE}")
+        db.execute(f"CREATE VIEW {OUTSIDE}.{DEPENDENT} AS SELECT * FROM {SCHEMA}.legal_entity")
+    yield scratch
+    with psycopg.connect(scratch, autocommit=True) as db:
+        db.execute(f"DROP SCHEMA IF EXISTS {OUTSIDE} CASCADE")
+
+
+@pytest.mark.postgres
+@pytest.mark.parametrize("name", LOCKED_FILES)
+def test_an_outside_dependent_is_refused_by_name_and_every_table_and_view_survives(
+    depended_on: str, name: str
+) -> None:
+    """Barrier (a), the lock: each of the eight files is refused by the lock's
+    own `RaiseException`, naming the dependent and its schema, and afterwards
+    every `ccf_v2` table and the outside view still exist with their row counts
+    unchanged."""
+    import psycopg
+
+    before = _state(depended_on)
+    assert before[f"{OUTSIDE}.{DEPENDENT}"] is not None and set(_relations(depended_on)) == set(FIXTURE_TABLES), (
+        "the case was not constructed: all twelve tables and the outside view must exist"
+    )
+
+    refused: psycopg.Error | None = None
+    with psycopg.connect(depended_on, autocommit=True) as db, db.cursor() as cursor:
+        try:
+            cursor.execute((FIXTURES / name).read_text(encoding="utf-8"))
+        except psycopg.Error as exc:
+            refused = exc
+    after = _state(depended_on)
+
+    assert refused is not None, (
+        f"{name} ran to completion while {OUTSIDE}.{DEPENDENT} depends on {SCHEMA}.legal_entity;"
+        f" the outside view's row count went {before[f'{OUTSIDE}.{DEPENDENT}']} -> {after[f'{OUTSIDE}.{DEPENDENT}']}"
+    )
+    assert isinstance(refused, psycopg.errors.RaiseException), (
+        f"{name} failed on {type(refused).__name__}, not on the write lock: {refused}"
+    )
+    message = str(refused)
+    assert re.search(rf"(?<!\w){OUTSIDE}\.{DEPENDENT}(?!\w)", message), message
+    assert "D-IMPL-380" in message, message
+    assert after == before, f"{name}: refused, but the database changed: {before} -> {after}"
+
+
+@pytest.mark.postgres
+def test_cp03_drops_alone_fail_on_a_dependent_and_the_view_survives(depended_on: str) -> None:
+    """Barrier (b), no CASCADE: cp-03's drop statements alone — the lock
+    bypassed — fail on the outside dependent rather than dropping it, and in one
+    simple-query `execute` they roll back together."""
+    import psycopg
+
+    drops = "\n".join(
+        line
+        for line in (FIXTURES / CP03_SCHEMA).read_text(encoding="utf-8").splitlines()
+        if line.startswith("DROP TABLE")
+    )
+    assert drops, "the case was not constructed: cp-03's schema file must drop its tables"
+    before = _state(depended_on)
+
+    failed: psycopg.Error | None = None
+    with psycopg.connect(depended_on, autocommit=True) as db, db.cursor() as cursor:
+        try:
+            cursor.execute(drops)
+        except psycopg.Error as exc:
+            failed = exc
+    after = _state(depended_on)
+
+    assert after[f"{OUTSIDE}.{DEPENDENT}"] is not None, (
+        f"cp-03's drops removed {OUTSIDE}.{DEPENDENT}, which depends on {SCHEMA}.legal_entity: the drops cascade"
+    )
+    assert isinstance(failed, psycopg.errors.DependentObjectsStillExist), (
+        f"cp-03's drops did not fail on the dependent: {type(failed).__name__}: {failed}"
+    )
+    assert after == before, f"the failed drops changed the database: {before} -> {after}"
+
+
+@pytest.mark.postgres
+def test_a_clean_scratch_database_seeds_all_eight_and_cp03_twice(scratch: str) -> None:
+    """Positive control for both barriers: neither refuses the database it
+    exists for, including cp-03's schema applied a second time in one session
+    (as two seeding modules do), whose plain drops find nothing depending on
+    its tables."""
+    import psycopg
+
+    _seed_all(scratch)
+    with psycopg.connect(scratch, autocommit=True) as db, db.cursor() as cursor:
+        cursor.execute((FIXTURES / CP03_SCHEMA).read_text(encoding="utf-8"))
+    assert set(_relations(scratch)) == set(FIXTURE_TABLES)

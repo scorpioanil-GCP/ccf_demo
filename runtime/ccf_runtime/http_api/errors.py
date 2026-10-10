@@ -327,7 +327,7 @@ ERROR_ROUTE_HANDLE_ABSENT: Final[str] = "route-handle-absent"
 #: 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted): *"(a) A typed 5xx, so
 #: a rejected credential and an outage are not the same response."*
 #:
-#: A 503 and not a 500 for the :data:`ERROR_ROUTE_HANDLE_ABSENT` reason: the
+#: A 503 and not a 500 for the :data:`ERROR_ARTIFACT_STORE_UNAUTHENTICATED` reason: the
 #: fault is the deployment's, not the caller's. The credential is the one the
 #: deployment gave its store, never the caller's, and the framework's opaque
 #: 500 is what an outage of that store is answered with, which this is not.

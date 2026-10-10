@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2585 entries**, of which **2306** name a public Python surface.
+**2593 entries**, of which **2314** name a public Python surface.
 
 ## Added
 
@@ -20699,7 +20699,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-631 entries — 437 public Python surface, 194 not public Python API.
+633 entries — 439 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -28015,6 +28015,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
 
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` was one of `"pending"`, `"unreadable"`, `"claimed"`, `"lock-unavailable"`, `"lock-held"`; a FIFO, a socket or a device at the marker's path with no store beside it was replaced; a regular-file marker was read to its full size, and one longer than any marker the SDK writes was refused `"unreadable"` beside a store and replaced with none.
+- After: `reason` may also be `"oversized"`: a regular file at the marker's path, with or without a store beside it, longer than the longest marker the SDK writes. The boot reads at most one byte past that length and neither compares nor replaces the file; the text names the marker and says an operator resolves it. Anything at the marker's path that is neither a regular file nor a symbolic link (a FIFO, a socket, a character or block device, a directory) is refused `"unreadable"` before anything is created, decided from its `lstat` type, never opened and never replaced.
+- Why: `D-IMPL-380` rulings 3 and 4 (a), 2026-10-10 05:34 MST. Red tests: `tests/products/test_deployment_marker_special_file_refused.py::test_380_3_a_special_file_at_the_marker_path_with_no_store_is_refused_unreadable_and_left` and `tests/products/test_deployment_marker_oversized_refused.py::test_380_4_a_sparse_1_gib_marker_is_refused_oversized_read_at_most_the_bound_and_left`.
+- Migration: a caller that branches on `reason` meets a sixth value. For `"oversized"` or a special file refused `"unreadable"`, find what wrote it at the marker's path, then remove it (and the store, if one stands there) so that a boot creates and verifies a new store (the security how-to, section 4.12).
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: `D-IMPL-380` rulings 3 and 4 (a).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -31067,7 +31091,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-536 entries — 497 public Python surface, 39 not public Python API.
+542 entries — 503 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38630,6 +38654,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
 
 *Recorded by `378-72-decision-4a-the-demonstration-store-check-is-an-exact-type-test.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `admit` derived the admission record's reference after the store's `put` returned, from the record object the store had held, so a store that altered the record while holding it and answered the altered record's own reference passed the check and the verdict named the altered record.
+- After: the record's reference is derived from the record as built, before `put` is called, and the store's answer is held to it field for field; such a store is refused `AdmissionRecordReferenceMismatch`, and no `peering_admitted` verdict is appended.
+- Why: `D-IMPL-380` ruling 1 (a), 2026-10-10 05:34 MST. Red test: `tests/peering/test_admission_record_writer_hashes_before_put.py::test_a_store_that_alters_the_record_while_it_holds_it_is_refused_and_no_verdict_is_written`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.peering.admission.AdmissionRecordReferenceMismatch
+
+- Surface: ccf.peering.admission.AdmissionRecordReferenceMismatch
+- Public surface: true
+- Change type: behavior
+- Before: raised when the store's answer was not the reference of the record object as it stood after `put` returned.
+- After: raised when the store's answer is not the reference of the record as the gate built it, derived before `put`; this includes a store that altered the record while holding it.
+- Why: `D-IMPL-380` ruling 1 (a). Red test: as for `ccf.peering.admission.PeeringAdmissionGate`.
+- Migration: none.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the execution trace's reference was derived after the store's `put` returned, from the trace the store had held, so a store that rewrote the trace while holding it and answered the rewritten trace's own reference had that reference handed out as `trace_artifact`.
+- After: the trace's reference is derived from the trace as built, before `put` is called; such a store is refused `WorkflowTraceReferenceMismatch`, and no outcome carrying a `trace_artifact` is returned.
+- Why: `D-IMPL-380` ruling 1 (a). Red test: `tests/workflow/test_trace_writer_hashes_before_put.py::test_a_store_that_rewrites_the_trace_while_it_holds_it_is_refused_and_no_trace_reference_is_handed_out`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+
+- Surface: ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+- Public surface: true
+- Change type: behavior
+- Before: raised when the store's answer was not the reference of the trace as it stood after `put` returned.
+- After: raised when the store's answer is not the reference of the trace as the engine built it, derived before `put`; this includes a store that rewrote the trace while holding it.
+- Why: `D-IMPL-380` ruling 1 (a). Red test: as for `ccf_runtime.workflow.engine.WorkflowEngine`.
+- Migration: none.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot replaced a FIFO, a socket or a device standing at the marker's path with no store beside it, and read a regular-file marker to its full size.
+- After: it is refused `DeploymentStoreNotVerified`, `"unreadable"` for such a special file and `"oversized"` for a regular file longer than any marker the SDK writes; neither is replaced.
+- Why: `D-IMPL-380` rulings 3 and 4 (a). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: `D-IMPL-380` rulings 3 and 4 (a).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
 
 ### Not public Python API
 
