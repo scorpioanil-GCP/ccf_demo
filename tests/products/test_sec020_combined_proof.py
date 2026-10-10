@@ -94,7 +94,11 @@ off a second copy of the nonexistent side. Where that copy RAISED, other than th
 raised by the side it copies as well, the floor compares an exception with an answer, differs at every path, and
 would excuse every difference. Every comparison checks the copy first (``_compare``): a gate or never-class cell
 fails by name, ``FloorCopyDidNotAnswer``, and a limitation measurement reports the cell under its own outcome,
-``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured. Decision 4 (a)'s
+``floor copy raised``, neither distinguishable nor indistinguishable, because nothing was measured. **Nor where the
+side it copies raised and the copy answered**, the mirror (Dave, 2026-10-09 16:38 MST, ``D-IMPL-378``, decision 7:
+*"(a) Extend the floor rule."*): a floor is used only where the nonexistent side and its copy agree on raising at
+every position, both answered or both raised the refusal held as the property; the mirror fails by the same name and
+is reported under the same outcome. Decision 4 (a)'s
 refused stand-in (``UndisclosedSubjectSubstituteIsHeld``), raised alike for every subject, is held as the property only
 in its own world, the stand-in world, and only where the acceptance helper finds, from the run itself, every side of
 the world refused with the SDK's constant message and one refusal code, and the world's declared working twin on the
@@ -440,7 +444,9 @@ def _compare(run: w.Run, *, comparison: str, channel: str) -> tuple[set[str], se
     **The floor's copy must have answered** (Dave, 2026-10-09 06:06/06:21 MST, ``D-IMPL-378``: *"A failed
     spare answer cannot excuse differences"*). Before anything is judged, :func:`_require_the_floor_copy_answered`
     fails the cell by name, :class:`FloorCopyDidNotAnswer`, where the floor's copy raised other than as the refusal
-    held as the property together with the side it copies (:func:`_floor_copy_did_not_answer`).
+    held as the property together with the side it copies (:func:`_floor_copy_did_not_answer`), and, since decision
+    7 (a) (Dave, 2026-10-09 16:38 MST: *"(a) Extend the floor rule."*), where the side it copies raised and the copy
+    answered: the floor is used only where the two agree on raising at every position.
     """
     # Dave, 2026-10-09: before the floor excuses anything, its copy must have answered (BLD-1, G-FLOOR-COPY).
     _require_the_floor_copy_answered(run, comparison)
@@ -1154,7 +1160,9 @@ def test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
     differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
     (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
     raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
-    nor indistinguishable, in the same block and the same JUnit record.
+    nor indistinguishable, in the same block and the same JUnit record. Since decision 7 (a) (Dave, 2026-10-09 16:38
+    MST: *"(a) Extend the floor rule."*) so is a cell whose nonexistent side raised where that copy answered (the
+    mirror), under the same outcome.
     """
     outcomes: dict[str, dict[str, Any]] = {}
     for cell in RETIRED_D1A:
@@ -1249,7 +1257,9 @@ def test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
     differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
     (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
     raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
-    nor indistinguishable, in the same block and the same JUnit record.
+    nor indistinguishable, in the same block and the same JUnit record. Since decision 7 (a) (Dave, 2026-10-09 16:38
+    MST: *"(a) Extend the floor rule."*) so is a cell whose nonexistent side raised where that copy answered (the
+    mirror), under the same outcome.
     """
     levels = {name: logging.getLogger(name).level for name in _QUIETED_LOGGERS}
     for name in _QUIETED_LOGGERS:
@@ -1595,7 +1605,9 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
     differences. Apply the check to the gate and limitation measurements"*). A cell whose noise floor's copy raised
     (:func:`_floor_copy_did_not_answer`) is classified :data:`FLOOR_COPY_OUTCOME`, by name, with what the copy
     raised, and is never judged off that floor: it was not measured, so it is reported as neither distinguishable
-    nor indistinguishable, in the same block and the same JUnit record.
+    nor indistinguishable, in the same block and the same JUnit record. Since decision 7 (a) (Dave, 2026-10-09 16:38
+    MST: *"(a) Extend the floor rule."*) so is a cell whose nonexistent side raised where that copy answered (the
+    mirror), under the same outcome.
     """
     outcomes: dict[str, dict[str, Any]] = {}
     for cell in _false_declaration_cells():
@@ -1663,7 +1675,9 @@ def test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
 #: The named reason a cell fails by when its floor's copy did not answer: an ``AssertionError`` of this type name.
 FLOOR_COPY_REFUSAL = "FloorCopyDidNotAnswer"
 #: The outcome a limitation measurement reports such a cell under, by name: neither distinguishable nor
-#: indistinguishable, because no noise floor was measured.
+#: indistinguishable, because no noise floor was measured. Decision 7 (a) reports the mirror (the nonexistent side
+#: raised where its copy answered) under this same label, as its option says ("or the limitation reports `floor copy
+#: raised`"); the positions it records say which side raised.
 FLOOR_COPY_OUTCOME = "floor copy raised"
 
 _FLOOR_WITHHELD = {"outcome": "refused", "code": "subject-withheld", "detail": "refused"}
@@ -2050,19 +2064,30 @@ def test_mirror_control_a_withheld_side_that_raised_is_judged_off_a_floor_that_a
 
 
 class FloorCopyDidNotAnswer(AssertionError):
-    """A cell's noise floor was read off a copy that RAISED: not evidence, by name, and the floor excuses nothing.
+    """A cell's noise floor was read off a copy that RAISED, or that answered where the side it copies RAISED.
 
-    Dave, 2026-10-09 (``D-IMPL-378``), approved at 06:21 MST: *"A failed spare answer cannot excuse differences."*
+    Not evidence, by name, and the floor excuses nothing. Dave, 2026-10-09 (``D-IMPL-378``), approved at 06:21 MST:
+    *"A failed spare answer cannot excuse differences."* Since decision 7 (a) (Dave, 2026-10-09 16:38 MST: *"(a)
+    Extend the floor rule."*) a cell also meets it where the nonexistent side raised and its copy answered (the
+    mirror): the option ruled says the cell "fails by the same named reason", so the name is kept for both.
     An ``AssertionError``, so a gate or never-class cell that meets it FAILS. A limitation measurement asks
     :func:`_floor_copy_did_not_answer` before it compares and reports the cell by :data:`FLOOR_COPY_OUTCOME`.
     """
 
 
+#: Decision 7 (a): how :func:`_floor_copy_did_not_answer` marks a position where the side the floor copies RAISED and
+#: the copy did not (the mirror of BLD-1), before what that side raised there.
+FLOOR_COPY_ANSWERED_WHERE_ITS_SIDE_RAISED = "the copy answered where the side it copies raised: "
+
+
 def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
-    """Where the noise floor's copy RAISED in a way that leaves it nothing to measure: position, and what it raised.
+    """Where the noise floor's copy and the side it copies did not agree on raising: position, and what was raised.
 
     The floor is read off a second copy of the nonexistent side (``sec020_worlds.PAIRS``), and measures that side's
-    own variation only where the copy did what the side does. Where the copy raised, that holds only if the
+    own variation only where the copy did what the side does. Decision 7 (a) (Dave, 2026-10-09 16:38 MST,
+    ``D-IMPL-378``: *"(a) Extend the floor rule."*) states it for every position, in the option's words: "a floor is
+    used only where the nonexistent side and its copy agree on raising at every position, meaning both answered or
+    both raised the held refusal." Where the copy raised (BLD-1), that holds only if the
     nonexistent side raised at the same position too, and both raised the refusal this proof holds as the property
     there: Q9's reuse refusals and P2 (c)'s construction refusal (``sec020_worlds.raising_is_the_property``), ruling
     P6 (a)'s refusal (``sec020_worlds.p6_refusal_is_the_property``), and, in its own world only, decision 4 (a)'s
@@ -2072,7 +2097,11 @@ def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
     (b)). The floor then compares a refusal with a refusal.
     Every other raise of the copy, at its question or inside one of its record reads (``<position>/record:<read>``,
     never the property), leaves the floor comparing an exception with an answer, which differs at every path and
-    would excuse every difference. Those are returned, and while any is, the floor may excuse nothing.
+    would excuse every difference. Those are returned, with what the copy raised. The mirror (decision 7 (a)): where
+    the nonexistent side RAISED, at its question or inside a record read, and the copy raised nothing there, the floor
+    compares an answer with an exception just the same, whatever the side raised (a refusal held as the property
+    included: one side raising it is not both). Those are returned too, with what that side raised, marked
+    :data:`FLOOR_COPY_ANSWERED_WHERE_ITS_SIDE_RAISED`. While anything is returned, the floor may excuse nothing.
     """
     _withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
     copied = run.raised(nonexistent_side)
@@ -2084,22 +2113,45 @@ def _floor_copy_did_not_answer(run: w.Run, comparison: str) -> dict[str, str]:
             or w.a_constant_refusal_is_the_property(run, position, raised)
         )
 
+    copy = run.raised(floor_side)
     unanswered: dict[str, str] = {}
-    for position, raised in sorted(run.raised(floor_side).items()):
+    for position, raised in sorted(copy.items()):
         if not (position in copied and held(position, raised) and held(position, copied[position])):
             unanswered[position] = raised
-    return unanswered
+    # Decision 7 (a), the mirror: the side the floor copies raised where the copy did not.
+    for position, raised in sorted(copied.items()):
+        if position not in copy:
+            unanswered[position] = f"{FLOOR_COPY_ANSWERED_WHERE_ITS_SIDE_RAISED}{raised}"
+    return dict(sorted(unanswered.items()))
 
 
 def _require_the_floor_copy_answered(run: w.Run, comparison: str) -> None:
-    """The amendment where every noise floor of this module is read (:func:`_compare`): fail by name, before any excuse."""
+    """The amendment where every noise floor of this module is read (:func:`_compare`): fail by name, before any excuse.
+
+    BLD-1 and, since decision 7 (a), its mirror, each named in the message as what happened.
+    """
     unanswered = _floor_copy_did_not_answer(run, comparison)
     if unanswered:
-        _withheld_side, _nonexistent_side, floor_side = w.PAIRS[comparison]
+        _withheld_side, nonexistent_side, floor_side = w.PAIRS[comparison]
+        mark = FLOOR_COPY_ANSWERED_WHERE_ITS_SIDE_RAISED
+        copy_raised = {position: raised for position, raised in unanswered.items() if not raised.startswith(mark)}
+        side_raised = {
+            position: raised[len(mark):] for position, raised in unanswered.items() if raised.startswith(mark)
+        }
+        reasons = []
+        if copy_raised:
+            reasons.append(
+                f"the noise floor's copy ({floor_side}) RAISED instead of answering, and a failed spare answer cannot"
+                f" excuse a difference: {copy_raised}"
+            )
+        if side_raised:
+            reasons.append(
+                f"the side the noise floor copies ({nonexistent_side}) RAISED where its copy ({floor_side}) answered,"
+                f" so the floor compares an answer with an exception and cannot excuse a difference (decision 7 (a)):"
+                f" {side_raised}"
+            )
         raise FloorCopyDidNotAnswer(
-            f"SEC-020 [{comparison}, {run.shape}, {run.anchor}, {run.door}]: not evidence, the noise floor's copy"
-            f" ({floor_side}) RAISED instead of answering, and a failed spare answer cannot excuse a difference:"
-            f" {unanswered}"
+            f"SEC-020 [{comparison}, {run.shape}, {run.anchor}, {run.door}]: not evidence, " + "; and ".join(reasons)
         )
 
 
