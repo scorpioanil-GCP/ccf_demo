@@ -9,7 +9,7 @@ HTTP evidence routes, ``GET /replay/decisions``, ``GET /replay/resolutions`` and
 handler for it, nor for the outage ``McpServerUnreachable``: both escape the route, and the app answers each with the
 framework's own ``500 Internal Server Error``, the same status, headers and body bytes. Nothing is recorded for either.
 
-Pinned here as the documented behavior, never as an expected failure:
+Pinned here as the behavior as built, never as an expected failure:
 
 * the escaped exceptions still differ by type, so the distinction holds in process;
 * each door's answer to the 401 is byte-identical to its answer to the outage, a ``500``;
@@ -17,8 +17,11 @@ Pinned here as the documented behavior, never as an expected failure:
   be counted;
 * control: over the world's own store, each door serves the record.
 
-Whether the HTTP doors render the typed refusal as an answer of its own is not yet ruled (question 21 of the 378j
-findings brief). A change that does turns this test red, and the security how-to (section 4.10) changes with it.
+Dave's decision 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted),
+verbatim: *"(a) A typed 5xx, so a rejected credential and an outage are not the same response."* (the 16:38 MST
+amendment in ``docs/DECISIONS.md``, recorded on ``main`` @ ``c470416f``). It is ruled and not yet built: until it is,
+the doors answer as this module pins. When it is built, this test turns red, since it asserts that the two answers
+match and the ruling makes them differ, and it is rewritten to pin the typed answer.
 SEC-020 stays open: this module measures, it closes nothing. The world is
 ``tests/http_api/test_evidence_dereference.py``'s; the failing stores are
 ``tests/mcp/test_auth_401_typed_through_the_client.py``'s (a bearer token the server's verifier does not know; a
