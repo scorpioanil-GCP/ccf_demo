@@ -36,17 +36,20 @@ What is asserted, by mechanism:
    beside it is replaced by the boot's own, which takes the one read a fresh
    creation takes: a store planted before the store opens is refused
    (``DeploymentStoreNotEmpty``), and of two racing boots one creates and
-   verifies while the other waits and reopens. Until this, such a boot was
-   refused (``no-store``, ``pending`` or ``unreadable``) until an operator
-   removed the marker.
+   verifies while the other, under a declared wait, waits and reopens. Until
+   this, such a boot was refused (``no-store``, ``pending`` or ``unreadable``)
+   until an operator removed the marker.
 2. **The read runs whenever a plain boot creates a store**, whoever made the
    marker beside the path: a store created at a path a question marker had
    reserved is read, and a plant there is refused (``DeploymentStoreNotEmpty``).
-3. **Creation and verification are serialized**, across processes. A boot that
-   finds another boot creating the store waits until that boot has verified it
-   and then reopens it, reading nothing; two boots racing on a fresh path never
-   both create it, the one that creates it reads it once, the other never
-   serves a store it did not verify and is never refused as stale.
+3. **Creation and verification are serialized**, across processes. Under a
+   declared ``store_creation_lock_wait_seconds`` (decision 19 (b); these tests
+   declare one), a boot that finds another boot creating the store waits until
+   that boot has verified it and then reopens it, reading nothing; two boots
+   racing on a fresh path never both create it, the one that creates it reads
+   it once, the other never serves a store it did not verify and is never
+   refused as stale. With no wait declared, a boot that finds the lock held is
+   refused at once (``tests/products/test_deployment_store_creation_lock_bounded.py``).
 
 Refusals are asserted by their class NAME and their ``reason``, so a tree
 without the repair fails each test on its behavior, never on an import. Every
@@ -69,6 +72,7 @@ from typing import Any
 import pytest
 
 from ccf.deployment import load_and_boot
+from tests.products import _deployment_wait_bound as wb
 from tests.products import test_plain_boot_creating_its_store_finds_it_empty as tp
 from tests.products import test_question_store_empty_at_boot_and_held_through_use as p4e
 from tests.products import test_withheld_subject_population_composite_and_fabric as m
@@ -87,6 +91,12 @@ _STORE_CREATION_LOCK_SUFFIX = ".ccf-store-creation.lock"
 
 #: How long a boot that must wait is watched before the test concludes it is waiting (a test-side bound).
 _WATCH_SECONDS = 3.0
+
+#: The store-creation lock wait the serialization tests' deployment declares (decision 19 (b), ``D-IMPL-378``): a
+#: test-side value, far above any boot these tests run, so that a boot meeting another boot's creation waits for it.
+#: Where a deployment declares none, such a boot is refused at once instead
+#: (``tests/products/test_deployment_store_creation_lock_bounded.py``).
+_DECLARED_WAIT_SECONDS = 120
 
 
 def _marker(store: pathlib.Path) -> pathlib.Path:
@@ -492,6 +502,9 @@ def test_1_2_b_two_plain_boots_racing_on_stale_no_store_paths_never_serve_a_stor
     first still held the store, was refused ``SingleWriterViolation``; neither
     was refused as stale; the stale marker was replaced, and reads
     ``verified``. Measured on ``3119297a``: every boot was refused at the look.
+    The deployment declares a store-creation lock wait (decision 19 (b)), so
+    the boot that meets the other's creation waits for it, as it did when the
+    wait had no bound.
     """
     trials = 12
     stale_texts = (
@@ -501,6 +514,7 @@ def test_1_2_b_two_plain_boots_racing_on_stale_no_store_paths_never_serve_a_stor
         "booted, trust me\n",
     )
     manifest, _registry, _records = p4e._deployment(tmp_path)
+    manifest = wb.manifest_declaring_a_wait(manifest, _DECLARED_WAIT_SECONDS)
     signals, stores = tmp_path / "signals", tmp_path / "stores"
     signals.mkdir()
     stores.mkdir()
@@ -636,8 +650,15 @@ def test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_ver
     stopped, having created the store itself with no read, ``"verified"``. On
     ``de9b28f``: B finished while A was stopped, refused by name as if A's
     marker were stale.
+
+    The deployment declares a store-creation lock wait far above A's pause
+    (decision 19 (b), ``D-IMPL-378``: *"Wait a bounded time, then refuse by
+    name. An unbounded wait is not a lock."*); B waits within it. With no wait
+    declared, B is refused at once instead, by name, while A holds the lock
+    (``tests/products/test_deployment_store_creation_lock_bounded.py``).
     """
     manifest, _registry, _records = p4e._deployment(tmp_path)
+    manifest = wb.manifest_declaring_a_wait(manifest, _DECLARED_WAIT_SECONDS)
     target = tmp_path / "contended" / _STORE
     target.parent.mkdir()
     signals_a, signals_b = tmp_path / "signals-a", tmp_path / "signals-b"
@@ -685,10 +706,15 @@ def test_1_2_two_plain_boots_racing_on_fresh_paths_in_two_processes_never_serve_
     first still held the store, was refused ``SingleWriterViolation``; neither
     was refused as stale; the marker reads ``verified``. Measured on
     ``fe25536c`` (``probe_race.py``, 40 trials): the creating boot booted with
-    no read in 28 (writer, writer) and 15 (writer, read-only) trials.
+    no read in 28 (writer, writer) and 15 (writer, read-only) trials. The
+    deployment declares a store-creation lock wait (decision 19 (b)), so the
+    boot that meets the other's creation waits for it; with none declared it
+    is refused ``lock-held`` instead
+    (``tests/products/test_deployment_store_creation_lock_bounded.py``).
     """
     trials = 12
     manifest, _registry, _records = p4e._deployment(tmp_path)
+    manifest = wb.manifest_declaring_a_wait(manifest, _DECLARED_WAIT_SECONDS)
     signals, stores = tmp_path / "signals", tmp_path / "stores"
     signals.mkdir()
     stores.mkdir()
