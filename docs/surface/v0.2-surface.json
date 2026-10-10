@@ -661,10 +661,10 @@
       "ArtifactName",
       "ArtifactNotFound",
       "ArtifactReadRefused",
-      "ArtifactReadUnauthenticated",
       "ArtifactRef",
       "ArtifactStoreError",
       "ArtifactStoreProtocol",
+      "ArtifactStoreUnauthenticated",
       "ArtifactUriUnresolvable",
       "ArtifactWriteAuthority",
       "ArtifactWriteRefused",
@@ -704,10 +704,6 @@
         "kind": "class",
         "shape": "(message: 'str', *, envelope: 'RefusalEnvelope') -> 'None'"
       },
-      "ArtifactReadUnauthenticated": {
-        "kind": "class",
-        "shape": "type"
-      },
       "ArtifactRef": {
         "kind": "contract",
         "shape": {
@@ -725,6 +721,10 @@
       "ArtifactStoreProtocol": {
         "kind": "class",
         "shape": "(*args, **kwargs)"
+      },
+      "ArtifactStoreUnauthenticated": {
+        "kind": "class",
+        "shape": "type"
       },
       "ArtifactUriUnresolvable": {
         "kind": "class",
@@ -12411,6 +12411,7 @@
     "__all__": [
       "ERROR_AMBIGUOUS_TENANT",
       "ERROR_APPROVER_NOT_ELIGIBLE",
+      "ERROR_ARTIFACT_STORE_UNAUTHENTICATED",
       "ERROR_DECISION_UNMINTABLE",
       "ERROR_EVIDENCE_ABSENT",
       "ERROR_EVIDENCE_CLASS_SEALED",
@@ -12448,6 +12449,10 @@
         "shape": "str"
       },
       "ERROR_APPROVER_NOT_ELIGIBLE": {
+        "kind": "constant",
+        "shape": "str"
+      },
+      "ERROR_ARTIFACT_STORE_UNAUTHENTICATED": {
         "kind": "constant",
         "shape": "str"
       },

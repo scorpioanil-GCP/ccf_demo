@@ -26,6 +26,7 @@ __ccf_mode__ = "algorithmic"
 
 __all__ = [
     "ERROR_AMBIGUOUS_TENANT",
+    "ERROR_ARTIFACT_STORE_UNAUTHENTICATED",
     "ERROR_DECISION_UNMINTABLE",
     "ERROR_EVIDENCE_ABSENT",
     "ERROR_EVIDENCE_CLASS_SEALED",
@@ -319,6 +320,21 @@ ERROR_PRODUCT_PARAMETERS_MALFORMED: Final[str] = "product-parameters-malformed"
 #: ``create_app`` argument to supply, which is what keeps the boot-time
 #: ``TypeError`` this replaces from being a diagnostic that was simply lost.
 ERROR_ROUTE_HANDLE_ABSENT: Final[str] = "route-handle-absent"
+
+#: The deployment's artifact store presented a credential its server's guard
+#: did not authenticate (HTTP 401), so an evidence door cannot answer (503;
+#: :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`). Decision
+#: 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted): *"(a) A typed 5xx, so
+#: a rejected credential and an outage are not the same response."*
+#:
+#: A 503 and not a 500 for the :data:`ERROR_ROUTE_HANDLE_ABSENT` reason: the
+#: fault is the deployment's, not the caller's. The credential is the one the
+#: deployment gave its store, never the caller's, and the framework's opaque
+#: 500 is what an outage of that store is answered with, which this is not.
+#: Answered by ``GET /replay/decisions``, ``GET /replay/resolutions`` and
+#: ``GET /artifact/{content_address}``, with one constant message: the same
+#: answer for every ask, naming no address, URI, subject or store location.
+ERROR_ARTIFACT_STORE_UNAUTHENTICATED: Final[str] = "artifact-store-unauthenticated"
 
 
 def refusal_detail(*, error_code: str, message: str) -> dict[str, str]:

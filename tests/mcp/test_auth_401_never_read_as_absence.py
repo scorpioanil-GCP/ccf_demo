@@ -4,7 +4,7 @@ Dave, 2026-10-09 10:54 MST (``D-IMPL-378``), verbatim: *"Return a typed authenti
 its distinction from authorization denial and transport outage."* SEC-020 stays open: this module measures, it closes
 nothing.
 
-The typed refusal, ``ccf.artifacts.protocol.ArtifactReadUnauthenticated``, is an ``ArtifactStoreError``. Several
+The typed refusal, ``ccf.artifacts.protocol.ArtifactStoreUnauthenticated``, is an ``ArtifactStoreError``. Several
 consumers read an ``ArtifactStoreError`` from a store read as ABSENCE: the replay engine's resolvers answer
 ``ReplayUnresolvable`` ("no ... is stored at"), and the erasure consult's record check answers an entry
 ``index-unsupported`` and audits ``erasure_index_unsupported``. On the base (``fe25536c``) the guard's 401 reached each

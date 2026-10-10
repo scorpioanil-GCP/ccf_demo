@@ -76,9 +76,9 @@ from pydantic import ValidationError
 
 from ccf.artifacts.protocol import (
     ArtifactNotFound,
-    ArtifactReadUnauthenticated,
     ArtifactStoreError,
     ArtifactStoreProtocol,
+    ArtifactStoreUnauthenticated,
     MovingTargetRefused,
     held_content_address,
     parse_artifact_uri,
@@ -1204,7 +1204,7 @@ def govern_dereference(
             ``@latest``. A request-shape refusal raised by the shared parser
             before any lookup, which reveals nothing and which the route
             renders as the ``409`` it renders today.
-        ccf.artifacts.protocol.ArtifactReadUnauthenticated: the store's server
+        ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the store's server
             did not authenticate the deployment's credential (HTTP 401) when
             the record was resolved, or when a by-URI read's naming was checked
             — propagated by name, never answered as the ``nonexistent``
@@ -1382,7 +1382,7 @@ def govern_dereference(
             content_address=content_address,
             contract=DecisionReplayRecord,
         )
-    except ArtifactReadUnauthenticated:
+    except ArtifactStoreUnauthenticated:
         # `D-IMPL-378`, repair 2.5 (a): the store's server did not authenticate
         # the deployment's credential, so nothing about the address was
         # decided. Never the ONE absence below — that shell is also what the
@@ -1592,7 +1592,7 @@ def govern_dereference(
             registered = tenant_view.resolve_uri(uri=reference.reference)
         except ErasedContentRefused as erased:
             return erased_reading(erased)
-        except ArtifactReadUnauthenticated:
+        except ArtifactStoreUnauthenticated:
             # A 401 here is the credential's, not the URI's (`D-IMPL-378`,
             # repair 2.5 (a)): never the recorded absence below.
             raise

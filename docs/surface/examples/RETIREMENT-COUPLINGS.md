@@ -8,8 +8,8 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **357** across **113** files
-- Rows outside `examples/`, `tests/examples/` and `public/`: **199** across **69** files
+- Coupling rows: **348** across **111** files
+- Rows outside `examples/`, `tests/examples/` and `public/`: **190** across **67** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
 Rows by owning plan:
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 12 |
 | 17-08 | 121 |
-| 23-04 | 205 |
+| 23-04 | 196 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
@@ -31,14 +31,14 @@ Rows by coupling shape:
 | `count-scan-function` | 5 |
 | `docstring` | 80 |
 | `indirect-execution` | 1 |
-| `literal-set-member` | 10 |
+| `literal-set-member` | 8 |
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
-| `module-constant` | 3 |
+| `module-constant` | 1 |
 | `path-construction` | 12 |
 | `prose` | 119 |
 | `snippet-include` | 56 |
-| `string-literal` | 22 |
+| `string-literal` | 17 |
 | `tmp_path-synthetic` | 13 |
 
 ## Reading the columns
@@ -238,9 +238,9 @@ Rows by coupling shape:
 | `public/how-to/run-agents-cross-process.md` | 163 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 174 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
 | `public/how-to/run-agents-cross-process.md` | 186 | `archive/examples/04-cross-process` | `snippet-include` | live | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 167 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
-| `public/how-to/security-and-deployment.md` | 2493 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
-| `public/how-to/security-and-deployment.md` | 2494 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 177 | `archive/examples/05-workflow-hitl` | `prose` | documentary | - | - | 23-04 |  |
+| `public/how-to/security-and-deployment.md` | 2471 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
+| `public/how-to/security-and-deployment.md` | 2472 | `examples/s1-01-hello-context-product` | `prose` | documentary | - | - | 17-08 |  |
 | `public/how-to/swap-the-artifact-store.md` | 15 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 31 | `archive/examples/07-artifact-store-mcp` | `prose` | documentary | - | - | 23-04 |  |
 | `public/how-to/swap-the-artifact-store.md` | 40 | `archive/examples/07-artifact-store-mcp` | `snippet-include` | live | - | - | 23-04 |  |
@@ -384,16 +384,7 @@ Rows by coupling shape:
 | `tools/docs_tests/test_retirement_sweep.py` | 369 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 883 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 57 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
-| `tools/lints/citations.py` | 410 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 455 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 455 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 479 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 485 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_citations.py` | 887 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 74 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 82 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 83 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 254 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |

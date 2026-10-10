@@ -77,11 +77,14 @@ unchanged, so a product's content address is unchanged.
   admission record is filed, so a presentation those checks refuse can be
   admitted later
   (`tests/peering/test_admission_refuses_replay.py::test_d_a_refused_presentation_does_not_spend_the_nonce`),
-  while one whose record the store does not persist (`AdmissionNotRecorded`)
+  while one whose record the store does not persist (`AdmissionNotRecorded`,
+  or `ArtifactStoreUnauthenticated` where the store's server did not
+  authenticate the deployment's credential, `D-IMPL-378` decision 10 (b))
   or answers with a reference that is not the record's own
   (`AdmissionRecordReferenceMismatch`, `D-IMPL-378` decision 5) is not
   admitted and is refused `replayed` if presented again
-  (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`).
+  (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`,
+  `tests/peering/test_admission_record_write_401_is_the_typed_refusal.py::test_a_crossing_refused_at_its_record_for_the_credential_has_spent_its_nonce`).
 - **The replay scope is the signing key, not the peer id** (`SEC-022-C-01`).
   A nonce is spent under the key the envelope's signature verified under,
   named by its RFC 7638 thumbprint
@@ -1080,27 +1083,36 @@ Two behaviors follow from the design and are stated rather than changed:
   where the door in process refuses it `address-not-in-tenant`
   (`tests/mcp/test_erasure_subject_match.py::test_the_mcp_backed_door_reaches_the_in_process_doors_outcome`).
   A credential the server's guard does not authenticate (HTTP 401) is
-  neither that refusal nor an outage: every read of the client raises the
-  typed authentication refusal `ArtifactReadUnauthenticated` instead
-  (`src/ccf/artifacts/protocol.py::ArtifactReadUnauthenticated`; repair 2.5
-  (a), D-IMPL-378; `tests/mcp/test_auth_401_typed_through_the_client.py`), a
-  third type beside the two
+  neither that refusal nor an outage: every read of the client, and its
+  write, raises the typed authentication refusal
+  `ArtifactStoreUnauthenticated` instead
+  (`src/ccf/artifacts/protocol.py::ArtifactStoreUnauthenticated`; repair 2.5
+  (a) for the reads and decision 10 (b) for the write, D-IMPL-378;
+  `tests/mcp/test_auth_401_typed_through_the_client.py`,
+  `tests/mcp/test_auth_401_typed_on_a_write.py`), a third type beside the two
   (`tests/mcp/test_auth_401_typed_through_the_client.py::test_a_401_an_access_refusal_and_an_outage_reach_the_caller_as_three_types`),
   and the door refuses it `class-unverifiable` with that cause
   (`tests/mcp/test_auth_401_never_read_as_absence.py::test_the_erasure_door_over_a_store_whose_credential_is_refused_refuses_class_unverifiable_with_the_typed_cause`).
   The guard's other refusals, a credential without a required scope (HTTP
-  403) and the tenancy guard's denials, still reach the client as
+  403) and the tenancy guard's denials, still reach a read as
   `McpServerUnreachable`, an outage
   (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
-  So does a write: a `put` whose credential the guard does not authenticate
-  (HTTP 401) still raises `McpServerUnreachable`, an outage
-  (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`).
-  Dave ruled on 2026-10-09 that a write's 401 be typed too, with
-  `ArtifactReadUnauthenticated` renamed so that one type covers reads and
-  writes (decision 10 (b), `D-IMPL-378`, in the 16:38 MST amendment of
-  `docs/DECISIONS.md`, recorded on `main` @ `c470416f`). That is not yet
-  built: until it is, a write's 401 arrives as `McpServerUnreachable`, as
-  the conformance test above pins.
+  A write meets the 403 the same way
+  (`tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`)
+  and the tenancy guard's denial as the server's decline, `ArtifactStoreError`
+  (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too`).
+  A write's 401 is never reported as an outage
+  (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`),
+  and the peering admission gate lets it through by name rather than
+  reporting `AdmissionNotRecorded`
+  (`tests/peering/test_admission_record_write_401_is_the_typed_refusal.py`).
+  The HTTP evidence doors, `GET /replay/decisions`, `GET /replay/resolutions`
+  and `GET /artifact/{content_address}`, answer the typed refusal `503` with
+  `error_code` `artifact-store-unauthenticated` and one constant message,
+  the same for every ask, while an outage of the store is still answered
+  with the framework's opaque `500 Internal Server Error` (decision 21 (a),
+  D-IMPL-378;
+  `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py`).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 
