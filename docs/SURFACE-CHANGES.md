@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2596 entries**, of which **2317** name a public Python surface.
+**2600 entries**, of which **2321** name a public Python surface.
 
 ## Added
 
@@ -28021,8 +28021,8 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 - Public surface: true
 - Change type: reshaped
 - Before: `reason` was one of `"pending"`, `"unreadable"`, `"claimed"`, `"lock-unavailable"`, `"lock-held"`; a FIFO, a socket or a device at the marker's path with no store beside it was replaced; a regular-file marker was read to its full size, and one longer than any marker the SDK writes was refused `"unreadable"` beside a store and replaced with none.
-- After: `reason` may also be `"oversized"`: a regular file at the marker's path, with or without a store beside it, longer than the longest marker the SDK writes. The boot reads at most one byte past that length and neither compares nor replaces the file; the text names the marker and says an operator resolves it. Anything at the marker's path that is neither a regular file nor a symbolic link (a FIFO, a socket, a character or block device, a directory) is refused `"unreadable"` before any store or marker is created (the store-creation lock file is), its type checked from `lstat` before any open, with or without a store beside it, and never replaced. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened, without blocking and without following a link, and then refused from its descriptor's type.
-- Why: `D-IMPL-380` rulings 3 and 4 (a), 2026-10-10 05:34 MST. Red tests: `tests/products/test_deployment_marker_special_file_refused.py::test_380_3_a_special_file_at_the_marker_path_with_no_store_is_refused_unreadable_and_left` and `tests/products/test_deployment_marker_oversized_refused.py::test_380_4_a_sparse_1_gib_marker_is_refused_oversized_read_at_most_the_bound_and_left`.
+- After: `reason` may also be `"oversized"`: a regular file at the marker's path, with or without a store beside it, longer than the longest marker the SDK writes. The boot reads at most one byte past that length and neither compares nor replaces the file; the text names the marker and says an operator resolves it. Anything at the marker's path that is neither a regular file nor a symbolic link (a FIFO, a socket, a character or block device, a directory) is refused `"unreadable"`, and no store or marker is created (the store-creation lock file is); its type is checked from `lstat` before any open, with or without a store beside it, and never replaced. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened, without blocking and without following a link, and then refused from its descriptor's type.
+- Why: `D-IMPL-380` rulings 3 and 4 (a), 2026-10-10 05:34 MST; this After line rewritten under the second-round amendment, 2026-10-10 07:39 MST, and corrected in the third round (09:18 MST). Red tests: `tests/products/test_deployment_marker_special_file_refused.py::test_380_3_a_special_file_at_the_marker_path_with_no_store_is_refused_unreadable_and_left` and `tests/products/test_deployment_marker_oversized_refused.py::test_380_4_a_sparse_1_gib_marker_is_refused_oversized_read_at_most_the_bound_and_left`.
 - Migration: a caller that branches on `reason` meets a sixth value. For `"oversized"` or a special file refused `"unreadable"`, find what wrote it at the marker's path, then remove it (and the store, if one stands there) so that a boot creates and verifies a new store (the security how-to, section 4.12).
 
 *Recorded by `380-01-writers-hash-before-put-and-markers-refused-by-kind-and-size.md`.*
@@ -31091,7 +31091,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-545 entries — 506 public Python surface, 39 not public Python API.
+549 entries — 510 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38756,12 +38756,60 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
 - Public surface: true
 - Change type: behavior
-- Before: beside a store, a FIFO, a socket or a device at the marker's path was opened (without blocking and without following a link) before its type was checked, and then refused `"unreadable"`.
-- After: the marker's type is checked from `lstat` before any open, beside a store too, so such a file is refused `"unreadable"` without being opened. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened and then refused from its descriptor's type.
+- Before: beside a store, a FIFO or a socket at the marker's path was opened (without blocking and without following a link) before its type was checked, and then refused `"unreadable"`.
+- After: beside a store too, such a file has its type checked from `lstat` before any open (type checked first) and is refused `"unreadable"`. The `lstat` narrows, and does not close, one race: a special file swapped in for a regular one between the `lstat` and the open is opened and then refused from its descriptor's type.
 - Why: `D-IMPL-380` second round, ruling 1 (a). Red test: `tests/products/test_deployment_marker_special_file_refused.py`.
 - Migration: none; the refusals are unchanged.
 
 *Recorded by `380-02-writers-hand-the-store-a-copy-and-marker-type-checked-before-open.md`.*
+
+#### ccf_runtime.erasure.ErasureDoor
+
+- Surface: ccf_runtime.erasure.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: `complete` handed the store its own recorded approval and its own erasure record, discarded both answers, and returned the record the store had held, so a store that altered the record while holding it had its alteration returned to the caller under write-ahead index entries naming the record as built.
+- After: both saves hand the store a deep copy taken before the save, and the door keeps its own object. Each answer is held, field for field as exact strings, to the reference the door derived before the save (content address, versioned URI, tenant, class, name). A mismatch is refused `ErasureRefused` by name after the store returns: `approval-reference-mismatch` before the write-ahead append, so no index entry is appended; `record-reference-mismatch` after it, with the address withheld under the appended entries, as on every other failed completion. `complete` returns the door's own record. The bytes the store files are still not re-read: the consult re-hashes what it fetches and fails closed on altered bytes.
+- Why: `D-IMPL-380` third round, ruling 2 (a), 2026-10-10 09:18 and 09:23 MST. Red tests: `tests/erasure/test_erasure_record_store_holds_a_copy.py`.
+- Migration: none for a store that does not change what it is handed and answers the reference of what it filed. A caller that branches on `ErasureRefused.reason_code` meets two new values.
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf_runtime.erasure.door.ErasureDoor
+
+- Surface: ccf_runtime.erasure.door.ErasureDoor
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf_runtime.erasure.ErasureDoor`
+- After: as for `ccf_runtime.erasure.ErasureDoor`
+- Why: as for `ccf_runtime.erasure.ErasureDoor`
+- Migration: as for `ccf_runtime.erasure.ErasureDoor`
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf.products.resolver.GovernedResolver
+
+- Surface: ccf.products.resolver.GovernedResolver
+- Public surface: true
+- Change type: behavior
+- Before: a composite's child-contract retention handed the store each admitted child's own contract, the object from which the parent's child view is then built, and `ContextProductContract.payload` validates to a live `dict`, so a store that wrote into that mapping and answered the right address had its alteration reach the parent.
+- After: the store is handed a deep copy of each contract taken before the save; the resolver keeps its own, so the parent's child view is built from contracts the store never held. The content-address check on the store's answer is unchanged. The bytes the store files are still not re-read; replay re-hashes what it fetches.
+- Why: `D-IMPL-380` third round, ruling 2 (a). Red test: `tests/products/test_child_contract_store_holds_a_copy.py`.
+- Migration: none for a store that does not change what it is handed.
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: every Control Plane state write handed the state store the engine's own state record, whose trace entries are the engine's own, ahead of the trace's save, so a state store that rewrote the record while holding it had its rewrite reach the trace artifact, a completed outcome's `step_sequence_block` and a suspension's approval binding.
+- After: the one function every state write uses hands the state store a deep copy taken before the save; the engine keeps its own record, and the trace artifact, the outcome and the approval binding are built from it. The saved-bytes limit, state-store form: the state store saves its copy, and a later passage that reads the record back (a resume, a retry, the recovery path) reads what the store saved.
+- Why: `D-IMPL-380` third round, ruling 2 (a). Red tests: `tests/workflow/test_state_store_holds_a_copy.py`.
+- Migration: none for a state store that does not change what it is handed.
+
+*Recorded by `380-03-three-more-writers-copy-before-the-save.md`.*
 
 ### Not public Python API
 
