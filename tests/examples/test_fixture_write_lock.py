@@ -98,9 +98,15 @@ def test_the_allowed_tables_are_exactly_what_the_files_create() -> None:
 @pytest.mark.parametrize("name", LOCKED_FILES)
 def test_the_lock_is_the_first_statement(name: str) -> None:
     text = (FIXTURES / name).read_text(encoding="utf-8")
-    assert _first_statement(text).startswith(write_lock(SCHEMA)), (
+    lock = write_lock(SCHEMA)
+    # The lock opens with its own comment lines, which `_first_statement`
+    # skips; the statement itself is its `DO` block, and the whole rendered
+    # text — comments included — must sit immediately before it.
+    statement = lock[lock.index("DO $ccf_write_lock$") :]
+    assert _first_statement(text).startswith(statement), (
         f"{name}: the first statement is not the D-IMPL-379 write lock"
     )
+    assert lock in text, f"{name}: the lock's text differs from the helper's"
 
 
 def test_the_regeneration_tool_emits_the_lock() -> None:
@@ -163,11 +169,23 @@ def test_a_database_that_is_not_ours_is_refused_by_name(
         db.execute(f"CREATE TABLE {SCHEMA}.{STRAY} (id int)")
     before = _relations(scratch)
 
+    refused: psycopg.Error | None = None
     with psycopg.connect(scratch, autocommit=True) as db, db.cursor() as cursor:
-        with pytest.raises(psycopg.errors.RaiseException) as refused:
+        try:
             cursor.execute((FIXTURES / name).read_text(encoding="utf-8"))
+        except psycopg.Error as exc:
+            refused = exc
+    # A rows file run against an empty schema fails on its own (a missing
+    # table) whether or not it is locked; that is not the lock refusing.
+    assert refused is not None, (
+        f"{name} ran to completion against a database holding {STRAY}"
+    )
+    assert isinstance(refused, psycopg.errors.RaiseException), (
+        f"{name} failed on {type(refused).__name__}, not on the write lock:"
+        f" {refused}"
+    )
 
-    message = str(refused.value)
+    message = str(refused)
     assert re.search(rf"(?<!\w){STRAY}(?!\w)", message), message
     assert "D-IMPL-379" in message, message
     assert _relations(scratch) == before == [STRAY]
