@@ -39,7 +39,7 @@ from typing import Any
 import pytest
 
 from ccf.artifacts.file_store import FileArtifactStore
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, artifact_uri
+from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreError, ArtifactStoreProtocol, artifact_uri
 from ccf.contracts.canonical import content_hash
 from ccf.controlplane.registry import ControlPlaneRegistry
 from ccf.peering.admission import ADMISSION_RECORD, AdmissionRecord, AdmittedProduct, PeeringAdmissionGate
@@ -298,3 +298,56 @@ def test_control_an_honest_stores_reference_is_what_the_verdict_names_and_is_the
     (event,) = _admitted_events(registry)
     assert (event.artifact_class, event.key, event.version) == (ADMISSION_RECORD.class_id, own.name, own.content_address)
     assert store.resolve_uri(uri=own.uri) == own.content_address
+
+
+# --- 4. what a refused record leaves: the issuance nonce is spent -------------------------------
+
+
+def _store_unreachable(_honest: ArtifactRef) -> ArtifactRef:
+    raise ArtifactStoreError("the substrate is unreachable")
+
+
+#: The two ways a crossing fails at its record, after the replay consult spent the nonce: the store cannot persist the
+#: record (raised inside ``put``, so the gate reports ``AdmissionNotRecorded``), or it answers another record's
+#: reference (this module's check).
+RECORD_FAILURES: dict[str, tuple[Callable[[ArtifactRef], ArtifactRef], str]] = {
+    "not persisted": (_store_unreachable, "AdmissionNotRecorded"),
+    "another record's reference": (_one_field_changed("uri", foreign=_another_records_ref()), REFUSAL),
+}
+
+
+@pytest.mark.parametrize("failure", sorted(RECORD_FAILURES))
+def test_a_crossing_refused_at_its_record_has_spent_its_nonce(
+    provider: DetachedJwsIdentityProvider,
+    public_key: JsonWebKey,
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    store: FileArtifactStore,
+    failure: str,
+) -> None:
+    """The nonce is spent immediately before the record is filed, so a crossing refused at its record is not admitted
+    and cannot be admitted later: the same envelope, presented again to a working store, is refused ``replayed``.
+
+    What ``public/how-to/security-and-deployment.md`` §1.1a states. The ``"not persisted"`` case is the gate's behavior
+    before decision 5; the other is the refusal it added.
+    """
+    gate, answers = _gate(provider, public_key, registry, product_class, store)
+    envelope = _inbound(_sign(provider, product=banking_product()))
+    answer, refusal = RECORD_FAILURES[failure]
+    answers.answer = answer
+
+    first: Any
+    try:
+        first = gate.admit(inbound=envelope, consumer_lineage=_consumer_lineage(), now=_now())
+    except Exception as raised:  # noqa: BLE001 — judged by its type's name below, never by its text
+        first = raised
+    assert any(klass.__name__ == refusal for klass in type(first).__mro__), (
+        f"[{failure}] the first presentation was not refused by {refusal}: {type(first).__name__}"
+    )
+    answers.answer = None
+    again = gate.admit(inbound=envelope, consumer_lineage=_consumer_lineage(), now=_now())
+
+    assert type(again).__name__ == "IssuanceRefusal" and getattr(again, "failure", None) == "replayed", (
+        f"[{failure}] the same envelope presented again was not refused as replayed: {again!r}"[:600]
+    )
+    assert _admitted_events(registry) == [], f"[{failure}] a crossing was reported admitted"
