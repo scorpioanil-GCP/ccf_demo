@@ -449,11 +449,15 @@ class ArtifactStoreUnauthenticated(ArtifactStoreError):
     framework's opaque ``500``
     (``tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py``).
 
-    Not covered: the guard's other refusals — a credential without a required
-    scope (HTTP 403) and the tenancy guard's denials — which still reach the
-    client as :class:`~ccf.mcp.errors.McpServerUnreachable`
+    Not covered: the guard's other refusals. A credential without a required
+    scope (HTTP 403) still reaches a read and the write as
+    :class:`~ccf.mcp.errors.McpServerUnreachable`
     (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal``,
-    ``tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types``).
+    ``tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types``);
+    the tenancy guard's denial reaches a read as
+    :class:`~ccf.mcp.errors.McpServerUnreachable` and the write as the
+    server's decline, :class:`ArtifactStoreError`
+    (``tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too``).
     """
 
 

@@ -47,8 +47,10 @@ nothing about the call was decided and nothing was written. Every read here,
 and :meth:`McpArtifactStore.put`, raises
 :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` for it, judged on
 the 401 response's status code, never on message text. The guard's other
-refusals — a 403 for a credential without a required scope, the tenancy
-guard's denials — still arrive as :class:`~ccf.mcp.errors.McpServerUnreachable`.
+refusals are not this: a 403, for a credential without a required scope,
+still arrives as :class:`~ccf.mcp.errors.McpServerUnreachable` on every call,
+and the tenancy guard's denial does on a read, while :meth:`McpArtifactStore.put`
+receives it as the server's declined write (``ArtifactStoreError``).
 
 **A write requires the capability for its own action, here AND at the
 server (D-IMPL-353 §1.2).** :func:`~ccf.artifacts.protocol.authorized_write_target`
