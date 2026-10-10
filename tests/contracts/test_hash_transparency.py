@@ -480,6 +480,14 @@ _MARKED_IN_THE_TREE = frozenset(
         # config's content address or pin moves (the `temporal_boundary`
         # precedent above).
         "ccf.controlplane.artifacts.DeploymentConfig.demonstration_serve_instant",
+        # `D-IMPL-378` decision 19 (b): the optional
+        # `store_creation_lock_wait_seconds` on the manifest and its config twin,
+        # `None` on every document authored before it existed, so no committed
+        # manifest's or config's content address moves (the
+        # `demonstration_serve_instant` precedent above); measured by
+        # `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_document_declaring_no_wait_hashes_as_it_did_before_the_field_existed`.
+        "ccf.controlplane.artifacts.DeploymentManifest.store_creation_lock_wait_seconds",
+        "ccf.controlplane.artifacts.DeploymentConfig.store_creation_lock_wait_seconds",
         "ccf.controlplane.artifacts.ProductClassDeclaration.decision_instant_parameter",
         "ccf.deployment.environment.EnvironmentDocument.config",
         "ccf.deployment.environment.EnvironmentDocument.sources",
