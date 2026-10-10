@@ -31,10 +31,11 @@ a record determined for another principal), a disclosure that predates `D-IMPL-3
 No behavior changed with them, and the manifest records no docstring text.
 
 **Not changed here.** `McpArtifactStore.put`, a write, kept reporting a credential the guard refused as
-`McpServerUnreachable`. Fragment `378-71` (decision 10 (b), Dave, 2026-10-09 16:38 MST) types the write too and
-renames the type `ArtifactStoreUnauthenticated`, the name this fragment uses; it was `ArtifactReadUnauthenticated`
-until then, before this batch merged, and no alias is kept. The guard's other refusals — a credential without a
-required scope (HTTP 403) and the tenancy guard's denials — still reach the client as `McpServerUnreachable`
+`McpServerUnreachable`. Fragment `378-71` — decision 10 (b), 2026-10-09 16:38 MST (`D-IMPL-378`; the text is Grok's
+recommendation, which Dave adopted) — types the write too and renames the type `ArtifactStoreUnauthenticated`, the
+name this fragment uses; it was `ArtifactReadUnauthenticated` until then, before this batch merged, and no alias is
+kept. The guard's other refusals — a credential without a required scope (HTTP 403) and the tenancy guard's denials —
+still reach the client as `McpServerUnreachable`
 (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
 `ccf.mcp.client.run_with_session`, the shared session runner, still reports every 401 as `McpServerUnreachable` to its
 other consumers; only `McpArtifactStore` re-types it (its reads here, its write from `378-71`).

@@ -414,8 +414,9 @@ class ArtifactStoreUnauthenticated(ArtifactStoreError):
 
     Dave, 2026-10-09 10:54 MST: *"Return a typed authentication refusal for
     401, preserving its distinction from authorization denial and transport
-    outage."* And 16:38 MST, adopting Grok's recommendation: *"(b) Type a 401
-    on a write, and rename the type so it covers both."* Raised by every call
+    outage."* Decision 10 (b), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted):
+    *"(b) Type a 401 on a write, and rename the type so it covers both."*
+    Raised by every call
     of :class:`~ccf.artifacts.mcp_store.McpArtifactStore`, reads and the write
     alike — ``get``, ``exists``, ``names_at``, ``resolve_uri``,
     ``match_subject`` and ``put`` — where the artifact server's guard answered

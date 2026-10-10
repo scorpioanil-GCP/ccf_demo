@@ -524,10 +524,11 @@ def test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentic
     the store look deleted, and a replay would record that as history.
 
     A write's 401 is the typed authentication refusal, never an outage:
-    decision 10 (b), ``D-IMPL-378`` (Dave, 2026-10-09 16:38 MST, adopting
-    Grok's recommendation): *"(b) Type a 401 on a write, and rename the type so
-    it covers both."* Amended from ``McpServerUnreachable``, the label that
-    ruling replaces for a write, and renamed from
+    decision 10 (b), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's
+    recommendation, which Dave adopted): *"(b) Type a 401 on a write, and
+    rename the type so it covers both."* Amended from
+    ``McpServerUnreachable``, the label that ruling replaces for a write, and
+    renamed from
     ``test_a_store_presenting_a_rejected_token_is_refused_as_an_outage``,
     which said what the ruling makes false.
     """

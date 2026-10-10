@@ -1,6 +1,6 @@
 """The HTTP evidence doors answer a 401 with a typed ``503`` and an outage with the framework's ``500`` (decision 21 (a)).
 
-Dave's decision 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted),
+Decision 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted),
 verbatim: *"(a) A typed 5xx, so a rejected credential and an outage are not the same response."* Before it, the three
 HTTP evidence routes, ``GET /replay/decisions``, ``GET /replay/resolutions`` and ``GET /artifact/{address}``, had no
 handler for the typed authentication refusal or for the outage ``McpServerUnreachable``: both escaped the route and
@@ -91,7 +91,7 @@ def _code() -> str:
     if not isinstance(code, str) or not code:
         pytest.fail(
             f"MISSING CONTRACT: ccf_runtime.http_api.errors.{_CODE_NAME}, the typed 5xx decision 21 (a) requires"
-            f" (D-IMPL-378, Dave, 2026-10-09 16:38 MST), is {code!r} on this tree"
+            f" (D-IMPL-378, 2026-10-09 16:38 MST; the text is Grok's recommendation, which Dave adopted), is {code!r} on this tree"
         )
     return code
 

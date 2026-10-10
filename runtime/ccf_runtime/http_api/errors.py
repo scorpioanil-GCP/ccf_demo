@@ -323,10 +323,9 @@ ERROR_ROUTE_HANDLE_ABSENT: Final[str] = "route-handle-absent"
 
 #: The deployment's artifact store presented a credential its server's guard
 #: did not authenticate (HTTP 401), so an evidence door cannot answer (503;
-#: ``D-IMPL-378`` decision 21 (a), Dave, 2026-10-09 16:38 MST, adopting Grok's
-#: recommendation: *"A typed 5xx, so a rejected credential and an outage are
-#: not the same response."*;
-#: :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`).
+#: :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`). Decision
+#: 21 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted): *"(a) A typed 5xx, so
+#: a rejected credential and an outage are not the same response."*
 #:
 #: A 503 and not a 500 for the :data:`ERROR_ROUTE_HANDLE_ABSENT` reason: the
 #: fault is the deployment's, not the caller's. The credential is the one the

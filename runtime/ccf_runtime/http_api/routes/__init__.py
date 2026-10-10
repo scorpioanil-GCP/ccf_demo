@@ -183,9 +183,9 @@ _ARTIFACT_STORE_UNAUTHENTICATED_MESSAGE: Final[str] = (
 def _artifact_store_unauthenticated() -> HTTPException:
     """The evidence doors' typed answer to a store credential its server refused (``D-IMPL-378``, decision 21 (a)).
 
-    SDK-defined (CLAUDE.md §8.3). Dave, 2026-10-09 16:38 MST, adopting Grok's
-    recommendation: *"(a) A typed 5xx, so a rejected credential and an outage
-    are not the same response."* Raised ``from`` the
+    SDK-defined (CLAUDE.md §8.3). Decision 21 (a), 2026-10-09 16:38 MST
+    (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted): *"(a) A typed 5xx, so a rejected credential and an
+    outage are not the same response."* Raised ``from`` the
     :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` that
     :func:`~ccf_runtime.authz.delivery_boundary.govern_dereference` lets
     through by name, by ``GET /replay/decisions``, ``GET /replay/resolutions``

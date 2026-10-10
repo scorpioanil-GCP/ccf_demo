@@ -1,10 +1,10 @@
 # 378-71 — A write's 401 is the typed authentication refusal, one type for reads and writes, and the HTTP evidence doors answer it with a typed 503
 
-`D-IMPL-378`, decisions 10 (b) and 21 (a), ruled by Dave on 2026-10-09 at 16:38 MST, adopting Grok's recommendation,
-verbatim: 10, *"(b) Type a 401 on a write, and rename the type so it covers both."*; 21, *"(a) A typed 5xx, so a
-rejected credential and an outage are not the same response."* (the 16:38 MST amendment in `docs/DECISIONS.md`,
-recorded on `main` @ `c470416f`; built in this batch by his 17:53 MST answer (1) (a)). Lane `378j-auth2`. SEC-020
-stays open; nothing here changes a SEC row.
+Decision 10 (b), 2026-10-09 16:38 MST (`D-IMPL-378`; the text is Grok's recommendation, which Dave adopted), verbatim: *"(b) Type a 401 on a write, and rename the
+type so it covers both."* Decision 21 (a), 2026-10-09 16:38 MST (`D-IMPL-378`; the text is Grok's recommendation, which Dave adopted), verbatim: *"(a) A typed 5xx,
+so a rejected credential and an outage are not the same response."* Both are in the 16:38 MST amendment in
+`docs/DECISIONS.md`, recorded on `main` @ `c470416f`, and both are built in this batch by Dave's 17:53 MST answer (1)
+(a). Lane `378j-auth2`. SEC-020 stays open; nothing here changes a SEC row.
 
 **The write (decision 10 (b)).** Measured on the base (`59f6aaaf`), with the shipped `McpArtifactStore` over streamable
 HTTP to the shipped artifact server: `put` raised `ccf.mcp.errors.McpServerUnreachable`, an outage, when the server's

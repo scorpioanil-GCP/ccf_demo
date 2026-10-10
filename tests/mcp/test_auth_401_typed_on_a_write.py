@@ -1,6 +1,6 @@
 """Decision 10 (b), as ruled: a 401 on a WRITE is typed too, under one renamed type that covers reads and writes.
 
-Dave, 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted), verbatim:
+Decision 10 (b), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted), verbatim:
 *"(b) Type a 401 on a write, and rename the type so it covers both."* It extends repair 2.5 (a) (10:54 MST),
 verbatim: *"Return a typed authentication refusal for 401, preserving its distinction from authorization denial and
 transport outage."* Repair 2.5 (a) was built for reads only: ``McpArtifactStore.put`` kept reporting the server
@@ -83,7 +83,8 @@ def renamed_refusal() -> type[BaseException]:
     if not (isinstance(found, type) and issubclass(found, BaseException)):
         pytest.fail(
             f"MISSING CONTRACT: ccf.artifacts.protocol.{RENAMED}, the one typed authentication refusal for reads and"
-            " writes that decision 10 (b) requires (D-IMPL-378, Dave, 2026-10-09 16:38 MST), does not exist on this tree"
+            " writes that decision 10 (b) requires (D-IMPL-378, 2026-10-09 16:38 MST; the text is Grok's recommendation, which Dave adopted), does not exist on this"
+            " tree"
         )
     return found
 

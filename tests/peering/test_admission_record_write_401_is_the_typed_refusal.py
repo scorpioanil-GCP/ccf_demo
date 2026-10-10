@@ -1,6 +1,6 @@
 """The admission gate lets a typed write-401 through by name, never as ``AdmissionNotRecorded`` (decision 10 (b)).
 
-Dave, 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted), verbatim:
+Decision 10 (b), 2026-10-09 16:38 MST (``D-IMPL-378``; the text is Grok's recommendation, which Dave adopted), verbatim:
 *"(b) Type a 401 on a write, and rename the type so it covers both."* Once a write's 401 is the typed authentication
 refusal, ``ccf.artifacts.protocol.ArtifactStoreUnauthenticated``, it is an ``ArtifactStoreError``, and
 ``src/ccf/peering/admission.py::PeeringAdmissionGate._persist_admission_record`` catches every
