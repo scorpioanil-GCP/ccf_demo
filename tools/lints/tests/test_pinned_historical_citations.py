@@ -1,18 +1,23 @@
-"""PROPOSAL, not ruled: a narrowly pinned historical citation exception (D-IMPL-378 repair 1.5).
+"""The narrowly pinned historical citation exception (D-IMPL-378 repair 1.5), ruled.
 
 Dave, 2026-10-09 10:54 MST: *"Revert the three unauthorized cp-04 citation
 edits. Do not loosen its freeze or blanket-exclude frozen examples from citation
 checking. Propose a narrowly pinned historical citation exception separately."*
+Ruled at 16:38 MST as decision 13 (a), Grok's recommendation, which Dave
+adopted: *"(a) Accept the cp-04 pins, locked to the file’s bytes."* The bytes
+are the file's raw bytes as read from disk, per Dave's answer at 20:22 MST:
+*"Hash the raw bytes. Windows line endings are different bytes, so they fail
+the pin."*
 
 The frozen specimen ``examples/cp-04-corporate-family-tree`` (``D-IMPL-261``;
 declared gate CFC-G09, "ZERO files changed") carries three citations of
 ``SpecDrivenEntityResolution.identity``, a member that never existed. The
 specimen may not be edited, so ``cite03`` reports them for ever. This module is
-the acceptance of the proposed exception: each of the three is pinned by
-(file, line, the exact citation text, the sha256 of the file's text), the
-checker keeps exactly those three and counts them, any other dangling citation
--- in cp-04 or anywhere -- still fails, and any change to a pinned file's bytes
-voids every pin on that file.
+the acceptance of the exception: each of the three is pinned by (file, line,
+the exact citation text, the sha256 of the file's raw bytes), the checker keeps
+exactly those three and counts them, any other dangling citation -- in cp-04 or
+anywhere -- still fails, and any change to a pinned file's bytes voids every
+pin on that file.
 """
 
 from __future__ import annotations
