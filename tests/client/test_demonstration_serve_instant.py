@@ -30,9 +30,10 @@ What each test asserts, by mechanism:
   SDK's own stores, at composition and at the in-process door, while the SDK's
   own SQLite and in-memory adapters are admitted;
 * the store half of the guard is an exact-type test (decision 4 (a), Dave,
-  2026-10-09): a subclass of the SDK's ``FileArtifactStore``, one that
-  overrides nothing included, is refused by name, at composition and at the
-  in-process door, while the SDK's own class composes over the same boot;
+  2026-10-09): a subclass of the SDK's ``FileArtifactStore`` is refused by
+  name, at composition and at the in-process door, even one that overrides
+  nothing and carries the SDK class's own name, qualified name and module,
+  while the SDK's own class composes over the same boot;
 * the erasure consult keeps the composition's own clock (the declared instant is
   confined to the serve clock).
 
@@ -738,13 +739,61 @@ def test_a_third_party_adapter_declaring_development_reference_is_refused_at_the
 class _SubclassStore(FileArtifactStore):
     """A store class declared by inheriting the SDK's ``FileArtifactStore``, overriding nothing.
 
-    The strongest forger a subclass can be: it IS the SDK's own store in every
-    behavior, and differs from it only in its class.
+    It IS the SDK's own store in every behavior, and differs from it in its
+    class, and in its class's name.
     """
 
 
+def _store_class_named_like_the_sdks() -> type[FileArtifactStore]:
+    """A subclass of the SDK's store, defined here, that is itself NAMED ``FileArtifactStore``.
+
+    The strongest forger a subclass can be. It overrides nothing, and its
+    ``__name__``, ``__qualname__`` and ``__module__`` are the SDK class's own,
+    so a check that compares a class by its name, or by its module and
+    qualified name, admits it: only the class object differs. Built inside a
+    function so that its name does not shadow this module's import of the
+    SDK's class.
+    """
+    import ccf.artifacts.file_store as sdk
+
+    class FileArtifactStore(sdk.FileArtifactStore):
+        __module__ = sdk.FileArtifactStore.__module__
+        __qualname__ = sdk.FileArtifactStore.__qualname__
+
+    return FileArtifactStore
+
+
+#: The store classes the store check must refuse, by test id: a subclass that
+#: overrides nothing, and one that also carries the SDK class's own name,
+#: qualified name and module.
+_FORGED_STORES: dict[str, type[FileArtifactStore]] = {
+    "overriding-nothing": _SubclassStore,
+    "named-FileArtifactStore": _store_class_named_like_the_sdks(),
+}
+
+
+def _a_forged_store_class(forger: str) -> type[FileArtifactStore]:
+    """``forger``'s class, after the preconditions that make a refusal of it about its class alone."""
+    store_class = _FORGED_STORES[forger]
+    # A subclass of the SDK's class, so an ``isinstance`` test admits it, and
+    # not that class itself.
+    assert issubclass(store_class, FileArtifactStore), store_class
+    assert store_class is not FileArtifactStore
+    if forger == "named-FileArtifactStore":
+        # Every name the class carries is the SDK class's own.
+        for attribute in ("__name__", "__qualname__", "__module__"):
+            assert getattr(store_class, attribute) == getattr(FileArtifactStore, attribute), attribute
+    return store_class
+
+
+def _named(store_class: type) -> str:
+    """A class as its module and qualified name spell it."""
+    return f"{store_class.__module__}.{store_class.__qualname__}"
+
+
+@pytest.mark.parametrize("forger", sorted(_FORGED_STORES))
 def test_a_subclass_of_the_sdks_file_store_is_refused_at_composition(
-    deployment_root: Path, tmp_path: Path
+    deployment_root: Path, tmp_path: Path, forger: str
 ) -> None:
     """Decision 4 (a): a subclass of the SDK's file-backed store is refused by name at composition.
 
@@ -757,7 +806,10 @@ def test_a_subclass_of_the_sdks_file_store_is_refused_at_composition(
     subclass passes. The graph adapter here is the SDK's own SQLite reference,
     so the store is the only thing that can refuse. Refused by name:
     ``DemonstrationServeInstantRefused`` with reason
-    ``artifact-store-not-development``.
+    ``artifact-store-not-development``. Two forgers, each overriding nothing:
+    a subclass under its own name, and one that carries the SDK class's own
+    name, qualified name and module, which a check comparing names would
+    admit.
     """
     from ccf.products.demonstration_clock import (
         DemonstrationServeInstantRefused,
@@ -765,7 +817,8 @@ def test_a_subclass_of_the_sdks_file_store_is_refused_at_composition(
     )
     from ccf.products.resolver import _utc_now
 
-    store = _SubclassStore(root=tmp_path / "store", write_kinds=WriteKinds.declare({}))
+    store_class = _a_forged_store_class(forger)
+    store = store_class(root=tmp_path / "store", write_kinds=WriteKinds.declare({}))
     # Preconditions, so the refusal below cannot be about anything else: the
     # store is an instance of the SDK's class (an ``isinstance`` test admits
     # it), and is not of that class itself.
@@ -790,29 +843,31 @@ def test_a_subclass_of_the_sdks_file_store_is_refused_at_composition(
         else:
             pytest.fail(
                 "ADMITTED: a subclass of the SDK's FileArtifactStore"
-                f" ({type(store).__name__}, overriding nothing) composed a"
+                f" ({forger}: {_named(store_class)}) composed a"
                 f" {type(clock).__name__} serving at {clock().isoformat()}"
             )
     finally:
         booted.handle.close()
 
 
+@pytest.mark.parametrize("forger", sorted(_FORGED_STORES))
 def test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door(
-    seeded: Path, monkeypatch: pytest.MonkeyPatch
+    seeded: Path, monkeypatch: pytest.MonkeyPatch, forger: str
 ) -> None:
     """The same refusal where a deployment meets it: a question at the in-process door.
 
     The in-process adapter builds its resolver over the store class its module
-    names; here that name is bound to a subclass of the SDK's
-    ``FileArtifactStore`` that overrides nothing, so the store serves from the
-    deployment's own store directory and differs from the SDK's own store only
-    in its class. Before decision 4 (a) the question was answered on the
-    declared serve instant.
+    names; here that name is bound to a forged subclass of the SDK's
+    ``FileArtifactStore`` that overrides nothing (each of the two forgers), so
+    the store serves from the deployment's own store directory and differs
+    from the SDK's own store only in its class. Before decision 4 (a) the
+    question was answered on the declared serve instant.
     """
     from ccf.client.adapters import inprocess
     from ccf.products.demonstration_clock import DemonstrationServeInstantRefused
 
-    monkeypatch.setattr(inprocess, "FileArtifactStore", _SubclassStore)
+    store_class = _a_forged_store_class(forger)
+    monkeypatch.setattr(inprocess, "FileArtifactStore", store_class)
     declare(seeded)
     try:
         decoded = ask(InProcessAdapter(str(seeded)), seeded, as_of=SEEDED_AT)
@@ -822,7 +877,7 @@ def test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door(
         record = record_at(seeded, str(decoded.outcome.replay_ref))
         pytest.fail(
             "ADMITTED: the in-process door answered over a subclass of the SDK's"
-            f" FileArtifactStore ({_SubclassStore.__name__}, overriding nothing)"
+            f" FileArtifactStore ({forger}: {_named(store_class)})"
             f" (refusal {decoded.outcome.refusal!r}), served at"
             f" {record.content_generation_path.served_at.isoformat()}; declared"
             f" {DECLARED.isoformat()}"
@@ -834,8 +889,9 @@ def test_a_subclass_of_the_sdks_file_store_fails_the_store_check(
 ) -> None:
     """The store check is an exact-type test: over one boot, the SDK's class composes and its subclass is refused.
 
-    FLIPPED by decision 4 (a) (Dave, 2026-10-09 16:38 MST: *"(a) Exact
-    type."*). Until then this test was a DISCLOSED LIMIT,
+    FLIPPED by decision 4 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text
+    is Grok's recommendation, which Dave adopted): *"(a) Exact type."* Until
+    then this test was a DISCLOSED LIMIT,
     ``test_a_subclass_of_the_sdks_file_store_passes_the_store_check``: the store
     half of the guard was an ``isinstance`` test, a subclass passed it, and the
     test pinned that so SP §4.14 would be corrected with the code. It now pins
