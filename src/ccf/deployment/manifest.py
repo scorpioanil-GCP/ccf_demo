@@ -71,6 +71,7 @@ import dataclasses
 import hashlib
 import os
 import stat
+import time
 import types
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -264,8 +265,14 @@ class BootedFabric:
             state with no store beside it replaces it with its own and
             verifies the new store as any boot creating one. A plain boot
             holds the store-creation lock of every path whose directory
-            exists from its look at the path to the hand-back, so a boot that
-            finds another creating the store waits for it; a path whose
+            exists from its look at the path to the hand-back, so no two plain
+            boots of one path create or verify its store at once: a boot that
+            finds the lock held by another is refused by name
+            (:class:`DeploymentStoreNotVerified`, ``"lock-held"``) at once, or
+            once its deployment's declared
+            ``store_creation_lock_wait_seconds`` have passed with the lock
+            still held, and a boot that gets the lock after another boot
+            created and verified the store reopens it; a path whose
             directory does not exist takes no lock and is left to the adapter,
             which on the SDK's SQLite adapter refuses the boot (measured by
             ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing``).
@@ -391,8 +398,15 @@ class DeploymentStoreNotEmpty(ValueError):
     MST: *"Run the emptiness check whenever a plain boot creates a new
     store."*) restores the ruled trigger: the read is taken by every plain boot
     whose path held no store when it looked, whoever made a marker beside it
-    (a store created where a question marker stands included), while the boot
-    holds the store-creation lock. A boot not for a question leaves its
+    (a store created where a question marker stands included), once the
+    adapter has opened the store it creates; the boot holds the store-creation
+    lock of every path whose directory exists while it looks, creates and
+    reads. A boot whose store's directory does not exist takes no lock, and on
+    the SDK's SQLite adapter no read either: the adapter refuses it with
+    SQLite's own error before the read, having created nothing there, not even
+    the directory (measured by
+    ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing``).
+    A boot not for a question leaves its
     deployment marker beside a path that holds no store and no marker, and the
     adapter creates the store at the boot, so a store written at the path after
     the marker and before the adapter opened it was booted as the deployment's
@@ -437,6 +451,10 @@ _NOT_VERIFIED_WHY = {
         " the store"
     ),
     "lock-unavailable": "cannot be checked, because the store-creation lock beside it cannot be taken",
+    "lock-held": (
+        "cannot be checked now, because another holds the store-creation lock beside it (a boot creating or"
+        " verifying the store, in this process or another, or any process that locked the file)"
+    ),
 }
 
 #: What an operator does about each :class:`DeploymentStoreNotVerified` ``reason``: the end of its text.
@@ -457,11 +475,18 @@ _NOT_VERIFIED_REMEDY = {
         "make the lock's path a regular file this process can open and lock with flock, on a filesystem"
         " whose flock works"
     ),
+    "lock-held": (
+        "boot again once the holder lets go (a boot lets go when it hands its fabric back or fails); if fuser"
+        " or lsof on the lock's path shows a process that has stopped or hung, an operator ends that process,"
+        " which drops its lock, and never removes the lock file while a process holds it, since the next boot"
+        " would create a new one and run beside that holder. A deployment whose boots of one store can overlap"
+        " declares store_creation_lock_wait_seconds, so that a boot waits that long for a holder to finish"
+    ),
 }
 
 
 class DeploymentStoreNotVerified(ValueError):
-    """A plain boot where safe verification cannot be established: refused, and left for an operator to resolve.
+    """A plain boot where safe verification cannot be established: refused by name and, unless another holds its lock, left for an operator.
 
     SEC-020, ``D-IMPL-378`` repair 1.1 (Dave, 2026-10-09 10:54 MST, verbatim:
     *"Remove markers created by this boot on every failed-boot path, including
@@ -472,8 +497,18 @@ class DeploymentStoreNotVerified(ValueError):
     cannot be established, refuse until an operator resolves the stale
     marker."*). A plain boot holds the store-creation lock of every path naming
     its store whose directory exists (``<resolved path>.ccf-store-creation.lock``)
-    from its look at the path through the hand-back, so a boot that finds
-    another creating the store waits for it to finish. A path whose directory
+    from its look at the path through the hand-back, so no two plain boots of
+    one path create or verify its store at once. A boot that finds that lock
+    held by another is refused here (``"lock-held"``), never left waiting
+    without bound (decision 19 (b), ruled by Dave on 2026-10-09 at 16:38 MST,
+    adopting Grok's recommendation: *"Wait a bounded time, then refuse by name.
+    An unbounded wait is not a lock."*): at once where its deployment declares
+    no ``store_creation_lock_wait_seconds`` (question 2, option (a), adopted by
+    Dave at 17:53 MST), and once that many seconds have passed with the lock
+    still held where it declares them. A boot that gets the lock within them
+    proceeds, and reopens a store another boot created and verified (measured
+    by ``tests/products/test_deployment_store_creation_lock_bounded.py``). A
+    path whose directory
     does not exist takes no lock and is left to the adapter: the SDK's SQLite
     adapter refuses such a boot with SQLite's own error
     (``sqlite3.OperationalError``), not this refusal, having created nothing
@@ -494,8 +529,11 @@ class DeploymentStoreNotVerified(ValueError):
     and the marker is left exactly as it is — never cleared automatically — for
     an operator to resolve (the security how-to, section 4.12, says what to
     inspect and what to remove). So is a boot that cannot take the
-    store-creation lock at all. Each is refused after registration and before
-    anything is created at the path. A deployment marker of any state with NO
+    store-creation lock at all (``"lock-unavailable"``). A boot refused for a
+    lock another holds (``"lock-held"``) leaves nothing for an operator unless
+    the holder has stopped or hung: a later boot proceeds once the holder lets
+    go. Each is refused after registration and before anything is created at
+    the path. A deployment marker of any state with NO
     store beside it is not refused: the boot creating the store there replaces
     it with its own, under the lock, and verifies the new store with the read
     any fresh creation takes (repair 1.2; :func:`_replace_stale_deployment_marker`).
@@ -527,16 +565,23 @@ class DeploymentStoreNotVerified(ValueError):
             * ``"lock-unavailable"`` — the store-creation lock beside the marker
               cannot be opened or locked (no ``flock`` on this platform or
               filesystem, something other than a regular file at its path, or
-              no permission).
-        lock: The store-creation lock's path, for ``"lock-unavailable"``;
-            ``None`` otherwise.
+              no permission);
+            * ``"lock-held"`` — another holds the store-creation lock beside
+              the marker: a boot creating or verifying the store, in this
+              process or another, or any process that locked the file. Refused
+              at once where the deployment declares no
+              ``store_creation_lock_wait_seconds``, and once that many seconds
+              have passed with the lock still held where it declares them
+              (decision 19 (b)). Nothing is created at the path.
+        lock: The store-creation lock's path, for ``"lock-unavailable"`` and
+            ``"lock-held"``; ``None`` otherwise.
     """
 
     def __init__(
         self,
         *,
         marker: Path,
-        reason: Literal["pending", "unreadable", "claimed", "lock-unavailable"],
+        reason: Literal["pending", "unreadable", "claimed", "lock-unavailable", "lock-held"],
         lock: Path | None = None,
         detail: str | None = None,
     ) -> None:
@@ -544,9 +589,14 @@ class DeploymentStoreNotVerified(ValueError):
         what = f"the deployment marker {str(marker)!r} {_NOT_VERIFIED_WHY[reason]}"
         if lock is not None:
             what += f" ({str(lock)!r}: {detail or 'unavailable'})"
+        until = (
+            "No boot of that store proceeds while another holds its store-creation lock"
+            if reason == "lock-held"
+            else "No boot of that store proceeds until an operator resolves it"
+        )
         super().__init__(
-            f"DeploymentStoreNotVerified: {what}. No boot of that store proceeds until an operator resolves"
-            f" it: {_NOT_VERIFIED_REMEDY[reason]} (the security how-to, section 4.12; SEC-020, D-IMPL-378)"
+            f"DeploymentStoreNotVerified: {what}. {until}: {_NOT_VERIFIED_REMEDY[reason]} (the security"
+            " how-to, section 4.12; SEC-020, D-IMPL-378)"
         )
 
 
@@ -966,29 +1016,52 @@ def _remove_deployment_marker_if_owned(owned: _OwnedMarker) -> None:
 #: (``writer_lease_lock_dir``).
 _STORE_CREATION_LOCK_SUFFIX = ".ccf-store-creation.lock"
 
+#: SEC-020 decision 19 (b) (``D-IMPL-378``): how long a boot whose deployment
+#: declares ``store_creation_lock_wait_seconds`` sleeps between two tries of a
+#: store-creation lock another holds. The granularity of the wait, never its
+#: length, and not a deployment value: whether a boot waits at all, and for how
+#: long, is the deployment's declared wait alone (none declared: one try, no
+#: sleep). It decides only how soon after the holder lets go a waiting boot
+#: notices, at most this long later; the last sleep is cut to the time left.
+_STORE_CREATION_LOCK_RETRY_SECONDS = 0.01
+
 
 class _StoreCreationLock:
     """The store-creation locks of every path a plain boot names, taken in one order and held through the boot.
 
-    SEC-020 repair 1.2 (``D-IMPL-378``). One exclusive ``flock`` per path, on
-    ``<resolved path>.ccf-store-creation.lock`` (opened ``O_RDWR | O_CREAT |
-    O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC``, mode ``0o600``, and only a regular
-    file is locked), taken in sorted order, so two boots naming the same paths
-    cannot deadlock. A ``flock`` belongs to an open file description, so it
-    excludes another boot in another process and in another thread of this
-    one, and the kernel drops it when its holder dies, however it dies: a
-    crashed boot never wedges the next, whose look then finds the crashed
-    boot's marker reading ``pending``. A boot that finds the lock held WAITS for
-    it, with no timeout: another boot is creating or verifying the store, and
-    when it has finished this boot sees what it left. A lock that cannot be
-    opened or locked at all refuses the boot
-    (:class:`DeploymentStoreNotVerified`, reason ``"lock-unavailable"``). A path
-    whose directory does not exist takes no lock and is left to the adapter, as
-    its marker is. The lock files stay beside their stores and vouch for
-    nothing; removing one while no boot runs is harmless.
+    SEC-020 repair 1.2 (``D-IMPL-378``), bounded by decision 19 (b). One
+    exclusive ``flock`` per path, on ``<resolved path>.ccf-store-creation.lock``
+    (opened ``O_RDWR | O_CREAT | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC``, mode
+    ``0o600``, and only a regular file is locked), taken in sorted order, so two
+    boots naming the same paths cannot deadlock. A ``flock`` belongs to an open
+    file description, so it excludes another boot in another process and in
+    another thread of this one, and the kernel drops it when its holder dies,
+    however it dies: a crashed boot never wedges the next, whose look then
+    finds the crashed boot's marker reading ``pending``.
+
+    **A held lock is never waited for without bound** (decision 19 (b), ruled
+    by Dave on 2026-10-09 at 16:38 MST, adopting Grok's recommendation: *"Wait a
+    bounded time, then refuse by name. An unbounded wait is not a lock."*).
+    Each lock is tried with ``LOCK_NB``. A boot whose deployment declares no
+    ``store_creation_lock_wait_seconds`` tries once, and a lock another holds
+    refuses it at once, by name, as the SQLite writer lease refuses (question
+    2, option (a), adopted by Dave at 17:53 MST):
+    :class:`DeploymentStoreNotVerified`, reason ``"lock-held"``, naming the
+    lock. A boot whose deployment declares them tries again every
+    :data:`_STORE_CREATION_LOCK_RETRY_SECONDS` until it holds the lock or until
+    that many seconds have passed since it began taking its locks, and is then
+    refused the same way; the seconds cover all of a boot's locks together, not
+    each. The boot does not know which holder holds a lock (another boot
+    creating or verifying the store, or any process that locked the file), and
+    the refusal does not say. A lock that cannot be opened or locked at all
+    refuses the boot (``"lock-unavailable"``). A path whose directory does not
+    exist takes no lock and is left to the adapter, as its marker is. The lock
+    files stay beside their stores and vouch for nothing: removing one while no
+    boot runs is harmless, while removing one a process holds lets the next
+    boot create a new lock file there and run beside that holder.
     """
 
-    def __init__(self, paths: Sequence[Path]) -> None:
+    def __init__(self, paths: Sequence[Path], *, wait_seconds: int | None) -> None:
         locks = {
             Path(f"{path.resolve()}{_STORE_CREATION_LOCK_SUFFIX}"): path
             for path in paths
@@ -996,9 +1069,11 @@ class _StoreCreationLock:
         }
         self._locks = sorted(locks.items(), key=lambda item: str(item[0]))
         self._held: list[int] = []
+        self._wait_seconds = wait_seconds
 
     def acquire(self) -> None:
-        """Take every lock, in order, waiting for each; refuse by name if one cannot be taken at all."""
+        """Take every lock, in order; refuse by name one still held when the declared wait has passed, or one that cannot be taken."""
+        started = time.monotonic()
         for lock, path in self._locks:
             try:
                 if _fcntl is None:
@@ -1015,7 +1090,7 @@ class _StoreCreationLock:
             try:
                 if not stat.S_ISREG(os.fstat(descriptor).st_mode):
                     raise OSError("not a regular file")
-                _fcntl.flock(descriptor, _fcntl.LOCK_EX)
+                taken = self._take(descriptor, started)
             except OSError as unavailable:
                 os.close(descriptor)
                 self.release()
@@ -1027,7 +1102,49 @@ class _StoreCreationLock:
                 os.close(descriptor)
                 self.release()
                 raise
+            if not taken:
+                os.close(descriptor)
+                self.release()
+                raise DeploymentStoreNotVerified(
+                    marker=_deployment_store_marker(path), reason="lock-held", lock=lock, detail=self._held_detail()
+                )
             self._held.append(descriptor)
+
+    def _take(self, descriptor: int, started: float) -> bool:
+        """Lock ``descriptor`` exclusively without blocking, trying again while the declared wait lasts; whether it was taken.
+
+        ``started`` is when the boot began taking its locks, so the declared
+        seconds bound all of them together. The comparison is exact for any
+        whole number of seconds, however large, and the sleep never passes the
+        time left.
+        """
+        while True:
+            try:
+                _fcntl.flock(descriptor, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+            except BlockingIOError:
+                pass  # another holds it: tried again below while the declared wait lasts
+            else:
+                return True
+            elapsed = time.monotonic() - started
+            if self._wait_seconds is None or elapsed >= self._wait_seconds:
+                return False
+            time.sleep(
+                _STORE_CREATION_LOCK_RETRY_SECONDS
+                if elapsed + _STORE_CREATION_LOCK_RETRY_SECONDS < self._wait_seconds
+                else self._wait_seconds - elapsed
+            )
+
+    def _held_detail(self) -> str:
+        """What a ``"lock-held"`` refusal says of the wait: that none is declared, or how long the boot waited."""
+        if self._wait_seconds is None:
+            return (
+                "held by another; this deployment declares no store_creation_lock_wait_seconds, so a boot does not"
+                " wait for it"
+            )
+        return (
+            f"still held after the {self._wait_seconds} seconds this deployment's store_creation_lock_wait_seconds"
+            " lets a boot wait"
+        )
 
     def release(self) -> None:
         """Release every lock held, in reverse order. Never raises: closing a descriptor drops its lock regardless."""
@@ -1846,14 +1963,18 @@ def _register_and_boot(
     # an operator resolves the stale marker."*): a plain boot holds the
     # store-creation lock of every path whose directory exists from its look
     # through the hand-back (a path whose directory does not exist takes no lock
-    # and is left to the adapter), so a boot that finds another creating the
-    # store waits for it; its look
+    # and is left to the adapter), so no two plain boots of one path create or
+    # verify its store at once: a boot that finds a lock held is refused by name,
+    # at once, or once the deployment's declared wait has passed (decision 19
+    # (b)); its look
     # refuses what it cannot verify safely; and every plain boot whose path held
     # no store takes the read, whoever made a marker there. A question boot's
     # path is held by its exclusive question marker instead, as before.
     created: list[_OwnedMarker] = []
     handle: FabricHandle | None = None
-    lock = _StoreCreationLock(() if for_question else paths)
+    lock = _StoreCreationLock(
+        () if for_question else paths, wait_seconds=manifest.store_creation_lock_wait_seconds
+    )
     lock.acquire()
     try:
         if for_question:
@@ -2318,23 +2439,30 @@ def load_and_boot(
             trigger repair 1.2 restores). A ``ValueError``.
         DeploymentStoreNotVerified: a boot not for a question where safe
             verification cannot be established, raised after registration.
-            At the boot's look, before it creates a store or a marker: a
+            At the boot's look (or as it takes the store-creation lock, just
+            before), before it creates a store or a marker: a
             deployment marker beside a store that reads ``pending`` (the boot
             that created it never finished its read) or records no state in
             the form the SDK writes (a marker written before markers recorded
             their state included), a marker that appeared, or a stale marker
             that was replaced by another file or rewritten with other bytes,
-            while this boot held the store-creation lock, or a store-creation
-            lock that cannot be taken. Later, as ``"claimed"``, after this boot created its store
-            and read it empty: the marker this boot created was replaced by
-            another file, or rewritten in place, before it could read
-            ``verified``. The boot then closes that store and leaves it where
-            it stands, beside the marker, and every later boot of the path
-            meets that marker beside a store (measured by
+            while this boot held the store-creation lock, a store-creation
+            lock that cannot be taken, or one another holds (``"lock-held"``:
+            at once where the manifest declares no
+            ``store_creation_lock_wait_seconds``, and once that many seconds
+            have passed where it declares them; decision 19 (b)). Later, as
+            ``"claimed"``, after this boot created its store and read it
+            empty: the marker this boot created was replaced by another file,
+            or rewritten in place, before it could read ``verified``. The boot
+            then closes that store and leaves it where it stands, beside the
+            marker, and every later boot of the path meets that marker beside
+            a store (measured by
             ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses``).
-            Its ``reason`` says which. The marker is left as it stands,
-            for an operator (SEC-020, ``D-IMPL-378`` repairs 1.1 and 1.2). A
-            deployment marker of any state with no store beside it is not
+            Its ``reason`` says which. The marker is left as it stands, for an
+            operator (SEC-020, ``D-IMPL-378`` repairs 1.1 and 1.2), except
+            after ``"lock-held"``, which leaves nothing to resolve unless the
+            holder has stopped or hung: a later boot proceeds once it lets go.
+            A deployment marker of any state with no store beside it is not
             refused: the boot replaces it with its own and creates and
             verifies the store. A ``ValueError``.
         UngovernedClassificationAttribute: a Policy operator the manifest
