@@ -448,17 +448,20 @@ def test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused
     target.parent.mkdir()
     _stale_with_no_store(tmp_path, manifest, registry, target, state)
     marker = _marker(target)
+    looked_at = (os.lstat(marker).st_dev, os.lstat(marker).st_ino)
     foreign = b"another writer's marker, put there after the boot looked\n"
     real_replace = manifest_module._replace_stale_deployment_marker
     swapped: list[tuple[int, int]] = []
 
-    def an_outside_writer_renames_another_file_over_the_marker_first(path: pathlib.Path, found: tuple[int, int]) -> Any:
+    def an_outside_writer_renames_another_file_over_the_marker_first(path: pathlib.Path, found: Any) -> Any:
         newcomer = marker.with_name(f"{marker.name}.outside-writer")
         newcomer.write_bytes(foreign)
         os.replace(newcomer, marker)
         status = os.lstat(marker)
         swapped.append((status.st_dev, status.st_ino))
-        assert swapped[-1] != found, "the outside writer's file has the identity the look found; the case was not constructed"
+        assert swapped[-1] != looked_at, (
+            "the outside writer's file has the identity the look found; the case was not constructed"
+        )
         return real_replace(path, found)
 
     monkeypatch.setattr(
