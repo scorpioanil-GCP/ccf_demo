@@ -39,16 +39,16 @@ over-reporting absence is the dangerous direction, because absence is what a
 replay writes down as a fact about the past. There is no ``except McpError``
 handler in this file.
 
-**A read the server's guard did not authenticate is a typed refusal, never an
-outage** (``D-IMPL-378``, repair 2.5 (a)). The guard answers HTTP 401 — no
-credential, one that is not a bearer token, or a token its verifier does not
-know — before any handler runs, so nothing about the read was decided. Every
-read here raises :class:`~ccf.artifacts.protocol.ArtifactReadUnauthenticated`
-for it, judged on the 401 response's status code, never on message text. A
-write still reports it as unreachability, as :meth:`McpArtifactStore.put`
-documents; and the guard's other refusals — a 403 for a credential without a
-required scope, the tenancy guard's denials — still arrive as
-:class:`~ccf.mcp.errors.McpServerUnreachable`.
+**A call the server's guard did not authenticate is a typed refusal, never an
+outage** (``D-IMPL-378``: repair 2.5 (a) for reads, decision 10 (b) for the
+write). The guard answers HTTP 401 — no credential, one that is not a bearer
+token, or a token its verifier does not know — before any handler runs, so
+nothing about the call was decided and nothing was written. Every read here,
+and :meth:`McpArtifactStore.put`, raises
+:class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` for it, judged on
+the 401 response's status code, never on message text. The guard's other
+refusals — a 403 for a credential without a required scope, the tenancy
+guard's denials — still arrive as :class:`~ccf.mcp.errors.McpServerUnreachable`.
 
 **A write requires the capability for its own action, here AND at the
 server (D-IMPL-353 §1.2).** :func:`~ccf.artifacts.protocol.authorized_write_target`
@@ -118,9 +118,9 @@ from pydantic import AnyUrl
 from ccf.artifacts.protocol import (
     ArtifactName, ArtifactNotFound,
     ArtifactReadRefused,
-    ArtifactReadUnauthenticated,
     ArtifactRef,
     ArtifactStoreError,
+    ArtifactStoreUnauthenticated,
     ArtifactUriUnresolvable,
     ArtifactWriteAuthority,
     MalformedContentAddress,
@@ -174,8 +174,8 @@ class McpArtifactStore:
             only because the seam has to admit an unauthenticated development
             server; a deployment that omits it against an authenticated one
             gets the guard's refusal, not silent anonymous access:
-            :class:`~ccf.artifacts.protocol.ArtifactReadUnauthenticated` on a
-            read, :class:`~ccf.mcp.errors.McpServerUnreachable` on a write.
+            :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, on a
+            read and on a write.
         write_kinds: The deployment's declaration of which artifact classes
             are mechanism-written and under which kinds (D-IMPL-353 §1.2).
             **Required, no default.** Enforced *before the call leaves this
@@ -220,18 +220,19 @@ class McpArtifactStore:
             http_client_factory=self._http_client_factory,
         )
 
-    async def _read_session(self, operation: SessionOperation[_T]) -> _T:
-        """:meth:`_session` for a read: the guard's 401 is the typed authentication refusal (``D-IMPL-378``, 2.5 (a)).
+    async def _guarded_session(self, operation: SessionOperation[_T]) -> _T:
+        """:meth:`_session` for every call: the guard's 401 is the typed authentication refusal (``D-IMPL-378``).
 
-        The session runner reports a call that did not complete as
+        Repair 2.5 (a) for the reads, decision 10 (b) for :meth:`put`. The
+        session runner reports a call that did not complete as
         :class:`~ccf.mcp.errors.McpServerUnreachable`, an authentication
         refusal included (:func:`ccf.mcp.client.run_with_session`). Where the
         one failure that stands for is the server guard's HTTP 401 — read by
         :func:`_guard_refused_the_credential` from the response's status code —
-        the read raises
-        :class:`~ccf.artifacts.protocol.ArtifactReadUnauthenticated` instead,
-        chained from that response. Every other failure stays an outage. A
-        write (:meth:`put`) does not come through here.
+        the call raises
+        :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` instead,
+        chained from that response and raised outside the handler, so no outage
+        is in its chain. Every other failure stays an outage.
         """
         refused: httpx.HTTPStatusError | None
         try:
@@ -240,10 +241,10 @@ class McpArtifactStore:
             refused = _guard_refused_the_credential(unreachable)
             if refused is None:
                 raise
-        raise ArtifactReadUnauthenticated(
+        raise ArtifactStoreUnauthenticated(
             f"the artifact server at {self._url!r} answered HTTP"
             f" {refused.response.status_code}: it did not authenticate the"
-            " credential this store presented, so nothing about the read was"
+            " credential this store presented, so nothing about the call was"
             " decided"
         ) from refused
 
@@ -264,7 +265,7 @@ class McpArtifactStore:
                 if isinstance(contents, BlobResourceContents)
             )
 
-        return self._bridge.run(self._read_session(operation))
+        return self._bridge.run(self._guarded_session(operation))
 
     def _read_text(self, uri: str) -> str:
         """Read one resource as text, concatenated in server order."""
@@ -277,7 +278,7 @@ class McpArtifactStore:
                 if isinstance(contents, TextResourceContents)
             )
 
-        return self._bridge.run(self._read_session(operation))
+        return self._bridge.run(self._guarded_session(operation))
 
     # --- the four Protocol methods -----------------------------------------
 
@@ -300,10 +301,15 @@ class McpArtifactStore:
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form and therefore no stable identity. Raised before
                 anything reaches the wire.
-            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable
-                or refused the credentials, or answered with something that is
-                not an artifact reference, which says nothing about whether the
-                write happened.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
+                guard answered HTTP 401 — it did not authenticate this store's
+                credential — so nothing was written and nothing about the write
+                was decided (``D-IMPL-378``, decision 10 (b)). Neither a
+                declined write nor an outage.
+            ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
+                or its guard refused the call with any status but 401, or it
+                answered with something that is not an artifact reference,
+                which says nothing about whether the write happened.
             ArtifactStoreError: the server declined the write: the call
                 completed and the server answered it as an error, or with no
                 artifact reference. A declined write is an answer, not an
@@ -331,8 +337,9 @@ class McpArtifactStore:
         # Judged here, after the session closed, never inside the operation: the
         # session runner reports anything the operation raises as unreachability
         # (`ccf.mcp.client.run_with_session`), and a declined write is an answer,
-        # not an outage to retry.
-        result = self._bridge.run(self._session(operation))
+        # not an outage to retry. The guard's 401 is the typed authentication
+        # refusal, as for every read (`D-IMPL-378`, decision 10 (b)).
+        result = self._bridge.run(self._guarded_session(operation))
         if result.isError or result.structuredContent is None:
             raise ArtifactStoreError(
                 f"the artifact server declined to store {target.name!r}"
@@ -354,7 +361,7 @@ class McpArtifactStore:
                 resource, that it holds nothing there. Only those structured
                 answers produce this error; the bytes are verified against the
                 address, so a shell is never mistaken for the artifact.
-            ccf.artifacts.protocol.ArtifactReadUnauthenticated: the server's
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
                 guard answered HTTP 401 — it did not authenticate this
                 store's credential — so it said nothing about the address.
                 Neither an absence nor an outage.
@@ -386,7 +393,7 @@ class McpArtifactStore:
         failure. That is what makes this the discriminator :meth:`get` leans on.
 
         Raises:
-            ccf.artifacts.protocol.ArtifactReadUnauthenticated: the server's
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
                 guard answered HTTP 401: it did not authenticate this store's
                 credential.
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable,
@@ -425,7 +432,7 @@ class McpArtifactStore:
                 :class:`~ccf.artifacts.protocol.ArtifactReadRefused`). An
                 access refusal, never an outage and never an absence
                 (``D-IMPL-378``, decision 1 (A)).
-            ccf.artifacts.protocol.ArtifactReadUnauthenticated: the server's
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
                 guard answered HTTP 401: it did not authenticate this store's
                 credential, so no access decision about the address was made
                 (``D-IMPL-378``, repair 2.5 (a)).
@@ -480,7 +487,7 @@ class McpArtifactStore:
                 caller but the erasure door of the caller's tenant, and a server
                 without the tool declines too — or answered something that is
                 not a verdict.
-            ccf.artifacts.protocol.ArtifactReadUnauthenticated: the server's
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
                 guard answered HTTP 401: it did not authenticate this store's
                 credential.
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.
@@ -502,8 +509,8 @@ class McpArtifactStore:
         # Judged here, after the session closed, never inside the operation: the
         # session runner reports anything the operation raises as unreachability
         # (`ccf.mcp.client.run_with_session`), and a refusal is an answer, not an
-        # outage to retry. A read, so the guard's 401 is the typed refusal.
-        result = self._bridge.run(self._read_session(operation))
+        # outage to retry. The guard's 401 is the typed refusal, as for every call.
+        result = self._bridge.run(self._guarded_session(operation))
         if result.isError or result.structuredContent is None:
             raise ArtifactStoreError("the artifact server declined the erasure door's subject match")
         try:
@@ -523,7 +530,7 @@ class McpArtifactStore:
                 a server outage cannot turn the refusal into something else.
             ArtifactUriUnresolvable: the URI is malformed, or the server
                 answered that it registered no such version under that name.
-            ccf.artifacts.protocol.ArtifactReadUnauthenticated: the server's
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the server's
                 guard answered HTTP 401: it did not authenticate this store's
                 credential, so it said nothing about the name.
             ccf.mcp.errors.McpServerUnreachable: the substrate is unreachable.

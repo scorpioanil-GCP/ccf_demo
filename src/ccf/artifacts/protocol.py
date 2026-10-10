@@ -71,10 +71,10 @@ __all__ = [
     "LATEST_VERSION_TOKEN",
     "NAME_SEGMENT_SEPARATOR",
     "ArtifactName",
-    "ArtifactNotFound", "ArtifactReadRefused", "ArtifactReadUnauthenticated",  # same line: committed specs cite this module by line range
+    "ArtifactNotFound", "ArtifactReadRefused",  # same line: committed specs cite this module by line range
     "ArtifactRef",
     "ArtifactStoreError",
-    "ArtifactStoreProtocol",
+    "ArtifactStoreProtocol", "ArtifactStoreUnauthenticated",  # same line: committed specs cite this module by line range
     "ArtifactUriUnresolvable",
     "ArtifactWriteAuthority",
     "ArtifactWriteRefused",
@@ -395,8 +395,8 @@ class ArtifactReadRefused(ArtifactStoreError):
     and the server decided, so it is no outage to retry. **Not an**
     :class:`ArtifactNotFound` either: the refusal does not say that nothing is
     filed at the address, and a caller that read it as absence would conclude
-    what the server withheld. **Not** :class:`ArtifactReadUnauthenticated`:
-    that is a read the server's guard refused before deciding anything about
+    what the server withheld. **Not** :class:`ArtifactStoreUnauthenticated`:
+    that is a call the server's guard refused before deciding anything about
     the address.
 
     Attributes:
@@ -409,20 +409,22 @@ class ArtifactReadRefused(ArtifactStoreError):
         self.envelope = envelope
 
 
-class ArtifactReadUnauthenticated(ArtifactStoreError):
-    """A read the store's server refused because it did not authenticate the credential (``D-IMPL-378``, repair 2.5 (a)).
+class ArtifactStoreUnauthenticated(ArtifactStoreError):
+    """A call the store's server refused because it did not authenticate the credential (``D-IMPL-378``, repair 2.5 (a), decision 10 (b)).
 
     Dave, 2026-10-09 10:54 MST: *"Return a typed authentication refusal for
     401, preserving its distinction from authorization denial and transport
-    outage."* Raised by every read of
-    :class:`~ccf.artifacts.mcp_store.McpArtifactStore` — ``get``, ``exists``,
-    ``names_at``, ``resolve_uri`` and ``match_subject`` — where the artifact
-    server's guard answered the call HTTP 401: the store presented no
-    credential, one that is not a bearer token, or a bearer token the server's
-    verifier does not know
-    (``tests/mcp/test_auth_401_typed_through_the_client.py``). Chained from
-    that 401 response. The guard answers before the server's handlers run, so
-    nothing about what was asked was decided.
+    outage."* And 16:38 MST, adopting Grok's recommendation: *"(b) Type a 401
+    on a write, and rename the type so it covers both."* Raised by every call
+    of :class:`~ccf.artifacts.mcp_store.McpArtifactStore`, reads and the write
+    alike — ``get``, ``exists``, ``names_at``, ``resolve_uri``,
+    ``match_subject`` and ``put`` — where the artifact server's guard answered
+    the call HTTP 401: the store presented no credential, one that is not a
+    bearer token, or a bearer token the server's verifier does not know
+    (``tests/mcp/test_auth_401_typed_through_the_client.py``,
+    ``tests/mcp/test_auth_401_typed_on_a_write.py``). Chained from that 401
+    response. The guard answers before the server's handlers run, so nothing
+    about what was asked was decided, and a refused ``put`` wrote nothing.
 
     **Not** :class:`~ccf.mcp.errors.McpServerUnreachable`: the server
     answered, so it is no outage, and a caller that catches the outage to
@@ -440,13 +442,11 @@ class ArtifactReadUnauthenticated(ArtifactStoreError):
     (``tests/mcp/test_auth_401_never_read_as_absence.py``,
     ``tests/http_api/test_auth_401_never_a_recorded_absence.py``).
 
-    Not covered: a write, which still reports a credential the guard refused
-    as :class:`~ccf.mcp.errors.McpServerUnreachable`
-    (``tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage``);
-    and the guard's other refusals — a credential without a required scope
-    (HTTP 403) and the tenancy guard's denials — which still reach the client
-    as :class:`~ccf.mcp.errors.McpServerUnreachable`
-    (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal``).
+    Not covered: the guard's other refusals — a credential without a required
+    scope (HTTP 403) and the tenancy guard's denials — which still reach the
+    client as :class:`~ccf.mcp.errors.McpServerUnreachable`
+    (``tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal``,
+    ``tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types``).
     """
 
 
