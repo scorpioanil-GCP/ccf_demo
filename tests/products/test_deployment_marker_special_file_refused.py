@@ -28,6 +28,7 @@ from collections.abc import Callable
 
 import pytest
 
+import ccf.deployment.manifest as manifest_module
 from tests.products import test_deployment_marker_serialized_and_stale_refused as sr
 from tests.products import test_question_store_empty_at_boot_and_held_through_use as p4e
 
@@ -91,9 +92,11 @@ def test_380_3_a_special_file_at_the_marker_path_with_no_store_is_refused_unread
 # ``_mark_deployment_store`` (a writing boot) and ``_store_creation`` (a read-only boot) read the marker through
 # ``_read_deployment_marker``, which opened the path and only then checked the descriptor's type: a FIFO there was
 # opened once, then refused. What is asserted, by mechanism: ``os.open`` is wrapped and every call whose target is the
-# special file's inode is counted; it must be zero, the outcome is what it was (the writing boot refused
-# ``"unreadable"``; the read-only boot not vouched for, ``store_creation`` ``"unmarked"``), and the same inode, of the
-# same type, still stands at the path.
+# special file's inode is counted; it must be zero, the outcome is what it was, and the same inode, of the same type,
+# still stands at the path. A plain boot, writing or read-only, reads the marker beside a store first in
+# ``_mark_deployment_store`` and is refused there ``"unreadable"`` (as at ``ef5d27a4``), so a boot never reaches
+# ``_store_creation`` with a special file standing at the path; that reader is therefore also called directly, beside
+# the same store, where its answer stays ``"unmarked"``.
 
 BOOTS = ("a writing boot", "a read-only boot")
 
@@ -149,22 +152,52 @@ def test_380b_1_a_special_file_at_the_marker_path_beside_a_store_is_never_opened
                 " type must be checked from lstat before any open, so it is opened 0 times"
             )
         finally:
-            if not isinstance(outcome, Exception) and boot == "a read-only boot":
-                creation = outcome.store_creation
+            if not isinstance(outcome, Exception):
                 outcome.handle.close()
-                outcome = creation
-        if boot == "a writing boot":
-            sr._assert_refused_not_verified(outcome, marker=marker, reason="unreadable", case=f"{kind}, beside a store")
-        else:
-            assert outcome == "unmarked", (
-                f"[{kind}, {boot}] a read-only boot beside a store whose marker is a {kind} must boot with"
-                f" store_creation 'unmarked', as before; got {outcome!r}"
-            )
+        sr._assert_refused_not_verified(
+            outcome, marker=marker, reason="unreadable", case=f"{kind}, {boot}, beside a store"
+        )
         after = os.lstat(marker)
         assert (after.st_dev, after.st_ino) == (looked_at.st_dev, looked_at.st_ino) and is_kind(after.st_mode), (
             f"[{kind}, {boot}] the boot replaced the special file at the marker's path"
         )
         assert target.exists(), f"[{kind}, {boot}] the boot removed the store"
+    finally:
+        if isinstance(held, socket.socket):
+            held.close()
+
+
+@pytest.mark.parametrize("kind", sorted(SPECIAL))
+def test_380b_1_store_creation_beside_a_store_never_opens_a_special_file_at_the_marker_path(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "beside" / sr._STORE
+    target.parent.mkdir()
+    marker = sr._marker(target)
+    booted: object = sr._boot(manifest, registry, target)
+    assert not isinstance(booted, Exception), f"[{kind}] the case was not constructed: {booted!r}"
+    booted.handle.close()  # type: ignore[attr-defined]
+    marker.unlink()
+    make, is_kind = SPECIAL[kind]
+    held = make(marker)
+    try:
+        looked_at = os.lstat(marker)
+        assert is_kind(looked_at.st_mode) and target.exists(), f"[{kind}] the case was not constructed"
+        counted = _counting_opens_of(monkeypatch, marker)
+
+        answer = manifest_module._store_creation([target.resolve()])
+
+        monkeypatch.undo()
+        assert counted[0] == 0, (
+            f"[{kind}] _store_creation opened {kind} at the marker's path beside a store {counted[0]} time(s); its"
+            " type must be checked from lstat before any open, so it is opened 0 times"
+        )
+        assert answer == "unmarked", f"[{kind}] _store_creation must answer 'unmarked', as before; got {answer!r}"
+        after = os.lstat(marker)
+        assert (after.st_dev, after.st_ino) == (looked_at.st_dev, looked_at.st_ino) and is_kind(after.st_mode), (
+            f"[{kind}] the special file at the marker's path was replaced"
+        )
     finally:
         if isinstance(held, socket.socket):
             held.close()
