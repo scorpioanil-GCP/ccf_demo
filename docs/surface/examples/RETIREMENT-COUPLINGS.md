@@ -8,7 +8,7 @@ The retirement inventory in `16-RESEARCH.md` § A.1/§ A.2 swept `examples/`, `t
 
 The walk covers the whole repository from the sweep's own location. The number of files it read is printed by the command rather than recorded here, so that adding an unrelated file to the tree does not make this inventory stale; what does make it stale is a change to a coupling, which is the thing later waves must re-measure.
 
-- Coupling rows: **357** across **113** files
+- Coupling rows: **360** across **114** files
 - Rows outside `examples/`, `tests/examples/` and `public/`: **199** across **69** files
 - References from inside a retiring path to a path that retires no earlier, dropped because they are deleted with their source: **249**
 
@@ -18,7 +18,7 @@ Rows by owning plan:
 | --- | --- |
 | 16-02 | 12 |
 | 17-08 | 121 |
-| 23-04 | 205 |
+| 23-04 | 208 |
 | 23-10 | 19 |
 
 Rows by coupling shape:
@@ -30,7 +30,7 @@ Rows by coupling shape:
 | `count-constant` | 5 |
 | `count-scan-function` | 5 |
 | `docstring` | 80 |
-| `indirect-execution` | 1 |
+| `indirect-execution` | 4 |
 | `literal-set-member` | 10 |
 | `makefile-recipe` | 2 |
 | `markdown-link` | 8 |
@@ -310,6 +310,9 @@ Rows by coupling shape:
 | `tests/examples/test_cp_readme_template.py` | 240 | `archive/examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 4 | `archive/examples/08-e2e-demo` | `docstring` | documentary | - | - | 23-04 |  |
 | `tests/examples/test_demo_generator.py` | 22 | `archive/examples/08-e2e-demo` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/08-e2e-demo` |
+| `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/00-quickstart` | `indirect-execution` | live | - | `tools/docs_tests/test_snippet_gate.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_snippet_gate.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
+| `tests/examples/test_fixture_write_lock.py` | 1 | `archive/examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
+| `tests/examples/test_fixture_write_lock.py` | 1 | `examples/04-cross-process` | `indirect-execution` | live | - | `tools/docs_tests/test_no_stale_example_paths.py` | 23-04 | runs `tools` out of process; `tools/docs_tests/test_no_stale_example_paths.py` constructs the retiring path from `__file__`, so neither hop carries a path token |
 | `tests/examples/test_frozen_family_quarantine.py` | 38 | `tests/examples/test_s1_00_output.py` | `literal-set-member` | live | - | - | 17-08 |  |
 | `tests/examples/test_gate_two_divergence.py` | 97 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
 | `tests/examples/test_hw1_harness_clients_no_model.py` | 12 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
