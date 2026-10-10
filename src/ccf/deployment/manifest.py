@@ -550,8 +550,13 @@ class DeploymentStoreNotVerified(ValueError):
     read is refused ``"unreadable"`` and left (P-1 (b), ruled by Dave on
     2026-10-09 at 20:13 MST: *"1. b and 2. a"*), and so is anything at the
     marker's path that is not a regular file or a symbolic link — a FIFO, a
-    socket, a device, a directory — neither opened nor replaced (``D-IMPL-380``
-    ruling 3, 2026-10-10 05:34 MST). A marker longer than any the SDK writes is
+    socket, a device, a directory — its type checked from ``lstat`` before any
+    open, and not replaced (``D-IMPL-380`` ruling 3, 2026-10-10 05:34 MST; the
+    second round's ruling 1 (a), 07:39 MST). The ``lstat`` narrows, and does
+    not close, one race: a special file swapped in for a regular one between the
+    ``lstat`` and the open is opened, without blocking and without following a
+    link, and then refused from its descriptor's type
+    (:func:`_read_deployment_marker`). A marker longer than any the SDK writes is
     refused ``"oversized"``, with or without a store beside it, read no further
     than one byte past that bound and left (``D-IMPL-380`` ruling 4 (a)). The
     refusal states nothing the store holds.
@@ -570,8 +575,10 @@ class DeploymentStoreNotVerified(ValueError):
               file, or a file this process cannot read; or no store stands
               there, and what stands at the marker's path is anything other
               than a regular file or a symbolic link — a directory, a FIFO, a
-              socket, a device — which the boot neither opens nor replaces
-              (``D-IMPL-380`` ruling 3, 2026-10-10 05:34 MST), or a regular
+              socket, a device — whose type the boot checks from ``lstat``
+              before any open and which it does not replace (``D-IMPL-380``
+              ruling 3, 2026-10-10 05:34 MST; the swap race between that
+              ``lstat`` and the open is stated above), or a regular
               file or a symbolic link whose content this process cannot read,
               which the boot cannot compare and so does not replace (P-1 (b),
               20:13 MST);
@@ -922,7 +929,9 @@ class _MarkerSnapshot:
     ``kind`` its type (``stat.S_IFMT``). ``content`` is the SHA-256 digest of a
     regular file's bytes or of a symbolic link's target, and ``None`` for
     anything else (a directory, a FIFO, a socket, a device — recorded from
-    ``lstat`` alone, never opened) and for a regular file or a link whose
+    ``lstat`` alone, before any open; the swap race between that ``lstat`` and
+    the open of a regular file is stated at :func:`_marker_snapshot`) and for a
+    regular file or a link whose
     content this process cannot read. :func:`_replace_stale_deployment_marker`
     refuses to replace any of them (``"unreadable"``): a regular file or a link
     it cannot read under P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST
@@ -948,8 +957,8 @@ def _marker_snapshot(marker: Path) -> _MarkerSnapshot | None:
     """What stands at ``marker`` now, as a :class:`_MarkerSnapshot`, or ``None`` when nothing can be found there.
 
     Never follows a symbolic link: a link's own target is read
-    (``os.readlink``), never what it names, and nothing that is not a regular
-    file is opened. A regular file is opened without following a link and
+    (``os.readlink``), never what it names, and nothing the ``lstat`` finds to
+    be other than a regular file is opened. A regular file is opened without following a link and
     without blocking, and its bytes are read through that one descriptor, at
     most one byte past the longest marker the SDK writes
     (:func:`_longest_deployment_marker`; ``D-IMPL-380`` ruling 4 (a), Dave,
@@ -960,6 +969,10 @@ def _marker_snapshot(marker: Path) -> _MarkerSnapshot | None:
     one growing can keep the read going. The device, inode and
     type recorded for it are that descriptor's own, so a file put at the path
     between the ``lstat`` and the open is recorded as the file that was read.
+    **The swap race, disclosed** (``D-IMPL-380`` second round, ruling 1 (a)):
+    a special file put there in that instant is opened — without blocking and
+    without following a link — and recorded as what it is, which the boot
+    refuses; the ``lstat`` narrows the window, it does not close it.
     """
     try:
         status = os.lstat(marker)
@@ -1050,7 +1063,8 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     symbolic link whose content the boot's look could not read (a file this
     process has no permission to open, say) cannot be compared, so the boot is
     refused (:class:`DeploymentStoreNotVerified`, ``"unreadable"``) before
-    anything is created, and the marker is left as it stands: P-1 (b), ruled by
+    any store or marker is created (the store-creation lock file is), and the
+    marker is left as it stands: P-1 (b), ruled by
     Dave on 2026-10-09 at 20:13 MST, *"1. b and 2. a"*; the option's text, from
     lane ``378j-bootlock``'s final report: *"Refuse it `unreadable` before
     replacing it."* (measured by
@@ -1060,9 +1074,13 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     ``probe_unreadable_stale_marker_rewritten.py``, on ``2a4d7e9e``). **Nor is
     anything that is neither a regular file nor a symbolic link** — a FIFO, a
     socket, a character or block device, a directory: it holds no bytes the
-    boot can compare, so the boot is refused ``"unreadable"`` before anything
-    is created, decided from the type its ``lstat`` recorded, and what stands
-    there is never opened and never replaced (``D-IMPL-380`` ruling 3; Dave,
+    boot can compare, so the boot is refused ``"unreadable"`` before any store
+    or marker is created (the store-creation lock file is), decided from the
+    type its ``lstat`` recorded before any open, and what stands there is not
+    replaced. The ``lstat`` narrows, and does not close, one race: a special
+    file swapped in for a regular one between that ``lstat`` and the open is
+    opened, without blocking and without following a link, and recorded from
+    its descriptor (:func:`_marker_snapshot`) (``D-IMPL-380`` ruling 3; Dave,
     2026-10-10 05:34 MST: *"Refuse pipes, sockets, and devices without opening
     or replacing them."*; measured by
     ``tests/products/test_deployment_marker_special_file_refused.py``). Until
@@ -1084,8 +1102,9 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
         # bound, never compared, never replaced (`D-IMPL-380` ruling 4 (a)).
         raise DeploymentStoreNotVerified(marker=marker, reason="oversized")
     if not (stat.S_ISREG(found.kind) or stat.S_ISLNK(found.kind)):
-        # A FIFO, a socket, a device or a directory: decided from the look's
-        # `lstat`, never opened, never replaced (`D-IMPL-380` ruling 3).
+        # A FIFO, a socket, a device or a directory: decided from the type the
+        # look's `lstat` recorded before any open, and never replaced
+        # (`D-IMPL-380` ruling 3; the swap race is stated at `_marker_snapshot`).
         raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
     if found.content is None:
         # A regular file or a link whose content this process cannot read

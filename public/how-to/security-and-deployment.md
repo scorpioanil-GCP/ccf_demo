@@ -1765,6 +1765,15 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   does not replace it (P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*; the option's text, from lane
   `378j-bootlock`'s final report: *"Refuse it `unreadable` before replacing
   it."*; `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left`);
+  with or without a store beside it, anything at the marker's path that is
+  neither a regular file nor a symbolic link (a FIFO, a socket, a device, a
+  directory), also `unreadable`: its type is checked from `lstat` before any
+  open and it is not replaced. The `lstat` narrows, and does not close, one
+  race: a special file swapped in for a regular one between the `lstat` and
+  the open is opened, without blocking and without following a link, and then
+  refused from its descriptor's type (`D-IMPL-380` ruling 3, Dave, 2026-10-10
+  05:34 MST, and the second round's ruling 1 (a), 07:39 MST;
+  `tests/products/test_deployment_marker_special_file_refused.py`);
   a marker that appeared at a fresh path while the boot held the lock
   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed`),
   or a stale marker replaced by another file, or rewritten with other bytes,
