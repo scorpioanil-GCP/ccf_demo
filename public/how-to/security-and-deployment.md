@@ -1088,8 +1088,12 @@ Two behaviors follow from the design and are stated rather than changed:
   So does a write: a `put` whose credential the guard does not authenticate
   (HTTP 401) still raises `McpServerUnreachable`, an outage
   (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`).
-  Whether a write's 401 is typed too is not yet ruled (question 10 of the
-  378j findings brief, lane `378j-auth`'s P-1).
+  Dave ruled on 2026-10-09 that a write's 401 be typed too, with
+  `ArtifactReadUnauthenticated` renamed so that one type covers reads and
+  writes (decision 10 (b), `D-IMPL-378`, in the 16:38 MST amendment of
+  `docs/DECISIONS.md`, recorded on `main` @ `c470416f`). That is not yet
+  built: until it is, a write's 401 arrives as `McpServerUnreachable`, as
+  the conformance test above pins.
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 
