@@ -27,6 +27,25 @@
 -- Every statement is `if not exists`, so a repeated leg against a long-lived
 -- server converges rather than failing.
 
+-- WRITE LOCK (D-IMPL-379): this script drops, rebuilds and deletes in
+-- `ccf_v2`. It refuses unless every table and view in that schema is
+-- one the cp-00..03 setup scripts create -- a disposable test database.
+-- The curated estate holds far more, so it is refused, by name.
+DO $ccf_write_lock$
+DECLARE
+    stray text;
+BEGIN
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO stray
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'ccf_v2'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND c.relname NOT IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction');
+    IF stray IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-379 write lock: schema % holds %, which no cp-00..03 setup script creates. This is not a disposable test database; refusing to write.', 'ccf_v2', stray;
+    END IF;
+END
+$ccf_write_lock$;
+
 create schema if not exists ccf_v2;
 
 -- The 13F holdings table. Primary key `(lei, manager_cik, cusip,
