@@ -852,8 +852,9 @@ def _promote_deployment_marker(owned: _OwnedMarker) -> _OwnedMarker:
 class _MarkerSnapshot:
     """What a boot's look found at a deployment marker's path: which file, of what type, holding what.
 
-    SEC-020 decision 17 (b) (``D-IMPL-378``; Dave, 2026-10-09 16:38 MST: *"(b)
-    Compare the marker’s bytes."*). ``device`` and ``inode`` name the file and
+    SEC-020 decision 17 (b) (``D-IMPL-378``; ruled by Dave on 2026-10-09 at
+    16:38 MST, adopting Grok's recommendation: *"(b) Compare the marker’s
+    bytes."*). ``device`` and ``inode`` name the file and
     ``kind`` its type (``stat.S_IFMT``). ``content`` is the SHA-256 digest of a
     regular file's bytes or of a symbolic link's target, and ``None`` for
     anything else (a directory, a FIFO, a socket, a device) and for a regular
