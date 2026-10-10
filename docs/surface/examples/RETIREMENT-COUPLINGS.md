@@ -384,16 +384,16 @@ Rows by coupling shape:
 | `tools/docs_tests/test_retirement_sweep.py` | 369 | `archive/examples/04-cross-process` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/docs_tests/test_retirement_sweep.py` | 883 | `examples/03-harness-portability` | `literal-set-member` | live | - | - | 23-04 |  |
 | `tools/docs_tests/test_snippet_gate.py` | 57 | `archive/examples/00-quickstart` | `path-construction` | live | - | - | 23-04 | constructed as `archive/examples/00-quickstart/run.py` |
-| `tools/lints/citations.py` | 410 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 455 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 455 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 479 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/citations.py` | 485 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 416 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 461 | `examples/04-cross-process` | `module-constant` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 461 | `examples/external/00-hello-context` | `module-constant` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 485 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/citations.py` | 491 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_citations.py` | 887 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 74 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 82 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 83 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 254 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 76 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 84 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 85 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 263 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |
