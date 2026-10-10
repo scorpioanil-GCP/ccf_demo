@@ -390,10 +390,10 @@ Rows by coupling shape:
 | `tools/lints/citations.py` | 479 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/citations.py` | 485 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_citations.py` | 887 | `public/tutorial/adopters-guide.md` | `string-literal` | live | - | - | 23-10 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 72 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 80 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 81 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
-| `tools/lints/tests/test_pinned_record_citations.py` | 252 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 74 | `examples/external/00-hello-context` | `string-literal` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 82 | `examples/04-cross-process` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 83 | `examples/external/00-hello-context` | `literal-set-member` | live | - | - | 23-04 |  |
+| `tools/lints/tests/test_pinned_record_citations.py` | 254 | `examples/04-cross-process` | `string-literal` | live | - | - | 23-04 |  |
 | `tools/lints/tests/test_scope.py` | 41 | `archive/examples/03-harness-portability` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 261 | `examples/01-agent-basics` | `docstring` | documentary | - | - | 23-04 |  |
 | `tools/measure_examples.py` | 308 | `examples/01-agent-basics` | `string-literal` | live | - | - | 23-04 |  |
