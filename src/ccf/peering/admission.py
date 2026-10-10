@@ -176,9 +176,11 @@ from ccf.artifacts.protocol import (
     ArtifactStoreError,
     ArtifactStoreProtocol,
     DerivedWrite,
+    artifact_uri,
 )
 from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
+from ccf.contracts.canonical import content_hash
 from ccf.controlplane.artifact_base import ArtifactClass, validate_semver
 from ccf.controlplane.audit import AuditAction, AuditLog
 from ccf.controlplane.registry import ControlPlaneProtocol
@@ -212,6 +214,7 @@ from ccf.products.contract import (
     RegisteredProductClass,
 )
 from ccf.products.gates import GateRefusal, run_federated_gates
+from ccf.replay.serve import _same_string
 
 __ccf_mode__ = "algorithmic"
 
@@ -229,6 +232,7 @@ __all__ = [
     "AdmissionBypassError",
     "AdmissionNotRecorded",
     "AdmissionRecord",
+    "AdmissionRecordReferenceMismatch",
     "AdmissionRefusal",
     "AdmittedProduct",
     "verify_admission_provenance",
@@ -575,6 +579,67 @@ class AdmissionNotRecorded(RuntimeError):
     record is a failure to serve — applied one boundary earlier: a crossing
     whose record was not persisted is not reported as admitted (T-06-100).
     """
+
+
+class AdmissionRecordReferenceMismatch(ArtifactStoreError):
+    """The store answered an admission record's write with a reference that is not that record's own.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-378``
+    decision 5 (Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation):
+    *"(a) Fix the four writers in one small lane."* It extends decision 5 (a)
+    (06:21 MST), *"Verify the returned record address against the record
+    actually written."*, from
+    ``src/ccf/replay/serve.py::ReplayWriter.write_replay_record`` to the
+    :class:`AdmissionRecord` the gate files before reporting a crossing
+    admitted.
+
+    **What the gate knows before the store answers.** Under ``D-IMPL-26`` the
+    whole reference of the record it files is fixed by the record and its
+    capability: the content address is
+    :func:`~ccf.contracts.canonical.content_hash` of the record, the name is
+    the admitted product's content address, the tenant is the capability's,
+    the class is :data:`ADMISSION_RECORD`'s, and the versioned URI is
+    ``ccf-artifact://{tenant}/{class}/{name}@{address}``. Every field of the
+    store's answer is held to that as an exact string. Before this check the
+    answer was used unchecked, and its name and content address became the
+    audit verdict's ``key`` and ``version``. Measured on ``dl-378-integ`` @
+    ``6cd6023e``: a store that filed a second crossing's record faithfully and
+    answered with the first crossing's record reference had the second
+    crossing admitted with a verdict naming the first crossing's record, and a
+    changed URI, tenant or class was accepted
+    (``tests/peering/test_admission_record_writer_checks_the_returned_reference.py``).
+
+    **Raised after the store's ``put`` returns and before the verdict is
+    appended**, so the crossing is not reported as admitted: no
+    ``peering_admitted`` row is appended and no :class:`AdmittedProduct`
+    exists. The issuance nonce is already spent, as it is when the store
+    cannot persist the record (:class:`AdmissionNotRecorded`), and the store
+    may already hold the record's bytes. Not an :class:`AdmissionNotRecorded`:
+    the store answered, and what it answered is not this record. An
+    :class:`~ccf.artifacts.protocol.ArtifactStoreError`, because the store's
+    answer is what failed. The text names the fields that differ and no value
+    the store answered.
+
+    **What it does not check:** the bytes the store holds. It reads the store's
+    answer, not the store; a store that answers the record's own reference
+    while holding other bytes under it is found by a reader that re-hashes what
+    it fetches before using it, such as
+    :func:`~ccf.replay.engine.resolve_artifact`.
+
+    Attributes:
+        fields: The names of the reference's fields that differ from the
+            record's own, in :class:`~ccf.artifacts.protocol.ArtifactRef`'s
+            field order.
+    """
+
+    def __init__(self, *, fields: tuple[str, ...]) -> None:
+        self.fields = fields
+        super().__init__(
+            f"the artifact store answered an admission record's write with a"
+            f" reference whose {', '.join(fields)} are not the record's own;"
+            " the gate points its verdict only at the record it wrote, so the"
+            " crossing is not reported as admitted (D-IMPL-378 decision 5 (a))"
+        )
 
 
 class AdmissionBypassError(TypeError):
@@ -937,9 +1002,23 @@ class PeeringAdmissionGate:
         one artifact rather than accumulating near-duplicates — the store's
         idempotence doing the work rather than a de-duplication rule here.
 
+        **The store's answer is held to the record written** (``D-IMPL-378``
+        decision 5, extending 5 (a)): every field of the reference ``put``
+        returns must be the record's own — its content address, the URI naming
+        it under this gate's tenant and the admission-record class with the
+        admitted product's address as name and the record's address as
+        version, and the tenant, class and name — or nothing is reported as
+        admitted. The reference returned, whose name and address become the
+        verdict's ``key`` and ``version``, is the one the gate derived, which
+        the store's answer equals field for field. What is not checked: the
+        bytes the store holds (see :class:`AdmissionRecordReferenceMismatch`).
+
         Raises:
             AdmissionNotRecorded: the store could not persist the record. Not
                 swallowed and not softened into a refusal — see that class.
+            AdmissionRecordReferenceMismatch: the store's answer is not the
+                record's own reference. Raised after the store returns, by its
+                own name, and before the verdict is appended.
         """
         record = AdmissionRecord(
             tenant_id=self._tenant_id,
@@ -957,7 +1036,7 @@ class PeeringAdmissionGate:
             # the admitted product's content address — and the store files it
             # under the capability's tenant after verifying the capability
             # against the kinds the deployment declared for the class.
-            return self._artifact_store.put(
+            answered = self._artifact_store.put(
                 self._authorized,
                 DerivedWrite(
                     artifact_class=ADMISSION_RECORD.class_id,
@@ -972,6 +1051,33 @@ class PeeringAdmissionGate:
                 " is not reported as admitted; a record of what crossed is a"
                 " precondition of admitting it (D-IMPL-58, T-06-100)"
             ) from unreachable
+        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
+        # reference of the record actually written, derived here (`D-IMPL-26`:
+        # the version IS the record's address; the name is the admitted
+        # product's), and the store's answer held to it field for field, as
+        # exact strings. Outside the `try` above, so a mismatch is refused by
+        # its own name rather than reported as a record that was not persisted.
+        address = content_hash(record)
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=self._authorized.tenant,
+                artifact_class=ADMISSION_RECORD.class_id,
+                name=content_address,
+                artifact_version=address,
+            ),
+            tenant_id=self._authorized.tenant,
+            artifact_class=ADMISSION_RECORD.class_id,
+            name=content_address,
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(answered, field, None), getattr(own, field))
+        )
+        if differing:
+            raise AdmissionRecordReferenceMismatch(fields=differing)
+        return own
 
     def _refuse(
         self,
