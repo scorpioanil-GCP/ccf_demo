@@ -642,8 +642,12 @@ class GrantLedger:
         **The saved-bytes limit, state-store form, disclosed.** The record the
         state store saves is its copy. A state store that alters its copy saves
         the alteration, and a later reader of the saved record
-        (:meth:`bound_view`, :meth:`effective_hashes` and the folds) reads what
-        the store saved. Nothing here re-reads what the store saved.
+        (:meth:`bound_view`, :meth:`effective_hashes`, :meth:`revoke`,
+        :meth:`state` and the folds) reads what the store saved. A revocation
+        records the grant it read back: its write and its audit event name what
+        the store saved (``D-IMPL-380``, fifth round, ruling 3 (a), 2026-10-10
+        12:57 MST: *"Add revoke and state to the list of readers of saved
+        data."*). Nothing here re-reads what the store saved.
         """
         self._writer.write(
             authorized,
