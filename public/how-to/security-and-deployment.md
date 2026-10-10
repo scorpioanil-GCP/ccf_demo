@@ -1799,6 +1799,11 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   new store itself, so it serves nothing it did not read, but it does not
   report that something outside the SDK wrote there. A marker whose bytes the
   boot cannot read is not replaced at all: it is refused `unreadable` (above).
+  A marker longer than the longest marker the SDK writes, with or without a
+  store beside it, is refused `oversized`: the boot reads at most one byte
+  past that length and neither compares nor replaces the file (`D-IMPL-380`
+  ruling 4 (a), Dave, 2026-10-10 05:34 MST;
+  `tests/products/test_deployment_marker_oversized_refused.py`).
 - **Refused with nothing to resolve unless the holder has stopped or hung: a
   store-creation lock another holds**, `lock-held`, at once or after the
   declared wait

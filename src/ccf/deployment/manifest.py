@@ -445,6 +445,10 @@ _NOT_VERIFIED_WHY = {
         "records no state in the form this SDK writes (a marker written before markers recorded their"
         " state, text the SDK did not write, or not a regular file this process can read)"
     ),
+    "oversized": (
+        "is a regular file longer than the longest marker this SDK writes, so the boot did not read it whole,"
+        " compare it, or replace it"
+    ),
     "claimed": (
         "appeared at the path after the boot looked, was replaced by another file or rewritten with other"
         " bytes between the boot's look and its replacement of it, or was replaced or rewritten while the"
@@ -467,6 +471,10 @@ _NOT_VERIFIED_REMEDY = {
     "unreadable": (
         "inspect the marker and the store beside it, then remove the marker (and the store, if one"
         " stands there) so that a boot creates and verifies a new store"
+    ),
+    "oversized": (
+        "find what wrote a file of that size at the marker's path, then remove the marker (and the store, if"
+        " one stands there) so that a boot creates and verifies a new store"
     ),
     "claimed": (
         "find what writes into the store's directory, then remove the marker (and the store, if one"
@@ -543,8 +551,10 @@ class DeploymentStoreNotVerified(ValueError):
     2026-10-09 at 20:13 MST: *"1. b and 2. a"*), and so is anything at the
     marker's path that is not a regular file or a symbolic link — a FIFO, a
     socket, a device, a directory — neither opened nor replaced (``D-IMPL-380``
-    ruling 3, 2026-10-10 05:34 MST). The refusal states nothing the
-    store holds.
+    ruling 3, 2026-10-10 05:34 MST). A marker longer than any the SDK writes is
+    refused ``"oversized"``, with or without a store beside it, read no further
+    than one byte past that bound and left (``D-IMPL-380`` ruling 4 (a)). The
+    refusal states nothing the store holds.
 
     Attributes:
         marker: The deployment marker's path,
@@ -565,6 +575,14 @@ class DeploymentStoreNotVerified(ValueError):
               file or a symbolic link whose content this process cannot read,
               which the boot cannot compare and so does not replace (P-1 (b),
               20:13 MST);
+            * ``"oversized"`` — what stands at the marker's path, with or
+              without a store beside it, is a regular file longer than the
+              longest marker the SDK writes (:func:`_longest_deployment_marker`).
+              The boot reads at most one byte more than that bound, never the
+              whole file, and neither compares nor replaces it (``D-IMPL-380``
+              ruling 4 (a); Dave, 2026-10-10 05:34 MST: *"Cap the read at the
+              longest marker the SDK writes. Refuse "oversized" by name. Do not
+              replace the file."*);
             * ``"claimed"`` — a marker appeared at the path after this boot
               looked and before it created its own, the stale marker it found
               was replaced by another file, or rewritten with other bytes,
@@ -593,7 +611,7 @@ class DeploymentStoreNotVerified(ValueError):
         self,
         *,
         marker: Path,
-        reason: Literal["pending", "unreadable", "claimed", "lock-unavailable", "lock-held"],
+        reason: Literal["pending", "unreadable", "oversized", "claimed", "lock-unavailable", "lock-held"],
         lock: Path | None = None,
         detail: str | None = None,
     ) -> None:
@@ -745,6 +763,20 @@ def _unlink_if_same_file(path: Path, identity: tuple[int, int] | None) -> None:
         path.unlink(missing_ok=True)
 
 
+def _longest_deployment_marker() -> int:
+    """The byte length of the longest deployment marker text the SDK writes: the bound on every marker read.
+
+    ``D-IMPL-380`` ruling 4 (a) (Dave, 2026-10-10 05:34 MST: *"Cap the read at
+    the longest marker the SDK writes."*). One bound, used by both readers —
+    :func:`_read_deployment_marker` and :func:`_marker_snapshot` — so neither
+    reads more than one byte past it.
+    """
+    return max(
+        len(_deployment_marker_text(state, "0" * _MARKER_TOKEN_HEX).encode("utf-8"))
+        for state in (_MARKER_PENDING, _MARKER_VERIFIED)
+    )
+
+
 def _read_deployment_marker(marker: Path) -> tuple[_MarkerRecord | None, tuple[int, int] | None]:
     """What the deployment marker at ``marker`` records, and which file it is (device and inode), through one descriptor.
 
@@ -756,7 +788,7 @@ def _read_deployment_marker(marker: Path) -> tuple[_MarkerRecord | None, tuple[i
     completed verification. The identity is ``None`` when nothing could be
     opened.
     """
-    longest = len(_deployment_marker_text(_MARKER_VERIFIED, "0" * _MARKER_TOKEN_HEX).encode("utf-8"))
+    longest = _longest_deployment_marker()
     try:
         descriptor = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
     except OSError:
@@ -877,13 +909,19 @@ class _MarkerSnapshot:
     (*"1. b and 2. a"*), and every other kind, decided from ``kind`` alone,
     under ``D-IMPL-380`` ruling 3 (Dave, 2026-10-10 05:34 MST: *"Refuse pipes,
     sockets, and devices without opening or replacing them."*). Two snapshots
-    are equal only when all four are.
+    are equal only when all five fields are.
+
+    ``oversized`` is true for a regular file longer than the longest marker
+    the SDK writes (:func:`_longest_deployment_marker`): its ``content`` is
+    ``None``, it was read no further than one byte past that bound, and a boot
+    that finds it is refused ``"oversized"`` (``D-IMPL-380`` ruling 4 (a)).
     """
 
     device: int
     inode: int
     kind: int
     content: bytes | None
+    oversized: bool = False
 
 
 def _marker_snapshot(marker: Path) -> _MarkerSnapshot | None:
@@ -892,9 +930,14 @@ def _marker_snapshot(marker: Path) -> _MarkerSnapshot | None:
     Never follows a symbolic link: a link's own target is read
     (``os.readlink``), never what it names, and nothing that is not a regular
     file is opened. A regular file is opened without following a link and
-    without blocking, and its bytes are read through that one descriptor, up
-    to the size the descriptor reported when it was opened, so a writer that
-    keeps the file growing cannot keep the read going. The device, inode and
+    without blocking, and its bytes are read through that one descriptor, at
+    most one byte past the longest marker the SDK writes
+    (:func:`_longest_deployment_marker`; ``D-IMPL-380`` ruling 4 (a), Dave,
+    2026-10-10 05:34 MST: *"Cap the read at the longest marker the SDK
+    writes."*): a file whose descriptor reports a larger size is not read at
+    all, and one that grows past the bound while it is read stops there; both
+    are recorded ``oversized``, so neither a large file nor a writer that keeps
+    one growing can keep the read going. The device, inode and
     type recorded for it are that descriptor's own, so a file put at the path
     between the ``lstat`` and the open is recorded as the file that was read.
     """
@@ -918,15 +961,18 @@ def _marker_snapshot(marker: Path) -> _MarkerSnapshot | None:
             opened = os.fstat(descriptor)
             device, inode, kind = opened.st_dev, opened.st_ino, stat.S_IFMT(opened.st_mode)
             if stat.S_ISREG(opened.st_mode):
-                digest = hashlib.sha256()
-                remaining = opened.st_size
-                while remaining > 0:
-                    chunk = os.read(descriptor, min(remaining, 1 << 16))  # read in 64 KiB pieces
+                longest = _longest_deployment_marker()
+                if opened.st_size > longest:
+                    return _MarkerSnapshot(device=device, inode=inode, kind=kind, content=None, oversized=True)
+                data = b""
+                while len(data) <= longest:
+                    chunk = os.read(descriptor, longest + 1 - len(data))
                     if not chunk:
                         break
-                    digest.update(chunk)
-                    remaining -= len(chunk)
-                content = digest.digest()
+                    data += chunk
+                if len(data) > longest:
+                    return _MarkerSnapshot(device=device, inode=inode, kind=kind, content=None, oversized=True)
+                content = hashlib.sha256(data).digest()
         except OSError:
             content = None
         finally:
@@ -974,6 +1020,12 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     serves does not rest on this check: it is a tripwire for a writer outside
     the SDK's boots, not the store's verification.
 
+    **An oversized marker is not replaced.** A regular file longer than the
+    longest marker the SDK writes is refused ``"oversized"``, read no further
+    than one byte past that bound, and left as it stands (``D-IMPL-380`` ruling
+    4 (a); measured by
+    ``tests/products/test_deployment_marker_oversized_refused.py``).
+
     **A marker this process cannot read is not replaced.** A regular file or a
     symbolic link whose content the boot's look could not read (a file this
     process has no permission to open, say) cannot be compared, so the boot is
@@ -1007,6 +1059,10 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     as one :func:`_create_pending_deployment_marker` created.
     """
     marker = _deployment_store_marker(path)
+    if found.oversized:
+        # Longer than any marker the SDK writes: read no further than the
+        # bound, never compared, never replaced (`D-IMPL-380` ruling 4 (a)).
+        raise DeploymentStoreNotVerified(marker=marker, reason="oversized")
     if not (stat.S_ISREG(found.kind) or stat.S_ISLNK(found.kind)):
         # A FIFO, a socket, a device or a directory: decided from the look's
         # `lstat`, never opened, never replaced (`D-IMPL-380` ruling 3).
@@ -1347,7 +1403,9 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
     boot's own, reading ``pending`` (:func:`_replace_stale_deployment_marker`;
     repair 1.2, built as lane ``378j-boot``'s proposal P-1 (B) for this case
     only), unless this boot cannot read it, which refuses the boot
-    ``"unreadable"`` (P-1 (b)); where none stands, the marker is created exclusively, reading
+    ``"unreadable"`` (P-1 (b)), or it is a regular file longer than any marker
+    the SDK writes, which refuses the boot ``"oversized"`` — as it does where
+    a store stands beside such a file (``D-IMPL-380`` ruling 4 (a)); where none stands, the marker is created exclusively, reading
     ``pending`` (:func:`_create_pending_deployment_marker`), and a marker that
     appears there before that exclusive create was made outside the SDK's
     boots, and is refused (``"claimed"``). Either way the marker joins
@@ -1367,6 +1425,9 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
         found = _marker_snapshot(marker)
         if path.exists():
             if found is not None:
+                if found.oversized:
+                    # `D-IMPL-380` ruling 4 (a): the same refusal beside a store.
+                    raise DeploymentStoreNotVerified(marker=marker, reason="oversized")
                 record, _identity = _read_deployment_marker(marker)
                 if record is None:
                     raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
