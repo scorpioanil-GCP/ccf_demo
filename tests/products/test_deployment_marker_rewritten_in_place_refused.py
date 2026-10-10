@@ -29,6 +29,12 @@ What is asserted, by mechanism:
    retries, a bounded number of times, until the inode is reused, so the case where only the TARGET differs is the
    one exercised wherever the filesystem reuses it; the outcome asserted is the same for either identity, and the
    test prints which it got), and another link renamed over it (always another inode).
+5. **A stale marker the boot cannot READ is refused** ``unreadable`` **and left**, whether it is left untouched or
+   rewritten in place after the look: its bytes cannot be compared, so the boot does not replace it. P-1 (b), ruled by
+   Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"* (recorded on ``main`` @ ``7fbc2474``); the option's text, from
+   lane ``378j-bootlock``'s final report: *"Refuse it `unreadable` before replacing it."* It narrows, for this case
+   only, the reading Dave confirmed at 16:38 MST by adopting Grok's text, *"A marker with no store is re-verified."*
+   A marker the boot can read is still replaced and its new store verified (the tests above).
 
 Injection, the least invasive hook, as in
 ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left``:
@@ -43,6 +49,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import stat
 from typing import Any
 
 import pytest
@@ -59,6 +66,14 @@ REWRITABLE_STALE = (
     "the single-line marker of fe25536c",
     "text that is not the SDK's",
 )
+
+
+#: The stale states whose marker a test makes write-only (mode ``0o200``): the boot finds it and cannot read its bytes,
+#: while an outside writer of the same account can still rewrite it in place.
+UNREADABLE_STALE = ("verified, its store deleted", "text that is not the SDK's")
+
+#: The mode that makes a marker unreadable to its own account and still writable by it.
+_WRITE_ONLY = 0o200
 
 
 def _identity(path: pathlib.Path) -> tuple[int, int]:
@@ -109,6 +124,36 @@ def _retargeted_after_the_look(
         manifest_module, "_replace_stale_deployment_marker", an_outside_writer_retargets_the_link_first
     )
     return retargets
+
+
+def _rewritten_write_only_after_the_look(
+    monkeypatch: pytest.MonkeyPatch, marker: pathlib.Path, text: bytes
+) -> list[tuple[tuple[int, int], tuple[int, int]]]:
+    """Make an outside writer rewrite a WRITE-ONLY ``marker`` in place when the boot reaches its replacement.
+
+    Opened for writing only and truncated (``O_WRONLY | O_TRUNC``), so the same file is kept and no read permission is
+    needed; its device and inode before and after each write are what is recorded.
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    real_replace = manifest_module._replace_stale_deployment_marker
+    rewrites: list[tuple[tuple[int, int], tuple[int, int]]] = []
+
+    def an_outside_writer_rewrites_the_unreadable_marker_in_place_first(path: pathlib.Path, found: Any) -> Any:
+        before = _identity(marker)
+        with open(marker, "wb") as rewritten:
+            rewritten.write(text)
+            rewritten.flush()
+            os.fsync(rewritten.fileno())
+        rewrites.append((before, _identity(marker)))
+        return real_replace(path, found)
+
+    monkeypatch.setattr(
+        manifest_module,
+        "_replace_stale_deployment_marker",
+        an_outside_writer_rewrites_the_unreadable_marker_in_place_first,
+    )
+    return rewrites
 
 
 def _rewritten_after_the_look(
@@ -293,3 +338,49 @@ def test_17_b_a_stale_symbolic_link_marker_retargeted_after_the_look_is_refused_
     )
     assert not target.exists(), f"[{how}] a refused boot created a store at the path"
     assert not list(marker.parent.glob(f"{marker.name}.replacing-*")), f"[{how}] the refused boot left its staging file"
+
+
+@pytest.mark.parametrize("how", ["left untouched", "rewritten in place after the look"])
+@pytest.mark.parametrize("state", UNREADABLE_STALE)
+def test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, state: str, how: str
+) -> None:
+    """A stale marker with no store beside it that the boot cannot read: refused ``unreadable``, left, nothing created.
+
+    P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*; the option's text, from lane
+    ``378j-bootlock``'s final report: *"Refuse it `unreadable` before replacing it."* The marker is made write-only, so
+    the boot's look finds it and cannot read it. Red on ``6a87b991``: in all four cases the boot replaced the marker by
+    its own and booted ``"verified"`` (lane probe ``probe_unreadable_stale_marker_rewritten.py`` measured the rewritten
+    case on ``2a4d7e9e``). Construction is asserted, never skipped: an account that can read a write-only file (a
+    superuser) fails here rather than passing.
+    """
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "stale" / sr._STORE
+    target.parent.mkdir()
+    sr._stale_with_no_store(tmp_path, manifest, registry, target, state)
+    marker = sr._marker(target)
+    stale_bytes = marker.read_bytes()
+    marker.chmod(_WRITE_ONLY)
+    assert not os.access(marker, os.R_OK), (
+        f"[{state}] this account can read a write-only marker (a superuser?); the case was not constructed"
+    )
+    looked_at = _identity(marker)
+    foreign = b"another writer's text, written in place after the boot looked\n"
+    rewrites = _rewritten_write_only_after_the_look(monkeypatch, marker, foreign) if how != "left untouched" else []
+    outcome = sr._boot(manifest, registry, target)
+    if how != "left untouched":
+        assert len(rewrites) == 1 and rewrites[0] == (looked_at, looked_at), (
+            f"[{state}, {how}] the outside writer did not rewrite the marker in place; the case was not constructed:"
+            f" {rewrites}"
+        )
+    sr._assert_refused_not_verified(outcome, marker=marker, reason="unreadable", case=f"{state}, unreadable, {how}")
+    status = os.lstat(marker)
+    assert (status.st_dev, status.st_ino) == looked_at and stat.S_IMODE(status.st_mode) == _WRITE_ONLY, (
+        f"[{state}, {how}] the refused boot replaced the marker it could not read, or changed its mode"
+    )
+    marker.chmod(0o600)  # read it back, to show the bytes the refused boot left
+    assert marker.read_bytes() == (stale_bytes if how == "left untouched" else foreign), (
+        f"[{state}, {how}] the refused boot changed the bytes of the marker it could not read"
+    )
+    assert not target.exists(), f"[{state}, {how}] a refused boot created a store at the path"
+    assert not list(marker.parent.glob(f"{marker.name}.replacing-*")), f"[{state}, {how}] the refused boot left a staging file"
