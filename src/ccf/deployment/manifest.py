@@ -893,7 +893,10 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     ``tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left``),
     or the same file rewritten in place with other bytes (measured by
     ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_a_stale_marker_rewritten_in_place_after_the_look_is_refused_as_claimed_and_left``),
-    was put there by a writer outside the SDK's boots. **What this check does
+    or deleted and created again under the same inode number with other bytes
+    or another link target (lane ``378j-bootlock``'s probe
+    ``probe_recreated_same_inode.py``, run where the filesystem reused the
+    inode), was put there by a writer outside the SDK's boots. **What this check does
     not see:** a change made after the re-check and before the rename; a
     rewrite to identical bytes, which changes nothing a boot reads (measured by
     ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified``);

@@ -426,20 +426,22 @@ def test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused
     """A writer outside the SDK puts another file at the stale marker's path after the boot looked: refused, file left.
 
     ``src/ccf/deployment/manifest.py::_replace_stale_deployment_marker`` checks
-    that the marker is still the file the boot's look found (device and inode)
-    immediately before it replaces it. Injection, the least invasive hook: the
-    module's call into that function is wrapped so that, when the boot makes
-    it, an outside writer first renames a new file over the marker, and the
-    real function then runs with the identity the boot's look took. Nothing the
-    SDK computes is changed; only the outside write's moment is chosen, inside
-    the window between the look and the replacement, where a writer outside
-    the SDK's boots would land. The new file is written beside the marker and
+    that the marker is still what the boot's look found immediately before it
+    replaces it: the same file (device and inode) and, since decision 17 (b),
+    the same type and bytes. Injection, the least invasive hook: the module's
+    call into that function is wrapped so that, when the boot makes it, an
+    outside writer first renames a new file over the marker, and the real
+    function then runs with what the boot's look found. Nothing the SDK
+    computes is changed; only the outside write's moment is chosen, inside the
+    window between the look and the replacement, where a writer outside the
+    SDK's boots would land. The new file is written beside the marker and
     renamed over it, so it is another inode (a file deleted and created again
     can be handed the same inode number). A rewrite in place keeps the file's
-    identity and is NOT told apart by this check (measured by lane
-    ``378j-boot``'s ``probe_claimed_window.py``; disclosed in section 4.12).
-    The lane's own tests passed with this check removed (the coordinator's
-    severing on ``6fc0eeb6``).
+    identity; it is told apart by its bytes, which
+    ``tests/products/test_deployment_marker_rewritten_in_place_refused.py``
+    measures (on ``83af5650`` it was not; lane ``378j-boot``'s
+    ``probe_claimed_window.py``). The lane's own tests passed with this check
+    removed (the coordinator's severing on ``6fc0eeb6``).
     """
     import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
 
