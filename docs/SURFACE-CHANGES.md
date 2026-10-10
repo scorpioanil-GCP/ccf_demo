@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2543 entries**, of which **2266** name a public Python surface.
+**2544 entries**, of which **2267** name a public Python surface.
 
 ## Added
 
@@ -30923,7 +30923,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-506 entries — 467 public Python surface, 39 not public Python API.
+507 entries — 468 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38126,6 +38126,18 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-68-d-only-a-boot-whose-store-directory-exists-holds-the-store-creation-lock.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: fragment `378-61` said that a plain boot holds the store-creation lock of every path from its look to the hand-back, and, in its Migration, that every plain boot, read-only included, creates `<resolved path>.ccf-store-creation.lock` beside its store.
+- After: unchanged behavior, stated as it is: what `378-61` says of the store-creation lock holds for every path whose directory exists; a path whose directory does not exist takes no lock and has nothing created there, not even the directory, and the SDK's SQLite adapter refuses the boot with `sqlite3.OperationalError`. The function's docstring is unchanged: it makes neither statement.
+- Why: `D-IMPL-378`, the "j" batch panel's J-NODIR-NOLOCK. Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`.
+- Migration: none in code. `378-61`'s requirement, that the store's directory let the deployment's user create the lock file, applies where that directory exists.
+
+*Recorded by `378-68-e-fragment-378-61-corrected-only-a-boot-whose-store-directory-exists-takes-the-lock.md`.*
 
 ### Not public Python API
 
