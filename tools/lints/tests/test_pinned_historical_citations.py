@@ -55,19 +55,29 @@ def _sites(findings: list[str]) -> list[str]:
 
 
 def test_the_pin_list_is_exactly_the_three_cp04_sites() -> None:
-    """Narrow by construction: three entries, each one site, and no other."""
-    pins = citations.PINNED_HISTORICAL_CITATIONS
+    """Narrow by construction: the specimen's pins are three entries, each one
+    site, and no other. (Read as the specimen's subset since decision 14 (b)
+    pinned four citations in other files on the same key; the whole list is
+    held by ``test_pinned_record_citations.py``.)"""
+    pins = [
+        pin
+        for pin in citations.PINNED_HISTORICAL_CITATIONS
+        if pin.path.startswith(f"{SPECIMEN}/")
+    ]
     assert sorted((pin.path, pin.line, pin.citation) for pin in pins) == CP04_SITES
     assert all(pin.reason for pin in pins), pins
 
 
 def test_the_three_pinned_cp04_citations_are_kept_and_counted() -> None:
     """On this tree, with the specimen untouched: the three are no finding, and
-    the scan counts them as pinned rather than dropping them unseen."""
+    the scan counts every pin it holds, these three among them, rather than
+    dropping one unseen. (Every pin since decision 14 (b) added six:
+    ``test_pinned_record_citations.py``.)"""
     scan = scan_tree(REPO_ROOT)
     in_specimen = [f for f in scan.findings if f.startswith(f"{SPECIMEN}/")]
     assert in_specimen == [], in_specimen
-    assert scan.pinned_historical == len(CP04_SITES), scan
+    pins = len(citations.PINNED_HISTORICAL_CITATIONS) + len(citations.LINE_TEXT_PINNED_CITATIONS)
+    assert scan.pinned_historical == pins, scan
 
 
 @pytest.mark.parametrize(
