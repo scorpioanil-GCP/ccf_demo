@@ -1033,6 +1033,17 @@ class PeeringAdmissionGate:
         not checked: the bytes the store holds (see
         :class:`AdmissionRecordReferenceMismatch`).
 
+        **The store is handed a deep copy of the record, taken before**
+        ``put`` (``D-IMPL-380``, second round, ruling 2 (a), 2026-10-10 07:39
+        MST), and the gate keeps its own record. So a store that alters what it
+        is handed and answers the record's original reference — which passes
+        the check above, because the reference is right — alters only its
+        copy: the ``issuance`` that :meth:`admit` returns in
+        :class:`AdmittedProduct` is the record's own, as built. The saved-bytes
+        limit stands: such a store files altered bytes under the original's
+        address, and nothing here re-reads what it filed; a reader that
+        re-hashes what it fetches finds the difference.
+
         Raises:
             AdmissionNotRecorded: the store could not persist the record. Not
                 swallowed and not softened into a refusal — see that class.
@@ -1083,12 +1094,20 @@ class PeeringAdmissionGate:
             # the admitted product's content address — and the store files it
             # under the capability's tenant after verifying the capability
             # against the kinds the deployment declared for the class.
+            #
+            # The store is handed a deep copy taken now, before the save, and
+            # never the gate's own record (`D-IMPL-380`, second round, ruling
+            # 2 (a); Dave, 2026-10-10 07:39 MST: *"Each writer gives the store
+            # a deep copy made before the save and keeps its own."*): the
+            # record's ``issuance`` is the instance ``admit`` returns, so an
+            # alteration the store made to the object it held would otherwise
+            # reach the caller under a reference that checks out.
             answered = self._artifact_store.put(
                 self._authorized,
                 DerivedWrite(
                     artifact_class=ADMISSION_RECORD.class_id,
                     name=content_address,
-                    artifact=record,
+                    artifact=record.model_copy(deep=True),
                 ),
             )
         except ArtifactStoreUnauthenticated:

@@ -2579,6 +2579,19 @@ class WorkflowEngine:
         reference is refused, not believed. What is not checked: the bytes
         the store holds (see :class:`WorkflowTraceReferenceMismatch`).
 
+        **The store is handed a deep copy of the trace, taken before** ``put``
+        (``D-IMPL-380``, second round, ruling 2 (a), 2026-10-10 07:39 MST),
+        and the engine keeps its own entries. So a store that alters what it
+        is handed and answers the trace's original reference — which passes
+        the check above, because the reference is right — alters only its
+        copy: the trace behind a completed outcome's ``step_sequence_block``,
+        the trace inside the state record the engine keeps, and the trace in
+        the record the recovery path (:meth:`_restore_request`) writes after
+        this ``put`` are the engine's own, as built. The saved-bytes limit
+        stands: such a store files altered bytes under the original's address,
+        and nothing here re-reads what it filed; a reader that re-hashes what
+        it fetches finds the difference.
+
         Raises:
             WorkflowTraceReferenceMismatch: the store's answer is not the
                 trace's own reference. Raised after the store returns.
@@ -2606,12 +2619,20 @@ class WorkflowEngine:
             artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
             name=execution_id,
         )
+        # The store is handed a deep copy taken now, before the save, and never
+        # the engine's own entries (`D-IMPL-380`, second round, ruling 2 (a);
+        # Dave, 2026-10-10 07:39 MST: *"Each writer gives the store a deep copy
+        # made before the save and keeps its own."*): the entries are the ones
+        # behind ``step_sequence_block`` and inside the state record, so an
+        # alteration the store made to the objects it held would otherwise
+        # reach the caller and the replay record under a reference that checks
+        # out.
         answered = self._artifact_store.put(
             authorized,
             DerivedWrite(
                 artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
                 name=execution_id,
-                artifact=trace,
+                artifact=tuple(entry.model_copy(deep=True) for entry in trace),
             ),
         )
         # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
