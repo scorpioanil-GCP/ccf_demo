@@ -514,26 +514,41 @@ def test_a_store_presenting_no_credential_is_refused(
     )
 
 
-def test_a_store_presenting_a_rejected_token_is_refused_as_an_outage(
+def test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal(
     artifact_server_url: str, bridge: SyncMcpBridge
 ) -> None:
-    """A refusal is a fact about reaching the server, never about its contents.
+    """A refusal is a fact about the credential, never about the store's contents.
 
-    The second assertion is the load-bearing one: were a 401 to surface as
+    The last assertion is the load-bearing one: were a 401 to surface as
     ``ArtifactNotFound``, an expired credential would make every artifact in
     the store look deleted, and a replay would record that as history.
+
+    A write's 401 is the typed authentication refusal, never an outage:
+    decision 10 (b), ``D-IMPL-378`` (Dave, 2026-10-09 16:38 MST, adopting
+    Grok's recommendation): *"(b) Type a 401 on a write, and rename the type so
+    it covers both."* Amended from ``McpServerUnreachable``, the label that
+    ruling replaces for a write, and renamed from
+    ``test_a_store_presenting_a_rejected_token_is_refused_as_an_outage``,
+    which said what the ruling makes false.
     """
+    from tests.mcp.test_auth_401_typed_through_the_client import (
+        assert_the_authentication_refusal,
+    )
+
     impostor = McpArtifactStore(
         url=artifact_server_url,
         bridge=bridge,
         write_kinds=WriteKinds({}),
         http_client_factory=rejected_http_client,
     )
-    with pytest.raises(McpServerUnreachable) as refusal:
+    with pytest.raises(Exception) as refusal:
         impostor.put(
             capability(ArtifactWrite, tenant=TENANT, resource=f"{ARTIFACT_CLASS}/{NAME}"),
             _Artifact(label="alpha", ordinal=1),
         )
+    assert_the_authentication_refusal(
+        refusal.value, what="a store presenting a rejected token, at put"
+    )
     assert not isinstance(refusal.value, ArtifactNotFound)
 
 
