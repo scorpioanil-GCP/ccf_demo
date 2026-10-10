@@ -14,7 +14,7 @@ any identity exists, so the server decided nothing about the address asked: a 40
 authorization refusal ``ccf.artifacts.protocol.ArtifactReadRefused``, which is an access decision about an address
 for a credential the server authenticated, carrying the server's refusal shell. This module holds:
 
-* each read raises the typed authentication refusal ``ccf.artifacts.protocol.ArtifactReadUnauthenticated`` when the
+* each read raises the typed authentication refusal ``ccf.artifacts.protocol.ArtifactStoreUnauthenticated`` when the
   guard answers 401, chained from the guard's own HTTP 401 response (the mechanism, asserted by type and by status
   code, never by message);
 * a 401, the server's refusal shell and a refused connection reach the caller as three types, none a subclass of
@@ -243,10 +243,10 @@ def store_at_nothing(write_kinds: WriteKinds | None = None) -> Iterator[McpArtif
 
 def authentication_refusal() -> type[BaseException]:
     """The ruled typed authentication refusal, or a MISSING CONTRACT failure that names it."""
-    found = getattr(artifact_protocol, "ArtifactReadUnauthenticated", None)
+    found = getattr(artifact_protocol, "ArtifactStoreUnauthenticated", None)
     if not (isinstance(found, type) and issubclass(found, BaseException)):
         pytest.fail(
-            "MISSING CONTRACT: ccf.artifacts.protocol.ArtifactReadUnauthenticated, the typed authentication refusal"
+            "MISSING CONTRACT: ccf.artifacts.protocol.ArtifactStoreUnauthenticated, the typed authentication refusal"
             " repair 2.5 (a) requires (D-IMPL-378, Dave, 2026-10-09 10:54 MST), does not exist on this tree"
         )
     return found
@@ -426,7 +426,7 @@ def test_the_guards_other_refusals_are_not_the_authentication_refusal(tmp_path: 
     together. Positive control for the denial row: the same token reads the tenant's own names where reads are
     granted."""
     world = World(tmp_path)
-    found = getattr(artifact_protocol, "ArtifactReadUnauthenticated", None)
+    found = getattr(artifact_protocol, "ArtifactStoreUnauthenticated", None)
     if refusal == GUARD_OTHER[0]:
         server, headers = world.server(), {"Authorization": f"Bearer {SCOPELESS_TOKEN}"}
     else:
