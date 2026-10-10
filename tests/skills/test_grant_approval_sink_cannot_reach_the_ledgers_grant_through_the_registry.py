@@ -97,3 +97,46 @@ def test_a_sink_that_rewrites_the_grant_it_finds_in_the_registry_changes_nothing
     if outcome != as_built_hash:
         problems.append(f"the caller's result {outcome!r} is not the grant as built {as_built_hash}")
     assert not problems, "\n  ".join(["", *problems])
+
+
+def test_a_sink_that_rewrites_the_grant_it_finds_through_resolve_latest_changes_nothing_the_ledger_keeps(
+    fixture: dict[str, Any], instant: datetime, monkeypatch: pytest.MonkeyPatch  # noqa: F811
+) -> None:
+    """The same exploit through the sixth door, ``resolve_latest`` (the Fable
+    seat, sixth-round delta review, F1, executed): copy-in keeps the ledger's
+    and the caller's grant as built, but the registry's stored version was
+    corrupted for every later reader — property (iv)."""
+    world = _World(fixture, instant, approve=True)
+    sink = world.sink
+    real = sink.decide
+    reached: list[tuple[bool, bool, bool]] = []
+
+    def decide(copy: SkillGrant) -> Any:
+        version, live = world.registry.resolve_latest(skill_grant_key(copy))
+        reached.append((version == content_hash(copy), live is copy, isinstance(live, SkillGrant)))
+        object.__setattr__(live, "skill_name", f"{live.skill_name}{SUFFIX}")
+        return real(copy)
+
+    monkeypatch.setattr(sink, "decide", decide)
+    definition = world.definition("gated")
+    grant = world.grant("metrics_tool", definition)
+    as_built_hash = content_hash(grant)
+    as_built_name = grant.skill_name
+    outcome = world.ledger.request(world.grant_cap(definition), grant, definition=definition)
+    assert reached == [(True, False, True)], reached
+
+    problems: list[str] = []
+    saved = world.registry.state_store.get(GRANT_STATE, f"{world.tenant}/{as_built_hash}")
+    assert isinstance(saved, GrantStateRecord)
+    if content_hash(saved.grant) != as_built_hash:
+        problems.append("(i) the saved effective grant does not hash to its record id")
+    if [(e.action, e.version) for e in world.audit.events() if e.action.startswith("grant_") and e.version != as_built_hash]:
+        problems.append("(ii) a grant audit reference names something other than the grant as built")
+    if grant.skill_name != as_built_name:
+        problems.append("(iii) the caller's own grant was rewritten")
+    registered = world.registry.resolve(skill_grant_key(grant), as_built_hash)
+    if content_hash(registered) != as_built_hash:
+        problems.append(f"(iv) registry.resolve(key, {as_built_hash[:12]}…) returns content hashing to {content_hash(registered)[:12]}…")
+    if outcome != as_built_hash or [g.skill_name for g in sink.decided] != [as_built_name]:
+        problems.append("the caller's result or the approver's view is not the grant as built")
+    assert not problems, "\n  ".join(["", *problems])

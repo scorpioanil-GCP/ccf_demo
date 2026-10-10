@@ -75,11 +75,30 @@ class _OtherDocument(CCFContract):
     label: str
 
 
+_INTERNED: dict[str, "_Flyweight"] = {}
+
+
+class _Flyweight(CCFContract):
+    """A contract whose validation interns instances by content: ``model_validate``
+    on its own canonical form returns the SAME object that was registered."""
+
+    label: str
+    attributes: Mapping[str, str] = {}
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _intern(cls, data: Any, handler: Any) -> Any:
+        built = handler(data)
+        return _INTERNED.setdefault(content_hash(built), built)
+
+
 @pytest.fixture(autouse=True)
 def _disarmed() -> Any:
     _POISON["armed"] = False
+    _INTERNED.clear()
     yield
     _POISON["armed"] = False
+    _INTERNED.clear()
 
 
 def _cap(key: str) -> Authorized[Register]:
@@ -200,9 +219,13 @@ def test_peek_and_resolve_refuse_rather_than_share_or_report_missing_when_recons
 
     # Not reported missing: the version is still registered.
     assert registry.versions(key) == (version,)
-    # No successful resolve row was written for a read that served nothing.
+    # A refused read is audited as a failed resolve — the module promises every
+    # resolve, including a failed one, is recorded (the Fable seat, sixth-round
+    # delta review, F3) — and never as a success.
     resolves_after = [e for e in registry.audit_events() if e.action == "resolve"]
-    assert len(resolves_after) == resolves_before
+    assert len(resolves_after) == resolves_before + 1, "a refused resolve wrote no audit row"
+    assert resolves_after[-1].resolved is False and resolves_after[-1].version == version
+    assert not [e for e in resolves_after[resolves_before:] if e.resolved]
     _POISON["armed"] = False
     assert registry.resolve(key, version) == _PoisonedDocument(label="stored-fine")
 
@@ -254,3 +277,19 @@ def test_a_re_registration_whose_nested_types_drift_is_refused_even_when_the_byt
     assert "not equal" in caught.value.reason
     assert registry.versions(key) == (first,)
     assert registry.resolve(key, first) == {"amount": "1.50"}
+
+
+def test_a_class_whose_validation_hands_back_the_original_is_refused_not_stored() -> None:
+    """The three guarantees — type, canonical bytes, equality — are all satisfied by
+    the original object itself. A contract that interns instances by content
+    returns it from ``model_validate``, and the registry would store and serve
+    the registrant's object (the Fable seat, sixth-round delta review, F2,
+    executed). The fourth guarantee: the reconstruction is not the artifact.
+    """
+    registry = _registry()
+    key = "acme/flyweight"
+    original = _Flyweight(label="as-built", attributes={"k": "v"})
+    with pytest.raises(ArtifactIsolationRefused) as caught:
+        registry.register(_cap(key), original)
+    assert "itself" in caught.value.reason
+    assert registry.versions(key) == ()

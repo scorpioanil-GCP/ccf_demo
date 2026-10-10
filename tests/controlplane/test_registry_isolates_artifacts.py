@@ -332,3 +332,29 @@ def test_identical_content_is_still_idempotent_and_a_rewritten_original_register
     if served_second.label != "rewritten" or content_hash(served_second) != second:
         problems.append("the second version does not serve the rewritten content under its own hash")
     assert not problems, "; ".join(problems)
+
+
+def test_resolve_latest_a_nested_change_to_the_returned_artifact_does_not_change_a_later_read() -> None:
+    """The sixth read door. The order named five sites; the tree had six —
+    ``resolve_latest`` returned the registry's object by reference (the Fable
+    seat, sixth-round delta review, F1, with the grant-sink exploit replayed
+    through it). Beyond the five enumerated sites; recorded as such.
+    """
+    registry = _registry()
+    table = _table()
+    as_built = canonical_bytes(table)
+    version = registry.register_typed(_cap(TABLE_KEY), table, HALF_LIFE_TABLE)
+
+    latest_version, latest = registry.resolve_latest(TABLE_KEY)
+    assert latest_version == version and isinstance(latest, HalfLifeTable)
+    latest.entries["rate"] = _entry(1)  # type: ignore[index]  # nested
+    object.__setattr__(latest, "semver", "9.9.9")  # top-level
+
+    later = registry.resolve(TABLE_KEY, version)
+    assert isinstance(later, HalfLifeTable)
+    problems = _served_as_built(later, as_built_bytes=as_built, version=version, what="resolve_latest")
+    if set(later.entries) != {"spread"}:
+        problems.append(f"resolve_latest: a nested change to the returned artifact reached a later read ({sorted(later.entries)!r})")
+    if later.semver != "1.0.0":
+        problems.append(f"resolve_latest: a rebinding on the returned artifact reached a later read ({later.semver!r})")
+    assert not problems, "; ".join(problems)
