@@ -38133,7 +38133,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `admit` appended the `peering_admitted` verdict with the key and version of whatever reference the store answered for the admission record.
-- After: `admit` raises `AdmissionRecordReferenceMismatch` when the store's answer is not the record's own reference; no verdict is appended and no `AdmittedProduct` exists. The issuance nonce is spent, as when the record is not persisted: the same envelope presented again is refused `replayed`.
+- After: `admit` raises `AdmissionRecordReferenceMismatch` when the store's answer is not the record's own reference; no verdict is appended and no `AdmittedProduct` exists. The issuance nonce is spent, as when the record is not persisted (`AdmissionNotRecorded`): the same envelope presented again is refused `replayed` (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`, both cases; SP §1.1a's nonce sentence now says so).
 - Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_records_own_is_refused_by_name`.
 - Migration: none for a conforming store.
 

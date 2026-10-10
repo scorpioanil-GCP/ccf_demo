@@ -26,8 +26,9 @@ class) changed or carried in a `str` subclass that claims equality:
 **What holds now**, in `tests/replay/test_query_pin_writer_checks_the_returned_reference.py`,
 `tests/products/test_child_question_retention_checks_the_returned_reference.py`,
 `tests/peering/test_admission_record_writer_checks_the_returned_reference.py` and
-`tests/workflow/test_trace_writer_checks_the_returned_reference.py` (53 tests; 47 failed before the change, the 6
-controls passed before and after). Each writer derives the reference of what it filed under `D-IMPL-26` (the content
+`tests/workflow/test_trace_writer_checks_the_returned_reference.py` (53 tests written before the change: 47 failed
+before it, the 6 controls passed before and after; plus two cases pinning what a crossing refused at its record
+keeps, added after it, below). Each writer derives the reference of what it filed under `D-IMPL-26` (the content
 address is the content hash of what was written, the URI's version is that address, the name and class are the
 writer's own, the tenant is its capability's) and holds every field of the store's answer to it as an exact string,
 with the record writer's comparison (`ccf.replay.serve._same_string`). A difference raises the writer's own
@@ -121,7 +122,7 @@ differing field names, no value and no type name.
 - Public surface: true
 - Change type: behavior
 - Before: `admit` appended the `peering_admitted` verdict with the key and version of whatever reference the store answered for the admission record.
-- After: `admit` raises `AdmissionRecordReferenceMismatch` when the store's answer is not the record's own reference; no verdict is appended and no `AdmittedProduct` exists. The issuance nonce is spent, as when the record is not persisted: the same envelope presented again is refused `replayed`.
+- After: `admit` raises `AdmissionRecordReferenceMismatch` when the store's answer is not the record's own reference; no verdict is appended and no `AdmittedProduct` exists. The issuance nonce is spent, as when the record is not persisted (`AdmissionNotRecorded`): the same envelope presented again is refused `replayed` (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`, both cases; SP §1.1a's nonce sentence now says so).
 - Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_records_own_is_refused_by_name`.
 - Migration: none for a conforming store.
 
