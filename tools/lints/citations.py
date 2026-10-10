@@ -132,20 +132,33 @@ correction was written against; the definition has moved since".
 surrounding lines carry one of those phrases, or a bare git object id, is
 exempt from ``cite01`` and ``cite02`` alike.
 
-Pinned historical citations (PROPOSAL, not ruled)
--------------------------------------------------
+Pinned historical citations
+---------------------------
 
 A frozen specimen may not be edited (``D-IMPL-261``), so a citation in it that
 names nothing is a ``cite03`` finding for ever. ``D-IMPL-378`` repair 1.5 (Dave,
 2026-10-09 10:54 MST) reverted the edit that corrected three such citations in
 ``examples/cp-04-corporate-family-tree``, declined to exclude frozen examples
 from the check, and asked for *"a narrowly pinned historical citation
-exception"*. ``PINNED_HISTORICAL_CITATIONS`` is that exception as proposed: each
-entry keeps ONE finding, keyed by the file, the line, the exact citation text
-and the sha256 of the file's text, and only while all four still match. Any
-other dangling citation, in that file or anywhere, is a finding; any change to
-a pinned file's bytes voids every pin on it. A kept citation is counted
-(``Scan.pinned_historical``; ``--report``), never dropped unseen.
+exception"*. ``PINNED_HISTORICAL_CITATIONS`` is that exception, accepted by
+decision 13 (a) (2026-10-09 16:38 MST: *"Accept the cp-04 pins, locked to the
+file’s bytes"*): each entry keeps ONE finding, keyed by the file, the line, the
+exact citation text and the sha256 of the file's text, and only while all four
+still match. Any other dangling citation, in that file or anywhere, is a
+finding; any change to a pinned file's bytes voids every pin on it.
+
+Decision 14 (b), the same day (*"Exempt the dated records. Pin the rest. Do not
+edit records in place."*), settled nine more findings repair 1.7 made in text
+that may not be edited: the D-IMPL-353 close-review record joined
+``HISTORICAL_RECORDS`` (three), and the rest are pinned. Two of them stand on
+one success criterion of ``.planning/ROADMAP.md``, a living file, and
+``LINE_TEXT_PINNED_CITATIONS`` keys them as Dave answered at 17:53 MST
+(question 3 (ii)): on the citing line's full text and the citation's text, not
+on the line's number or the file's hash. An edit elsewhere in the file, even
+one that moves the line, leaves them valid; any edit to that line voids them;
+and a pinned line text that stands on more than one line of the file keeps
+nothing. A kept citation is counted (``Scan.pinned_historical``;
+``--report``), never dropped unseen.
 
 Scope is configured, and was measured
 -------------------------------------
@@ -181,6 +194,8 @@ __all__ = [
     "CITATION",
     "GATED_TREES",
     "HISTORICAL_RECORDS",
+    "LINE_TEXT_PINNED_CITATIONS",
+    "LineTextPinnedCitation",
     "MAINTAINED_RECORDS",
     "NODE_ID",
     "PINNED_HISTORICAL_CITATIONS",
@@ -354,6 +369,73 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
         citation="src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
         sha256="25aef57fe515f0b2b4076e303e6b794a849426928e6d1c69310641a5ec728430",
         reason=_CP04_REASON,
+    ),
+)
+
+
+class LineTextPinnedCitation(NamedTuple):
+    """One ``cite03`` finding kept, by its file, its line's text and the citation's text.
+
+    ``D-IMPL-378`` decision 14 (b), keyed as Dave answered question 3 (ii) on
+    2026-10-09 at 17:53 MST: neither the line's number nor the file's hash is
+    part of the key. An edit elsewhere in the file, even one that moves the
+    line, leaves the pin valid; any edit to the line voids it; and a
+    ``line_text`` that stands on more than one line of the file keeps nothing,
+    because the pin cannot say which of them it means. ``line_text`` is the
+    whole line as the checker reads it (``str.splitlines`` of the file's UTF-8
+    text), leading and trailing whitespace included.
+    """
+
+    path: str
+    line_text: str
+    citation: str
+    reason: str
+
+
+#: The citations pinned on their line's text: two, both on one success
+#: criterion of ``.planning/ROADMAP.md`` (its line 2242 at ``d128a30d``, a
+#: number the pin does not key on). The roadmap is a living file: 483 commits
+#: touch it up to ``d128a30d``, 91 of them since 2026-09-01, while this line
+#: last changed on 2026-08-24. A pin on the file's hash would void at every
+#: roadmap edit; Dave chose the line's text (question 3 (ii)).
+_ROADMAP_QUOTE_REASON = (
+    "a success criterion quoting, verbatim, what four docstrings cited before"
+    " D-IMPL-192 re-pointed them; correcting the quote would falsify the"
+    " record; kept as written by D-IMPL-378 decision 14 (b)"
+)
+_ROADMAP_CRITERION_LINE = (
+    "  14. `src/`, `runtime/` and `pyproject.toml` are **diff-empty** "
+    "against the phase base **EXCEPT the four path-string-only citation "
+    "updates AMENDED IN by `D-IMPL-192`, enumerated here by SYMBOL "
+    "rather than by line per `D-IMPL-114` and `D-IMPL-123` — the module "
+    "docstring of `src/ccf/products/bind.py`, "
+    "`runtime/ccf_runtime/mcp/egress.py::ProductResolverProtocol`, "
+    "`runtime/ccf_runtime/mcp/experience.py::ExperienceProductResolverProtocol` "
+    "(these three each citing "
+    "`examples/04-cross-process/producer_child.py::resolve`) and "
+    "`runtime/ccf_runtime/mcp/experience.py::ContextProviderProtocol` "
+    "(citing "
+    "`examples/external/00-hello-context/serve.py::context_provider`), "
+    "each re-pointed to its `archive/examples/...` path**; a FIFTH edit "
+    "under any of the three members is a scope breach, the five `s1-01` "
+    "citations are NOT touched, each of the four is proven "
+    "PATH-STRING-ONLY, and the rest is proven by a **per-member** "
+    "pathspec diff with each member proven to name tracked files — the "
+    "`VAC-01` guard, because a misspelled member diffs empty exactly "
+    "like a clean one"
+)
+LINE_TEXT_PINNED_CITATIONS: tuple[LineTextPinnedCitation, ...] = (
+    LineTextPinnedCitation(
+        path=".planning/ROADMAP.md",
+        line_text=_ROADMAP_CRITERION_LINE,
+        citation="examples/04-cross-process/producer_child.py::resolve",
+        reason=_ROADMAP_QUOTE_REASON,
+    ),
+    LineTextPinnedCitation(
+        path=".planning/ROADMAP.md",
+        line_text=_ROADMAP_CRITERION_LINE,
+        citation="examples/external/00-hello-context/serve.py::context_provider",
+        reason=_ROADMAP_QUOTE_REASON,
     ),
 )
 
@@ -933,15 +1015,26 @@ def checkable_anchor(
 
 
 def _pinned(path: pathlib.Path, lineno: int, citation: str, source: str) -> bool:
-    """True when this ``cite03`` finding is a pin of ``PINNED_HISTORICAL_CITATIONS``.
+    """True when this ``cite03`` finding is kept by a pin.
 
-    All four must match: the file, the line, the exact citation text, and the
-    sha256 of `source` — so a pinned file whose bytes changed keeps nothing.
+    A ``PINNED_HISTORICAL_CITATIONS`` pin keeps it when all four match: the
+    file, the line, the exact citation text, and the sha256 of `source` — so a
+    pinned file whose bytes changed keeps nothing. A
+    ``LINE_TEXT_PINNED_CITATIONS`` pin keeps it when the file, the whole text
+    of line `lineno` and the exact citation text match, and that text stands
+    on exactly one line of `source` — so the line may move, while an edit to
+    it, or a second copy of it anywhere in the file, keeps nothing.
     """
-    site = (path.as_posix(), lineno, citation)
+    rel = path.as_posix()
+    site = (rel, lineno, citation)
     for pin in PINNED_HISTORICAL_CITATIONS:
         if (pin.path, pin.line, pin.citation) == site:
             return hashlib.sha256(source.encode("utf-8")).hexdigest() == pin.sha256
+    lines = source.splitlines()
+    text = lines[lineno - 1]
+    for line_pin in LINE_TEXT_PINNED_CITATIONS:
+        if (line_pin.path, line_pin.line_text, line_pin.citation) == (rel, text, citation):
+            return lines.count(text) == 1
     return False
 
 
