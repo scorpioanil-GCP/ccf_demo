@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2539 entries**, of which **2262** name a public Python surface.
+**2541 entries**, of which **2264** name a public Python surface.
 
 ## Added
 
@@ -30923,7 +30923,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-502 entries — 463 public Python surface, 39 not public Python API.
+504 entries — 465 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38078,6 +38078,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. Keep the population phase free of anything the subject-keyed phase writes; the walk does not stand in for that past its bounds.
 
 *Recorded by `378-68-b-shared-owner-walk-incomplete-says-repair-2-4-b-is-not-built.md`.*
+
+#### ccf.products.resolver.PopulationPhaseSharesAnOwner
+
+- Surface: ccf.products.resolver.PopulationPhaseSharesAnOwner
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said that where reading what an object holds raises, the walk cannot complete and the two phases are refused (`SharedOwnerWalkIncomplete`).
+- After: unchanged behavior; its docstring says that a declared slot never assigned and an empty closure cell hold nothing and are read so, and that where reading what an object holds raises otherwise the two phases are refused, naming the test that measures each.
+- Why: `D-IMPL-378`, the "j" batch panel's J-SP-WALK-READS (a refusal advertised for two reads the walk admits). Measured by `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing`, `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing` and `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`.
+- Migration: none.
+
+*Recorded by `378-68-c-the-walk-reads-an-unassigned-slot-and-an-empty-cell-as-holding-nothing.md`.*
+
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: behavior
+- Before: its docstring named a declared slot never assigned, but not an empty closure cell, as read as holding nothing; fragment `378-63-a` said it is raised "when reading what an object the walk reached holds raises".
+- After: unchanged behavior, stated as it is: it is raised where reading what an object the walk reached holds raises, except for a declared slot never assigned and an empty closure cell, which hold nothing and are read so; its docstring names both, and the tests that measure them.
+- Why: `D-IMPL-378`, J-SP-WALK-READS. Measured as for `ccf.products.resolver.PopulationPhaseSharesAnOwner`.
+- Migration: none.
+
+*Recorded by `378-68-c-the-walk-reads-an-unassigned-slot-and-an-empty-cell-as-holding-nothing.md`.*
 
 ### Not public Python API
 

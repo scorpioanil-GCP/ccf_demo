@@ -732,11 +732,17 @@ class PopulationPhaseSharesAnOwner(UnsupportedComposition):
     ``dict``, subclasses included. It reads what each object stores and calls
     nothing an object defines. It stops after
     :data:`SHARED_OWNER_WALK_DEPTH` steps from a phase, or once it has read
-    :data:`SHARED_OWNER_WALK_OBJECTS` references from it. Where reading what
-    an object holds raises (such as another class's member descriptor in a
-    slotted class's namespace), the walk cannot complete and the two phases
-    are refused rather than admitted (:class:`SharedOwnerWalkIncomplete`,
-    ``D-IMPL-378`` repair 1.8).
+    :data:`SHARED_OWNER_WALK_OBJECTS` references from it. A declared slot
+    never assigned and an empty closure cell hold nothing, and the walk reads
+    them so (measured by
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing``
+    and
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing``).
+    Where reading what an object holds raises otherwise (such as another
+    class's member descriptor in a slotted class's namespace), the walk cannot
+    complete and the two phases are refused rather than admitted
+    (:class:`SharedOwnerWalkIncomplete`, ``D-IMPL-378`` repair 1.8; measured by
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name``).
 
     **What it cannot detect**, stated here and in the security how-to,
     section 4.12:
@@ -794,7 +800,11 @@ class SharedOwnerWalkIncomplete(PopulationPhaseSharesAnOwner):
     namespace holds another class's member descriptor, which raises
     ``TypeError`` for this object. The walk cannot show that the object holds
     nothing of the other phase, so it does not admit the pair. A declared slot
-    never assigned is not such a member: it holds nothing, and is read so.
+    never assigned and an empty closure cell are not such cases, although
+    reading either raises: each holds nothing, and is read so (measured by
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing``
+    and
+    ``tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing``).
 
     A :class:`PopulationPhaseSharesAnOwner`, so what handles that refusal
     handles this one. The message names the phase the walk started from, the
@@ -1732,8 +1742,10 @@ def _reaches(phase: object, owners: frozenset[int], *, walked: str) -> bool:
 
     Raises:
         SharedOwnerWalkIncomplete: reading what an object the walk reached
-            holds raised, so the walk cannot complete (``D-IMPL-378`` repair
-            1.8); never the raw error.
+            holds raised, other than reading a declared slot never assigned
+            or an empty closure cell, each of which holds nothing, so the
+            walk cannot complete (``D-IMPL-378`` repair 1.8); never the raw
+            error.
     """
     if id(phase) in owners:
         return True
