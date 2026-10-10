@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2603 entries**, of which **2324** name a public Python surface.
+**2605 entries**, of which **2326** name a public Python surface.
 
 ## Added
 
@@ -31091,7 +31091,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-552 entries — 513 public Python surface, 39 not public Python API.
+554 entries — 515 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38817,7 +38817,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: every grant state write handed the Control Plane state store a `GrantStateRecord` built around the ledger's own `SkillGrant`, and on the approval path the ledger then handed that same grant to the approval sink, so a state store that rewrote the grant while holding it had its rewrite decided on by the approver, and carried by every later use of the grant in the same passage.
-- After: the one function every grant state write uses (`_put_state`, the only `self._writer.write(` in the module) hands the state store a deep copy of the record taken before the save; the ledger keeps its own grant, so the approval sink and every later use in the same passage see the grant as built. The saved-bytes limit, state-store form: the state store saves its copy, and a later reader of the saved record (`bound_view`, `effective_hashes` and the folds) reads what the store saved.
+- After: the one function every grant state write uses (`_put_state`, the only `self._writer.write(` in the module) hands the state store a deep copy of the record taken before the save; the ledger keeps its own grant, so the approval sink and every later use in the same passage see the grant as built. The saved-bytes limit, state-store form: the state store saves its copy, and a later reader of the saved record (`bound_view`, `effective_hashes`, `revoke`, `state` and the folds) reads what the store saved. A revocation records the grant it read back: its write and its audit event name what the store saved (amended in the fifth round, ruling 3 (a), Dave 12:57 MST: *"Add revoke and state to the list of readers of saved data."*).
 - Why: `D-IMPL-380` fourth round, ruling 1 (a), 2026-10-10 10:58 MST. Red test: `tests/skills/test_grant_state_store_holds_a_copy.py`.
 - Migration: none for a state store that does not change what it is handed.
 
@@ -38841,11 +38841,35 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: the engine's docstrings did not say that the HITL transport is handed the engine's own pending event.
-- After: unchanged behavior; the docstring where the event is enqueued (`_suspend`, which names `_restore_request` too) says: a HITL transport is handed the engine's own pending event, so a transport that alters it can change the `event_key` the caller is told in `WorkflowSuspended`; the approval binding (the hash of the suspension record as built) does not change, and resume recomputes the key from the execution's state key and the gate, never from the event the transport was handed. The event is not copied.
-- Why: `D-IMPL-380` fourth round, ruling 2 (b), 2026-10-10 10:58 MST. The Fable seat's finding F-2 on the third-round delta review, reproduced by the coordinator at `06414dbd`; the binding is the one `tests/workflow/test_state_store_holds_a_copy.py` holds to the record as built.
+- After: unchanged behavior; amended in the fifth round, the docstrings of `_suspend` and `_restore_request`, and the security page, say: A HITL transport is handed the engine's own pending event, which is not copied. A transport that alters it can change the `event_key` the caller is told in `WorkflowSuspended`, and, because resume looks for the key it recomputes (`_event_key`) among the events the transport holds, a transport that alters the key can keep the gate from ever opening, and each recovery queues another request. Nothing is wrongly approved: the approval binding, the hash of the suspension record as built, does not change.
+- Why: `D-IMPL-380` fourth round, ruling 2 (b), 2026-10-10 10:58 MST (the Fable seat's finding F-2 on the third-round delta review, reproduced by the coordinator at `06414dbd`); replaced in the fifth round, ruling 1 (a), 2026-10-10 12:57 MST: *"The current sentence understates it. Say that a queue which alters the key can keep the gate from ever opening, and that each recovery queues another request. Nothing is wrongly approved."* The builder's finding B-1 on the fourth-round delta review, reproduced by the coordinator at `197f5b4f` and re-measured by lane `380e-repair` before the sentence was written; the binding is the one `tests/workflow/test_state_store_holds_a_copy.py` holds to the record as built. The recovery code is not changed.
 - Migration: none.
 
 *Recorded by `380-04-grant-ledger-copies-before-the-save-and-the-hitl-queue-key-disclosed.md`.*
+
+#### ccf.skills.grants.GrantLedger
+
+- Surface: ccf.skills.grants.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: on the approval path the ledger handed the approval sink its own `SkillGrant` (`self._sink.decide(grant)`), and wrote the `effective` record and its `grant_effective` audit event from that same object, so a sink that rewrote the grant it received left a grant in effect whose saved bytes do not hash to its record id, and rewrote the caller's object.
+- After: the approval sink receives `grant.model_copy(deep=True)`; the ledger keeps its own grant and writes every later state, and its audit event, from it, so the `effective` record is saved as built, under the record id the grant as built hashes to.
+- Why: `D-IMPL-380` fifth round, ruling 2 (a), 2026-10-10 12:57 MST. The builder's finding B-2 and the Fable seat's finding F-1 on the fourth-round delta review, reproduced by the coordinator at `197f5b4f`. Red test: `tests/skills/test_grant_approval_sink_holds_a_copy.py`.
+- Migration: none for an approval sink that does not change what it is handed. A sink that relied on altering the grant it receives no longer reaches the ledger's grant.
+
+*Recorded by `380-05-the-approval-sink-is-handed-a-copy.md`.*
+
+#### ccf.skills.GrantLedger
+
+- Surface: ccf.skills.GrantLedger
+- Public surface: true
+- Change type: behavior
+- Before: as for `ccf.skills.grants.GrantLedger`
+- After: as for `ccf.skills.grants.GrantLedger`
+- Why: as for `ccf.skills.grants.GrantLedger`
+- Migration: as for `ccf.skills.grants.GrantLedger`
+
+*Recorded by `380-05-the-approval-sink-is-handed-a-copy.md`.*
 
 ### Not public Python API
 
