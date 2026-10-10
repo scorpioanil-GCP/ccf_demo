@@ -18,16 +18,18 @@ the file's hash. An edit elsewhere in ``.planning/ROADMAP.md``, even one that
 moves the line, leaves them valid; any edit to that line voids them; and a
 pinned line text that stands on more than one line of the file keeps nothing.
 Every other pin keeps the file's hash: decision 13 (a)'s three cp-04 pins
-(*"locked to the file's bytes"*), the landed fragment's three and the frozen
+(*"locked to the file’s bytes"*), the landed fragment's three and the frozen
 test's one.
 
 Every property is asserted behaviorally, through the shipped
 ``tools/lints/citations.py::check_source`` and
-``tools/lints/citations.py::scan_tree``, on the real files and on edited copies
-of their text; nothing here writes to the tree. Derived from the module of this
-name on ``proposal-378j-record-citations`` at ``85f52dd9``, which pinned all
-nine on the file's hash: the three review-record pins are dropped, the
-roadmap's keying is replaced, and each roadmap property has its own test.
+``tools/lints/citations.py::scan_tree``, on the real files, on edited copies of
+their text and, for the hash key's owed test, on one fixture tree under
+pytest's ``tmp_path``; nothing here writes to the repository. Derived from the
+module of this name on ``proposal-378j-record-citations`` at ``85f52dd9``,
+which pinned all nine on the file's hash: the three review-record pins are
+dropped, the roadmap's keying is replaced, and each roadmap property has its
+own test.
 """
 
 from __future__ import annotations
@@ -158,7 +160,7 @@ def test_the_review_record_is_exempt_by_the_entry_that_names_decision_14b() -> N
 
 
 def test_the_files_holding_the_six_stay_gated() -> None:
-    """Control: "pin the rest" -- the six are kept one by one, never by
+    """Control: "Pin the rest" -- the six are kept one by one, never by
     exempting the files they stand in."""
     for rel in (ROADMAP, FRAGMENT, FROZEN_TEST):
         assert exemption_reason(rel) is None, (
