@@ -16,7 +16,10 @@ The options it was chosen among are lane ``378d-democlock``'s ``PROPOSAL-C1.md``
 demonstration time to the SDK's own approved development backends. Explicitly
 amend the broader “declares itself” wording."* Option (b) there reads *"tighten
 the code to the SDK's own SQLite / in-memory classes"*; rule 4 below is that
-tightening.
+tightening. **Decision 4 (a)** — Dave, 2026-10-09 16:38 MST, adopting Grok's
+recommendation: *"(a) Exact type."* The option ruled reads *"Tighten it to the
+SDK's own class: an exact-type check (`type(store) is FileArtifactStore`)"*;
+rule 4's store check is that exact-type test.
 **C1-late, RULED (a)** — Dave, 2026-10-08 12:29 MST: *"Running services retain
 their startup snapshot. Document that later registration takes effect only after
 rebuilding."* Rule 2 below is that snapshot, and says what rebuilding is on each
@@ -52,16 +55,16 @@ The rules, each enforced here or by `ccf.products.resolver.GovernedResolver`
    by decision 6 (b)). Refused (:class:`DemonstrationServeInstantRefused`)
    unless the graph adapter is one the SDK ships whose own registration is a
    development reference (`ccf.graph.registry.is_sdk_development_reference`:
-   the SDK's SQLite and in-memory adapters) and the artifact store is an
-   instance of the SDK's file-backed store class — the implementations
-   CLAUDE.md §7.4 and §9 name as development references (``D-IMPL-02``). An
-   adapter's declaration about itself does not count: a third-party
-   registration that sets
-   `ccf.graph.registry.BackendRegistration.development_reference` is refused,
-   since that field is read only on the SDK's own records. The store check is
-   ``isinstance``, so a subclass of the SDK's file-backed store passes it. The
-   adapter is asked about through the registry, so core names none
-   (``D-IMPL-93`` property (2)).
+   the SDK's SQLite and in-memory adapters) and the artifact store's class is
+   the SDK's file-backed store class itself — the implementations CLAUDE.md
+   §7.4 and §9 name as development references (``D-IMPL-02``). An adapter's
+   declaration about itself does not count: a third-party registration that
+   sets `ccf.graph.registry.BackendRegistration.development_reference` is
+   refused, since that field is read only on the SDK's own records. The store
+   check is an exact-type test (decision 4 (a)), so a subclass of the SDK's
+   file-backed store is refused, even one that overrides nothing. The adapter
+   is asked about through the registry, so core names none (``D-IMPL-93``
+   property (2)).
 5. **Confined to the serve clock.** Only ``served_at`` moves. The Control Plane
    audit log, the erasure consult's audit stamp, the door's authentication and
    entitlement clocks keep their own; Context Debt keeps the decision instant
@@ -124,7 +127,9 @@ class DemonstrationServeInstantRefused(ValueError):
     policy and admission at a stale instant, so it is refused on any substrate a
     production deployment would run on. Narrowed by decision 6 (b) (Dave,
     2026-10-09) to the SDK's own approved development backends: a third-party
-    graph adapter is refused whatever its registration declares.
+    graph adapter is refused whatever its registration declares. Narrowed by
+    decision 4 (a) (Dave, 2026-10-09) to the SDK's own store class: a store
+    whose class is a subclass of the SDK's file-backed store is refused.
 
     Attributes:
         reason: Which substrate refused it.
@@ -199,14 +204,18 @@ def _refuse_outside_development_substrates(
             reason="graph-substrate-not-development",
             key=pinned.key,
         )
-    if not isinstance(artifact_store, FileArtifactStore):
+    # Decision 4 (a): the store's exact class, never `isinstance`. A subclass
+    # passes an `isinstance` test whatever it overrides, so it would admit a
+    # store class the deployment declares by inheriting the SDK's.
+    if type(artifact_store) is not FileArtifactStore:
         raise DemonstrationServeInstantRefused(
             f"{pinned.key!r} declares a demonstration serve instant"
             f" ({pinned.instant.isoformat()}), and this composition's artifact"
-            f" store is a {type(artifact_store).__name__}, not the SDK's"
-            " file-backed development store. A record written on a fixed serve"
-            " clock claims a serve time that was not real, so it is refused"
-            " outside the development store (D-IMPL-378 C1)",
+            f" store is a {type(artifact_store).__name__}, not the SDK's own"
+            " file-backed development store class (a subclass of it is refused"
+            " too). A record written on a fixed serve clock claims a serve time"
+            " that was not real, so it is refused outside the development store"
+            " (D-IMPL-378 C1, decision 4 (a))",
             reason="artifact-store-not-development",
             key=pinned.key,
         )
@@ -253,8 +262,8 @@ def compose_serve_clock(
         DemonstrationServeInstantRefused: the declaration sits on a graph
             adapter that is not one of the SDK's own approved development
             backends, whatever that adapter's registration declares, or on an
-            artifact store that is not an instance of the SDK's file-backed
-            store class.
+            artifact store whose class is not the SDK's file-backed store
+            class itself (a subclass of it is refused: decision 4 (a)).
     """
     key = demonstration_serve_instant_key(tenant_id=fabric.tenant_id)
     if isinstance(control_plane, PinnedPolicySource):
