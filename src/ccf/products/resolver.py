@@ -5569,6 +5569,19 @@ class GovernedResolver:
         same address the child row records — or replay could not resolve the
         row to the bytes. A store that hashed differently is refused here,
         loudly, rather than discovered at replay.
+
+        **The store is handed a deep copy of each contract, taken before**
+        ``put`` (``D-IMPL-380``, third round, ruling 2 (a), 2026-10-10 09:18
+        MST), and the resolver keeps its own: the contracts in
+        ``resolved.admitted``, from which ``child_contract_view(resolved)`` —
+        the parent's view — is built. ``ContextProductContract.payload``
+        validates to a live ``dict``, so a store that wrote into the mapping it
+        was handed and answered the right address would otherwise have its
+        alteration reach the parent under a child row that names the address
+        as admitted. The content-address check (the paragraph above) is
+        unchanged. The saved-bytes limit stands: such a store files altered
+        bytes under the original's address, and nothing here re-reads what it
+        filed; replay, which re-hashes what it fetches, finds the difference.
         """
         for contract in contracts:
             address = content_hash(contract)
@@ -5582,7 +5595,11 @@ class GovernedResolver:
                 DerivedWrite(
                     artifact_class=ADMITTED_CHILD_CONTRACT_CLASS,
                     name=address,
-                    artifact=contract,
+                    # A deep copy taken now, before the save; the resolver keeps
+                    # its own contract (`D-IMPL-380`, third round, ruling 2 (a);
+                    # Dave, 2026-10-10 09:23 MST: *"The parent is built from
+                    # contracts the store never held."*).
+                    artifact=contract.model_copy(deep=True),
                 ),
             )
             if filed.content_address != address:

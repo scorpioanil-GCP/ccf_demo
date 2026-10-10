@@ -2404,6 +2404,26 @@ class WorkflowEngine:
         appended only when it lands (``D-IMPL-378``), so the audit log never
         records a transition the store did not take.
 
+        **The state store is handed a deep copy of the record, taken before the
+        save** (``D-IMPL-380``, third round, ruling 2 (a), 2026-10-10 09:18
+        MST: *"The workflow state store is not trusted because it is the
+        Control Plane. That is the same hole as the artifact store, one writer
+        over."*), and the engine keeps its own record. Every state write passes
+        through this function (no other ``write_if`` or ``put_if`` exists in
+        ``runtime/ccf_runtime/workflow/``), and in every passage the state
+        write comes before :meth:`_write_trace`, so a state store that altered
+        the record it held — its trace entries are the engine's own — would
+        otherwise reach the trace artifact, a completed outcome's
+        ``step_sequence_block`` and a suspension's approval binding. They are
+        built from the engine's record, which the store never held.
+
+        **The saved-bytes limit, state-store form, disclosed.** The record the
+        state store saves is its copy. A state store that alters its copy saves
+        the alteration, and a LATER passage that reads the record back (a
+        resume, a retry, the recovery path) reads what the store saved. Nothing
+        here re-reads what the store saved: the same posture as the artifact
+        store's (:meth:`_write_trace`).
+
         Raises:
             StateConflict: the record moved since ``expected_version`` was read.
         """
@@ -2412,7 +2432,11 @@ class WorkflowEngine:
         _, version = self._writer.write_if(
             authorized,
             WORKFLOW_STATE,
-            record,
+            # A deep copy taken now, before the save; the engine keeps its own
+            # record (`D-IMPL-380`, third round; Dave, 2026-10-10 09:23 MST:
+            # *"Each of the three writers copies before the save and keeps its
+            # own."*).
+            record.model_copy(deep=True),
             record_id=execution_id,
             event=AuditEvent(
                 sequence=0,  # reassigned by the log; sequencing is its own

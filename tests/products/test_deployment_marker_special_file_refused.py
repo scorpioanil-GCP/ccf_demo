@@ -124,7 +124,7 @@ def _counting_opens_of(monkeypatch: pytest.MonkeyPatch, marker: pathlib.Path) ->
 
 @pytest.mark.parametrize("boot", BOOTS)
 @pytest.mark.parametrize("kind", sorted(SPECIAL))
-def test_380b_1_a_special_file_at_the_marker_path_beside_a_store_is_never_opened_and_the_outcome_is_unchanged(
+def test_380b_1_a_special_file_beside_a_store_has_its_type_checked_from_lstat_before_any_open_and_the_outcome_is_unchanged(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, kind: str, boot: str
 ) -> None:
     manifest, registry, _records = p4e._deployment(tmp_path)
@@ -168,7 +168,7 @@ def test_380b_1_a_special_file_at_the_marker_path_beside_a_store_is_never_opened
 
 
 @pytest.mark.parametrize("kind", sorted(SPECIAL))
-def test_380b_1_store_creation_beside_a_store_never_opens_a_special_file_at_the_marker_path(
+def test_380b_1_store_creation_checks_a_special_file_from_lstat_before_any_open(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
     manifest, registry, _records = p4e._deployment(tmp_path)
