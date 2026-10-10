@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2553 entries**, of which **2276** name a public Python surface.
+**2561 entries**, of which **2284** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1369 entries — 1323 public Python surface, 46 not public Python API.
+1370 entries — 1324 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19892,9 +19892,9 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-63-a-q7-walk-refuses-a-member-it-cannot-read.md`.*
 
-#### ccf.artifacts.protocol.ArtifactReadUnauthenticated
+#### ccf.artifacts.protocol.ArtifactStoreUnauthenticated
 
-- Surface: ccf.artifacts.protocol.ArtifactReadUnauthenticated
+- Surface: ccf.artifacts.protocol.ArtifactStoreUnauthenticated
 - Public surface: true
 - Change type: added
 - Before: absent.
@@ -19951,6 +19951,18 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 - Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
 
 *Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf_runtime.http_api.errors.ERROR_ARTIFACT_STORE_UNAUTHENTICATED
+
+- Surface: ccf_runtime.http_api.errors.ERROR_ARTIFACT_STORE_UNAUTHENTICATED
+- Public surface: true
+- Change type: added
+- Before: absent.
+- After: `"artifact-store-unauthenticated"`, the code the three HTTP evidence doors answer with `503` when the deployment's artifact store presented a credential its server's guard did not authenticate (HTTP 401).
+- Why: decision 21 (a), `D-IMPL-378`.
+- Migration: a client branching on refusal codes adds this one. It names a deployment fault: the operator renews or corrects the store's credential; the caller's own request was not at fault.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
 
 ### Not public Python API
 
@@ -30971,7 +30983,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-512 entries — 473 public Python surface, 39 not public Python API.
+519 entries — 480 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38037,9 +38049,9 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: `get`, `exists`, `names_at`, `resolve_uri` and `match_subject` raised `McpServerUnreachable` when the server's guard answered HTTP 401 (`get` asked the presence resource a second time first, and got the same 401).
-- After: each raises `ccf.artifacts.protocol.ArtifactReadUnauthenticated`, chained from the guard's 401 response, judged on the response's status code and never on message text; `get` makes one round trip for it. `put` is unchanged. A refusal shell still reads as `ArtifactReadRefused` on `names_at` and as absence on `get` (`ArtifactNotFound`) and `exists` (`False`), and a refused connection is still `McpServerUnreachable`.
+- After: each raises `ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, chained from the guard's 401 response, judged on the response's status code and never on message text; `get` makes one round trip for it. `put` is unchanged here (`378-71` types it). A refusal shell still reads as `ArtifactReadRefused` on `names_at` and as absence on `get` (`ArtifactNotFound`) and `exists` (`False`), and a refused connection is still `McpServerUnreachable`.
 - Why: repair 2.5 (a), `D-IMPL-378`. Red tests: `tests/mcp/test_auth_401_typed_through_the_client.py::test_names_at_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (three credential shapes), `::test_every_other_read_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (four reads) and `::test_a_401_an_access_refusal_and_an_outage_reach_the_caller_as_three_types`. One pinned expectation changed with it: `tests/conformance/test_artifactstore.py::test_a_store_presenting_no_credential_is_refused`, which asserted `McpServerUnreachable` for `exists` with no credential.
-- Migration: a caller that caught `McpServerUnreachable` around a read and retried it no longer receives a 401 that way; retrying the same credential does not succeed. Catch `ArtifactReadUnauthenticated` (or `ArtifactStoreError`) and treat it as a credential problem. A caller that reads every `ArtifactStoreError` from a read as absence must let this type through by name, as the SDK's own consumers below now do.
+- Migration: a caller that caught `McpServerUnreachable` around a read and retried it no longer receives a 401 that way; retrying the same credential does not succeed. Catch `ArtifactStoreUnauthenticated` (or `ArtifactStoreError`) and treat it as a credential problem. A caller that reads every `ArtifactStoreError` from a read as absence must let this type through by name, as the SDK's own consumers below now do.
 
 *Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
 
@@ -38049,7 +38061,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: over an `McpArtifactStore` whose credential the guard refused, the 401 escaped as `McpServerUnreachable`. Its Raises section did not list `ArtifactReadRefused`, which the provenance check's naming read lets through.
-- After: it lets `ArtifactReadUnauthenticated` through by name, ahead of the clause that answers `ReplayUnresolvable`, so a refused credential is never reported as a missing artifact. Raises lists both types.
+- After: it lets `ArtifactStoreUnauthenticated` through by name, ahead of the clause that answers `ReplayUnresolvable`, so a refused credential is never reported as a missing artifact. Raises lists both types.
 - Why: repair 2.5 (a), `D-IMPL-378`. Test: `tests/mcp/test_auth_401_never_read_as_absence.py::test_replay_resolution_reports_a_401_as_the_authentication_refusal_never_as_unresolvable` (`by address`).
 - Migration: none; the call fails as it did, with the typed refusal in place of the outage.
 
@@ -38061,7 +38073,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: a 401 at the naming resolution or the read escaped as `McpServerUnreachable`.
-- After: `ArtifactReadUnauthenticated` is let through by name, never `ReplayUnresolvable`.
+- After: `ArtifactStoreUnauthenticated` is let through by name, never `ReplayUnresolvable`.
 - Why: repair 2.5 (a), `D-IMPL-378`. Test: `tests/mcp/test_auth_401_never_read_as_absence.py::test_replay_resolution_reports_a_401_as_the_authentication_refusal_never_as_unresolvable` (`by URI`).
 - Migration: none.
 
@@ -38073,7 +38085,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: a 401 from the store's server, when the record was resolved or when a by-URI read's naming was checked, escaped as `McpServerUnreachable`.
-- After: `ArtifactReadUnauthenticated` is let through by name at both places. It is never answered as the `nonexistent` shell — the one absence, which is also what the holds answer an unauthorized caller — and nothing is recorded for it.
+- After: `ArtifactStoreUnauthenticated` is let through by name at both places. It is never answered as the `nonexistent` shell — the one absence, which is also what the holds answer an unauthorized caller — and nothing is recorded for it.
 - Why: repair 2.5 (a), `D-IMPL-378`: the distinction from authorization denial. Tests: `tests/http_api/test_auth_401_never_a_recorded_absence.py::test_resolving_the_record_reports_a_401_as_the_authentication_refusal_never_as_a_recorded_absence` and `::test_the_by_uri_naming_check_reports_a_401_as_the_authentication_refusal_never_as_a_recorded_absence`.
 - Migration: none; the call raises as it did, with the typed refusal in place of the outage.
 
@@ -38085,7 +38097,7 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Public surface: true
 - Change type: behavior
 - Before: a 401 while an index entry's record was read through the wrapped store (at composition, or at the first read that meets an entry appended later) escaped as `McpServerUnreachable`. The same function is `ccf.erasure.store.compose_erasure_consult`.
-- After: `ArtifactReadUnauthenticated` is let through by name. The entry is never judged `index-unsupported` for it and no `erasure_index_unsupported` row is audited.
+- After: `ArtifactStoreUnauthenticated` is let through by name. The entry is never judged `index-unsupported` for it and no `erasure_index_unsupported` row is audited.
 - Why: repair 2.5 (a), `D-IMPL-378`: a refused credential says nothing about the record, so an unsupported entry would be a finding about the index that a credential caused. Test: `tests/mcp/test_auth_401_never_read_as_absence.py::test_the_erasure_consult_reports_a_401_reading_a_record_as_the_authentication_refusal_never_as_unsupported`.
 - Migration: none.
 
@@ -38246,6 +38258,90 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a conforming store.
 
 *Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.artifacts.protocol.ArtifactStoreUnauthenticated
+
+- Surface: ccf.artifacts.protocol.ArtifactStoreUnauthenticated
+- Public surface: true
+- Change type: behavior
+- Before: named `ArtifactReadUnauthenticated` (fragment `378-67`, this batch) and raised by the reads of `McpArtifactStore` only.
+- After: one name for reads and the write: also raised by `McpArtifactStore.put` where the server's guard answered HTTP 401. `ArtifactReadUnauthenticated` no longer exists and no alias is kept.
+- Why: decision 10 (b), `D-IMPL-378`. Tests: `tests/mcp/test_auth_401_typed_on_a_write.py::test_one_type_names_the_authentication_refusal_for_reads_and_writes_and_the_read_only_name_is_gone` and `::test_a_reference_mismatch_refusal_is_not_the_authentication_refusal` (five rows). The read tests of repair 2.5 (a) look the type up by its new name (`tests/mcp/test_auth_401_typed_through_the_client.py::authentication_refusal`).
+- Migration: none for a shipped caller: the old name never shipped. Code written against this batch names `ArtifactStoreUnauthenticated`.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.artifacts.mcp_store.McpArtifactStore
+
+- Surface: ccf.artifacts.mcp_store.McpArtifactStore
+- Public surface: true
+- Change type: behavior
+- Before: `put` raised `McpServerUnreachable` when the server's guard answered HTTP 401.
+- After: `put` raises `ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, chained from the guard's 401 response, with no outage in its chain, as every read does; nothing is written. A 403 and a refused connection stay `McpServerUnreachable`; a write the server declines stays `ArtifactStoreError` (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_server_declines_is_an_artifact_store_error_not_an_outage`).
+- Why: decision 10 (b), `D-IMPL-378`. Red tests: `tests/mcp/test_auth_401_typed_on_a_write.py::test_put_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (three credential shapes) and `::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`. One pinned test changed with it: the conformance test that asserted `McpServerUnreachable` for `put`, `test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`, now asserts the typed refusal and is renamed `tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`.
+- Migration: a caller that caught `McpServerUnreachable` around `put` and retried no longer receives a 401 that way; retrying the same credential does not succeed. Catch `ArtifactStoreUnauthenticated` (or `ArtifactStoreError`) and treat it as a credential problem. A caller that reads every `ArtifactStoreError` from a write as a declined write or an unreachable substrate must let this type through by name, as the admission gate below now does.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: at the base, a 401 on the admission record's write escaped `admit` as `McpServerUnreachable`; with the write typed and nothing else changed, the record write's `except ArtifactStoreError` raised `AdmissionNotRecorded` for it.
+- After: `ArtifactStoreUnauthenticated` is let through by name, ahead of that clause. Nothing is admitted, no `peering_admitted` verdict is appended, and the issuance nonce is spent, as for the other record failures. A declined write is still `AdmissionNotRecorded`, an outage still `McpServerUnreachable`, and `AdmissionRecordReferenceMismatch` is unchanged.
+- Why: decision 10 (b), `D-IMPL-378`. Tests: `tests/peering/test_admission_record_write_401_is_the_typed_refusal.py::test_a_write_401_at_the_admission_record_is_the_typed_refusal_never_admission_not_recorded`, `::test_a_crossing_refused_at_its_record_for_the_credential_has_spent_its_nonce`, and its two controls.
+- Migration: a caller of `admit` that handles `AdmissionNotRecorded` meets `ArtifactStoreUnauthenticated` where the store's server refused the deployment's credential.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.peering.admission.AdmissionNotRecorded
+
+- Surface: ccf.peering.admission.AdmissionNotRecorded
+- Public surface: true
+- Change type: behavior
+- Before: the docstring did not say what a refused store credential raises.
+- After: the docstring says it is not raised for one: that write raises `ArtifactStoreUnauthenticated`, let through by name. Docstring only.
+- Why: decision 10 (b), `D-IMPL-378`.
+- Migration: none.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf.artifacts.protocol.ArtifactReadRefused
+
+- Surface: ccf.artifacts.protocol.ArtifactReadRefused
+- Public surface: true
+- Change type: behavior
+- Before: the docstring distinguished it from `ArtifactReadUnauthenticated`, "a read the server's guard refused".
+- After: it names `ArtifactStoreUnauthenticated`, "a call the server's guard refused". Docstring only.
+- Why: decision 10 (b), `D-IMPL-378`. The Raises sections of `ccf.replay.engine.resolve_artifact`, `ccf.replay.engine.resolve_artifact_at_uri`, `ccf.erasure.compose_erasure_consult` and `ccf_runtime.authz.delivery_boundary.govern_dereference` name the renamed type the same way; their behavior is unchanged (`378-67`).
+- Migration: none.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf_runtime.http_api.routes.replay.build_router
+
+- Surface: ccf_runtime.http_api.routes.replay.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `GET /replay/decisions` and `GET /replay/resolutions` let `ArtifactStoreUnauthenticated` escape, and the caller got the framework's opaque `500 Internal Server Error`, byte-identical to an outage's answer.
+- After: both answer it `503` with the shared refusal body, `error_code` `artifact-store-unauthenticated` and one constant message, raised from the typed refusal. An outage is still the framework's `500`; `@latest` is still `409` (`tests/http_api/test_evidence_dereference.py::test_c13_a_moving_target_is_still_a_409`).
+- Why: decision 21 (a), `D-IMPL-378`. Test: `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py::test_the_http_evidence_doors_answer_a_401_with_a_typed_503_and_an_outage_with_the_500_and_record_nothing`, which replaces the pinned `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_alike.py`.
+- Migration: as for `ERROR_ARTIFACT_STORE_UNAUTHENTICATED`.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
+
+#### ccf_runtime.http_api.routes.artifact.build_router
+
+- Surface: ccf_runtime.http_api.routes.artifact.build_router
+- Public surface: true
+- Change type: behavior
+- Before: `GET /artifact/{content_address}` let `ArtifactStoreUnauthenticated` escape, answered with the framework's opaque `500`, byte-identical to an outage's answer.
+- After: it answers it `503` with `error_code` `artifact-store-unauthenticated` and the same constant message as the replay doors. An outage is still the framework's `500`. `POST /artifact` is not changed.
+- Why: decision 21 (a), `D-IMPL-378`. Test: as for the replay router.
+- Migration: as for `ERROR_ARTIFACT_STORE_UNAUTHENTICATED`.
+
+*Recorded by `378-71-a-writes-401-is-typed-and-the-evidence-doors-answer-it-503.md`.*
 
 ### Not public Python API
 
