@@ -889,8 +889,9 @@ def test_a_subclass_of_the_sdks_file_store_fails_the_store_check(
 ) -> None:
     """The store check is an exact-type test: over one boot, the SDK's class composes and its subclass is refused.
 
-    FLIPPED by decision 4 (a) (Dave, 2026-10-09 16:38 MST: *"(a) Exact
-    type."*). Until then this test was a DISCLOSED LIMIT,
+    FLIPPED by decision 4 (a), 2026-10-09 16:38 MST (``D-IMPL-378``; the text
+    is Grok's recommendation, which Dave adopted): *"(a) Exact type."* Until
+    then this test was a DISCLOSED LIMIT,
     ``test_a_subclass_of_the_sdks_file_store_passes_the_store_check``: the store
     half of the guard was an ``isinstance`` test, a subclass passed it, and the
     test pinned that so SP §4.14 would be corrected with the code. It now pins

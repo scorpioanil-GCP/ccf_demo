@@ -2505,9 +2505,10 @@ which a substrate that declared itself a development reference was admitted: a
 third-party adapter is refused even when its registration declares
 `development_reference` and re-registers one of the SDK's own stores. The
 artifact store's class must be the SDK's `FileArtifactStore` itself. That check
-is an exact-type test (decision 4 (a), Dave, 2026-10-09: *"(a) Exact type."*),
-so a subclass of `FileArtifactStore` is refused, even one that overrides
-nothing; this amends the earlier `isinstance` test, which a subclass passed
+is an exact-type test (decision 4 (a), 2026-10-09 16:38 MST (`D-IMPL-378`; the
+text is Grok's recommendation, which Dave adopted): *"(a) Exact type."*), so a
+subclass of `FileArtifactStore` is refused, even one that overrides nothing;
+this amends the earlier `isinstance` test, which a subclass passed
 (`tests/client/test_demonstration_serve_instant.py::test_a_third_party_adapter_declaring_development_reference_is_refused_at_composition`,
 `::test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door`,
 `::test_the_sdks_own_development_backends_are_still_admitted_at_composition`,
