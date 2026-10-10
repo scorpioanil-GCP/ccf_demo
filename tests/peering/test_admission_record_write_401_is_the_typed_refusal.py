@@ -16,7 +16,10 @@ What is asserted, by type, never by message text:
   guard's 401 response — never ``AdmissionNotRecorded``, and appends no ``peering_admitted`` verdict;
 * **control: the clause is narrow.** A store that declines the write with a plain ``ArtifactStoreError`` is still
   ``AdmissionNotRecorded``, and an outage is still ``McpServerUnreachable``, raised as it was;
-* **control: the world admits.** The same gate over the fixture's own store admits the crossing.
+* **control: the world admits.** The same gate over the fixture's own store admits the crossing;
+* **the nonce, as SP §1.1a states it.** The issuance nonce is spent immediately before the record is filed, so a
+  crossing refused at its record write for the credential is not admitted later either: the same envelope, presented
+  again to a working store, is refused ``replayed``.
 
 The gate's store is used for the admission record's ``put`` and nothing else, so the 401 here is the write's. The
 world is ``tests/peering/test_admission_record.py``'s (its fixtures, by name); the failing stores are
@@ -173,3 +176,38 @@ def test_control_the_same_gate_over_the_fixture_store_admits(
     )
     assert isinstance(outcome, AdmittedProduct), f"{type(outcome).__name__}: {str(outcome)[:300]}"
     assert len(_admitted_events(registry)) == 1
+
+
+def test_a_crossing_refused_at_its_record_for_the_credential_has_spent_its_nonce(
+    tmp_path: Path,
+    provider: DetachedJwsIdentityProvider,
+    public_key: JsonWebKey,
+    registry: ControlPlaneRegistry,
+    product_class: RegisteredProductClass,
+    store: FileArtifactStore,
+) -> None:
+    """The typed refusal at the record write, then the same envelope again over the fixture's own store: ``replayed``.
+
+    What ``public/how-to/security-and-deployment.md`` §1.1a states of a crossing refused at its record, for this third
+    way a record write can fail (``tests/peering/test_admission_record_writer_checks_the_returned_reference.py``
+    measures the other two)."""
+    envelope = _inbound(_sign(provider, product=banking_product()))
+    with store_over_http(World(tmp_path / "world").server(), UNKNOWN, write_kinds=store.write_kinds) as refused:
+        gate = _build_gate(
+            provider=provider, public_key=public_key, registry=registry, product_class=product_class, artifact_store=refused
+        )
+        first: Any
+        try:
+            first = gate.admit(inbound=envelope, consumer_lineage=_consumer_lineage(), now=_now())
+        except Exception as raised:  # noqa: BLE001 — judged by its type below, never by its text
+            first = raised
+    assert not isinstance(first, AdmissionNotRecorded), f"{type(first).__name__}: {str(first)[:300]}"
+    assert_the_authentication_refusal(first, what="the first presentation's record write")
+    working = _build_gate(
+        provider=provider, public_key=public_key, registry=registry, product_class=product_class, artifact_store=store
+    )
+    again = working.admit(inbound=envelope, consumer_lineage=_consumer_lineage(), now=_now())
+    assert type(again).__name__ == "IssuanceRefusal" and getattr(again, "failure", None) == "replayed", (
+        f"the same envelope presented again was not refused as replayed: {again!r}"[:600]
+    )
+    assert _admitted_events(registry) == [], "a crossing was reported admitted"
