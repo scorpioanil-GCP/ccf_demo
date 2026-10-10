@@ -297,7 +297,9 @@ class ArtifactIsolationRefused(TypeError):
     write door nothing has changed when it is raised — no version, no class
     binding, no bump entry, no audit row. On a read door nothing is returned,
     and the artifact is not reported missing: this is a ``TypeError``, never
-    the ``LookupError`` that :class:`ControlPlaneMissing` is.
+    the ``LookupError`` that :class:`ControlPlaneMissing` is; ``resolve`` and
+    ``resolve_latest`` record the refused read as a resolve that did not
+    resolve, so the audit plane sees it.
 
     Attributes:
         artifact_type: the Python type name of the artifact that was refused.
@@ -510,6 +512,20 @@ def _isolated(artifact: object, *, door: str) -> object:
         rebuilt: object
         if isinstance(artifact, BaseModel):
             rebuilt = type(artifact).model_validate(document)
+            # The fourth guarantee (the sixth-round delta review, Fable seat,
+            # F2, executed): the artifact's own class performs the rebuild, and
+            # a validator that interns instances by content hands the original
+            # straight back through the three checks below. Identity is the
+            # one thing those checks cannot see.
+            if rebuilt is artifact:
+                raise ArtifactIsolationRefused(
+                    artifact_type=artifact_type,
+                    door=door,
+                    reason=(
+                        "reconstruction returned the artifact itself"
+                        " (a validator that interns instances by content)"
+                    ),
+                )
         else:
             rebuilt = document
     except (TypeError, ValueError) as exc:
@@ -642,7 +658,14 @@ class ControlPlaneRegistry:
 
         The artifact must be canonically serializable; anything that is not
         (a float, a naive datetime, an unsupported type) is refused at the
-        boundary rather than stored in a form replay could not reproduce.
+        boundary rather than stored in a form replay could not reproduce. It
+        must also survive reconstruction from that form with its type and
+        value intact (``D-IMPL-380``, sixth round): a plain mapping holding a
+        ``Decimal``, a ``datetime`` or a tuple — or a bare tuple, ``datetime``
+        or ``Decimal`` as the artifact — renders faithfully but rebuilds as a
+        different Python type, and is refused rather than stored with its
+        values silently changed. Register a typed model instead; its
+        validators restore the types.
 
         Registering byte-identical content again is idempotent: the existing
         version is returned and no duplicate is appended.
@@ -654,6 +677,10 @@ class ControlPlaneRegistry:
                 capability's tenant.
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
+            ArtifactIsolationRefused: the artifact could not be reconstructed
+                from its canonical form with its type, bytes, value and
+                identity preserved; nothing was registered (``D-IMPL-380``,
+                sixth round).
         """
         key = _door_key(authorized)
         actor = authorized.principal
@@ -714,6 +741,10 @@ class ControlPlaneRegistry:
                 (``D-IMPL-378`` K1 follow-up).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
+            ArtifactIsolationRefused: the artifact could not be reconstructed
+                from its canonical form with its type, bytes, value and
+                identity preserved; nothing was registered (``D-IMPL-380``,
+                sixth round).
         """
         key = _door_key(authorized)
         actor = authorized.principal
@@ -828,6 +859,10 @@ class ControlPlaneRegistry:
                 (``D-IMPL-378`` K1 follow-up).
             ccf.contracts.canonical.CanonicalizationError: the artifact has no
                 canonical form.
+            ArtifactIsolationRefused: the artifact could not be reconstructed
+                from its canonical form with its type, bytes, value and
+                identity preserved; nothing was registered (``D-IMPL-380``,
+                sixth round).
         """
         # The derived shape is checked for FIRST only in the sense of kind
         # selection; verification itself is one call either way, and it runs
@@ -1003,9 +1038,16 @@ class ControlPlaneRegistry:
             raise ControlPlaneMissing(
                 f"no Control Plane artifact registered as ({key!r}, {version!r})"
             ) from None
-        # D-IMPL-380, sixth round: reconstructed before the success row, so a
-        # refusal serves nothing and records no resolution.
-        served = _isolated(artifact, door="resolve")
+        # D-IMPL-380, sixth round: reconstructed before the success row. A
+        # refusal serves nothing and is recorded as a resolve that did not
+        # resolve — the module's promise is that every resolve, a failed one
+        # included, reaches the audit plane (the sixth-round delta review,
+        # Fable seat, F3).
+        try:
+            served = _isolated(artifact, door="resolve")
+        except ArtifactIsolationRefused:
+            self._record(action="resolve", key=key, version=version, resolved=False)
+            raise
         self._record(action="resolve", key=key, version=version, resolved=True)
         return served
 
@@ -1018,6 +1060,9 @@ class ControlPlaneRegistry:
 
         Raises:
             ControlPlaneMissing: nothing has been registered under ``key``.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round, site 6).
         """
         versions = self._versions.get(key)
         if not versions:
@@ -1026,10 +1071,25 @@ class ControlPlaneRegistry:
                 f"no Control Plane versions registered under {key!r}"
             )
         version = versions[-1]
+        # D-IMPL-380, sixth round, SITE 6 — beyond the five sites the order
+        # enumerated. The order named `peek` and `resolve`; this is a third
+        # read door, and it returned the registry's object by reference (the
+        # sixth-round delta review: every seat; the Fable seat replayed the
+        # grant-sink exploit through it). The same reconstruction, through the
+        # same helper, before the success row; a refusal is recorded as a
+        # resolve that did not resolve. Struck by one revert if the ruling
+        # keeps to the five.
+        try:
+            served = _isolated(self._artifacts[(key, version)], door="resolve_latest")
+        except ArtifactIsolationRefused:
+            self._record(
+                action="resolve_latest", key=key, version=version, resolved=False
+            )
+            raise
         self._record(
             action="resolve_latest", key=key, version=version, resolved=True
         )
-        return version, self._artifacts[(key, version)]
+        return version, served
 
     def versions(self, key: str) -> tuple[str, ...]:
         """Return every version registered under ``key``, oldest first.
