@@ -22,7 +22,8 @@ Every other pin keeps the file's hash: decision 13 (a)'s three cp-04 pins
 test's one.
 
 Every property is asserted behaviorally, through the shipped
-``tools/lints/citations.py::check_source`` and
+``tools/lints/citations.py::check_source``,
+``tools/lints/citations.py::check_file_bytes`` and
 ``tools/lints/citations.py::scan_tree``, on the real files, on edited copies of
 their text and, for the hash key's owed test, on one fixture tree under
 pytest's ``tmp_path``; nothing here writes to the repository. Derived from the
@@ -44,6 +45,7 @@ from tools.lints import citations
 from tools.lints.citations import (
     RULE_NODE_ID,
     Scan,
+    check_file_bytes,
     check_source,
     exemption_reason,
     repo_index,
@@ -116,6 +118,12 @@ def _cited(finding: str) -> str:
 def _check(rel: str, text: str, index: dict[str, list[str]]) -> list[str]:
     """``check_source`` on `text`, attributed to `rel` in the real tree."""
     return check_source(text, pathlib.Path(rel), REPO_ROOT, index)
+
+
+def _check_bytes(rel: str, raw: bytes, index: dict[str, list[str]]) -> list[str]:
+    """``check_file_bytes`` on `raw`, attributed to `rel` in the real tree: the
+    gate's path, the only one on which a file-hash pin can be kept."""
+    return check_file_bytes(raw, pathlib.Path(rel), REPO_ROOT, index)
 
 
 def _roadmap() -> tuple[list[str], int]:
@@ -235,13 +243,14 @@ def test_the_pin_lists_are_exactly_these_nine_sites() -> None:
 def test_a_byte_change_to_a_hash_pinned_file_voids_its_pins(
     rel: str, index: dict[str, list[str]]
 ) -> None:
-    """The file's bytes, as for the cp-04 pins: the untouched file keeps its
-    pinned sites, and one byte appended makes each of them a finding again."""
-    source = (REPO_ROOT / rel).read_text(encoding="utf-8")
+    """The file's bytes, as for the cp-04 pins: the untouched file's bytes keep
+    its pinned sites, and one byte appended makes each of them a finding again.
+    Through ``check_file_bytes``, because text alone keeps no file-hash pin."""
+    raw = (REPO_ROOT / rel).read_bytes()
     pinned = sorted(f"{path}:{line}" for path, line, _citation in HASH_PINNED_SITES if path == rel)
-    untouched = [_site(finding) for finding in _check(rel, source, index)]
+    untouched = [_site(finding) for finding in _check_bytes(rel, raw, index)]
     assert [site for site in untouched if site in pinned] == [], untouched
-    changed = _check(rel, source + "\n", index)
+    changed = _check_bytes(rel, raw + b"\n", index)
     assert sorted(_site(finding) for finding in changed) == pinned, changed
 
 
@@ -379,7 +388,7 @@ def test_a_hash_pinned_line_with_two_dangling_citations_keeps_only_the_pinned_on
         path="docs/note.md",
         line=1,
         citation="src/pkg/mod.py::A.gone",
-        sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+        sha256=hashlib.sha256((tmp_path / "docs/note.md").read_bytes()).hexdigest(),
         reason="a test pin",
     )
     monkeypatch.setattr(citations, "PINNED_HISTORICAL_CITATIONS", (pin,))

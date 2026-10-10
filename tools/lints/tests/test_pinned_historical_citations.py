@@ -23,7 +23,13 @@ import pathlib
 import pytest
 
 from tools.lints import citations
-from tools.lints.citations import RULE_NODE_ID, check_source, repo_index, scan_tree
+from tools.lints.citations import (
+    RULE_NODE_ID,
+    check_file_bytes,
+    check_source,
+    repo_index,
+    scan_tree,
+)
 
 #: The repo root, from ``tools/lints/tests/<module>.py``.
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -111,17 +117,18 @@ def test_a_byte_change_to_a_pinned_file_voids_its_pins(change: str) -> None:
     fourth dangling citation -- voids every pin on that file, and both pinned
     sites in it are findings again, beside any new one."""
     rel = f"{SPECIMEN}/deployment.py"
-    source = (REPO_ROOT / rel).read_text(encoding="utf-8")
+    raw = (REPO_ROOT / rel).read_bytes()
     extra = (
-        "\n"
+        b"\n"
         if change == "one byte appended"
-        else "# `worker.py::SpecDrivenEntityResolution.nope`\n"
+        else b"# `worker.py::SpecDrivenEntityResolution.nope`\n"
     )
-    changed = source + extra
-    findings = check_source(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
+    changed = raw + extra
+    findings = check_file_bytes(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
     expected = [f"{rel}:258", f"{rel}:2821"]
     if change != "one byte appended":
-        expected.append(f"{rel}:{changed.count(chr(10))}")
+        last_line = changed.count(b"\n")
+        expected.append(f"{rel}:{last_line}")
     assert _sites(findings) == sorted(expected), findings
 
 
@@ -142,7 +149,7 @@ def test_a_pin_keeps_only_its_own_site(
         path="docs/note.md",
         line=1,
         citation="src/pkg/mod.py::A.gone",
-        sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+        sha256=hashlib.sha256((tmp_path / "docs/note.md").read_bytes()).hexdigest(),
         reason="a test pin",
     )
     monkeypatch.setattr(citations, "PINNED_HISTORICAL_CITATIONS", (pin,))
