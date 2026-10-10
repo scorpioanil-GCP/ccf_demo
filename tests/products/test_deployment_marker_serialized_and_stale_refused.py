@@ -55,6 +55,7 @@ domain value here is fixture vocabulary (CINV-01, CLAUDE.md §11).
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import pathlib
@@ -210,6 +211,68 @@ def test_1_2_measure_a_marker_replaced_before_promotion_is_refused_as_claimed_an
     outcome = _boot(manifest, registry, target)
     _assert_refused_not_verified(outcome, marker=_marker(target), reason="claimed", case="replaced before promotion")
     assert _marker(target).read_bytes() == foreign, "the refused boot removed or changed a marker it did not own"
+
+
+@pytest.mark.parametrize("how", ["replaced by another file", "rewritten in place"])
+def test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, how: str
+) -> None:
+    """What a ``claimed`` refusal AT PROMOTION leaves at the path: the boot's own store, created and read, and the foreign marker.
+
+    The panel's J-CLAIMED-LEAVES-STORE (reproduced by the coordinator on
+    ``6cd6023e``): the security how-to (section 4.12) and ``load_and_boot``'s
+    Raises said that ``DeploymentStoreNotVerified`` creates nothing at the
+    path. The refusals a boot meets at its look do create nothing. This one
+    comes later: ``boot()`` created the store, the boot's one read found it
+    empty, and only then did the promotion meet a marker that is no longer the
+    boot's own, replaced by another file or rewritten in place. Its cleanup
+    closes the store and leaves the marker it does not own, so the store stays.
+    It fails closed: every later boot of the path, writer or read-only, meets
+    that marker beside a store and is refused (``unreadable`` for this marker,
+    whose text the SDK does not write) and changes nothing there, until an
+    operator resolves it. A measurement of behavior as it stands (green from
+    ``6cd6023e``); it pins what the words now say.
+    """
+    import ccf.deployment.manifest as manifest_module  # noqa: PLC0415
+
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "plain" / _STORE
+    target.parent.mkdir()
+    marker = _marker(target)
+    real_boot = manifest_module.boot
+    foreign = b"a marker this boot did not write\n"
+
+    def take_the_marker_over_then_boot(**kwargs: Any) -> Any:
+        if how == "replaced by another file":
+            marker.unlink()
+            marker.write_bytes(foreign)
+        else:
+            with open(marker, "r+b") as rewritten:
+                rewritten.truncate(0)
+                rewritten.write(foreign)
+        return real_boot(**kwargs)
+
+    events: list[tuple[str, ...]] = []
+    p4e._record_reads(monkeypatch, events)
+    monkeypatch.setattr(manifest_module, "boot", take_the_marker_over_then_boot)
+    outcome = _boot(manifest, registry, target)
+    _assert_refused_not_verified(outcome, marker=marker, reason="claimed", case=f"{how} before promotion")
+    assert tp._latest_reads(events) == 1, (
+        f"[{how}] the refused boot must have read the store it created once, before its promotion:"
+        f" {tp._latest_reads(events)}"
+    )
+    monkeypatch.undo()
+    assert target.is_file() and target.stat().st_size > 0, f"[{how}] the store the refused boot created and read is gone"
+    assert marker.read_bytes() == foreign, f"[{how}] the refused boot removed or changed the marker it did not own"
+    assert not list(target.parent.glob(f"{marker.name}.promoting-*")), f"[{how}] the refused boot left a staging file"
+    left = sorted(path.name for path in target.parent.iterdir())
+    for read_only in (False, True):
+        role = "read-only" if read_only else "writer"
+        again = _boot(manifest, registry, target, read_only=read_only)
+        _assert_refused_not_verified(again, marker=marker, reason="unreadable", case=f"{how}, the next {role} boot")
+        assert sorted(path.name for path in target.parent.iterdir()) == left, (
+            f"[{how}] the refused next {role} boot changed what stands beside the store"
+        )
 
 
 # --- 1b. a stale marker with no store beside it: replaced under the lock, and the new store read -------------------
@@ -672,3 +735,104 @@ def test_1_2_control_a_read_only_boot_beside_a_live_writer_is_not_held_by_the_st
         writer.handle.close()
     assert reader["outcome"] == "booted" and reader["store_creation"] == "verified", reader
     assert reader["emptiness_reads"] == 0 and reader["created_the_store"] is False, reader
+
+
+
+def test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A path whose directory does not exist: no store-creation lock, nothing created, and the SQLite adapter refuses it.
+
+    The panel's J-NODIR-NOLOCK (measured on ``6cd6023e``): the security how-to
+    (section 4.12) said that every plain boot, read-only included, holds the
+    store-creation lock. A path whose directory does not exist takes no lock
+    and gets no marker: it is left to the adapter
+    (``src/ccf/deployment/manifest.py::_StoreCreationLock``), and the SDK's
+    SQLite adapter refuses it with SQLite's own error, so the boot creates
+    nothing there, not even the directory, and there is nothing to serialize.
+    A measurement of behavior as it stands, writer and read-only.
+    """
+    import sqlite3  # noqa: PLC0415
+
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    for read_only in (False, True):
+        role = "read-only" if read_only else "writer"
+        target = tmp_path / f"missing-{role}" / _STORE
+        outcome = _boot(manifest, registry, target, read_only=read_only)
+        if not isinstance(outcome, Exception):
+            outcome.handle.close()
+            pytest.fail(f"[{role}] a plain boot whose store directory does not exist booted")
+        assert isinstance(outcome, sqlite3.OperationalError), (
+            f"[{role}] the boot was refused by something other than the SQLite adapter: {outcome!r}"
+        )
+        assert not target.parent.exists(), (
+            f"[{role}] the refused boot created the store's directory, and so could have created a lock or a marker there"
+        )
+
+# --- 4. the runbook's first step: what each file shows while a fabric is open ---------------------------------------
+
+
+def _held_by_another(lock: pathlib.Path) -> bool:
+    """Whether an open file description holds an exclusive ``flock`` on ``lock``: tried with ``LOCK_NB``, then released."""
+    descriptor = os.open(lock, os.O_RDONLY | os.O_CLOEXEC)
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        return False
+    finally:
+        os.close(descriptor)
+
+
+def _descriptors_open_on(path: pathlib.Path) -> int:
+    """How many of this process's open descriptors name ``path``, by device and inode: what ``fuser`` and ``lsof`` read."""
+    wanted = os.stat(path)
+    found = 0
+    for entry in os.listdir("/dev/fd"):
+        try:
+            status = os.fstat(int(entry))
+        except OSError:
+            continue  # the descriptor that listed the directory, closed by now
+        if (status.st_dev, status.st_ino) == (wanted.st_dev, wanted.st_ino):
+            found += 1
+    return found
+
+
+def test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_file_open(tmp_path: pathlib.Path) -> None:
+    """The runbook's step 1 (security how-to, section 4.12): a read-only server shows on its store file, not on a lock file.
+
+    The panel's J-RUNBOOK-READONLY (measured on ``6cd6023e``): before an
+    operator moves a store aside, the runbook asked the store-creation lock
+    and the SQLite writer lease for a holder. A boot holds the creation lock
+    only until it hands its fabric back, and only a writer's open fabric holds
+    the lease, so a read-only fabric, open and reading, holds neither: that
+    look sees no read-only server. What does see one: an open fabric holds its
+    store file open, which is what ``fuser`` and ``lsof`` on the store file
+    report (lane ``378j-fixup``'s probe ``probe_abc.py`` ran both, with the
+    same result). Controls: a writer's open fabric holds the lease, and a
+    fabric handed back holds the store file open no longer.
+    """
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "served" / _STORE
+    target.parent.mkdir()
+    creation_lock = pathlib.Path(f"{target.resolve()}{_STORE_CREATION_LOCK_SUFFIX}")
+    writer_lease = pathlib.Path(f"{target.resolve()}.ccf-writer.lock")
+    writer = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)})
+    try:
+        assert writer.store_creation == "verified", writer.store_creation
+        assert _held_by_another(writer_lease), "control: a writer's open fabric must hold the SQLite writer lease"
+        assert not _held_by_another(creation_lock), "the store-creation lock is held past the writer's boot"
+        assert _descriptors_open_on(target) >= 1, "a writer's open fabric must hold its store file open"
+    finally:
+        writer.handle.close()
+    reader = load_and_boot(manifest, registry=registry, connection={"database_path": str(target)}, read_only=True)
+    try:
+        assert p4e._held(reader) == 0, "the read-only fabric must read its (empty) store"
+        assert not _held_by_another(creation_lock), "a read-only fabric's open server holds the store-creation lock"
+        assert not _held_by_another(writer_lease), "a read-only fabric holds the SQLite writer lease"
+        assert _descriptors_open_on(target) >= 1, "a read-only fabric, open and reading, must hold its store file open"
+    finally:
+        reader.handle.close()
+    assert _descriptors_open_on(target) == 0, "a fabric handed back still holds the store file open"

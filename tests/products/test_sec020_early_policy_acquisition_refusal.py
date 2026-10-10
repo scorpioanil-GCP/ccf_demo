@@ -37,6 +37,16 @@ What these tests hold the SDK to, by mechanism:
   in the record, only where the record keeps the caller's question
   (``content_generation_path.request.subject``). And judged by SEC-020's
   closing test's own rules (``_compare``) at every door.
+* **The aliasing control** (Dave's decision 22 (a), 2026-10-09 16:38 MST: *"The
+  aliasing test under 2.2."*; the "j" panel's F-J1-2). The question hash the
+  judges above set aside is pinned to be the caller's OWN question's: with two
+  subjects withheld from the asker, the withheld subject's refusal, the
+  declared stand-in asked directly and the second withheld subject's refusal
+  each carry their own hash, differ from one another exactly there, and are
+  never byte-identical; the same question asked twice carries the same hash.
+  Hashing the stand-in-substituted request instead would make them alias, and
+  tell a withheld subject from a nonexistent one by asking the stand-in (the
+  verifier's severing S-VP-1, ``lanes-j/fixup`` records it red).
 * **Controls (green before and after).** The constant applies to the
   subject-keyed phase of a class with an early policy only: a declared
   population phase, handed no subject, refuses both questions with its own text,
@@ -334,6 +344,74 @@ def test_r4_a_shell_the_raiser_already_recorded_is_replaced_and_recorded_by_the_
     finally:
         built.close()
 
+
+
+class _TwoWithheld(w.EarlyWithholdingPlanFactory):
+    """The early policy withholding two subjects from the asker: the one the source holds, and one it does not."""
+
+    def subject_disclosure(self) -> Any:
+        from ccf.products.subject_disclosure import SubjectDisclosurePolicy  # noqa: PLC0415
+
+        return SubjectDisclosurePolicy(
+            undisclosed_subject=w.STAND_IN,
+            by_principal={self.asker: frozenset({w.SUBJECT, w.NEVER_2})} if self.active else {},
+            by_role={},
+        )
+
+
+def _question_hash_paths(shell: dict[str, Any]) -> set[str]:
+    """The paths of a refusal shell holding the hash of a ``request`` source: the caller's own question."""
+    return {
+        f"provenance.parameters[{index}].source.identity"
+        for index, parameter in enumerate(shell["provenance"]["parameters"])
+        if parameter["source"]["kind"] == "request"
+    }
+
+
+@pytest.mark.parametrize("how", HOW)
+@pytest.mark.parametrize("anchor", w.ANCHORS)
+def test_r4_aliasing_control_each_refusal_carries_its_own_callers_question_hash_never_the_stand_ins(
+    tmp_path: pathlib.Path, anchor: str, how: str
+) -> None:
+    """The withheld refusal is neither the stand-in's asked directly nor a second withheld subject's: each carries its own question's hash."""
+    built = w.open_paved(
+        tmp_path / "two-withheld", anchor=anchor, acquire=RefusingSource({w.SUBJECT: w.subject_holding()}, how=how),
+        project=_TwoWithheld(plan_id=PRODUCT_CLASS, asker=w.ASKER, active=True),
+    )
+    try:
+        sides = {
+            "withheld": _observed(built, w.SUBJECT),
+            "withheld, asked again": _observed(built, w.SUBJECT),
+            "stand-in, asked directly": _observed(built, w.STAND_IN),
+            "second withheld": _observed(built, w.NEVER_2),
+        }
+    finally:
+        built.close()
+    for where in ("shell", "recorded"):
+        shells = {side: dict(seen[where]) for side, seen in sides.items()}
+        for shell in shells.values():
+            shell.pop("replay_reference", None)
+        hash_paths = _question_hash_paths(shells["withheld"])
+        assert hash_paths, f"[{anchor}, {how}, {where}] the withheld refusal carries no hash of the caller's question"
+        hashes = {side: tuple(_paths(shell)[path] for path in sorted(hash_paths)) for side, shell in shells.items()}
+        assert hashes["withheld"] == hashes["withheld, asked again"], (
+            f"[{anchor}, {how}, {where}] one question asked twice carries two hashes: {hashes}"
+        )
+        for other in ("stand-in, asked directly", "second withheld"):
+            assert _question_hash_paths(shells[other]) == hash_paths, (
+                f"[{anchor}, {how}, {where}, {other}] the question hash moved: {_question_hash_paths(shells[other])}"
+            )
+            assert hashes[other] != hashes["withheld"], (
+                f"[{anchor}, {how}, {where}] the withheld refusal carries the hash of {other}'s question: the request"
+                f" source is not the caller's own question, so asking the stand-in tells withheld from nonexistent"
+            )
+            assert _differing(shells["withheld"], shells[other]) == hash_paths, (
+                f"[{anchor}, {how}, {where}] the withheld refusal and {other}'s must differ exactly at the caller's"
+                f" question hash: {sorted(_differing(shells['withheld'], shells[other]))}"
+            )
+        assert hashes["stand-in, asked directly"] != hashes["second withheld"], (
+            f"[{anchor}, {how}, {where}] two withheld-or-stand-in questions carry one hash: {hashes}"
+        )
 
 # --- controls: green before and after ---------------------------------------------------------
 

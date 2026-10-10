@@ -222,13 +222,20 @@ def store_over_http(
 
 
 @contextlib.contextmanager
-def store_at_nothing() -> Iterator[McpArtifactStore]:
-    """The shipped store pointed at a loopback port bound and released: nothing answers there (a refused connection)."""
+def store_at_nothing(write_kinds: WriteKinds | None = None) -> Iterator[McpArtifactStore]:
+    """The shipped store pointed at a loopback port bound and released: nothing answers there (a refused connection).
+
+    ``write_kinds`` as :func:`store_over_http` takes it, for a caller composing a door that files records over the store.
+    """
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     with SyncMcpBridge(call_timeout_seconds=CALL_TIMEOUT_SECONDS) as bridge:
-        yield McpArtifactStore(url=f"http://127.0.0.1:{port}/mcp", bridge=bridge, write_kinds=WriteKinds({}))
+        yield McpArtifactStore(
+            url=f"http://127.0.0.1:{port}/mcp",
+            bridge=bridge,
+            write_kinds=WriteKinds({}) if write_kinds is None else write_kinds,
+        )
 
 
 # --- the mechanism, by type --------------------------------------------------------------------------------------

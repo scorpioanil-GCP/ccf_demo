@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2536 entries**, of which **2259** name a public Python surface.
+**2539 entries**, of which **2262** name a public Python surface.
 
 ## Added
 
@@ -30923,7 +30923,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-499 entries — 460 public Python surface, 39 not public Python API.
+502 entries — 463 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38042,6 +38042,42 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: its Raises said `DeploymentStoreNotVerified` is raised "after registration and before anything is created at the path", for every reason, `claimed` included.
+- After: unchanged behavior; its Raises says which refusals come at the boot's look, before the boot creates a store or a marker, and that a `claimed` refusal at the promotion comes after the boot created its store and read it empty, leaving that store beside the foreign marker, where every later boot of the path meets it.
+- Why: `D-IMPL-378`, the "j" batch panel's J-CLAIMED-LEAVES-STORE (an advertised guarantee the code does not keep). Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses`.
+- Migration: none in code. An operator who meets `DeploymentStoreNotVerified` with reason `claimed` may find a store at the path that the refused boot created; resolve it as the security how-to (section 4.12) says.
+
+*Recorded by `378-68-a-a-claimed-refusal-at-promotion-leaves-the-store-the-boot-created.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: fragment `378-61` said it is raised "after registration and before anything is created at the path" for every `reason`.
+- After: unchanged behavior, stated as it is: `pending`, `unreadable`, `lock-unavailable` and the `claimed` refusals at the boot's look come before the boot creates a store or a marker; the `claimed` refusal at the promotion comes after the boot created its store and read it empty, and that store stays beside the foreign marker. Its docstring is unchanged: its "before anything is created at the path" names only refusals at the boot's look.
+- Why: `D-IMPL-378`, J-CLAIMED-LEAVES-STORE. Measured as for `ccf.deployment.manifest.load_and_boot`.
+- Migration: none in code; as for `ccf.deployment.manifest.load_and_boot`.
+
+*Recorded by `378-68-a-a-claimed-refusal-at-promotion-leaves-the-store-the-boot-created.md`.*
+
+#### ccf.products.resolver.SharedOwnerWalkIncomplete
+
+- Surface: ccf.products.resolver.SharedOwnerWalkIncomplete
+- Public surface: true
+- Change type: behavior
+- Before: its docstring quoted repair 2.4 (b) ("Refuse when the shared-owner walk reaches a limit before completing.") as read with repair 1.8, and did not say that 2.4 (b) is not built.
+- After: unchanged behavior; its docstring says repair 2.4 (b) is not built: a walk cut off at either bound (`SHARED_OWNER_WALK_DEPTH`, `SHARED_OWNER_WALK_OBJECTS`) raises no refusal and admits the two phases, and the walk reaches its reference bound sooner as a service runs.
+- Why: `D-IMPL-378`, the "j" batch panel's J-WALK-DOC-24B. Measured by `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_one_step_past_the_depth_bound_is_not_seen`, `tests/products/test_q7_shared_owner_bounded_walk.py::test_q7_limit_an_object_reached_after_the_object_bound_is_spent_is_not_seen` and `tests/products/test_q7_paved_road_keeps_answering_as_questions_accumulate.py`.
+- Migration: none. Keep the population phase free of anything the subject-keyed phase writes; the walk does not stand in for that past its bounds.
+
+*Recorded by `378-68-b-shared-owner-walk-incomplete-says-repair-2-4-b-is-not-built.md`.*
 
 ### Not public Python API
 

@@ -1085,6 +1085,11 @@ Two behaviors follow from the design and are stated rather than changed:
   403) and the tenancy guard's denials, still reach the client as
   `McpServerUnreachable`, an outage
   (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
+  So does a write: a `put` whose credential the guard does not authenticate
+  (HTTP 401) still raises `McpServerUnreachable`, an outage
+  (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`).
+  Whether a write's 401 is typed too is not yet ruled (question 10 of the
+  378j findings brief, lane `378j-auth`'s P-1).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 
@@ -1488,11 +1493,18 @@ unless another test is named.
   at most `src/ccf/products/resolver.py::SHARED_OWNER_WALK_DEPTH` (12)
   references in a row, reads at most
   `src/ccf/products/resolver.py::SHARED_OWNER_WALK_OBJECTS` (5,000) references
-  from each phase, and calls nothing your objects define. Where reading what
-  an object holds raises, such as another class's member descriptor in a
-  slotted class's namespace, the walk cannot complete, and the two phases are
-  refused rather than admitted (`SharedOwnerWalkIncomplete`, a
-  `PopulationPhaseSharesAnOwner`; `D-IMPL-378` repair 1.8). What it cannot
+  from each phase, and calls nothing your objects define. A declared slot
+  never assigned and an empty closure cell hold nothing, and the walk reads
+  them so
+  (`tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_a_slot_never_assigned_still_reads_as_holding_nothing`,
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_control_an_empty_closure_cell_still_reads_as_holding_nothing`).
+  Where reading what an object holds raises otherwise, such as another
+  class's member descriptor in a slotted class's namespace, the walk cannot
+  complete, and the two phases are refused rather than admitted
+  (`SharedOwnerWalkIncomplete`, a `PopulationPhaseSharesAnOwner`;
+  `D-IMPL-378` repair 1.8;
+  `tests/products/test_q7_walk_unreadable_member_and_unread_holders.py::test_q7_a_member_the_walk_cannot_read_is_refused_by_name`).
+  What it cannot
   detect: anything past either bound; state the two phases share through a
   third object, such as a common dictionary; state reached only through a
   property, another descriptor, `__getattr__` or `__getattribute__`, or held
@@ -1661,12 +1673,18 @@ line naming the boot (`boot: <token>`), and rewrites it to read
 `state: verified` only once its one read has found the store empty for its
 tenant. A boot that fails anywhere after creating the marker removes it, and a
 boot killed before its read completed leaves it reading `pending`. Every plain
-boot, read-only included, holds `<resolved path>.ccf-store-creation.lock`, an
+boot whose store's directory exists, read-only included, holds
+`<resolved path>.ccf-store-creation.lock`, an
 exclusive `flock`, from its look at the path until it hands the fabric back,
 so a second boot of the path waits for the first to finish, with no timeout,
 and then reopens the store the first verified, reading nothing (measured
 across two processes,
 `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens`).
+A boot whose store's directory does not exist takes no lock and creates
+nothing there, not even the directory: it is left to the adapter, and the
+SDK's SQLite adapter refuses it with SQLite's own error
+(`sqlite3.OperationalError`), so there is nothing to serialize
+(`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`).
 Which stale markers a boot verifies again by itself, and which it refuses:
 
 - **Verified again, with no operator step: a deployment marker of any state
@@ -1688,8 +1706,8 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   its own marker, so the marker a boot finds there belongs to no boot still
   running.
 - **Refused until an operator resolves it**, with
-  `DeploymentStoreNotVerified`, which names the marker and its `reason`,
-  creates nothing at the path, and leaves the marker as it is: a marker beside
+  `DeploymentStoreNotVerified`, which names the marker and its `reason` and
+  leaves the marker as it is: a marker beside
   an existing store that reads `pending`
   (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified`)
   or is `unreadable`, which includes the one-line marker written before repair
@@ -1700,6 +1718,16 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   replacement of it (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_replaced_by_another_file_after_the_look_is_refused_as_claimed_and_left`), `claimed`;
   and a store-creation lock that cannot be taken, `lock-unavailable`
   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_store_creation_lock_that_cannot_be_taken_refuses_the_boot_by_name`).
+  Each of these is refused at the boot's look, before the boot creates a store
+  or a marker. A `claimed` refusal can also come later, after the boot has
+  created its store and read it empty: the marker the boot created was
+  replaced by another file, or rewritten in place, before the boot could mark
+  it verified. The boot then closes that store and leaves it where it stands,
+  beside the foreign marker, and every later boot of the path meets that
+  marker beside a store. Measured with a marker whose text the SDK does not
+  write, each later boot, writer or read-only, is refused `unreadable` and
+  changes nothing there
+  (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_claimed_refusal_at_promotion_leaves_the_store_the_boot_created_and_read_and_the_next_boot_refuses`).
   The SDK never clears a marker that stands beside a store. A stale marker
   rewritten in place between the boot's look and its replacement keeps its
   file (device and inode) and is not told apart from the one the boot looked
@@ -1711,10 +1739,15 @@ Which stale markers a boot verifies again by itself, and which it refuses:
 
 To resolve a refusal:
 
-1. Make sure no process is booting or serving the store: `fuser` or `lsof` on
-   `<resolved path>.ccf-store-creation.lock`, and on the SQLite writer lease
-   `<resolved path>.ccf-writer.lock`, shows a holder. Change nothing while
-   either is held.
+1. Make sure no process is booting or serving the store. `fuser` or `lsof` on
+   `<resolved path>.ccf-store-creation.lock` shows a boot in progress, and on
+   the SQLite writer lease `<resolved path>.ccf-writer.lock` a writer's open
+   fabric, but neither shows a read-only fabric: one that is open and reading
+   holds neither lock. So run them on the store file itself too, `<path>`,
+   and on its `<path>-wal` and `<path>-shm` files: an open fabric, read-only
+   or not, holds its store file open until it is handed back
+   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_file_open`).
+   Change nothing while any of them shows a holder.
 2. Read the marker. `pending` (the boot that created it never finished its
    read), `unreadable` (one line and no `state:`, or text the SDK does not
    write) and `claimed` (a marker that appeared, or was replaced by another
@@ -1907,6 +1940,26 @@ a nonexistent one. Each was measured on test fixtures.
   `tests/products/test_sec020_never_capability.py::test_ct_d_a_never_composite_that_withholds_late_is_refused_as_never_withholding_contradicted_first`);
   its withheld question still raises where a nonexistent subject's is
   answered, the residual the bullet on the record behind an answer names.
+- **A composite child's own decision record, under an early policy (disclosed
+  by Dave's decision 18 (A), `D-IMPL-378`, 2026-10-09).** The parent's early
+  policy asks its children about the stand-in in place of a withheld subject,
+  and each child's own door files the child's own decision record, under the
+  child's product class, in the deployment's store. That record keeps the
+  question the child was asked: for a withheld subject it names the stand-in,
+  whatever the child's source answers, and for a nonexistent subject the
+  identifier asked. A child source that refuses an identifier it does not
+  hold with text that names it (`no record for <identifier>`) puts it in that
+  record's refusal text too: repair 2.2 (a)'s constant applies to the
+  parent's subject-keyed acquisition, not to a child's, and is not extended to
+  children in this batch. The parent's answers to the two were alike at every
+  door by the closing test's own rules, the answers name neither the child's
+  record nor the stand-in, and the parent's records do not name the child's
+  record, so no door shows it; whatever reads the deployment's store, as the
+  operator's and the auditor's handles above do, tells the two apart at rest
+  (`tests/products/test_sec020_composite_child_record_names_the_stand_in.py`).
+  Whether a governed read hands a child's record to a principal, where the
+  child's class affirms `never` and is listed in `evidence_readable_classes`,
+  is not measured here.
 - **A question's store the markers do not reach.** The withheld subject's
   acquisition stays in the store its question wrote, and the paved road leaves
   that store on disk when it closes the fabric (the replay road reopens it).
@@ -2184,9 +2237,21 @@ the same id is refused "already exists".
     (`tests/erasure/test_interrupted_erasure_passage.py`).
 
   A resumption whose commit never landed (the write itself failed) left the
-  execution `suspended` with no step run. Presented again from any process,
-  it re-takes the same closure and runs the step after the gate once
+  execution `suspended` with no step run. Where its approval was resolved
+  through the gate primitive (`ApprovalGate`, a stamped verdict), presented
+  again from any process, it re-takes the same closure and runs the step
+  after the gate once
   (`tests/workflow/test_approval_gate_limits.py::test_a_passage_whose_commit_never_landed_is_retried_once_on_its_own_closure`).
+  Where the approval was recorded through the submit-only action door
+  instead (`POST /hitl/actions`, which records no stamp), the execution stays
+  stuck: the failed passage's closure retired the request, the engine counts
+  an unstamped approval only while its request is pending (code reading of
+  `runtime/ccf_runtime/workflow/engine.py::WorkflowEngine._gate_authority`),
+  so every resumption, from any process, is refused for want of an approval
+  and the step after the gate never runs
+  (`tests/workflow/test_door_approved_gate_whose_commit_failed_stays_stuck.py`;
+  disclosed by Dave's decision 3, `D-IMPL-378`, 2026-10-09). Reconcile such
+  an execution outside the fabric.
 
   A suspension whose approval request never reached the queue left the
   execution `suspended` with no request: its suspension write landed, and its
@@ -2208,7 +2273,15 @@ the same id is refused "already exists".
   verdict is then recorded without the primitive's stamp and still opens the
   gate once. The recovery files the request on its own engine's HITL
   transport, so run one HITL transport per Control Plane state store: with
-  two, a request pending on one is filed again on the other.
+  two, a request pending on one is filed again on the other. The recovery
+  trusts the record it reads: a writer outside the engine (a single-writer
+  violation) that rewinds a record to `suspended` at a gate the run already
+  passed gets a request restored for it, and one human approval then runs the
+  step after that gate a second time, as the same writer can already make that
+  step run again with no human at all by writing the record
+  `exception-routed` at it (disclosed by Dave's decision 1 (a), `D-IMPL-378`,
+  2026-10-09;
+  `tests/workflow/test_outside_writer_can_rerun_the_step_after_a_gate.py`).
 - **A passage fenced by another writer is refused `execution-fenced`**
   (`D-IMPL-378`). Every write that ends a passage is conditional on the
   version the passage wrote
