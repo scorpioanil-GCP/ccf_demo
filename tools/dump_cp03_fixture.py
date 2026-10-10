@@ -112,8 +112,13 @@ def _ddl(cur, schema: str, table: str) -> str:
     # Both seed byte-identical content, so re-creating is free; what is not free
     # is a suite that passes or fails depending on the order pytest collected it
     # in.
+    # NO CASCADE (`D-IMPL-380`, Dave 2026-10-10 05:34 MST: "cp-03 drops without
+    # CASCADE"): a drop that something else depends on — a view in another
+    # schema — FAILS, and the whole file rolls back with it, rather than
+    # silently dropping the dependent. The write lock is the first barrier;
+    # this is the second. Example-only, not the SDK.
     return (
-        f"DROP TABLE IF EXISTS {schema}.{table} CASCADE;\n"
+        f"DROP TABLE IF EXISTS {schema}.{table};\n"
         f"CREATE TABLE {schema}.{table} (\n" + ",\n".join(columns) + "\n);"
     )
 
