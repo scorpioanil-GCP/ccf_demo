@@ -140,9 +140,15 @@ def test_a_byte_change_to_a_pinned_file_voids_its_pins(change: str) -> None:
 def test_a_pin_keeps_only_its_own_site(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The key is (file, line, citation text, file hash), all four: the same
-    citation on the next line, and another dead citation in the same file, are
-    findings beside the one pinned site."""
+    """A pin keeps only its own line. The same citation one line down is a
+    finding beside the one pinned site, and so is another dead citation on a
+    third line: of the key (file, line, citation text, the file's bytes), this
+    measures the line. It cannot see the citation's text, because its pinned
+    line holds one citation (with the text taken out of the key it stays
+    green); two dangling citations on one pinned line are
+    ``tools/lints/tests/test_pinned_record_citations.py::test_a_hash_pinned_line_with_two_dangling_citations_keeps_only_the_pinned_one``.
+    A change to the bytes is ``test_a_byte_change_to_a_pinned_file_voids_its_pins``.
+    """
     _write(tmp_path, "src/pkg/mod.py", "class A:\n    def m(self) -> None: ...\n")
     note = (
         "See `src/pkg/mod.py::A.gone`.\n"
