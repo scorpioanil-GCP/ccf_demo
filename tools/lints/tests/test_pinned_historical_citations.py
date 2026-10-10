@@ -1,18 +1,23 @@
-"""PROPOSAL, not ruled: a narrowly pinned historical citation exception (D-IMPL-378 repair 1.5).
+"""The narrowly pinned historical citation exception (D-IMPL-378 repair 1.5), ruled.
 
 Dave, 2026-10-09 10:54 MST: *"Revert the three unauthorized cp-04 citation
 edits. Do not loosen its freeze or blanket-exclude frozen examples from citation
 checking. Propose a narrowly pinned historical citation exception separately."*
+Ruled at 16:38 MST as decision 13 (a), Grok's recommendation, which Dave
+adopted: *"(a) Accept the cp-04 pins, locked to the file’s bytes."* The bytes
+are the file's raw bytes as read from disk, per Dave's answer at 20:22 MST:
+*"Hash the raw bytes. Windows line endings are different bytes, so they fail
+the pin."*
 
 The frozen specimen ``examples/cp-04-corporate-family-tree`` (``D-IMPL-261``;
 declared gate CFC-G09, "ZERO files changed") carries three citations of
 ``SpecDrivenEntityResolution.identity``, a member that never existed. The
 specimen may not be edited, so ``cite03`` reports them for ever. This module is
-the acceptance of the proposed exception: each of the three is pinned by
-(file, line, the exact citation text, the sha256 of the file's text), the
-checker keeps exactly those three and counts them, any other dangling citation
--- in cp-04 or anywhere -- still fails, and any change to a pinned file's bytes
-voids every pin on that file.
+the acceptance of the exception: each of the three is pinned by (file, line,
+the exact citation text, the sha256 of the file's raw bytes), the checker keeps
+exactly those three and counts them, any other dangling citation -- in cp-04 or
+anywhere -- still fails, and any change to a pinned file's bytes voids every
+pin on that file.
 """
 
 from __future__ import annotations
@@ -23,7 +28,13 @@ import pathlib
 import pytest
 
 from tools.lints import citations
-from tools.lints.citations import RULE_NODE_ID, check_source, repo_index, scan_tree
+from tools.lints.citations import (
+    RULE_NODE_ID,
+    check_file_bytes,
+    check_source,
+    repo_index,
+    scan_tree,
+)
 
 #: The repo root, from ``tools/lints/tests/<module>.py``.
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -111,26 +122,33 @@ def test_a_byte_change_to_a_pinned_file_voids_its_pins(change: str) -> None:
     fourth dangling citation -- voids every pin on that file, and both pinned
     sites in it are findings again, beside any new one."""
     rel = f"{SPECIMEN}/deployment.py"
-    source = (REPO_ROOT / rel).read_text(encoding="utf-8")
+    raw = (REPO_ROOT / rel).read_bytes()
     extra = (
-        "\n"
+        b"\n"
         if change == "one byte appended"
-        else "# `worker.py::SpecDrivenEntityResolution.nope`\n"
+        else b"# `worker.py::SpecDrivenEntityResolution.nope`\n"
     )
-    changed = source + extra
-    findings = check_source(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
+    changed = raw + extra
+    findings = check_file_bytes(changed, pathlib.Path(rel), REPO_ROOT, repo_index(REPO_ROOT))
     expected = [f"{rel}:258", f"{rel}:2821"]
     if change != "one byte appended":
-        expected.append(f"{rel}:{changed.count(chr(10))}")
+        last_line = changed.count(b"\n")
+        expected.append(f"{rel}:{last_line}")
     assert _sites(findings) == sorted(expected), findings
 
 
 def test_a_pin_keeps_only_its_own_site(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The key is (file, line, citation text, file hash), all four: the same
-    citation on the next line, and another dead citation in the same file, are
-    findings beside the one pinned site."""
+    """A pin keeps only its own line. The same citation one line down is a
+    finding beside the one pinned site, and so is another dead citation on a
+    third line: of the key (file, line, citation text, the file's bytes), this
+    measures the line. It cannot see the citation's text, because its pinned
+    line holds one citation (with the text taken out of the key it stays
+    green); two dangling citations on one pinned line are
+    ``tools/lints/tests/test_pinned_record_citations.py::test_a_hash_pinned_line_with_two_dangling_citations_keeps_only_the_pinned_one``.
+    A change to the bytes is ``test_a_byte_change_to_a_pinned_file_voids_its_pins``.
+    """
     _write(tmp_path, "src/pkg/mod.py", "class A:\n    def m(self) -> None: ...\n")
     note = (
         "See `src/pkg/mod.py::A.gone`.\n"
@@ -142,7 +160,7 @@ def test_a_pin_keeps_only_its_own_site(
         path="docs/note.md",
         line=1,
         citation="src/pkg/mod.py::A.gone",
-        sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+        sha256=hashlib.sha256((tmp_path / "docs/note.md").read_bytes()).hexdigest(),
         reason="a test pin",
     )
     monkeypatch.setattr(citations, "PINNED_HISTORICAL_CITATIONS", (pin,))
