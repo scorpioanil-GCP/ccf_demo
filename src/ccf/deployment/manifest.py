@@ -1058,7 +1058,8 @@ class _StoreCreationLock:
     exist takes no lock and is left to the adapter, as its marker is. The lock
     files stay beside their stores and vouch for nothing: removing one while no
     boot runs is harmless, while removing one a process holds lets the next
-    boot create a new lock file there and run beside that holder.
+    boot create a new lock file there and run beside that holder (lane
+    ``378j-bootlock``'s probe ``probe_lock_file_removed_while_held.py``).
     """
 
     def __init__(self, paths: Sequence[Path], *, wait_seconds: int | None) -> None:
