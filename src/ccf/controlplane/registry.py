@@ -1060,6 +1060,9 @@ class ControlPlaneRegistry:
 
         Raises:
             ControlPlaneMissing: nothing has been registered under ``key``.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round, site 6).
         """
         versions = self._versions.get(key)
         if not versions:
@@ -1068,10 +1071,25 @@ class ControlPlaneRegistry:
                 f"no Control Plane versions registered under {key!r}"
             )
         version = versions[-1]
+        # D-IMPL-380, sixth round, SITE 6 — beyond the five sites the order
+        # enumerated. The order named `peek` and `resolve`; this is a third
+        # read door, and it returned the registry's object by reference (the
+        # sixth-round delta review: every seat; the Fable seat replayed the
+        # grant-sink exploit through it). The same reconstruction, through the
+        # same helper, before the success row; a refusal is recorded as a
+        # resolve that did not resolve. Struck by one revert if the ruling
+        # keeps to the five.
+        try:
+            served = _isolated(self._artifacts[(key, version)], door="resolve_latest")
+        except ArtifactIsolationRefused:
+            self._record(
+                action="resolve_latest", key=key, version=version, resolved=False
+            )
+            raise
         self._record(
             action="resolve_latest", key=key, version=version, resolved=True
         )
-        return version, self._artifacts[(key, version)]
+        return version, served
 
     def versions(self, key: str) -> tuple[str, ...]:
         """Return every version registered under ``key``, oldest first.
