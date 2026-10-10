@@ -219,6 +219,34 @@ def test_bytes_that_read_alike_do_not_keep_a_fixture_pin(
     assert voided.pinned_historical == 0, voided
 
 
+# --- the gate reads a file's bytes once and decodes them as read_text does -------
+
+#: Byte strings whose decoding differs between a plain ``bytes.decode`` and
+#: ``read_text`` (line endings), or that exercise the replacement path.
+DECODE_CASES: dict[str, bytes] = {
+    "LF": b"a\nb\n",
+    "Windows line endings": b"a\r\nb\r\n",
+    "a lone carriage return": b"a\rb\r",
+    "mixed line endings": b"a\r\nb\rc\n",
+    "invalid bytes": b"a\xffb\xfe\n",
+    "a truncated multibyte sequence": b"a\xe2\x80",
+    "a byte-order mark": b"\xef\xbb\xbfa\n",
+    "empty": b"",
+}
+
+
+@pytest.mark.parametrize("case", sorted(DECODE_CASES))
+def test_the_gate_decodes_a_file_s_bytes_as_read_text_does(
+    case: str, tmp_path: pathlib.Path
+) -> None:
+    """``check_file_bytes`` claims its findings are ``check_source``'s on the
+    text ``read_text`` gives: the decoding it uses must give that text."""
+    raw = DECODE_CASES[case]
+    path = tmp_path / "file"
+    path.write_bytes(raw)
+    assert citations._decoded(raw) == path.read_text(encoding="utf-8", errors="replace")
+
+
 # --- fail closed: text alone keeps no file-hash pin --------------------------------
 
 
