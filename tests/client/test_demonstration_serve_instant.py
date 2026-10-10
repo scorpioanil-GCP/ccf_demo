@@ -32,7 +32,7 @@ What each test asserts, by mechanism:
 * the store half of the guard is an exact-type test (decision 4 (a), Dave,
   2026-10-09): a subclass of the SDK's ``FileArtifactStore``, one that
   overrides nothing included, is refused by name, at composition and at the
-  in-process door;
+  in-process door, while the SDK's own class composes over the same boot;
 * the erasure consult keeps the composition's own clock (the declared instant is
   confined to the serve clock).
 
@@ -701,43 +701,6 @@ def test_the_sdks_own_development_backends_are_still_admitted_at_composition(
         booted.handle.close()
 
 
-def test_a_subclass_of_the_sdks_file_store_passes_the_store_check(
-    deployment_root: Path, tmp_path: Path
-) -> None:
-    """A DISCLOSED LIMIT, not a guarantee: the store half of the guard is an ``isinstance`` test.
-
-    Decision 6 (b) tightened the graph half to the adapters the SDK ships. The
-    store half admits an instance of the SDK's ``FileArtifactStore`` class, and
-    an instance of a subclass is one, so a store class declared by subclassing
-    passes it. SP §4.14 says so, and this measures it. It goes red if the store
-    half is tightened, so the page is corrected with the code. Lane
-    ``378i-devref`` reports it for a ruling rather than changing it.
-    """
-    from ccf.products.demonstration_clock import DeclaredServeClock, compose_serve_clock
-    from ccf.products.resolver import _utc_now
-
-    class _SubclassStore(FileArtifactStore):
-        """A store class someone else declares, by inheriting the SDK's."""
-
-    booted, control_plane = boot_declared(
-        deployment_root, backend="sqlite", connection=connection_for("sqlite", deployment_root)
-    )
-    try:
-        clock = compose_serve_clock(
-            control_plane=control_plane,
-            fabric=booted,
-            artifact_store=_SubclassStore(
-                root=tmp_path / "store", write_kinds=WriteKinds.declare({})
-            ),
-            admission_clock=_utc_now,
-            sdk_clock=_utc_now,
-        )
-        assert isinstance(clock, DeclaredServeClock), type(clock).__name__
-        assert clock() == DECLARED
-    finally:
-        booted.handle.close()
-
-
 def test_a_third_party_adapter_declaring_development_reference_is_refused_at_the_in_process_door(
     seeded: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -864,6 +827,56 @@ def test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door(
             f" {record.content_generation_path.served_at.isoformat()}; declared"
             f" {DECLARED.isoformat()}"
         )
+
+
+def test_a_subclass_of_the_sdks_file_store_fails_the_store_check(
+    deployment_root: Path, tmp_path: Path
+) -> None:
+    """The store check is an exact-type test: over one boot, the SDK's class composes and its subclass is refused.
+
+    FLIPPED by decision 4 (a) (Dave, 2026-10-09 16:38 MST: *"(a) Exact
+    type."*). Until then this test was a DISCLOSED LIMIT,
+    ``test_a_subclass_of_the_sdks_file_store_passes_the_store_check``: the store
+    half of the guard was an ``isinstance`` test, a subclass passed it, and the
+    test pinned that so SP §4.14 would be corrected with the code. It now pins
+    the boundary itself, in both directions, over one boot and one
+    declaration: the SDK's own ``FileArtifactStore`` composes the declared
+    clock, and a subclass of it that overrides nothing is refused by name
+    (``DemonstrationServeInstantRefused``, reason
+    ``artifact-store-not-development``). The store's class is the only thing
+    that differs between the two compositions.
+    """
+    from ccf.products.demonstration_clock import (
+        DeclaredServeClock,
+        DemonstrationServeInstantRefused,
+        compose_serve_clock,
+    )
+    from ccf.products.resolver import _utc_now
+
+    booted, control_plane = boot_declared(
+        deployment_root, backend="sqlite", connection=connection_for("sqlite", deployment_root)
+    )
+
+    def compose_over(store_class: type[FileArtifactStore], directory: str) -> Any:
+        return compose_serve_clock(
+            control_plane=control_plane,
+            fabric=booted,
+            artifact_store=store_class(
+                root=tmp_path / directory, write_kinds=WriteKinds.declare({})
+            ),
+            admission_clock=_utc_now,
+            sdk_clock=_utc_now,
+        )
+
+    try:
+        clock = compose_over(FileArtifactStore, "store")
+        assert isinstance(clock, DeclaredServeClock), type(clock).__name__
+        assert clock() == DECLARED
+        with pytest.raises(DemonstrationServeInstantRefused) as refused:
+            compose_over(_SubclassStore, "subclass-store")
+        assert refused.value.reason == "artifact-store-not-development", refused.value.reason
+    finally:
+        booted.handle.close()
 
 
 # ---------------------------------------------------------------------------
