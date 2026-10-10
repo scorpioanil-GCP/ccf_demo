@@ -80,8 +80,10 @@ ROADMAP_CITATIONS: tuple[str, ...] = (
     "examples/external/00-hello-context/serve.py::context_provider",
 )
 
-#: Decision 13 (a)'s three cp-04 pins, counted beside these six.
+#: Decision 13 (a)'s three cp-04 pins, counted beside these six, and the
+#: frozen specimen they stand in.
 CP04_PIN_COUNT = 3
+CP04_SPECIMEN = "examples/cp-04-corporate-family-tree/"
 
 
 @pytest.fixture(scope="module")
@@ -192,6 +194,35 @@ def test_every_pin_is_counted_on_this_tree(real_scan: Scan) -> None:
     these six, and the exempt record's three are not among them."""
     expected = CP04_PIN_COUNT + len(HASH_PINNED_SITES) + len(ROADMAP_CITATIONS)
     assert real_scan.pinned_historical == expected, real_scan
+
+
+def test_the_pin_lists_are_exactly_these_nine_sites() -> None:
+    """Narrow by construction, across both lists: on the file's hash, decision
+    13 (a)'s three cp-04 sites and these four; on the line's text, the
+    roadmap's two, on the one line that holds them; each pin with its reason,
+    every decision 14 (b) pin naming that ruling; no pin for the exempt
+    record; and no file pinned both ways."""
+    hash_pins = sorted(
+        (pin.path, pin.line, pin.citation) for pin in citations.PINNED_HISTORICAL_CITATIONS
+    )
+    specimen = [site for site in hash_pins if site[0].startswith(CP04_SPECIMEN)]
+    assert len(specimen) == CP04_PIN_COUNT, specimen
+    assert [site for site in hash_pins if site not in specimen] == sorted(HASH_PINNED_SITES)
+    line_pins = citations.LINE_TEXT_PINNED_CITATIONS
+    assert sorted((pin.path, pin.citation) for pin in line_pins) == sorted(
+        (ROADMAP, citation) for citation in ROADMAP_CITATIONS
+    )
+    lines, at = _roadmap()
+    assert all(pin.line_text == lines[at].removesuffix("\n") for pin in line_pins), line_pins
+    every = [*citations.PINNED_HISTORICAL_CITATIONS, *line_pins]
+    assert all(pin.reason for pin in every), every
+    ruled = [pin for pin in every if not pin.path.startswith(CP04_SPECIMEN)]
+    assert all("D-IMPL-378 decision 14 (b)" in pin.reason for pin in ruled), ruled
+    assert not any(pin.path == REVIEW_RECORD for pin in every), every
+    both_ways = {pin.path for pin in citations.PINNED_HISTORICAL_CITATIONS} & {
+        pin.path for pin in line_pins
+    }
+    assert both_ways == set(), both_ways
 
 
 # --- the hash-keyed four: a byte change voids every pin on the file ----------------

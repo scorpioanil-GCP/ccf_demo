@@ -55,8 +55,15 @@ def _sites(findings: list[str]) -> list[str]:
 
 
 def test_the_pin_list_is_exactly_the_three_cp04_sites() -> None:
-    """Narrow by construction: three entries, each one site, and no other."""
-    pins = citations.PINNED_HISTORICAL_CITATIONS
+    """Narrow by construction: the specimen's pins are three entries, each one
+    site, and no other. (Read as the specimen's subset since decision 14 (b)
+    pinned four citations in other files on the same key; the whole list is
+    held by ``test_pinned_record_citations.py``.)"""
+    pins = [
+        pin
+        for pin in citations.PINNED_HISTORICAL_CITATIONS
+        if pin.path.startswith(f"{SPECIMEN}/")
+    ]
     assert sorted((pin.path, pin.line, pin.citation) for pin in pins) == CP04_SITES
     assert all(pin.reason for pin in pins), pins
 

@@ -150,8 +150,10 @@ finding; any change to a pinned file's bytes voids every pin on it.
 Decision 14 (b), the same day (*"Exempt the dated records. Pin the rest. Do not
 edit records in place."*), settled nine more findings repair 1.7 made in text
 that may not be edited: the D-IMPL-353 close-review record joined
-``HISTORICAL_RECORDS`` (three), and the rest are pinned. Two of them stand on
-one success criterion of ``.planning/ROADMAP.md``, a living file, and
+``HISTORICAL_RECORDS`` (three), and the rest are pinned. Four keep the file's
+hash, in ``PINNED_HISTORICAL_CITATIONS``: three in a landed surface-change
+fragment and one in a test of the frozen cp-04 specimen. The other two stand
+on one success criterion of ``.planning/ROADMAP.md``, a living file, and
 ``LINE_TEXT_PINNED_CITATIONS`` keys them as Dave answered at 17:53 MST
 (question 3 (ii)): on the citing line's full text and the citation's text, not
 on the line's number or the file's hash. An edit elsewhere in the file, even
@@ -326,9 +328,10 @@ MAINTAINED_RECORDS: tuple[str, ...] = (".planning/phases/*/deferred-items.md",)
 class PinnedCitation(NamedTuple):
     """One ``cite03`` finding kept, by its file, line, text and the file's hash.
 
-    PROPOSAL (``D-IMPL-378`` repair 1.5), not ruled. ``sha256`` is the digest of
-    the file's text as the checker reads it (UTF-8); a change to any byte of
-    the file voids the pin.
+    ``D-IMPL-378`` repair 1.5's three cp-04 pins, accepted by decision 13 (a),
+    and four more by decision 14 (b). ``sha256`` is the digest of the file's
+    text as the checker reads it (UTF-8); a change to any byte of the file
+    voids the pin.
     """
 
     path: str
@@ -338,16 +341,33 @@ class PinnedCitation(NamedTuple):
     reason: str
 
 
-#: The pinned historical citations: three, all in the frozen cp-04 specimen.
-#: Each names ``SpecDrivenEntityResolution.identity``, which never existed;
-#: the specimen may not be edited (``D-IMPL-261``; declared gate CFC-G09,
-#: "ZERO files changed"), and repair 1.5 reverted the edit that corrected
-#: them (``b7defda9``, reverted in ``20003cee``). The hashes are the files'
-#: bytes at the specimen's branch point ``d429dcfa``.
+#: The pinned historical citations keyed on the file's hash: seven. Three are
+#: in the frozen cp-04 specimen (decision 13 (a)): each names
+#: ``SpecDrivenEntityResolution.identity``, which never existed; the specimen
+#: may not be edited (``D-IMPL-261``; declared gate CFC-G09, "ZERO files
+#: changed"), and repair 1.5 reverted the edit that corrected them
+#: (``b7defda9``, reverted in ``20003cee``); their hashes are the files'
+#: bytes at the specimen's branch point ``d429dcfa``. Four (decision 14 (b))
+#: are bare citations of functions nested in other functions, which repair
+#: 1.7 made findings, in text that may not be edited: three in a landed
+#: surface-change fragment, written when it landed on 2026-08-14, and one in
+#: a test of the frozen cp-04 specimen; their hashes are the files' text at
+#: ``d128a30d``, unchanged since 2026-09-24 and 2026-09-05.
 _CP04_REASON = (
     "frozen specimen (D-IMPL-261, CFC-G09): cites a member that never existed;"
     " kept as written by D-IMPL-378 repair 1.5, which reverted its correction"
 )
+_LANDED_FRAGMENT_REASON = (
+    "a landed surface-change fragment, which a later editor should not"
+    " silently revise to chase a moved symbol (D-IMPL-114, D-IMPL-123); kept"
+    " as written by D-IMPL-378 decision 14 (b)"
+)
+_FROZEN_TEST_REASON = (
+    "a test of the frozen cp-04 specimen (D-IMPL-261); kept as written by"
+    " D-IMPL-378 decision 14 (b)"
+)
+_LANDED_FRAGMENT_SHA = "66700aeb90aff07ee76e9c3d57c5b6f4727c543eb3d53298d6ac0994d10da9c1"
+_FROZEN_TEST_SHA = "c2b03b947b9b8cbb744cbae343e0cff5dee24eed0d46742705124641033f8869"
 PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
     PinnedCitation(
         path="examples/cp-04-corporate-family-tree/deployment.py",
@@ -369,6 +389,34 @@ PINNED_HISTORICAL_CITATIONS: tuple[PinnedCitation, ...] = (
         citation="src/ccf/assembly/worker.py::SpecDrivenEntityResolution.identity",
         sha256="25aef57fe515f0b2b4076e303e6b794a849426928e6d1c69310641a5ec728430",
         reason=_CP04_REASON,
+    ),
+    PinnedCitation(
+        path="docs/surface-changes/16-24-experience-door-entitlement.md",
+        line=28,
+        citation="runtime/ccf_runtime/mcp/experience.py::get_context",
+        sha256=_LANDED_FRAGMENT_SHA,
+        reason=_LANDED_FRAGMENT_REASON,
+    ),
+    PinnedCitation(
+        path="docs/surface-changes/16-24-experience-door-entitlement.md",
+        line=162,
+        citation="tests/crossproc/servers/mcp_experience_child.py::read_replay_record",
+        sha256=_LANDED_FRAGMENT_SHA,
+        reason=_LANDED_FRAGMENT_REASON,
+    ),
+    PinnedCitation(
+        path="docs/surface-changes/16-24-experience-door-entitlement.md",
+        line=164,
+        citation="examples/external/00-hello-context/serve.py::replay_record_reader",
+        sha256=_LANDED_FRAGMENT_SHA,
+        reason=_LANDED_FRAGMENT_REASON,
+    ),
+    PinnedCitation(
+        path="tests/examples/test_cp_04_debt.py",
+        line=818,
+        citation="runtime/ccf_runtime/http_api/routes/product.py::retrieve",
+        sha256=_FROZEN_TEST_SHA,
+        reason=_FROZEN_TEST_REASON,
     ),
 )
 
