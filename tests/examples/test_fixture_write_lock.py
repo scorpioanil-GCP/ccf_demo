@@ -128,13 +128,15 @@ def test_the_regeneration_tool_emits_the_lock() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Live: on a disposable local Postgres, never the curated estate.
+# Live: on a disposable local Postgres, never the curated estate. Marked one by
+# one rather than by module, and `psycopg` is imported inside them, so the
+# database-free checks above run in the quick suite too.
 # ---------------------------------------------------------------------------
-
-psycopg = pytest.importorskip("psycopg")
 
 
 def _relations(dsn: str) -> list[str]:
+    import psycopg
+
     with psycopg.connect(dsn) as db, db.cursor() as cursor:
         cursor.execute(
             "SELECT c.relname FROM pg_class c JOIN pg_namespace n"
@@ -148,6 +150,7 @@ def _relations(dsn: str) -> list[str]:
 @pytest.fixture
 def scratch(postgres_dsn: str) -> Iterator[str]:
     """A clean `ccf_v2` on the session's disposable Postgres, dropped afterwards."""
+    psycopg = pytest.importorskip("psycopg")
     from tests.examples.estate_guard import refuse_to_write_the_curated_estate
 
     refuse_to_write_the_curated_estate(postgres_dsn)
@@ -159,12 +162,15 @@ def scratch(postgres_dsn: str) -> Iterator[str]:
         db.execute(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE")
 
 
+@pytest.mark.postgres
 @pytest.mark.parametrize("name", LOCKED_FILES)
 def test_a_database_that_is_not_ours_is_refused_by_name(
     scratch: str, name: str
 ) -> None:
     """One table no fixture creates is enough: the file raises, naming it, and
     writes nothing — the stray survives and no fixture table appears."""
+    import psycopg
+
     with psycopg.connect(scratch, autocommit=True) as db:
         db.execute(f"CREATE TABLE {SCHEMA}.{STRAY} (id int)")
     before = _relations(scratch)
@@ -191,9 +197,12 @@ def test_a_database_that_is_not_ours_is_refused_by_name(
     assert _relations(scratch) == before == [STRAY]
 
 
+@pytest.mark.postgres
 def test_a_clean_scratch_database_seeds_all_eight(scratch: str) -> None:
     """Positive control: the lock does not refuse the database it exists for,
     including the second and later files, which find the earlier ones' tables."""
+    import psycopg
+
     with psycopg.connect(scratch, autocommit=True) as db, db.cursor() as cursor:
         for name in LOCKED_FILES:
             cursor.execute((FIXTURES / name).read_text(encoding="utf-8"))
