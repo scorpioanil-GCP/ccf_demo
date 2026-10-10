@@ -18,7 +18,9 @@ What is asserted, by mechanism:
 1. **A stale marker rewritten in place, to other bytes, between the boot's look and its replacement is refused**
    ``DeploymentStoreNotVerified`` with reason ``claimed``, by name and marker path, and left exactly as the outside
    writer left it (the same file, the same bytes); no store and no staging file is created at the path.
-2. **The disclosed residual, pinned: a rewrite in place to the SAME bytes is not told apart.** The boot replaces that
+2. **So is one rewritten in place to other bytes of the SAME LENGTH.** The comparison is of the bytes, not of the
+   size: a check that compared only the length passed case 1, whose text has another length, and fails here.
+3. **The disclosed residual, pinned: a rewrite in place to the SAME bytes is not told apart.** The boot replaces that
    marker like any stale one and verifies the store it creates with its one read, so it serves nothing it did not
    read. A tree that refused every replacement after a write would fail here, so this test is also the control that
    the first one is not passed by refusing everything.
@@ -119,6 +121,45 @@ def test_17_b_a_stale_marker_rewritten_in_place_after_the_look_is_refused_as_cla
         outcome, marker=marker, reason="claimed", case=f"{state}, rewritten in place after the look"
     )
     assert _identity(marker) == looked_at and marker.read_bytes() == foreign, (
+        f"[{state}] the refused boot replaced or changed the marker the outside writer rewrote"
+    )
+    assert not target.exists(), f"[{state}] a refused boot created a store at the path"
+    assert not list(marker.parent.glob(f"{marker.name}.replacing-*")), f"[{state}] the refused boot left its staging file"
+
+
+@pytest.mark.parametrize("state", REWRITABLE_STALE)
+def test_17_b_a_stale_marker_rewritten_in_place_to_other_bytes_of_the_same_length_is_refused_as_claimed_and_left(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, state: str
+) -> None:
+    """The same file, the same length, every byte changed, after the boot looked: refused ``claimed``, and left.
+
+    The re-check compares the marker's bytes, so a rewrite that keeps the length is told apart too. The coordinator's
+    severing on ``150da08b`` (the content digest taken over the file's size instead of its bytes) left the first test
+    green, because that rewrite changes the length; under it this one fails.
+    """
+    manifest, registry, _records = p4e._deployment(tmp_path)
+    target = tmp_path / "stale" / sr._STORE
+    target.parent.mkdir()
+    sr._stale_with_no_store(tmp_path, manifest, registry, target, state)
+    marker = sr._marker(target)
+    looked_at = _identity(marker)
+    original = marker.read_bytes()
+    same_length = bytes((byte + 1) % 256 for byte in original)  # every byte changed, the length kept
+    assert len(same_length) == len(original) and all(a != b for a, b in zip(same_length, original)), (
+        f"[{state}] the outside writer's bytes are not other bytes of the same length; the case was not constructed"
+    )
+    rewrites = _rewritten_after_the_look(monkeypatch, marker, same_length)
+    outcome = sr._boot(manifest, registry, target)
+    assert len(rewrites) == 1, f"[{state}] the boot never reached the replacement; the case was not constructed"
+    before, after, now = rewrites[0]
+    assert before == after == looked_at and now == same_length, (
+        f"[{state}] the outside write did not keep the file the boot looked at, or did not write the same-length bytes;"
+        " the case was not constructed"
+    )
+    sr._assert_refused_not_verified(
+        outcome, marker=marker, reason="claimed", case=f"{state}, rewritten in place to other bytes of the same length"
+    )
+    assert _identity(marker) == looked_at and marker.read_bytes() == same_length, (
         f"[{state}] the refused boot replaced or changed the marker the outside writer rewrote"
     )
     assert not target.exists(), f"[{state}] a refused boot created a store at the path"
