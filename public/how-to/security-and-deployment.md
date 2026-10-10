@@ -1101,11 +1101,14 @@ Two behaviors follow from the design and are stated rather than changed:
   (`tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`)
   and the tenancy guard's denial as the server's decline, `ArtifactStoreError`
   (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too`).
-  A write's 401 is never reported as an outage
+  At the store layer, a write's 401 is raised as the typed refusal,
+  `ArtifactStoreUnauthenticated`, not as an outage
   (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`),
   and the peering admission gate lets it through by name rather than
   reporting `AdmissionNotRecorded`
   (`tests/peering/test_admission_record_write_401_is_the_typed_refusal.py`).
+  Whether a caller over HTTP can tell a rejected credential from an outage
+  depends on the door, and only the three below make that distinction.
   The HTTP evidence doors, `GET /replay/decisions`, `GET /replay/resolutions`
   and `GET /artifact/{content_address}`, answer the typed refusal `503` with
   `error_code` `artifact-store-unauthenticated` and one constant message,
@@ -1709,7 +1712,8 @@ finds the lock held is never left waiting without bound (`D-IMPL-378`
 decision 19 (b), ruled by Dave on 2026-10-09 at 16:38 MST, adopting Grok's
 recommendation: *"Wait a bounded time, then refuse by name. An unbounded wait
 is not a lock."*). It is refused by name, `DeploymentStoreNotVerified` with
-reason `lock-held`, naming the lock, before anything is created at the path:
+reason `lock-held`, naming the lock, and no store and no marker is created
+at the path (the lock file itself is created when the boot opens it):
 at once, unless the deployment declares `store_creation_lock_wait_seconds`, a
 positive whole number of seconds, in its manifest or its `ccf_config.yaml`
 (question 2, option (a), adopted by Dave at 17:53 MST); the SDK supplies no
@@ -2326,7 +2330,7 @@ the same id is refused "already exists".
   so every resumption, from any process, is refused for want of an approval
   and the step after the gate never runs
   (`tests/workflow/test_door_approved_gate_whose_commit_failed_stays_stuck.py`;
-  disclosed by Dave's decision 3, `D-IMPL-378`, 2026-10-09). Reconcile such
+  disclosed by Dave's decision 3, `D-IMPL-378`, 2026-10-09 16:38 MST). Reconcile such
   an execution outside the fabric.
 
   A suspension whose approval request never reached the queue left the
@@ -2356,7 +2360,7 @@ the same id is refused "already exists".
   step after that gate a second time, as the same writer can already make that
   step run again with no human at all by writing the record
   `exception-routed` at it (disclosed by Dave's decision 1 (a), `D-IMPL-378`,
-  2026-10-09;
+  2026-10-09 16:38 MST;
   `tests/workflow/test_outside_writer_can_rerun_the_step_after_a_gate.py`).
 - **A passage fenced by another writer is refused `execution-fenced`**
   (`D-IMPL-378`). Every write that ends a passage is conditional on the

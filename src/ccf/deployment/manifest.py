@@ -540,7 +540,10 @@ class DeploymentStoreNotVerified(ValueError):
     verifies the new store with the read any fresh creation takes (repair 1.2;
     :func:`_replace_stale_deployment_marker`). One whose content the boot cannot
     read is refused ``"unreadable"`` and left (P-1 (b), ruled by Dave on
-    2026-10-09 at 20:13 MST: *"1. b and 2. a"*). The refusal states nothing the
+    2026-10-09 at 20:13 MST: *"1. b and 2. a"*), and so is anything at the
+    marker's path that is not a regular file or a symbolic link — a FIFO, a
+    socket, a device, a directory — neither opened nor replaced (``D-IMPL-380``
+    ruling 3, 2026-10-10 05:34 MST). The refusal states nothing the
     store holds.
 
     Attributes:
@@ -555,10 +558,13 @@ class DeploymentStoreNotVerified(ValueError):
               written before markers recorded their state (one line), text the
               SDK did not write, a symbolic link, anything that is not a regular
               file, or a file this process cannot read; or no store stands
-              there, and what stands at the marker's path is a directory the
-              boot cannot replace, or a regular file or a symbolic link whose
-              content this process cannot read, which the boot cannot compare
-              and so does not replace (P-1 (b), 20:13 MST);
+              there, and what stands at the marker's path is anything other
+              than a regular file or a symbolic link — a directory, a FIFO, a
+              socket, a device — which the boot neither opens nor replaces
+              (``D-IMPL-380`` ruling 3, 2026-10-10 05:34 MST), or a regular
+              file or a symbolic link whose content this process cannot read,
+              which the boot cannot compare and so does not replace (P-1 (b),
+              20:13 MST);
             * ``"claimed"`` — a marker appeared at the path after this boot
               looked and before it created its own, the stale marker it found
               was replaced by another file, or rewritten with other bytes,
@@ -863,11 +869,15 @@ class _MarkerSnapshot:
     bytes."*). ``device`` and ``inode`` name the file and
     ``kind`` its type (``stat.S_IFMT``). ``content`` is the SHA-256 digest of a
     regular file's bytes or of a symbolic link's target, and ``None`` for
-    anything else (a directory, a FIFO, a socket, a device) and for a regular
-    file or a link whose content this process cannot read, which
-    :func:`_replace_stale_deployment_marker` therefore refuses to replace (P-1
-    (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*). Two
-    snapshots are equal only when all four are.
+    anything else (a directory, a FIFO, a socket, a device — recorded from
+    ``lstat`` alone, never opened) and for a regular file or a link whose
+    content this process cannot read. :func:`_replace_stale_deployment_marker`
+    refuses to replace any of them (``"unreadable"``): a regular file or a link
+    it cannot read under P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST
+    (*"1. b and 2. a"*), and every other kind, decided from ``kind`` alone,
+    under ``D-IMPL-380`` ruling 3 (Dave, 2026-10-10 05:34 MST: *"Refuse pipes,
+    sockets, and devices without opening or replacing them."*). Two snapshots
+    are equal only when all four are.
     """
 
     device: int
@@ -975,20 +985,35 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left``,
     left untouched and rewritten in place after the look). Until then such a
     marker was replaced, its file and type alone compared (lane probe
-    ``probe_unreadable_stale_marker_rewritten.py``, on ``2a4d7e9e``). Anything
-    else that is neither a regular file nor a symbolic link (a FIFO, a socket,
-    a device) holds no bytes to compare, and is replaced as before.
+    ``probe_unreadable_stale_marker_rewritten.py``, on ``2a4d7e9e``). **Nor is
+    anything that is neither a regular file nor a symbolic link** — a FIFO, a
+    socket, a character or block device, a directory: it holds no bytes the
+    boot can compare, so the boot is refused ``"unreadable"`` before anything
+    is created, decided from the type its ``lstat`` recorded, and what stands
+    there is never opened and never replaced (``D-IMPL-380`` ruling 3; Dave,
+    2026-10-10 05:34 MST: *"Refuse pipes, sockets, and devices without opening
+    or replacing them."*; measured by
+    ``tests/products/test_deployment_marker_special_file_refused.py``). Until
+    then a FIFO, a socket or a device was replaced (panel B-FIFO-MARKER, at
+    ``a7e4c2d2``).
 
     The replacement is atomic: this boot's marker is written to a staging file
     beside it, synced, and renamed over whatever stands at the marker's path (a
     symbolic link there is replaced, not followed), and the directory is synced.
-    The old marker's text is not kept. A directory at the marker's path cannot be
-    replaced, and the boot is refused (``"unreadable"``). From here the marker is
+    The old marker's text is not kept. A directory put at the marker's path
+    after the look cannot be replaced either, and the boot is refused
+    (``"unreadable"``). From here the marker is
     this boot's own, removed on any failure and promoted after its read, exactly
     as one :func:`_create_pending_deployment_marker` created.
     """
     marker = _deployment_store_marker(path)
-    if found.content is None and (stat.S_ISREG(found.kind) or stat.S_ISLNK(found.kind)):
+    if not (stat.S_ISREG(found.kind) or stat.S_ISLNK(found.kind)):
+        # A FIFO, a socket, a device or a directory: decided from the look's
+        # `lstat`, never opened, never replaced (`D-IMPL-380` ruling 3).
+        raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
+    if found.content is None:
+        # A regular file or a link whose content this process cannot read
+        # (P-1 (b), 2026-10-09 20:13 MST).
         raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
     token = os.urandom(_MARKER_TOKEN_HEX // 2).hex()
     staging = marker.with_name(f"{marker.name}.replacing-{token}")
