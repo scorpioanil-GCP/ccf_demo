@@ -1094,11 +1094,13 @@ Two behaviors follow from the design and are stated rather than changed:
   and the door refuses it `class-unverifiable` with that cause
   (`tests/mcp/test_auth_401_never_read_as_absence.py::test_the_erasure_door_over_a_store_whose_credential_is_refused_refuses_class_unverifiable_with_the_typed_cause`).
   The guard's other refusals, a credential without a required scope (HTTP
-  403) and the tenancy guard's denials, still reach the client as
+  403) and the tenancy guard's denials, still reach a read as
   `McpServerUnreachable`, an outage
-  (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`;
-  the write's 403,
-  `tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`).
+  (`tests/mcp/test_auth_401_typed_through_the_client.py::test_the_guards_other_refusals_are_not_the_authentication_refusal`).
+  A write meets the 403 the same way
+  (`tests/mcp/test_auth_401_typed_on_a_write.py::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`)
+  and the tenancy guard's denial as the server's decline, `ArtifactStoreError`
+  (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too`).
   A write's 401 is never reported as an outage
   (`tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`),
   and the peering admission gate lets it through by name rather than

@@ -40,8 +40,10 @@ deployment's and not the caller's (`route-handle-absent`): the credential is the
 outage is not the ruling's to change, and is unchanged: `McpServerUnreachable` still escapes and the framework answers
 `500`. The two differ in status and in body. Nothing is recorded for either.
 
-**Not changed.** The guard's other refusals — a credential without a required scope (HTTP 403) and the tenancy guard's
-denials — still reach the client as `McpServerUnreachable` (decision 11 (a), disclosed in SP §4.10). The HTTP doors
+**Not changed.** The guard's 403, for a credential without a required scope, still reaches a read and the write as
+`McpServerUnreachable`, and the tenancy guard's denial still reaches a read as `McpServerUnreachable` (decision 11 (a),
+disclosed in SP §4.10) and the write as the server's decline, `ArtifactStoreError` (`378-43`;
+`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_servers_authorizer_refuses_is_a_decline_too`). The HTTP doors
 outside decision 21 (a)'s three, among them `POST /artifact`, are not changed: none of them catches the typed refusal.
 `ccf.mcp.client.run_with_session` still reports every 401 as `McpServerUnreachable` to its other consumers; only
 `McpArtifactStore` re-types it.
@@ -61,7 +63,7 @@ outside decision 21 (a)'s three, among them `POST /artifact`, are not changed: n
 - Surface: ccf.artifacts.mcp_store.McpArtifactStore
 - Public surface: true
 - Change type: behavior
-- Before: `put` raised `McpServerUnreachable` when the server's guard answered HTTP 401.
+- Before: `put` raised `McpServerUnreachable` when the server's guard answered HTTP 401, as fragment `378-43` recorded ("a rejected bearer token is still `McpServerUnreachable`").
 - After: `put` raises `ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, chained from the guard's 401 response, with no outage in its chain, as every read does; nothing is written. A 403 and a refused connection stay `McpServerUnreachable`; a write the server declines stays `ArtifactStoreError` (`tests/mcp/test_mcp_store_put_decline.py::test_a_write_the_server_declines_is_an_artifact_store_error_not_an_outage`).
 - Why: decision 10 (b), `D-IMPL-378`. Red tests: `tests/mcp/test_auth_401_typed_on_a_write.py::test_put_raises_the_typed_authentication_refusal_when_the_guard_answers_401` (three credential shapes) and `::test_at_one_write_a_401_a_403_and_a_refused_connection_reach_the_writer_as_two_types`. One pinned test changed with it: the conformance test that asserted `McpServerUnreachable` for `put`, `test_a_store_presenting_a_rejected_token_is_refused_as_an_outage`, now asserts the typed refusal and is renamed `tests/conformance/test_artifactstore.py::test_a_store_presenting_a_rejected_token_is_refused_with_the_typed_authentication_refusal`.
 - Migration: a caller that caught `McpServerUnreachable` around `put` and retried no longer receives a 401 that way; retrying the same credential does not succeed. Catch `ArtifactStoreUnauthenticated` (or `ArtifactStoreError`) and treat it as a credential problem. A caller that reads every `ArtifactStoreError` from a write as a declined write or an unreachable substrate must let this type through by name, as the admission gate below now does.
