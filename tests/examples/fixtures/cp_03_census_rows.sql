@@ -15,6 +15,25 @@
 -- and CIKs are real identifiers; the figures are `ccf_dataprep`'s
 -- educational estate.
 
+-- WRITE LOCK (D-IMPL-379): this script drops, rebuilds and deletes in
+-- `ccf_v2`. It refuses unless every table and view in that schema is
+-- one the cp-00..03 setup scripts create -- a disposable test database.
+-- The curated estate holds far more, so it is refused, by name.
+DO $ccf_write_lock$
+DECLARE
+    stray text;
+BEGIN
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO stray
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'ccf_v2'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND c.relname NOT IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction');
+    IF stray IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-379 write lock: schema % holds %, which no cp-00..03 setup script creates. This is not a disposable test database; refusing to write.', 'ccf_v2', stray;
+    END IF;
+END
+$ccf_write_lock$;
+
 -- legal_entity: 156 rows
 INSERT INTO ccf_v2.legal_entity (lei, legal_name, gleif_legal_name, legal_jurisdiction, entity_status, registration_status, next_renewal_date, initial_registration, legal_form, legal_address_country, legal_address_city, legal_address_region, sic, sic_description, fiscal_year_end, is_anchor, lei_match_band, lei_match_score, provenance, source, retrieved_at, hq_address_country, hq_address_city, hq_address_region) VALUES
   ('0IDE18EMH1CUKQCUYE69', 'SP Plus Corp', 'SP PLUS CORPORATION', 'US-DE', 'ACTIVE', 'LAPSED', '2020-05-13', '2012-06-06', 'XTIQ', 'US', 'WILMINGTON', 'US-DE', '7510', 'Services-Auto Rental & Leasing (No Drivers)', '1231', TRUE, 'exact', '1.000', 'public', 'GLEIF LEI record API + SEC EDGAR submissions API', '2026-08-16', 'US', 'Chicago', 'US-IL'),

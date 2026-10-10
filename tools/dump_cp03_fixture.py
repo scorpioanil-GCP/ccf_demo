@@ -39,6 +39,8 @@ import datetime
 import pathlib
 import sys
 
+from tools.fixture_write_lock import write_lock
+
 FIXTURES = pathlib.Path(__file__).resolve().parents[1] / "tests" / "examples" / "fixtures"
 
 #: The tables the fixture carries, each with the ORDER BY that makes its dump
@@ -136,7 +138,8 @@ def schema_preamble(schema: str, stamp: str) -> str:
         f"-- and type for type from `{schema}`'s own `information_schema` rather than\n"
         f"-- hand-transcribed. The SCHEMA NAME matches the real estate's, so the\n"
         f"-- example's own queries run unchanged against the container.\n\n"
-        f"CREATE SCHEMA IF NOT EXISTS {schema};\n\n"
+        + write_lock(schema)
+        + f"\nCREATE SCHEMA IF NOT EXISTS {schema};\n\n"
     )
 
 
@@ -159,6 +162,8 @@ def rows_preamble(schema: str, stamp: str) -> str:
         f"-- NO NUMBER HERE IS A FACT ABOUT ANY REAL COMPANY'S FINANCIALS. The LEIs\n"
         f"-- and CIKs are real identifiers; the figures are `ccf_dataprep`'s\n"
         f"-- educational estate.\n\n"
+        + write_lock(schema)
+        + "\n"
     )
 
 

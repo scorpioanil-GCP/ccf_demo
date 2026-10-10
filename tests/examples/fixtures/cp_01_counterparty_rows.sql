@@ -47,6 +47,25 @@
 -- `on conflict (lei) do nothing` and never overwrites what is already here,
 -- while this module writes its full record whether or not a thinner one landed
 -- first. Both orders converge on the wide row.
+-- WRITE LOCK (D-IMPL-379): this script drops, rebuilds and deletes in
+-- `ccf_v2`. It refuses unless every table and view in that schema is
+-- one the cp-00..03 setup scripts create -- a disposable test database.
+-- The curated estate holds far more, so it is refused, by name.
+DO $ccf_write_lock$
+DECLARE
+    stray text;
+BEGIN
+    SELECT string_agg(c.relname, ', ' ORDER BY c.relname) INTO stray
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'ccf_v2'
+       AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND c.relname NOT IN ('crosswalk', 'debt_reconciliation', 'facility', 'filing_profile', 'financial_fact', 'institutional_holder', 'internal_client', 'legal_entity', 'peer_entity', 'peer_fact', 'principal', 'principal_jurisdiction');
+    IF stray IS NOT NULL THEN
+        RAISE EXCEPTION 'D-IMPL-379 write lock: schema % holds %, which no cp-00..03 setup script creates. This is not a disposable test database; refusing to write.', 'ccf_v2', stray;
+    END IF;
+END
+$ccf_write_lock$;
+
 insert into ccf_v2.legal_entity (lei,legal_name,legal_jurisdiction,entity_status,registration_status,legal_form,legal_address_country,legal_address_city,legal_address_region,provenance,retrieved_at,hq_address_country,hq_address_city,hq_address_region) values ('529900E95812SYWMCE44','AVIS BUDGET GROUP, INC.','US-DE','ACTIVE','ISSUED','XTIQ','US','WILMINGTON','US-DE','public','2026-08-16','US','Parsippany','US-NJ') on conflict (lei) do update set legal_name=excluded.legal_name, legal_jurisdiction=excluded.legal_jurisdiction, entity_status=excluded.entity_status, registration_status=excluded.registration_status, legal_form=excluded.legal_form, legal_address_country=excluded.legal_address_country, legal_address_city=excluded.legal_address_city, legal_address_region=excluded.legal_address_region, provenance=excluded.provenance, retrieved_at=excluded.retrieved_at, hq_address_country=excluded.hq_address_country, hq_address_city=excluded.hq_address_city, hq_address_region=excluded.hq_address_region;
 insert into ccf_v2.legal_entity (lei,legal_name,legal_jurisdiction,entity_status,registration_status,legal_form,legal_address_country,legal_address_city,legal_address_region,provenance,retrieved_at,hq_address_country,hq_address_city,hq_address_region) values ('549300TRW1LZMDJZAQ78','B&G Foods, Inc.','US-DE','ACTIVE','LAPSED','XTIQ','US','Wilmington','US-DE','public','2026-08-16','US','Parsippany-Troy Hills','US-NJ') on conflict (lei) do update set legal_name=excluded.legal_name, legal_jurisdiction=excluded.legal_jurisdiction, entity_status=excluded.entity_status, registration_status=excluded.registration_status, legal_form=excluded.legal_form, legal_address_country=excluded.legal_address_country, legal_address_city=excluded.legal_address_city, legal_address_region=excluded.legal_address_region, provenance=excluded.provenance, retrieved_at=excluded.retrieved_at, hq_address_country=excluded.hq_address_country, hq_address_city=excluded.hq_address_city, hq_address_region=excluded.hq_address_region;
 
