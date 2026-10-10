@@ -1417,17 +1417,17 @@ class WorkflowEngine:
         whose request never reached the queue, after its persist landed, gets
         that request back from :meth:`_restore_request`.
 
-        **The HITL queue key, disclosed** (``D-IMPL-380``, fourth round, ruling
-        2 (b), 2026-10-10 10:58 MST: *"Record the HITL queue key. The approval
-        binding is unaffected, and this round does not grow to every handoff.
-        Say what the caller can be told, and that the binding does not
-        change."*). Here and in :meth:`_restore_request`, a HITL transport is
-        handed the engine's own pending event, so a transport that alters it
-        can change the ``event_key`` the caller is told in
-        :class:`WorkflowSuspended`; the approval binding (the hash of the
-        suspension record as built) does not change, and resume recomputes the
-        key from the execution's state key and the gate (:meth:`_event_key`),
-        never from the event the transport was handed. The event is not copied.
+        **The HITL stall, disclosed** (``D-IMPL-380``, fifth round, ruling 1
+        (a); Dave, 2026-10-10 12:57 MST: *"Put that sentence, in the same
+        words, on ``_suspend`` and ``_restore_request``."*). A HITL transport is
+        handed the engine's own pending event, which is not copied. A transport
+        that alters it can change the ``event_key`` the caller is told in
+        ``WorkflowSuspended``, and, because resume looks for the key it
+        recomputes (``_event_key``) among the events the transport holds, a
+        transport that alters the key can keep the gate from ever opening, and
+        each recovery queues another request. Nothing is wrongly approved: the
+        approval binding, the hash of the suspension record as built, does not
+        change.
         """
         tenant = authorized.tenant
         key = self._key(tenant, execution_id)
@@ -2339,6 +2339,18 @@ class WorkflowEngine:
           the suspension's own. With more than one, a request pending on another
           engine's transport is filed again on this one, whose verdicts this
           engine judges.
+
+        **The HITL stall, disclosed** (``D-IMPL-380``, fifth round, ruling 1
+        (a); Dave, 2026-10-10 12:57 MST, and 11:56 MST: *"Use the same words.
+        Do not write a second disclosure."*). A HITL transport is handed the
+        engine's own pending event, which is not copied. A transport that
+        alters it can change the ``event_key`` the caller is told in
+        ``WorkflowSuspended``, and, because resume looks for the key it
+        recomputes (``_event_key``) among the events the transport holds, a
+        transport that alters the key can keep the gate from ever opening, and
+        each recovery queues another request. Nothing is wrongly approved: the
+        approval binding, the hash of the suspension record as built, does not
+        change.
         """
         gate = record.current_state
         step = next(
