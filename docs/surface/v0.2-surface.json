@@ -2800,7 +2800,7 @@
       },
       "DeploymentStoreNotVerified": {
         "kind": "class",
-        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable', 'lock-held']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'oversized', 'claimed', 'lock-unavailable', 'lock-held']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "DerivedDeployment": {
         "kind": "class",
@@ -3103,7 +3103,7 @@
       },
       "DeploymentStoreNotVerified": {
         "kind": "class",
-        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable', 'lock-held']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'oversized', 'claimed', 'lock-unavailable', 'lock-held']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "ManifestKeysPlaceToOneKey": {
         "kind": "class",
