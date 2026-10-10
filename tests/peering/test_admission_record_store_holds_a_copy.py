@@ -5,7 +5,7 @@ before the save and keeps its own. The caller and the replay record, including t
 untouched copy. The test alters the record and then answers with the original fingerprint. The saved-bytes limit
 stays disclosed."*
 
-``src/ccf/peering/admission.py::AdmissionGate._persist_admission_record`` derives the record's reference before
+``src/ccf/peering/admission.py::PeeringAdmissionGate._persist_admission_record`` derives the record's reference before
 ``put`` (the first round), so a store that alters the record and answers the ALTERED record's reference is refused.
 A store that alters the record and answers the record's ORIGINAL reference passes that check, because the
 reference is right. At ``ef5d27a4`` the store was handed the gate's own record, whose ``issuance`` is the very
