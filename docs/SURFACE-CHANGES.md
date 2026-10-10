@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2555 entries**, of which **2278** name a public Python surface.
+**2571 entries**, of which **2292** name a public Python surface.
 
 ## Added
 
@@ -20687,7 +20687,7 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 Surfaces that still exist under the same name but whose shape moved. These are the entries an existing integration must read.
 
-624 entries — 432 public Python surface, 192 not public Python API.
+631 entries — 437 public Python surface, 194 not public Python API.
 
 ### Public Python surface
 
@@ -27943,6 +27943,66 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `378-45-c8-sqlite-lease-follows-the-database-file.md`.*
 
+#### ccf.controlplane.artifacts.DeploymentManifest
+
+- Surface: ccf.controlplane.artifacts.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: no field bounded a plain boot's wait for the store-creation lock; a boot that found it held waited with no timeout.
+- After: an optional `store_creation_lock_wait_seconds`, a positive whole number of seconds (strict: zero, a negative number, a fraction, a boolean and a quoted number are refused at parse), hash-transparent at `None`. `None`, the default and what an absent field parses to, declares no wait. The SDK supplies no value and no upper limit, so a deployment can declare a wait long enough to act like none; the seconds are the deployment's own.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b) with question 2 (a). Red test: `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_the_wait_is_absent_unless_declared_and_kept_as_declared`.
+- Migration: none for a manifest that declares no wait: it keeps its content address, and its boots are refused at once where they used to wait. A deployment whose boots of one store can overlap (several workers starting together, say) declares a wait, or boots again after a `"lock-held"` refusal.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.DeploymentManifest
+
+- Surface: ccf.deployment.DeploymentManifest
+- Public surface: true
+- Change type: reshaped
+- Before: as `ccf.controlplane.artifacts.DeploymentManifest`.
+- After: as `ccf.controlplane.artifacts.DeploymentManifest`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b).
+- Migration: as `ccf.controlplane.artifacts.DeploymentManifest`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.controlplane.artifacts.DeploymentConfig
+
+- Surface: ccf.controlplane.artifacts.DeploymentConfig
+- Public surface: true
+- Change type: reshaped
+- Before: no `store_creation_lock_wait_seconds`; the key was refused as unrecognized.
+- After: an optional `store_creation_lock_wait_seconds`, the field, type, bounds and default of `DeploymentManifest`'s twin, hash-transparent at `None`.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b); `DeploymentConfig`'s deployment-level fields mirror `DeploymentManifest`'s, so the two documents cannot drift.
+- Migration: none for a config that declares no wait; it keeps its content address.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: `reason` was one of `"pending"`, `"unreadable"`, `"claimed"`, `"lock-unavailable"`; a held store-creation lock refused nothing, and the boot waited for it with no timeout.
+- After: `reason` may also be `"lock-held"`: another holds the store-creation lock (a boot creating or verifying the store, in this process or another, or any process that locked the file). Refused at once where the deployment declares no `store_creation_lock_wait_seconds`, and once that many seconds have passed with the lock still held where it declares them, counted from the boot's first lock, covering all its locks together. `lock` names the lock's path, and the text names it and says whether a wait was declared. Nothing is created at the path and the marker is not touched; the text does not say an operator must act, since a later boot proceeds once the holder lets go. The refusal does not name the holder. A waiting boot tries the lock again every 0.01 seconds, so a release is noticed at most that much later.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b) with question 2 (a). Red tests: `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_boot_that_finds_the_lock_held_and_no_wait_declared_is_refused_at_once_by_name` and `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_a_boot_with_a_declared_wait_waits_that_long_for_a_held_lock_then_is_refused_by_name`.
+- Migration: a caller that branches on `reason` meets a fifth value. For `"lock-held"`, boot again once the holder lets go; if `fuser` or `lsof` on the lock shows a process that has stopped or hung, end it. Never remove a lock file a process holds: the next boot would create a new one and run beside that holder (lane probe `probe_lock_file_removed_while_held.py`; the security how-to, section 4.12, step 4).
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: reshaped
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
 ### Not public Python API
 
 #### docs/schemas/ccf.product-request-contract.json
@@ -30319,6 +30379,30 @@ Surfaces that still exist under the same name but whose shape moved. These are t
 
 *Recorded by `374-01-sec-013-network-store-lease.md`.*
 
+#### ccf.deployment-manifest
+
+- Surface: ccf.deployment-manifest
+- Public surface: false
+- Change type: reshaped
+- Before: no `store_creation_lock_wait_seconds` key; a manifest naming it was refused at parse.
+- After: an optional `store_creation_lock_wait_seconds`, an integer greater than zero; the committed `docs/schemas/ccf.deployment-manifest.json` carries it, regenerated.
+- Why: as for `ccf.controlplane.artifacts.DeploymentManifest`.
+- Migration: as for `ccf.controlplane.artifacts.DeploymentManifest`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment-config
+
+- Surface: ccf.deployment-config
+- Public surface: false
+- Change type: reshaped
+- Before: no `store_creation_lock_wait_seconds` key; a config naming it was refused as an unrecognized section.
+- After: an optional `store_creation_lock_wait_seconds`, an integer greater than zero; the committed `docs/schemas/ccf.deployment-config.json` carries it, regenerated.
+- Why: as for `ccf.controlplane.artifacts.DeploymentConfig`.
+- Migration: as for `ccf.controlplane.artifacts.DeploymentConfig`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
 ## Removed
 
 Surfaces that no longer exist. Each entry names what replaces it.
@@ -30971,7 +31055,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-514 entries — 475 public Python surface, 39 not public Python API.
+523 entries — 484 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38246,6 +38330,114 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none for a conforming store.
 
 *Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: a stale marker with no store beside it that was rewritten in place, or deleted and created again under the same inode number, between the boot's look and its replacement kept its device and inode and was replaced; `"claimed"` caught another file put at the path only.
+- After: the boot compares what stands at the marker's path immediately before the rename with what its look found: the file (device and inode), its type, and its content, a regular file's bytes or a symbolic link's target, by their SHA-256 digest. A difference refuses the boot `"claimed"` and leaves the marker. Not told apart: a change made after that comparison and before the rename; a rewrite to identical bytes, which changes nothing a boot reads; and the bytes of a marker the boot cannot read (a file it has no permission to open), whose file and type alone are compared (lane probe `probe_unreadable_stale_marker_rewritten.py`: a write-only marker rewritten in place is replaced). In each of those the boot replaces the marker and verifies the new store itself, so it serves nothing it did not read.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b). Red test: `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_a_stale_marker_rewritten_in_place_after_the_look_is_refused_as_claimed_and_left`.
+- Migration: none in code. A boot refused `"claimed"` this way is resolved as any `"claimed"` refusal is (the security how-to, section 4.12): find what writes into the store's directory first.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b).
+- Migration: none in code.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot replaced a stale marker with no store beside it after checking only that it was still the same file (device and inode) its look found.
+- After: it also checks the marker's type and content (bytes, or a symbolic link's target) and is refused `DeploymentStoreNotVerified` (`"claimed"`) where they changed; its Raises says so.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: none in code.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` decision 17 (b).
+- Migration: none in code.
+
+*Recorded by `378-70-a-a-stale-marker-rewritten-with-other-bytes-is-refused-claimed.md`.*
+
+#### ccf.deployment.config.derive_deployment
+
+- Surface: ccf.deployment.config.derive_deployment
+- Public surface: true
+- Change type: behavior
+- Before: the derived manifest carried `tenant_id`, `backend`, `backend_secrets` and `survivor_cap` from the config's deployment-level fields.
+- After: it also carries `store_creation_lock_wait_seconds`, unchanged; a config that declares none derives a manifest that declares none.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b). Measured by `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_the_config_door_carries_the_declared_wait_into_its_manifest_and_honors_it`.
+- Migration: none.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot that found the store-creation lock held waited for it with no timeout (fragment `378-61`: "a second boot of the path waits").
+- After: it is refused `DeploymentStoreNotVerified` (`"lock-held"`) at once, or, where the manifest declares `store_creation_lock_wait_seconds`, once that many seconds have passed with the lock still held; a boot that gets the lock within them proceeds as before and reopens a store another boot created and verified. Its Raises says so.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b) with question 2 (a). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`, and by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_boot_that_meets_another_boot_creating_the_store_waits_for_its_verification_then_reopens` with a wait declared.
+- Migration: as `ccf.controlplane.artifacts.DeploymentManifest`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`, the wait read from `ccf_config.yaml`'s `store_creation_lock_wait_seconds` through the manifest the door derives; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b). Measured by `tests/products/test_deployment_store_creation_lock_bounded.py::test_19_b_the_config_door_carries_the_declared_wait_into_its_manifest_and_honors_it`.
+- Migration: as `ccf.controlplane.artifacts.DeploymentConfig`.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: its description of `store_creation` said that a boot that finds another creating the store waits for it.
+- After: unchanged behavior of the field; its description says that such a boot is refused by name (`"lock-held"`) at once, or once the deployment's declared wait has passed, and that a boot that gets the lock after another boot created and verified the store reopens it.
+- Why: SEC-020, `D-IMPL-378` decision 19 (b).
+- Migration: none.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said that the read is taken by every plain boot whose path held no store when it looked, while the boot holds the store-creation lock.
+- After: unchanged behavior; its docstring says the read is taken once the adapter has opened the store the boot creates, and that a boot whose store's directory does not exist takes no lock and, on the SDK's SQLite adapter, no read either, the adapter refusing it first with nothing created there.
+- Why: `D-IMPL-378`, the fix-up follow-up's report (section 5), left for this lane. Measured by `tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_measure_a_plain_boot_whose_store_directory_does_not_exist_takes_no_lock_and_creates_nothing`.
+- Migration: none.
+
+*Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
 
 #### ccf.products.demonstration_clock.compose_serve_clock
 

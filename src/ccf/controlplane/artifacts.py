@@ -2068,6 +2068,24 @@ class DeploymentManifest(VersionedArtifact):
             with existing schema/regeneration machinery, and a
             per-product-class override can arrive later without a contract
             break.
+        store_creation_lock_wait_seconds: How long, in whole seconds, a plain
+            boot of this deployment waits for a store-creation lock that
+            another holds before it is refused by name
+            (:class:`~ccf.deployment.manifest.DeploymentStoreNotVerified`,
+            reason ``"lock-held"``). SEC-020, ``D-IMPL-378`` decision 19 (b),
+            ruled by Dave on 2026-10-09 at 16:38 MST, adopting Grok's
+            recommendation: *"Wait a bounded time, then refuse by name. An
+            unbounded wait is not a lock."* **The SDK supplies no value**
+            (``D-IMPL-38``): ``None`` — the default, and what an absent field
+            parses to — declares no wait, and a boot that finds the lock held
+            is refused at once, as the SQLite writer lease refuses (question 2,
+            option (a), adopted by Dave at 17:53 MST). A positive whole number
+            of seconds; zero, a negative number, a fraction, a boolean and a
+            quoted number are refused at parse. The seconds cover all of a
+            boot's store-creation locks together, not each. Hash-transparent
+            at ``None``, so a manifest declaring no wait keeps its content
+            address. Only a plain boot reads it: a boot for a question takes no
+            store-creation lock.
     """
 
     artifacts: tuple[ManifestEntry, ...] = Field(min_length=1)
@@ -2077,6 +2095,13 @@ class DeploymentManifest(VersionedArtifact):
     policy_bundle_key: str
     tenant_id: str | None = None
     survivor_cap: int | None = None
+    # `D-IMPL-378` decision 19 (b): optional, with no SDK value (`D-IMPL-38`), and
+    # hash-transparent at `None`, so every manifest written before it keeps its
+    # content address. Strict: a boolean or a quoted number is not a number of
+    # seconds, and is refused rather than read as one.
+    store_creation_lock_wait_seconds: int | None = Field(
+        default=None, gt=0, strict=True, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
 
     @model_validator(mode="after")
     def _secret_fields_are_unique(self) -> "DeploymentManifest":
@@ -2225,8 +2250,9 @@ class DeploymentConfig(VersionedArtifact):
 
     **Deployment-level fields mirror `DeploymentManifest`'s fields of the
     same name, so the two documents cannot drift.** `tenant_id`, `backend`,
-    `backend_secrets` and `survivor_cap` carry the same types, the same
-    defaults and the same rationale as their `DeploymentManifest` twins —
+    `backend_secrets`, `survivor_cap` and `store_creation_lock_wait_seconds`
+    carry the same types, the same defaults and the same rationale as their
+    `DeploymentManifest` twins —
     see that class's own `Attributes:` block, `D-06`, `D-08` and D-IMPL-05.
     `backend_secrets` carries :class:`SecretReference` entries unchanged: a
     credential never enters this document either.
@@ -2234,9 +2260,11 @@ class DeploymentConfig(VersionedArtifact):
     **`resolution_spec_key` and `policy_bundle_key` are additional fields
     beyond design spec §4.1's top-level list, ruled onto this contract by
     `D-IMPL-138`(b) (Dave, 2026-08-15).** The measured basis, not a case this
-    docstring re-argues: `DeploymentManifest` carries exactly `semver`,
+    docstring re-argues: `DeploymentManifest` then carried exactly `semver`,
     `artifacts`, `backend`, `backend_secrets`, `resolution_spec_key`,
-    `policy_bundle_key`, `tenant_id`, `survivor_cap` — the four fields design
+    `policy_bundle_key`, `tenant_id`, `survivor_cap` (since `D-IMPL-378`
+    decision 19 (b) it also carries `store_creation_lock_wait_seconds`,
+    mirrored here) — the four fields design
     spec §4.1 omitted are the manifest's own fields, which is field parity
     rather than an added judgement call. `resolution_spec_key` and
     `policy_bundle_key` are **required with no default** on
@@ -2273,6 +2301,13 @@ class DeploymentConfig(VersionedArtifact):
         survivor_cap: The D-10 survivor-set size cap in force
             deployment-wide, or `None` — the default — for "no cap
             configured".
+        store_creation_lock_wait_seconds: How long, in whole seconds, a plain
+            boot waits for a store-creation lock another holds before it is
+            refused by name, or `None` — the default — for no wait: the field,
+            type, bounds and default of
+            `DeploymentManifest.store_creation_lock_wait_seconds`, which the
+            config door's derived manifest carries unchanged (`D-IMPL-378`
+            decision 19 (b); the SDK supplies no value, `D-IMPL-38`).
         resolution_spec_key: Which registered key holds the entity-resolution
             spec in force. `None` — the default — means *derive from the
             `resolution:` section name*.
@@ -2334,6 +2369,10 @@ class DeploymentConfig(VersionedArtifact):
     backend: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     backend_secrets: tuple[SecretReference, ...] = ()
     survivor_cap: int | None = None
+    # `D-IMPL-378` decision 19 (b): `DeploymentManifest`'s twin, field for field.
+    store_creation_lock_wait_seconds: int | None = Field(
+        default=None, gt=0, strict=True, json_schema_extra={HASH_TRANSPARENT_KEY: True}
+    )
     resolution_spec_key: str | None = None
     policy_bundle_key: str | None = None
 

@@ -16,7 +16,9 @@ repairs (so a tree without them fails on its behavior, never on an import):
 when the boot reached it (so whether this boot's adapter created it), and the
 governed reader's ``as_of`` is wrapped to count reads at the latest instant a
 timestamp can name (the boot's emptiness read). The report is one JSON object
-on the last line of stdout.
+on the last line of stdout; for a refusal it carries the refusal's class names
+(its MRO), its ``reason``, its ``lock`` (a path, where the refusal names one)
+and its text.
 
 Modes:
 
@@ -135,6 +137,7 @@ def _boot_once(observed: _Observed, manifest: pathlib.Path, registry: Any, store
             outcome="raised",
             raised=[klass.__name__ for klass in type(raised).__mro__],
             reason=getattr(raised, "reason", None),
+            lock=None if getattr(raised, "lock", None) is None else str(raised.lock),
             message=str(raised),
         )
     else:

@@ -2002,6 +2002,7 @@
           "resolution_spec_key": "str | None",
           "semver": "<class 'str'>",
           "skills": "collections.abc.Mapping[str, collections.abc.Mapping[str, typing.Any]] | None",
+          "store_creation_lock_wait_seconds": "int | None",
           "survivor_cap": "int | None",
           "temporal_boundary": "collections.abc.Mapping[str, typing.Any] | None",
           "tenant_id": "str | None",
@@ -2017,6 +2018,7 @@
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
+          "store_creation_lock_wait_seconds": "int | None",
           "survivor_cap": "int | None",
           "tenant_id": "str | None"
         }
@@ -2787,6 +2789,7 @@
           "policy_bundle_key": "<class 'str'>",
           "resolution_spec_key": "<class 'str'>",
           "semver": "<class 'str'>",
+          "store_creation_lock_wait_seconds": "int | None",
           "survivor_cap": "int | None",
           "tenant_id": "str | None"
         }
@@ -2797,7 +2800,7 @@
       },
       "DeploymentStoreNotVerified": {
         "kind": "class",
-        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable', 'lock-held']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "DerivedDeployment": {
         "kind": "class",
@@ -3100,7 +3103,7 @@
       },
       "DeploymentStoreNotVerified": {
         "kind": "class",
-        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
+        "shape": "(*, marker: 'Path', reason: \"Literal['pending', 'unreadable', 'claimed', 'lock-unavailable', 'lock-held']\", lock: 'Path | None' = None, detail: 'str | None' = None) -> 'None'"
       },
       "ManifestKeysPlaceToOneKey": {
         "kind": "class",

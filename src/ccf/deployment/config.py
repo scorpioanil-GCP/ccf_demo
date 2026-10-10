@@ -1595,6 +1595,7 @@ def derive_deployment(
         policy_bundle_key=policy_bundle_key,
         tenant_id=config.tenant_id,
         survivor_cap=config.survivor_cap,
+        store_creation_lock_wait_seconds=config.store_creation_lock_wait_seconds,
     )
     keys = DeploymentKeys(
         product_class=entries[0].key,
