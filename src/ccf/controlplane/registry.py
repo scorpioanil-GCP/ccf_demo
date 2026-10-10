@@ -661,8 +661,10 @@ class ControlPlaneRegistry:
         known = version in self._versions.get(key, ())
         # D-IMPL-380, sixth round: the registry's own reconstruction is built
         # and verified BEFORE any registration state changes, so a refusal
-        # leaves no version, no binding and no audit row behind.
-        held = None if known else _isolated(artifact, door="register")
+        # leaves no version, no binding and no audit row behind — on every
+        # registration, including an idempotent one, so the drift refusal
+        # cannot be bypassed by registering known bytes under a drifted value.
+        held = _isolated(artifact, door="register")
         versions = self._versions.setdefault(key, [])
         if not known:
             versions.append(version)
@@ -725,12 +727,9 @@ class ControlPlaneRegistry:
         version = content_hash(artifact)
         known = version in self._versions.get(key, ())
         # D-IMPL-380, sixth round: reconstructed and re-validated against the
-        # class before any registration state changes.
-        held = (
-            None
-            if known
-            else artifact_class.validate(_isolated(artifact, door="register_typed"))
-        )
+        # class before any registration state changes, on every registration
+        # (the idempotent path verifies too; it only skips the store).
+        held = artifact_class.validate(_isolated(artifact, door="register_typed"))
         versions = self._versions.setdefault(key, [])
         if not known:
             versions.append(version)
@@ -871,7 +870,10 @@ class ControlPlaneRegistry:
         fingerprint = content_hash(
             validated.model_copy(update={"artifact_version": ""})
         )
-        bumps = self._bumps.setdefault(key, {})
+        # D-IMPL-380, sixth round: read-only until the reconstruction below has
+        # been verified — `setdefault` here left an empty bump map behind a
+        # refusal (the sixth-round delta review, both CLI seats).
+        bumps = self._bumps.get(key, {})
 
         def _refused(refusal: RegistrationRefusal) -> RegistrationRefusal:
             self._record(
@@ -917,19 +919,17 @@ class ControlPlaneRegistry:
         known = incoming in self._versions.get(key, ())
         # D-IMPL-380, sixth round: reconstructed and re-validated against the
         # class before any registration state changes — after the D-05 refusals
-        # above, which record a refusal and never a registration.
-        held = (
-            None
-            if known
-            else artifact_class.validate(
-                _isolated(validated, door="register_versioned")
-            )
+        # above, which record a refusal and never a registration — on every
+        # registration (the idempotent path verifies too; it only skips the store).
+        held = artifact_class.validate(
+            _isolated(validated, door="register_versioned")
         )
         versions = self._versions.setdefault(key, [])
         if not known:
             versions.append(incoming)
             self._artifacts[(key, incoming)] = held
         self._classes[key] = artifact_class.class_id
+        bumps = self._bumps.setdefault(key, {})
         bumps[declared] = (incoming, fingerprint)
         self._record(
             action="register_versioned",
