@@ -265,6 +265,12 @@ class WorkflowTraceReferenceMismatch(ArtifactStoreError):
     reference, and one changed field was handed out the same way
     (``tests/workflow/test_trace_writer_checks_the_returned_reference.py``).
 
+    **The reference is derived before the store's** ``put`` **is called**
+    (``D-IMPL-380``, ruling 1 (a), 2026-10-10 05:34 MST), from the trace as
+    the engine built it, so a store that rewrites the trace while holding it
+    and answers the rewritten trace's own reference is refused here too
+    (``tests/workflow/test_trace_writer_hashes_before_put.py``).
+
     **Raised after the store's ``put`` returns, so no outcome carrying the
     reference is returned** — at the point, and with the effect, of a store
     failure there. The engine writes the trace after it persists the
@@ -2565,26 +2571,28 @@ class WorkflowEngine:
         class and name — or no reference is returned. The reference returned,
         which callers receive as the outcome's ``trace_artifact``, is the one
         the engine derived, which the store's answer equals field for field.
-        What is not checked: the bytes the store holds (see
-        :class:`WorkflowTraceReferenceMismatch`).
+        **That reference is derived before** ``put`` **is called**, from the
+        trace as built, and never from the trace after the store has held it
+        (``D-IMPL-380``, ruling 1 (a), 2026-10-10 05:34 MST): a store that
+        rewrites the trace while holding it (``object.__setattr__`` passes a
+        frozen model's guard) and answers the rewritten trace's genuine
+        reference is refused, not believed. What is not checked: the bytes
+        the store holds (see :class:`WorkflowTraceReferenceMismatch`).
 
         Raises:
             WorkflowTraceReferenceMismatch: the store's answer is not the
                 trace's own reference. Raised after the store returns.
         """
         del key  # the state key; the trace is named by the execution id alone
-        answered = self._artifact_store.put(
-            authorized,
-            DerivedWrite(
-                artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
-                name=execution_id,
-                artifact=trace,
-            ),
-        )
-        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
-        # reference of the trace actually written, derived here (`D-IMPL-26`:
-        # the version IS the address; the name is the execution id), and the
-        # store's answer held to it field for field, as exact strings.
+        # The reference of the trace as built, derived BEFORE the store is
+        # handed it (`D-IMPL-380`, ruling 1 (a); Dave, 2026-10-10 05:34 MST:
+        # *"Hash before put in both writers. Compare the store's answer to
+        # that precomputed reference. Do not hash the object again after the
+        # store has held it."*). The entries are frozen, but
+        # ``object.__setattr__`` passes a frozen model's guard, so a store
+        # that rewrote the trace while holding it would otherwise be compared
+        # against the rewritten trace. `D-IMPL-26`: the version IS the
+        # address; the name is the execution id.
         address = content_hash(trace)
         own = ArtifactRef(
             content_address=address,
@@ -2598,6 +2606,17 @@ class WorkflowEngine:
             artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
             name=execution_id,
         )
+        answered = self._artifact_store.put(
+            authorized,
+            DerivedWrite(
+                artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
+                name=execution_id,
+                artifact=trace,
+            ),
+        )
+        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
+        # store's answer held to the reference derived above, field for field,
+        # as exact strings — never re-derived from the trace the store held.
         differing = tuple(
             field
             for field in ArtifactRef.model_fields

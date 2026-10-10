@@ -616,6 +616,12 @@ class AdmissionRecordReferenceMismatch(ArtifactStoreError):
     changed URI, tenant or class was accepted
     (``tests/peering/test_admission_record_writer_checks_the_returned_reference.py``).
 
+    **The reference is derived before the store's** ``put`` **is called**
+    (``D-IMPL-380``, ruling 1 (a), 2026-10-10 05:34 MST), from the record as
+    the gate built it, so a store that alters the record while holding it and
+    answers the altered record's own reference is refused here too
+    (``tests/peering/test_admission_record_writer_hashes_before_put.py``).
+
     **Raised after the store's ``put`` returns and before the verdict is
     appended**, so the crossing is not reported as admitted: no
     ``peering_admitted`` row is appended and no :class:`AdmittedProduct`
@@ -1017,8 +1023,15 @@ class PeeringAdmissionGate:
         version, and the tenant, class and name — or nothing is reported as
         admitted. The reference returned, whose name and address become the
         verdict's ``key`` and ``version``, is the one the gate derived, which
-        the store's answer equals field for field. What is not checked: the
-        bytes the store holds (see :class:`AdmissionRecordReferenceMismatch`).
+        the store's answer equals field for field. **That reference is derived
+        before** ``put`` **is called**, from the record as built, and never
+        from the object after the store has held it (``D-IMPL-380``, ruling 1
+        (a), 2026-10-10 05:34 MST): a store that alters the record while
+        holding it — its echoed parameters are a plain ``dict``, and
+        ``object.__setattr__`` passes a frozen model's guard — and answers the
+        altered record's genuine reference is refused, not believed. What is
+        not checked: the bytes the store holds (see
+        :class:`AdmissionRecordReferenceMismatch`).
 
         Raises:
             AdmissionNotRecorded: the store could not persist the record. Not
@@ -1040,6 +1053,29 @@ class PeeringAdmissionGate:
             merged_lineage=merged,
             admitted_at=occurred_at,
             issuance=issuance,
+        )
+        # The reference of the record as built, derived BEFORE the store is
+        # handed it (`D-IMPL-380`, ruling 1 (a); Dave, 2026-10-10 05:34 MST:
+        # *"Hash before put in both writers. Compare the store's answer to
+        # that precomputed reference. Do not hash the object again after the
+        # store has held it."*). The record is frozen, but its issuance echo
+        # carries a mapping that validates to a plain ``dict``, and
+        # ``object.__setattr__`` passes a frozen model's guard: a store that
+        # changed the record while holding it would otherwise be compared
+        # against the changed object. `D-IMPL-26`: the version IS the record's
+        # address; the name is the admitted product's.
+        address = content_hash(record)
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=self._authorized.tenant,
+                artifact_class=ADMISSION_RECORD.class_id,
+                name=content_address,
+                artifact_version=address,
+            ),
+            tenant_id=self._authorized.tenant,
+            artifact_class=ADMISSION_RECORD.class_id,
+            name=content_address,
         )
         try:
             # A derived write (D-IMPL-353 §1.2): the composition decision could
@@ -1068,25 +1104,11 @@ class PeeringAdmissionGate:
                 " is not reported as admitted; a record of what crossed is a"
                 " precondition of admitting it (D-IMPL-58, T-06-100)"
             ) from unreachable
-        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
-        # reference of the record actually written, derived here (`D-IMPL-26`:
-        # the version IS the record's address; the name is the admitted
-        # product's), and the store's answer held to it field for field, as
-        # exact strings. Outside the `try` above, so a mismatch is refused by
-        # its own name rather than reported as a record that was not persisted.
-        address = content_hash(record)
-        own = ArtifactRef(
-            content_address=address,
-            uri=artifact_uri(
-                tenant_id=self._authorized.tenant,
-                artifact_class=ADMISSION_RECORD.class_id,
-                name=content_address,
-                artifact_version=address,
-            ),
-            tenant_id=self._authorized.tenant,
-            artifact_class=ADMISSION_RECORD.class_id,
-            name=content_address,
-        )
+        # Decision 5 (a) (`D-IMPL-378`): the store's answer held to the
+        # reference derived above, field for field, as exact strings. Outside
+        # the `try` above, so a mismatch is refused by its own name rather than
+        # reported as a record that was not persisted. Never re-derived here:
+        # the store has held the record (`D-IMPL-380`, ruling 1 (a)).
         differing = tuple(
             field
             for field in ArtifactRef.model_fields
