@@ -73,7 +73,13 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Protocol, Union, runtime_checkable
 
-from ccf.artifacts.protocol import ArtifactRef, ArtifactStoreProtocol, DerivedWrite
+from ccf.artifacts.protocol import (
+    ArtifactRef,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    DerivedWrite,
+    artifact_uri,
+)
 from ccf.authz.capability import Authorized, Execute, Resume, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -103,6 +109,7 @@ from ccf.hitl.transport import (
     HitlActionSubmission,
     PendingHitlEvent,
 )
+from ccf.replay.serve import _same_string
 from ccf.skills.grants import SplitAuditPlaneError
 from ccf.workflow.definitions import (
     WORKFLOW_DEFINITION,
@@ -133,6 +140,7 @@ __all__ = [
     "WorkflowOutcome",
     "WorkflowResumeRefused",
     "WorkflowSuspended",
+    "WorkflowTraceReferenceMismatch",
     "WorkflowWiringError",
 ]
 
@@ -228,6 +236,64 @@ class ForeignStateRecordError(TypeError):
     :data:`~ccf_runtime.workflow.state.WORKFLOW_STATE` record class is the
     workflow machine's alone (D-IMPL-18/27).
     """
+
+
+class WorkflowTraceReferenceMismatch(ArtifactStoreError):
+    """The store answered an execution trace's write with a reference that is not that trace's own.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-378``
+    decision 5 (Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation):
+    *"(a) Fix the four writers in one small lane."* It extends decision 5 (a)
+    (06:21 MST), *"Verify the returned record address against the record
+    actually written."*, from
+    ``src/ccf/replay/serve.py::ReplayWriter.write_replay_record`` to the trace
+    the engine writes through to the artifact store (D-IMPL-18).
+
+    **What the engine knows before the store answers.** Under ``D-IMPL-26``
+    the whole reference of a trace it files is fixed by the trace, the
+    execution and the capability that authorized the run: the content address
+    is :func:`~ccf.contracts.canonical.content_hash` of the trace, the name is
+    the execution id, the tenant is the capability's, the class is
+    :data:`WORKFLOW_TRACE_ARTIFACT_CLASS`, and the versioned URI is
+    ``ccf-artifact://{tenant}/{class}/{execution id}@{address}``. Every field
+    of the store's answer is held to that as an exact string. Before this
+    check the answer was handed to callers unchecked as the outcome's
+    ``trace_artifact``. Measured on ``dl-378-integ`` @ ``6cd6023e``: a store
+    that filed a second execution's trace faithfully and answered with the
+    first execution's trace reference had the second execution's suspended,
+    exception-routed and completed outcomes carry the first execution's
+    reference, and one changed field was handed out the same way
+    (``tests/workflow/test_trace_writer_checks_the_returned_reference.py``).
+
+    **Raised after the store's ``put`` returns, so no outcome carrying the
+    reference is returned** — at the point, and with the effect, of a store
+    failure there. The engine writes the trace after it persists the
+    transition the trace describes, so that transition and its audit row
+    stand; at a suspension the approval request has not yet been enqueued.
+    An :class:`~ccf.artifacts.protocol.ArtifactStoreError`, because the
+    store's answer is what failed. The text names the fields that differ and
+    no value the store answered.
+
+    **What it does not check:** the bytes the store holds. It reads the store's
+    answer, not the store; a store that answers the trace's own reference
+    while holding other bytes under it is found by a reader that re-hashes
+    what it fetches before using it, such as
+    :func:`~ccf.replay.engine.resolve_artifact`.
+
+    Attributes:
+        fields: The names of the reference's fields that differ from the
+            trace's own, in :class:`~ccf.artifacts.protocol.ArtifactRef`'s
+            field order.
+    """
+
+    def __init__(self, *, fields: tuple[str, ...]) -> None:
+        self.fields = fields
+        super().__init__(
+            f"the artifact store answered an execution trace's write with a"
+            f" reference whose {', '.join(fields)} are not the trace's own; the"
+            " engine hands out only the reference of the trace it wrote, so no"
+            " outcome carrying it is returned (D-IMPL-378 decision 5 (a))"
+        )
 
 
 @runtime_checkable
@@ -2490,9 +2556,24 @@ class WorkflowEngine:
         the class the client lane, and the engine's ``Execute``/``Resume``
         capability dies at the store's ``verify_any`` on the first trace write
         — fail closed, nothing filed, no execution reported as run.
+
+        **The store's answer is held to the trace written** (``D-IMPL-378``
+        decision 5, extending 5 (a)): every field of the reference ``put``
+        returns must be the trace's own — its content address, the URI naming
+        it under the capability's tenant and the trace class with the
+        execution id as name and that address as version, and the tenant,
+        class and name — or no reference is returned. The reference returned,
+        which callers receive as the outcome's ``trace_artifact``, is the one
+        the engine derived, which the store's answer equals field for field.
+        What is not checked: the bytes the store holds (see
+        :class:`WorkflowTraceReferenceMismatch`).
+
+        Raises:
+            WorkflowTraceReferenceMismatch: the store's answer is not the
+                trace's own reference. Raised after the store returns.
         """
         del key  # the state key; the trace is named by the execution id alone
-        return self._artifact_store.put(
+        answered = self._artifact_store.put(
             authorized,
             DerivedWrite(
                 artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
@@ -2500,3 +2581,28 @@ class WorkflowEngine:
                 artifact=trace,
             ),
         )
+        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
+        # reference of the trace actually written, derived here (`D-IMPL-26`:
+        # the version IS the address; the name is the execution id), and the
+        # store's answer held to it field for field, as exact strings.
+        address = content_hash(trace)
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=authorized.tenant,
+                artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
+                name=execution_id,
+                artifact_version=address,
+            ),
+            tenant_id=authorized.tenant,
+            artifact_class=WORKFLOW_TRACE_ARTIFACT_CLASS,
+            name=execution_id,
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(answered, field, None), getattr(own, field))
+        )
+        if differing:
+            raise WorkflowTraceReferenceMismatch(fields=differing)
+        return own

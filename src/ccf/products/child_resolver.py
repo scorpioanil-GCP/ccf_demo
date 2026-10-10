@@ -54,7 +54,13 @@ from datetime import datetime
 
 from typing import Any
 
-from ccf.artifacts.protocol import ArtifactStoreProtocol, DerivedWrite
+from ccf.artifacts.protocol import (
+    ArtifactRef,
+    ArtifactStoreError,
+    ArtifactStoreProtocol,
+    DerivedWrite,
+    artifact_uri,
+)
 from ccf.authz.capability import Authorized, ReplayMint, verify
 from ccf.contracts.base import CCFContract
 from ccf.contracts.canonical import canonical_bytes, content_hash
@@ -80,6 +86,7 @@ from ccf.products.door import AnsweredQuestion, DoorOutcome, ProducerAssertion, 
 from ccf.products.request import ProductRequest
 from ccf.replay.provenance import require_filed_by_record_writer
 from ccf.replay.record import DecisionReplayRecord
+from ccf.replay.serve import _same_string
 from ccf.skills.callables import CallableRegistry
 from ccf.skills.catalog import McpProductBinding
 from ccf.skills.dispatch import (
@@ -101,6 +108,7 @@ __all__ = [
     "MalformedDoorAnswer",
     "ChildArguments",
     "ChildQuestion",
+    "ChildQuestionReferenceMismatch",
     "ChildQuestions",
     "ChildRecordAltered",
     "ChildRecordMismatch",
@@ -172,6 +180,73 @@ class ChildRecordAltered(ChildRecordMismatch):
     the same reason, and wrapped opaque at the MCP egress door like it
     (`D-IMPL-253` Q20): the message names a reference and two addresses.
     """
+
+
+class ChildQuestionReferenceMismatch(ArtifactStoreError, RuntimeError):
+    """The parent's store answered a child question's retention with a reference that is not the question's own.
+
+    SDK-defined per CLAUDE.md §11; the ruling of record is ``D-IMPL-378``
+    decision 5 (Dave, 2026-10-09 16:38 MST, adopting Grok's recommendation):
+    *"(a) Fix the four writers in one small lane."* It extends decision 5 (a)
+    (06:21 MST), *"Verify the returned record address against the record
+    actually written."*, from
+    ``src/ccf/replay/serve.py::ReplayWriter.write_replay_record`` to the
+    question retention of :class:`QuestionBoundChildResolver` (`D-IMPL-342` /
+    `CP14-F-35`).
+
+    **What the resolver knows before the store answers.** Under ``D-IMPL-26``
+    the whole reference of a question it files is fixed by the question and
+    its capability: the content address is the question's
+    :attr:`~ccf.skills.dispatch.ProductQuestion.address` (the content hash of
+    its identity bytes), the name is that address, the tenant is the
+    capability's, the class is
+    :data:`~ccf.products.composite.CHILD_QUESTION_CLASS`, and the versioned URI
+    is ``ccf-artifact://{tenant}/{class}/{address}@{address}``. Every field of
+    the store's answer is held to that as an exact string. Before this check
+    only the content address was held, with ``!=``, and the URI the store
+    answered was recorded unchecked as
+    :attr:`~ccf.replay.record.ChildResolution.child_question_ref`. Measured on
+    ``dl-378-integ`` @ ``6cd6023e``: a parent store that answered with the
+    question's own address and another question's URI had that URI recorded,
+    and a changed name, tenant or class was accepted
+    (``tests/products/test_child_question_retention_checks_the_returned_reference.py``).
+
+    **Raised after the store's ``put`` returns and before the producer is
+    asked**, so no child row is built and the producer is never contacted. It
+    propagates out of :meth:`QuestionBoundChildResolver.resolve_for`; the
+    governed resolver re-raises it unless the product class declares it a
+    seam refusal (``src/ccf/products/resolver.py::GovernedResolver._declared_seam_refusal``),
+    so with no such declaration the composition records nothing and answers
+    nothing. The store may already hold the question's bytes.
+
+    **Also a** ``RuntimeError``: the content-address refusal this absorbs was
+    raised as one (`D-IMPL-342`'s record of what was built), and a caller
+    written against that still catches it. An
+    :class:`~ccf.artifacts.protocol.ArtifactStoreError`, because the store's
+    answer is what failed. The text names the fields that differ and no value
+    the store answered.
+
+    **What it does not check:** the bytes the store holds. It reads the store's
+    answer, not the store; a store that answers the question's own reference
+    while holding other bytes under it is found by replay's audit read,
+    :func:`~ccf.replay.engine.retained_child_question`, which re-hashes the
+    retained bytes before using them.
+
+    Attributes:
+        fields: The names of the reference's fields that differ from the
+            question's own, in :class:`~ccf.artifacts.protocol.ArtifactRef`'s
+            field order.
+    """
+
+    def __init__(self, *, fields: tuple[str, ...]) -> None:
+        self.fields = fields
+        super().__init__(
+            f"the parent's artifact store answered a child question's retention"
+            f" with a reference whose {', '.join(fields)} are not the"
+            " question's own; the resolver records only the reference of the"
+            " question it filed, so the producer is not asked (D-IMPL-378"
+            " decision 5 (a))"
+        )
 
 #: How a deployment turns one declared requirement into the typed arguments its
 #: producing skill takes. Deployment configuration, not SDK knowledge: what a
@@ -1055,7 +1130,7 @@ class QuestionBoundChildResolver:
         return outcomes
 
     def _retain_question(self, sent: ProductQuestion) -> str:
-        """File the question's identity bytes on the parent's store; return the store's URI.
+        """File the question's identity bytes on the parent's store; return the URI it answered, held to the question's own.
 
         `D-IMPL-342` / `CP14-F-35`. The artifact is
         :meth:`~ccf.skills.dispatch.ProductQuestion.identity_artifact` — the
@@ -1066,22 +1141,34 @@ class QuestionBoundChildResolver:
         admits for, held equal at construction. Idempotent by
         the store's construction: the same question asked twice files once.
 
-        The store's address for the bytes must equal the question's address —
-        the identity the row records — or replay could not resolve the row to
-        the bytes; a store that hashed differently is refused here, loudly,
-        as the admitted-contract retention refuses it (`D-IMPL-339`). A store
+        **The store's answer must be the question's own reference**
+        (``D-IMPL-378`` decision 5, extending 5 (a)): its content address is
+        the question's address — the identity the row records, or replay could
+        not resolve the row to the bytes — and its URI, tenant, class and name
+        are the ones that address files under this capability's tenant and the
+        child-question class, or the row would name another question. Every
+        field is held as an exact string, and a store that hashed differently
+        is still refused here, loudly, as the admitted-contract retention
+        refuses it (`D-IMPL-339`).
+        The URI returned, and recorded as the row's ``child_question_ref``, is
+        the one the resolver derived, which the store's answer equals. A store
         that cannot file raises: the producer is then never asked, and no row
         can claim a retained question the store does not hold (the
-        `D-IMPL-344` R-3 posture).
+        `D-IMPL-344` R-3 posture). What is not checked: the bytes the store
+        holds (see :class:`ChildQuestionReferenceMismatch`).
 
         Raises:
-            RuntimeError: the store filed the bytes at another address.
+            ChildQuestionReferenceMismatch: the store's answer is not the
+                question's own reference; also a ``RuntimeError``, as the
+                address refusal it absorbs was. Raised after the store returns
+                and before the producer is asked.
             OSError, ccf.contracts.canonical.CanonicalizationError: as the
                 store raises them — propagated, never converted into a
                 governed refusal.
         """
         legacy = self._legacy
         address = sent.address
+        tenant = self._authorized.tenant
         # A derived write under the composition-minted capability (D-IMPL-353
         # §1.2): the class is the SDK's, the name is the question's own
         # address, and the tenant is the capability's — held equal to the
@@ -1094,15 +1181,30 @@ class QuestionBoundChildResolver:
                 artifact=sent.identity_artifact(),
             ),
         )
-        if filed.content_address != address:
-            raise RuntimeError(
-                "the artifact store filed a child question's identity bytes at"
-                f" {filed.content_address!r} but the question's address is"
-                f" {address!r}; replay holds the retained bytes to the row's"
-                " child_question_address and this store would break that"
-                " (D-IMPL-342 / CP14-F-35)"
-            )
-        return filed.uri
+        # Decision 5 (a) (`D-IMPL-378`), at this writer by decision 5: the
+        # reference of the question actually filed, derived here (`D-IMPL-26`:
+        # the version IS the address), and the store's answer held to it field
+        # for field, as exact strings.
+        own = ArtifactRef(
+            content_address=address,
+            uri=artifact_uri(
+                tenant_id=tenant,
+                artifact_class=CHILD_QUESTION_CLASS,
+                name=address,
+                artifact_version=address,
+            ),
+            tenant_id=tenant,
+            artifact_class=CHILD_QUESTION_CLASS,
+            name=address,
+        )
+        differing = tuple(
+            field
+            for field in ArtifactRef.model_fields
+            if not _same_string(getattr(filed, field, None), getattr(own, field))
+        )
+        if differing:
+            raise ChildQuestionReferenceMismatch(fields=differing)
+        return own.uri
 
 
 def _no_child_arguments(

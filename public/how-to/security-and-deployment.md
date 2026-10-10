@@ -73,8 +73,15 @@ unchanged, so a product's content address is unchanged.
   judged against the `now` the gate is handed, never a clock of its own
   (`stale-issuance`).
 - **Replays are refused** (`replayed`) and write no second admission record.
-  Only an admission spends a nonce, so a presentation refused for any other
-  reason can be admitted later.
+  The nonce is spent after every other check and immediately before the
+  admission record is filed, so a presentation those checks refuse can be
+  admitted later
+  (`tests/peering/test_admission_refuses_replay.py::test_d_a_refused_presentation_does_not_spend_the_nonce`),
+  while one whose record the store does not persist (`AdmissionNotRecorded`)
+  or answers with a reference that is not the record's own
+  (`AdmissionRecordReferenceMismatch`, `D-IMPL-378` decision 5) is not
+  admitted and is refused `replayed` if presented again
+  (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`).
 - **The replay scope is the signing key, not the peer id** (`SEC-022-C-01`).
   A nonce is spent under the key the envelope's signature verified under,
   named by its RFC 7638 thumbprint

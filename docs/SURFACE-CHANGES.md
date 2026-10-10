@@ -25,13 +25,13 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2544 entries**, of which **2267** name a public Python surface.
+**2553 entries**, of which **2276** name a public Python surface.
 
 ## Added
 
 Surfaces that did not exist at phase start. Nothing here breaks an existing integration; every entry is a path that is now available.
 
-1365 entries — 1319 public Python surface, 46 not public Python API.
+1369 entries — 1323 public Python surface, 46 not public Python API.
 
 ### Public Python surface
 
@@ -19904,6 +19904,54 @@ Surfaces that did not exist at phase start. Nothing here breaks an existing inte
 
 *Recorded by `378-67-a-401-is-a-typed-authentication-refusal.md`.*
 
+#### ccf.replay.serve.QueryPinReferenceMismatch
+
+- Surface: ccf.replay.serve.QueryPinReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the query-pin writer returned whatever references the store answered.
+- After: an `ArtifactStoreError` raised by `QueryPinWriter.write_query_bytes` when any field of the reference the store's `put` answered for a query (content address, URI, tenant, class, name) is not, as an exact string, the query's own. It carries `fields`, the names of the differing fields; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/replay/test_query_pin_writer_checks_the_returned_reference.py::test_a_store_answering_the_first_querys_reference_for_every_write_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.products.child_resolver.ChildQuestionReferenceMismatch
+
+- Surface: ccf.products.child_resolver.ChildQuestionReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the question-bound resolver raised a plain `RuntimeError` when the parent store's answer for a child question carried another content address (compared with `!=`) and recorded the answer's URI unchecked.
+- After: an `ArtifactStoreError` that is also a `RuntimeError`, raised when any field of the parent store's answer for a child question (content address, URI, tenant, class, name) is not, as an exact string, the question's own, after `put` returns and before the producer is asked. It carries `fields`; its text names those fields and no value the store answered. It replaces the address-only `RuntimeError`, whose text named both addresses.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/products/test_child_question_retention_checks_the_returned_reference.py::test_a_parent_store_answering_another_questions_uri_is_refused_by_name`.
+- Migration: none for a handler of `RuntimeError` or `ArtifactStoreError`. A product class that declared `builtins.RuntimeError` as a seam refusal no longer matches it, because seam refusals match the exact type.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.peering.admission.AdmissionRecordReferenceMismatch
+
+- Surface: ccf.peering.admission.AdmissionRecordReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the admission gate pointed its verdict at whatever reference the store answered for the admission record.
+- After: an `ArtifactStoreError` raised by `PeeringAdmissionGate.admit` when any field of the store's answer for the admission record (content address, URI, tenant, class, name) is not, as an exact string, the record's own, after `put` returns and before the `peering_admitted` verdict is appended. It is not an `AdmissionNotRecorded`: the store answered. It carries `fields`; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_store_answering_another_crossings_record_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+
+- Surface: ccf_runtime.workflow.engine.WorkflowTraceReferenceMismatch
+- Public surface: true
+- Change type: added
+- Before: absent; the engine handed callers whatever reference the store answered for the execution trace.
+- After: an `ArtifactStoreError` raised by `WorkflowEngine.execute` and `WorkflowEngine.resume` when any field of the store's answer for the trace (content address, URI, tenant, class, name) is not, as an exact string, the trace's own, after `put` returns, so no outcome carrying it is returned. It carries `fields`; its text names those fields and no value the store answered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/workflow/test_trace_writer_checks_the_returned_reference.py::test_a_store_answering_another_executions_trace_reference_is_refused_by_name`.
+- Migration: none; additive. A handler for `ArtifactStoreError` also catches it.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
 ### Not public Python API
 
 #### tools.lints.hash_transparent_key (CINV-06)
@@ -30923,7 +30971,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-507 entries — 468 public Python surface, 39 not public Python API.
+512 entries — 473 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38138,6 +38186,66 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none in code. `378-61`'s requirement, that the store's directory let the deployment's user create the lock file, applies where that directory exists.
 
 *Recorded by `378-68-e-fragment-378-61-corrected-only-a-boot-whose-store-directory-exists-takes-the-lock.md`.*
+
+#### ccf.replay.serve.QueryPinWriter
+
+- Surface: ccf.replay.serve.QueryPinWriter
+- Public surface: true
+- Change type: behavior
+- Before: `write_query_bytes` returned whatever references the store's `put` answered, one per query.
+- After: `write_query_bytes` derives each query's own reference and raises `QueryPinReferenceMismatch` unless the store's answer equals it field for field; the references returned are the derived ones. Queries filed before the mismatched one in the same call stay filed.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/replay/test_query_pin_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_querys_own_is_refused_by_name`.
+- Migration: none for a store conforming to `D-IMPL-26`; a store answering any other reference for a query is refused.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.replay.serve.serve
+
+- Surface: ccf.replay.serve.serve
+- Public surface: true
+- Change type: behavior
+- Before: with a query-pin writer, discarded the references the pin store answered, then appended the record and delivered.
+- After: raises `QueryPinReferenceMismatch`, through the pin writer, when the pin store's answer for an executed query is not that query's own reference; the record is not appended and nothing is delivered.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/replay/test_query_pin_writer_checks_the_returned_reference.py::test_the_governed_serve_delivers_nothing_when_the_pin_store_answers_another_querys_reference`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.products.child_resolver.QuestionBoundChildResolver
+
+- Surface: ccf.products.child_resolver.QuestionBoundChildResolver
+- Public surface: true
+- Change type: behavior
+- Before: `resolve_for` recorded the URI the parent store answered for each child question as the row's `child_question_ref`, checking only the answer's content address.
+- After: `resolve_for` raises `ChildQuestionReferenceMismatch` before the producer is asked when the parent store's answer is not the question's own reference; the URI recorded is the derived one, which the store's answer equals. Through a governed resolver it propagates unless the product class declares it a seam refusal, so the composition records and answers nothing.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/products/test_child_question_retention_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_questions_own_is_refused_by_name`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf.peering.admission.PeeringAdmissionGate
+
+- Surface: ccf.peering.admission.PeeringAdmissionGate
+- Public surface: true
+- Change type: behavior
+- Before: `admit` appended the `peering_admitted` verdict with the key and version of whatever reference the store answered for the admission record.
+- After: `admit` raises `AdmissionRecordReferenceMismatch` when the store's answer is not the record's own reference; no verdict is appended and no `AdmittedProduct` exists. The issuance nonce is spent, as when the record is not persisted (`AdmissionNotRecorded`): the same envelope presented again is refused `replayed` (`tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_crossing_refused_at_its_record_has_spent_its_nonce`, both cases; SP §1.1a's nonce sentence now says so).
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/peering/test_admission_record_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_records_own_is_refused_by_name`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
+
+#### ccf_runtime.workflow.engine.WorkflowEngine
+
+- Surface: ccf_runtime.workflow.engine.WorkflowEngine
+- Public surface: true
+- Change type: behavior
+- Before: the suspended, exception-routed and completed outcomes carried, as `trace_artifact`, whatever reference the store answered for the execution trace.
+- After: those outcomes carry the trace's own reference, and the engine raises `WorkflowTraceReferenceMismatch` instead of returning one when the store's answer is not it. The trace is written after the transition it describes is persisted, so that transition and its audit row stand, and at a suspension the approval request has not been enqueued, as with a store failure at that point.
+- Why: `D-IMPL-378` decision 5 (a), extended by decision 5. Red test: `tests/workflow/test_trace_writer_checks_the_returned_reference.py::test_a_reference_with_any_field_not_the_traces_own_is_refused_by_name`.
+- Migration: none for a conforming store.
+
+*Recorded by `378-69-four-writers-hold-the-stores-answer-to-what-they-wrote.md`.*
 
 ### Not public Python API
 
