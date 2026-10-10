@@ -8,7 +8,11 @@ delegates to the same factories and Control Plane actions any client uses
 
 The refusal-vs-exception line holds over HTTP (T-07-26): an expected typed
 refusal serializes as its own contract body under a 4xx status; broken
-wiring raises and surfaces as FastAPI's opaque 500, detail-free.
+wiring raises and surfaces as FastAPI's opaque 500, detail-free — except the
+deployment faults a route can name, which answer a typed 503: a handle the
+deployment did not wire (:func:`_required_handle`), and an artifact store whose
+credential its server did not authenticate
+(:func:`_artifact_store_unauthenticated`, ``D-IMPL-378`` decision 21 (a)).
 
 Algorithmic module (CINV-03).
 """
@@ -32,6 +36,7 @@ from ccf.products.door import WireRequest
 from ccf.products.refusal import REFUSAL_KINDS, RefusalEnvelope
 from ccf_runtime.http_api.refusal_status import status_for
 from ccf_runtime.http_api.errors import (
+    ERROR_ARTIFACT_STORE_UNAUTHENTICATED,
     ERROR_ROUTE_HANDLE_ABSENT,
     refusal_detail,
 )
@@ -161,6 +166,48 @@ def _required_handle(
                 f" Supply {field}= to the ApiDependencies bundle passed to"
                 " create_app() (D-IMPL-126)"
             ),
+        ),
+    )
+
+
+#: The one message an evidence door answers a refused store credential with
+#: (``D-IMPL-378`` decision 21 (a)). Constant, so the answer is the same bytes
+#: for every ask: it names no address, URI, subject or store location.
+_ARTIFACT_STORE_UNAUTHENTICATED_MESSAGE: Final[str] = (
+    "this deployment's artifact store presented a credential its server did"
+    " not authenticate (HTTP 401), so this door cannot answer; the fault is the"
+    " deployment's, not the caller's (D-IMPL-378)"
+)
+
+
+def _artifact_store_unauthenticated() -> HTTPException:
+    """The evidence doors' typed answer to a store credential its server refused (``D-IMPL-378``, decision 21 (a)).
+
+    SDK-defined (CLAUDE.md §8.3). Dave, 2026-10-09 16:38 MST, adopting Grok's
+    recommendation: *"(a) A typed 5xx, so a rejected credential and an outage
+    are not the same response."* Raised ``from`` the
+    :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated` that
+    :func:`~ccf_runtime.authz.delivery_boundary.govern_dereference` lets
+    through by name, by ``GET /replay/decisions``, ``GET /replay/resolutions``
+    and ``GET /artifact/{content_address}``
+    (``tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py``).
+
+    **503, as** :func:`_required_handle` **answers:** the fault is the
+    deployment's, not the caller's. **Distinct from an outage of the store,**
+    whose :class:`~ccf.mcp.errors.McpServerUnreachable` still escapes the route
+    and is answered with the framework's opaque 500: the two differ in status
+    and in body, and only this one carries a code. One constant message, so it
+    tells a caller nothing about what was asked.
+
+    Returns:
+        fastapi.HTTPException: 503 carrying
+            :data:`~ccf_runtime.http_api.errors.ERROR_ARTIFACT_STORE_UNAUTHENTICATED`.
+    """
+    return HTTPException(
+        status_code=503,
+        detail=refusal_detail(
+            error_code=ERROR_ARTIFACT_STORE_UNAUTHENTICATED,
+            message=_ARTIFACT_STORE_UNAUTHENTICATED_MESSAGE,
         ),
     )
 

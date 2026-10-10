@@ -444,6 +444,10 @@ class ArtifactStoreUnauthenticated(ArtifactStoreError):
     peering admission gate's record write, which answers every other store
     failure there ``AdmissionNotRecorded``, a substrate the fabric cannot reach
     (``tests/peering/test_admission_record_write_401_is_the_typed_refusal.py``).
+    The HTTP evidence doors answer it ``503`` with ``error_code``
+    ``artifact-store-unauthenticated``, where an outage of the store is the
+    framework's opaque ``500``
+    (``tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py``).
 
     Not covered: the guard's other refusals — a credential without a required
     scope (HTTP 403) and the tenancy guard's denials — which still reach the
