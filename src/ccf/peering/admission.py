@@ -175,6 +175,7 @@ from ccf.artifacts.protocol import (
     ArtifactRef,
     ArtifactStoreError,
     ArtifactStoreProtocol,
+    ArtifactStoreUnauthenticated,
     DerivedWrite,
     artifact_uri,
 )
@@ -578,6 +579,12 @@ class AdmissionNotRecorded(RuntimeError):
     :class:`~ccf.replay.serve.ReplayWriter` applies to serving — a failure to
     record is a failure to serve — applied one boundary earlier: a crossing
     whose record was not persisted is not reported as admitted (T-06-100).
+
+    Not raised where the store's server did not authenticate the deployment's
+    credential (HTTP 401): that write raises
+    :class:`~ccf.artifacts.protocol.ArtifactStoreUnauthenticated`, let through
+    by name (``D-IMPL-378``, decision 10 (b)), because a refused credential is
+    not a substrate the fabric cannot reach. Nothing is admitted either way.
     """
 
 
@@ -1016,6 +1023,10 @@ class PeeringAdmissionGate:
         Raises:
             AdmissionNotRecorded: the store could not persist the record. Not
                 swallowed and not softened into a refusal — see that class.
+            ccf.artifacts.protocol.ArtifactStoreUnauthenticated: the store's
+                server did not authenticate the deployment's credential (HTTP
+                401), so the record was not written. Let through by name, never
+                ``AdmissionNotRecorded`` (``D-IMPL-378``, decision 10 (b)).
             AdmissionRecordReferenceMismatch: the store's answer is not the
                 record's own reference. Raised after the store returns, by its
                 own name, and before the verdict is appended.
@@ -1044,6 +1055,12 @@ class PeeringAdmissionGate:
                     artifact=record,
                 ),
             )
+        except ArtifactStoreUnauthenticated:
+            # `D-IMPL-378` decision 10 (b): the store's server did not
+            # authenticate the deployment's credential (HTTP 401). The typed
+            # refusal, by name: never `AdmissionNotRecorded`, whose reading is
+            # a substrate the fabric cannot reach.
+            raise
         except ArtifactStoreError as unreachable:
             raise AdmissionNotRecorded(
                 f"the admission record for peer {peer.peer_id!r}'s product"

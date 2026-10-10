@@ -440,7 +440,10 @@ class ArtifactStoreUnauthenticated(ArtifactStoreError):
     absence let this one through by name: the replay engine's resolvers, the
     governed evidence read and the erasure consult's record check
     (``tests/mcp/test_auth_401_never_read_as_absence.py``,
-    ``tests/http_api/test_auth_401_never_a_recorded_absence.py``).
+    ``tests/http_api/test_auth_401_never_a_recorded_absence.py``). So does the
+    peering admission gate's record write, which answers every other store
+    failure there ``AdmissionNotRecorded``, a substrate the fabric cannot reach
+    (``tests/peering/test_admission_record_write_401_is_the_typed_refusal.py``).
 
     Not covered: the guard's other refusals — a credential without a required
     scope (HTTP 403) and the tenancy guard's denials — which still reach the
