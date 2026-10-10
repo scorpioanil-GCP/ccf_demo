@@ -216,3 +216,41 @@ def test_a_nested_type_drift_the_bytes_cannot_see_is_refused_not_served() -> Non
         registry.register(_cap("acme/amount"), {"amount": Decimal("1.50")})
     assert "not equal" in caught.value.reason
     assert registry.versions("acme/amount") == ()
+
+
+# --- the sixth-round delta review's two findings (codex and gemini seats) --------
+
+
+def test_register_versioned_leaves_no_bump_map_behind_when_reconstruction_is_refused() -> None:
+    """Fail-safe placement, asserted on private state because no public surface
+    exposes the bump map: a refused registration must leave ``_bumps`` without
+    the key. Both CLI seats on the sixth-round delta review found
+    ``self._bumps.setdefault(key, {})`` running ahead of the reconstruction.
+    """
+    registry = _registry()
+    key = _workflow_fixture()["keys"]["workflow_definition"]
+    definition = _PoisonedDefinition.model_validate(json.loads(canonical_bytes(_workflow_definition())))
+    _POISON["armed"] = True
+    with pytest.raises(ArtifactIsolationRefused):
+        register_versioned_at_composition(registry, key, definition, WORKFLOW_DEFINITION)
+    assert key not in registry._bumps, "an empty bump map leaked from a refused registration"  # noqa: SLF001
+    assert registry.versions(key) == () and registry.artifact_class_of(key) is None
+
+
+def test_a_re_registration_whose_nested_types_drift_is_refused_even_when_the_bytes_are_known() -> None:
+    """The drift refusal must not be bypassable through idempotency: a second
+    registration whose canonical bytes are already known still has its own
+    object reconstructed and checked, so ``{"amount": Decimal("1.50")}`` after
+    ``{"amount": "1.50"}`` is refused rather than reported registered (the
+    codex seat, sixth-round delta review, point 5).
+    """
+    from decimal import Decimal
+
+    registry = _registry()
+    key = "acme/amount"
+    first = registry.register(_cap(key), {"amount": "1.50"})
+    with pytest.raises(ArtifactIsolationRefused) as caught:
+        registry.register(_cap(key), {"amount": Decimal("1.50")})
+    assert "not equal" in caught.value.reason
+    assert registry.versions(key) == (first,)
+    assert registry.resolve(key, first) == {"amount": "1.50"}
