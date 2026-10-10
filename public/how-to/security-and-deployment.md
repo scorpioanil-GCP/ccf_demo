@@ -1725,10 +1725,11 @@ SDK's SQLite adapter refuses it with SQLite's own error
 Which stale markers a boot verifies again by itself, and which it refuses:
 
 - **Verified again, with no operator step: a deployment marker of any state
-  with no store beside it.** That covers `pending` from a boot killed before
-  its store existed, `verified` with its store deleted or moved, a marker
-  written before repair 1.1 (one line, no state), text the SDK does not write,
-  and a symbolic link. The boot is creating a new store there, so, holding the
+  with no store beside it, that the boot can read.** That covers `pending` from
+  a boot killed before its store existed, `verified` with its store deleted or
+  moved, a marker written before repair 1.1 (one line, no state), text the SDK
+  does not write, and a symbolic link. One the boot cannot read is refused
+  instead (below). The boot is creating a new store there, so, holding the
   lock, it replaces that marker with its own (`pending`), reads the new store
   once and marks it verified, exactly as at a fresh path
   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_b_a_stale_marker_with_no_store_beside_it_is_replaced_and_the_new_store_read_once_and_verified`).
@@ -1749,6 +1750,12 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_boot_killed_before_its_read_completes_leaves_a_marker_no_later_boot_reads_as_verified`)
   or is `unreadable`, which includes the one-line marker written before repair
   1.1 (`tests/products/test_deployment_marker_owned_and_crash_safe.py::test_1_1_a_marker_whose_state_cannot_be_read_is_refused_by_name_and_left_for_an_operator`);
+  with no store beside it, a marker the boot cannot read (a file it has no
+  permission to open), also `unreadable`, whether left untouched or rewritten
+  in place after the boot looked: its bytes cannot be compared, so the boot
+  does not replace it (P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*; the option's text, from lane
+  `378j-bootlock`'s final report: *"Refuse it `unreadable` before replacing
+  it."*; `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left`);
   a marker that appeared at a fresh path while the boot held the lock
   (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_1_2_a_marker_that_appears_after_the_boot_looked_is_refused_as_claimed`),
   or a stale marker replaced by another file, or rewritten with other bytes,
@@ -1778,13 +1785,11 @@ Which stale markers a boot verifies again by itself, and which it refuses:
   and a symbolic link, where the filesystem reused the inode). What remains: a
   change made after that comparison and before the rename; a rewrite to
   identical bytes, which changes nothing a boot reads
-  (`tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified`);
-  and the bytes of a marker the boot cannot read (a file it has no permission
-  to open), whose file and type alone are compared (lane `378j-bootlock`'s
-  probe `probe_unreadable_stale_marker_rewritten.py`). In each, the boot replaces
-  the marker like any stale one and verifies the new store itself, so it
-  serves nothing it did not read, but it does not report that something
-  outside the SDK wrote there.
+  (`tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified`).
+  In each, the boot replaces the marker like any stale one and verifies the
+  new store itself, so it serves nothing it did not read, but it does not
+  report that something outside the SDK wrote there. A marker whose bytes the
+  boot cannot read is not replaced at all: it is refused `unreadable` (above).
 - **Refused with nothing to resolve unless the holder has stopped or hung: a
   store-creation lock another holds**, `lock-held`, at once or after the
   declared wait
@@ -1805,15 +1810,17 @@ To resolve a refusal:
    (`tests/products/test_deployment_marker_serialized_and_stale_refused.py::test_runbook_a_read_only_fabric_holds_neither_lock_file_and_holds_its_store_file_open`).
    Change nothing while any of them shows a holder.
 2. Read the marker. `pending` (the boot that created it never finished its
-   read), `unreadable` (one line and no `state:`, or text the SDK does not
-   write) and `claimed` (a marker that appeared, or was replaced by another
+   read), `unreadable` (one line and no `state:`, text the SDK does not
+   write, or a file the deployment's user cannot read) and `claimed` (a marker
+   that appeared, or was replaced by another
    file or rewritten, while a boot held the lock; find what writes into the
    store's directory first) all mean that
    nothing shows the store beside it was read. Move the store (`<path>`,
    `<path>-wal`, `<path>-shm`) aside, with the marker if you want to keep it
-   as evidence, and boot again: with no store beside it, any marker is
-   replaced, and the boot creates a new store, reads it once and marks it
-   verified. Then write the deployment's data into it again through its
+   as evidence, and boot again: with no store beside it, any marker the boot
+   can read is replaced, and the boot creates a new store, reads it once and
+   marks it verified. One it cannot read is refused again until you remove it
+   or make it readable. Then write the deployment's data into it again through its
    writer.
 3. `lock-unavailable`: make `<resolved path>.ccf-store-creation.lock` a regular
    file the deployment's user can open and lock, on a local filesystem whose

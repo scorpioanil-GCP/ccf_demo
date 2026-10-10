@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2579 entries**, of which **2300** name a public Python surface.
+**2585 entries**, of which **2306** name a public Python surface.
 
 ## Added
 
@@ -31067,7 +31067,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-530 entries — 491 public Python surface, 39 not public Python API.
+536 entries — 497 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38450,6 +38450,78 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none.
 
 *Recorded by `378-70-b-a-held-store-creation-lock-refuses-at-once-or-after-the-declared-wait.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: a stale marker with no store beside it that the boot could not read was replaced, its file and type alone compared, and the boot booted `"verified"`; `"unreadable"` with no store beside the marker meant only a directory at the marker's path.
+- After: such a marker, a regular file or a symbolic link whose content the boot cannot read, refuses the boot `"unreadable"` before anything is created at the path, and is left as it stands. Anything else that holds no bytes to compare (a FIFO, a socket, a device) is replaced as before. The refusal's text is unchanged; it already names "not a regular file this process can read".
+- Why: SEC-020, `D-IMPL-378` P-1 (b), ruled by Dave on 2026-10-09 at 20:13 MST: "1. b and 2. a". Red test: `tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left`.
+- Migration: a deployment whose stale markers its user cannot read is refused until an operator removes the marker or makes it readable (the security how-to, section 4.12, step 2).
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.DeploymentStoreNotVerified
+
+- Surface: ccf.deployment.DeploymentStoreNotVerified
+- Public surface: true
+- Change type: behavior
+- Before: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- After: as `ccf.deployment.manifest.DeploymentStoreNotVerified`; the package-level spelling of the same class.
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.manifest.load_and_boot
+
+- Surface: ccf.deployment.manifest.load_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: a plain boot replaced a stale marker with no store beside it whatever it could read of it.
+- After: it is refused `DeploymentStoreNotVerified` (`"unreadable"`) where it cannot read that marker; a marker it can read is replaced and its new store verified, as before. Its Raises says so.
+- Why: SEC-020, `D-IMPL-378` P-1 (b). Measured as for `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.config.load_config_and_boot
+
+- Surface: ccf.deployment.config.load_config_and_boot
+- Public surface: true
+- Change type: behavior
+- Before: as `load_and_boot`.
+- After: as `load_and_boot`; both doors share one boot spine.
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: as `ccf.deployment.manifest.DeploymentStoreNotVerified`.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.manifest.BootedFabric
+
+- Surface: ccf.deployment.manifest.BootedFabric
+- Public surface: true
+- Change type: behavior
+- Before: its description of `store_creation` said that a boot meeting a deployment marker of any state with no store beside it replaces it and verifies the new store.
+- After: unchanged behavior of the field; its description says that holds for a marker the boot can read, and that one it cannot read refuses the boot (`"unreadable"`).
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: none.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
+
+#### ccf.deployment.manifest.DeploymentStoreNotEmpty
+
+- Surface: ccf.deployment.manifest.DeploymentStoreNotEmpty
+- Public surface: true
+- Change type: behavior
+- Before: its docstring said a boot whose path carries a deployment marker of any state with no store beside it replaces that marker and takes the read.
+- After: unchanged behavior; its docstring says so of a marker the boot can read.
+- Why: SEC-020, `D-IMPL-378` P-1 (b).
+- Migration: none.
+
+*Recorded by `378-70-c-a-stale-marker-the-boot-cannot-read-is-refused-unreadable.md`.*
 
 #### ccf.artifacts.protocol.ArtifactStoreUnauthenticated
 

@@ -262,8 +262,9 @@ class BootedFabric:
             a store that reads anything else is refused
             (:class:`DeploymentStoreNotVerified`; repairs 1.1 and 1.2,
             ``D-IMPL-378``), and a boot meeting a deployment marker of any
-            state with no store beside it replaces it with its own and
-            verifies the new store as any boot creating one. A plain boot
+            state with no store beside it, one it can read, replaces it with
+            its own and verifies the new store as any boot creating one (one
+            it cannot read refuses it, ``"unreadable"``; P-1 (b)). A plain boot
             holds the store-creation lock of every path whose directory
             exists from its look at the path to the hand-back, so no two plain
             boots of one path create or verify its store at once: a boot that
@@ -427,9 +428,9 @@ class DeploymentStoreNotEmpty(ValueError):
 
     The read sees what a question boot's read sees and has the same limits
     (the security how-to, section 4.12). A boot whose path carries a
-    deployment marker of any state with no store beside it is creating a new
-    store too: it replaces that marker with its own, under the store-creation
-    lock, and takes the same read. The refusal states no count and nothing the
+    deployment marker of any state with no store beside it, one it can read, is
+    creating a new store too: it replaces that marker with its own, under the
+    store-creation lock, and takes the same read. The refusal states no count and nothing the
     store holds.
     """
 
@@ -534,10 +535,13 @@ class DeploymentStoreNotVerified(ValueError):
     the holder has stopped or hung: a later boot proceeds once the holder lets
     go. Each is refused after registration and before anything is created at
     the path. A deployment marker of any state with NO
-    store beside it is not refused: the boot creating the store there replaces
-    it with its own, under the lock, and verifies the new store with the read
-    any fresh creation takes (repair 1.2; :func:`_replace_stale_deployment_marker`).
-    The refusal states nothing the store holds.
+    store beside it is not refused, provided the boot can read it: the boot
+    creating the store there replaces it with its own, under the lock, and
+    verifies the new store with the read any fresh creation takes (repair 1.2;
+    :func:`_replace_stale_deployment_marker`). One whose content the boot cannot
+    read is refused ``"unreadable"`` and left (P-1 (b), ruled by Dave on
+    2026-10-09 at 20:13 MST: *"1. b and 2. a"*). The refusal states nothing the
+    store holds.
 
     Attributes:
         marker: The deployment marker's path,
@@ -552,7 +556,9 @@ class DeploymentStoreNotVerified(ValueError):
               SDK did not write, a symbolic link, anything that is not a regular
               file, or a file this process cannot read; or no store stands
               there, and what stands at the marker's path is a directory the
-              boot cannot replace;
+              boot cannot replace, or a regular file or a symbolic link whose
+              content this process cannot read, which the boot cannot compare
+              and so does not replace (P-1 (b), 20:13 MST);
             * ``"claimed"`` — a marker appeared at the path after this boot
               looked and before it created its own, the stale marker it found
               was replaced by another file, or rewritten with other bytes,
@@ -858,8 +864,10 @@ class _MarkerSnapshot:
     ``kind`` its type (``stat.S_IFMT``). ``content`` is the SHA-256 digest of a
     regular file's bytes or of a symbolic link's target, and ``None`` for
     anything else (a directory, a FIFO, a socket, a device) and for a regular
-    file or a link whose content this process cannot read. Two snapshots are
-    equal only when all four are.
+    file or a link whose content this process cannot read, which
+    :func:`_replace_stale_deployment_marker` therefore refuses to replace (P-1
+    (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*). Two
+    snapshots are equal only when all four are.
     """
 
     device: int
@@ -923,7 +931,8 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     emptiness check whenever a plain boot creates a new store."*), built as lane
     ``378j-boot``'s proposal P-1 (B) for this case only. A path whose marker, of
     any state, stands with no store beside it names a store this boot creates,
-    which it can verify exactly as it verifies a store at a fresh path.
+    which it can verify exactly as it verifies a store at a fresh path, provided
+    it can read the marker (below).
 
     **Why this does not take another live boot's marker.** It is called with
     the store-creation lock of the path held, and every boot that creates or
@@ -950,15 +959,25 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     inode), was put there by a writer outside the SDK's boots. **What this check does
     not see:** a change made after the re-check and before the rename; a
     rewrite to identical bytes, which changes nothing a boot reads (measured by
-    ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified``);
-    and the content of a marker this process cannot read (a regular file it has
-    no permission to open), whose file and type alone are compared, as before
-    decision 17 (b) (lane ``378j-bootlock``'s probe
-    ``probe_unreadable_stale_marker_rewritten.py``: a write-only marker
-    rewritten in place is replaced). The boot then verifies the store it opens
-    itself either way, so what it serves does not rest on this check: it is a
-    tripwire for a writer outside the SDK's boots, not the store's
-    verification.
+    ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_17_b_measure_a_stale_marker_rewritten_in_place_to_the_same_bytes_is_replaced_and_the_new_store_verified``).
+    The boot then verifies the store it opens itself either way, so what it
+    serves does not rest on this check: it is a tripwire for a writer outside
+    the SDK's boots, not the store's verification.
+
+    **A marker this process cannot read is not replaced.** A regular file or a
+    symbolic link whose content the boot's look could not read (a file this
+    process has no permission to open, say) cannot be compared, so the boot is
+    refused (:class:`DeploymentStoreNotVerified`, ``"unreadable"``) before
+    anything is created, and the marker is left as it stands: P-1 (b), ruled by
+    Dave on 2026-10-09 at 20:13 MST, *"1. b and 2. a"*; the option's text, from
+    lane ``378j-bootlock``'s final report: *"Refuse it `unreadable` before
+    replacing it."* (measured by
+    ``tests/products/test_deployment_marker_rewritten_in_place_refused.py::test_p1_b_a_stale_marker_the_boot_cannot_read_is_refused_unreadable_and_left``,
+    left untouched and rewritten in place after the look). Until then such a
+    marker was replaced, its file and type alone compared (lane probe
+    ``probe_unreadable_stale_marker_rewritten.py``, on ``2a4d7e9e``). Anything
+    else that is neither a regular file nor a symbolic link (a FIFO, a socket,
+    a device) holds no bytes to compare, and is replaced as before.
 
     The replacement is atomic: this boot's marker is written to a staging file
     beside it, synced, and renamed over whatever stands at the marker's path (a
@@ -969,6 +988,8 @@ def _replace_stale_deployment_marker(path: Path, found: _MarkerSnapshot) -> _Own
     as one :func:`_create_pending_deployment_marker` created.
     """
     marker = _deployment_store_marker(path)
+    if found.content is None and (stat.S_ISREG(found.kind) or stat.S_ISLNK(found.kind)):
+        raise DeploymentStoreNotVerified(marker=marker, reason="unreadable")
     token = os.urandom(_MARKER_TOKEN_HEX // 2).hex()
     staging = marker.with_name(f"{marker.name}.replacing-{token}")
     descriptor = os.open(staging, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
@@ -1300,7 +1321,8 @@ def _mark_deployment_store(paths: Sequence[Path], created: list[_OwnedMarker]) -
     of any state standing there with no store beside it is replaced by this
     boot's own, reading ``pending`` (:func:`_replace_stale_deployment_marker`;
     repair 1.2, built as lane ``378j-boot``'s proposal P-1 (B) for this case
-    only); where none stands, the marker is created exclusively, reading
+    only), unless this boot cannot read it, which refuses the boot
+    ``"unreadable"`` (P-1 (b)); where none stands, the marker is created exclusively, reading
     ``pending`` (:func:`_create_pending_deployment_marker`), and a marker that
     appears there before that exclusive create was made outside the SDK's
     boots, and is refused (``"claimed"``). Either way the marker joins
@@ -2449,7 +2471,10 @@ def load_and_boot(
             deployment marker beside a store that reads ``pending`` (the boot
             that created it never finished its read) or records no state in
             the form the SDK writes (a marker written before markers recorded
-            their state included), a marker that appeared, or a stale marker
+            their state included), a deployment marker with no store beside
+            it whose content the boot cannot read (also ``"unreadable"``; P-1
+            (b), ruled by Dave on 2026-10-09 at 20:13 MST: *"1. b and 2. a"*),
+            a marker that appeared, or a stale marker
             that was replaced by another file or rewritten with other bytes,
             while this boot held the store-creation lock, a store-creation
             lock that cannot be taken, or one another holds (``"lock-held"``:
@@ -2467,9 +2492,9 @@ def load_and_boot(
             operator (SEC-020, ``D-IMPL-378`` repairs 1.1 and 1.2), except
             after ``"lock-held"``, which leaves nothing to resolve unless the
             holder has stopped or hung: a later boot proceeds once it lets go.
-            A deployment marker of any state with no store beside it is not
-            refused: the boot replaces it with its own and creates and
-            verifies the store. A ``ValueError``.
+            A deployment marker of any state with no store beside it that the
+            boot can read is not refused: the boot replaces it with its own and
+            creates and verifies the store. A ``ValueError``.
         UngovernedClassificationAttribute: a Policy operator the manifest
             names admits on a source-asserted classification attribute that
             no declared authority governs (SEC-023, ``D-IMPL-372``); raised
