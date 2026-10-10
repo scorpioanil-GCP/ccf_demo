@@ -1113,6 +1113,11 @@ Two behaviors follow from the design and are stated rather than changed:
   with the framework's opaque `500 Internal Server Error` (decision 21 (a),
   D-IMPL-378;
   `tests/http_api/test_evidence_doors_answer_a_401_and_an_outage_apart.py`).
+  Only these three doors tell a rejected credential from an outage (D-IMPL-378,
+  ruled by Dave on 2026-10-09 at 20:23 MST): no other HTTP door catches the
+  typed refusal, and `POST /artifact`, measured, answers it and an outage with
+  the same `500`, filing nothing
+  (`tests/http_api/test_upload_door_answers_a_rejected_credential_and_an_outage_with_one_500.py::test_post_artifact_answers_a_rejected_store_credential_and_an_outage_with_one_500_and_files_nothing`).
 
 Residuals, disclosed rather than changed (FW-4, D-IMPL-374):
 
