@@ -25,7 +25,7 @@ Every entry carries seven fields: `Surface`, `Public surface`, `Change type`, `B
 
 `Public surface: true` means the entry names an exported Python name and appears in the generated manifest diff. `Public surface: false` entries are real changes an adopter must act on that are **not** Python API — lint scope, tooling, committed schemas, and artifact *document formats*. They are grouped separately under each change type so a Python API change is never mistaken for a YAML reshape. The classification is checked in both directions by `tests/test_surface_completeness.py`: a public change mislabelled non-public fails, and a non-public entry whose name turns up in the manifest diff fails too.
 
-**2539 entries**, of which **2262** name a public Python surface.
+**2541 entries**, of which **2264** name a public Python surface.
 
 ## Added
 
@@ -30923,7 +30923,7 @@ Surfaces that no longer exist. Each entry names what replaces it.
 
 Surfaces whose **signature did not move** but whose observable behavior did. A generated signature diff is structurally incapable of seeing these, which is why D-15 asks for a curated log alongside the manifest rather than instead of it.
 
-502 entries — 463 public Python surface, 39 not public Python API.
+504 entries — 465 public Python surface, 39 not public Python API.
 
 ### Public Python surface
 
@@ -38078,6 +38078,30 @@ Surfaces whose **signature did not move** but whose observable behavior did. A g
 - Migration: none. Keep the population phase free of anything the subject-keyed phase writes; the walk does not stand in for that past its bounds.
 
 *Recorded by `378-68-b-shared-owner-walk-incomplete-says-repair-2-4-b-is-not-built.md`.*
+
+#### ccf.products.demonstration_clock.compose_serve_clock
+
+- Surface: ccf.products.demonstration_clock.compose_serve_clock
+- Public surface: true
+- Change type: behavior
+- Before: same signature. Admitted a declared demonstration serve instant over an artifact store that is an instance of `FileArtifactStore`, so an instance of a subclass passed (`isinstance`)
+- After: same signature. Admits a declaration only over an artifact store whose class is `FileArtifactStore` itself; a subclass, even one that overrides nothing, is refused with `DemonstrationServeInstantRefused`, reason `artifact-store-not-development`. The graph half is unchanged. `ccf.products.resolver.build_governed_resolver` and the in-process door call it, so both refuse the same way
+- Why: `D-IMPL-378` decision 4 (a). Red tests: `tests/client/test_demonstration_serve_instant.py::test_a_subclass_of_the_sdks_file_store_is_refused_at_composition` and `tests/client/test_demonstration_serve_instant.py::test_a_subclass_of_the_sdks_file_store_is_refused_at_the_in_process_door`
+- Migration: a composition that declared a demonstration serve instant over its own subclass of `FileArtifactStore` is now refused at composition; compose over `FileArtifactStore` itself. A composition whose tenant declares no demonstration serve instant is unaffected
+
+*Recorded by `378-72-decision-4a-the-demonstration-store-check-is-an-exact-type-test.md`.*
+
+#### ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+
+- Surface: ccf.products.demonstration_clock.DemonstrationServeInstantRefused
+- Public surface: true
+- Change type: behavior
+- Before: raised with reason `artifact-store-not-development` when the composition's artifact store was not an instance of `FileArtifactStore`
+- After: raised with the same reason when the store's class is not `FileArtifactStore` itself, so also for an instance of a subclass. The message says a subclass is refused too. The `graph-substrate-not-development` reason, the `key` attribute and the `ValueError` base are unchanged
+- Why: `D-IMPL-378` decision 4 (a)
+- Migration: none for a caller that branches on the class or the reason token. A caller that matched the message text reads the new wording
+
+*Recorded by `378-72-decision-4a-the-demonstration-store-check-is-an-exact-type-test.md`.*
 
 ### Not public Python API
 
