@@ -443,9 +443,9 @@ class LineTextPinnedCitation(NamedTuple):
 #: The citations pinned on their line's text: two, both on one success
 #: criterion of ``.planning/ROADMAP.md`` (its line 2242 at ``d128a30d``, a
 #: number the pin does not key on). The roadmap is a living file: 483 commits
-#: touch it up to ``d128a30d``, 91 of them since 2026-09-01, while this line
-#: last changed on 2026-08-24. A pin on the file's hash would void at every
-#: roadmap edit; Dave chose the line's text (question 3 (ii)).
+#: touch it up to ``d128a30d``, 96 of them from 2026-09-01 00:00 MST, while
+#: this line last changed on 2026-08-24. A pin on the file's hash would void at
+#: every roadmap edit; Dave chose the line's text (question 3 (ii)).
 _ROADMAP_QUOTE_REASON = (
     "a success criterion quoting, verbatim, what four docstrings cited before"
     " D-IMPL-192 re-pointed them; correcting the quote would falsify the"
