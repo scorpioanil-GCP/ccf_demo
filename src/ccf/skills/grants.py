@@ -515,6 +515,15 @@ class GrantLedger:
     suspending ApprovalGate that I.4 brings inherits this seam rather than
     introducing a second answer.
 
+    **The approval sink is handed a copy** (``D-IMPL-380``, fifth round,
+    ruling 2 (a), 2026-10-10 12:57 MST: *"Copy before the approver is handed
+    the grant."* *"The ledger keeps its own copy"* *"has to be true of the
+    object the approver receives."*). The sink's ``decide`` receives
+    ``grant.model_copy(deep=True)``; the ledger keeps its own grant and writes
+    every later state, and its audit event, from it. A sink that alters what
+    it is handed alters only its copy, so the ``effective`` record it approves
+    is saved as built, under the record id the grant as built hashes to.
+
     Args:
         control_plane: The registry grants register into and policy regimes
             resolve from (D-05 versioned path; pinned resolution only).
@@ -528,7 +537,8 @@ class GrantLedger:
             splitting the journal (IN-03). The parameter survives its own
             redundancy only as an explicitness affordance for callers that
             prefer to name the log they are wiring.
-        sink: The tier-2 decision surface (D-09).
+        sink: The tier-2 decision surface (D-09). It is handed a deep copy
+            of the grant, never the ledger's own (see above).
         clock: Time source for audit timestamps. Injected, never read.
 
     Note:
@@ -1081,7 +1091,9 @@ class GrantLedger:
                 resolved=True,
                 actor=actor,
             )
-            outcome = self._sink.decide(grant)
+            # The sink is handed a deep copy; the ledger keeps and saves its
+            # own grant (`D-IMPL-380`, fifth round; Dave, 2026-10-10 12:57 MST).
+            outcome = self._sink.decide(grant.model_copy(deep=True))
             if not outcome.approved:
                 self._put_state(
                     authorized,
