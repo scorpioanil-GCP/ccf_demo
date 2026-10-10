@@ -6709,6 +6709,7 @@
       "AdmissionBypassError",
       "AdmissionNotRecorded",
       "AdmissionRecord",
+      "AdmissionRecordReferenceMismatch",
       "AdmissionRefusal",
       "AdmittedProduct",
       "ContractRefusal",
@@ -6756,6 +6757,10 @@
           "product_content_address": "<class 'str'>",
           "tenant_id": "<class 'str'>"
         }
+      },
+      "AdmissionRecordReferenceMismatch": {
+        "kind": "class",
+        "shape": "(*, fields: 'tuple[str, ...]') -> 'None'"
       },
       "AdmissionRefusal": {
         "kind": "contract",
@@ -7222,6 +7227,7 @@
     "__all__": [
       "ChildArguments",
       "ChildQuestion",
+      "ChildQuestionReferenceMismatch",
       "ChildQuestions",
       "ChildRecordAltered",
       "ChildRecordMismatch",
@@ -7243,6 +7249,10 @@
           "parameters": "collections.abc.Mapping[str, typing.Any]",
           "subject": "<class 'str'>"
         }
+      },
+      "ChildQuestionReferenceMismatch": {
+        "kind": "class",
+        "shape": "(*, fields: 'tuple[str, ...]') -> 'None'"
       },
       "ChildQuestions": {
         "kind": "function",
@@ -9822,6 +9832,7 @@
       "DeliveryCapability",
       "ProductRecordMismatch",
       "QueryPinMismatch",
+      "QueryPinReferenceMismatch",
       "QueryPinWriter",
       "ReplayReferenceMismatch",
       "ReplayTenantMismatch",
@@ -9846,6 +9857,10 @@
       "QueryPinMismatch": {
         "kind": "class",
         "shape": "type"
+      },
+      "QueryPinReferenceMismatch": {
+        "kind": "class",
+        "shape": "(*, fields: 'tuple[str, ...]') -> 'None'"
       },
       "QueryPinWriter": {
         "kind": "class",
@@ -13837,6 +13852,7 @@
       "WorkflowOutcome",
       "WorkflowResumeRefused",
       "WorkflowSuspended",
+      "WorkflowTraceReferenceMismatch",
       "WorkflowWiringError"
     ],
     "exports": {
@@ -13918,6 +13934,10 @@
           "tenant": "<class 'str'>",
           "trace_artifact": "<class 'ccf.artifacts.protocol.ArtifactRef'>"
         }
+      },
+      "WorkflowTraceReferenceMismatch": {
+        "kind": "class",
+        "shape": "(*, fields: 'tuple[str, ...]') -> 'None'"
       },
       "WorkflowWiringError": {
         "kind": "class",
