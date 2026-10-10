@@ -32,6 +32,7 @@ roadmap's keying is replaced, and each roadmap property has its own test.
 
 from __future__ import annotations
 
+import hashlib
 import pathlib
 from collections.abc import Callable
 
@@ -352,3 +353,49 @@ def test_the_pinned_roadmap_line_in_another_file_keeps_nothing(
     lines, at = _roadmap()
     findings = _check("docs/note.md", lines[at], index)
     assert sorted(_cited(finding) for finding in findings) == sorted(ROADMAP_CITATIONS), findings
+
+
+# --- the owed key test: the citation's text is part of both keys -----------------
+
+
+def test_a_hash_pinned_line_with_two_dangling_citations_keeps_only_the_pinned_one(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Owed by the coordinator's certification of decision 13 (a): with the
+    citation's text taken out of the hash pin's key, every lint test stayed
+    green, because no test put two dangling citations on one pinned line.
+    Here one line holds two and only one is pinned; the other stays a
+    finding."""
+    (tmp_path / "src/pkg").mkdir(parents=True)
+    (tmp_path / "src/pkg/mod.py").write_text(
+        "class A:\n    def m(self) -> None: ...\n", encoding="utf-8"
+    )
+    note = "See `src/pkg/mod.py::A.gone` and `src/pkg/mod.py::A.lost`.\n"
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs/note.md").write_text(note, encoding="utf-8")
+    pin = citations.PinnedCitation(
+        path="docs/note.md",
+        line=1,
+        citation="src/pkg/mod.py::A.gone",
+        sha256=hashlib.sha256(note.encode("utf-8")).hexdigest(),
+        reason="a test pin",
+    )
+    monkeypatch.setattr(citations, "PINNED_HISTORICAL_CITATIONS", (pin,))
+    monkeypatch.setattr(citations, "LINE_TEXT_PINNED_CITATIONS", ())
+    scan = scan_tree(tmp_path)
+    found = [(_site(finding), _cited(finding)) for finding in scan.findings]
+    assert found == [("docs/note.md:1", "src/pkg/mod.py::A.lost")], scan
+    assert scan.pinned_historical == 1, scan
+
+
+def test_a_line_text_pinned_line_with_two_dangling_citations_keeps_only_the_pinned_one(
+    monkeypatch: pytest.MonkeyPatch, index: dict[str, list[str]]
+) -> None:
+    """The same for the line's-text key: the roadmap's line holds both pinned
+    citations; with only the first one pinned, the second is a finding."""
+    first, second = ROADMAP_CITATIONS
+    only = tuple(pin for pin in citations.LINE_TEXT_PINNED_CITATIONS if pin.citation == first)
+    assert len(only) == 1, only
+    monkeypatch.setattr(citations, "LINE_TEXT_PINNED_CITATIONS", only)
+    lines, at = _roadmap()
+    assert _roadmap_findings(lines, index) == [f"{at + 1} {second}"]
