@@ -1870,6 +1870,182 @@ def test_control_a_floor_copy_raising_the_held_refusal_with_the_copied_side_stil
     )
 
 
+# --- decision 7 (a): the floor rule's MIRROR (Dave, 2026-10-09 16:38 MST, D-IMPL-378) --------------------------------
+#
+# Dave, adopting Grok's recommendation, decision 7, verbatim (kept as a comment, CINV-01a): "(a) Extend the floor rule."
+# The option ruled, lane 378i-gate's P-2 (a), verbatim: "Extend the floor rule: a floor is used only where the
+# nonexistent side and its copy agree on raising at every position, meaning both answered or both raised the held
+# refusal. Otherwise the cell fails by the same named reason, or the limitation reports `floor copy raised`. Measured
+# today, 0 cells would change." The mirror of BLD-1: where the NONEXISTENT side raised at a position and its floor copy
+# answered there, the floor again compares an exception with an answer, differs at every path, and excuses every value
+# and missing-key difference between the withheld side and the nonexistent one. The rule as first built inspected only
+# the positions where the copy raised. The tests below hold the closing test's own judging code to the extension on
+# SYNTHETIC runs, the mirror of the BLD-1 runs above: the withheld side answers, the nonexistent side RAISED (at its
+# question, at a reused fabric's second question with the refusal held there, or inside a record read), and its floor
+# copy answered as the nonexistent side would have. Every site that reads a noise floor is held, as above.
+
+
+def _mirror_world(*, shape: str = w.SUBJECT_KEYED, raised_at: str = w.ONLY) -> w.Run:
+    """A synthetic run, the mirror of :func:`_floor_world`: each comparison's nonexistent side RAISED; its floor copy answered.
+
+    The withheld side answers ``subject-withheld``. Both comparisons' nonexistent sides raised at ``raised_at`` (the
+    question, or ``<position>/record:<read>``), observed as ``sec020_worlds.observe_mcp`` records an unreachable door,
+    and both floor copies answered ``subject-not-found``, the answer the nonexistent side would have given.
+    """
+    raised = _floor_observation(_FLOOR_UNREACHABLE, raised={raised_at: _FLOOR_RAISED})
+    answered = _floor_observation(_FLOOR_NONEXISTENT)
+    return w.Run(
+        shape=shape,
+        anchor=w.FROM_DECISION,
+        door=w.MCP,
+        sides={
+            w.CF_WITHHELD: _floor_observation(_FLOOR_WITHHELD),
+            w.CF_NONEXISTENT: raised,
+            w.SAME_NONEXISTENT: raised,
+            w.CF_FLOOR: answered,
+            w.SAME_FLOOR: answered,
+        },
+    )
+
+
+def _mirror_outcomes_by_name(outcomes: dict[str, dict[str, Any]], expected: list[str]) -> None:
+    """Every expected cell was measured, and every one is reported under the ruled floor outcome, by name."""
+    assert sorted(outcomes) == sorted(expected), "a cell of the limitation was not measured"
+    wrong = {cell: found for cell, found in outcomes.items() if found.get("outcome") != FLOOR_COPY_OUTCOME}
+    assert not wrong, (
+        f"{len(wrong)} of {len(outcomes)} cells whose nonexistent side RAISED where its floor copy answered were"
+        f" judged off that floor anyway: {dict(list(wrong.items())[:3])}"
+    )
+
+
+def test_mirror_a_nonexistent_side_that_raised_where_its_floor_copy_answered_cannot_excuse_a_gate_cell() -> None:
+    """The mirror as the gate lane executed it: ``subject-withheld`` against a raise, the floor's copy ANSWERED.
+
+    Before decision 7 (a) the floor read off the answering copy differed from the raised nonexistent side at every
+    path and excused every difference, so the cell PASSED. After it, the cell fails by name (:data:`FLOOR_COPY_REFUSAL`).
+    """
+    run = _mirror_world()
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    )
+
+
+def test_mirror_a_held_refusal_the_nonexistent_side_alone_raised_cannot_excuse() -> None:
+    """A raise held as the property is no floor where the copy ANSWERED: "both raised the held refusal", or nothing.
+
+    The reused fabric's second question: the withheld side answered it, the nonexistent side alone raised
+    ``AcquiredFabricReused`` there (the refusal Q9's cells hold as the property when every side raises it), and the
+    floor's copy answered. The floor then compares an answer with a refusal, so it cannot excuse anything.
+    """
+    raised = {"second": "AcquiredFabricReused: synthetic"}
+    refused = {"outcome": "raised", "type": "AcquiredFabricReused", "message": "synthetic"}
+    run = _mirror_world(shape=w.REUSED_FABRIC)
+    run.sides[w.CF_WITHHELD] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": _FLOOR_WITHHELD})
+    run.sides[w.CF_NONEXISTENT] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": refused}, raised=raised)
+    run.sides[w.CF_FLOOR] = _floor_observation({"first": _FLOOR_NONEXISTENT, "second": _FLOOR_NONEXISTENT})
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.REUSED_FABRIC, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
+        )
+    )
+
+
+def test_mirror_a_record_read_the_nonexistent_side_alone_raised_in_cannot_excuse() -> None:
+    """"At every position": a raise inside the nonexistent side's record read, where its copy's read answered."""
+    run = _mirror_world(raised_at=f"{w.ONLY}/record:blob")
+    _floor_fails_by_name(
+        lambda: test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RECORD
+        )
+    )
+
+
+def test_mirror_a_nonexistent_side_that_raised_cannot_excuse_a_never_class_cell() -> None:
+    """E2 (ii)'s gate cells judge by the same floor: the same synthetic mirror fails there by name too."""
+    run = _mirror_world()
+    _floor_fails_by_name(
+        lambda: test_a_withheld_subject_under_a_never_class_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.NEVER_LATE, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    )
+
+
+def test_mirror_is_reported_by_name_in_the_d1a_limitation() -> None:
+    """D1 (a)'s reported limitation: a retired cell over the mirror is reported under the ruled floor outcome, by name."""
+    recorded = _Recorded()
+    test_d1a_limitation_the_retired_two_deployment_cells_are_measured_not_gated(
+        _OneRun(_mirror_world()), recorded, _NoCapture()
+    )
+    _mirror_outcomes_by_name(recorded.properties["d1a_limitation"]["outcomes"], list(RETIRED_D1A))
+
+
+def test_mirror_is_reported_by_name_in_the_p6_limitation(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ruling P6 (a)'s reported counterexample over the mirror: reported under the ruled floor outcome, by name.
+
+    The counterexample's world is replaced by the synthetic mirror, its notes saying the probe was asked first and
+    answered nothing each time, so the measurement reaches its comparison.
+    """
+    probe = w.probe_identifier()
+    run = _mirror_world(shape=w.PROBE_RECOGNIZING)
+    run.notes = {"asked": [probe, w.SUBJECT, probe, w.NEVER, probe, w.NEVER_2], "answered_nothing_for": [probe] * 3}
+    monkeypatch.setattr(w, "probe_recognizing_run", lambda base, **_: run)
+    recorded = _Recorded()
+    test_p6_limitation_a_source_that_recognizes_the_probe_is_measured_not_gated(
+        tmp_path_factory, recorded, _NoCapture()
+    )
+    expected = [f"{w.SAME_DEPLOYMENT}-{r}-{a}-{d}-{c}" for r, a, d, c in _p6_limitation_cells()]
+    _mirror_outcomes_by_name(recorded.properties["p6_probe_limitation"]["outcomes"], expected)
+
+
+def test_mirror_is_reported_by_name_in_the_e2ii_limitation() -> None:
+    """E2 (ii) (d)'s reported false-declaration cells over the mirror: reported under the ruled floor outcome, by name."""
+    recorded = _Recorded()
+    test_e2ii_limitation_the_false_declaration_cells_are_measured_not_gated(
+        _OneRun(_mirror_world()), recorded, _NoCapture()
+    )
+    _mirror_outcomes_by_name(
+        recorded.properties["e2ii_false_declaration_limitation"]["outcomes"], _false_declaration_cells()
+    )
+
+
+def test_mirror_control_the_nonexistent_side_and_its_copy_raising_the_held_refusal_alike_still_floor() -> None:
+    """Control: the reused fabric as Q9's cells run it — every side answered the first question alike and raised the
+    held refusal at the second. The nonexistent side and its copy agree at both positions, so the floor stands and the
+    cell passes: the extension does not turn the property's cells red.
+    """
+    raised = {"second": "AcquiredFabricReused: synthetic"}
+    refused = {"outcome": "raised", "type": "AcquiredFabricReused", "message": "synthetic"}
+    both = {"first": _FLOOR_NONEXISTENT, "second": refused}
+    run = w.Run(
+        shape=w.REUSED_FABRIC,
+        anchor=w.FROM_DECISION,
+        door=w.IN_PROCESS,
+        sides={side: _floor_observation(both, raised=raised) for side in (w.CF_WITHHELD, w.CF_NONEXISTENT, w.CF_FLOOR)},
+    )
+    test_withheld_is_indistinguishable(
+        _OneRun(run), w.COUNTERFACTUAL, w.REUSED_FABRIC, w.FROM_DECISION, w.IN_PROCESS, w.RESPONSE
+    )
+
+
+def test_mirror_control_a_withheld_side_that_raised_is_judged_off_a_floor_that_agrees() -> None:
+    """Control: the rule reads the floor's PAIR, not every side. Here the WITHHELD side raised (as E2 (ii)'s false
+    declaration does) while the nonexistent side and its copy answered alike: the floor is usable, and the cell fails
+    as before, as distinguishable at the differing paths, not by :data:`FLOOR_COPY_REFUSAL`.
+    """
+    run = _floor_world(floor_raised=False)
+    run.sides[w.CF_WITHHELD] = _floor_observation(_FLOOR_UNREACHABLE, raised={w.ONLY: _FLOOR_RAISED})
+    with pytest.raises(AssertionError) as failed:
+        test_withheld_is_indistinguishable(
+            _OneRun(run), w.COUNTERFACTUAL, w.SUBJECT_KEYED, w.FROM_DECISION, w.MCP, w.RESPONSE
+        )
+    assert type(failed.value) is AssertionError, f"{type(failed.value).__name__}: {failed.value}"
+    assert "a withheld subject is distinguishable from a nonexistent one at" in str(failed.value), failed.value
+
+
 # --- the amendment itself (Dave, 2026-10-09 06:06 MST, approved 06:21 MST, D-IMPL-378) ---------------------------
 
 
