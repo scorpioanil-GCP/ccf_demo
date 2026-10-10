@@ -46,9 +46,12 @@ defaults (CLAUDE.md §11, CINV-01). Algorithmic module (CINV-03).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from typing import Final, Protocol, TypeAlias, cast, runtime_checkable
+
+from pydantic import BaseModel
 
 from ccf.authz.capability import (
     CompositionRegister,
@@ -60,7 +63,7 @@ from ccf.authz.capability import (
     SkillGrant,
 )
 from ccf.contracts.base import CCFContract
-from ccf.contracts.canonical import content_hash
+from ccf.contracts.canonical import canonical_bytes, content_hash
 from ccf.controlplane.artifact_base import ArtifactClass
 from ccf.controlplane.audit import AuditAction, AuditEvent, AuditLog
 from ccf.controlplane.state import (
@@ -76,6 +79,7 @@ __all__ = [
     "DERIVED_REGISTER_KINDS",
     "REGISTER_KINDS",
     "AmbiguousPinnedVersionError",
+    "ArtifactIsolationRefused",
     "AuditEvent",
     "ControlPlaneMissing",
     "ControlPlaneProtocol",
@@ -280,6 +284,38 @@ def _derived_key(
     return f"{authorized.tenant}{_KEY_SEPARATOR}{artifact_class.class_id}{_KEY_SEPARATOR}{name}"
 
 
+class ArtifactIsolationRefused(TypeError):
+    """An artifact the registry could not reconstruct independently — refused, never shared (``D-IMPL-380``, sixth round).
+
+    The registry holds and serves *reconstructions*, never a registrant's
+    object and never a reader's (Dave, 2026-10-10 15:50 MST, under Grok's
+    reviewed amendment: *"Use canonical serialization and reconstruction for
+    both copy-in and copy-out. Shallow copies are not accepted."*). When the
+    reconstruction of an artifact would not preserve its type, its canonical
+    bytes or its value, the door refuses with this error rather than falling
+    back (*"Do not fall back to the original object or a shallow copy."*). On a
+    write door nothing has changed when it is raised — no version, no class
+    binding, no bump entry, no audit row. On a read door nothing is returned,
+    and the artifact is not reported missing: this is a ``TypeError``, never
+    the ``LookupError`` that :class:`ControlPlaneMissing` is.
+
+    Attributes:
+        artifact_type: the Python type name of the artifact that was refused.
+        door: the registry door that refused — ``register``,
+            ``register_typed``, ``register_versioned``, ``peek`` or ``resolve``.
+        reason: the guarantee the reconstruction failed to preserve.
+    """
+
+    def __init__(self, *, artifact_type: str, door: str, reason: str) -> None:
+        self.artifact_type = artifact_type
+        self.door = door
+        self.reason = reason
+        super().__init__(
+            f"{door}: the registry could not reconstruct a {artifact_type}"
+            f" independently — {reason}"
+        )
+
+
 class AmbiguousPinnedVersionError(RuntimeError):
     """One declared semver names two different contents under one key (WR-08).
 
@@ -426,6 +462,83 @@ def _utc_now() -> datetime:
     return datetime.now(tz=UTC)
 
 
+def _isolated(artifact: object, *, door: str) -> object:
+    """An independent reconstruction of ``artifact``, verified, or a refusal (``D-IMPL-380``, sixth round).
+
+    **Why a reconstruction and not a copy.** The fifth round handed the
+    approval sink ``grant.model_copy(deep=True)``; the copy's content was the
+    live object's registry address and ``peek`` handed the live object back.
+    Then ``copy.deepcopy`` at these doors was measured: 377 failures at
+    ``ef84f801``, every one ``TypeError: cannot pickle 'mappingproxy' object``,
+    because :mod:`ccf.workflow.definitions` wraps ``gate_routes`` in nested
+    ``MappingProxyType`` precisely so the hash does not move — the field was
+    made tamper-proof by being made uncopyable. A reconstruction from the
+    artifact's own canonical form has no such limit: the model's validators
+    rebuild the proxies, and every nested value is new.
+
+    **What is preserved, and checked.** The artifact's canonical bytes are
+    rendered once (``canonical_bytes``), parsed, and rebuilt — through
+    ``model_validate`` on the artifact's own type for a model, or as the parsed
+    document for a plain mapping (``register`` accepts one). The result is then
+    held to three guarantees, each refused by name: the **type** is the
+    artifact's own (a typed artifact is never silently a plain dictionary);
+    the **canonical bytes** are unchanged, which is the content hash that is
+    its version; and the result is **equal** to the artifact. The third check
+    is not redundant with the second: a plain mapping holding a ``Decimal``
+    renders as a string, so its bytes agree with the rebuilt string while its
+    value does not. A hash-transparent field survives because of what the mark
+    means (``D-IMPL-243``, *"silence equals yesterday"*): it is omitted from the
+    rendering only when it equals its sentinel, and the sentinel is what the
+    field's own default restores.
+
+    **Cost, measured at this commit** on the covenant-review workflow
+    definition: about 30 µs for the rebuild plus the verifying render, against
+    the 12.8 µs the write doors already spend hashing. The read doors pay it on
+    every call; shallow copies were ruled out (*"Shallow copies are not
+    accepted."*).
+
+    Raises:
+        ArtifactIsolationRefused: the reconstruction raised, or failed one of
+            the three guarantees. Nothing is returned and nothing falls back.
+        ccf.contracts.canonical.CanonicalizationError: the artifact has no
+            canonical form — the refusal every write door already documents.
+    """
+    rendered = canonical_bytes(artifact)
+    artifact_type = type(artifact).__name__
+    try:
+        document = json.loads(rendered)
+        rebuilt: object
+        if isinstance(artifact, BaseModel):
+            rebuilt = type(artifact).model_validate(document)
+        else:
+            rebuilt = document
+    except (TypeError, ValueError) as exc:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=f"reconstruction raised {type(exc).__name__}: {exc}",
+        ) from exc
+    if type(rebuilt) is not type(artifact):
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason=f"reconstruction changed the type to {type(rebuilt).__name__}",
+        )
+    if canonical_bytes(rebuilt) != rendered:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason="reconstruction changed the canonical bytes",
+        )
+    if rebuilt != artifact:
+        raise ArtifactIsolationRefused(
+            artifact_type=artifact_type,
+            door=door,
+            reason="reconstruction is not equal to the artifact (a nested value changed type)",
+        )
+    return rebuilt
+
+
 class ControlPlaneRegistry:
     """In-process, append-only, versioned configuration registry.
 
@@ -545,10 +658,15 @@ class ControlPlaneRegistry:
         key = _door_key(authorized)
         actor = authorized.principal
         version = content_hash(artifact)
+        known = version in self._versions.get(key, ())
+        # D-IMPL-380, sixth round: the registry's own reconstruction is built
+        # and verified BEFORE any registration state changes, so a refusal
+        # leaves no version, no binding and no audit row behind.
+        held = None if known else _isolated(artifact, door="register")
         versions = self._versions.setdefault(key, [])
-        if version not in versions:
+        if not known:
             versions.append(version)
-            self._artifacts[(key, version)] = artifact
+            self._artifacts[(key, version)] = held
         self._record(
             action="register", key=key, version=version, resolved=True, actor=actor
         )
@@ -605,10 +723,18 @@ class ControlPlaneRegistry:
             )
         artifact_class.validate(artifact)
         version = content_hash(artifact)
+        known = version in self._versions.get(key, ())
+        # D-IMPL-380, sixth round: reconstructed and re-validated against the
+        # class before any registration state changes.
+        held = (
+            None
+            if known
+            else artifact_class.validate(_isolated(artifact, door="register_typed"))
+        )
         versions = self._versions.setdefault(key, [])
-        if version not in versions:
+        if not known:
             versions.append(version)
-            self._artifacts[(key, version)] = artifact
+            self._artifacts[(key, version)] = held
         self._classes[key] = artifact_class.class_id
         self._record(
             action="register_typed",
@@ -788,10 +914,21 @@ class ControlPlaneRegistry:
                             ),
                         )
                     )
+        known = incoming in self._versions.get(key, ())
+        # D-IMPL-380, sixth round: reconstructed and re-validated against the
+        # class before any registration state changes — after the D-05 refusals
+        # above, which record a refusal and never a registration.
+        held = (
+            None
+            if known
+            else artifact_class.validate(
+                _isolated(validated, door="register_versioned")
+            )
+        )
         versions = self._versions.setdefault(key, [])
-        if incoming not in versions:
+        if not known:
             versions.append(incoming)
-            self._artifacts[(key, incoming)] = validated
+            self._artifacts[(key, incoming)] = held
         self._classes[key] = artifact_class.class_id
         bumps[declared] = (incoming, fingerprint)
         self._record(
@@ -834,19 +971,28 @@ class ControlPlaneRegistry:
 
         Raises:
             ControlPlaneMissing: no such key, or no such version under it.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round).
         """
         try:
-            return self._artifacts[(key, version)]
+            held = self._artifacts[(key, version)]
         except KeyError:
             raise ControlPlaneMissing(
                 f"no Control Plane artifact registered as ({key!r}, {version!r})"
             ) from None
+        # D-IMPL-380, sixth round: a reader receives a reconstruction, never
+        # the registry's object — the door the fifth-round bypass used.
+        return _isolated(held, door="peek")
 
     def resolve(self, key: str, version: str) -> object:
         """Return the exact artifact registered as ``(key, version)``.
 
         Raises:
             ControlPlaneMissing: no such key, or no such version under it.
+            ArtifactIsolationRefused: the stored artifact could not be
+                reconstructed faithfully; nothing is returned and nothing is
+                reported missing (``D-IMPL-380``, sixth round).
         """
         try:
             artifact = self._artifacts[(key, version)]
@@ -857,8 +1003,11 @@ class ControlPlaneRegistry:
             raise ControlPlaneMissing(
                 f"no Control Plane artifact registered as ({key!r}, {version!r})"
             ) from None
+        # D-IMPL-380, sixth round: reconstructed before the success row, so a
+        # refusal serves nothing and records no resolution.
+        served = _isolated(artifact, door="resolve")
         self._record(action="resolve", key=key, version=version, resolved=True)
-        return artifact
+        return served
 
     def resolve_latest(self, key: str) -> tuple[str, object]:
         """Return the most recently registered ``(version, artifact)``.
